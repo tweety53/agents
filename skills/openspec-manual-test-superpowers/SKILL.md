@@ -3,14 +3,14 @@ name: openspec-manual-test-superpowers
 description: >-
   Use for /myflow-manual-test after Gate B code review and before /myflow-code-review
   when a per-change manual test guide (run apps + functionality checklist) is needed.
-  Also handles /myflow-manual-test-skip, which generates the same guide but marks
-  Gate C explicitly skipped instead of checking any boxes.
+  Always asks whether to skip Gate C (default No); if skipped, the same guide is
+  generated but marked SKIPPED instead of checking any boxes.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
     author: gymie
-    version: "1.3"
+    version: "1.4"
 ---
 
 Generate (or refresh) a **manual test guide** markdown file for an OpenSpec change, then **give the user a link to that file only** and stop for Gate C (manual testing). No commits, push, merge, or archive in this stage.
@@ -19,10 +19,26 @@ Generate (or refresh) a **manual test guide** markdown file for an OpenSpec chan
 
 Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
 
-## Modes
+## Stage gate
 
-- **Normal** (`/myflow-manual-test <name>`) — generate/refresh the guide; the user actually runs the apps and checks items.
-- **Skip** (`/myflow-manual-test-skip <name>`) — generate/refresh the guide **without** running or checking anything; mark it explicitly skipped so `/myflow-code-review` can tell "Gate C intentionally bypassed" apart from "Gate C silently incomplete" (see step 4).
+Requires stage **`awaiting-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+
+Entering this command means Gate B passed, so set `gates.reviewed: true`.
+
+## Skip prompt (always ask)
+
+Before generating the guide, **always** ask via AskUserQuestion:
+
+> **Skip manual testing for this change?**
+> - **No — write the checklist and test it** *(default, recommended)* — normal guide; you run the apps and check boxes.
+> - **Yes — skip Gate C** — same guide, marked `SKIPPED`, every box left unchecked.
+
+- **No** → normal mode; `gates.tested: false`
+- **Yes** → skip mode; `gates.tested: "skipped"`
+
+Both answers advance the stage to `awaiting-test`. Never default to skip; never infer skip from context. The only exception is `/myflow-full` with the `skip-manual-test` flag, which pre-answers **Yes** — in that case announce that the flag pre-answered the prompt rather than asking again.
+
+`/myflow-manual-test-skip` no longer exists; this prompt replaces it.
 
 ## Pipeline position
 
@@ -138,7 +154,7 @@ If `docs/manual-test/<change-name>.md` already exists:
 
 Legacy: if only `<changeRoot>/manual-test.md` exists, migrate content into `docs/manual-test/<change-name>.md` (preserving checked boxes), then prefer the new path going forward.
 
-**Skip mode only:** add a status line directly under **Next after sign-off:** in the header —
+**Skip mode only (user answered Yes to the skip prompt):** add a status line directly under **Next after sign-off:** in the header —
 
 ```
 **Manual test status:** SKIPPED — YYYY-MM-DD (Gate C intentionally bypassed)
@@ -156,6 +172,23 @@ git add "docs/manual-test/<change-name>.md"
 ```
 
 Do **not** `git commit`. Leave for archive with the rest of the apply work.
+
+### 5b. Write state
+
+Per **State file** in `rules/myflow-manual-review.mdc`:
+
+```json
+{
+  "stage": "awaiting-test",
+  "gates": { "reviewed": true, "tested": <false | "skipped">, "prOpened": null, "prMerged": null },
+  "worktree": "<unchanged>",
+  "branch": "<unchanged>",
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-manual-test"
+}
+```
+
+Stage it with the guide: `git add openspec/changes/<name>/.myflow-state.json`. Do not commit.
 
 ### 6. Present the link only and stop
 
@@ -205,13 +238,12 @@ Skip mode:
 - Do not run `/myflow-code-review` or `/myflow-finish` from this skill.
 - Keep the guide concise and actionable; prefer checklists over essays.
 - **Skip mode never checks a box it didn't verify** — only the `SKIPPED` status line marks the gate bypassed.
-- Do not silently default to skip mode — it only runs when the user invoked `/myflow-manual-test-skip` (or explicitly asked to skip Gate C).
+- **Always ask the skip prompt** — never default to skip, never infer it from context. Only `/myflow-full skip-manual-test` may pre-answer it.
 
 ## Commands (user-facing)
 
 | Intent | Say |
 |--------|-----|
-| Generate / refresh manual test guide | `/myflow-manual-test <name>` |
-| Generate the guide but explicitly skip Gate C | `/myflow-manual-test-skip <name>` |
+| Generate / refresh manual test guide (asks whether to skip) | `/myflow-manual-test <name>` |
 | After checklist done (or skip acknowledged) | `/myflow-code-review <name>` |
 | Fixes from testing | `/myflow-do-fix <name>` |
