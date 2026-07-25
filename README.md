@@ -26,13 +26,15 @@ agents-data/
     ├── openspec-apply-superpowers/   ← includes strict-panel reviewer prompts
     ├── openspec-apply-fix-superpowers/  ← fixes for Gate B/C findings, reuses the panel prompts above
     ├── openspec-manual-test-superpowers/
-    ├── openspec-code-review-superpowers/  ← coverage check, tests/linters, commit, #7
+    ├── openspec-code-review-superpowers/  ← coverage check, tests/linters, commit + push + open PR (never merges)
     ├── openspec-archive-change/
-    ├── openspec-archive-superpowers/  ← now the "finish" stage: verify merged, sync specs, archive
+    ├── openspec-archive-superpowers/  ← the "finish" stage: verify PR merged, sync specs, archive
     ├── openspec-full-cycle-superpowers/
     ├── openspec-explore/
     ├── openspec-sync-specs/
-    └── openspec-update-change/
+    ├── openspec-update-change/
+    ├── myflow-status/                 ← read-only stage report for open changes
+    └── myflow-info/                   ← reads the rule file and explains the pipeline
 ```
 
 **Rules** (always-on, mandatory):
@@ -40,14 +42,14 @@ agents-data/
 - Kotlin Backend Development Standard — module layout, dependency rules, checklist
 
 **Skills** (loaded on demand):
-- `/myflow-start`, `/myflow-do`, manual review (Gate B), `/myflow-do-fix` (Gate B/C fixes), `/myflow-manual-test` / `/myflow-manual-test-skip` (Gate C), `/myflow-code-review`, `/myflow-finish`, `/myflow-full` — OpenSpec + Superpowers with **manual review + manual test before commit**
+- `/myflow-start`, `/myflow-do`, manual review (Gate B), `/myflow-do-fix` (Gate B/C/D fixes), `/myflow-manual-test` (Gate C, always asks whether to skip), `/myflow-code-review`, `/myflow-finish`, `/myflow-full`, `/myflow-status`, `/myflow-info` — OpenSpec + Superpowers with **manual review + manual test before commit**
 - `/opsx:*` — lighter OpenSpec-only variants
 - `/opsx:explore` — thinking-partner mode (no code)
 
 **myflow pipeline (default):**
 
 ```text
-start → do (#2–#6, staged + uncommitted) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → code review (commit + #7) → finish (archive)
+start → do (#2–#6, staged + uncommitted) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → code review (commit + push + open PR) → PR review (Gate D, human-merged) → finish (archive)
 ```
 
 See `rules/myflow-manual-review.mdc` and `skills/README.md`.
@@ -203,19 +205,21 @@ degraded but the OpenSpec-specific steps still work.
 | `/myflow-do <name>` | `openspec-apply-superpowers` | Worktree → validate plan → SDD+TDD → **strict review panel** (primary+Bugbot+Security+Adversarial+Senior+Economic Senior) → **`git add` (staged; no commits)** |
 | *(manual review)* | User (Gate B) | Inspect **staged** diff in worktree IDE |
 | `/myflow-do-fix <name>` | `openspec-apply-fix-superpowers` | Fix a Gate B/C finding — document in `proposal.md`/`tasks.md` (append) or a linked nested `<name>-fix-N` sub-change (your choice) → resume the **same** worktree → SDD+TDD → full strict review panel re-run → staged; no commits. Loop at either gate as many rounds as needed. |
-| `/myflow-manual-test <name>` | `openspec-manual-test-superpowers` | Gate C — write `docs/manual-test/<name>.md` (run apps + checklist); reply with link only |
-| `/myflow-manual-test-skip <name>` | `openspec-manual-test-superpowers` (skip mode) | Gate C — same guide, marked `SKIPPED`, no boxes checked |
-| `/myflow-code-review <name>` | `openspec-code-review-superpowers` | Verify Gate C (or `SKIPPED`) → test coverage check (routes gaps to `/myflow-do-fix`) → tests/linters → **commit** → #7 merge/PR/push (always) |
-| `/myflow-finish <name>` | `openspec-archive-superpowers` | Verify the branch merged into `main`/`develop` → delta sync → archive (also archives nested `<name>-fix-N` sub-changes together) |
-| `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle: Gate A + Gate B + Gate C + code review + finish |
-
-**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test`, `no-archive`, `commit-during-apply` (legacy per-task commits during apply)
+| `/myflow-manual-test <name>` | `openspec-manual-test-superpowers` | Gate C — write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip (default No); reply with link only |
+| `/myflow-code-review <name>` | `openspec-code-review-superpowers` | Verify Gate C (or `SKIPPED`) → test coverage check (routes gaps to `/myflow-do-fix`) → tests/linters → **commit + push + open PR** (never merges) |
+| *(PR review)* | User (Gate D) | Review and merge the PR on the forge — nothing in myflow merges |
+| `/myflow-finish <name>` | `openspec-archive-superpowers` | Verify the PR merged → delta sync → archive (also archives nested `<name>-fix-N` sub-changes together) |
+| `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle: Gate A + Gate B + Gate C + code review, ending at Gate D (PR open, stop); `/myflow-finish` is always a separate human-initiated step |
+| `/myflow-status <name>` | — (read-only) | Stage report for open changes |
+| `/myflow-info` | — (read-only) | Reads the rule file and explains the pipeline |
 | `/opsx:propose <name>` | `openspec-propose` | Lightweight: artifacts only, no Superpowers steps |
 | `/opsx:apply <name>` | `openspec-apply-change` | Lightweight: implement tasks only |
 | `/opsx:archive <name>` | `openspec-archive-change` | Lightweight: archive only |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation |
 | `/opsx:sync-specs <name>` | `openspec-sync-specs` | Sync delta specs to main specs |
 | `/opsx:update <name>` | `openspec-update-change` | Revise planning artifacts, keep coherent |
+
+**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test` (pre-answers the Gate C skip prompt with Yes and must announce it), `commit-during-apply` (legacy per-task commits during apply)
 
 All skills require the `openspec` CLI (`npm install -g openspec` or check project README).
 

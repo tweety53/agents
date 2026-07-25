@@ -25,7 +25,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 | **5** | **test-driven-development** | Every implementer subagent, every task |
 | **6** | **requesting-code-review** + **strict review panel** | Per-task review (via SDD) + final whole-branch review (**1 primary + 5 additional agents**) |
 
-**Deferred to archive:** **#7** `finishing-a-development-branch` (commit, merge/PR/push).
+**Deferred to code review:** **#7** `finishing-a-development-branch` (commit, push, open PR — never merges; PR review is Gate D, then `/myflow-finish` archives).
 
 Step **#1** (brainstorming) completed in **openspec-propose-superpowers**.
 
@@ -129,7 +129,7 @@ openspec instructions apply --change "<name>" --json
 ```
 
 - If `state: "blocked"`: stop; suggest `/myflow-start <name>` or `openspec-continue-change`.
-- If `state: "all_done"`: suggest `/myflow-code-review <name>` (if not yet reviewed/committed) or `/myflow-finish <name>` (if already committed and merged).
+- If `state: "all_done"`: suggest `/myflow-code-review <name>` (if not yet reviewed/committed) or `/myflow-finish <name>` (if the PR is already merged).
 - Read every path in `contextFiles` (proposal, specs, design, tasks).
 
 Resolve paths from CLI JSON (`changeRoot`, `planningHome`) — do not assume repo layout.
@@ -221,7 +221,7 @@ Stop here.
 
 **Change:** <name>
 **Basic Workflow:** #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ (strict panel: primary + Bugbot + Security + Adversarial + Senior + Economic Senior)
-**Deferred to archive:** #7 (commit + merge/PR/push)
+**Deferred to code review:** #7 (commit + push + open PR — never merges)
 **Progress:** N/N tasks complete
 **Branch:** openspec/<name>
 **Worktree:** <absolute path>
@@ -242,7 +242,7 @@ Stop here.
 - Open the worktree folder in your IDE and review staged changes (Gate B).
 - Request fixes: `/myflow-do-fix <name>` (resumes on same branch/worktree)
 - After manual review looks good: `/myflow-manual-test <name>` (Gate C — run guide + checklist MD)
-- After manual testing: `/myflow-code-review <name>` (coverage check, tests/linters, commit, #7), then `/myflow-finish <name>` (verify merged, sync specs, archive)
+- After manual testing: `/myflow-code-review <name>` (coverage check, tests/linters, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (verify PR merged, sync specs, archive)
 ```
 
 ## Guardrails

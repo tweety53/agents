@@ -1,6 +1,6 @@
 ---
 model: sonnet
-description: Finish — verify the branch merged into main/develop, sync delta specs, archive the OpenSpec change
+description: Finish — verify the PR merged (Gate D), sync delta specs, archive the OpenSpec change
 ---
 
 Use the **openspec-archive-superpowers** skill (`.claude/skills/openspec-archive-superpowers/SKILL.md`).

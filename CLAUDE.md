@@ -133,18 +133,19 @@ All skills require the `openspec` CLI to be installed.
 | `skills/openspec-apply-superpowers/` | `/myflow-do` | Implement with Superpowers #2–#6 (**stage with `git add`**; no commits; Gate B then Gate C next) |
 | `skills/openspec-apply-fix-superpowers/` | `/myflow-do-fix` | Fix a Gate B/C finding — document in proposal (append or nested) → Superpowers #4–#6 in the **existing** worktree (stage; no commits) |
 | `skills/openspec-manual-test-superpowers/` | `/myflow-manual-test` | Gate C — write `docs/manual-test/<name>.md`, reply with link only |
-| `skills/openspec-manual-test-superpowers/` (skip mode) | `/myflow-manual-test-skip` | Gate C — same guide, marked `SKIPPED`, no boxes checked |
 | `skills/openspec-archive-change/` | `/opsx:archive` | Archive a completed change (delta sync + move to archive) |
-| `skills/openspec-code-review-superpowers/` | `/myflow-code-review` | Verify Gate C → test coverage check (routes gaps to `/myflow-do-fix`) → tests/linters → **commit** apply work → **#7** integrate |
-| `skills/openspec-archive-superpowers/` | `/myflow-finish` | Verify the branch merged into `main`/`develop` → delta sync → archive (also archives nested `<name>-fix-N` sub-changes) |
-| `skills/openspec-full-cycle-superpowers/` | `/myflow-full` | start → do → Gate B review → Gate C manual test → code review (commit+#7) → finish (archive) |
+| `skills/openspec-code-review-superpowers/` | `/myflow-code-review` | Verify Gate C → coverage check → tests/linters → **commit + push + open PR** (never merges) |
+| `skills/openspec-archive-superpowers/` | `/myflow-finish` | Verify the PR merged → delta sync → archive (also archives nested `<name>-fix-N` sub-changes) |
+| `skills/openspec-full-cycle-superpowers/` | `/myflow-full` | start → do → Gate B review → Gate C manual test → code review (commit+push+PR) → Gate D, stop |
 | `skills/openspec-explore/` | `/opsx:explore` | Thinking-partner mode — explore ideas, investigate, no implementation |
 | `skills/openspec-sync-specs/` | `/opsx:sync-specs` | Sync delta specs from a change to main specs |
 | `skills/openspec-update-change/` | `/opsx:update` | Revise existing planning artifacts; keep them coherent |
+| `skills/myflow-status/` | `/myflow-status` | Read-only stage report for open changes |
+| `skills/myflow-info/` | `/myflow-info` | Reads the rule file and explains the pipeline |
 
 ### /myflow commands summary
 
-**Pipeline:** `start → do (#2–#6) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → code review (commit + #7) → finish (archive)`
+**Pipeline:** `start → do (#2–#6) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → code review (commit + push + open PR) → (human) PR review + merge (Gate D) → finish (archive)`
 
 Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 
@@ -158,14 +159,16 @@ Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 | `/myflow-do <name>` | git worktree → validate plan → SDD + TDD → **strict review panel** (primary + Bugbot + Security + Adversarial + Senior + Economic Senior) → **`git add -A` (staged + uncommitted; no #7)** |
 | *(Gate B)* | **You** open the worktree in IDE and review staged changes (`git diff --cached`) |
 | `/myflow-do-fix <name>` | Fix something found at Gate B/C — documents it in `proposal.md`/`tasks.md` (or a linked nested `<name>-fix-N` sub-change, your choice) → resumes the **same** worktree → SDD + TDD → full strict review panel re-run → staged; no commits. Loop as many rounds as needed at either gate. |
-| `/myflow-manual-test <name>` | Write `docs/manual-test/<name>.md` (run apps + checklist); reply with **link only** |
-| `/myflow-manual-test-skip <name>` | Same guide, but marks it `**Manual test status:** SKIPPED` and leaves every box unchecked — for intentionally bypassing Gate C |
+| `/myflow-manual-test <name>` | Write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip Gate C (default No); reply with **link only** |
 | *(Gate C)* | **You** run the apps and check off items in the guide |
-| `/myflow-code-review <name>` | Verifies every Gate C box is checked (or the guide is marked `SKIPPED`) — checks test coverage against delta specs (routes gaps to `/myflow-do-fix`) — then tests/linters → commit → **#7** merge/PR/push (always) |
-| `/myflow-finish <name>` | Verifies the branch actually landed on `main`/`develop` → delta sync → archive (also archives any nested `<name>-fix-N` sub-changes together) |
-| `/myflow-full <name>` | Full cycle with Gate A (proposal) + Gate B (review) + Gate C (manual test) + code review + finish |
+| `/myflow-code-review <name>` | Verifies every Gate C box is checked (or the guide is marked `SKIPPED`) — checks test coverage against delta specs (routes gaps to `/myflow-do-fix`) — then tests/linters → **commit + push + open PR** (never merges) |
+| *(Gate D)* | **You** review the PR and merge it |
+| `/myflow-finish <name>` | Verifies the PR merged → delta sync → archive (also archives any nested `<name>-fix-N` sub-changes together) |
+| `/myflow-full <name>` | Full cycle with Gate A (proposal) + Gate B (review) + Gate C (manual test) + code review, ending at Gate D (PR open, stop) |
+| `/myflow-status <name>` | Read-only stage report for open changes |
+| `/myflow-info` | Reads the rule file and explains the pipeline |
 
-**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test`, `no-archive`, `commit-during-apply` (legacy)
+**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test` (now pre-answers the Gate C skip prompt with Yes and must announce it), `commit-during-apply` (legacy)
 
 ### How to invoke a skill
 
