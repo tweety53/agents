@@ -123,6 +123,8 @@ If the user's setup has no forge remote, say so and stop at "pushed, no PR opene
 
 ### 6b. Write state
 
+**If step 6 opened (or reused) a PR:**
+
 ```json
 {
   "stage": "awaiting-pr-review",
@@ -134,9 +136,31 @@ If the user's setup has no forge remote, say so and stop at "pushed, no PR opene
 }
 ```
 
+**If step 6 hit the no-forge-remote case (pushed, no PR opened):** do not advance the stage — a PR doesn't exist yet, so `awaiting-pr-review` would be false on write and immediately flagged by the rule file's own self-heal table. Leave the change at `awaiting-test`, and say plainly that it does not advance to Gate D until a PR actually exists:
+
+```json
+{
+  "stage": "awaiting-test",
+  "gates": { "reviewed": true, "tested": <true | "skipped" | false-with-user-override>, "prOpened": false, "prMerged": false },
+  "worktree": "<unchanged>",
+  "branch": "openspec/<name>",
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-code-review"
+}
+```
+
 Include this file in the commit made in step 5 if it is written before committing; otherwise commit it in a small follow-up commit — the state file must not be left as the only uncommitted change on a PR branch.
 
-**This project writes it as a follow-up commit.** The state file's `gates.prOpened`/`prMerged` and `stage: awaiting-pr-review` values are only known once step 6 has actually pushed and (re)confirmed the PR, which happens after step 5's commit — so step 6b commits the state file on its own (`git add openspec/changes/<name>/.myflow-state.json && git commit -m "chore(<name>): advance to awaiting-pr-review"`) and pushes it to the same PR branch before replying with the summary.
+**This project writes it as a follow-up commit.** The state file's `gates.prOpened`/`prMerged` and `stage` values are only known once step 6 has actually pushed and (re)confirmed the PR (or confirmed there is no forge remote), which happens after step 5's commit — so step 6b commits and pushes the state file on its own, after step 6:
+
+```bash
+cd <worktree>
+git add openspec/changes/<name>/.myflow-state.json
+git commit -m "chore(<name>): advance to awaiting-pr-review"
+git push
+```
+
+(Omit the `git push` only in the no-forge-remote case if there is truly no remote configured at all; if a remote exists but simply has no PR-hosting forge, still push the commit.)
 
 ### 7. Summary
 
@@ -177,6 +201,8 @@ Include this file in the commit made in step 5 if it is written before committin
 
 | Intent | Say |
 |--------|-----|
-| Run code review (coverage, tests, commit, #7) | `/myflow-code-review <name>` |
+| Run code review (coverage, tests, commit, push, PR) | `/myflow-code-review <name>` |
 | Fix a coverage gap or test/lint failure | `/myflow-do-fix <name>` |
-| After code review | `/myflow-finish <name>` |
+| After code review — PR review (Gate D, human) | review the PR on the forge and merge it |
+| Changes requested during Gate D | `/myflow-do-fix <name>` (commits and pushes to the existing PR) |
+| After the PR is merged | `/myflow-finish <name>` |
