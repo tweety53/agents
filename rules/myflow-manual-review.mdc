@@ -145,6 +145,11 @@ When the file is missing, unparseable, or contradicted: fall back to artifact in
 
 Self-heal obeys the **monotonic gates** rule above: it may only raise or fill values. It infers `stage` only, preserves existing gate values as they stand, fills `null` gates conservatively (`false`, never `true`), and never writes `gates.tested: true`.
 
+**Legacy stage values.** A state file written before the 12-stage model may carry `start`,
+`awaiting-review`, or `awaiting-test`. Map them on read — `start` → `proposal-done`,
+`awaiting-review` → `awaiting-do-review`, `awaiting-test` → `awaiting-manual-test` — rewrite the
+file, and announce the correction. `awaiting-pr-review` and `finished` are unchanged.
+
 ## Stage transitions
 
 Each command declares the stage(s) it accepts:
@@ -364,5 +369,7 @@ gate — it never advances past one by writing the confirmation itself.
 - `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**; review still runs and still checks coverage.
 - `commit-during-apply` — legacy SDD per-task commits; only when the user explicitly requests it.
 - `automerge` on `/myflow-review` (and therefore on `/myflow-full`, which forwards it) — see **Auto-merge (opt-in)**. Opt-in only; never implied by any other flag.
+
+**How `skip-review` and `skip-manual-test` reach a `*-done` stage without `/myflow-full` invoking a `*-done` command.** Elsewhere this file forbids `/myflow-full` from auto-invoking any `*-done` or `*-manual-review` command, because those are human confirmations of a review that actually happened — self-writing one would self-certify a review nobody did. `skip-review` and `skip-manual-test` are the deliberate exception, not a contradiction of that rule: typing the flag **at invocation time** is itself the human's explicit, in-the-moment opt-out decision — a stated instruction, not the agent inferring or assuming consent after the fact. So when `skip-review` is passed, the cycle writes `stage: do-done` directly (with `gates.reviewed: false`, honestly recording that Gate B was skipped, never `true`) as it moves past the Gate B stop — this is the flag being honored, not a `/myflow-do-done` invocation, and no review is claimed. The identical logic applies to `skip-manual-test` reaching `manual-test-done` (with `gates.tested: "skipped"`): the flag at invocation is the human's decision, so writing the stage forward is executing that decision, not self-certifying testing nobody did.
 
 `no-archive` is **removed** — `/myflow-full` now always ends at Gate D (or, with `automerge`, at `review-done`) and never reaches archiving.

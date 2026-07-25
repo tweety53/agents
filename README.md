@@ -33,8 +33,10 @@ agents-data/
     ├── openspec-explore/
     ├── openspec-sync-specs/
     ├── openspec-update-change/
+    ├── openspec-propose-fix-superpowers/  ← revise proposal after Gate A review, republish artifact to same URL
     ├── myflow-status/                 ← read-only stage report for open changes
-    └── myflow-info/                   ← reads the rule file and explains the pipeline
+    ├── myflow-info/                   ← reads the rule file and explains the pipeline
+    └── myflow-state-advance/          ← pure state write used by every `*-done`/`*-manual-review` command
 ```
 
 **Rules** (always-on, mandatory):
@@ -42,15 +44,19 @@ agents-data/
 - Kotlin Backend Development Standard — module layout, dependency rules, checklist
 
 **Skills** (loaded on demand):
-- `/myflow-start`, `/myflow-do`, manual review (Gate B), `/myflow-do-fix` (Gate B/C/D fixes), `/myflow-manual-test` (Gate C, always asks whether to skip), `/myflow-review`, `/myflow-finish`, `/myflow-full`, `/myflow-status`, `/myflow-info` — OpenSpec + Superpowers with **manual review + manual test before commit**
+- `/myflow-start` (+ `/myflow-start-fix`, `/myflow-start-done`), `/myflow-do` (+ `/myflow-do-manual-review`, `/myflow-do-done`), manual review (Gate B), `/myflow-do-fix` (Gate B/C/D fixes, + `/myflow-do-fix-manual-review`, `/myflow-do-fix-done`), `/myflow-manual-test` (Gate C, always asks whether to skip, + `/myflow-manual-test-done`), `/myflow-review` (+ `/myflow-review-done`), `/myflow-finish`, `/myflow-full`, `/myflow-status`, `/myflow-info` — OpenSpec + Superpowers with **manual review + manual test before commit**. The `*-done`/`*-manual-review` commands are pure state writes (via `myflow-state-advance`) — no verification, no git.
 - `/opsx:*` — lighter OpenSpec-only variants
 - `/opsx:explore` — thinking-partner mode (no code)
 
-**myflow pipeline (default):**
+**myflow pipeline (default, twelve stages):**
 
 ```text
-start → do (#2–#6, staged + uncommitted) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → review (commit + push + open PR) → PR review (Gate D, human-merged) → finish (archive)
+awaiting-proposal-review (Gate A) → proposal-done → awaiting-do-review (Gate B) → do-review-started → do-done →
+[awaiting-fix-review → fix-review-started] → awaiting-manual-test (Gate C) → manual-test-done →
+awaiting-pr-review (Gate D) → review-done → finished
 ```
+
+`automerge` on `/myflow-review`/`/myflow-full` skips Gate D entirely (commits, pushes, and merges) and ends at `review-done` instead of `awaiting-pr-review`.
 
 See `rules/myflow-manual-review.mdc` and `skills/README.md`.
 
@@ -201,15 +207,25 @@ degraded but the OpenSpec-specific steps still work.
 
 | Command | Skill file | What it does |
 |---------|-----------|-------------|
-| `/myflow-start <name>` | `openspec-propose-superpowers` | Brainstorm → design gate → artifacts → plan |
-| `/myflow-do <name>` | `openspec-apply-superpowers` | Worktree → validate plan → SDD+TDD → **strict review panel** (primary+Bugbot+Security+Adversarial+Senior+Economic Senior) → **`git add` (staged; no commits)** |
+| `/myflow-start <name>` | `openspec-propose-superpowers` | Brainstorm → design gate → artifacts → plan → publishes proposal artifact → `awaiting-proposal-review` |
+| *(Gate A)* | User | Read the proposal artifact |
+| `/myflow-start-fix <name>` | `openspec-propose-fix-superpowers` | Revise the proposal after Gate A feedback, republish artifact to the **same** URL, stay at `awaiting-proposal-review` |
+| `/myflow-start-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the proposal was reviewed → `proposal-done` |
+| `/myflow-do <name>` | `openspec-apply-superpowers` | Worktree → validate plan → SDD+TDD → **strict review panel** (primary+Bugbot+Security+Adversarial+Senior+Economic Senior) → **`git add` (staged; no commits)** → `awaiting-do-review` |
 | *(manual review)* | User (Gate B) | Inspect **staged** diff in worktree IDE |
-| `/myflow-do-fix <name>` | `openspec-apply-fix-superpowers` | Fix a Gate B/C finding — document in `proposal.md`/`tasks.md` (append) or a linked nested `<name>-fix-N` sub-change (your choice) → resume the **same** worktree → SDD+TDD → full strict review panel re-run → staged; no commits. Loop at either gate as many rounds as needed. |
-| `/myflow-manual-test <name>` | `openspec-manual-test-superpowers` | Gate C — write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip (default No); reply with link only |
-| `/myflow-review <name>` | `openspec-review-superpowers` | Verify Gate C (or `SKIPPED`) → test coverage check (routes gaps to `/myflow-do-fix`) → tests/linters → **commit + push + open PR** (never merges) |
-| *(PR review)* | User (Gate D) | Review and merge the PR on the forge — nothing in myflow merges |
+| `/myflow-do-manual-review <name>` | `myflow-state-advance` | *Pure state write* — confirms review is in progress → `do-review-started` |
+| `/myflow-do-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the diff was reviewed → `do-done` |
+| `/myflow-do-fix <name>` | `openspec-apply-fix-superpowers` | Fix a Gate B/C/D finding — document in `proposal.md`/`tasks.md` (append) or a linked nested `<name>-fix-N` sub-change (your choice) → resume the **same** worktree → SDD+TDD → full strict review panel re-run → staged; no commits (except Gate D, which commits+pushes to the PR branch). Records `originStage`; sets `awaiting-fix-review`. Loop at any of the four origins as many rounds as needed. |
+| `/myflow-do-fix-manual-review <name>` | `myflow-state-advance` | *Pure state write* — confirms review of the fix is in progress → `fix-review-started` |
+| `/myflow-do-fix-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the fix was reviewed → returns to `originStage`, clears it |
+| `/myflow-manual-test <name>` | `openspec-manual-test-superpowers` | Gate C — write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip (default No); reply with link only → `awaiting-manual-test` |
+| *(manual test)* | User (Gate C) | Run the apps and check off items in the guide |
+| `/myflow-manual-test-done <name>` | `myflow-state-advance` | *Pure state write* — confirms testing is complete → `manual-test-done` |
+| `/myflow-review <name>` | `openspec-review-superpowers` | Verify Gate C (or `SKIPPED`) → test coverage check (routes gaps to `/myflow-do-fix`) → tests/linters → **commit + push + open PR** → `awaiting-pr-review` (or, with `automerge`, commits+pushes+**merges** → `review-done`, no PR) |
+| *(PR review)* | User (Gate D) | Review and merge the PR on the forge — skipped entirely when `automerge` was used |
+| `/myflow-review-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the PR was reviewed (and merged) → `review-done` |
 | `/myflow-finish <name>` | `openspec-archive-superpowers` | Verify the PR merged → delta sync → archive (also archives nested `<name>-fix-N` sub-changes together) |
-| `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle: Gate A + Gate B + Gate C + review, ending at Gate D (PR open, stop); `/myflow-finish` is always a separate human-initiated step |
+| `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle: Gate A + Gate B + Gate C + review, ending at Gate D (PR open, stop) — or at `review-done` with `automerge`; `/myflow-finish` is always a separate human-initiated step. Never auto-invokes any `*-done`/`*-manual-review` command. |
 | `/myflow-status <name>` | — (read-only) | Stage report for open changes |
 | `/myflow-info` | — (read-only) | Reads the rule file and explains the pipeline |
 | `/opsx:propose <name>` | `openspec-propose` | Lightweight: artifacts only, no Superpowers steps |
@@ -219,7 +235,7 @@ degraded but the OpenSpec-specific steps still work.
 | `/opsx:sync-specs <name>` | `openspec-sync-specs` | Sync delta specs to main specs |
 | `/opsx:update <name>` | `openspec-update-change` | Revise planning artifacts, keep coherent |
 
-**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test` (pre-answers the Gate C skip prompt with Yes and must announce it), `commit-during-apply` (legacy per-task commits during apply)
+**Flags:** `skip-propose`, `propose-only`, `skip-review` (skips Gate B only; the flag is the human's explicit opt-out at invocation time, so the cycle writes `do-done` with `gates.reviewed: false` rather than self-certifying a review nobody did), `skip-manual-test` (pre-answers the Gate C skip prompt with Yes, writing `manual-test-done` with `gates.tested: "skipped"` for the same reason; review still runs and still checks coverage), `automerge` (opt-in only, on `/myflow-review`/`/myflow-full` — commits, pushes, and merges, skipping Gate D, ending at `review-done`; never implied by any other flag), `commit-during-apply` (legacy per-task commits during apply)
 
 All skills require the `openspec` CLI (`npm install -g openspec` or check project README).
 
