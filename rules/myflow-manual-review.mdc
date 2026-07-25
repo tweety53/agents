@@ -1,5 +1,5 @@
 ---
-description: myflow state machine — five stages (start, awaiting-review, awaiting-test, awaiting-pr-review, finished) tracked in a state file; no commits during start/do/do-fix; review + manual test gates with inline fix loops; commit + PR (no merge) in code review; human PR review + merge at Gate D; verify + sync + archive in finish
+description: myflow state machine — five stages (start, awaiting-review, awaiting-test, awaiting-pr-review, finished) tracked in a state file; no commits during start/do (do-fix commits only for the Gate D exception); review + manual test gates with inline fix loops; commit + PR (no merge) in code review; human PR review + merge at Gate D; verify + sync + archive in finish
 globs:
 alwaysApply: true
 ---
@@ -59,19 +59,19 @@ Path: `openspec/changes/<name>/.myflow-state.json`. Committed with the change; m
   "stage": "awaiting-test",
   "gates": {
     "reviewed": true,
-    "tested": null,
-    "prOpened": false,
-    "prMerged": false
+    "tested": false,
+    "prOpened": null,
+    "prMerged": null
   },
   "worktree": "/Users/tweety53/Projects/gymie/.worktrees/<name>",
   "branch": "openspec/<name>",
   "updatedAt": "2026-07-25T10:00:00Z",
-  "updatedBy": "/myflow-do"
+  "updatedBy": "/myflow-manual-test"
 }
 ```
 
 - `stage` — one of the five values in **Pipeline stages**.
-- `gates.tested` — `true`, `false`, `null` (not yet reached), or `"skipped"`.
+- `gates.tested` — `null` (stage not reached), `false` (guide written, not yet tested), `"skipped"` (Gate C intentionally bypassed — permanent, never overwritten), or `true` (testing completed and verified by `/myflow-code-review`, the only writer of `true`).
 - `gates.reviewed` / `gates.prOpened` / `gates.prMerged` — boolean, or `null` before that stage is reached.
 - `worktree` — absolute path, or `null` when no worktree exists.
 - `updatedBy` — the command that last wrote the file, e.g. `"/myflow-do"`.
@@ -111,6 +111,7 @@ Each command declares the stage(s) it accepts:
 | `/myflow-code-review` | `awaiting-test` |
 | `/myflow-finish` | `awaiting-pr-review` |
 | `/myflow-status`, `/myflow-info` | any — read-only, never block |
+| `/myflow-full` | *(composite entry point — drives `start` through the sequence; always stops at Gate D)* |
 
 **On mismatch, stop.** Report the actual stage, the expected stage, and the command that should run instead, then **AskUserQuestion** for an explicit override with **"No — run the suggested command instead"** as the default and recommended answer. Only proceed when the user explicitly chooses to override. Never advance the stage silently from a wrong starting point.
 
@@ -195,7 +196,7 @@ When Gate B or Gate C surfaces something that needs fixing, use `/myflow-do-fix 
 
 Requires stage `awaiting-test`. After Gate B and Gate C are both satisfied, run `/myflow-code-review <name>`.
 
-- **Verify Gate C first:** read `gates.tested` and `docs/manual-test/<name>.md`. `"skipped"` means intentionally bypassed — record and continue. Otherwise, if any box is still `- [ ]`, notify the user (count + what's open) and get explicit confirmation before proceeding.
+- **Verify Gate C first:** read `gates.tested` and `docs/manual-test/<name>.md`. `"skipped"` means intentionally bypassed — record and continue, and **never** overwrite it. Otherwise, if any box is still `- [ ]`, notify the user (count + what's open) and get explicit confirmation before proceeding. If `gates.tested` is `false` and every checklist box is ticked, **promote it to `true`** before writing state — `/myflow-code-review` is the only writer of `gates.tested: true`.
 - **Check test coverage** against every delta-spec scenario for `<name>` and any nested `<name>-fix-N`. Report gaps and offer `/myflow-do-fix` (recommended). Never write the missing tests in this stage.
 - Run verification (tests/linters) with evidence shown.
 - **Commit** all implementation changes, including `docs/manual-test/<name>.md`.
