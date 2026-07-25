@@ -1,0 +1,130 @@
+---
+description: myflow stage boundaries — no commits during start/do/do-fix; review + manual test gates with inline fix loops; commit + #7 in code review; verify + archive in finish
+globs:
+alwaysApply: true
+---
+
+# myflow — start → do → manual review → manual test → code review → finish
+
+When running `/myflow-*` commands or openspec-*-superpowers skills, follow this **fixed six-stage pipeline**:
+
+```text
+start → do → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → code review → finish
+```
+
+## Model policy
+
+`/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming and design benefit most from stronger reasoning. Every other `/myflow-*` command (`do`, `do-fix`, `manual-test`, `manual-test-skip`, `code-review`, `finish`, `full`) should run on **Sonnet** (or the harness's standard default).
+
+- **Claude Code**: enforced via `model: opus` / `model: sonnet` in each command's frontmatter (`commands-claude/*.md`) — no manual action needed.
+- **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) — each `.cursor/commands/myflow-*.md` file carries an explicit note; switch models manually in the composer/chat picker.
+- **Codex**: no per-command/skill model override mechanism either — model is a session/profile-level setting; switch manually before starting a new proposal.
+- **`/myflow-full`**: runs as a single command/session, so its frontmatter model (Sonnet) applies even during Phase A brainstorming — the per-phase Opus switch doesn't happen automatically anywhere. For brainstorming-heavy new work, run `/myflow-start` standalone (Opus) first, then `/myflow-full <name> skip-propose` for the rest.
+
+## Change name resolution (all `/myflow-*` commands)
+
+`<name>` is **optional** on every `/myflow-*` command. When omitted:
+
+- Run `openspec list --json` and filter to changes relevant to that command's stage (not yet archived).
+- Exactly one match → use it automatically; announce which change was picked.
+- Multiple matches → **AskUserQuestion** listing each (name, status, last modified) — never guess.
+- Zero matches → fall back to that command's normal "no change" handling (e.g. `/myflow-start` asks what to build; others suggest the prior stage's command).
+
+## Stage boundaries
+
+| Stage | Command | Allowed git actions |
+|-------|---------|---------------------|
+| Start | `/myflow-start` | None (planning artifacts only) |
+| Do | `/myflow-do` | Branch/worktree + **`git add` (stage)** — **no commits, no push, no merge/PR** |
+| Manual review | User (Gate B) | User inspects **staged** diff in worktree IDE; agent waits |
+| Fix (Gate B/C finding) | `/myflow-do-fix` | Resumes **existing** worktree, no new branch + **`git add` (stage)** — **no commits, no push, no merge/PR** |
+| Manual test | `/myflow-manual-test` | Generate/refresh `docs/manual-test/<name>.md` + **`git add`** — **no commits** |
+| Manual test (skip) | `/myflow-manual-test-skip` | Same as above but marks Gate C `SKIPPED` instead of checking boxes — **`git add`** — **no commits** |
+| Code review | `/myflow-code-review` | Verifies Gate C checklist (or `SKIPPED`), checks test coverage, verifies tests/linters, **commits**, merge/PR/push (#7) |
+| Finish | `/myflow-finish` | Verifies #7 landed on the base branch, syncs delta specs, OpenSpec archive move — **no commits, no tests, no #7** (already done) |
+
+## Do (#2–#6 only)
+
+- Run Superpowers steps **#2–#6** only. **Never** run `finishing-a-development-branch` (#7) during do.
+- **Never** `git commit`, `git push`, merge, or open a PR during do — even if SDD implementer prompts say to commit.
+- **`git add` is required** at end of do (and allowed during do) so Gate B shows staged changes in the IDE Source Control view.
+- Record `MERGE_BASE` at worktree setup; before each SDD task record `TASK_BASE=$(git rev-parse HEAD)`.
+- Per-task and final automated review (#6): review **working tree** diffs (`git diff TASK_BASE`, `git diff MERGE_BASE`), not commit ranges.
+- Final #6 is a **strict multi-agent panel**: primary `requesting-code-review` **plus 5 additional** separate agents (Bugbot, Security Review, Adversarial, Senior engineer, Economic senior engineer). The economic senior **must** use the provider's economy-tier model (e.g. Grok parent → `composer-2.5-fast`). Do not skip or collapse them. Re-run the full panel after fixes.
+- Progress ledger: `Task N: complete (uncommitted, review clean)` — not commit SHAs.
+- Before handoff: in every affected repo/worktree, `git add -A` (respects `.gitignore`), confirm `git status` shows changes as **staged**, then hand off worktree path + review commands; tell user to run `/myflow-manual-test <name>` after code review, then `/myflow-code-review` after testing.
+- **Guard against a mistaken re-run:** if `<name>` already has an apply worktree and looks like it's already past do (a manual-test guide exists, or a clean final-review-panel record exists, or every original task is checked), **AskUserQuestion** before proceeding — did the user mean `/myflow-do-fix` instead? Default/recommended answer: **No, use `/myflow-do-fix`**. Only continue with a fresh/expanded `/myflow-do` run if the user explicitly picks **Yes**.
+
+## Manual review (Gate B)
+
+After do, **stop** unless the user explicitly skips review (`skip-review` flag on `/myflow-full` only).
+
+Provide:
+
+- Worktree path and branch name (open that folder in the IDE to see Source Control)
+- Confirmation that changes are **staged and uncommitted**
+- `git status`, `git diff --cached --stat`, and how to open full staged diff (`git diff --cached`)
+- Hint: `/myflow-manual-test <name>` when code looks good; `/myflow-do-fix <name>` if changes needed (repeatable — loop as many rounds as needed)
+
+Do not commit or integrate at Gate B.
+
+## Manual test (Gate C)
+
+After Gate B (and any Gate B fix rounds) are satisfied, user runs `/myflow-manual-test <name>` (or full-cycle continues into it).
+
+- Agent writes/refreshes `docs/manual-test/<name>.md` (how to run involved apps + functionality checklist from specs)
+- **Run commands must use absolute apply-worktree roots** for every involved app (`gymie`, `gymie-frontend`, `gymie-admin-frontend` as in scope) — resolve from progress ledger / `git worktree list`; never relative `../gymie-*` or main `develop` checkouts when worktrees exist
+- Stages the file; replies with a **link to the file only** (no guide body in chat); **stops**
+- User opens the link, runs the apps, and checks off items; does not move to code review until satisfied
+- Hint: `/myflow-code-review <name>` when testing done; `/myflow-do-fix <name>` for fixes (repeatable — refresh the guide after each fix, then re-test)
+- To explicitly bypass Gate C instead: `/myflow-manual-test-skip <name>` — generates the same guide but marks it `SKIPPED` and leaves every box unchecked (never checks a box that wasn't actually verified)
+
+Do not commit or integrate at Gate C.
+
+## Fix rounds (Gate B / Gate C findings)
+
+When Gate B or Gate C surfaces something that needs fixing, use `/myflow-do-fix <name>` — **not** a bare re-run of `/myflow-do <name>`. This is what keeps the change's proposal from going stale after review/test rounds: the fix is documented (appended to `proposal.md`/`tasks.md`, or tracked as a linked nested `<name>-fix-N` sub-change — the skill asks which) **before** it is implemented. Both gates can loop through as many fix rounds as needed before continuing.
+
+- Resumes the **existing** apply worktree/branch — never a new one.
+- No commits, push, merge, or PR — same constraints as do (commits now happen in `/myflow-code-review`, later than before).
+- Re-runs the **full** strict review panel (not a fix-only diff) before handing back to Gate B.
+- A Gate C fix invalidates prior checked-off boxes in `docs/manual-test/<name>.md` for anything the fix touched — refresh via `/myflow-manual-test <name>` before re-testing.
+- A nested `<name>-fix-N` sub-change is never archived standalone — only together with its parent via `/myflow-finish <name>`.
+
+## Code review (commit + #7)
+
+After Gate B and Gate C are both satisfied, run `/myflow-code-review <name>`.
+
+- **Verify Gate C completion first:** read `docs/manual-test/<name>.md`. A `SKIPPED` marker (from `/myflow-manual-test-skip`) means Gate C was intentionally bypassed — record it and continue. Otherwise, if any checklist/sign-off box is still `- [ ]`, **notify** the user (count + what's open) and get explicit confirmation before proceeding anyway — never proceed past an unchecked, unmarked checklist silently.
+- **Check test coverage**: every delta-spec scenario for `<name>` (and any nested `<name>-fix-N`) should have a matching test. If coverage looks thin, report the gaps and ask whether to run `/myflow-do-fix <name>` to add tests (recommended) or proceed anyway. Never write the missing tests inside this stage — route through `/myflow-do-fix` so the gap stays documented.
+- Run verification (tests/linters) with evidence shown.
+- **Commit** all implementation changes (first commit in this stage unless user asks for multiple), including `docs/manual-test/<name>.md` if present.
+- Then **finishing-a-development-branch** (#7): merge / PR / push per user choice. **Always runs here** — never skipped.
+
+Do not archive at this stage — that is `/myflow-finish`'s job.
+
+## Finish (verify merged + sync + archive)
+
+After code review, run `/myflow-finish <name>`.
+
+- **Verify #7 actually landed**: confirm the branch is merged into `main`/`develop` (or the PR shows merged). If it's still an open PR, or the branch was deliberately kept as-is, **stop or confirm explicitly** before archiving — archiving a change whose code never reached the base branch is a real drift risk.
+- If any nested `<name>-fix-N` sub-changes exist (from `/myflow-do-fix`), archive them together with `<name>` in the same operation — never leave one archived without the other.
+- Then OpenSpec delta sync (if chosen) and archive move.
+- **Never** commit, run tests, or run #7 here — those already happened in `/myflow-code-review`.
+
+## Full cycle gates
+
+| Gate | When | Default action |
+|------|------|----------------|
+| A | After start | User approves plan before do |
+| B | After do | **Manual code review** — stop until user continues; inline `/myflow-do-fix` loop available |
+| C | After `/myflow-manual-test` | **Manual testing** with generated guide — stop until user continues; inline `/myflow-do-fix` loop available |
+| D | Code review | Coverage check + commit + integrate (user invoked `/myflow-code-review`) |
+| E | Finish | Verify merged + sync + archive (user invoked `/myflow-finish`) |
+
+## Opt-out (explicit only)
+
+- `skip-review` on `/myflow-full` — skip Gate B only; still run Gate C unless also skipped.
+- `skip-manual-test` on `/myflow-full` — skip Gate C only; code review still runs and still checks coverage.
+- `no-archive` on `/myflow-full` — stop after code review; skip finish/archive.
+- `commit-during-apply` — legacy SDD per-task commits; only when user explicitly requests it.
