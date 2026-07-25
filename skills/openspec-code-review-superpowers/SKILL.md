@@ -1,6 +1,6 @@
 ---
 name: openspec-code-review-superpowers
-description: Code review stage after Gate B/C — checks test coverage, verifies tests/linters, commits apply work, runs Basic Workflow #7 (finishing-a-development-branch). Use for /myflow-code-review.
+description: Code review stage after Gate B/C — checks test coverage, verifies tests/linters, commits, pushes, opens PR (never merges). Use for /myflow-code-review.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
@@ -9,7 +9,7 @@ metadata:
   version: "1.0"
 ---
 
-Run the **code review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, and integrate via Basic Workflow **#7** (finishing-a-development-branch). This is the last stage before `/myflow-finish` archives the change.
+Run the **code review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path — never merge). This stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges.
 
 **Announce at start:** "Using openspec-code-review-superpowers for change `<name>`."
 
@@ -19,13 +19,14 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 
 | Step | Skill | When |
 |------|-------|------|
-| — | Gate C completion check | First — verify manual-test checklist (or `SKIPPED` marker) |
+| 0 | Stage gate | First — requires `awaiting-test` |
+| — | Gate C completion check | Verify manual-test checklist (or `SKIPPED` marker) |
 | — | Test coverage check | Before verification — flag gaps, route to `/myflow-do-fix` |
 | — | **verification-before-completion** | Tests/linters green |
 | — | **git commit** | After verification passes |
-| **7** | **finishing-a-development-branch** | **Always** — merge / PR / push per user choice |
+| **7** | **finishing-a-development-branch** | **PR only** — push + open PR; never merge |
 
-Steps **#1–#6** completed in the start/do/do-fix stages. **#7 always runs here** — this stage owns commit + integrate, split out of the old combined archive stage.
+Steps **#1–#6** completed in the start/do/do-fix stages. **#7 runs here, constrained to the PR path** — this stage owns commit + push + PR; merging is Gate D, done by the human.
 
 ## Required sub-skills
 
@@ -33,6 +34,13 @@ Steps **#1–#6** completed in the start/do/do-fix stages. **#7 always runs here
 2. **superpowers:finishing-a-development-branch** — Basic Workflow **#7**.
 
 ## Workflow
+
+### 0. Check stage
+
+Requires stage **`awaiting-test`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+
+- At `awaiting-review` → recommend `/myflow-manual-test <name>` first.
+- At `awaiting-pr-review` → the PR is already open; recommend `/myflow-do-fix <name>` for changes, or `/myflow-finish <name>` once merged.
 
 ### 1. Select change and locate apply work
 
@@ -54,11 +62,16 @@ If worktree missing or no changes: **stop** — suggest `/myflow-do <name>`.
 
 ### 2. Verify Gate C completion
 
-Read `docs/manual-test/<name>.md`:
+Read `gates.tested` from the state file first, then `docs/manual-test/<name>.md`:
 
-- **Missing entirely**: warn once and offer — generate via `/myflow-manual-test <name>` first, or proceed without it if the user explicitly skipped Gate C.
-- **Contains `**Manual test status:** SKIPPED`**: Gate C was intentionally bypassed (via `/myflow-manual-test-skip`). Note it in the summary and continue — not a defect.
-- **No marker**: parse every `- [ ]` / `- [x]` line in the functionality checklist and sign-off sections. If **any** remain unchecked, **notify** the user with the count and a short list of what's open, then **AskUserQuestion**: continue anyway, go finish testing, or fix via `/myflow-do-fix <name>`. Never proceed past this silently.
+- **`gates.tested: "skipped"`** (or the guide contains `**Manual test status:** SKIPPED`): Gate C intentionally bypassed. Note it in the summary and continue — not a defect.
+- **`gates.tested: false`**: parse every `- [ ]` / `- [x]` line in the functionality checklist and sign-off sections. If **any** remain unchecked, notify the user with the count and a short list of what is open, then **AskUserQuestion**: continue anyway, go finish testing, or fix via `/myflow-do-fix <name>`. Never proceed past this silently.
+- **Guide missing entirely**: warn and offer `/myflow-manual-test <name>` first. (The stage gate in step 0 makes this unlikely.)
+
+**Promote the flag.** `/myflow-code-review` is the **only** writer of `gates.tested: true`. When
+`gates.tested` is `false` and every checkbox is ticked, set it to `true` before writing state —
+that is what makes `true` mean "testing completed and verified" rather than a value nothing ever
+produces. Never overwrite `"skipped"`: an intentional bypass stays `"skipped"` forever.
 
 ### 3. Test coverage check
 
@@ -86,40 +99,77 @@ Invoke **superpowers:verification-before-completion**:
 - Commit per user git rules (hooks must pass).
 - If `commit-during-apply` was used and changes are already committed: skip this step; confirm `git log MERGE_BASE..HEAD` shows expected commits.
 
-### 6. Basic Workflow #7 — Branch finishing (always)
+### 6. Push and open a PR — then stop
 
-Invoke **superpowers:finishing-a-development-branch**:
+Invoke **superpowers:finishing-a-development-branch**, but constrain it to the **PR path only**:
 
-- Present merge / PR / keep branch / discard options.
-- Execute the user's choice.
-- Detached HEAD / external worktree: follow that skill's reduced menu.
+- Push the branch to the remote.
+- Open a PR against the base branch (`develop` unless the user says otherwise).
+- **Do not merge.** Do not offer merge, direct push to base, or discard. Gate D is the human's.
 
-**Do not skip #7** in standard myflow.
+```bash
+cd <worktree>
+git push -u origin openspec/<name>
+gh pr create --base develop --head openspec/<name> --title "<change title>" --body "<summary + link to proposal>"
+```
+
+If a PR for this branch already exists (a `/myflow-do-fix` round pushed to it), skip creation and reuse it:
+
+```bash
+gh pr list --head openspec/<name> --state open --json number,url
+```
+
+If the user's setup has no forge remote, say so and stop at "pushed, no PR opened" — record `gates.prOpened: false` and tell the user to open the PR manually. Do not fall back to merging.
+
+### 6b. Write state
+
+```json
+{
+  "stage": "awaiting-pr-review",
+  "gates": { "reviewed": true, "tested": <true | "skipped" | false-with-user-override>, "prOpened": true, "prMerged": false },
+  "worktree": "<unchanged>",
+  "branch": "openspec/<name>",
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-code-review"
+}
+```
+
+Include this file in the commit made in step 5 if it is written before committing; otherwise commit it in a small follow-up commit — the state file must not be left as the only uncommitted change on a PR branch.
+
+**This project writes it as a follow-up commit.** The state file's `gates.prOpened`/`prMerged` and `stage: awaiting-pr-review` values are only known once step 6 has actually pushed and (re)confirmed the PR, which happens after step 5's commit — so step 6b commits the state file on its own (`git add openspec/changes/<name>/.myflow-state.json && git commit -m "chore(<name>): advance to awaiting-pr-review"`) and pushes it to the same PR branch before replying with the summary.
 
 ### 7. Summary
 
 ```
-## Code Review Complete
+## Code Review Complete — PR Review Required (Gate D)
 
 **Change:** <name>
-**Nested fixes included:** <name>-fix-1, <name>-fix-2, ... | none
+**Nested fixes included:** <name>-fix-1, ... | none
 **Manual test (Gate C):** all items checked | SKIPPED (intentional) | proceeded with N unchecked (user override)
-**Test coverage:** all scenarios covered | proceeded with N gap(s) (user override) — see notes
-**Committed:** ✓ (this stage)
+**Test coverage:** all scenarios covered | proceeded with N gap(s) (user override)
+**Committed:** ✓
 **Tests/linters:** ✓ (commands run)
-**Basic Workflow #7:** ✓ <merged | PR url | deferred | n/a>
+**Pushed:** ✓ openspec/<name>
+**PR:** <url> — **open, not merged**
 
-**Next:** `/myflow-finish <name>` — verify merged, sync specs, archive.
+**What to do (Gate D):**
+1. Review the PR at the link above
+2. Changes needed → `/myflow-do-fix <name>` (commits and pushes to this PR)
+3. **Merge the PR yourself** — myflow never merges for you
+4. Then → `/myflow-finish <name>` (verify merged, sync specs, archive)
 ```
 
 ## Guardrails
 
-- **Always** check Gate C completion before anything else.
+- **Always** check the stage gate (step 0) before anything else.
+- **Always** check Gate C completion before verification.
 - **Always** run the test-coverage check before verification — never silently skip it.
 - **Never** write missing tests yourself here — flag them and route to `/myflow-do-fix <name>`.
 - **Always commit** uncommitted apply work before verification (unless already committed via `commit-during-apply`).
 - Never mark verification complete with failing tests unless the user explicitly overrides after seeing failures.
-- **Always run #7** — never assume a prior stage finished integration.
+- **Never merge.** This stage pushes and opens a PR; merging is Gate D, done by the human.
+- **Never push directly to `develop`/`main`** as a substitute for opening a PR.
+- **Always write `stage: awaiting-pr-review`** before handing off.
 - Do not force-push or amend unless user rules allow.
 - Do not archive here — that is `/myflow-finish`'s job.
 
