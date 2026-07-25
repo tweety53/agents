@@ -1,6 +1,6 @@
 ---
 name: openspec-full-cycle-superpowers
-description: Run full OpenSpec start → do (#2–#6) → manual review → manual test → review (commit+push+PR) → Gate D, stop. Use for /myflow-full. /myflow-finish is a separate, human-initiated step after the PR is merged.
+description: Run full OpenSpec start → do (#2–#6) → manual review → manual test → review (commit+push+PR) → Gate D, stop (or, with automerge, ends at review-done — no PR to stop at). Use for /myflow-full. /myflow-finish is a separate, human-initiated step after the PR is merged.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
@@ -9,9 +9,9 @@ metadata:
   version: "5.0"
 ---
 
-Run **start → do (#2–#6) → manual review (Gate B) → manual test (Gate C, skip prompt) → review (commit + push + PR) → Gate D — STOP** with user gates. Gate B and Gate C each support an inline `/myflow-do-fix` loop before continuing — repeat as many times as needed.
+Run **start → do (#2–#6) → manual review (Gate B) → manual test (Gate C, skip prompt) → review (commit + push + PR) → Gate D — STOP** with user gates (or, with `automerge`, review merges immediately and the cycle ends at `review-done` instead of Gate D). Gate B and Gate C each support an inline `/myflow-do-fix` loop before continuing — repeat as many times as needed.
 
-**The cycle always stops at Gate D with an open PR.** Merging is a human action performed on the forge, outside myflow — a composite command cannot automate past it. `/myflow-finish` is always a separate, human-initiated command run **after** the human merges the PR; this command never invokes it.
+**The cycle always stops at Gate D with an open PR — unless `automerge` was passed.** Merging is normally a human action performed on the forge, outside myflow — a composite command cannot automate past it on its own. `automerge` is the one explicit exception: passed through to `/myflow-review`, it merges immediately, so there is no PR to stop at and the cycle ends at `review-done` instead of Gate D. `/myflow-finish` is always a separate, human-initiated command run **after** the PR is merged (automatically, via `automerge`, or by the human at Gate D); this command never invokes it.
 
 **Announce at start:** "Using openspec-full-cycle-superpowers."
 
@@ -51,8 +51,9 @@ Each stage delegates to its bridge skill; do not reimplement steps inline. `open
 |------|--------|
 | `skip-propose` | Start from `/myflow-do` using existing artifacts |
 | `propose-only` | Stop after planning artifacts (Gate A) |
-| `skip-review` | Skip Gate B only; Gate C still runs. Records `gates.reviewed: false` (Gate B explicitly skipped) — never `true` |
+| `skip-review` | Skip Gate B only (advancing straight to `do-done`); Gate C still runs. Records `gates.reviewed: false` (Gate B explicitly skipped) — never `true` |
 | `skip-manual-test` | Pre-answers the Gate C skip prompt with **Yes**; review still runs and still checks coverage |
+| `automerge` | Pass-through to `/myflow-review automerge` (see **Auto-merge (opt-in)** in the rule file). Merges immediately — no PR to stop at, so the cycle ends at `review-done` instead of Gate D |
 | `commit-during-apply` | Legacy per-task SDD commits |
 
 `no-archive` is **removed** — the cycle no longer reaches archiving, so the flag had no effect.
@@ -112,7 +113,7 @@ Invoke **openspec-manual-test-superpowers** for `<name>` (writes `docs/manual-te
 - If the user passed `skip-manual-test` on `/myflow-full`, **pre-answer that prompt with Yes** and **announce that the flag pre-answered it** — do not silently skip. This is the only flag on `/myflow-full` that pre-answers a prompt instead of skipping a phase outright.
 - Otherwise let the prompt run normally and honor whatever the user answers.
 
-Either answer advances to `awaiting-test`; the distinction lives in `gates.tested` (`"skipped"` vs `false`).
+Either answer advances to `awaiting-manual-test`; the distinction lives in `gates.tested` (`"skipped"` vs `false`).
 
 **If `skip-review` was passed**, tell the manual-test skill to record `gates.reviewed: false` (Gate B was explicitly skipped) and note it in the final summary — the state must never claim a manual review that never happened.
 
@@ -121,21 +122,25 @@ Use **AskUserQuestion**:
 - "Manual test guide ready. Run the apps, complete the checklist. Anything to fix, or continue to review?"
 - Options: **Continue to review** (recommended), **Fix something (`/myflow-do-fix`)**, **Stop here**
 
-If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate C fix). Since the fix may touch tested behavior, refresh the guide by invoking **openspec-manual-test-superpowers** again afterward — at stage `awaiting-test` it enters **refresh mode** automatically (no stage-mismatch prompt, no override, skip question not re-asked, checked boxes preserved) — then return to this question. Repeat as many rounds as needed.
+If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate C fix). Since the fix may touch tested behavior, refresh the guide by invoking **openspec-manual-test-superpowers** again afterward — at stage `awaiting-manual-test` it enters **refresh mode** automatically (no stage-mismatch prompt, no override, skip question not re-asked, checked boxes preserved) — then return to this question. Repeat as many rounds as needed.
 
 If **Stop here**: exit with guide path and `/myflow-review <name>` hint.
 
 **Do not commit or run #7 at Gate C.**
 
-### Phase D — Review: coverage + verify + commit + push + open PR — STOP (Gate D)
+### Phase D — Review: coverage + verify + commit + push + open PR (or merge, with `automerge`) — STOP
 
-Invoke **openspec-review-superpowers** for `<name>`.
+Invoke **openspec-review-superpowers** for `<name>` — pass `automerge` through if the user passed it to `/myflow-full`.
 
 If it finds coverage gaps, it will prompt for `/myflow-do-fix <name>` itself — that's an internal step of this phase, not a separate full-cycle gate.
 
-This phase **commits, pushes, and opens a PR — it never merges**. The cycle ends here, at Gate D, every time: report the PR summary (see **Final summary** below) and stop. `/myflow-full` does not invoke `/myflow-finish`; the human reviews and merges the PR on the forge, then runs `/myflow-finish <name>` themselves whenever they're ready.
+Without `automerge`, this phase **commits, pushes, and opens a PR — it never merges**. The cycle ends here, at Gate D, every time: report the PR summary (see **Final summary** below) and stop. `/myflow-full` does not invoke `/myflow-finish`; the human reviews and merges the PR on the forge, then runs `/myflow-finish <name>` themselves whenever they're ready.
+
+**With `automerge`,** the review phase commits, pushes, and merges immediately (per the rule file's **Auto-merge (opt-in)**) — there is no PR to stop at, so the cycle skips Gate D entirely and ends at stage `review-done`. Announce plainly that auto-merge was used, then report the automerge summary variant below and stop; `/myflow-finish <name>` is still a separate, human-initiated step.
 
 ### Final summary
+
+Without `automerge`:
 
 ```
 ## Full Cycle Complete — PR Review Required (Gate D)
@@ -156,6 +161,24 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 4. Then, whenever you're ready → `/myflow-finish <name>` (verify merged, sync specs, archive) — a separate step you run manually
 ```
 
+With `automerge`:
+
+```
+## Full Cycle Complete — Merged (automerge, stage: review-done)
+
+**Change:** <name>
+**Basic Workflow:** #1 ✓ #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ #7 (commit+push+merge via automerge) ✓
+**Started:** ✓ (or skipped)
+**Applied (do):** ✓ N/N tasks (staged + uncommitted until review)
+**Manual review (Gate B):** ✓ (or skipped via skip-review) — <M> fix round(s)
+**Manual test (Gate C):** ✓ ran | ✓ skipped (skip-manual-test pre-answered the prompt) — <M> fix round(s)
+**Review:** ✓ coverage checked, tests/linters green, committed, pushed, **merged (automerge)**
+**Gate D:** skipped — no PR to review, merge already landed
+
+**What to do next:**
+1. Whenever you're ready → `/myflow-finish <name>` (verify merged, sync specs, archive) — a separate step you run manually
+```
+
 ## Resume semantics
 
 | Situation | Command |
@@ -166,6 +189,7 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 | Ready to test | `/myflow-manual-test <name>` |
 | Testing done | `/myflow-review <name>` |
 | Review done, PR open | Review + merge the PR yourself (Gate D), then `/myflow-finish <name>` |
+| Review done, automerge used | No PR — go straight to `/myflow-finish <name>` |
 | Partial do | `/myflow-do <name>` (SDD ledger resumes) |
 | Gate B/C/D finding | `/myflow-do-fix <name>` |
 
@@ -175,8 +199,9 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 - **Always stop** at Gate B for manual review unless user passed `skip-review`; loop on fix requests until the user chooses to continue or stop.
 - **Always** let Gate C's skip prompt run; `skip-manual-test` pre-answers it with Yes (announce this) instead of bypassing the phase. Loop on fix requests (refreshing the guide after each fix) until the user chooses to continue or stop.
 - **Never commit, push, merge, or run #7** during do or do-fix (unless `commit-during-apply`).
-- **Review commits, pushes, and opens a PR — it never merges.** The cycle always stops at Gate D.
-- **Never invoke `/myflow-finish` from this cycle.** It is always a separate, human-initiated command run after the PR is merged.
+- **Review commits, pushes, and opens a PR — it never merges, unless the user explicitly passed `automerge`.** Without `automerge` the cycle always stops at Gate D; with it, the cycle ends at `review-done` instead — announce that auto-merge was used.
+- **Never auto-invoke a `*-done` or `*-manual-review` command anywhere in this cycle.** `/myflow-start-done`, `/myflow-do-manual-review`, `/myflow-do-done`, `/myflow-manual-test-done`, and `/myflow-review-done` are human confirmations of a review the human actually performed — this cycle stops before each of them and names the exact command for the human to run; it never writes that confirmation itself.
+- **Never invoke `/myflow-finish` from this cycle.** It is always a separate, human-initiated command run after the PR is merged (or, with `automerge`, after the automatic merge).
 - Do not substitute OpenSpec-only loops for #4–#6.
 - Prefer stage bridge skills over one unstructured session.
 
@@ -189,6 +214,7 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 | Propose only (#1 + #3) | `/myflow-full <name> propose-only` |
 | Skip manual review | `/myflow-full <name> skip-review` |
 | Pre-answer the Gate C skip prompt with Yes | `/myflow-full <name> skip-manual-test` |
+| Auto-merge instead of stopping at Gate D | `/myflow-full <name> automerge` |
 
 Individual stages:
 

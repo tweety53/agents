@@ -44,10 +44,10 @@ start → do → manual review (Gate B) → manual test (Gate C) → review → 
 ### Who acts at each gate
 | Gate | Who | What |
 |------|-----|------|
-| A | You | Approve the plan after /myflow-start |
-| B | You | Review the staged diff in the worktree IDE |
-| C | You | Run the apps and work the manual-test checklist |
-| D | You | Review the PR on the forge and **merge it** — never automated |
+| A | You | Approve the plan after /myflow-start (`/myflow-start-done` or `/myflow-start-fix`) |
+| B | You | Review the staged diff in the worktree IDE (`/myflow-do-manual-review`, then `/myflow-do-done`) |
+| C | You | Run the apps and work the manual-test checklist (`/myflow-manual-test-done`) |
+| D | You | Review the PR on the forge and **merge it** — never automated (`/myflow-review-done`) |
 | E | Agent | /myflow-finish verifies the merge, syncs specs, archives |
 
 ### Commands
@@ -61,7 +61,7 @@ Close with a one-line pointer: "Run `/myflow-status` to see where your changes a
 
 ### 3. Detail view (argument given)
 
-`/myflow-info <stage-or-command>` — print only that stage or command: what it requires, what it does, what it writes to the state file, and what runs next. Match loosely (`do-fix`, `/myflow-do-fix`, and `awaiting-review` all resolve). Unrecognized argument → list the valid stage and command names.
+`/myflow-info <stage-or-command>` — print only that stage or command: what it requires, what it does, what it writes to the state file, and what runs next. Match loosely (`do-fix`, `/myflow-do-fix`, and `awaiting-do-review` all resolve). Unrecognized argument → list the valid stage and command names.
 
 ## Guardrails
 

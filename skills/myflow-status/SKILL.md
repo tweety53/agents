@@ -36,7 +36,7 @@ MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
 STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
 
-jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged, .worktree, .branch, .updatedAt, .updatedBy' \
+jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged, .worktree, .branch, .artifactUrl, .originStage, .updatedAt, .updatedBy' \
   "$STATE_FILE" 2>/dev/null
 ```
 
@@ -58,29 +58,45 @@ If the file is missing, unparseable, or contradicted, infer the stage from artif
 
 ### 3. Render the table
 
-Sort by stage order (`start`, `awaiting-review`, `awaiting-test`, `awaiting-pr-review`), then by `updatedAt` descending. Omit `finished` changes — they are archived.
+Sort by stage order per **Pipeline stages** in the rule file (`awaiting-proposal-review`,
+`proposal-done`, `awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-fix-review`,
+`fix-review-started`, `awaiting-manual-test`, `manual-test-done`, `awaiting-pr-review`,
+`review-done`, `finished`), then by `updatedAt` descending. Omit `finished` changes — they are
+archived.
 
 ```
 ## myflow status
 
 | Change | Stage | Gates | Next | Worktree / branch | Updated |
 |--------|-------|-------|------|------|-----------|
-| user-workout-core | awaiting-test | review ✓ · test ☐ · PR — | `/myflow-review` | `.worktrees/openspec-user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
-| active-workout-session-editing | start | — | `/myflow-do` | none | 19h ago (/myflow-start) |
+| user-workout-core | awaiting-manual-test | review ✓ · test ☐ · PR — | run the guide, then `/myflow-manual-test-done` | `.worktrees/openspec-user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
+| active-workout-session-editing | proposal-done | — | `/myflow-do` | none | 19h ago (/myflow-start-done) |
 
 ⚠ = state file was stale and has been corrected from artifacts.
 ```
 
 Gate glyphs: `✓` passed · `☐` pending · `⊘` skipped · `—` not yet reached.
 
+Surface, when present:
+- `artifactUrl` — link to the published proposal artifact
+- `originStage` — the stage a fix in flight (`awaiting-fix-review` / `fix-review-started`) will return to
+
 Next-command mapping:
 
 | Stage | Next |
 |-------|------|
-| `start` | `/myflow-do <name>` |
-| `awaiting-review` | Gate B — review staged diff, then `/myflow-manual-test <name>` |
-| `awaiting-test` | Gate C — run the guide, then `/myflow-review <name>` |
-| `awaiting-pr-review` | Gate D — review + **merge the PR yourself**, then `/myflow-finish <name>` |
+| `awaiting-proposal-review` | read the artifact, then `/myflow-start-done` (or `/myflow-start-fix`) |
+| `proposal-done` | `/myflow-do <name>` |
+| `awaiting-do-review` | `/myflow-do-manual-review`, then `/myflow-do-done` |
+| `do-review-started` | `/myflow-do-done` (or `/myflow-do-fix`) |
+| `do-done` | `/myflow-manual-test <name>` |
+| `awaiting-fix-review` | `/myflow-do-fix-manual-review`, then `/myflow-do-fix-done` |
+| `fix-review-started` | `/myflow-do-fix-done` |
+| `awaiting-manual-test` | run the guide, then `/myflow-manual-test-done` |
+| `manual-test-done` | `/myflow-review <name>` |
+| `awaiting-pr-review` | review + merge the PR, then `/myflow-review-done` |
+| `review-done` | `/myflow-finish <name>` |
+| `finished` | — |
 
 ### 4. Detail view (only when `<name>` was given)
 
