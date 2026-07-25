@@ -6,7 +6,7 @@ license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
 metadata:
   author: gymie
-  version: "2.3"
+  version: "2.4"
 ---
 
 Propose an OpenSpec change with Superpowers Basic Workflow steps **#1** and **#3** fully intertwined with OpenSpec artifact creation.
@@ -35,6 +35,12 @@ Steps **2, 4–7** run in **openspec-apply-superpowers**. Do not skip or substit
 - If a change name or description was given, use it (derive kebab-case name from description if only a description was given).
 - **If both are omitted:** run `openspec list --json`, filter to non-archived changes with incomplete planning artifacts. Exactly one match → resume it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → ask what to build.
 - If a change with that name exists: ask continue vs new name.
+- **Resuming a change whose artifacts already exist** (e.g. recovering from a failure between
+  publishing the artifact and writing state): do not rebuild the proposal page from scratch.
+  The artifact's source path is deterministic (see **Publish the proposal artifact**), so
+  republish from the existing source file at
+  `/Users/tweety53/Agents/myflow/state/<project-key>/<name>-proposal-artifact.html` — this
+  recovers the same URL — then write state normally.
 
 ### B. Basic Workflow #1 — Brainstorming (before OpenSpec)
 
@@ -68,9 +74,19 @@ Record the outcome in `design.md` under a `## Decisions` heading, one entry per 
 ```markdown
 ### <the decision>
 
+**ID:** <kebab-case-slug>
+**Status:** active
 **Chosen:** <option> — <one-line rationale>
 **Considered:** <other options, each with the tradeoff that ruled it out>
 ```
+
+**ID** is a short kebab-case slug derived from the decision (e.g. `persistence-shape`,
+`api-surface`). It is assigned once, at creation, and is **immutable** — the heading prose may be
+reworded across rounds, but the ID never changes. This ID is the match key `/myflow-start-fix`
+(Task 6) uses to **supersede** a decision when feedback reopens it: it keeps the old entry, sets
+its `**Status:**` to `superseded by <new-id>`, and appends the new entry with a fresh ID rather
+than duplicating or silently rewriting the old one. Matching on the free-text heading alone would
+break on any rewording, so the ID — not the heading — is authoritative.
 
 This section is what keeps the reasoning alive during implementation, when the alternatives are
 no longer visible.
