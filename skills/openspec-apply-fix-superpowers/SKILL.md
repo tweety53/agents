@@ -1,15 +1,15 @@
 ---
 name: openspec-apply-fix-superpowers
-description: Apply a fix for something found during manual review (Gate B) or manual test (Gate C) of an already-applied OpenSpec change. Documents the fix in the change's proposal first (append or nested sub-change) so proposals never go stale after review/test rounds, then runs Superpowers #4–#6 in the existing apply worktree. Use for /myflow-do-fix.
+description: Apply a fix for something found during manual review (Gate B), manual test (Gate C), or PR review (Gate D) of an already-applied OpenSpec change. Documents the fix in the change's proposal first (append or nested sub-change) so proposals never go stale after review/test rounds, then runs Superpowers #4–#6 in the existing apply worktree. Stage-only (stage + no commit) at Gate B/C; PR-fix (commit + push to the PR branch) at Gate D — the only place in myflow this command commits. Use for /myflow-do-fix.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
 metadata:
   author: gymie
-  version: "1.2"
+  version: "1.3"
 ---
 
-Apply a **fix** for a problem found during **manual review (Gate B)** or **manual test (Gate C)** of a change that has already been through `/myflow-do`. Unlike `/myflow-do`, this skill never creates a new worktree — it resumes the existing apply worktree/branch — but it always **documents the fix in OpenSpec artifacts first**, so the proposal/tasks never drift out of sync with what was actually built (the source of "stale proposal" drift this skill exists to prevent).
+Apply a **fix** for a problem found during **manual review (Gate B)**, **manual test (Gate C)**, or **PR review (Gate D)** of a change that has already been through `/myflow-do`. Unlike `/myflow-do`, this skill never creates a new worktree — it resumes the existing apply worktree/branch — but it always **documents the fix in OpenSpec artifacts first**, so the proposal/tasks never drift out of sync with what was actually built (the source of "stale proposal" drift this skill exists to prevent). The incoming stage (`awaiting-review`, `awaiting-test`, or `awaiting-pr-review`) determines the git mode — see **step 0** — and this command always returns the change to the stage it started from.
 
 **Announce at start:** "Using openspec-apply-fix-superpowers for change `<name>`."
 
@@ -24,12 +24,14 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 
 | Step | Skill | When |
 |------|-------|------|
+| 0 | Stage gate + mode selection | First — requires `awaiting-review`, `awaiting-test`, or `awaiting-pr-review`; derives stage-only vs PR-fix |
 | — | Fix-organization choice | Before any edit — append vs nested sub-change (below) |
 | **4** | **subagent-driven-development** | Execute fix task(s) |
 | **5** | **test-driven-development** | Every implementer subagent, every fix task |
 | **6** | **requesting-code-review** + **strict review panel** | Full re-run after the fix, same bar as apply |
+| — | Stage/commit and hand off | Stage-only at Gate B/C; **commit + push** at Gate D only (PR-fix) |
 
-No new worktree (**#2** already done by the original apply), no branch finishing (**#7** deferred to archive) — same constraints as apply.
+No new worktree (**#2** already done by the original apply), no branch finishing (**#7** — merging stays Gate D, done by the human). The only exception: PR-fix mode (stage `awaiting-pr-review`) commits and pushes to the existing PR branch — see step 0.
 
 ## Required sub-skills
 
@@ -60,6 +62,40 @@ And the TDD requirement:
 
 ## Workflow
 
+### 0. Check stage and select mode
+
+Requires one of **`awaiting-review`**, **`awaiting-test`**, **`awaiting-pr-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. At `start`, stop and recommend `/myflow-do <name>`. At `finished`, stop — the change is archived.
+
+The incoming stage selects the git mode. **Do not ask** — derive it:
+
+| Stage | Mode | Git behavior at the end |
+|-------|------|-------------------------|
+| `awaiting-review` (Gate B) | stage-only | `git add -A`; **no commit** |
+| `awaiting-test` (Gate C) | stage-only | `git add -A`; **no commit** |
+| `awaiting-pr-review` (Gate D) | **PR-fix** | `git add -A`, **commit, and push to the PR branch** |
+
+**Preserve the incoming stage.** This command never advances or rewinds a stage — a Gate C fix returns to `awaiting-test`, not to `awaiting-review`. Update only `updatedAt` and `updatedBy` in the state file.
+
+#### PR-fix mode (stage `awaiting-pr-review`)
+
+A PR already exists remotely, so staging alone would leave the fix invisible to the reviewer. This is the **only** myflow stage where `/myflow-do-fix` commits:
+
+```bash
+cd <worktree>
+git add -A
+git commit -m "fix: <what the PR review surfaced>"
+git push
+gh pr view --json url -q .url
+```
+
+Constraints:
+
+- Commit **after** the full strict review panel passes, never before.
+- **Never** merge, never force-push, never amend an already-pushed commit — a reviewer may have commented on it.
+- Reply with the PR URL and tell the user to re-review, then merge.
+
+On mismatch (any other stage), emit the standard mismatch handoff and AskUserQuestion override (default: **No — run the suggested command instead**), per **Stage transitions**.
+
 ### 1. Resolve the target change and locate its worktree
 
 ```bash
@@ -72,11 +108,13 @@ openspec status --change "<name>" --json
 
 ### 2. Identify which gate the fix addresses
 
-Infer from conversation context (which gate the user is currently at); if unclear, **AskUserQuestion**:
+The stage read in step 0 already identifies the gate — no need to ask:
 
-> Is this fix for something found in **manual review (Gate B — code)** or **manual test (Gate C — running app)**?
+- `awaiting-review` → **Gate B** (manual review — code)
+- `awaiting-test` → **Gate C** (manual test — running app)
+- `awaiting-pr-review` → **Gate D** (PR review)
 
-This decides the section title used in step 4 (`Manual Review Fixes` vs `Manual Test Fixes`) and which gate to hand back to in step 7.
+This decides the section title used in step 4 (`Manual Review Fixes` / `Manual Test Fixes` / `PR Review Fixes`) and which gate to hand back to in step 7.
 
 ### 3. Ask how to organize the fix
 
@@ -116,9 +154,11 @@ Do **not** review only the fix diff in isolation. Re-run the **entire final whol
 
 Fix any new Critical/Important findings, then re-run the full panel again until clean — identical aggregation rules to apply.
 
-### 7. Stage and hand off (not archive)
+### 7. Stage/commit and hand off (not archive)
 
-Same as `openspec-apply-superpowers` step 7 — in every affected repo/worktree:
+Branch on the mode selected in **step 0**. In both branches, write the state file **preserving the incoming stage** — only `updatedAt` and `updatedBy` change (`updatedBy: "/myflow-do-fix"`), and include it in whatever is staged/committed.
+
+**Stage-only mode** (`awaiting-review` or `awaiting-test`) — same as `openspec-apply-superpowers` step 7, in every affected repo/worktree:
 
 ```bash
 cd <worktree-or-repo>
@@ -127,7 +167,7 @@ git status
 git diff --cached --stat
 ```
 
-Confirm the fix appears under **Changes to be committed** (staged), then stop.
+Confirm the fix appears under **Changes to be committed** (staged), then stop. **No commit.**
 
 ```
 ## Fix Applied — Manual Review Required Again
@@ -138,6 +178,7 @@ Confirm the fix appears under **Changes to be committed** (staged), then stop.
 **Fix tasks:** N/N complete
 **Branch / worktree:** <same as original apply — unchanged>
 **Git state:** staged + uncommitted (not pushed)
+**Stage:** <awaiting-review | awaiting-test> (unchanged)
 
 **Next steps:**
 - If this was a Gate B fix: manual review again on the updated staged diff, then continue to `/myflow-manual-test <name>` (Gate C)
@@ -146,16 +187,52 @@ Confirm the fix appears under **Changes to be committed** (staged), then stop.
 - Once Gate B and Gate C are both satisfied: `/myflow-code-review <name>` (coverage check, tests, commit, #7), then `/myflow-finish <name>` (also archives any `<name>-fix-N` nested changes together)
 ```
 
+**Refreshing the guide after a Gate C fix:** `/myflow-manual-test` requires stage `awaiting-review`, so a refresh at `awaiting-test` will hit the stage gate. This is the expected case for the explicit override — choose "run anyway" when the user is refreshing a guide after a fix round. The stage stays `awaiting-test` either way.
+
+**PR-fix mode** (`awaiting-pr-review`) — only after the full strict review panel (step 6) is clean, per **PR-fix mode** in step 0:
+
+```bash
+cd <worktree>
+git add -A
+git commit -m "fix: <what the PR review surfaced>"
+git push
+gh pr view --json url -q .url
+```
+
+Never merge, force-push, or amend. Stop after pushing.
+
+```
+## Fix Applied — Pushed to PR
+
+**Change:** <name> (fix for: PR review, Gate D)
+**Tracked as:** appended to proposal.md | openspec/changes/<name>-fix-N (nested, parent: <name>)
+**Basic Workflow:** #4 ✓ #5 ✓ #6 ✓ (strict panel re-run clean)
+**Fix tasks:** N/N complete
+**Branch / worktree:** <same as original apply — unchanged>
+**Git state:** committed and pushed to the PR branch
+**Stage:** awaiting-pr-review (unchanged)
+**PR:** <PR URL>
+
+**Next steps:**
+- Ask the reviewer to re-review the PR, then merge it on the forge (never merged by this skill)
+- More fixes: `/myflow-do-fix <name>` again
+- Once merged: `/myflow-finish <name>`
+```
+
 ## Guardrails
 
 - **Never** create a new worktree or branch — this always resumes the existing apply worktree.
-- **Never** commit, push, merge, or run #7 — same as apply (commits happen in `/myflow-code-review`).
+- **Never** run #7 (`finishing-a-development-branch`) or open/merge a PR — merging is always Gate D, done by the human.
 - **Always** document the fix in OpenSpec artifacts (append or nested) **before** implementing — this is the whole point of this skill over ad hoc reuse of `/myflow-do`.
 - **Never** duplicate a `## Manual Review Fixes` / `## Manual Test Fixes` heading in `proposal.md` or `tasks.md` — append a dated sub-entry to the existing one.
 - **Never** archive a nested `<name>-fix-N` change on its own; it archives only together with its parent (see `openspec-archive-superpowers`).
 - **Always** re-run the **full** strict review panel (not a fix-only partial review) before handoff.
 - Do not skip TDD on fix tasks.
 - Pause on ambiguity (which gate, how to organize) — never guess silently past the AskUserQuestion prompts in steps 2–3.
+- **Never advance or rewind the stage** — a fix returns the change to the stage it started from.
+- **Never commit at `awaiting-review` or `awaiting-test`** — stage only, exactly as `/myflow-do`.
+- **Only PR-fix mode commits**, and only after the full review panel passes.
+- **Never force-push or amend** a commit that is already on an open PR.
 
 ## Commands (user-facing)
 
