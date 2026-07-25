@@ -67,6 +67,23 @@ Create all artifacts required by `applyRequires`:
 
 Do not copy `<context>` / `<rules>` blocks from CLI instructions into artifact files.
 
+### Write initial state
+
+Create `<changeRoot>/.myflow-state.json` per **State file** in `rules/myflow-manual-review.mdc`:
+
+```json
+{
+  "stage": "start",
+  "gates": { "reviewed": null, "tested": null, "prOpened": null, "prMerged": null },
+  "worktree": null,
+  "branch": null,
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-start"
+}
+```
+
+Stage it alongside the other planning artifacts. Do not commit.
+
 ### D. Basic Workflow #3 — Writing plans (mandatory)
 
 Invoke **superpowers:writing-plans** with inputs:

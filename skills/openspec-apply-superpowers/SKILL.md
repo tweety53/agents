@@ -107,6 +107,16 @@ If the resolved economic slug is unavailable in the Task tool allowlist, fall ba
 
 ## Workflow
 
+### 0. Check stage
+
+Read the change's state per **State file** and validate per **State self-heal** in `rules/myflow-manual-review.mdc`.
+
+This command requires stage **`start`**. If the change is at any other stage, **stop** and emit the mismatch handoff from **Stage transitions**, then AskUserQuestion for an explicit override (default: **No — run the suggested command instead**).
+
+The most common mismatch: the change is at `awaiting-review` or later, meaning the user probably wants `/myflow-do-fix <name>`. Recommend that. This replaces the older ad-hoc "guard against a mistaken re-run" heuristic — the stage check now covers it.
+
+Missing state file → infer per **State self-heal**, write it, announce the correction, then apply the check to the inferred stage.
+
 ### 1. Load OpenSpec context (apply steps 1–5)
 
 **Resolve the change name.** If given, use it. **If omitted:** run `openspec list --json`, filter to changes with apply-ready planning artifacts (not yet archived). Exactly one match → use it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → stop, suggest `/myflow-start <name>`.
@@ -125,19 +135,6 @@ openspec instructions apply --change "<name>" --json
 Resolve paths from CLI JSON (`changeRoot`, `planningHome`) — do not assume repo layout.
 
 Show: schema, progress N/M, remaining tasks overview.
-
-**Confirm before re-running apply on an already-applied change.** Check whether this change already went through apply and was handed off for manual review or manual test:
-
-- An apply worktree already exists for `<name>` (progress ledger `.superpowers/sdd/progress-<name>.md` / `progress.md`, or `git worktree list` shows branch `openspec/<name>`), **and**
-- Either `docs/manual-test/<name>.md` already exists, or `.superpowers/sdd/final-review-panel.md` records a clean panel result, or every **original** task in `tasks.md` (outside any `## Manual Review Fixes` / `## Manual Test Fixes` section) is already checked.
-
-If both are true, this looks like a Gate B/C finding being fixed via the wrong command. **AskUserQuestion**:
-
-> This change already completed apply and looks like it's at manual review or manual test. Did you mean `/myflow-do-fix <name>` instead?
-> 1. **No — use `/myflow-do-fix` instead** (Recommended/default) — stop here; suggest `/myflow-do-fix <name>`.
-> 2. **Yes — run `/myflow-do` anyway** — proceed with this skill as normal (e.g. deliberately redoing/expanding the original scope, not just fixing a finding).
-
-Only proceed past this check if the user picks option 2, or if the detection conditions above weren't met (fresh or genuinely partial apply — no confirmation needed).
 
 ### 2. Basic Workflow #3 — Validate plan
 
@@ -202,6 +199,21 @@ git diff --cached --stat
 - Confirm implementation files appear under **Changes to be committed** (staged), not only as unstaged/untracked.
 - If a sibling repo was modified outside the main worktree, stage there too and list each path in the handoff.
 
+Write the state file per **State file** before handing off:
+
+```json
+{
+  "stage": "awaiting-review",
+  "gates": { "reviewed": false, "tested": null, "prOpened": null, "prMerged": null },
+  "worktree": "<absolute worktree path>",
+  "branch": "openspec/<name>",
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-do"
+}
+```
+
+Include it in the `git add -A` so it is staged with the rest of the work.
+
 Stop here.
 
 ```
@@ -237,6 +249,8 @@ Stop here.
 
 - **Never skip** Basic Workflow steps #2–#6 when implementing.
 - **Never commit, push, merge, or open a PR** during apply unless user explicitly passed `commit-during-apply`.
+- **Always check the incoming stage first** (step 0) — never start applying a change that is past `start` without an explicit user override.
+- **Always write `stage: awaiting-review`** before the Gate B handoff, and stage the state file.
 - **Always `git add -A`** (stage) in every affected repo before Gate B handoff — so the IDE shows the changes.
 - **Never** run `finishing-a-development-branch` (#7) during apply.
 - Do not use the lightweight openspec-apply-change step-6 loop.
