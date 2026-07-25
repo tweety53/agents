@@ -49,8 +49,11 @@ Requires stage **`awaiting-pr-review`** per **Stage transitions** in `rules/myfl
 ```bash
 cd <main-repo-checkout>
 git fetch origin
-gh pr list --head openspec/<name> --state all --json number,state,mergedAt,url
+# Ancestry check — works on every forge (Bitbucket, GitLab, GitHub) and needs no PR CLI.
+# Run it FIRST and always; it is the primary merge evidence.
 git merge-base --is-ancestor origin/openspec/<name> origin/<base-branch> && echo "merged"
+# GitHub only, and only when gh is actually installed — extra detail, never a prerequisite:
+command -v gh >/dev/null 2>&1 && gh pr list --head openspec/<name> --state all --json number,state,mergedAt,url
 ```
 
 - **PR state `MERGED`** (or the ancestor check prints "merged"): continue.
@@ -59,7 +62,7 @@ git merge-base --is-ancestor origin/openspec/<name> origin/<base-branch> && echo
 - **No PR and no merge evidence**: stop — suggest `/myflow-code-review <name>` first.
 - **User insists on archiving unmerged** (deliberate, e.g. the work landed another way): **AskUserQuestion** confirming that archiving without the code on `<base-branch>` is intentional. Default: **No**.
 
-If `gh` is unavailable, say so honestly and fall back to the `git merge-base --is-ancestor` check alone — never guess `MERGED`.
+If `gh` is unavailable or the forge is not GitHub (this project's `origin` is Bitbucket), say so honestly and rely on the `git merge-base --is-ancestor` check alone — it is sufficient and must never be gated behind a `gh` call. Never guess `MERGED`. If neither check can be performed at all (no remote, no network), report the PR state as **unknown** and ask the user — do not rewind the stage on an inconclusive probe.
 
 ### 2. OpenSpec pre-archive checks
 
@@ -90,7 +93,7 @@ Follow **openspec-archive-change** step 5:
 - Target: `<planningHome.changesDir>/archive/YYYY-MM-DD-<name>`
 - Fail if target exists; otherwise move `changeRoot`.
 - **If nested `<name>-fix-N` sub-changes were found in step 2**, archive each of them the same way, in the same session, right alongside `<name>` (same date). Do not stop after archiving the parent while a nested fix remains unarchived.
-- Before moving the directory, write the terminal state into `<changeRoot>/.myflow-state.json` so the archived copy records how it ended:
+- Write the terminal state into the change's **user-scoped** state file — resolve the path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It is **not** moved into the archive and **not** committed; it stays at that path as the terminal record:
 
 ```json
 {
@@ -103,7 +106,7 @@ Follow **openspec-archive-change** step 5:
 }
 ```
 
-Set `worktree` to `null` — the worktree is removed or stale after finishing. The file moves into the archive with the rest of `changeRoot`. Write the same terminal state into each nested `<name>-fix-N` change before archiving it.
+Set `worktree` to `null` — the worktree is removed or stale after finishing. Carry `gates.tested` forward exactly as recorded (`true` or `"skipped"` are sticky — never demote them). Write the same terminal state to each nested `<name>-fix-N` change's own user-scoped state file before archiving it.
 
 ### 4. Summary
 

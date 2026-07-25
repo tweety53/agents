@@ -51,7 +51,7 @@ Each stage delegates to its bridge skill; do not reimplement steps inline. `open
 |------|--------|
 | `skip-propose` | Start from `/myflow-do` using existing artifacts |
 | `propose-only` | Stop after planning artifacts (Gate A) |
-| `skip-review` | Skip Gate B only; Gate C still runs |
+| `skip-review` | Skip Gate B only; Gate C still runs. Records `gates.reviewed: false` (Gate B explicitly skipped) — never `true` |
 | `skip-manual-test` | Pre-answers the Gate C skip prompt with **Yes**; code review still runs and still checks coverage |
 | `commit-during-apply` | Legacy per-task SDD commits |
 
@@ -114,12 +114,14 @@ Invoke **openspec-manual-test-superpowers** for `<name>` (writes `docs/manual-te
 
 Either answer advances to `awaiting-test`; the distinction lives in `gates.tested` (`"skipped"` vs `false`).
 
+**If `skip-review` was passed**, tell the manual-test skill to record `gates.reviewed: false` (Gate B was explicitly skipped) and note it in the final summary — the state must never claim a manual review that never happened.
+
 Use **AskUserQuestion**:
 
 - "Manual test guide ready. Run the apps, complete the checklist. Anything to fix, or continue to code review?"
 - Options: **Continue to code review** (recommended), **Fix something (`/myflow-do-fix`)**, **Stop here**
 
-If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate C fix). Since the fix may touch tested behavior, refresh the guide via **openspec-manual-test-superpowers** afterward before returning to this question. Repeat as many rounds as needed.
+If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate C fix). Since the fix may touch tested behavior, refresh the guide by invoking **openspec-manual-test-superpowers** again afterward — at stage `awaiting-test` it enters **refresh mode** automatically (no stage-mismatch prompt, no override, skip question not re-asked, checked boxes preserved) — then return to this question. Repeat as many rounds as needed.
 
 If **Stop here**: exit with guide path and `/myflow-code-review <name>` hint.
 

@@ -21,13 +21,34 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 
 ## Stage gate
 
-Requires stage **`awaiting-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+Accepts **two** stages per **Stage transitions** in `rules/myflow-manual-review.mdc`:
 
-Entering this command means Gate B passed, so set `gates.reviewed: true`.
+| Incoming stage | Mode |
+|----------------|------|
+| `awaiting-review` | **advance** — Gate B passed; write `gates.reviewed: true` and advance to `awaiting-test` |
+| `awaiting-test` | **refresh** — re-emit the guide after a fix round; stage stays `awaiting-test` |
 
-## Skip prompt (always ask)
+Any other stage is a mismatch: stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
-Before generating the guide, **always** ask via AskUserQuestion:
+### Refresh mode (`awaiting-test`)
+
+Entered **automatically** — no prompt, no override. A guide refresh after a `/myflow-do-fix` round is a routine operation and must not be routed through the stage-mismatch escape hatch (that same "run anyway" is what would let `/myflow-do` wipe a populated worktree).
+
+In refresh mode:
+
+- Do **not** re-ask the skip question — the decision was made on the advance run. This is what makes `gates.tested: "skipped"` unclobberable.
+- Do **not** rewrite `gates.reviewed` — it is already `true` (or `false` if Gate B was explicitly skipped); carry it forward as found.
+- Preserve every already-checked box, exactly as the refresh rules in step 4 require.
+- Re-emit `stage: awaiting-test` unchanged and carry **all** gates forward untouched.
+- Announce: "refreshed after fix round N".
+
+### Advance mode (`awaiting-review`)
+
+Entering this command from `awaiting-review` means Gate B passed, so set `gates.reviewed: true` — **except** under `/myflow-full skip-review`, where Gate B was explicitly skipped: write `gates.reviewed: false` and note the skip in the summary, so the state never claims a review that never happened.
+
+## Skip prompt (advance mode only — always ask there)
+
+Before generating the guide **on an advance run**, always ask via AskUserQuestion (in refresh mode this prompt is not asked at all):
 
 > **Skip manual testing for this change?**
 > - **No — write the checklist and test it** *(default, recommended)* — normal guide; you run the apps and check boxes.
@@ -43,7 +64,7 @@ Both answers advance the stage to `awaiting-test`. Never default to skip; never 
 ## Pipeline position
 
 ```text
-start → do → manual review (Gate B) → manual test (Gate C) → code review → finish
+start → do → manual review (Gate B) → manual test (Gate C) → code review (commit + PR) → PR review (Gate D, human merges) → finish (Gate E)
 ```
 
 This stage is **Gate C**. It sits after the user has reviewed staged code (Gate B, with optional `/myflow-do-fix` rounds) and before `/myflow-code-review`.
@@ -175,12 +196,19 @@ Do **not** `git commit`. Leave for archive with the rest of the apply work.
 
 ### 5b. Write state
 
-Per **State file** in `rules/myflow-manual-review.mdc`:
+Resolve the state file path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo: **never `git add` it, never commit it.**
+
+**Read the existing file first and carry forward everything this command does not own.** Writes render the whole object, so anything not carried forward would be silently erased:
 
 ```json
 {
   "stage": "awaiting-test",
-  "gates": { "reviewed": true, "tested": <false | "skipped">, "prOpened": null, "prMerged": null },
+  "gates": {
+    "reviewed": <true on advance | false under skip-review | unchanged in refresh mode>,
+    "tested": <false | "skipped" on advance; unchanged in refresh mode>,
+    "prOpened": "<carried forward from the file as read>",
+    "prMerged": "<carried forward from the file as read>"
+  },
   "worktree": "<unchanged>",
   "branch": "<unchanged>",
   "updatedAt": "<ISO-8601 UTC now>",
@@ -188,7 +216,7 @@ Per **State file** in `rules/myflow-manual-review.mdc`:
 }
 ```
 
-Stage it with the guide: `git add openspec/changes/<name>/.myflow-state.json`. Do not commit.
+**Monotonic gates (mandatory).** Never reset `prOpened`/`prMerged` to `null` — carry the read values through verbatim. Never lower `gates.tested`: `true` and `"skipped"` are sticky and this command never demotes them (it only sets `false`/`"skipped"` on a fresh advance run where the prior value was `null`). Never write a `stage` earlier than the one found — from `awaiting-test`, re-emit `awaiting-test`.
 
 ### 6. Present the link only and stop
 
@@ -238,7 +266,9 @@ Skip mode:
 - Do not run `/myflow-code-review` or `/myflow-finish` from this skill.
 - Keep the guide concise and actionable; prefer checklists over essays.
 - **Skip mode never checks a box it didn't verify** — only the `SKIPPED` status line marks the gate bypassed.
-- **Always ask the skip prompt** — never default to skip, never infer it from context. Only `/myflow-full skip-manual-test` may pre-answer it.
+- **Always ask the skip prompt on an advance run** — never default to skip, never infer it from context. Only `/myflow-full skip-manual-test` may pre-answer it. **Never ask it in refresh mode** — that would risk clobbering a recorded `"skipped"`.
+- **Never lower a gate value or rewind the stage** — carry `prOpened`/`prMerged` forward from the file as read; gates are monotonic.
+- **Never `git add` or commit the state file** — it is user-scoped and outside the repo.
 
 ## Commands (user-facing)
 

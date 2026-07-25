@@ -69,7 +69,7 @@ Do not copy `<context>` / `<rules>` blocks from CLI instructions into artifact f
 
 ### Write initial state
 
-Create `<changeRoot>/.myflow-state.json` per **State file** in `rules/myflow-manual-review.mdc`:
+Create the change's state file at the user-scoped path resolved per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`; `mkdir -p` its directory first):
 
 ```json
 {
@@ -82,7 +82,7 @@ Create `<changeRoot>/.myflow-state.json` per **State file** in `rules/myflow-man
 }
 ```
 
-Stage it alongside the other planning artifacts. Do not commit.
+The state file lives **outside** the repo — do **not** `git add` it, commit it, or archive it. Only the planning artifacts under `<changeRoot>` are staged.
 
 ### D. Basic Workflow #3 — Writing plans (mandatory)
 

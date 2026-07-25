@@ -29,11 +29,15 @@ Zero open changes → say so and suggest `/myflow-start`. Stop.
 
 ### 2. Resolve each change's stage
 
-For each change, read the state file:
+For each change, resolve its user-scoped state file path per **State file** in `rules/myflow-manual-review.mdc`, then read it:
 
 ```bash
+MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
+PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
+STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
+
 jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged, .worktree, .branch, .updatedAt, .updatedBy' \
-  openspec/changes/<name>/.myflow-state.json 2>/dev/null
+  "$STATE_FILE" 2>/dev/null
 ```
 
 Then validate against artifacts per **State self-heal** — including its "read artifacts from the apply worktree when one exists" rule. Resolve the worktree **first**, then root every subsequent artifact check there:
@@ -41,9 +45,16 @@ Then validate against artifacts per **State self-heal** — including its "read 
 1. worktree resolution — find the apply worktree for branch `openspec/<name>` in `git worktree list`; if found, treat its path as the artifact root for the rest of this step, otherwise use the main checkout
 2. `tasks.md` (at the resolved root) — count `- [x]` vs `- [ ]` items
 3. `docs/manual-test/<name>.md` (at the resolved root) — exists? contains `**Manual test status:** SKIPPED`? any unchecked boxes?
-4. PR — `gh pr list --head <branch> --state all --json number,state,url` (skip if `gh` is unavailable or the branch was never pushed)
+4. PR — `gh pr list --head <branch> --state all --json number,state,url`, **only when `gh` is installed and the remote is a GitHub host**. Otherwise (Bitbucket, no `gh`, no network, branch never pushed) PR state is **unknown** — report it as unknown and treat it as inconclusive, never as "no PR exists".
 
 If the file is missing, unparseable, or contradicted, infer the stage from artifacts, **rewrite the state file**, and mark the row `⚠`.
+
+**Self-heal is stage-only and monotonic** (per **State file** → gate monotonicity):
+
+- Infer and correct **`stage` only**. Preserve every existing gate value exactly as read.
+- Fill `null` gates **conservatively** — `false`, never `true`.
+- **Never** infer `gates.tested: true`; only `/myflow-code-review` writes that. Never demote `true` or `"skipped"`.
+- **Never write a stage earlier than the one recorded.** A check that cannot be performed is not a contradiction: an undeterminable PR state leaves `awaiting-pr-review` exactly as recorded.
 
 ### 3. Render the table
 
@@ -54,7 +65,7 @@ Sort by stage order (`start`, `awaiting-review`, `awaiting-test`, `awaiting-pr-r
 
 | Change | Stage | Gates | Next | Worktree / branch | Updated |
 |--------|-------|-------|------|------|-----------|
-| user-workout-core | awaiting-test | review ✓ · test ☐ · PR — | `/myflow-code-review` | `.worktrees/user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
+| user-workout-core | awaiting-test | review ✓ · test ☐ · PR — | `/myflow-code-review` | `.worktrees/openspec-user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
 | active-workout-session-editing | start | — | `/myflow-do` | none | 19h ago (/myflow-start) |
 
 ⚠ = state file was stale and has been corrected from artifacts.
@@ -85,8 +96,9 @@ Add below the table:
 
 - **Never** commit, stage, push, merge, or archive.
 - **Never** advance a stage — only correct a stale cache to match artifacts.
+- **Never** rewind a stage, lower a gate value, or infer `gates.tested: true` — self-heal corrects `stage` only and fills `null` gates as `false`.
 - **Never** create a worktree or branch.
-- Report `gh` being unavailable as "PR state unknown" rather than guessing.
+- Report `gh` being unavailable, or a non-GitHub forge, as "PR state unknown" rather than guessing — and never rewind a stage on that unknown.
 - Never guess a stage when artifacts are ambiguous — show `?` and say which check was inconclusive.
 
 ## Commands (user-facing)

@@ -46,13 +46,30 @@ A change is always in exactly one of five stages, recorded in its state file (se
 
 Gates B, C, and D have no "approve" command. Invoking the next stage's command is the signal that the human is satisfied; that command writes the stage advance and sets the gate flag it just cleared:
 
-- `/myflow-manual-test` sets `gates.reviewed: true` on entry (Gate B passed)
+- `/myflow-manual-test` sets `gates.reviewed: true` on entry (Gate B passed) — except under `/myflow-full skip-review`, where it records `false`
 - `/myflow-code-review` reads `gates.tested` (Gate C) and sets `gates.prOpened: true`
 - `/myflow-finish` sets `gates.prMerged: true` after verifying the merge (Gate D)
 
 ## State file
 
-Path: `openspec/changes/<name>/.myflow-state.json`. Committed with the change; moves to archive with it.
+**The state file lives outside the repo, under a user-scoped directory.** It is **never committed, never staged, and never archived** — it is machine-local metadata, not part of the change.
+
+```text
+/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json
+```
+
+`<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `gymie-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous.
+
+**Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and code-review (in the main checkout) two different state files for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `.git` from anywhere, including inside a worktree:
+
+```bash
+MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
+PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
+STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
+mkdir -p "$(dirname "$STATE_FILE")"
+```
+
+Every command resolves the path this way, so the same change maps to the same file from the main checkout and from every worktree.
 
 ```json
 {
@@ -63,7 +80,7 @@ Path: `openspec/changes/<name>/.myflow-state.json`. Committed with the change; m
     "prOpened": null,
     "prMerged": null
   },
-  "worktree": "/Users/tweety53/Projects/gymie/.worktrees/<name>",
+  "worktree": "/Users/tweety53/Projects/gymie/.worktrees/openspec-<name>",
   "branch": "openspec/<name>",
   "updatedAt": "2026-07-25T10:00:00Z",
   "updatedBy": "/myflow-manual-test"
@@ -79,10 +96,14 @@ Path: `openspec/changes/<name>/.myflow-state.json`. Committed with the change; m
 Read it with:
 
 ```bash
-jq -r '.stage' openspec/changes/<name>/.myflow-state.json 2>/dev/null || echo "MISSING"
+jq -r '.stage' "$STATE_FILE" 2>/dev/null || echo "MISSING"
 ```
 
-Write it by rendering the full object above — always write every field, never a partial merge.
+Write it by rendering the full object above — always write every field, never a partial merge. Never `git add` it, never include it in a commit, and never move it into `openspec/changes/archive/`.
+
+**Gate values are monotonic.** No command may lower a gate value. `gates.tested: true` and `gates.tested: "skipped"` are **sticky** — once set they are never overwritten or demoted. No command may write a `stage` earlier than the one it found. A self-heal may only **raise or fill** a value, never lower one, and must **never infer `gates.tested: true`** — only `/myflow-code-review` writes `true`.
+
+Because writes render the whole object, every command must first **read the existing file and carry forward** every gate it does not itself own (e.g. `/myflow-manual-test` re-emits the `prOpened`/`prMerged` values it read, rather than resetting them to `null`).
 
 ## State self-heal
 
@@ -92,13 +113,17 @@ Write it by rendering the full object above — always write every field, never 
 
 | State claim | Contradicted when |
 |-------------|-------------------|
-| `stage: start` | an apply worktree exists, or every task in the worktree's `tasks.md` is checked |
+| `stage: start` | an apply worktree for branch `openspec/<name>` exists; or, when no worktree exists, every task in the main checkout's `tasks.md` is checked |
 | `stage: awaiting-review` | `docs/manual-test/<name>.md` exists and is newer than the last code change |
-| `stage: awaiting-test` | the branch has commits beyond `MERGE_BASE` and a PR exists for it |
-| `stage: awaiting-pr-review` | no PR exists for the branch |
+| `stage: awaiting-test` | the branch has commits beyond `MERGE_BASE` **and** a PR is confirmed to exist for it |
+| `stage: awaiting-pr-review` | PR existence was **conclusively** determined and no PR exists for the branch (a usable PR CLI for the host answered) |
 | `worktree` path | the path is absent from `git worktree list` |
 
+**A check that cannot be performed is not a contradiction.** If PR state cannot be determined (no PR CLI for the host, no network, no remote), treat it as **unknown** and leave the stage as recorded. Never rewind a stage on an inconclusive probe.
+
 When the file is missing, unparseable, or contradicted: fall back to artifact inference, **rewrite the file with the inferred truth**, and announce the correction to the user (`⚠ state corrected: <old> → <new> (reason)`) before continuing. A hand-edited or out-of-band-modified file therefore degrades to the old artifact-inference behavior, never to a wrong answer.
+
+Self-heal obeys the **monotonic gates** rule above: it may only raise or fill values. It infers `stage` only, preserves existing gate values as they stand, fills `null` gates conservatively (`false`, never `true`), and never writes `gates.tested: true`.
 
 ## Stage transitions
 
@@ -109,11 +134,13 @@ Each command declares the stage(s) it accepts:
 | `/myflow-start` | *(none — creates the change at `start`)* |
 | `/myflow-do` | `start` |
 | `/myflow-do-fix` | `awaiting-review`, `awaiting-test`, `awaiting-pr-review` |
-| `/myflow-manual-test` | `awaiting-review` |
+| `/myflow-manual-test` | `awaiting-review` (advance) · `awaiting-test` (**refresh**) |
 | `/myflow-code-review` | `awaiting-test` |
 | `/myflow-finish` | `awaiting-pr-review` |
 | `/myflow-status`, `/myflow-info` | any — read-only, never block |
 | `/myflow-full` | *(composite entry point — drives `start` through the sequence; always stops at Gate D)* |
+
+**`/myflow-manual-test` refresh mode.** When the incoming stage is already `awaiting-test`, the command enters **refresh mode** automatically — no mismatch, no prompt, no override. Refresh mode does not re-ask the skip question (that decision was made on the advance run, which is what makes `"skipped"` unclobberable), does not rewrite `gates.reviewed`, preserves every already-checked box, re-emits `stage: awaiting-test` with all gates carried forward, and announces "refreshed after fix round N".
 
 **On mismatch, stop.** Report the actual stage, the expected stage, and the command that should run instead, then **AskUserQuestion** for an explicit override with **"No — run the suggested command instead"** as the default and recommended answer. Only proceed when the user explicitly chooses to override. Never advance the stage silently from a wrong starting point.
 
@@ -180,6 +207,8 @@ After Gate B (and any Gate B fix rounds) are satisfied, user runs `/myflow-manua
   - **No** → normal guide, unchecked checklist, `gates.tested: false`
   - **Yes** → same guide marked `**Manual test status:** SKIPPED`, every box left unchecked, `gates.tested: "skipped"`
 - Either answer advances the stage to `awaiting-test`. The distinction lives in `gates.tested`, which `/myflow-code-review` reads to tell an intentional bypass from an incomplete checklist.
+- The skip prompt is asked **only on the advance run** (incoming stage `awaiting-review`). In **refresh mode** (incoming stage already `awaiting-test`, i.e. after a fix round) it is not re-asked and `gates.tested` is carried forward untouched.
+- `gates.reviewed` is set `true` only when Gate B actually happened. Under `/myflow-full skip-review`, write `gates.reviewed: false` and note in the summary that Gate B was explicitly skipped — the state must never claim a review that never happened.
 - `/myflow-manual-test-skip` is **retired** — the prompt replaces it.
 
 Do not commit or integrate at Gate C.
@@ -203,7 +232,11 @@ Requires stage `awaiting-test`. After Gate B and Gate C are both satisfied, run 
 - Run verification (tests/linters) with evidence shown.
 - **Commit** all implementation changes, including `docs/manual-test/<name>.md`.
 - **Push the branch and open a PR — then stop.** Do not merge. Do not push directly to the base branch.
-- Write `stage: awaiting-pr-review`, `gates.prOpened: true`; reply with the PR URL.
+- **PR opening is forge-agnostic.** Branch on actual capability, never on the assumption that `gh` exists:
+  1. `gh` installed **and** the remote is a GitHub host → `gh pr create` (and `gh pr list` to detect/reuse an existing PR) → `stage: awaiting-pr-review`, `gates.prOpened: true`.
+  2. A remote exists but there is no usable PR CLI for that host (e.g. Bitbucket, or `gh` missing) → push, print the forge's create-PR URL, and **AskUserQuestion**: "Have you opened the PR?" (default **No**). **Yes** → `stage: awaiting-pr-review`, `gates.prOpened: true` (record the PR URL if the user supplies one; do not block if not). **No** → stay at `awaiting-test`, `gates.prOpened: false`, and say plainly what to do next. Human confirmation is a legitimate substitute for an API probe — the same trust model already used at Gates B and C.
+  3. No remote at all → push is impossible; stop, stay at `awaiting-test`, `gates.prOpened: false`.
+- The state file is **not** committed or pushed — it lives outside the repo (see **State file**).
 
 ## PR review (Gate D)
 
@@ -215,7 +248,8 @@ Requires stage `awaiting-pr-review`.
 
 - **Verify the PR actually merged.** If it is still open, **stop** — archiving a change whose code never reached the base branch is a real drift risk.
 - Archive any nested `<name>-fix-N` sub-changes together with `<name>`.
-- Delta sync (if chosen), archive move, then write `stage: finished`, `gates.prMerged: true`.
+- Delta sync (if chosen), archive move, then write `stage: finished`, `gates.prMerged: true` to the user-scoped state file. The state file is **not** moved into the archive — it stays at its user-scoped path as the terminal record.
+- `gh` may be unavailable; the `git merge-base --is-ancestor` check must remain reachable on its own and is the merge evidence on non-GitHub forges.
 - **Never** commit, run tests, or merge here.
 
 ## Full cycle gates
@@ -230,7 +264,7 @@ Requires stage `awaiting-pr-review`.
 
 ## Opt-out (explicit only)
 
-- `skip-review` on `/myflow-full` — skip Gate B only; Gate C still runs unless also skipped.
+- `skip-review` on `/myflow-full` — skip Gate B only; Gate C still runs unless also skipped. Records `gates.reviewed: false` (Gate B explicitly skipped), never `true`.
 - `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**; code review still runs and still checks coverage.
 - `commit-during-apply` — legacy SDD per-task commits; only when the user explicitly requests it.
 

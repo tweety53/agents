@@ -5,9 +5,9 @@ description: Manual test — generate run guide + functionality checklist MD (Ga
 
 Use the **openspec-manual-test-superpowers** skill (`.claude/skills/openspec-manual-test-superpowers/SKILL.md`).
 
-Follow that skill exactly. Requires stage `awaiting-review`; on mismatch, stop with the standard mismatch handoff. Entering this command means Gate B passed — set `gates.reviewed: true`.
+Follow that skill exactly. Accepts stage `awaiting-review` (**advance** — Gate B passed, set `gates.reviewed: true`) and stage `awaiting-test` (**refresh** after a fix round — entered automatically, no prompt: the skip question is not re-asked, `gates.reviewed` is untouched, checked boxes are preserved, and the stage stays `awaiting-test`). Any other stage: stop with the standard mismatch handoff. Under `/myflow-full skip-review`, record `gates.reviewed: false` — Gate B was explicitly skipped.
 
-**Always ask** (AskUserQuestion, default and recommended **No**) whether to skip manual testing for this change. Either answer generates/refreshes `docs/manual-test/<change-name>.md` with:
+**On an advance run, always ask** (AskUserQuestion, default and recommended **No**) whether to skip manual testing for this change; in refresh mode the question is not asked at all, so a recorded `"skipped"` can never be clobbered. Either answer generates/refreshes `docs/manual-test/<change-name>.md` with:
 
 1. How to run all **involved** apps for this change — **from each app's current apply worktree** (absolute paths in every command; `-PfrontendRoot=…` when KMP is in scope)
 2. A **functionality checklist** derived from specs/design/tasks

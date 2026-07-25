@@ -17,7 +17,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 
 ## When to use this vs `/myflow-do`
 
-- Change has **already completed** `/myflow-do` (worktree exists, tasks mostly/fully checked) and something needs fixing because of a Gate B or Gate C finding → use `/myflow-do-fix`.
+- Change has **already completed** `/myflow-do` (worktree exists, tasks mostly/fully checked) and something needs fixing because of a Gate B, Gate C, or Gate D finding → use `/myflow-do-fix`.
 - Change has never been applied, or you're resuming interrupted/unchecked **original** tasks (not a review/test finding) → use `/myflow-do`.
 
 ## Superpowers Basic Workflow (this stage)
@@ -85,14 +85,14 @@ cd <worktree>
 git add -A
 git commit -m "fix: <what the PR review surfaced>"
 git push
-gh pr view --json url -q .url
+command -v gh >/dev/null 2>&1 && gh pr view --json url -q .url   # GitHub only; skip elsewhere
 ```
 
 Constraints:
 
 - Commit **after** the full strict review panel passes, never before.
 - **Never** merge, never force-push, never amend an already-pushed commit — a reviewer may have commented on it.
-- Reply with the PR URL and tell the user to re-review, then merge.
+- Reply with the PR URL (if `gh` is unavailable for this forge, reply with the branch name and ask the user to open their PR) and tell the user to re-review, then merge.
 
 On mismatch (any other stage), emit the standard mismatch handoff and AskUserQuestion override (default: **No — run the suggested command instead**), per **Stage transitions**.
 
@@ -120,14 +120,14 @@ This decides the section title used in step 4 (`Manual Review Fixes` / `Manual T
 
 **AskUserQuestion** — always ask, never default silently (first option is recommended):
 
-1. **Append to this change's proposal** (Recommended) — adds a `Manual Review Fixes` / `Manual Test Fixes` section to this change's `proposal.md`, plus matching tasks in `tasks.md`. Simplest; one proposal per change.
+1. **Append to this change's proposal** (Recommended) — adds a `Manual Review Fixes` / `Manual Test Fixes` / `PR Review Fixes` section to this change's `proposal.md`, plus matching tasks in `tasks.md`. Simplest; one proposal per change.
 2. **New nested sub-change** — creates a separate OpenSpec change (`<name>-fix-N`) that references this change as its parent, implemented in the **same** worktree/branch, and archived together with the parent later.
 
 ### 4a. Append path
 
-- **proposal.md**: append (never replace existing content) a `## Manual Review Fixes` or `## Manual Test Fixes` section. If that heading already exists from an earlier fix round, do **not** duplicate it — add a dated sub-entry under it instead (`### Fix — YYYY-MM-DD`). Each entry: what was found, why, what changes. Keep it terse — this documents *why*, not a diff. Otherwise follow standard OpenSpec proposal formatting (matches the rest of the file).
-- **tasks.md**: append matching checkbox task(s) under a `## Manual Review Fixes` / `## Manual Test Fixes` heading (create once, append entries on repeat rounds), meeting **writing-plans** quality — exact file paths, verification commands, no placeholders.
-- **specs**: only touch delta spec files if the fix changes *intended* behavior (not just restores it to match the existing spec). Most Gate B/C fixes correct an implementation defect against an already-correct spec and need no spec edit. If the fix reveals genuinely new/changed intended behavior, add an `ADDED`/`MODIFIED` requirement the same way `/myflow-start` would.
+- **proposal.md**: append (never replace existing content) a `## Manual Review Fixes`, `## Manual Test Fixes`, or `## PR Review Fixes` section. If that heading already exists from an earlier fix round, do **not** duplicate it — add a dated sub-entry under it instead (`### Fix — YYYY-MM-DD`). Each entry: what was found, why, what changes. Keep it terse — this documents *why*, not a diff. Otherwise follow standard OpenSpec proposal formatting (matches the rest of the file).
+- **tasks.md**: append matching checkbox task(s) under a `## Manual Review Fixes` / `## Manual Test Fixes` / `## PR Review Fixes` heading (create once, append entries on repeat rounds), meeting **writing-plans** quality — exact file paths, verification commands, no placeholders.
+- **specs**: only touch delta spec files if the fix changes *intended* behavior (not just restores it to match the existing spec). Most Gate B/C/D fixes correct an implementation defect against an already-correct spec and need no spec edit. If the fix reveals genuinely new/changed intended behavior, add an `ADDED`/`MODIFIED` requirement the same way `/myflow-start` would.
 - Show the user the proposed additions before writing (same confirm-before-write discipline as `openspec-update-change`).
 
 ### 4b. Nested sub-change path
@@ -156,7 +156,7 @@ Fix any new Critical/Important findings, then re-run the full panel again until 
 
 ### 7. Stage/commit and hand off (not archive)
 
-Branch on the mode selected in **step 0**. In both branches, write the state file **preserving the incoming stage** — only `updatedAt` and `updatedBy` change (`updatedBy: "/myflow-do-fix"`), and include it in whatever is staged/committed.
+Branch on the mode selected in **step 0**. In both branches, write the state file **preserving the incoming stage** — only `updatedAt` and `updatedBy` change (`updatedBy: "/myflow-do-fix"`); every gate value is carried forward exactly as read (gates are monotonic). Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo — **never stage, commit, or push it.**
 
 **Stage-only mode** (`awaiting-review` or `awaiting-test`) — same as `openspec-apply-superpowers` step 7, in every affected repo/worktree:
 
@@ -187,7 +187,7 @@ Confirm the fix appears under **Changes to be committed** (staged), then stop. *
 - Once Gate B and Gate C are both satisfied: `/myflow-code-review <name>` (coverage check, tests, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (also archives any `<name>-fix-N` nested changes together)
 ```
 
-**Refreshing the guide after a Gate C fix:** `/myflow-manual-test` requires stage `awaiting-review`, so a refresh at `awaiting-test` will hit the stage gate. This is the expected case for the explicit override — choose "run anyway" when the user is refreshing a guide after a fix round. The stage stays `awaiting-test` either way.
+**Refreshing the guide after a Gate C fix:** just run `/myflow-manual-test <name>`. It accepts `awaiting-test` as a first-class stage and enters **refresh mode** automatically — no stage mismatch, no override prompt. It preserves checked boxes, does not re-ask the skip question, and re-emits `stage: awaiting-test` with all gates carried forward.
 
 **PR-fix mode** (`awaiting-pr-review`) — only after the full strict review panel (step 6) is clean, per **PR-fix mode** in step 0:
 
@@ -196,7 +196,7 @@ cd <worktree>
 git add -A
 git commit -m "fix: <what the PR review surfaced>"
 git push
-gh pr view --json url -q .url
+command -v gh >/dev/null 2>&1 && gh pr view --json url -q .url   # GitHub only; skip elsewhere
 ```
 
 Never merge, force-push, or amend. Stop after pushing.
@@ -224,7 +224,7 @@ Never merge, force-push, or amend. Stop after pushing.
 - **Never** create a new worktree or branch — this always resumes the existing apply worktree.
 - **Never** run #7 (`finishing-a-development-branch`) or open/merge a PR — merging is always Gate D, done by the human.
 - **Always** document the fix in OpenSpec artifacts (append or nested) **before** implementing — this is the whole point of this skill over ad hoc reuse of `/myflow-do`.
-- **Never** duplicate a `## Manual Review Fixes` / `## Manual Test Fixes` heading in `proposal.md` or `tasks.md` — append a dated sub-entry to the existing one.
+- **Never** duplicate a `## Manual Review Fixes` / `## Manual Test Fixes` / `## PR Review Fixes` heading in `proposal.md` or `tasks.md` — append a dated sub-entry to the existing one.
 - **Never** archive a nested `<name>-fix-N` change on its own; it archives only together with its parent (see `openspec-archive-superpowers`).
 - **Always** re-run the **full** strict review panel (not a fix-only partial review) before handoff.
 - Do not skip TDD on fix tasks.
@@ -238,7 +238,7 @@ Never merge, force-push, or amend. Stop after pushing.
 
 | Intent | Say |
 |--------|-----|
-| Fix something found in manual review or manual test | `/myflow-do-fix <name>` |
+| Fix something found in manual review, manual test, or PR review | `/myflow-do-fix <name>` |
 | Original (first) apply | `/myflow-do <name>` |
 | After fix, re-test | `/myflow-manual-test <name>` |
 | After both gates satisfied | `/myflow-code-review <name>` (commit + push + open PR) then, after the PR merges (Gate D), `/myflow-finish <name>` |

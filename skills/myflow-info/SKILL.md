@@ -21,7 +21,7 @@ This skill holds **presentation instructions only**. The pipeline content lives 
 cat .cursor/rules/myflow-manual-review.mdc
 ```
 
-Also read `/Users/tweety53/Projects/agents/README.md` for the Basic Workflow step map and the typical-flow walkthrough.
+Also read the agents-data README for the Basic Workflow step map and the typical-flow walkthrough — on this machine `/Users/tweety53/Projects/agents/README.md` (**machine-specific**: it is the sync target of `.cursor/hooks/sync-agents-data.sh`, overridable via `AGENTS_DATA`; if that path does not exist, skip it and use the rule file alone rather than failing).
 
 **Never** answer from memory, and **never** paste a hardcoded pipeline table into this skill file. If the rule file is missing, say so and stop — do not reconstruct it.
 

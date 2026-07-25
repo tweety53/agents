@@ -107,23 +107,55 @@ Invoke **superpowers:finishing-a-development-branch**, but constrain it to the *
 - Open a PR against the base branch (`develop` unless the user says otherwise).
 - **Do not merge.** Do not offer merge, direct push to base, or discard. Gate D is the human's.
 
+**Detect capability first — never assume `gh` exists or that the forge is GitHub:**
+
 ```bash
 cd <worktree>
+git remote get-url origin 2>/dev/null || echo "NO_REMOTE"
+command -v gh >/dev/null 2>&1 && echo "gh: yes" || echo "gh: no"
+```
+
+Then take exactly one of three branches:
+
+**6.1 — `gh` installed AND `origin` is a GitHub host** (`github.com` or a GitHub Enterprise host):
+
+```bash
 git push -u origin openspec/<name>
+gh pr list --head openspec/<name> --state open --json number,url    # reuse if one already exists
 gh pr create --base develop --head openspec/<name> --title "<change title>" --body "<summary + link to proposal>"
 ```
 
-If a PR for this branch already exists (a `/myflow-do-fix` round pushed to it), skip creation and reuse it:
+If a PR for this branch already exists (a `/myflow-do-fix` round pushed to it), skip creation and reuse it. → PR is open: `stage: awaiting-pr-review`, `gates.prOpened: true`.
+
+**6.2 — a remote exists but there is no usable PR CLI for that host** (Bitbucket, GitLab without `glab`, or `gh` simply not installed — **this project's case**: `origin` is Bitbucket and `gh` is not installed):
 
 ```bash
-gh pr list --head openspec/<name> --state open --json number,url
+git push -u origin openspec/<name>
 ```
 
-If the user's setup has no forge remote, say so and stop at "pushed, no PR opened" — record `gates.prOpened: false` and tell the user to open the PR manually. Do not fall back to merging.
+Then derive the forge's create-PR URL from the `origin` URL, handling both SSH (`git@host:<workspace>/<repo>.git`) and HTTPS (`https://host/<workspace>/<repo>.git`) forms, and print it:
+
+- Bitbucket: `https://bitbucket.org/<workspace>/<repo>/pull-requests/new?source=openspec/<name>&t=1`
+- GitLab: `https://<host>/<workspace>/<repo>/-/merge_requests/new?merge_request[source_branch]=openspec/<name>`
+
+Then **AskUserQuestion**:
+
+> **Have you opened the PR?**
+> - **No — not yet** *(default, recommended)*
+> - **Yes — the PR is open**
+
+- **Yes** → the human's confirmation is the evidence (the same trust model already used at Gates B and C): `stage: awaiting-pr-review`, `gates.prOpened: true`. Ask for the PR URL and record it in the summary if they have it; **do not block** if they don't.
+- **No** → stay at `awaiting-test`, `gates.prOpened: false`. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-code-review <name>` (it will skip straight to this step) or confirm on the next run.
+
+**Never** substitute a merge or a direct push to `develop`/`main` for opening a PR in this branch.
+
+**6.3 — no remote at all:** pushing is impossible. Stop, stay at `awaiting-test`, `gates.prOpened: false`, and tell the user to add a remote. Do not fall back to merging.
 
 ### 6b. Write state
 
-**If step 6 opened (or reused) a PR:**
+Resolve the state file path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo: **never `git add` it, never commit it, never push it.**
+
+**If branch 6.1 opened/reused a PR, or branch 6.2 got a "Yes":**
 
 ```json
 {
@@ -136,7 +168,7 @@ If the user's setup has no forge remote, say so and stop at "pushed, no PR opene
 }
 ```
 
-**If step 6 hit the no-forge-remote case (pushed, no PR opened):** do not advance the stage — a PR doesn't exist yet, so `awaiting-pr-review` would be false on write and immediately flagged by the rule file's own self-heal table. Leave the change at `awaiting-test`, and say plainly that it does not advance to Gate D until a PR actually exists:
+**If branch 6.2 got a "No", or branch 6.3 applied (no PR exists yet):** do not advance the stage — `awaiting-pr-review` would be a false claim. Leave the change at `awaiting-test` and say plainly that it does not advance to Gate D until a PR actually exists:
 
 ```json
 {
@@ -149,18 +181,9 @@ If the user's setup has no forge remote, say so and stop at "pushed, no PR opene
 }
 ```
 
-Include this file in the commit made in step 5 if it is written before committing; otherwise commit it in a small follow-up commit — the state file must not be left as the only uncommitted change on a PR branch.
+**Carry gates forward.** Read the existing state file first and preserve every gate this command does not own. Gate values are **monotonic** — never lower `gates.reviewed`, never overwrite `gates.tested: "skipped"`, never write a stage earlier than the one found.
 
-**This project writes it as a follow-up commit.** The state file's `gates.prOpened`/`prMerged` and `stage` values are only known once step 6 has actually pushed and (re)confirmed the PR (or confirmed there is no forge remote), which happens after step 5's commit — so step 6b commits and pushes the state file on its own, after step 6:
-
-```bash
-cd <worktree>
-git add openspec/changes/<name>/.myflow-state.json
-git commit -m "chore(<name>): advance to awaiting-pr-review"
-git push
-```
-
-(Omit the `git push` only in the no-forge-remote case if there is truly no remote configured at all; if a remote exists but simply has no PR-hosting forge, still push the commit.)
+There is no state commit and no follow-up commit: the state file is user-scoped and outside the repo, so step 5's code commit is the only commit this stage makes.
 
 ### 7. Summary
 
@@ -174,7 +197,7 @@ git push
 **Committed:** ✓
 **Tests/linters:** ✓ (commands run)
 **Pushed:** ✓ openspec/<name>
-**PR:** <url> — **open, not merged**
+**PR:** <url> — **open, not merged** | opened by you, URL not recorded | **not opened yet** — create it at <compare-url>, still at `awaiting-test`
 
 **What to do (Gate D):**
 1. Review the PR at the link above
@@ -193,7 +216,10 @@ git push
 - Never mark verification complete with failing tests unless the user explicitly overrides after seeing failures.
 - **Never merge.** This stage pushes and opens a PR; merging is Gate D, done by the human.
 - **Never push directly to `develop`/`main`** as a substitute for opening a PR.
-- **Always write `stage: awaiting-pr-review`** before handing off.
+- **Never assume `gh` is installed or that the forge is GitHub** — detect capability (step 6) and use the confirmation branch otherwise.
+- **Never `git add`, commit, or push the state file** — it is user-scoped and outside the repo.
+- **Write `stage: awaiting-pr-review` only when a PR actually exists** (created by `gh`, or confirmed by the human); otherwise stay at `awaiting-test` with `gates.prOpened: false`.
+- **Never lower a gate value** — gates are monotonic; `gates.tested: "skipped"`/`true` are sticky.
 - Do not force-push or amend unless user rules allow.
 - Do not archive here — that is `/myflow-finish`'s job.
 

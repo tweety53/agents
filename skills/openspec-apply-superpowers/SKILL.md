@@ -199,7 +199,7 @@ git diff --cached --stat
 - Confirm implementation files appear under **Changes to be committed** (staged), not only as unstaged/untracked.
 - If a sibling repo was modified outside the main worktree, stage there too and list each path in the handoff.
 
-Write the state file per **State file** before handing off:
+Write the state file before handing off. Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`) — resolving via `--git-common-dir` is what makes the worktree and the main checkout agree on one file:
 
 ```json
 {
@@ -212,7 +212,7 @@ Write the state file per **State file** before handing off:
 }
 ```
 
-Include it in the `git add -A` so it is staged with the rest of the work.
+The state file lives **outside** the repo — do not `git add` it, do not commit it, and do not archive it. Carry forward any gate values already present in the file; gates are monotonic.
 
 Stop here.
 
@@ -250,7 +250,7 @@ Stop here.
 - **Never skip** Basic Workflow steps #2–#6 when implementing.
 - **Never commit, push, merge, or open a PR** during apply unless user explicitly passed `commit-during-apply`.
 - **Always check the incoming stage first** (step 0) — never start applying a change that is past `start` without an explicit user override.
-- **Always write `stage: awaiting-review`** before the Gate B handoff, and stage the state file.
+- **Always write `stage: awaiting-review`** before the Gate B handoff — to the user-scoped state file, which is **never staged or committed**.
 - **Always `git add -A`** (stage) in every affected repo before Gate B handoff — so the IDE shows the changes.
 - **Never** run `finishing-a-development-branch` (#7) during apply.
 - Do not use the lightweight openspec-apply-change step-6 loop.
