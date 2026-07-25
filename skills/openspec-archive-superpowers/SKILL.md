@@ -1,15 +1,15 @@
 ---
 name: openspec-archive-superpowers
-description: Finish stage — validate the branch is merged into main/develop, sync delta specs into main specs, archive the OpenSpec change. Use for /myflow-finish.
+description: Finish stage — verify the PR actually merged (Gate D), sync delta specs into main specs, archive the OpenSpec change. Use for /myflow-finish.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
   author: gymie
-  version: "4.0"
+  version: "5.0"
 ---
 
-Finish an OpenSpec change **after code review (`/myflow-code-review`)**: validate the branch actually landed on `main`/`develop`, sync delta specs into main specs, and archive the change. This is the last stage in myflow.
+Finish an OpenSpec change **after code review (`/myflow-code-review`) and the human's PR review + merge (Gate D)**: verify the PR actually merged, sync delta specs into main specs, and archive the change. This is the last stage in myflow.
 
 **Announce at start:** "Using openspec-archive-superpowers for change `<name>`."
 
@@ -18,10 +18,10 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 ## Pipeline position
 
 ```text
-... → manual test (Gate C) → code review (commit + #7) → finish (this skill)
+... → manual test (Gate C) → code review (commit + PR, no merge) → PR review (Gate D, human merges) → finish (this skill)
 ```
 
-Commit, verification, and Basic Workflow **#7** (branch finishing) already happened in `/myflow-code-review`. This skill assumes that already happened and **verifies** it, rather than doing it — it never commits, tests, or merges anything itself.
+`/myflow-code-review` committed, pushed, and opened the PR, then deliberately stopped — it never merges. Merging is a **human** action (Gate D) that happens on the forge, outside myflow, and may simply not have happened yet: an open PR is the normal, expected state when this skill runs, not an anomaly. This skill only **verifies** the PR merged and archives; it never commits, tests, merges, or pushes anything itself.
 
 ## Required sub-skills
 
@@ -31,24 +31,35 @@ Optional: **openspec-sync-specs** when the user chooses to sync delta specs to m
 
 ## Workflow
 
+### 0. Check stage
+
+Requires stage **`awaiting-pr-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+
+- At `awaiting-test` → recommend `/myflow-code-review <name>` first.
+- At `finished` → already archived; stop.
+
 ### 1. Select change and validate it's ready to finish
 
 - Use the provided name. **If omitted:** run `openspec list --json`, filter to changes that have gone through code review (committed, no longer just staged-and-uncommitted). Exactly one match → use it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → stop, suggest `/myflow-code-review <name>`.
 - Announce: "Finishing change: `<name>`."
 - Locate the apply worktree/branch (`openspec/<name>` or path from progress ledger).
 
-**Validate the branch is actually merged into `main`/`develop`** — this replaces the inline #7 step that used to live here:
+**Verify the PR actually merged** — `/myflow-code-review` opened it but deliberately did not merge it (Gate D is the human's):
 
 ```bash
 cd <main-repo-checkout>
 git fetch origin
-git merge-base --is-ancestor openspec/<name> <base-branch> && echo "merged"
+gh pr list --head openspec/<name> --state all --json number,state,mergedAt,url
+git merge-base --is-ancestor origin/openspec/<name> origin/<base-branch> && echo "merged"
 ```
 
-- **Merged** (command prints "merged", or the PR shows merged on the forge): continue.
-- **Open PR, not yet merged**: **stop** — this isn't ready to finish. Wait for the PR to merge, or ask the user how they want to proceed.
-- **Branch kept as-is** (user chose "keep branch" at `/myflow-code-review`'s #7 step, deliberately deferring integration): **AskUserQuestion** — finishing now will archive the OpenSpec change while the code isn't on `<base-branch>` yet; confirm this is intentional before proceeding, or stop and suggest finishing #7 first via `/myflow-code-review <name>`.
-- **No commits found at all** (evidence #7 never ran): **stop** — suggest `/myflow-code-review <name>` first.
+- **PR state `MERGED`** (or the ancestor check prints "merged"): continue.
+- **PR still `OPEN`**: **stop.** This is the normal, expected block — Gate D has not happened yet. Tell the user to review and merge the PR, then re-run. Do not offer to merge it for them.
+- **PR `CLOSED` unmerged**: stop and ask what happened — the work was abandoned or superseded.
+- **No PR and no merge evidence**: stop — suggest `/myflow-code-review <name>` first.
+- **User insists on archiving unmerged** (deliberate, e.g. the work landed another way): **AskUserQuestion** confirming that archiving without the code on `<base-branch>` is intentional. Default: **No**.
+
+If `gh` is unavailable, say so honestly and fall back to the `git merge-base --is-ancestor` check alone — never guess `MERGED`.
 
 ### 2. OpenSpec pre-archive checks
 
@@ -79,6 +90,20 @@ Follow **openspec-archive-change** step 5:
 - Target: `<planningHome.changesDir>/archive/YYYY-MM-DD-<name>`
 - Fail if target exists; otherwise move `changeRoot`.
 - **If nested `<name>-fix-N` sub-changes were found in step 2**, archive each of them the same way, in the same session, right alongside `<name>` (same date). Do not stop after archiving the parent while a nested fix remains unarchived.
+- Before moving the directory, write the terminal state into `<changeRoot>/.myflow-state.json` so the archived copy records how it ended:
+
+```json
+{
+  "stage": "finished",
+  "gates": { "reviewed": true, "tested": <as recorded>, "prOpened": true, "prMerged": true },
+  "worktree": null,
+  "branch": "openspec/<name>",
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-finish"
+}
+```
+
+Set `worktree` to `null` — the worktree is removed or stale after finishing. The file moves into the archive with the rest of `changeRoot`. Write the same terminal state into each nested `<name>-fix-N` change before archiving it.
 
 ### 4. Summary
 
@@ -87,15 +112,16 @@ Follow **openspec-archive-change** step 5:
 
 **Change:** <name>
 **Nested fixes archived:** <name>-fix-1, <name>-fix-2, ... | none
-**Integration verified:** merged into <base-branch> | PR <url> merged | deferred (user override)
+**PR:** <url> — merged <date> | archived unmerged (user override)
 **Archived to:** <path>
 **Specs:** <synced | skipped | none>
 ```
 
 ## Guardrails
 
-- **Never commit, run tests, or run #7 here** — that already happened in `/myflow-code-review`; this skill only verifies it landed.
-- **Never archive a branch that's still an open, unmerged PR** without explicit user confirmation.
+- **Never commit, run tests, merge, or push here** — code review opened the PR and the human merged it; this skill only verifies and archives.
+- **Never archive while the PR is still open** without an explicit user override.
+- **Always write `stage: finished`** into the change (and every nested fix) before the archive move.
 - Always show incomplete task/artifact warnings before archive.
 - Preserve `.openspec.yaml` in the archived directory (moves with change).
 - **Never archive a nested `<name>-fix-N` sub-change on its own** — if the user names a fix change directly, redirect to archiving its parent (`<name>`), which pulls the fix along with it.
