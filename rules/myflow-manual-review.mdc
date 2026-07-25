@@ -88,9 +88,11 @@ Write it by rendering the full object above — always write every field, never 
 
 **Artifacts are the source of truth; the state file is a cache.** Every command reads the file first, then validates it against on-disk artifacts:
 
+**Read artifacts from the apply worktree when one exists.** A change's real progress lives in its worktree, and `tasks.md` there is routinely ahead of the committed copy in the main checkout. Resolve the worktree from `git worktree list` (branch `openspec/<name>`) and read `tasks.md`, `docs/manual-test/<name>.md`, and git state from **that** root. Fall back to the main checkout only when no worktree exists. Reading the main checkout while a worktree holds uncommitted work reports a change as far less advanced than it is — and can invite a `/myflow-do` re-run against real staged work.
+
 | State claim | Contradicted when |
 |-------------|-------------------|
-| `stage: start` | every task in `tasks.md` is checked, or an apply worktree exists |
+| `stage: start` | an apply worktree exists, or every task in the worktree's `tasks.md` is checked |
 | `stage: awaiting-review` | `docs/manual-test/<name>.md` exists and is newer than the last code change |
 | `stage: awaiting-test` | the branch has commits beyond `MERGE_BASE` and a PR exists for it |
 | `stage: awaiting-pr-review` | no PR exists for the branch |

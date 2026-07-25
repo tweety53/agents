@@ -36,11 +36,11 @@ jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged,
   openspec/changes/<name>/.myflow-state.json 2>/dev/null
 ```
 
-Then validate against artifacts per **State self-heal**. Check, in order:
+Then validate against artifacts per **State self-heal** — including its "read artifacts from the apply worktree when one exists" rule. Resolve the worktree **first**, then root every subsequent artifact check there:
 
-1. `tasks.md` — count `- [x]` vs `- [ ]` items
-2. apply worktree — is `.worktree` present in `git worktree list`?
-3. `docs/manual-test/<name>.md` — exists? contains `**Manual test status:** SKIPPED`? any unchecked boxes?
+1. worktree resolution — find the apply worktree for branch `openspec/<name>` in `git worktree list`; if found, treat its path as the artifact root for the rest of this step, otherwise use the main checkout
+2. `tasks.md` (at the resolved root) — count `- [x]` vs `- [ ]` items
+3. `docs/manual-test/<name>.md` (at the resolved root) — exists? contains `**Manual test status:** SKIPPED`? any unchecked boxes?
 4. PR — `gh pr list --head <branch> --state all --json number,state,url` (skip if `gh` is unavailable or the branch was never pushed)
 
 If the file is missing, unparseable, or contradicted, infer the stage from artifacts, **rewrite the state file**, and mark the row `⚠`.
