@@ -1,6 +1,6 @@
 ---
 name: openspec-full-cycle-superpowers
-description: Run full OpenSpec start → do (#2–#6) → manual review → manual test → code review (commit+push+PR) → Gate D, stop. Use for /myflow-full. /myflow-finish is a separate, human-initiated step after the PR is merged.
+description: Run full OpenSpec start → do (#2–#6) → manual review → manual test → review (commit+push+PR) → Gate D, stop. Use for /myflow-full. /myflow-finish is a separate, human-initiated step after the PR is merged.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
@@ -9,7 +9,7 @@ metadata:
   version: "5.0"
 ---
 
-Run **start → do (#2–#6) → manual review (Gate B) → manual test (Gate C, skip prompt) → code review (commit + push + PR) → Gate D — STOP** with user gates. Gate B and Gate C each support an inline `/myflow-do-fix` loop before continuing — repeat as many times as needed.
+Run **start → do (#2–#6) → manual review (Gate B) → manual test (Gate C, skip prompt) → review (commit + push + PR) → Gate D — STOP** with user gates. Gate B and Gate C each support an inline `/myflow-do-fix` loop before continuing — repeat as many times as needed.
 
 **The cycle always stops at Gate D with an open PR.** Merging is a human action performed on the forge, outside myflow — a composite command cannot automate past it. `/myflow-finish` is always a separate, human-initiated command run **after** the human merges the PR; this command never invokes it.
 
@@ -27,9 +27,9 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 | **4** | subagent-driven-development | Do (+ Do-fix rounds) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
 | **5** | test-driven-development | Do (+ Do-fix rounds, every task) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
 | **6** | requesting-code-review + strict panel (Bugbot, Security, Adversarial, Senior, Economic Senior) | Do (+ Do-fix rounds, full re-run each time) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
-| **7** | finishing-a-development-branch — **commit + push + open PR only, no merge** | Code review | openspec-code-review-superpowers |
+| **7** | finishing-a-development-branch — **commit + push + open PR only, no merge** | Review | openspec-review-superpowers |
 
-**Mandatory:** Steps #1–#6 run in start/do/do-fix; none may be skipped. **Code review runs the commit + push + open-PR portion of #7** and then stops — it never merges. The human merges the PR at Gate D, outside myflow.
+**Mandatory:** Steps #1–#6 run in start/do/do-fix; none may be skipped. **Review runs the commit + push + open-PR portion of #7** and then stops — it never merges. The human merges the PR at Gate D, outside myflow.
 
 ## Required sub-skills (in order)
 
@@ -37,7 +37,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 2. **openspec-apply-superpowers** — #2, #3 validate, #4–#6 (stage with `git add`, no commits, no #7)
 3. **openspec-apply-fix-superpowers** — inline fix rounds at Gate B and Gate C (optional, repeatable)
 4. **openspec-manual-test-superpowers** — Gate C guide (`docs/manual-test/<name>.md`, link only); always asks the skip prompt itself
-5. **openspec-code-review-superpowers** — test coverage check + verification + commit + push + open PR (never merges)
+5. **openspec-review-superpowers** — test coverage check + verification + commit + push + open PR (never merges)
 
 Each stage delegates to its bridge skill; do not reimplement steps inline. `openspec-archive-superpowers` (the `/myflow-finish` skill) is deliberately **not** in this list — this cycle never reaches it; the human invokes `/myflow-finish` separately after merging.
 
@@ -52,7 +52,7 @@ Each stage delegates to its bridge skill; do not reimplement steps inline. `open
 | `skip-propose` | Start from `/myflow-do` using existing artifacts |
 | `propose-only` | Stop after planning artifacts (Gate A) |
 | `skip-review` | Skip Gate B only; Gate C still runs. Records `gates.reviewed: false` (Gate B explicitly skipped) — never `true` |
-| `skip-manual-test` | Pre-answers the Gate C skip prompt with **Yes**; code review still runs and still checks coverage |
+| `skip-manual-test` | Pre-answers the Gate C skip prompt with **Yes**; review still runs and still checks coverage |
 | `commit-during-apply` | Legacy per-task SDD commits |
 
 `no-archive` is **removed** — the cycle no longer reaches archiving, so the flag had no effect.
@@ -88,7 +88,7 @@ Invoke **openspec-apply-superpowers** for `<name>`.
 
 If blocked mid-apply: stop; report progress. Resume with `/myflow-full <name> skip-propose` or `/myflow-do <name>`.
 
-**Gate B — Manual code review (+ optional fix loop)**
+**Gate B — Manual review (+ optional fix loop)**
 
 After do completes (#2–#6), **stop** unless user passed `skip-review`.
 
@@ -118,18 +118,18 @@ Either answer advances to `awaiting-test`; the distinction lives in `gates.teste
 
 Use **AskUserQuestion**:
 
-- "Manual test guide ready. Run the apps, complete the checklist. Anything to fix, or continue to code review?"
-- Options: **Continue to code review** (recommended), **Fix something (`/myflow-do-fix`)**, **Stop here**
+- "Manual test guide ready. Run the apps, complete the checklist. Anything to fix, or continue to review?"
+- Options: **Continue to review** (recommended), **Fix something (`/myflow-do-fix`)**, **Stop here**
 
 If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate C fix). Since the fix may touch tested behavior, refresh the guide by invoking **openspec-manual-test-superpowers** again afterward — at stage `awaiting-test` it enters **refresh mode** automatically (no stage-mismatch prompt, no override, skip question not re-asked, checked boxes preserved) — then return to this question. Repeat as many rounds as needed.
 
-If **Stop here**: exit with guide path and `/myflow-code-review <name>` hint.
+If **Stop here**: exit with guide path and `/myflow-review <name>` hint.
 
 **Do not commit or run #7 at Gate C.**
 
-### Phase D — Code review: coverage + verify + commit + push + open PR — STOP (Gate D)
+### Phase D — Review: coverage + verify + commit + push + open PR — STOP (Gate D)
 
-Invoke **openspec-code-review-superpowers** for `<name>`.
+Invoke **openspec-review-superpowers** for `<name>`.
 
 If it finds coverage gaps, it will prompt for `/myflow-do-fix <name>` itself — that's an internal step of this phase, not a separate full-cycle gate.
 
@@ -143,10 +143,10 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 **Change:** <name>
 **Basic Workflow:** #1 ✓ #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ #7 (commit+push+PR, no merge) ✓
 **Started:** ✓ (or skipped)
-**Applied (do):** ✓ N/N tasks (staged + uncommitted until code review)
+**Applied (do):** ✓ N/N tasks (staged + uncommitted until review)
 **Manual review (Gate B):** ✓ (or skipped via skip-review) — <M> fix round(s)
 **Manual test (Gate C):** ✓ ran | ✓ skipped (skip-manual-test pre-answered the prompt) — <M> fix round(s)
-**Code review:** ✓ coverage checked, tests/linters green, committed, pushed
+**Review:** ✓ coverage checked, tests/linters green, committed, pushed
 **PR:** <url> — **open, not merged**
 
 **What to do (Gate D):**
@@ -164,8 +164,8 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 | Proposal done | `/myflow-do <name>` or `/myflow-full <name> skip-propose` |
 | Do done, awaiting review | Review diff; `/myflow-do-fix <name>` if needed; then `/myflow-manual-test <name>` |
 | Ready to test | `/myflow-manual-test <name>` |
-| Testing done | `/myflow-code-review <name>` |
-| Code review done, PR open | Review + merge the PR yourself (Gate D), then `/myflow-finish <name>` |
+| Testing done | `/myflow-review <name>` |
+| Review done, PR open | Review + merge the PR yourself (Gate D), then `/myflow-finish <name>` |
 | Partial do | `/myflow-do <name>` (SDD ledger resumes) |
 | Gate B/C/D finding | `/myflow-do-fix <name>` |
 
@@ -175,7 +175,7 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 - **Always stop** at Gate B for manual review unless user passed `skip-review`; loop on fix requests until the user chooses to continue or stop.
 - **Always** let Gate C's skip prompt run; `skip-manual-test` pre-answers it with Yes (announce this) instead of bypassing the phase. Loop on fix requests (refreshing the guide after each fix) until the user chooses to continue or stop.
 - **Never commit, push, merge, or run #7** during do or do-fix (unless `commit-during-apply`).
-- **Code review commits, pushes, and opens a PR — it never merges.** The cycle always stops at Gate D.
+- **Review commits, pushes, and opens a PR — it never merges.** The cycle always stops at Gate D.
 - **Never invoke `/myflow-finish` from this cycle.** It is always a separate, human-initiated command run after the PR is merged.
 - Do not substitute OpenSpec-only loops for #4–#6.
 - Prefer stage bridge skills over one unstructured session.
@@ -187,7 +187,7 @@ This phase **commits, pushes, and opens a PR — it never merges**. The cycle en
 | Full cycle with gates, ending at Gate D | `/myflow-full <name>` + what to build |
 | Proposal exists | `/myflow-full <name> skip-propose` |
 | Propose only (#1 + #3) | `/myflow-full <name> propose-only` |
-| Skip manual code review | `/myflow-full <name> skip-review` |
+| Skip manual review | `/myflow-full <name> skip-review` |
 | Pre-answer the Gate C skip prompt with Yes | `/myflow-full <name> skip-manual-test` |
 
 Individual stages:
@@ -196,5 +196,5 @@ Individual stages:
 - `/myflow-do <name>` — #2–#6 (stage for IDE; no commits)
 - `/myflow-do-fix <name>` — fix a Gate B/C/D finding (documents it first)
 - `/myflow-manual-test <name>` — Gate C guide MD; always asks the skip prompt
-- `/myflow-code-review <name>` — coverage check, tests/linters, commit, push, open PR (never merges)
+- `/myflow-review <name>` — coverage check, tests/linters, commit, push, open PR (never merges)
 - `/myflow-finish <name>` — separate, human-initiated: verify merged, sync specs, archive

@@ -36,7 +36,7 @@ Read the rule file's **Pipeline stages**, **State file**, **Stage transitions**,
 ```
 ## myflow pipeline
 
-start → do → manual review (Gate B) → manual test (Gate C) → code review → PR review (Gate D) → finish (Gate E)
+start → do → manual review (Gate B) → manual test (Gate C) → review → PR review (Gate D) → finish (Gate E)
 
 ### Stages
 <the Pipeline stages table, from the rule file>

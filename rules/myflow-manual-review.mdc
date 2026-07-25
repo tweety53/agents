@@ -250,7 +250,7 @@ Paths are absolute, resolved from `git worktree list`. Never emit a relative pat
 - Per-task and final automated review (#6): review **working tree** diffs (`git diff TASK_BASE`, `git diff MERGE_BASE`), not commit ranges.
 - Final #6 is a **strict multi-agent panel**: primary `requesting-code-review` **plus 5 additional** separate agents (Bugbot, Security Review, Adversarial, Senior engineer, Economic senior engineer). The economic senior **must** use the provider's economy-tier model (e.g. Grok parent → `composer-2.5-fast`). Do not skip or collapse them. Re-run the full panel after fixes.
 - Progress ledger: `Task N: complete (uncommitted, review clean)` — not commit SHAs.
-- Before handoff: in every affected repo/worktree, `git add -A` (respects `.gitignore`), confirm `git status` shows changes as **staged**, then hand off worktree path + review commands; tell user to run `/myflow-manual-test <name>` after code review, then `/myflow-review` after testing.
+- Before handoff: in every affected repo/worktree, `git add -A` (respects `.gitignore`), confirm `git status` shows changes as **staged**, then hand off worktree path + review commands; tell user to run `/myflow-manual-test <name>` after manual review, then `/myflow-review` after testing.
 - **Guard against a mistaken re-run:** if `<name>` already has an apply worktree and looks like it's already past do (a manual-test guide exists, or a clean final-review-panel record exists, or every original task is checked), **AskUserQuestion** before proceeding — did the user mean `/myflow-do-fix` instead? Default/recommended answer: **No, use `/myflow-do-fix`**. Only continue with a fresh/expanded `/myflow-do` run if the user explicitly picks **Yes**.
 
 ## Manual review (Gate B)
@@ -347,7 +347,7 @@ Requires stage `review-done`.
 | Gate | When | Default action |
 |------|------|----------------|
 | A | After proposal | User approves plan before do (`/myflow-start-done` is a separate human confirmation — `/myflow-full` never invokes it) |
-| B | After do | **Manual code review** — stop; inline `/myflow-do-fix` loop available (`/myflow-do-done` and `/myflow-do-manual-review` are human confirmations — `/myflow-full` never invokes them) |
+| B | After do | **Manual review** — stop; inline `/myflow-do-fix` loop available (`/myflow-do-done` and `/myflow-do-manual-review` are human confirmations — `/myflow-full` never invokes them) |
 | C | After `/myflow-manual-test` | **Manual testing** — stop; inline `/myflow-do-fix` loop available |
 | D | After `/myflow-review` | **Human PR review + merge** — stop; `/myflow-full` always ends here, unless the user explicitly ran it with `automerge`, in which case there is no PR to stop at and the cycle ends at `review-done` |
 | E | `/myflow-finish` | Verify merged + sync + archive (user invoked) |

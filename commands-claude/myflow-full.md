@@ -1,11 +1,11 @@
 ---
 model: sonnet
-description: Full cycle — start → do → manual review → manual test → code review → Gate D (PR open, stop)
+description: Full cycle — start → do → manual review → manual test → review → Gate D (PR open, stop)
 ---
 
 Use the **openspec-full-cycle-superpowers** skill (`.claude/skills/openspec-full-cycle-superpowers/SKILL.md`).
 
-Follow that skill exactly. Pipeline: **start → do (#2–#6, no commits) → Gate B manual review (optional `/myflow-do-fix` loop) → Gate C manual test (skip prompt; optional `/myflow-do-fix` loop) → code review (coverage check, commit + push + open PR) → Gate D — STOP**.
+Follow that skill exactly. Pipeline: **start → do (#2–#6, no commits) → Gate B manual review (optional `/myflow-do-fix` loop) → Gate C manual test (skip prompt; optional `/myflow-do-fix` loop) → review (coverage check, commit + push + open PR) → Gate D — STOP**.
 
 `/myflow-full` always ends at Gate D with an open, unmerged PR. Merging is a human action on the forge; myflow never automates it. `/myflow-finish <name>` (verify merged, sync specs, archive) is always a separate command you run yourself after merging — this command never invokes it.
 
@@ -17,4 +17,4 @@ Also follow `.cursor/rules/myflow-manual-review.mdc`.
 
 **Model note:** this command runs on Sonnet throughout, including Phase A brainstorming — the `model:` frontmatter only applies to the outer command, not per-phase sub-skill calls. For brainstorming-heavy new work, prefer running `/myflow-start` standalone (Opus) first, then `/myflow-full <name> skip-propose` for the rest.
 
-**Stages (individual):** `/myflow-start` (#1+#3), `/myflow-do` (#2–#6), manual review (Gate B), `/myflow-do-fix` (Gate B/C/D fixes), `/myflow-manual-test` (Gate C, always asks the skip prompt), `/myflow-code-review` (coverage+commit+push+PR, Gate D), `/myflow-finish` (separate, human-initiated: verify merged+sync+archive)
+**Stages (individual):** `/myflow-start` (#1+#3), `/myflow-do` (#2–#6), manual review (Gate B), `/myflow-do-fix` (Gate B/C/D fixes), `/myflow-manual-test` (Gate C, always asks the skip prompt), `/myflow-review` (coverage+commit+push+PR, Gate D), `/myflow-finish` (separate, human-initiated: verify merged+sync+archive)

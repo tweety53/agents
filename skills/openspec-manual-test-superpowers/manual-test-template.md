@@ -10,7 +10,7 @@ Copy this structure into `docs/manual-test/<change-name>.md`. Replace every `<�
 **Purpose:** <one sentence from proposal>
 **Branch / worktree:** `<branch>` · backend `<BACKEND_ROOT>` · frontend `<FRONTEND_ROOT>` · admin `<ADMIN_ROOT>`
 **(Omit frontend/admin path segments when out of scope.)**
-**Next after sign-off:** `/myflow-code-review <change-name>`
+**Next after sign-off:** `/myflow-review <change-name>`
 <!-- Skip mode only: add a line here — **Manual test status:** SKIPPED — YYYY-MM-DD (Gate C intentionally bypassed) -->
 <!-- and leave every checklist / sign-off box below unchecked. -->
 
@@ -109,5 +109,5 @@ cd <FRONTEND_ROOT>
 
 - [ ] All checklist items above verified on a running local stack
 - [ ] No blocking bugs found (or filed / fixed via `/myflow-do-fix`)
-- [ ] Ready for `/myflow-code-review <change-name>`
+- [ ] Ready for `/myflow-review <change-name>`
 ```

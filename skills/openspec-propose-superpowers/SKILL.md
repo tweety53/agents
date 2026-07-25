@@ -100,7 +100,7 @@ Invoke **superpowers:writing-plans** with inputs:
 Add this header to `tasks.md`:
 
 ```markdown
-> **Execution:** `/myflow-do` runs Basic Workflow #2–#6 via `openspec-apply-superpowers` (#7 runs later, in `/myflow-code-review`). Mark each checkbox when its task passes spec + quality review (SDD #6).
+> **Execution:** `/myflow-do` runs Basic Workflow #2–#6 via `openspec-apply-superpowers` (#7 runs later, in `/myflow-review`). Mark each checkbox when its task passes spec + quality review (SDD #6).
 ```
 
 ### E. Finish

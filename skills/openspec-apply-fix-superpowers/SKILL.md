@@ -184,7 +184,7 @@ Confirm the fix appears under **Changes to be committed** (staged), then stop. *
 - If this was a Gate B fix: manual review again on the updated staged diff, then continue to `/myflow-manual-test <name>` (Gate C)
 - If this was a Gate C fix: refresh the guide first — `/myflow-manual-test <name>` — since prior checked items may need re-verification, then re-test
 - More fixes: `/myflow-do-fix <name>` again
-- Once Gate B and Gate C are both satisfied: `/myflow-code-review <name>` (coverage check, tests, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (also archives any `<name>-fix-N` nested changes together)
+- Once Gate B and Gate C are both satisfied: `/myflow-review <name>` (coverage check, tests, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (also archives any `<name>-fix-N` nested changes together)
 ```
 
 **Refreshing the guide after a Gate C fix:** just run `/myflow-manual-test <name>`. It accepts `awaiting-test` as a first-class stage and enters **refresh mode** automatically — no stage mismatch, no override prompt. It preserves checked boxes, does not re-ask the skip question, and re-emits `stage: awaiting-test` with all gates carried forward.
@@ -241,4 +241,4 @@ Never merge, force-push, or amend. Stop after pushing.
 | Fix something found in manual review, manual test, or PR review | `/myflow-do-fix <name>` |
 | Original (first) apply | `/myflow-do <name>` |
 | After fix, re-test | `/myflow-manual-test <name>` |
-| After both gates satisfied | `/myflow-code-review <name>` (commit + push + open PR) then, after the PR merges (Gate D), `/myflow-finish <name>` |
+| After both gates satisfied | `/myflow-review <name>` (commit + push + open PR) then, after the PR merges (Gate D), `/myflow-finish <name>` |

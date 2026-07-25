@@ -1,6 +1,6 @@
 ---
-name: openspec-code-review-superpowers
-description: Code review stage after Gate B/C — checks test coverage, verifies tests/linters, commits, pushes, opens PR (never merges). Use for /myflow-code-review.
+name: openspec-review-superpowers
+description: Review stage after Gate B/C — checks test coverage, verifies tests/linters, commits, pushes, opens PR (never merges). Use for /myflow-review.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
@@ -9,9 +9,9 @@ metadata:
   version: "1.0"
 ---
 
-Run the **code review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path — never merge). This stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges.
+Run the **review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path — never merge). This stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges.
 
-**Announce at start:** "Using openspec-code-review-superpowers for change `<name>`."
+**Announce at start:** "Using openspec-review-superpowers for change `<name>`."
 
 Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
 
@@ -44,8 +44,8 @@ Requires stage **`awaiting-test`** per **Stage transitions** in `rules/myflow-ma
 
 ### 1. Select change and locate apply work
 
-- Use the provided name. **If omitted:** run `openspec list --json`, filter to changes with an apply worktree that have finished Gate B/C (not yet code-reviewed). Exactly one match → use it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → stop, suggest `/myflow-do <name>`.
-- Announce: "Code review for change: `<name>`."
+- Use the provided name. **If omitted:** run `openspec list --json`, filter to changes with an apply worktree that have finished Gate B/C (not yet reviewed). Exactly one match → use it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → stop, suggest `/myflow-do <name>`.
+- Announce: "Review for change: `<name>`."
 - Locate the apply worktree/branch (`openspec/<name>` or path from progress ledger).
 - Confirm implementation is present (staged/uncommitted changes from apply and any `/myflow-do-fix` rounds).
 
@@ -68,7 +68,7 @@ Read `gates.tested` from the state file first, then `docs/manual-test/<name>.md`
 - **`gates.tested: false`**: parse every `- [ ]` / `- [x]` line in the functionality checklist and sign-off sections. If **any** remain unchecked, notify the user with the count and a short list of what is open, then **AskUserQuestion**: continue anyway, go finish testing, or fix via `/myflow-do-fix <name>`. Never proceed past this silently.
 - **Guide missing entirely**: warn and offer `/myflow-manual-test <name>` first. (The stage gate in step 0 makes this unlikely.)
 
-**Promote the flag.** `/myflow-code-review` is the **only** writer of `gates.tested: true`. When
+**Promote the flag.** `/myflow-review` is the **only** writer of `gates.tested: true`. When
 `gates.tested` is `false` and every checkbox is ticked, set it to `true` before writing state —
 that is what makes `true` mean "testing completed and verified" rather than a value nothing ever
 produces. Never overwrite `"skipped"`: an intentional bypass stays `"skipped"` forever.
@@ -145,7 +145,7 @@ Then **AskUserQuestion**:
 > - **Yes — the PR is open**
 
 - **Yes** → the human's confirmation is the evidence (the same trust model already used at Gates B and C): `stage: awaiting-pr-review`, `gates.prOpened: true`. Ask for the PR URL and record it in the summary if they have it; **do not block** if they don't.
-- **No** → stay at `awaiting-test`, `gates.prOpened: false`. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-code-review <name>` (it will skip straight to this step) or confirm on the next run.
+- **No** → stay at `awaiting-test`, `gates.prOpened: false`. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-review <name>` (it will skip straight to this step) or confirm on the next run.
 
 **Never** substitute a merge or a direct push to `develop`/`main` for opening a PR in this branch.
 
@@ -164,7 +164,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
   "updatedAt": "<ISO-8601 UTC now>",
-  "updatedBy": "/myflow-code-review"
+  "updatedBy": "/myflow-review"
 }
 ```
 
@@ -177,7 +177,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
   "updatedAt": "<ISO-8601 UTC now>",
-  "updatedBy": "/myflow-code-review"
+  "updatedBy": "/myflow-review"
 }
 ```
 
@@ -188,7 +188,7 @@ There is no state commit and no follow-up commit: the state file is user-scoped 
 ### 7. Summary
 
 ```
-## Code Review Complete — PR Review Required (Gate D)
+## Review Complete — PR Review Required (Gate D)
 
 **Change:** <name>
 **Nested fixes included:** <name>-fix-1, ... | none
@@ -227,8 +227,8 @@ There is no state commit and no follow-up commit: the state file is user-scoped 
 
 | Intent | Say |
 |--------|-----|
-| Run code review (coverage, tests, commit, push, PR) | `/myflow-code-review <name>` |
+| Run review (coverage, tests, commit, push, PR) | `/myflow-review <name>` |
 | Fix a coverage gap or test/lint failure | `/myflow-do-fix <name>` |
-| After code review — PR review (Gate D, human) | review the PR on the forge and merge it |
+| After review — PR review (Gate D, human) | review the PR on the forge and merge it |
 | Changes requested during Gate D | `/myflow-do-fix <name>` (commits and pushes to the existing PR) |
 | After the PR is merged | `/myflow-finish <name>` |

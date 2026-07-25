@@ -9,7 +9,7 @@ metadata:
   version: "5.0"
 ---
 
-Finish an OpenSpec change **after code review (`/myflow-code-review`) and the human's PR review + merge (Gate D)**: verify the PR actually merged, sync delta specs into main specs, and archive the change. This is the last stage in myflow.
+Finish an OpenSpec change **after review (`/myflow-review`) and the human's PR review + merge (Gate D)**: verify the PR actually merged, sync delta specs into main specs, and archive the change. This is the last stage in myflow.
 
 **Announce at start:** "Using openspec-archive-superpowers for change `<name>`."
 
@@ -18,10 +18,10 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 ## Pipeline position
 
 ```text
-... → manual test (Gate C) → code review (commit + PR, no merge) → PR review (Gate D, human merges) → finish (this skill)
+... → manual test (Gate C) → review (commit + PR, no merge) → PR review (Gate D, human merges) → finish (this skill)
 ```
 
-`/myflow-code-review` committed, pushed, and opened the PR, then deliberately stopped — it never merges. Merging is a **human** action (Gate D) that happens on the forge, outside myflow, and may simply not have happened yet: an open PR is the normal, expected state when this skill runs, not an anomaly. This skill only **verifies** the PR merged and archives; it never commits, tests, merges, or pushes anything itself.
+`/myflow-review` committed, pushed, and opened the PR, then deliberately stopped — it never merges. Merging is a **human** action (Gate D) that happens on the forge, outside myflow, and may simply not have happened yet: an open PR is the normal, expected state when this skill runs, not an anomaly. This skill only **verifies** the PR merged and archives; it never commits, tests, merges, or pushes anything itself.
 
 ## Required sub-skills
 
@@ -35,16 +35,16 @@ Optional: **openspec-sync-specs** when the user chooses to sync delta specs to m
 
 Requires stage **`awaiting-pr-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
-- At `awaiting-test` → recommend `/myflow-code-review <name>` first.
+- At `awaiting-test` → recommend `/myflow-review <name>` first.
 - At `finished` → already archived; stop.
 
 ### 1. Select change and validate it's ready to finish
 
-- Use the provided name. **If omitted:** run `openspec list --json`, filter to changes that have gone through code review (committed, no longer just staged-and-uncommitted). Exactly one match → use it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → stop, suggest `/myflow-code-review <name>`.
+- Use the provided name. **If omitted:** run `openspec list --json`, filter to changes that have gone through review (committed, no longer just staged-and-uncommitted). Exactly one match → use it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → stop, suggest `/myflow-review <name>`.
 - Announce: "Finishing change: `<name>`."
 - Locate the apply worktree/branch (`openspec/<name>` or path from progress ledger).
 
-**Verify the PR actually merged** — `/myflow-code-review` opened it but deliberately did not merge it (Gate D is the human's):
+**Verify the PR actually merged** — `/myflow-review` opened it but deliberately did not merge it (Gate D is the human's):
 
 ```bash
 cd <main-repo-checkout>
@@ -59,7 +59,7 @@ command -v gh >/dev/null 2>&1 && gh pr list --head openspec/<name> --state all -
 - **PR state `MERGED`** (or the ancestor check prints "merged"): continue.
 - **PR still `OPEN`**: **stop.** This is the normal, expected block — Gate D has not happened yet. Tell the user to review and merge the PR, then re-run. Do not offer to merge it for them.
 - **PR `CLOSED` unmerged**: stop and ask what happened — the work was abandoned or superseded.
-- **No PR and no merge evidence**: stop — suggest `/myflow-code-review <name>` first.
+- **No PR and no merge evidence**: stop — suggest `/myflow-review <name>` first.
 - **User insists on archiving unmerged** (deliberate, e.g. the work landed another way): **AskUserQuestion** confirming that archiving without the code on `<base-branch>` is intentional. Default: **No**.
 
 If `gh` is unavailable or the forge is not GitHub (this project's `origin` is Bitbucket), say so honestly and rely on the `git merge-base --is-ancestor` check alone — it is sufficient and must never be gated behind a `gh` call. Never guess `MERGED`. If neither check can be performed at all (no remote, no network), report the PR state as **unknown** and ask the user — do not rewind the stage on an inconclusive probe.
@@ -122,7 +122,7 @@ Set `worktree` to `null` — the worktree is removed or stale after finishing. C
 
 ## Guardrails
 
-- **Never commit, run tests, merge, or push here** — code review opened the PR and the human merged it; this skill only verifies and archives.
+- **Never commit, run tests, merge, or push here** — review opened the PR and the human merged it; this skill only verifies and archives.
 - **Never archive while the PR is still open** without an explicit user override.
 - **Always write `stage: finished`** into the change (and every nested fix) before the archive move.
 - Always show incomplete task/artifact warnings before archive.
@@ -134,5 +134,5 @@ Set `worktree` to `null` — the worktree is removed or stale after finishing. C
 
 | Intent | Say |
 |--------|-----|
-| Code review (must run first) | `/myflow-code-review <name>` |
+| Review (must run first) | `/myflow-review <name>` |
 | Finish — verify merged, sync specs, archive | `/myflow-finish <name>` |

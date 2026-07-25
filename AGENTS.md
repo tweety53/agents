@@ -134,9 +134,9 @@ All skills require the `openspec` CLI to be installed.
 | `skills/openspec-apply-fix-superpowers/` | `/myflow-do-fix` | Fix a Gate B / C / D finding — document in proposal (append or nested) → Superpowers #4–#6 in the **existing** worktree. Stages only at Gate B and C (no commits); **commits and pushes to the PR branch at Gate D** |
 | `skills/openspec-manual-test-superpowers/` | `/myflow-manual-test` | Gate C — write `docs/manual-test/<name>.md`, reply with link only |
 | `skills/openspec-archive-change/` | `/opsx:archive` | Archive a completed change (delta sync + move to archive) |
-| `skills/openspec-code-review-superpowers/` | `/myflow-code-review` | Verify Gate C → coverage check → tests/linters → **commit + push + open PR** (never merges) |
+| `skills/openspec-review-superpowers/` | `/myflow-review` | Verify Gate C → coverage check → tests/linters → **commit + push + open PR** (never merges) |
 | `skills/openspec-archive-superpowers/` | `/myflow-finish` | Verify the PR merged → delta sync → archive (also archives nested `<name>-fix-N` sub-changes) |
-| `skills/openspec-full-cycle-superpowers/` | `/myflow-full` | start → do → Gate B review → Gate C manual test → code review (commit+push+PR) → Gate D, stop |
+| `skills/openspec-full-cycle-superpowers/` | `/myflow-full` | start → do → Gate B review → Gate C manual test → review (commit+push+PR) → Gate D, stop |
 | `skills/openspec-explore/` | `/opsx:explore` | Thinking-partner mode — explore ideas, investigate, no implementation |
 | `skills/openspec-sync-specs/` | `/opsx:sync-specs` | Sync delta specs from a change to main specs |
 | `skills/openspec-update-change/` | `/opsx:update` | Revise existing planning artifacts; keep them coherent |
@@ -145,7 +145,7 @@ All skills require the `openspec` CLI to be installed.
 
 ### /myflow commands summary
 
-**Pipeline:** `start → do (#2–#6) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → code review (commit + push + open PR) → (human) PR review + merge (Gate D) → finish (archive)`
+**Pipeline:** `start → do (#2–#6) → manual review (Gate B, optional do-fix×N) → manual test (Gate C, optional do-fix×N) → review (commit + push + open PR) → (human) PR review + merge (Gate D) → finish (archive)`
 
 Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 
@@ -161,10 +161,10 @@ Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 | `/myflow-do-fix <name>` | Fix something found at Gate B (manual review), Gate C (manual test), or Gate D (PR review) — documents it in `proposal.md`/`tasks.md` (or a linked nested `<name>-fix-N` sub-change, your choice) → resumes the **same** worktree → SDD + TDD → full strict review panel re-run. **Gate B and C: staged, no commits. Gate D: commits and pushes to the PR branch** (the one place this command commits; it still never merges). Loop as many rounds as needed at any of the three gates. |
 | `/myflow-manual-test <name>` | Write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip Gate C (default No); reply with **link only** |
 | *(Gate C)* | **You** run the apps and check off items in the guide |
-| `/myflow-code-review <name>` | Verifies every Gate C box is checked (or the guide is marked `SKIPPED`) — checks test coverage against delta specs (routes gaps to `/myflow-do-fix`) — then tests/linters → **commit + push + open PR** (never merges) |
+| `/myflow-review <name>` | Verifies every Gate C box is checked (or the guide is marked `SKIPPED`) — checks test coverage against delta specs (routes gaps to `/myflow-do-fix`) — then tests/linters → **commit + push + open PR** (never merges) |
 | *(Gate D)* | **You** review the PR and merge it |
 | `/myflow-finish <name>` | Verifies the PR merged → delta sync → archive (also archives any nested `<name>-fix-N` sub-changes together) |
-| `/myflow-full <name>` | Full cycle with Gate A (proposal) + Gate B (review) + Gate C (manual test) + code review, ending at Gate D (PR open, stop) |
+| `/myflow-full <name>` | Full cycle with Gate A (proposal) + Gate B (review) + Gate C (manual test) + review, ending at Gate D (PR open, stop) |
 | `/myflow-status <name>` | Read-only stage report for open changes |
 | `/myflow-info` | Reads the rule file and explains the pipeline |
 

@@ -1,7 +1,7 @@
 ---
 name: openspec-manual-test-superpowers
 description: >-
-  Use for /myflow-manual-test after Gate B code review and before /myflow-code-review
+  Use for /myflow-manual-test after Gate B manual review and before /myflow-review
   when a per-change manual test guide (run apps + functionality checklist) is needed.
   Always asks whether to skip Gate C (default No); if skipped, the same guide is
   generated but marked SKIPPED instead of checking any boxes.
@@ -64,10 +64,10 @@ Both answers advance the stage to `awaiting-test`. Never default to skip; never 
 ## Pipeline position
 
 ```text
-start → do → manual review (Gate B) → manual test (Gate C) → code review (commit + PR) → PR review (Gate D, human merges) → finish (Gate E)
+start → do → manual review (Gate B) → manual test (Gate C) → review (commit + PR) → PR review (Gate D, human merges) → finish (Gate E)
 ```
 
-This stage is **Gate C**. It sits after the user has reviewed staged code (Gate B, with optional `/myflow-do-fix` rounds) and before `/myflow-code-review`.
+This stage is **Gate C**. It sits after the user has reviewed staged code (Gate B, with optional `/myflow-do-fix` rounds) and before `/myflow-review`.
 
 ## Required inputs
 
@@ -166,7 +166,7 @@ Create `docs/manual-test/` if missing. Use the structure in [manual-test-templat
    - Admin-only / KMP-only optional blocks use `ADMIN_ROOT` / `FRONTEND_ROOT` absolute `cd`s
    - URLs, default local credentials when relevant (`superadmin@gymie.dev` / `GymieDev1` for admin; note user auth separately)
 3. **Functionality checklist** — unchecked `- [ ]` items from step 3
-4. **Sign-off** — ready for `/myflow-code-review <name>`
+4. **Sign-off** — ready for `/myflow-review <name>`
 
 If `docs/manual-test/<change-name>.md` already exists:
 
@@ -181,7 +181,7 @@ Legacy: if only `<changeRoot>/manual-test.md` exists, migrate content into `docs
 **Manual test status:** SKIPPED — YYYY-MM-DD (Gate C intentionally bypassed)
 ```
 
-In skip mode, leave **every** functionality-checklist and sign-off checkbox unchecked (`- [ ]`) — nothing was actually run or verified, so nothing may read as verified. The status line is the only thing that marks the gate bypassed; `/myflow-code-review` looks for it. If a guide already has checked boxes from a prior normal run and skip mode is invoked afterward (e.g. re-run after a change), preserve those existing checks rather than un-checking them — skip mode never removes evidence, it only adds the bypass marker when a fresh guide has none.
+In skip mode, leave **every** functionality-checklist and sign-off checkbox unchecked (`- [ ]`) — nothing was actually run or verified, so nothing may read as verified. The status line is the only thing that marks the gate bypassed; `/myflow-review` looks for it. If a guide already has checked boxes from a prior normal run and skip mode is invoked afterward (e.g. re-run after a change), preserve those existing checks rather than un-checking them — skip mode never removes evidence, it only adds the bypass marker when a fresh guide has none.
 
 ### 5. Stage the guide (no commit)
 
@@ -238,7 +238,7 @@ Normal mode:
 1. Open the guide link and follow "How to run"
 2. Work through every checklist item; check boxes in the file as you go
 3. Fixes needed → `/myflow-do-fix <name>`
-4. When satisfied → `/myflow-code-review <name>`
+4. When satisfied → `/myflow-review <name>`
 ```
 
 Skip mode:
@@ -251,7 +251,7 @@ Skip mode:
 **Status:** SKIPPED — checklist left unchecked, marked bypassed
 **Git:** docs/manual-test/<change-name>.md staged (uncommitted)
 
-**Note:** `/myflow-code-review <name>` will detect this as intentionally skipped rather than incomplete, but will still surface it before proceeding.
+**Note:** `/myflow-review <name>` will detect this as intentionally skipped rather than incomplete, but will still surface it before proceeding.
 ```
 
 ## Guardrails
@@ -263,7 +263,7 @@ Skip mode:
 - Do not include apps marked out of scope.
 - Do not emit run commands that `cd` into main checkouts when apply worktrees exist for those apps.
 - Do not use relative sibling paths (`../gymie-frontend`, `../gymie-admin-frontend`) in guide commands — always absolute worktree (or main-checkout) roots.
-- Do not run `/myflow-code-review` or `/myflow-finish` from this skill.
+- Do not run `/myflow-review` or `/myflow-finish` from this skill.
 - Keep the guide concise and actionable; prefer checklists over essays.
 - **Skip mode never checks a box it didn't verify** — only the `SKIPPED` status line marks the gate bypassed.
 - **Always ask the skip prompt on an advance run** — never default to skip, never infer it from context. Only `/myflow-full skip-manual-test` may pre-answer it. **Never ask it in refresh mode** — that would risk clobbering a recorded `"skipped"`.
@@ -275,5 +275,5 @@ Skip mode:
 | Intent | Say |
 |--------|-----|
 | Generate / refresh manual test guide (asks whether to skip) | `/myflow-manual-test <name>` |
-| After checklist done (or skip acknowledged) | `/myflow-code-review <name>` |
+| After checklist done (or skip acknowledged) | `/myflow-review <name>` |
 | Fixes from testing | `/myflow-do-fix <name>` |

@@ -27,4 +27,4 @@ Also follow `.cursor/rules/myflow-manual-review.mdc`.
 
 **Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active change is apply-ready for this stage, use it automatically; if multiple, ask which.
 
-**When done testing:** `/myflow-code-review <name>`. Fixes: `/myflow-do-fix <name>` (loop as many times as needed, then re-test).
+**When done testing:** `/myflow-review <name>`. Fixes: `/myflow-do-fix <name>` (loop as many times as needed, then re-test).

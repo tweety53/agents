@@ -1,6 +1,6 @@
 ---
 name: openspec-apply-superpowers
-description: Implement an OpenSpec change using Superpowers Basic Workflow #2–#6 (stage with git add; no commits; #7 deferred to code review). Use for /myflow-do.
+description: Implement an OpenSpec change using Superpowers Basic Workflow #2–#6 (stage with git add; no commits; #7 deferred to review). Use for /myflow-do.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
@@ -9,7 +9,7 @@ metadata:
   version: "3.5"
 ---
 
-Implement an OpenSpec change with Superpowers Basic Workflow steps **#2–#6**. **No git commits, push, merge, or PR in this stage** — those happen in `/myflow-code-review` after the user's manual review (Gate B) and manual test (Gate C). **Do stage (`git add`) all apply changes** before handoff so the IDE shows them in Source Control.
+Implement an OpenSpec change with Superpowers Basic Workflow steps **#2–#6**. **No git commits, push, merge, or PR in this stage** — those happen in `/myflow-review` after the user's manual review (Gate B) and manual test (Gate C). **Do stage (`git add`) all apply changes** before handoff so the IDE shows them in Source Control.
 
 **Announce at start:** "Using openspec-apply-superpowers for change `<name>`."
 
@@ -129,7 +129,7 @@ openspec instructions apply --change "<name>" --json
 ```
 
 - If `state: "blocked"`: stop; suggest `/myflow-start <name>` or `openspec-continue-change`.
-- If `state: "all_done"`: suggest `/myflow-code-review <name>` (if not yet reviewed/committed) or `/myflow-finish <name>` (if the PR is already merged).
+- If `state: "all_done"`: suggest `/myflow-review <name>` (if not yet reviewed/committed) or `/myflow-finish <name>` (if the PR is already merged).
 - Read every path in `contextFiles` (proposal, specs, design, tasks).
 
 Resolve paths from CLI JSON (`changeRoot`, `planningHome`) — do not assume repo layout.
@@ -221,7 +221,7 @@ Stop here.
 
 **Change:** <name>
 **Basic Workflow:** #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ (strict panel: primary + Bugbot + Security + Adversarial + Senior + Economic Senior)
-**Deferred to code review:** #7 (commit + push + open PR — never merges)
+**Deferred to review:** #7 (commit + push + open PR — never merges)
 **Progress:** N/N tasks complete
 **Branch:** openspec/<name>
 **Worktree:** <absolute path>
@@ -242,7 +242,7 @@ Stop here.
 - Open the worktree folder in your IDE and review staged changes (Gate B).
 - Request fixes: `/myflow-do-fix <name>` (resumes on same branch/worktree)
 - After manual review looks good: `/myflow-manual-test <name>` (Gate C — run guide + checklist MD)
-- After manual testing: `/myflow-code-review <name>` (coverage check, tests/linters, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (verify PR merged, sync specs, archive)
+- After manual testing: `/myflow-review <name>` (coverage check, tests/linters, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (verify PR merged, sync specs, archive)
 ```
 
 ## Guardrails

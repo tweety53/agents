@@ -53,7 +53,7 @@ If the file is missing, unparseable, or contradicted, infer the stage from artif
 
 - Infer and correct **`stage` only**. Preserve every existing gate value exactly as read.
 - Fill `null` gates **conservatively** — `false`, never `true`.
-- **Never** infer `gates.tested: true`; only `/myflow-code-review` writes that. Never demote `true` or `"skipped"`.
+- **Never** infer `gates.tested: true`; only `/myflow-review` writes that. Never demote `true` or `"skipped"`.
 - **Never write a stage earlier than the one recorded.** A check that cannot be performed is not a contradiction: an undeterminable PR state leaves `awaiting-pr-review` exactly as recorded.
 
 ### 3. Render the table
@@ -65,7 +65,7 @@ Sort by stage order (`start`, `awaiting-review`, `awaiting-test`, `awaiting-pr-r
 
 | Change | Stage | Gates | Next | Worktree / branch | Updated |
 |--------|-------|-------|------|------|-----------|
-| user-workout-core | awaiting-test | review ✓ · test ☐ · PR — | `/myflow-code-review` | `.worktrees/openspec-user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
+| user-workout-core | awaiting-test | review ✓ · test ☐ · PR — | `/myflow-review` | `.worktrees/openspec-user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
 | active-workout-session-editing | start | — | `/myflow-do` | none | 19h ago (/myflow-start) |
 
 ⚠ = state file was stale and has been corrected from artifacts.
@@ -79,7 +79,7 @@ Next-command mapping:
 |-------|------|
 | `start` | `/myflow-do <name>` |
 | `awaiting-review` | Gate B — review staged diff, then `/myflow-manual-test <name>` |
-| `awaiting-test` | Gate C — run the guide, then `/myflow-code-review <name>` |
+| `awaiting-test` | Gate C — run the guide, then `/myflow-review <name>` |
 | `awaiting-pr-review` | Gate D — review + **merge the PR yourself**, then `/myflow-finish <name>` |
 
 ### 4. Detail view (only when `<name>` was given)
