@@ -134,6 +134,24 @@ If **Stop here**: exit with guide path and `/myflow-review <name>` hint. **Do no
 
 **Do not commit or run #7 at Gate C.**
 
+### Returning from an inline fix
+
+`/myflow-do-fix` always ends at **`awaiting-fix-review`** — it never returns the change to the
+stage the fix was raised at. That return is `/myflow-do-fix-done`'s job, and this cycle may not
+invoke it (it is a human confirmation, like every other `*-done`).
+
+So when the human picks "Fix something" at Gate B or Gate C, the cycle:
+
+1. invokes `/myflow-do-fix`, which records `originStage` and lands at `awaiting-fix-review`;
+2. **stops** and names the two commands the human runs — `/myflow-do-fix-manual-review <name>`
+   (optional, marks the fix review started) then `/myflow-do-fix-done <name>`, which reads
+   `originStage`, returns the change to it, and clears the field;
+3. resumes at that origin once the human re-invokes `/myflow-full <name>`.
+
+Do **not** re-invoke the manual-test or review skill while the change sits at
+`awaiting-fix-review` — their gates will refuse it, and answering the override would write a
+`*-done` stage over a fix that was never confirmed, leaving a stale `originStage` behind.
+
 ### Crossing a gate on "Continue"
 
 These two rules look contradictory and are not; they are stated together here so neither is read alone:
