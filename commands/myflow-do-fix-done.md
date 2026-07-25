@@ -2,7 +2,7 @@
 description: Do-fix done — confirm the fix was reviewed and advance back to the stage the fix was raised at
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `originStage` — the dynamic form. The skill reads the state file's `originStage` and targets it, including the retarget and clearing rules; see **Target forms** in `myflow-state-advance/SKILL.md`.
 **ACCEPTED_STAGES:** `awaiting-fix-review`, `fix-review-started`

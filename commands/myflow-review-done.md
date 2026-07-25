@@ -2,7 +2,7 @@
 description: Review done — confirm the PR was reviewed (and merged) and advance to review-done
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `review-done`
 **ACCEPTED_STAGES:** `awaiting-pr-review`

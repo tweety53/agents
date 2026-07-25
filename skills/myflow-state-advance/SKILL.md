@@ -32,8 +32,17 @@ Follow **rules/myflow-manual-review.mdc** — sections **Stage transitions**, **
   `TARGET_STAGE: originStage`, meaning: read the state file's `originStage` field and target
   *that* stage, per **Fix re-entry**. In this form:
   - If `originStage` is `null` or missing, **stop** and report it — do not guess a stage.
+  - **Validate the value against the six legal origins** — `awaiting-do-review`,
+    `do-review-started`, `do-done`, `awaiting-manual-test`, `manual-test-done`,
+    `awaiting-pr-review`. Anything else (including `awaiting-fix-review`, `fix-review-started`,
+    `proposal-done`, `finished`, or a typo/legacy string) is **corruption, not a stage**: **stop
+    and report** it. Never target it, never fall back to a default, never self-heal it into a
+    plausible value. Report the actual value, the six legal ones, and tell the user to re-run
+    `/myflow-do-fix <name>` from a legal origin (which rewrites `originStage`) or to correct the
+    state file by hand.
   - If `originStage` is `do-review-started`, target `awaiting-do-review` instead — per **Fix
-    re-entry**, the diff changed, so the prior review is stale and review restarts.
+    re-entry**, the diff changed, so the prior review is stale and review restarts. The other five
+    origins target themselves.
   - After writing the new stage, also clear `originStage` to `null` in the same write.
 
 ## Workflow
@@ -65,8 +74,9 @@ suggested command instead**). Missing or contradicted file → self-heal per **S
 announce the correction, then re-apply this check to the healed stage.
 
 If `TARGET_STAGE` is the dynamic form (`originStage`), resolve the actual target now per
-**Target forms** before proceeding — read `originStage` from the same state file, applying the
-`do-review-started` special case, and stop if it is `null`/missing.
+**Target forms** before proceeding — read `originStage` from the same state file, validate it
+against the six legal origins, apply the `do-review-started` special case, and stop if it is
+`null`/missing or holds any value outside that set.
 
 ### 3. Write the new stage
 
@@ -108,4 +118,6 @@ Omit the IntelliJ block when the next step is an agent command rather than a hum
 - **Never** advance from a stage outside `ACCEPTED_STAGES` without an explicit user override.
 - **Never** modify gates; carry them forward untouched.
 - **Never** guess a dynamic target — if `originStage` is `null`/missing, stop and report it.
+- **Never** target an out-of-range `originStage`. Only the six origins listed in **Target forms**
+  are legal; any other value is corruption — stop and report, never repair it into a stage.
 - Never guess a change name when multiple match.

@@ -105,10 +105,13 @@ Follow **openspec-archive-change** step 5:
   "worktree": null,
   "branch": "openspec/<name>",
   "originStage": null,
+  "artifactUrl": "<unchanged — carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-finish"
 }
 ```
+
+**`artifactUrl` is carried forward, never dropped** — this is the terminal record, so the published proposal link must survive into it. Writes render the whole object; omitting the field would erase it.
 
 Set `worktree` to `null` — the worktree is removed or stale after finishing. Carry `gates.tested` forward exactly as recorded (`true` or `"skipped"` are sticky — never demote them). Write the same terminal state to each nested `<name>-fix-N` change's own user-scoped state file before archiving it.
 

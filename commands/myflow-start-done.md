@@ -2,7 +2,7 @@
 description: Start done — confirm the proposal was reviewed and advance to proposal-done
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `proposal-done`
 **ACCEPTED_STAGES:** `awaiting-proposal-review`

@@ -128,16 +128,23 @@ Because writes render the whole object, every command must first **read the exis
 | `stage: awaiting-proposal-review` / `proposal-done` | an apply worktree for branch `openspec/<name>` exists; or, when no worktree exists, every task in the main checkout's `tasks.md` is checked |
 | `stage: awaiting-do-review`, `do-review-started`, `do-done` | `docs/manual-test/<name>.md` exists and is newer than the last code change |
 | `stage: awaiting-manual-test`, `manual-test-done` | the branch has commits beyond `MERGE_BASE` **and** a PR is confirmed to exist for it |
-| `stage: awaiting-pr-review` | PR existence was **conclusively** determined and no PR exists for the branch (a usable PR CLI for the host answered) — **the one permitted rewind**, see below |
+| `stage: awaiting-pr-review` | PR existence was **conclusively** determined and no PR exists for the branch (a usable PR CLI for the host answered) — **the one permitted rewind**, to `manual-test-done`, see below |
 | `worktree` path | the path is absent from `git worktree list` |
 
 **The one permitted rewind.** Monotonicity forbids writing an earlier `stage`, with a single
 carve-out: when a PR's non-existence is **conclusively** established (a usable PR CLI for the host
 answered, and there is no PR), a change at `awaiting-pr-review` may be rewound to
-`awaiting-manual-test` and `gates.prOpened` set back to `false`. This is the only backward stage
+**`manual-test-done`** and `gates.prOpened` set back to `false`. This is the only backward stage
 write of that kind in the system, and it exists so an abandoned or closed-unmerged PR does not
 strand a change forever. Gate values other than `prOpened` are still sticky — never lower
 `gates.tested`. If the PR check is inconclusive, do not rewind (see below).
+
+**The rewind target is `manual-test-done`, not `awaiting-manual-test`.** Testing is finished and
+recorded (`gates.tested` is `true` or `"skipped"`); only the PR went away. The user's next action
+is `/myflow-review <name>` to open a fresh one — not re-running the manual test. Rewinding to
+`awaiting-manual-test` would also leave a `true`/`"skipped"` gate coexisting with a stage whose
+whole meaning is "testing still pending", which is exactly the inconsistency monotonic gates exist
+to prevent.
 
 **A check that cannot be performed is not a contradiction.** If PR state cannot be determined (no PR CLI for the host, no network, no remote), treat it as **unknown** and leave the stage as recorded. Never rewind a stage on an inconclusive probe.
 
@@ -162,7 +169,7 @@ Each command declares the stage(s) it accepts:
 | `/myflow-do` | `proposal-done` |
 | `/myflow-do-manual-review` | `awaiting-do-review` |
 | `/myflow-do-done` | `awaiting-do-review`, `do-review-started` |
-| `/myflow-do-fix` | `awaiting-do-review`, `do-review-started`, `awaiting-manual-test`, `awaiting-pr-review` |
+| `/myflow-do-fix` | `awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-manual-test`, `manual-test-done`, `awaiting-pr-review` |
 | `/myflow-do-fix-manual-review` | `awaiting-fix-review` |
 | `/myflow-do-fix-done` | `awaiting-fix-review`, `fix-review-started` |
 | `/myflow-manual-test` | `do-done` (advance) · `awaiting-manual-test` (refresh) |
@@ -174,6 +181,16 @@ Each command declares the stage(s) it accepts:
 | `/myflow-full` | *(composite — drives the sequence, always stops at Gate D)* |
 
 Keep the existing mismatch-handoff prose and the AskUserQuestion-default-No rule unchanged.
+
+**This table is authoritative.** Every command file — in all three trees (`.cursor/commands/`,
+`agents/commands/`, `agents/commands-claude/`) — must state exactly the stage(s) its row lists, and
+must agree with the skill it delegates to. When a command and its skill disagree, whichever the
+agent reads first wins, which is non-determinism in the one layer that must be deterministic. A
+renamed stage is therefore not done until the command layer is swept too.
+`.cursor/hooks/sync-agents-data.sh` enforces this: on every sync it greps all three command trees
+for retired stage vocabulary (`awaiting-review`, `awaiting-test`, bare `code-review`) and reports
+any hit. `requesting-code-review` is a real external Superpowers skill and is exempt — never
+rename it.
 
 **`/myflow-manual-test` refresh mode.** When the incoming stage is already `awaiting-manual-test`, the command enters **refresh mode** automatically — no mismatch, no prompt, no override. Refresh mode does not re-ask the skip question (that decision was made on the advance run, which is what makes `"skipped"` unclobberable), does not rewrite `gates.reviewed`, preserves every already-checked box, re-emits `stage: awaiting-manual-test` with all gates carried forward, and announces "refreshed after fix round N".
 
@@ -199,12 +216,21 @@ Handoff format on mismatch:
 |---------------|-----------|
 | `awaiting-do-review` | `awaiting-do-review` |
 | `do-review-started` | `awaiting-do-review` |
+| `do-done` | `do-done` |
 | `awaiting-manual-test` | `awaiting-manual-test` |
+| `manual-test-done` | `manual-test-done` |
 | `awaiting-pr-review` | `awaiting-pr-review` |
 
 `do-review-started` returns to `awaiting-do-review`, not to itself: the diff changed, so the
-prior review is stale and review restarts. A second fix round overwrites `originStage` with the
-stage that round began from.
+prior review is stale and review restarts. Every other origin returns to itself. A second fix
+round overwrites `originStage` with the stage that round began from.
+
+**Why `do-done` and `manual-test-done` are origins.** Both mean "the work is complete and the
+human confirmed it, but something was found before the next command ran" — exactly when a fix is
+wanted. Accepting `manual-test-done` is what lets `/myflow-review`'s own coverage check recommend
+`/myflow-do-fix` without forcing a stage-mismatch override, since the change sits at
+`manual-test-done` while that check runs. Accepting `do-done` closes the symmetric hole right
+after `/myflow-do-done`.
 
 `/myflow-do-fix` still commits and pushes **only** when `originStage` is `awaiting-pr-review`
 (a PR exists remotely, so staging alone would leave the fix invisible). At every other origin it
@@ -361,15 +387,26 @@ Requires stage `review-done`.
 human confirmations of a stage a human actually reviewed; a full-cycle run that invokes them
 itself would self-certify a review nobody performed. `/myflow-full` drives the sequence up to and
 including `/myflow-do`, `/myflow-manual-test`, and `/myflow-review`, and always stops at a human
-gate — it never advances past one by writing the confirmation itself.
+gate — it never runs a `*-done` command itself.
+
+**Crossing Gate B/C on an explicit "Continue".** The prohibition above stops the agent from
+self-certifying a review *nobody performed*. It does not apply when the human is asked, the cycle
+stops, and the human answers **Continue to manual test** (Gate B) or **Continue to review**
+(Gate C): that answer *is* the confirmation `/myflow-do-done` / `/myflow-manual-test-done` would
+record, made in the moment, inside the cycle. So on Continue, `/myflow-full` writes the `*-done`
+stage directly (`do-done` / `manual-test-done`) with honest gate values and proceeds. It still
+never invokes the `*-done` command, still stops and waits for the answer, and still never writes
+`gates.tested: true` (only `/myflow-review` writes that). **"Stop here", an aborted prompt, or any
+other point in the cycle never writes a `*-done` stage.** This is the same reasoning the flags
+below rest on — see the paragraph in **Opt-out (explicit only)**.
 
 ## Opt-out (explicit only)
 
 - `skip-review` on `/myflow-full` — skip Gate B only; Gate C still runs unless also skipped. Records `gates.reviewed: false` (Gate B explicitly skipped), never `true`.
-- `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**; review still runs and still checks coverage.
+- `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**, then carries the change through to `manual-test-done` with `gates.tested: "skipped"` (the Gate C question is not asked); review still runs and still checks coverage.
 - `commit-during-apply` — legacy SDD per-task commits; only when the user explicitly requests it.
 - `automerge` on `/myflow-review` (and therefore on `/myflow-full`, which forwards it) — see **Auto-merge (opt-in)**. Opt-in only; never implied by any other flag.
 
-**How `skip-review` and `skip-manual-test` reach a `*-done` stage without `/myflow-full` invoking a `*-done` command.** Elsewhere this file forbids `/myflow-full` from auto-invoking any `*-done` or `*-manual-review` command, because those are human confirmations of a review that actually happened — self-writing one would self-certify a review nobody did. `skip-review` and `skip-manual-test` are the deliberate exception, not a contradiction of that rule: typing the flag **at invocation time** is itself the human's explicit, in-the-moment opt-out decision — a stated instruction, not the agent inferring or assuming consent after the fact. So when `skip-review` is passed, the cycle writes `stage: do-done` directly (with `gates.reviewed: false`, honestly recording that Gate B was skipped, never `true`) as it moves past the Gate B stop — this is the flag being honored, not a `/myflow-do-done` invocation, and no review is claimed. The identical logic applies to `skip-manual-test` reaching `manual-test-done` (with `gates.tested: "skipped"`): the flag at invocation is the human's decision, so writing the stage forward is executing that decision, not self-certifying testing nobody did.
+**How `skip-review` and `skip-manual-test` reach a `*-done` stage without `/myflow-full` invoking a `*-done` command.** Elsewhere this file forbids `/myflow-full` from auto-invoking any `*-done` or `*-manual-review` command, because those are human confirmations of a review that actually happened — self-writing one would self-certify a review nobody did. `skip-review` and `skip-manual-test` are the deliberate exception, not a contradiction of that rule: typing the flag **at invocation time** is itself the human's explicit, in-the-moment opt-out decision — a stated instruction, not the agent inferring or assuming consent after the fact. So when `skip-review` is passed, the cycle writes `stage: do-done` directly (with `gates.reviewed: false`, honestly recording that Gate B was skipped, never `true`) as it moves past the Gate B stop — this is the flag being honored, not a `/myflow-do-done` invocation, and no review is claimed. The identical logic applies to `skip-manual-test` reaching `manual-test-done` (with `gates.tested: "skipped"`): the flag at invocation is the human's decision, so writing the stage forward is executing that decision, not self-certifying testing nobody did. And the same logic again covers a human answering **Continue** at a Gate B/C prompt — see **Crossing Gate B/C on an explicit "Continue"** under **Full cycle gates**. In all three cases a human's explicit instruction authorizes the stage write; in none of them does `/myflow-full` invoke a `*-done` command.
 
 `no-archive` is **removed** — `/myflow-full` now always ends at Gate D (or, with `automerge`, at `review-done`) and never reaches archiving.

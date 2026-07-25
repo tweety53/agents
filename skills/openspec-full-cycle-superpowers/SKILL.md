@@ -52,7 +52,7 @@ Each stage delegates to its bridge skill; do not reimplement steps inline. `open
 | `skip-propose` | Start from `/myflow-do` using existing artifacts |
 | `propose-only` | Stop after planning artifacts (Gate A) |
 | `skip-review` | Skip Gate B only (advancing straight to `do-done`); Gate C still runs. Records `gates.reviewed: false` (Gate B explicitly skipped) — never `true` |
-| `skip-manual-test` | Pre-answers the Gate C skip prompt with **Yes**; review still runs and still checks coverage |
+| `skip-manual-test` | Pre-answers the Gate C skip prompt with **Yes**, then carries the change on to `manual-test-done` with `gates.tested: "skipped"` (the Gate C question is not asked); review still runs and still checks coverage |
 | `automerge` | Pass-through to `/myflow-review automerge` (see **Auto-merge (opt-in)** in the rule file). Merges immediately — no PR to stop at, so the cycle ends at `review-done` instead of Gate D |
 | `commit-during-apply` | Legacy per-task SDD commits |
 
@@ -100,9 +100,11 @@ Use **AskUserQuestion** unless `skip-review`:
 - "Do complete (#2–#6 ✓, staged + uncommitted). Review staged changes in the worktree IDE. Anything to fix, or continue to manual test?"
 - Options: **Continue to manual test** (recommended), **Fix something (`/myflow-do-fix`)**, **Stop here**
 
+If **Continue to manual test**: do ended at `awaiting-do-review`, but Phase C's skill accepts only `do-done` (advance) or `awaiting-manual-test` (refresh). **Write `stage: do-done` directly** — with `gates.reviewed: true` (the human did review the diff; under `skip-review` write `false` instead, per the flag's own rule) and every other field carried forward — then proceed to Phase C. This does **not** invoke `/myflow-do-done`; see **Crossing a gate on "Continue"** below.
+
 If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate B fix). After it completes, return to this same Gate B question — repeat as many rounds as needed until the user picks continue or stop.
 
-If **Stop here**: exit with review commands and `/myflow-manual-test <name>` / `/myflow-do-fix <name>` hints.
+If **Stop here**: exit with review commands and `/myflow-manual-test <name>` / `/myflow-do-fix <name>` hints. **Do not** write `do-done` — the human did not confirm the review.
 
 **Do not commit or run #7 at Gate B.**
 
@@ -115,6 +117,8 @@ Invoke **openspec-manual-test-superpowers** for `<name>` (writes `docs/manual-te
 
 Either answer advances to `awaiting-manual-test`; the distinction lives in `gates.tested` (`"skipped"` vs `false`).
 
+**With `skip-manual-test`, carry it through to `manual-test-done`.** Pre-answering the prompt leaves the change at `awaiting-manual-test`, which Phase D does not accept — so after the manual-test skill returns, **write `stage: manual-test-done` directly** with `gates.tested: "skipped"` (every other field carried forward) and skip the Gate C question entirely, announcing that the flag both pre-answered the skip prompt and carried the change past Gate C. This is the mechanism rule line "How `skip-review` and `skip-manual-test` reach a `*-done` stage" calls for: typing the flag at invocation is the human's explicit, in-the-moment decision, so writing the stage forward executes that decision rather than self-certifying testing nobody did. It does **not** invoke `/myflow-manual-test-done`. Never write `gates.tested: true` on this path — `"skipped"` is the honest value and only `/myflow-review` ever writes `true`.
+
 **If `skip-review` was passed**, tell the manual-test skill to record `gates.reviewed: false` (Gate B was explicitly skipped) and note it in the final summary — the state must never claim a manual review that never happened.
 
 Use **AskUserQuestion**:
@@ -122,11 +126,29 @@ Use **AskUserQuestion**:
 - "Manual test guide ready. Run the apps, complete the checklist. Anything to fix, or continue to review?"
 - Options: **Continue to review** (recommended), **Fix something (`/myflow-do-fix`)**, **Stop here**
 
+If **Continue to review**: Phase C ended at `awaiting-manual-test`, but Phase D requires `manual-test-done`. **Write `stage: manual-test-done` directly** — carrying `gates.tested` forward exactly as the manual-test skill left it (`false` when the human ran the checklist, `"skipped"` under `skip-manual-test`), never promoting it to `true` — then proceed to Phase D. This does **not** invoke `/myflow-manual-test-done`; see **Crossing a gate on "Continue"** below.
+
 If **Fix something**: invoke **openspec-apply-fix-superpowers** for `<name>` (this is a Gate C fix). Since the fix may touch tested behavior, refresh the guide by invoking **openspec-manual-test-superpowers** again afterward — at stage `awaiting-manual-test` it enters **refresh mode** automatically (no stage-mismatch prompt, no override, skip question not re-asked, checked boxes preserved) — then return to this question. Repeat as many rounds as needed.
 
-If **Stop here**: exit with guide path and `/myflow-review <name>` hint.
+If **Stop here**: exit with guide path and `/myflow-review <name>` hint. **Do not** write `manual-test-done` — the human did not confirm.
 
 **Do not commit or run #7 at Gate C.**
+
+### Crossing a gate on "Continue"
+
+These two rules look contradictory and are not; they are stated together here so neither is read alone:
+
+1. **`/myflow-full` never invokes a `*-done` or `*-manual-review` command.** That prohibition stands, unchanged, in the Guardrails below and in the rule file.
+2. **Choosing "Continue" at a Gate B or Gate C prompt is the human's explicit, in-the-moment confirmation** — the same act `/myflow-do-done` / `/myflow-manual-test-done` performs, made inside the cycle. So on "Continue", the cycle **writes the `*-done` stage directly**, with honest gate values, and proceeds.
+
+The two coexist because the prohibition exists to stop the agent from *self-certifying a review nobody performed*. Here a human was asked, stopped for, and answered — the cycle still stops and waits for that answer, and it still never runs the `*-done` command. This is the identical reasoning rule line "How `skip-review` and `skip-manual-test` reach a `*-done` stage" already applies to those flags: the human's explicit instruction is what authorizes the stage write, not an inference by the agent.
+
+Constraints on this direct write, all mandatory:
+
+- Only on an explicit **Continue** answer. **Stop here** never writes a `*-done` stage; neither does an unanswered or aborted prompt.
+- Gate values must be **honest**: `gates.reviewed: true` only when Gate B actually ran (`false` under `skip-review`); `gates.tested` carried forward exactly as recorded and **never** promoted to `true` — only `/myflow-review` writes that.
+- Write the whole state object, carrying every other field forward (including `artifactUrl` and `worktree`).
+- Never invoke the `*-done` command itself, and never write a `*-done` stage at any other point in the cycle.
 
 ### Phase D — Review: coverage + verify + commit + push + open PR (or merge, with `automerge`) — STOP
 
@@ -197,10 +219,12 @@ With `automerge`:
 
 - **Always stop** at Gate A unless user passed `skip-propose` or `propose-only`.
 - **Always stop** at Gate B for manual review unless user passed `skip-review`; loop on fix requests until the user chooses to continue or stop.
-- **Always** let Gate C's skip prompt run; `skip-manual-test` pre-answers it with Yes (announce this) instead of bypassing the phase. Loop on fix requests (refreshing the guide after each fix) until the user chooses to continue or stop.
+- **Always** let Gate C's skip prompt run; `skip-manual-test` pre-answers it with Yes (announce this) instead of bypassing the phase, and then carries the change to `manual-test-done` with `gates.tested: "skipped"`. Loop on fix requests (refreshing the guide after each fix) until the user chooses to continue or stop.
 - **Never commit, push, merge, or run #7** during do or do-fix (unless `commit-during-apply`).
 - **Review commits, pushes, and opens a PR — it never merges, unless the user explicitly passed `automerge`.** Without `automerge` the cycle always stops at Gate D; with it, the cycle ends at `review-done` instead — announce that auto-merge was used.
-- **Never auto-invoke a `*-done` or `*-manual-review` command anywhere in this cycle.** `/myflow-start-done`, `/myflow-do-manual-review`, `/myflow-do-done`, `/myflow-manual-test-done`, and `/myflow-review-done` are human confirmations of a review the human actually performed — this cycle stops before each of them and names the exact command for the human to run; it never writes that confirmation itself.
+- **Never auto-invoke a `*-done` or `*-manual-review` command anywhere in this cycle.** `/myflow-start-done`, `/myflow-do-manual-review`, `/myflow-do-done`, `/myflow-manual-test-done`, and `/myflow-review-done` are human confirmations of a review the human actually performed — this cycle stops before each of them and names the exact command for the human to run; it never runs one itself.
+- **The one thing the cycle may write is the `*-done` stage on an explicit "Continue" answer at Gate B or Gate C** — see **Crossing a gate on "Continue"**. That is not an exception to the rule above (no `*-done` command is ever invoked); it is the human's own in-the-moment confirmation being recorded, exactly as `skip-review`/`skip-manual-test` are. It still requires the cycle to stop and wait for the answer, and the gate values written must be honest — never `gates.tested: true`.
+- **Never write a `*-done` stage on "Stop here", on an aborted prompt, or anywhere outside those two Continue answers.**
 - **Never invoke `/myflow-finish` from this cycle.** It is always a separate, human-initiated command run after the PR is merged (or, with `automerge`, after the automatic merge).
 - Do not substitute OpenSpec-only loops for #4–#6.
 - Prefer stage bridge skills over one unstructured session.

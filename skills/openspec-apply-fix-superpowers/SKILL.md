@@ -9,7 +9,7 @@ metadata:
   version: "1.3"
 ---
 
-Apply a **fix** for a problem found during **manual review (Gate B)**, **manual test (Gate C)**, or **PR review (Gate D)** of a change that has already been through `/myflow-do`. Unlike `/myflow-do`, this skill never creates a new worktree — it resumes the existing apply worktree/branch — but it always **documents the fix in OpenSpec artifacts first**, so the proposal/tasks never drift out of sync with what was actually built (the source of "stale proposal" drift this skill exists to prevent). The incoming stage (`awaiting-do-review`, `do-review-started`, `awaiting-manual-test`, or `awaiting-pr-review`) is recorded as **`originStage`** on entry and determines the git mode — see **step 0**. This command always ends at **`awaiting-fix-review`**; `/myflow-do-fix-done` later reads `originStage` and returns the change to the right stage per **Fix re-entry**.
+Apply a **fix** for a problem found during **manual review (Gate B)**, **manual test (Gate C)**, or **PR review (Gate D)** of a change that has already been through `/myflow-do`. Unlike `/myflow-do`, this skill never creates a new worktree — it resumes the existing apply worktree/branch — but it always **documents the fix in OpenSpec artifacts first**, so the proposal/tasks never drift out of sync with what was actually built (the source of "stale proposal" drift this skill exists to prevent). The incoming stage — one of the six accepted origins (`awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-manual-test`, `manual-test-done`, `awaiting-pr-review`) — is recorded as **`originStage`** on entry and determines the git mode — see **step 0**. This command always ends at **`awaiting-fix-review`**; `/myflow-do-fix-done` later reads `originStage` and returns the change to the right stage per **Fix re-entry**.
 
 **Announce at start:** "Using openspec-apply-fix-superpowers for change `<name>`."
 
@@ -24,7 +24,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 
 | Step | Skill | When |
 |------|-------|------|
-| 0 | Stage gate + mode selection | First — requires `awaiting-do-review`, `do-review-started`, `awaiting-manual-test`, or `awaiting-pr-review`; records `originStage`; derives stage-only vs PR-fix from `originStage` |
+| 0 | Stage gate + mode selection | First — requires one of the six origins (`awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-manual-test`, `manual-test-done`, `awaiting-pr-review`); records `originStage`; derives stage-only vs PR-fix from `originStage` |
 | — | Fix-organization choice | Before any edit — append vs nested sub-change (below) |
 | **4** | **subagent-driven-development** | Execute fix task(s) |
 | **5** | **test-driven-development** | Every implementer subagent, every fix task |
@@ -64,7 +64,9 @@ And the TDD requirement:
 
 ### 0. Check stage and select mode
 
-Requires one of **`awaiting-do-review`**, **`do-review-started`**, **`awaiting-manual-test`**, **`awaiting-pr-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. At `proposal-done`, stop and recommend `/myflow-do <name>`. At `finished`, stop — the change is archived.
+Requires one of the six accepted origins — **`awaiting-do-review`**, **`do-review-started`**, **`do-done`**, **`awaiting-manual-test`**, **`manual-test-done`**, **`awaiting-pr-review`** — per **Stage transitions** in `rules/myflow-manual-review.mdc`. At `proposal-done`, stop and recommend `/myflow-do <name>`. At `finished`, stop — the change is archived.
+
+`do-done` and `manual-test-done` are accepted because both mean "the work is complete and the human confirmed it, but something was found before the next command ran". Accepting `manual-test-done` in particular is what lets `/myflow-review`'s coverage check recommend `/myflow-do-fix` without a stage-mismatch override.
 
 **Record `originStage` on entry.** Read the state file's current `stage` and write it into `originStage` before doing anything else — this is what `/myflow-do-fix-done` later reads to return the change to the right place per **Fix re-entry**. A second fix round overwrites `originStage` with the stage that round began from.
 
@@ -74,7 +76,9 @@ Requires one of **`awaiting-do-review`**, **`do-review-started`**, **`awaiting-m
 |----------------|------|-------------------------|
 | `awaiting-do-review` | stage-only | `git add -A`; **no commit** |
 | `do-review-started` | stage-only | `git add -A`; **no commit** |
+| `do-done` | stage-only | `git add -A`; **no commit** |
 | `awaiting-manual-test` | stage-only | `git add -A`; **no commit** |
+| `manual-test-done` | stage-only | `git add -A`; **no commit** |
 | `awaiting-pr-review` (Gate D) | **PR-fix** | `git add -A`, **commit, and push to the PR branch** |
 
 **This command always advances `stage` to `awaiting-fix-review`** at the end (see step 7) — it does not preserve or return to the incoming stage itself. Returning to the right stage is `/myflow-do-fix-done`'s job, driven by the `originStage` this step records. The commit/push decision above is keyed on `originStage`, **not** on the current stage (which is `awaiting-fix-review` throughout this run) — that is what keeps the Gate D commit-and-push behavior working correctly.
@@ -113,8 +117,8 @@ openspec status --change "<name>" --json
 
 `originStage` recorded in step 0 already identifies the gate — no need to ask:
 
-- `awaiting-do-review` or `do-review-started` → **Gate B** (manual review — code)
-- `awaiting-manual-test` → **Gate C** (manual test — running app)
+- `awaiting-do-review`, `do-review-started`, or `do-done` → **Gate B** (manual review — code)
+- `awaiting-manual-test` or `manual-test-done` → **Gate C** (manual test — running app)
 - `awaiting-pr-review` → **Gate D** (PR review)
 
 This decides the section title used in step 4 (`Manual Review Fixes` / `Manual Test Fixes` / `PR Review Fixes`) and which gate `/myflow-do-fix-done` hands back to (via **Fix re-entry**).
@@ -161,7 +165,7 @@ Fix any new Critical/Important findings, then re-run the full panel again until 
 
 Branch on the mode selected in **step 0** (derived from `originStage`). In both branches, write the state file with **`stage: awaiting-fix-review`** and **`originStage`** set to the value recorded in step 0; `updatedAt` and `updatedBy` (`"/myflow-do-fix"`) also change; every other gate value is carried forward exactly as read (gates are monotonic). Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo — **never stage, commit, or push it.**
 
-**Stage-only mode** (`originStage` is `awaiting-do-review`, `do-review-started`, or `awaiting-manual-test`) — same as `openspec-apply-superpowers` step 7, in every affected repo/worktree:
+**Stage-only mode** (`originStage` is `awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-manual-test`, or `manual-test-done`) — same as `openspec-apply-superpowers` step 7, in every affected repo/worktree:
 
 ```bash
 cd <worktree-or-repo>
@@ -181,7 +185,7 @@ Confirm the fix appears under **Changes to be committed** (staged), then stop. *
 **Fix tasks:** N/N complete
 **Branch / worktree:** <same as original apply — unchanged>
 **Git state:** staged + uncommitted (not pushed)
-**Stage:** awaiting-fix-review (originStage: <awaiting-do-review | do-review-started | awaiting-manual-test>)
+**Stage:** awaiting-fix-review (originStage: <awaiting-do-review | do-review-started | do-done | awaiting-manual-test | manual-test-done>)
 
 **Open in IntelliJ:**
 open -na "IntelliJ IDEA" --args "<absolute worktree path>"
@@ -190,7 +194,7 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 - `/myflow-do-fix-manual-review <name>` to mark the fix review as started, or `/myflow-do-fix-done <name>` once the fix looks right — that returns the change to `<originStage>` per **Fix re-entry**
 - If this was a Gate B fix: manual review again on the updated staged diff, then continue to `/myflow-manual-test <name>` (Gate C)
 - If this was a Gate C fix: refresh the guide first — `/myflow-manual-test <name>` — since prior checked items may need re-verification, then re-test
-- More fixes: `/myflow-do-fix <name>` again
+- More fixes: run `/myflow-do-fix <name>` **after** `/myflow-do-fix-done <name>` has returned the change to `<originStage>` — `/myflow-do-fix` does not accept `awaiting-fix-review` or `fix-review-started`, so starting another round from here would be a stage mismatch
 - Once Gate B and Gate C are both satisfied: `/myflow-review <name>` (coverage check, tests, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (also archives any `<name>-fix-N` nested changes together)
 ```
 
@@ -226,7 +230,7 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 **Next steps:**
 - `/myflow-do-fix-manual-review <name>` to mark the fix review as started, or `/myflow-do-fix-done <name>` once reviewed — that returns the change to `awaiting-pr-review`
 - Ask the reviewer to re-review the PR, then merge it on the forge (never merged by this skill)
-- More fixes: `/myflow-do-fix <name>` again
+- More fixes: run `/myflow-do-fix <name>` **after** `/myflow-do-fix-done <name>` has returned the change to `awaiting-pr-review` — `/myflow-do-fix` does not accept `awaiting-fix-review` or `fix-review-started`, so starting another round from here would be a stage mismatch
 - Once merged: `/myflow-finish <name>`
 ```
 
@@ -245,6 +249,7 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 - **Never commit when `originStage != awaiting-pr-review`** — stage only, exactly as `/myflow-do`.
 - **Only PR-fix mode commits** (`originStage == awaiting-pr-review`), and only after the full review panel passes. Key this on `originStage`, never on the current stage.
 - **Never force-push or amend** a commit that is already on an open PR.
+- **Never point the user at `/myflow-do-fix` while the change sits at `awaiting-fix-review` or `fix-review-started`.** Those are not accepted origins; another round starts only after `/myflow-do-fix-done` has returned the change to its `originStage`. Recording `originStage: awaiting-fix-review` via an override would make `/myflow-do-fix-done` target the stage it just accepted — a livelock.
 
 ## Commands (user-facing)
 

@@ -2,7 +2,7 @@
 description: Do done — mark implementation review complete and advance to do-done
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `do-done`
 **ACCEPTED_STAGES:** `awaiting-do-review`, `do-review-started`

@@ -208,12 +208,15 @@ Write the state file before handing off. Resolve its path per **State file** in 
   "worktree": "<absolute worktree path>",
   "branch": "openspec/<name>",
   "originStage": null,
+  "artifactUrl": "<unchanged — carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-do"
 }
 ```
 
 The state file lives **outside** the repo — do not `git add` it, do not commit it, and do not archive it. Carry forward any gate values already present in the file; gates are monotonic.
+
+**`artifactUrl` is carried forward, never dropped.** `/myflow-start` published the proposal artifact and recorded its URL; writes render the whole object, so omitting the field here would permanently destroy the link that `myflow-status` surfaces. Read the existing file first and re-emit the value verbatim (`null` only if it was already `null`).
 
 Stop here.
 

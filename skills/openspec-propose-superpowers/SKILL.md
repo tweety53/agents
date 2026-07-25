@@ -69,7 +69,7 @@ recommendation first and labelled `(Recommended)`.
 **If the architect reports no significant choices, say so in one line and continue** — do not
 manufacture questions to justify the pass.
 
-Record the outcome in `design.md` under a `## Decisions` heading, one entry per decision:
+Record the outcome in `design.md` under a `## Decisions` heading, one entry per decision. **This pass runs before any artifact exists, so hold the decisions in the session and write them into `design.md` at step C, when that file is created** — do not try to write them now, and do not skip recording them later.
 
 ```markdown
 ### <the decision>
@@ -106,7 +106,7 @@ Create all artifacts required by `applyRequires`:
 
 - **proposal.md** — what & why (from brainstorm)
 - **specs/** — delta specs (from brainstorm + design)
-- **design.md** — how (from approved brainstorming design; aligned with spec file above)
+- **design.md** — how (from approved brainstorming design; aligned with spec file above). **Write the architect pass's held decisions into its `## Decisions` heading here** — the architect pass ran before any artifact existed, so this is where its output actually lands, in the format specified in **Architect pass**.
 - **tasks.md** — initial checkbox scaffold (sections + high-level tasks only; **writing-plans enriches this next**)
 
 Do not copy `<context>` / `<rules>` blocks from CLI instructions into artifact files.

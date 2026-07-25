@@ -2,7 +2,7 @@
 description: Do-fix manual review — confirm review of the fix is in progress and advance to fix-review-started
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `fix-review-started`
 **ACCEPTED_STAGES:** `awaiting-fix-review`

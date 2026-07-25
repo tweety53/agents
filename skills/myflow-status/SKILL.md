@@ -87,14 +87,19 @@ Next-command mapping:
 |-------|------|
 | `awaiting-proposal-review` | read the artifact, then `/myflow-start-done` (or `/myflow-start-fix`) |
 | `proposal-done` | `/myflow-do <name>` |
-| `awaiting-do-review` | `/myflow-do-manual-review`, then `/myflow-do-done` |
+| `awaiting-do-review` | `/myflow-do-manual-review`, then `/myflow-do-done` (or `/myflow-do-fix`) |
 | `do-review-started` | `/myflow-do-done` (or `/myflow-do-fix`) |
-| `do-done` | `/myflow-manual-test <name>` |
+| `do-done` | `/myflow-manual-test <name>` (or `/myflow-do-fix`) |
 | `awaiting-fix-review` | `/myflow-do-fix-manual-review`, then `/myflow-do-fix-done` |
 | `fix-review-started` | `/myflow-do-fix-done` |
-| `awaiting-manual-test` | run the guide, then `/myflow-manual-test-done` |
-| `manual-test-done` | `/myflow-review <name>` |
-| `awaiting-pr-review` | review + merge the PR, then `/myflow-review-done` |
+| `awaiting-manual-test` | run the guide, then `/myflow-manual-test-done` (or `/myflow-do-fix`) |
+| `manual-test-done` | `/myflow-review <name>` (or `/myflow-do-fix`) |
+| `awaiting-pr-review` | review + merge the PR, then `/myflow-review-done` (or `/myflow-do-fix`) |
+
+`/myflow-do-fix` is offered only at its six accepted origins (`awaiting-do-review`,
+`do-review-started`, `do-done`, `awaiting-manual-test`, `manual-test-done`, `awaiting-pr-review`)
+— never at `awaiting-fix-review` or `fix-review-started`, where the next step is
+`/myflow-do-fix-done`.
 | `review-done` | `/myflow-finish <name>` |
 | `finished` | — |
 

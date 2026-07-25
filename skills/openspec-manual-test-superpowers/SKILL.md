@@ -208,10 +208,13 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "worktree": "<unchanged>",
   "branch": "<unchanged>",
   "originStage": "<carried forward from the file as read>",
+  "artifactUrl": "<carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-manual-test"
 }
 ```
+
+**`artifactUrl` is carried forward, never dropped** — writes render the whole object, so omitting it would erase the published proposal link that `myflow-status` surfaces.
 
 **Monotonic gates (mandatory).** Never reset `prOpened`/`prMerged` to `null` — carry the read values through verbatim. Never lower `gates.tested`: `true` and `"skipped"` are sticky and this command never demotes them (it only sets `false`/`"skipped"` on a fresh advance run where the prior value was `null`). Never write a `stage` earlier than the one found — from `awaiting-manual-test`, re-emit `awaiting-manual-test`.
 

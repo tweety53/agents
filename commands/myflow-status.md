@@ -2,7 +2,7 @@
 description: Status — show every open myflow change with its stage, gates, next command, and worktree
 ---
 
-Use the **myflow-status** skill (`.claude/skills/myflow-status/SKILL.md`).
+Use the **myflow-status** skill (`.cursor/skills/myflow-status/SKILL.md`).
 
 Follow that skill exactly. **Read-only** — reports stage and gate state for open changes; never commits, merges, or advances a stage.
 

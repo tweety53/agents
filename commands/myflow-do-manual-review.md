@@ -2,7 +2,7 @@
 description: Do manual review — confirm review of the implementation diff is in progress and advance to do-review-started
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `do-review-started`
 **ACCEPTED_STAGES:** `awaiting-do-review`

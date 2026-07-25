@@ -2,7 +2,7 @@
 description: Manual test done — confirm manual testing is complete and advance to manual-test-done
 ---
 
-Use the **myflow-state-advance** skill (`.claude/skills/myflow-state-advance/SKILL.md`).
+Use the **myflow-state-advance** skill (`.cursor/skills/myflow-state-advance/SKILL.md`).
 
 **TARGET_STAGE:** `manual-test-done`
 **ACCEPTED_STAGES:** `awaiting-manual-test`

@@ -118,6 +118,19 @@ git remote get-url origin 2>/dev/null || echo "NO_REMOTE"
 command -v gh >/dev/null 2>&1 && echo "gh: yes" || echo "gh: no"
 ```
 
+**Resolve `<base-branch>` — never hardcode `develop`.** Every `<base-branch>` placeholder below
+(and in `openspec-archive-superpowers`) means this value:
+
+```bash
+# the branch the main checkout is on — the repo's integration branch for this project
+MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
+BASE_BRANCH="$(git -C "$MAIN_CHECKOUT" symbolic-ref --short HEAD)"
+```
+
+If that resolves to an `openspec/*` branch (the main checkout is itself parked on a feature
+branch), fall back to the remote's default (`git remote show origin | sed -n 's/.*HEAD branch: //p'`)
+and confirm with the user before using it. Never guess.
+
 Then take exactly one of three branches:
 
 **6.1 — `gh` installed AND `origin` is a GitHub host** (`github.com` or a GitHub Enterprise host):
@@ -125,7 +138,7 @@ Then take exactly one of three branches:
 ```bash
 git push -u origin openspec/<name>
 gh pr list --head openspec/<name> --state open --json number,url    # reuse if one already exists
-gh pr create --base develop --head openspec/<name> --title "<change title>" --body "<summary + link to proposal>"
+gh pr create --base <base-branch> --head openspec/<name> --title "<change title>" --body "<summary + link to proposal>"
 ```
 
 If a PR for this branch already exists (a `/myflow-do-fix` round pushed to it), skip creation and reuse it. → PR is open: `stage: awaiting-pr-review`, `gates.prOpened: true`.
@@ -156,14 +169,41 @@ Then **AskUserQuestion**:
 
 **6.4 — Auto-merge path (`automerge` passed, and only then):**
 
+**Never `git checkout <base-branch>` inside the worktree.** The main checkout already has
+`<base-branch>` checked out, and git refuses to check out a branch that is checked out in another
+worktree (`fatal: '<base-branch>' is already used by worktree at …`). Doing it the old way aborted
+*after* an `origin/<base-branch>` merge had already mutated the feature branch. Instead, perform
+the whole base-branch merge **from the main checkout**, with `git -C`, never switching branches
+anywhere:
+
 ```bash
+MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
+BASE_BRANCH="$(git -C "$MAIN_CHECKOUT" symbolic-ref --short HEAD)"   # see the resolution note above
+
+# 1. Publish the feature branch first — nothing local is mutated by this.
 cd <worktree>
-git fetch origin develop
-git merge --no-edit origin/develop           # or rebase, per user's git rules; resolve conflicts if any
-git checkout develop
-git merge --no-ff --no-edit openspec/<name>
-git push origin develop
+git push -u origin openspec/<name>
+
+# 2. Preconditions in the main checkout. Stop (do not "fix up") if either fails.
+git -C "$MAIN_CHECKOUT" fetch origin
+test "$(git -C "$MAIN_CHECKOUT" symbolic-ref --short HEAD)" = "$BASE_BRANCH"   # must be on the base branch
+git -C "$MAIN_CHECKOUT" merge --ff-only "origin/$BASE_BRANCH"                  # fast-forward only; never rewrites
+
+# 3. The merge itself — into the base branch, in the main checkout.
+git -C "$MAIN_CHECKOUT" merge --no-ff --no-edit "openspec/<name>"
+git -C "$MAIN_CHECKOUT" push origin "$BASE_BRANCH"
 ```
+
+**Ordering is deliberate: no step mutates the feature branch at any point.** The feature branch is
+only pushed (step 1) and read (step 3). If step 2's fast-forward or step 3's merge fails —
+conflicts, a dirty main checkout, a main checkout parked on some other branch — run
+`git -C "$MAIN_CHECKOUT" merge --abort` if a merge is in progress, then **stop and report**. The
+feature branch, the worktree, and the remote are all exactly as they were, so the user can resolve
+it and re-run. Never resolve a base-branch conflict by rewriting the feature branch, and never
+fall back to the old in-worktree `git checkout` form.
+
+If the main checkout has uncommitted work that blocks the merge, **stop** — do not stash, reset, or
+commit on the user's behalf.
 
 - No PR is created — there is nothing for a human to review.
 - Announce plainly that auto-merge was used and that no PR exists for this change.
@@ -183,6 +223,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
   "originStage": null,
+  "artifactUrl": "<unchanged — carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
@@ -197,6 +238,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
   "originStage": null,
+  "artifactUrl": "<unchanged — carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
@@ -211,10 +253,13 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
   "originStage": null,
+  "artifactUrl": "<unchanged — carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
 ```
+
+**`artifactUrl` is carried forward in all three templates above, never dropped** — writes render the whole object, so omitting it would erase the published proposal link that `myflow-status` surfaces.
 
 **Carry gates forward.** Read the existing state file first and preserve every gate this command does not own. Gate values are **monotonic** — never lower `gates.reviewed`, never overwrite `gates.tested: "skipped"`, never write a stage earlier than the one found.
 
@@ -257,7 +302,7 @@ With `automerge`:
 **Test coverage:** all scenarios covered | proceeded with N gap(s) (user override)
 **Committed:** ✓
 **Tests/linters:** ✓ (commands run)
-**Merged:** ✓ openspec/<name> → develop (automerge — no PR was opened)
+**Merged:** ✓ openspec/<name> → <base-branch> (automerge — no PR was opened)
 **Stage:** review-done
 
 **What to do:**
@@ -274,6 +319,8 @@ With `automerge`:
 - Never mark verification complete with failing tests unless the user explicitly overrides after seeing failures.
 - **Never merge unless the user explicitly passed `automerge` to this invocation** — see **Auto-merge (opt-in)**. Without it, this stage pushes and opens a PR; merging is Gate D, done by the human.
 - **Never push directly to `develop`/`main`** as a substitute for opening a PR, unless `automerge` was passed (branch 6.4).
+- **Never `git checkout <base-branch>` inside a worktree** — git refuses when the main checkout holds that branch, and the old form aborted only after already mutating the feature branch. Branch 6.4 does the base-branch merge from the main checkout via `git -C`, and no step there mutates the feature branch.
+- **Never hardcode `develop` as the base branch** — resolve `<base-branch>` per step 6, matching `openspec-archive-superpowers`. The literal names in the "never push directly to `develop`/`main`" prohibitions are deliberate and stay as-is.
 - **Never assume `gh` is installed or that the forge is GitHub** — detect capability (step 6) and use the confirmation branch otherwise.
 - **Never `git add`, commit, or push the state file** — it is user-scoped and outside the repo.
 - **Write `stage: awaiting-pr-review` only when a PR actually exists** (created by `gh`, or confirmed by the human); otherwise stay at `manual-test-done` with `gates.prOpened: false`. With `automerge`, skip `awaiting-pr-review` entirely and write `stage: review-done`.
