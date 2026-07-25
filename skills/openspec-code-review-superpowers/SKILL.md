@@ -173,7 +173,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
 ```json
 {
   "stage": "awaiting-test",
-  "gates": { "reviewed": true, "tested": <true | "skipped" | false-with-user-override>, "prOpened": false, "prMerged": false },
+  "gates": { "reviewed": <carried forward unchanged>, "tested": <true | "skipped" | false-with-user-override>, "prOpened": false, "prMerged": false },
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
   "updatedAt": "<ISO-8601 UTC now>",

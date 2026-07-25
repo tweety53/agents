@@ -21,7 +21,7 @@ Follow that skill exactly. Accepts stage `awaiting-review` (**advance** — Gate
 
 Both answers write `stage: awaiting-test`. The only exception to always-asking is `/myflow-full` with the `skip-manual-test` flag, which pre-answers **Yes** — announce that instead of asking again.
 
-**Create/update the file, stage it and the state file (`git add`, no commit), reply with a link to the file only** (do not paste the guide body), then **stop** for the user to test.
+**Create/update the file and stage it (`git add`, no commit) — the state file lives outside the repo and is never staged. Reply with a link to the file only** (do not paste the guide body), then **stop** for the user to test.
 
 Also follow `.cursor/rules/myflow-manual-review.mdc`.
 
