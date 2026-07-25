@@ -236,6 +236,9 @@ Default (no `automerge`):
 **Pushed:** ✓ openspec/<name>
 **PR:** <url> — **open, not merged** | opened by you, URL not recorded | **not opened yet** — create it at <compare-url>, still at `manual-test-done`
 
+**Open in IntelliJ:**
+open -na "IntelliJ IDEA" --args "<absolute worktree path>"
+
 **What to do (Gate D):**
 1. Review the PR at the link above
 2. Changes needed → `/myflow-do-fix <name>` (commits and pushes to this PR)
