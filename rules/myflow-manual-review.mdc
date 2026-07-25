@@ -1,20 +1,23 @@
 ---
-description: myflow state machine — five stages (start, awaiting-review, awaiting-test, awaiting-pr-review, finished) tracked in a state file; no commits during start/do (do-fix commits only for the Gate D exception); review + manual test gates with inline fix loops; commit + PR (no merge) in code review; human PR review + merge at Gate D; verify + sync + archive in finish
+description: myflow state machine — twelve stages (awaiting-proposal-review, proposal-done, awaiting-do-review, do-review-started, do-done, awaiting-fix-review, fix-review-started, awaiting-manual-test, manual-test-done, awaiting-pr-review, review-done, finished) tracked in a state file; no commits during start/do (do-fix commits only for the Gate D exception); review + manual test gates with inline fix loops; commit + PR in review, with an opt-in `automerge` carve-out; human PR review + merge at Gate D by default; verify + sync + archive in finish
 globs:
 alwaysApply: true
 ---
 
-# myflow — start → do → manual review → manual test → code review → PR review → finish
+# myflow — proposal → do → manual review → manual test → review → PR review → finish
 
-When running `/myflow-*` commands or openspec-*-superpowers skills, follow this **fixed seven-step pipeline**:
+When running `/myflow-*` commands or openspec-*-superpowers skills, follow this **fixed
+twelve-stage pipeline**:
 
 ```text
-start → do → manual review (Gate B) → manual test (Gate C) → code review → PR review (Gate D) → finish (Gate E)
+awaiting-proposal-review → proposal-done → awaiting-do-review → do-review-started → do-done →
+[awaiting-fix-review → fix-review-started] → awaiting-manual-test → manual-test-done →
+awaiting-pr-review → review-done → finished
 ```
 
 ## Model policy
 
-`/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming and design benefit most from stronger reasoning. Every other `/myflow-*` command (`do`, `do-fix`, `manual-test`, `code-review`, `finish`, `full`) should run on **Sonnet** (or the harness's standard default).
+`/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming and design benefit most from stronger reasoning. Every other `/myflow-*` command (`do`, `do-fix`, `manual-test`, `review`, `finish`, `full`) should run on **Sonnet** (or the harness's standard default).
 
 - **Claude Code**: enforced via `model: opus` / `model: sonnet` in each command's frontmatter (`commands-claude/*.md`) — no manual action needed.
 - **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) — each `.cursor/commands/myflow-*.md` file carries an explicit note; switch models manually in the composer/chat picker.
@@ -32,23 +35,28 @@ start → do → manual review (Gate B) → manual test (Gate C) → code review
 
 ## Pipeline stages
 
-A change is always in exactly one of five stages, recorded in its state file (see **State file**):
+A change is always in exactly one of twelve stages, recorded in its state file (see **State file**):
 
-| Stage | Meaning | Advanced by |
-|-------|---------|-------------|
-| `start` | Planning artifacts exist; implementation not started | `/myflow-do` |
-| `awaiting-review` | Code staged in worktree; Gate B (human code review) pending | `/myflow-manual-test` |
-| `awaiting-test` | Manual test guide written; Gate C (human testing) pending | `/myflow-code-review` |
-| `awaiting-pr-review` | PR opened; Gate D (human PR review + merge) pending | `/myflow-finish` |
-| `finished` | Merged, specs synced, change archived | — terminal |
+| Stage | Set by | Waiting on |
+|-------|--------|------------|
+| `awaiting-proposal-review` | `/myflow-start`, `/myflow-start-fix` | human — read the proposal artifact |
+| `proposal-done` | `/myflow-start-done` | `/myflow-do` |
+| `awaiting-do-review` | `/myflow-do` | human — review staged diff |
+| `do-review-started` | `/myflow-do-manual-review` | human — mid-review |
+| `do-done` | `/myflow-do-done` | `/myflow-manual-test` |
+| `awaiting-fix-review` | `/myflow-do-fix` | human — review the fix |
+| `fix-review-started` | `/myflow-do-fix-manual-review` | human — mid-review |
+| `awaiting-manual-test` | `/myflow-manual-test` | human — run the apps |
+| `manual-test-done` | `/myflow-manual-test-done` | `/myflow-review` |
+| `awaiting-pr-review` | `/myflow-review` | human — review + merge the PR |
+| `review-done` | `/myflow-review-done`, or `/myflow-review automerge` | `/myflow-finish` |
+| `finished` | `/myflow-finish` | — terminal |
 
-`/myflow-do-fix` has no stage of its own. It runs *within* `awaiting-review`, `awaiting-test`, or `awaiting-pr-review` and returns the change to the stage it started from.
-
-Gates B, C, and D have no "approve" command. Invoking the next stage's command is the signal that the human is satisfied; that command writes the stage advance and sets the gate flag it just cleared:
-
-- `/myflow-manual-test` sets `gates.reviewed: true` on entry (Gate B passed) — except under `/myflow-full skip-review`, where it records `false`
-- `/myflow-code-review` reads `gates.tested` (Gate C) and sets `gates.prOpened: true`
-- `/myflow-finish` sets `gates.prMerged: true` after verifying the merge (Gate D)
+**`*-done` and `*-manual-review` commands are pure state writes.** They update `stage`,
+`updatedAt`, and `updatedBy` and nothing else — no verification, no artifact reading, no git.
+This keeps the *claim* ("I am done reviewing") separate from the *fact* ("the PR merged"), which
+`/myflow-finish` still verifies independently. `/myflow-review-done` therefore checks nothing;
+a change can reach `review-done` with an unmerged PR, and `/myflow-finish` will refuse to archive it.
 
 ## State file
 
@@ -60,7 +68,7 @@ Gates B, C, and D have no "approve" command. Invoking the next stage's command i
 
 `<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `gymie-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous.
 
-**Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and code-review (in the main checkout) two different state files for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `.git` from anywhere, including inside a worktree:
+**Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and review (in the main checkout) two different state files for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `.git` from anywhere, including inside a worktree:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
@@ -73,7 +81,7 @@ Every command resolves the path this way, so the same change maps to the same fi
 
 ```json
 {
-  "stage": "awaiting-test",
+  "stage": "awaiting-manual-test",
   "gates": {
     "reviewed": true,
     "tested": false,
@@ -82,15 +90,19 @@ Every command resolves the path this way, so the same change maps to the same fi
   },
   "worktree": "/Users/tweety53/Projects/gymie/.worktrees/openspec-<name>",
   "branch": "openspec/<name>",
+  "originStage": null,
+  "artifactUrl": null,
   "updatedAt": "2026-07-25T10:00:00Z",
   "updatedBy": "/myflow-manual-test"
 }
 ```
 
-- `stage` — one of the five values in **Pipeline stages**.
-- `gates.tested` — `null` (stage not reached), `false` (guide written, not yet tested), `"skipped"` (Gate C intentionally bypassed — permanent, never overwritten), or `true` (testing completed and verified by `/myflow-code-review`, the only writer of `true`).
+- `stage` — one of the twelve values in **Pipeline stages**.
+- `gates.tested` — `null` (stage not reached), `false` (guide written, not yet tested), `"skipped"` (Gate C intentionally bypassed — permanent, never overwritten), or `true` (testing completed and verified by `/myflow-review`, the only writer of `true`).
 - `gates.reviewed` / `gates.prOpened` / `gates.prMerged` — boolean, or `null` before that stage is reached.
 - `worktree` — absolute path, or `null` when no worktree exists.
+- `originStage` — the stage `/myflow-do-fix` was invoked from; `null` when no fix is in flight.
+- `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
 - `updatedBy` — the command that last wrote the file, e.g. `"/myflow-do"`.
 
 Read it with:
@@ -101,7 +113,7 @@ jq -r '.stage' "$STATE_FILE" 2>/dev/null || echo "MISSING"
 
 Write it by rendering the full object above — always write every field, never a partial merge. Never `git add` it, never include it in a commit, and never move it into `openspec/changes/archive/`.
 
-**Gate values are monotonic.** No command may lower a gate value. `gates.tested: true` and `gates.tested: "skipped"` are **sticky** — once set they are never overwritten or demoted. No command may write a `stage` earlier than the one it found. A self-heal may only **raise or fill** a value, never lower one, and must **never infer `gates.tested: true`** — only `/myflow-code-review` writes `true`.
+**Gate values are monotonic.** No command may lower a gate value. `gates.tested: true` and `gates.tested: "skipped"` are **sticky** — once set they are never overwritten or demoted. No command may write a `stage` earlier than the one it found, other than the one permitted rewind below. A self-heal may only **raise or fill** a value, never lower one, and must **never infer `gates.tested: true`** — only `/myflow-review` writes `true`.
 
 Because writes render the whole object, every command must first **read the existing file and carry forward** every gate it does not itself own (e.g. `/myflow-manual-test` re-emits the `prOpened`/`prMerged` values it read, rather than resetting them to `null`).
 
@@ -113,19 +125,19 @@ Because writes render the whole object, every command must first **read the exis
 
 | State claim | Contradicted when |
 |-------------|-------------------|
-| `stage: start` | an apply worktree for branch `openspec/<name>` exists; or, when no worktree exists, every task in the main checkout's `tasks.md` is checked |
-| `stage: awaiting-review` | `docs/manual-test/<name>.md` exists and is newer than the last code change |
-| `stage: awaiting-test` | the branch has commits beyond `MERGE_BASE` **and** a PR is confirmed to exist for it |
+| `stage: awaiting-proposal-review` / `proposal-done` | an apply worktree for branch `openspec/<name>` exists; or, when no worktree exists, every task in the main checkout's `tasks.md` is checked |
+| `stage: awaiting-do-review`, `do-review-started`, `do-done` | `docs/manual-test/<name>.md` exists and is newer than the last code change |
+| `stage: awaiting-manual-test`, `manual-test-done` | the branch has commits beyond `MERGE_BASE` **and** a PR is confirmed to exist for it |
 | `stage: awaiting-pr-review` | PR existence was **conclusively** determined and no PR exists for the branch (a usable PR CLI for the host answered) — **the one permitted rewind**, see below |
 | `worktree` path | the path is absent from `git worktree list` |
 
 **The one permitted rewind.** Monotonicity forbids writing an earlier `stage`, with a single
 carve-out: when a PR's non-existence is **conclusively** established (a usable PR CLI for the host
-answered, and there is no PR), a change at `awaiting-pr-review` may be rewound to `awaiting-test`
-and `gates.prOpened` set back to `false`. This is the only backward stage write in the system, and
-it exists so an abandoned or closed-unmerged PR does not strand a change forever. Gate values other
-than `prOpened` are still sticky — never lower `gates.tested`. If the PR check is inconclusive, do
-not rewind (see below).
+answered, and there is no PR), a change at `awaiting-pr-review` may be rewound to
+`awaiting-manual-test` and `gates.prOpened` set back to `false`. This is the only backward stage
+write of that kind in the system, and it exists so an abandoned or closed-unmerged PR does not
+strand a change forever. Gate values other than `prOpened` are still sticky — never lower
+`gates.tested`. If the PR check is inconclusive, do not rewind (see below).
 
 **A check that cannot be performed is not a contradiction.** If PR state cannot be determined (no PR CLI for the host, no network, no remote), treat it as **unknown** and leave the stage as recorded. Never rewind a stage on an inconclusive probe.
 
@@ -137,18 +149,28 @@ Self-heal obeys the **monotonic gates** rule above: it may only raise or fill va
 
 Each command declares the stage(s) it accepts:
 
-| Command | Accepts stage |
-|---------|---------------|
-| `/myflow-start` | *(none — creates the change at `start`)* |
-| `/myflow-do` | `start` |
-| `/myflow-do-fix` | `awaiting-review`, `awaiting-test`, `awaiting-pr-review` |
-| `/myflow-manual-test` | `awaiting-review` (advance) · `awaiting-test` (**refresh**) |
-| `/myflow-code-review` | `awaiting-test` |
-| `/myflow-finish` | `awaiting-pr-review` |
+| Command | Accepts stage(s) |
+|---------|------------------|
+| `/myflow-start` | *(none — creates the change)* |
+| `/myflow-start-fix` | `awaiting-proposal-review` |
+| `/myflow-start-done` | `awaiting-proposal-review` |
+| `/myflow-do` | `proposal-done` |
+| `/myflow-do-manual-review` | `awaiting-do-review` |
+| `/myflow-do-done` | `awaiting-do-review`, `do-review-started` |
+| `/myflow-do-fix` | `awaiting-do-review`, `do-review-started`, `awaiting-manual-test`, `awaiting-pr-review` |
+| `/myflow-do-fix-manual-review` | `awaiting-fix-review` |
+| `/myflow-do-fix-done` | `awaiting-fix-review`, `fix-review-started` |
+| `/myflow-manual-test` | `do-done` (advance) · `awaiting-manual-test` (refresh) |
+| `/myflow-manual-test-done` | `awaiting-manual-test` |
+| `/myflow-review` | `manual-test-done` |
+| `/myflow-review-done` | `awaiting-pr-review` |
+| `/myflow-finish` | `review-done` |
 | `/myflow-status`, `/myflow-info` | any — read-only, never block |
-| `/myflow-full` | *(composite entry point — drives `start` through the sequence; always stops at Gate D)* |
+| `/myflow-full` | *(composite — drives the sequence, always stops at Gate D)* |
 
-**`/myflow-manual-test` refresh mode.** When the incoming stage is already `awaiting-test`, the command enters **refresh mode** automatically — no mismatch, no prompt, no override. Refresh mode does not re-ask the skip question (that decision was made on the advance run, which is what makes `"skipped"` unclobberable), does not rewrite `gates.reviewed`, preserves every already-checked box, re-emits `stage: awaiting-test` with all gates carried forward, and announces "refreshed after fix round N".
+Keep the existing mismatch-handoff prose and the AskUserQuestion-default-No rule unchanged.
+
+**`/myflow-manual-test` refresh mode.** When the incoming stage is already `awaiting-manual-test`, the command enters **refresh mode** automatically — no mismatch, no prompt, no override. Refresh mode does not re-ask the skip question (that decision was made on the advance run, which is what makes `"skipped"` unclobberable), does not rewrite `gates.reviewed`, preserves every already-checked box, re-emits `stage: awaiting-manual-test` with all gates carried forward, and announces "refreshed after fix round N".
 
 **On mismatch, stop.** Report the actual stage, the expected stage, and the command that should run instead, then **AskUserQuestion** for an explicit override with **"No — run the suggested command instead"** as the default and recommended answer. Only proceed when the user explicitly chooses to override. Never advance the stage silently from a wrong starting point.
 
@@ -163,17 +185,59 @@ Handoff format on mismatch:
 **Suggested instead:** /myflow-<other> <name>
 ```
 
+## Fix re-entry
+
+`/myflow-do-fix` records `originStage` in the state file — the stage it was invoked from.
+`/myflow-do-fix-done` returns the change to that stage, then clears `originStage`.
+
+| Fix raised at | Returns to |
+|---------------|-----------|
+| `awaiting-do-review` | `awaiting-do-review` |
+| `do-review-started` | `awaiting-do-review` |
+| `awaiting-manual-test` | `awaiting-manual-test` |
+| `awaiting-pr-review` | `awaiting-pr-review` |
+
+`do-review-started` returns to `awaiting-do-review`, not to itself: the diff changed, so the
+prior review is stale and review restarts. A second fix round overwrites `originStage` with the
+stage that round began from.
+
+`/myflow-do-fix` still commits and pushes **only** when `originStage` is `awaiting-pr-review`
+(a PR exists remotely, so staging alone would leave the fix invisible). At every other origin it
+stages without committing.
+
+## IntelliJ commands
+
+Every stage that waits on a human must print a copy-paste command in its handoff:
+
+```bash
+open -na "IntelliJ IDEA" --args "<absolute path>"
+```
+
+Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH. `open` resolves
+the app by name (bundle `com.jetbrains.intellij`), returns immediately instead of blocking the
+shell, and reuses a running instance.
+
+| Stage | Path to open |
+|-------|--------------|
+| `awaiting-proposal-review` | main checkout (artifacts live there) |
+| `awaiting-do-review`, `do-review-started` | apply worktree root |
+| `awaiting-fix-review`, `fix-review-started` | apply worktree root |
+| `awaiting-manual-test` | apply worktree root, plus the guide's absolute path |
+| `awaiting-pr-review` | apply worktree root |
+
+Paths are absolute, resolved from `git worktree list`. Never emit a relative path.
+
 ## Stage boundaries
 
 | Stage | Command | Allowed git actions |
 |-------|---------|---------------------|
-| Start | `/myflow-start` | None (planning artifacts only) |
+| Proposal | `/myflow-start` | None (planning artifacts only) |
 | Do | `/myflow-do` | Branch/worktree + **`git add` (stage)** — no commits, push, merge, or PR |
 | Manual review | User (Gate B) | User inspects **staged** diff in worktree IDE; agent waits |
 | Fix at Gate B/C | `/myflow-do-fix` | Resumes **existing** worktree + **`git add`** — no commits, push, merge, or PR |
 | Manual test | `/myflow-manual-test` | Generate/refresh guide + **`git add`** — no commits |
-| Code review | `/myflow-code-review` | Verifies Gate C, checks coverage, tests/linters, **commits**, **pushes**, **opens PR** — **never merges** |
-| PR review | User (Gate D) | User reviews the PR on the forge and merges it |
+| Review | `/myflow-review` | Verifies Gate C, checks coverage, tests/linters, **commits**, **pushes**, **opens PR** — merges only with `automerge` (see **Auto-merge (opt-in)**) |
+| PR review | User (Gate D) | User reviews the PR on the forge and merges it — unless `automerge` was used, in which case there is no PR to review |
 | Fix at Gate D | `/myflow-do-fix` | **Commits and pushes** to the existing PR branch — the one exception (see **Fix rounds**) |
 | Finish | `/myflow-finish` | Verifies the PR merged, syncs delta specs, archives — no commits, tests, or merges |
 
@@ -186,7 +250,7 @@ Handoff format on mismatch:
 - Per-task and final automated review (#6): review **working tree** diffs (`git diff TASK_BASE`, `git diff MERGE_BASE`), not commit ranges.
 - Final #6 is a **strict multi-agent panel**: primary `requesting-code-review` **plus 5 additional** separate agents (Bugbot, Security Review, Adversarial, Senior engineer, Economic senior engineer). The economic senior **must** use the provider's economy-tier model (e.g. Grok parent → `composer-2.5-fast`). Do not skip or collapse them. Re-run the full panel after fixes.
 - Progress ledger: `Task N: complete (uncommitted, review clean)` — not commit SHAs.
-- Before handoff: in every affected repo/worktree, `git add -A` (respects `.gitignore`), confirm `git status` shows changes as **staged**, then hand off worktree path + review commands; tell user to run `/myflow-manual-test <name>` after code review, then `/myflow-code-review` after testing.
+- Before handoff: in every affected repo/worktree, `git add -A` (respects `.gitignore`), confirm `git status` shows changes as **staged**, then hand off worktree path + review commands; tell user to run `/myflow-manual-test <name>` after code review, then `/myflow-review` after testing.
 - **Guard against a mistaken re-run:** if `<name>` already has an apply worktree and looks like it's already past do (a manual-test guide exists, or a clean final-review-panel record exists, or every original task is checked), **AskUserQuestion** before proceeding — did the user mean `/myflow-do-fix` instead? Default/recommended answer: **No, use `/myflow-do-fix`**. Only continue with a fresh/expanded `/myflow-do` run if the user explicitly picks **Yes**.
 
 ## Manual review (Gate B)
@@ -209,13 +273,13 @@ After Gate B (and any Gate B fix rounds) are satisfied, user runs `/myflow-manua
 - Agent writes/refreshes `docs/manual-test/<name>.md` (how to run involved apps + functionality checklist from specs)
 - **Run commands must use absolute apply-worktree roots** for every involved app (`gymie`, `gymie-frontend`, `gymie-admin-frontend` as in scope) — resolve from progress ledger / `git worktree list`; never relative `../gymie-*` or main `develop` checkouts when worktrees exist
 - Stages the file; replies with a **link to the file only** (no guide body in chat); **stops**
-- User opens the link, runs the apps, and checks off items; does not move to code review until satisfied
-- Hint: `/myflow-code-review <name>` when testing done; `/myflow-do-fix <name>` for fixes (repeatable — refresh the guide after each fix, then re-test)
+- User opens the link, runs the apps, and checks off items; does not move to review until satisfied
+- Hint: `/myflow-review <name>` when testing done; `/myflow-do-fix <name>` for fixes (repeatable — refresh the guide after each fix, then re-test)
 - `/myflow-manual-test` **always asks** (AskUserQuestion, default and recommended **No**): "Skip manual testing for this change?"
   - **No** → normal guide, unchecked checklist, `gates.tested: false`
   - **Yes** → same guide marked `**Manual test status:** SKIPPED`, every box left unchecked, `gates.tested: "skipped"`
-- Either answer advances the stage to `awaiting-test`. The distinction lives in `gates.tested`, which `/myflow-code-review` reads to tell an intentional bypass from an incomplete checklist.
-- The skip prompt is asked **only on the advance run** (incoming stage `awaiting-review`). In **refresh mode** (incoming stage already `awaiting-test`, i.e. after a fix round) it is not re-asked and `gates.tested` is carried forward untouched.
+- Either answer advances the stage to `awaiting-manual-test`. The distinction lives in `gates.tested`, which `/myflow-review` reads to tell an intentional bypass from an incomplete checklist.
+- The skip prompt is asked **only on the advance run** (incoming stage `do-done`). In **refresh mode** (incoming stage already `awaiting-manual-test`, i.e. after a fix round) it is not re-asked and `gates.tested` is carried forward untouched.
 - `gates.reviewed` is set `true` only when Gate B actually happened. Under `/myflow-full skip-review`, write `gates.reviewed: false` and note in the summary that Gate B was explicitly skipped — the state must never claim a review that never happened.
 - `/myflow-manual-test-skip` is **retired** — the prompt replaces it.
 
@@ -226,35 +290,53 @@ Do not commit or integrate at Gate C.
 When Gate B or Gate C surfaces something that needs fixing, use `/myflow-do-fix <name>` — **not** a bare re-run of `/myflow-do <name>`. This is what keeps the change's proposal from going stale after review/test rounds: the fix is documented (appended to `proposal.md`/`tasks.md`, or tracked as a linked nested `<name>-fix-N` sub-change — the skill asks which) **before** it is implemented. Both gates can loop through as many fix rounds as needed before continuing.
 
 - Resumes the **existing** apply worktree/branch — never a new one.
-- No commits, push, merge, or PR — same constraints as do (commits now happen in `/myflow-code-review`, later than before).
+- No commits, push, merge, or PR — same constraints as do (commits now happen in `/myflow-review`, later than before), unless `originStage` is `awaiting-pr-review` (see **Fix re-entry**).
 - Re-runs the **full** strict review panel (not a fix-only diff) before handing back to Gate B.
 - A Gate C fix invalidates prior checked-off boxes in `docs/manual-test/<name>.md` for anything the fix touched — refresh via `/myflow-manual-test <name>` before re-testing.
 - A nested `<name>-fix-N` sub-change is never archived standalone — only together with its parent via `/myflow-finish <name>`.
 
-## Code review (commit + PR, no merge)
+## Review (commit + PR; merge only with `automerge`)
 
-Requires stage `awaiting-test`. After Gate B and Gate C are both satisfied, run `/myflow-code-review <name>`.
+Requires stage `manual-test-done`. After Gate B and Gate C are both satisfied, run `/myflow-review <name>` (optionally `/myflow-review <name> automerge`).
 
-- **Verify Gate C first:** read `gates.tested` and `docs/manual-test/<name>.md`. `"skipped"` means intentionally bypassed — record and continue, and **never** overwrite it. Otherwise, if any box is still `- [ ]`, notify the user (count + what's open) and get explicit confirmation before proceeding. If `gates.tested` is `false` and every checklist box is ticked, **promote it to `true`** before writing state — `/myflow-code-review` is the only writer of `gates.tested: true`.
+- **Verify Gate C first:** read `gates.tested` and `docs/manual-test/<name>.md`. `"skipped"` means intentionally bypassed — record and continue, and **never** overwrite it. Otherwise, if any box is still `- [ ]`, notify the user (count + what's open) and get explicit confirmation before proceeding. If `gates.tested` is `false` and every checklist box is ticked, **promote it to `true`** before writing state — `/myflow-review` is the only writer of `gates.tested: true`.
 - **Check test coverage** against every delta-spec scenario for `<name>` and any nested `<name>-fix-N`. Report gaps and offer `/myflow-do-fix` (recommended). Never write the missing tests in this stage.
 - Run verification (tests/linters) with evidence shown.
 - **Commit** all implementation changes, including `docs/manual-test/<name>.md`.
-- **Push the branch and open a PR — then stop.** Do not merge. Do not push directly to the base branch.
+- **Push the branch and open a PR.** By default, **do not merge** — see **Auto-merge (opt-in)** for the one exception.
 - **PR opening is forge-agnostic.** Branch on actual capability, never on the assumption that `gh` exists:
   1. `gh` installed **and** the remote is a GitHub host → `gh pr create` (and `gh pr list` to detect/reuse an existing PR) → `stage: awaiting-pr-review`, `gates.prOpened: true`.
-  2. A remote exists but there is no usable PR CLI for that host (e.g. Bitbucket, or `gh` missing) → push, print the forge's create-PR URL, and **AskUserQuestion**: "Have you opened the PR?" (default **No**). **Yes** → `stage: awaiting-pr-review`, `gates.prOpened: true` (record the PR URL if the user supplies one; do not block if not). **No** → stay at `awaiting-test`, `gates.prOpened: false`, and say plainly what to do next. Human confirmation is a legitimate substitute for an API probe — the same trust model already used at Gates B and C.
-  3. No remote at all → push is impossible; stop, stay at `awaiting-test`, `gates.prOpened: false`.
+  2. A remote exists but there is no usable PR CLI for that host (e.g. Bitbucket, or `gh` missing) → push, print the forge's create-PR URL, and **AskUserQuestion**: "Have you opened the PR?" (default **No**). **Yes** → `stage: awaiting-pr-review`, `gates.prOpened: true` (record the PR URL if the user supplies one; do not block if not). **No** → stay at `manual-test-done`, `gates.prOpened: false`, and say plainly what to do next. Human confirmation is a legitimate substitute for an API probe — the same trust model already used at Gates B and C.
+  3. No remote at all → push is impossible; stop, stay at `manual-test-done`, `gates.prOpened: false`.
 - The state file is **not** committed or pushed — it lives outside the repo (see **State file**).
+
+## Auto-merge (opt-in)
+
+**Never merge unless the user explicitly passed `automerge` to `/myflow-review`.** This is the
+only exception in the system and it is defined here; skills reference this section rather than
+each restating a conditional.
+
+- **Default (no flag):** commit, push, open a PR (or print the forge URL and confirm), stop at
+  `awaiting-pr-review`. The human reviews and merges.
+- **`/myflow-review automerge`:** commit, push, merge into the base branch, push the merge. There
+  is no PR for a human to review, so `awaiting-pr-review` is skipped and the stage goes directly
+  to `review-done`. Announce plainly that auto-merge was used.
+
+`automerge` must be typed by the user on that invocation. It is never inferred, never remembered
+between runs, and never defaulted on.
 
 ## PR review (Gate D)
 
-The human reviews the PR on the forge, optionally loops `/myflow-do-fix <name>`, and **merges it manually**. The agent never merges. Nothing in myflow automates this step.
+By default, the human reviews the PR on the forge, optionally loops `/myflow-do-fix <name>`, and
+**merges it manually**. The agent never merges unless the user explicitly passed `automerge` to
+`/myflow-review` (see **Auto-merge (opt-in)**) — in which case this gate was skipped entirely and
+the change is already at `review-done`. Nothing in myflow automates a default merge.
 
 ## Finish (verify merged + sync + archive)
 
-Requires stage `awaiting-pr-review`.
+Requires stage `review-done`.
 
-- **Verify the PR actually merged.** If it is still open, **stop** — archiving a change whose code never reached the base branch is a real drift risk.
+- **Verify the PR actually merged**, or — when `automerge` was used — that the merge commit landed on the base branch. If it is still open (non-automerge path), **stop** — archiving a change whose code never reached the base branch is a real drift risk.
 - Archive any nested `<name>-fix-N` sub-changes together with `<name>`.
 - Delta sync (if chosen), archive move, then write `stage: finished`, `gates.prMerged: true` to the user-scoped state file. The state file is **not** moved into the archive — it stays at its user-scoped path as the terminal record.
 - `gh` may be unavailable; the `git merge-base --is-ancestor` check must remain reachable on its own and is the merge evidence on non-GitHub forges.
@@ -264,16 +346,23 @@ Requires stage `awaiting-pr-review`.
 
 | Gate | When | Default action |
 |------|------|----------------|
-| A | After start | User approves plan before do |
-| B | After do | **Manual code review** — stop; inline `/myflow-do-fix` loop available |
+| A | After proposal | User approves plan before do (`/myflow-start-done` is a separate human confirmation — `/myflow-full` never invokes it) |
+| B | After do | **Manual code review** — stop; inline `/myflow-do-fix` loop available (`/myflow-do-done` and `/myflow-do-manual-review` are human confirmations — `/myflow-full` never invokes them) |
 | C | After `/myflow-manual-test` | **Manual testing** — stop; inline `/myflow-do-fix` loop available |
-| D | After `/myflow-code-review` | **Human PR review + merge** — stop; `/myflow-full` always ends here |
+| D | After `/myflow-review` | **Human PR review + merge** — stop; `/myflow-full` always ends here, unless the user explicitly ran it with `automerge`, in which case there is no PR to stop at and the cycle ends at `review-done` |
 | E | `/myflow-finish` | Verify merged + sync + archive (user invoked) |
+
+**`/myflow-full` must never auto-invoke a `*-done` or `*-manual-review` command.** Those are
+human confirmations of a stage a human actually reviewed; a full-cycle run that invokes them
+itself would self-certify a review nobody performed. `/myflow-full` drives the sequence up to and
+including `/myflow-do`, `/myflow-manual-test`, and `/myflow-review`, and always stops at a human
+gate — it never advances past one by writing the confirmation itself.
 
 ## Opt-out (explicit only)
 
 - `skip-review` on `/myflow-full` — skip Gate B only; Gate C still runs unless also skipped. Records `gates.reviewed: false` (Gate B explicitly skipped), never `true`.
-- `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**; code review still runs and still checks coverage.
+- `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**; review still runs and still checks coverage.
 - `commit-during-apply` — legacy SDD per-task commits; only when the user explicitly requests it.
+- `automerge` on `/myflow-review` (and therefore on `/myflow-full`, which forwards it) — see **Auto-merge (opt-in)**. Opt-in only; never implied by any other flag.
 
-`no-archive` is **removed** — `/myflow-full` now always ends at Gate D and never reaches archiving.
+`no-archive` is **removed** — `/myflow-full` now always ends at Gate D (or, with `automerge`, at `review-done`) and never reaches archiving.
