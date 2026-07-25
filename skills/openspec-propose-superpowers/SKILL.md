@@ -6,7 +6,7 @@ license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
 metadata:
   author: gymie
-  version: "2.2"
+  version: "2.3"
 ---
 
 Propose an OpenSpec change with Superpowers Basic Workflow steps **#1** and **#3** fully intertwined with OpenSpec artifact creation.
@@ -47,6 +47,34 @@ Invoke **superpowers:brainstorming** in full:
 
 **OpenSpec bridge:** Treat the approved brainstorming design as the source for OpenSpec `design.md` content (adapt format to OpenSpec template; do not duplicate conflicting designs).
 
+### Architect pass (always runs)
+
+Dispatch an **architect subagent** before writing any artifact. It always runs — do not gate it
+behind a heuristic; a skipped architect on a change that needed one is the expensive error.
+
+Give the subagent: the brainstormed intent, the affected modules, and the project's layout rules
+from `CLAUDE.md`. Ask it to identify the architectural decisions this change genuinely forces —
+module placement, persistence shape, API surface, boundary ownership, migration strategy — and for
+each to produce: the decision, 2–3 concrete options, the tradeoffs of each, and a recommendation.
+
+Then put each decision to the user with **AskUserQuestion**, one question per decision,
+recommendation first and labelled `(Recommended)`.
+
+**If the architect reports no significant choices, say so in one line and continue** — do not
+manufacture questions to justify the pass.
+
+Record the outcome in `design.md` under a `## Decisions` heading, one entry per decision:
+
+```markdown
+### <the decision>
+
+**Chosen:** <option> — <one-line rationale>
+**Considered:** <other options, each with the tradeoff that ruled it out>
+```
+
+This section is what keeps the reasoning alive during implementation, when the alternatives are
+no longer visible.
+
 ### C. OpenSpec change + draft artifacts
 
 After design approval, follow **openspec-propose** steps 2–5:
@@ -67,22 +95,7 @@ Create all artifacts required by `applyRequires`:
 
 Do not copy `<context>` / `<rules>` blocks from CLI instructions into artifact files.
 
-### Write initial state
-
-Create the change's state file at the user-scoped path resolved per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`; `mkdir -p` its directory first):
-
-```json
-{
-  "stage": "start",
-  "gates": { "reviewed": null, "tested": null, "prOpened": null, "prMerged": null },
-  "worktree": null,
-  "branch": null,
-  "updatedAt": "<ISO-8601 UTC now>",
-  "updatedBy": "/myflow-start"
-}
-```
-
-The state file lives **outside** the repo — do **not** `git add` it, commit it, or archive it. Only the planning artifacts under `<changeRoot>` are staged.
+The state file is not written yet — it is written once, at the end (see **Write final state and handoff**), once the artifact URL and decision count are known. Do not create it here.
 
 ### D. Basic Workflow #3 — Writing plans (mandatory)
 
@@ -103,26 +116,75 @@ Add this header to `tasks.md`:
 > **Execution:** `/myflow-do` runs Basic Workflow #2–#6 via `openspec-apply-superpowers` (#7 runs later, in `/myflow-review`). Mark each checkbox when its task passes spec + quality review (SDD #6).
 ```
 
-### E. Finish
+### Publish the proposal artifact
+
+Load the `artifact-design` skill first, then build a single self-contained page containing:
+the proposal's why and what; the design including the `## Decisions` section; the delta specs;
+and the task list. Publish it with the Artifact tool.
+
+Write the page's source file to the deterministic path
+`/Users/tweety53/Agents/myflow/state/<project-key>/<name>-proposal-artifact.html`, using the same
+`<project-key>` resolution (`--git-common-dir`) as **State file** in
+`rules/myflow-manual-review.mdc`. This keeps the file outside the repo, beside the state file —
+never `git add` or commit it. `/myflow-start-fix` republishes to this **same** file path, which is
+what keeps the artifact URL stable across revision rounds.
+
+Record the returned URL in the state file as `artifactUrl`. The page is the review surface for the
+proposal gate — it is what the user reads before running `/myflow-start-done`.
+
+### E. Write final state and handoff
+
+Write the state file per **State file** in `rules/myflow-manual-review.mdc`
+(`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`;
+`mkdir -p` its directory first):
+
+```json
+{
+  "stage": "awaiting-proposal-review",
+  "gates": { "reviewed": null, "tested": null, "prOpened": null, "prMerged": null },
+  "worktree": null,
+  "branch": null,
+  "originStage": null,
+  "artifactUrl": "<published URL>",
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-start"
+}
+```
+
+The state file lives **outside** the repo — do **not** `git add` it, commit it, or archive it. Only the planning artifacts under `<changeRoot>` are staged.
 
 ```bash
 openspec status --change "<name>"
 ```
 
-Summarize:
+Hand off:
 
-- Change name and `changeRoot` path
-- Artifacts created
-- Basic Workflow **#1** ✓ (brainstorm design path)
-- Basic Workflow **#3** ✓ (`tasks.md` task count + section overview)
-- **Next:** `/myflow-do <name>` (runs #2, #4–#6)
-- **Full cycle:** `/myflow-full <name>`
+```
+## Proposal Ready — Review Required
+
+**Change:** <name>
+**Artifact:** <artifactUrl>
+**Decisions recorded:** <N> | none
+
+**Open in IntelliJ:**
+open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
+
+**Next:**
+- Changes to the plan → `/myflow-start-fix <name>`
+- Plan looks right → `/myflow-start-done <name>`, then `/myflow-do <name>`
+```
+
+The IntelliJ path is the **main checkout**, not a worktree — no worktree exists at this stage; the
+proposal artifacts live in the main checkout. Resolve it the same way as `<project-key>`
+(`--git-common-dir`).
 
 ## Guardrails
 
 - **Never skip** brainstorming (#1) or writing-plans (#3) for net-new features or behavior changes.
+- **Never skip** the architect pass — it always runs and self-assesses; it may conclude "no significant choices" and exit, but it must run.
 - **Never** skip the design approval gate before `openspec new change`.
 - **Never** leave `tasks.md` as a thin scaffold — writing-plans enrichment is mandatory.
+- **Never** finish this skill without publishing the proposal artifact and recording `artifactUrl` in the state file — it is the review surface for the new proposal gate.
 - Do not start implementation (#2+) in this skill — propose only.
 - Prefer reasonable decisions over blocking; pause only on genuine ambiguity.
 
