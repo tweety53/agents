@@ -29,9 +29,14 @@ accepted — recommend `/myflow-do`, or `/myflow-do-fix` if implementation has b
    stay coherent with each other. A change to scope must reach the specs and the task list, not
    just the prose.
 3. **Re-run the architect pass only if the feedback reopens an architectural question.** If it
-   does, put the reopened decision to the user and update the `## Decisions` section: keep the
-   superseded entry, mark it superseded, and add the new one. Never silently rewrite a recorded
-   decision — the history is the point.
+   does, put the reopened decision to the user, then update the `## Decisions` section using the
+   **same ID-based supersede mechanism** `openspec-propose-superpowers` defines: locate the
+   reopened entry **by its `**ID:**`, never by heading text** — headings may be reworded across
+   rounds, but the ID assigned at creation is immutable and is the only reliable match key. Set
+   that entry's `**Status:**` to `superseded by <new-id>`, then append a **new** entry with a
+   fresh, immutable ID and `**Status:** active`. **Never** delete or rewrite the superseded entry
+   in place — the history is the point. Each entry (old and new) carries both `**ID:**` and
+   `**Status:**` lines, per the shape in `openspec-propose-superpowers/SKILL.md`.
 4. **Republish the artifact to the same URL** by passing the same file path to the Artifact tool.
    `artifactUrl` must not change.
 5. **Write state:** stage stays `awaiting-proposal-review`; update only `updatedAt` and
