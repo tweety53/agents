@@ -25,12 +25,12 @@ Accepts **two** stages per **Stage transitions** in `rules/myflow-manual-review.
 
 | Incoming stage | Mode |
 |----------------|------|
-| `awaiting-review` | **advance** — Gate B passed; write `gates.reviewed: true` and advance to `awaiting-test` |
-| `awaiting-test` | **refresh** — re-emit the guide after a fix round; stage stays `awaiting-test` |
+| `do-done` | **advance** — Gate B passed; write `gates.reviewed: true` and advance to `awaiting-manual-test` |
+| `awaiting-manual-test` | **refresh** — re-emit the guide after a fix round; stage stays `awaiting-manual-test` |
 
 Any other stage is a mismatch: stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
-### Refresh mode (`awaiting-test`)
+### Refresh mode (`awaiting-manual-test`)
 
 Entered **automatically** — no prompt, no override. A guide refresh after a `/myflow-do-fix` round is a routine operation and must not be routed through the stage-mismatch escape hatch (that same "run anyway" is what would let `/myflow-do` wipe a populated worktree).
 
@@ -39,12 +39,12 @@ In refresh mode:
 - Do **not** re-ask the skip question — the decision was made on the advance run. This is what makes `gates.tested: "skipped"` unclobberable.
 - Do **not** rewrite `gates.reviewed` — it is already `true` (or `false` if Gate B was explicitly skipped); carry it forward as found.
 - Preserve every already-checked box, exactly as the refresh rules in step 4 require.
-- Re-emit `stage: awaiting-test` unchanged and carry **all** gates forward untouched.
+- Re-emit `stage: awaiting-manual-test` unchanged and carry **all** gates forward untouched.
 - Announce: "refreshed after fix round N".
 
-### Advance mode (`awaiting-review`)
+### Advance mode (`do-done`)
 
-Entering this command from `awaiting-review` means Gate B passed, so set `gates.reviewed: true` — **except** under `/myflow-full skip-review`, where Gate B was explicitly skipped: write `gates.reviewed: false` and note the skip in the summary, so the state never claims a review that never happened.
+Entering this command from `do-done` means Gate B passed, so set `gates.reviewed: true` — **except** under `/myflow-full skip-review`, where Gate B was explicitly skipped: write `gates.reviewed: false` and note the skip in the summary, so the state never claims a review that never happened.
 
 ## Skip prompt (advance mode only — always ask there)
 
@@ -57,17 +57,13 @@ Before generating the guide **on an advance run**, always ask via AskUserQuestio
 - **No** → normal mode; `gates.tested: false`
 - **Yes** → skip mode; `gates.tested: "skipped"`
 
-Both answers advance the stage to `awaiting-test`. Never default to skip; never infer skip from context. The only exception is `/myflow-full` with the `skip-manual-test` flag, which pre-answers **Yes** — in that case announce that the flag pre-answered the prompt rather than asking again.
+Both answers advance the stage to `awaiting-manual-test`. Never default to skip; never infer skip from context. The only exception is `/myflow-full` with the `skip-manual-test` flag, which pre-answers **Yes** — in that case announce that the flag pre-answered the prompt rather than asking again.
 
 `/myflow-manual-test-skip` no longer exists; this prompt replaces it.
 
 ## Pipeline position
 
-```text
-start → do → manual review (Gate B) → manual test (Gate C) → review (commit + PR) → PR review (Gate D, human merges) → finish (Gate E)
-```
-
-This stage is **Gate C**. It sits after the user has reviewed staged code (Gate B, with optional `/myflow-do-fix` rounds) and before `/myflow-review`.
+See **Pipeline stages** in `rules/myflow-manual-review.mdc` for the full twelve-stage sequence. This stage is **Gate C**, entered from `do-done` and sitting between Gate B (manual review, with optional `/myflow-do-fix` rounds) and `/myflow-review`.
 
 ## Required inputs
 
@@ -202,7 +198,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
 
 ```json
 {
-  "stage": "awaiting-test",
+  "stage": "awaiting-manual-test",
   "gates": {
     "reviewed": <true on advance | false under skip-review | unchanged in refresh mode>,
     "tested": <false | "skipped" on advance; unchanged in refresh mode>,
@@ -211,12 +207,13 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   },
   "worktree": "<unchanged>",
   "branch": "<unchanged>",
+  "originStage": "<carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-manual-test"
 }
 ```
 
-**Monotonic gates (mandatory).** Never reset `prOpened`/`prMerged` to `null` — carry the read values through verbatim. Never lower `gates.tested`: `true` and `"skipped"` are sticky and this command never demotes them (it only sets `false`/`"skipped"` on a fresh advance run where the prior value was `null`). Never write a `stage` earlier than the one found — from `awaiting-test`, re-emit `awaiting-test`.
+**Monotonic gates (mandatory).** Never reset `prOpened`/`prMerged` to `null` — carry the read values through verbatim. Never lower `gates.tested`: `true` and `"skipped"` are sticky and this command never demotes them (it only sets `false`/`"skipped"` on a fresh advance run where the prior value was `null`). Never write a `stage` earlier than the one found — from `awaiting-manual-test`, re-emit `awaiting-manual-test`.
 
 ### 6. Present the link only and stop
 
@@ -234,11 +231,15 @@ Normal mode:
 **Involved apps:** <list>
 **Git:** docs/manual-test/<change-name>.md staged (uncommitted)
 
+**Open in IntelliJ:**
+open -na "IntelliJ IDEA" --args "<absolute worktree path>"
+Guide: <absolute path to docs/manual-test/<change-name>.md>
+
 **What to do:**
 1. Open the guide link and follow "How to run"
 2. Work through every checklist item; check boxes in the file as you go
 3. Fixes needed → `/myflow-do-fix <name>`
-4. When satisfied → `/myflow-review <name>`
+4. When satisfied → `/myflow-manual-test-done <name>` to mark testing complete, then `/myflow-review <name>`
 ```
 
 Skip mode:
@@ -251,7 +252,11 @@ Skip mode:
 **Status:** SKIPPED — checklist left unchecked, marked bypassed
 **Git:** docs/manual-test/<change-name>.md staged (uncommitted)
 
-**Note:** `/myflow-review <name>` will detect this as intentionally skipped rather than incomplete, but will still surface it before proceeding.
+**Open in IntelliJ:**
+open -na "IntelliJ IDEA" --args "<absolute worktree path>"
+Guide: <absolute path to docs/manual-test/<change-name>.md>
+
+**Note:** `/myflow-review <name>` will detect this as intentionally skipped rather than incomplete, but will still surface it before proceeding. Run `/myflow-manual-test-done <name>` first to mark the gate confirmed.
 ```
 
 ## Guardrails

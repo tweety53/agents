@@ -1,15 +1,15 @@
 ---
 name: openspec-review-superpowers
-description: Review stage after Gate B/C — checks test coverage, verifies tests/linters, commits, pushes, opens PR (never merges). Use for /myflow-review.
+description: Review stage after Gate B/C — checks test coverage, verifies tests/linters, commits, pushes, opens PR. Merges only when the user explicitly passes `automerge`. Use for /myflow-review.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
 metadata:
   author: gymie
-  version: "1.0"
+  version: "2.0"
 ---
 
-Run the **review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path — never merge). This stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges.
+Run the **review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path). By default this stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges. The one exception is `/myflow-review automerge` — see **Auto-merge (opt-in)** in `rules/myflow-manual-review.mdc`.
 
 **Announce at start:** "Using openspec-review-superpowers for change `<name>`."
 
@@ -19,14 +19,14 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 
 | Step | Skill | When |
 |------|-------|------|
-| 0 | Stage gate | First — requires `awaiting-test` |
+| 0 | Stage gate | First — requires `manual-test-done` |
 | — | Gate C completion check | Verify manual-test checklist (or `SKIPPED` marker) |
 | — | Test coverage check | Before verification — flag gaps, route to `/myflow-do-fix` |
 | — | **verification-before-completion** | Tests/linters green |
 | — | **git commit** | After verification passes |
-| **7** | **finishing-a-development-branch** | **PR only** — push + open PR; never merge |
+| **7** | **finishing-a-development-branch** | Push + open PR by default; with `automerge`, also merge — see **Auto-merge (opt-in)** |
 
-Steps **#1–#6** completed in the start/do/do-fix stages. **#7 runs here, constrained to the PR path** — this stage owns commit + push + PR; merging is Gate D, done by the human.
+Steps **#1–#6** completed in the start/do/do-fix stages. **#7 runs here** — this stage owns commit + push + PR (and, only with `automerge`, the merge); merging is otherwise Gate D, done by the human.
 
 ## Required sub-skills
 
@@ -37,10 +37,12 @@ Steps **#1–#6** completed in the start/do/do-fix stages. **#7 runs here, const
 
 ### 0. Check stage
 
-Requires stage **`awaiting-test`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+Requires stage **`manual-test-done`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
-- At `awaiting-review` → recommend `/myflow-manual-test <name>` first.
+- At `awaiting-manual-test` → recommend `/myflow-manual-test-done <name>` (once testing is actually complete) first.
 - At `awaiting-pr-review` → the PR is already open; recommend `/myflow-do-fix <name>` for changes, or `/myflow-finish <name>` once merged.
+
+**`automerge` flag.** If the user passed `automerge` to this command, remember it for step 6 — it is the **only** way this stage merges. See **Auto-merge (opt-in)** in `rules/myflow-manual-review.mdc`; nothing in the rest of this workflow changes.
 
 ### 1. Select change and locate apply work
 
@@ -99,13 +101,14 @@ Invoke **superpowers:verification-before-completion**:
 - Commit per user git rules (hooks must pass).
 - If `commit-during-apply` was used and changes are already committed: skip this step; confirm `git log MERGE_BASE..HEAD` shows expected commits.
 
-### 6. Push and open a PR — then stop
+### 6. Push, and open a PR or auto-merge — then stop
 
-Invoke **superpowers:finishing-a-development-branch**, but constrain it to the **PR path only**:
+**Branch on `automerge` first**, per **Auto-merge (opt-in)** in `rules/myflow-manual-review.mdc`:
 
-- Push the branch to the remote.
-- Open a PR against the base branch (`develop` unless the user says otherwise).
-- **Do not merge.** Do not offer merge, direct push to base, or discard. Gate D is the human's.
+- **No `automerge` (default):** follow **6.1–6.3** below — push, open a PR (or confirm one was opened), **never merge**. Stop at `awaiting-pr-review`. Gate D (human review + merge) follows.
+- **`automerge` passed:** skip PR creation entirely — see **6.4 Auto-merge path**. Merge locally into the base branch, push, and write `stage: review-done` directly. There is no PR for a human to review.
+
+Invoke **superpowers:finishing-a-development-branch**, constrained to the path selected above — never let it offer a default merge when `automerge` was not passed.
 
 **Detect capability first — never assume `gh` exists or that the forge is GitHub:**
 
@@ -145,11 +148,27 @@ Then **AskUserQuestion**:
 > - **Yes — the PR is open**
 
 - **Yes** → the human's confirmation is the evidence (the same trust model already used at Gates B and C): `stage: awaiting-pr-review`, `gates.prOpened: true`. Ask for the PR URL and record it in the summary if they have it; **do not block** if they don't.
-- **No** → stay at `awaiting-test`, `gates.prOpened: false`. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-review <name>` (it will skip straight to this step) or confirm on the next run.
+- **No** → stay at `manual-test-done`, `gates.prOpened: false`. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-review <name>` (it will skip straight to this step) or confirm on the next run.
 
 **Never** substitute a merge or a direct push to `develop`/`main` for opening a PR in this branch.
 
-**6.3 — no remote at all:** pushing is impossible. Stop, stay at `awaiting-test`, `gates.prOpened: false`, and tell the user to add a remote. Do not fall back to merging.
+**6.3 — no remote at all:** pushing is impossible. Stop, stay at `manual-test-done`, `gates.prOpened: false`, and tell the user to add a remote. Do not fall back to merging.
+
+**6.4 — Auto-merge path (`automerge` passed, and only then):**
+
+```bash
+cd <worktree>
+git fetch origin develop
+git merge --no-edit origin/develop           # or rebase, per user's git rules; resolve conflicts if any
+git checkout develop
+git merge --no-ff --no-edit openspec/<name>
+git push origin develop
+```
+
+- No PR is created — there is nothing for a human to review.
+- Announce plainly that auto-merge was used and that no PR exists for this change.
+- → `stage: review-done` directly (skip `awaiting-pr-review`), `gates.prOpened: false` (no PR was ever created — carried forward, never set to `true`), `gates.prMerged: true`.
+- This is the **only** place in this skill — and the only place in myflow other than the Gate D fix exception — that merges into a base branch. It only runs when the user typed `automerge` on this invocation; it is never inferred or remembered from a prior run.
 
 ### 6b. Write state
 
@@ -163,19 +182,35 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "gates": { "reviewed": true, "tested": <true | "skipped" | false-with-user-override>, "prOpened": true, "prMerged": false },
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
+  "originStage": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
 ```
 
-**If branch 6.2 got a "No", or branch 6.3 applied (no PR exists yet):** do not advance the stage — `awaiting-pr-review` would be a false claim. Leave the change at `awaiting-test` and say plainly that it does not advance to Gate D until a PR actually exists:
+**If branch 6.4 (automerge) ran:**
 
 ```json
 {
-  "stage": "awaiting-test",
+  "stage": "review-done",
+  "gates": { "reviewed": true, "tested": <true | "skipped" | false-with-user-override>, "prOpened": false, "prMerged": true },
+  "worktree": "<unchanged>",
+  "branch": "openspec/<name>",
+  "originStage": null,
+  "updatedAt": "<ISO-8601 UTC now>",
+  "updatedBy": "/myflow-review"
+}
+```
+
+**If branch 6.2 got a "No", or branch 6.3 applied (no PR exists yet):** do not advance the stage — `awaiting-pr-review` would be a false claim. Leave the change at `manual-test-done` and say plainly that it does not advance to Gate D until a PR actually exists:
+
+```json
+{
+  "stage": "manual-test-done",
   "gates": { "reviewed": <carried forward unchanged>, "tested": <true | "skipped" | false-with-user-override>, "prOpened": false, "prMerged": false },
   "worktree": "<unchanged>",
   "branch": "openspec/<name>",
+  "originStage": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
@@ -183,9 +218,11 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
 
 **Carry gates forward.** Read the existing state file first and preserve every gate this command does not own. Gate values are **monotonic** — never lower `gates.reviewed`, never overwrite `gates.tested: "skipped"`, never write a stage earlier than the one found.
 
-There is no state commit and no follow-up commit: the state file is user-scoped and outside the repo, so step 5's code commit is the only commit this stage makes.
+There is no state commit: the state file is user-scoped and outside the repo. Without `automerge`, step 5's code commit is the only commit this stage makes. With `automerge`, branch 6.4's merge commit is an additional git action, still not touching the state file.
 
 ### 7. Summary
+
+Default (no `automerge`):
 
 ```
 ## Review Complete — PR Review Required (Gate D)
@@ -197,13 +234,31 @@ There is no state commit and no follow-up commit: the state file is user-scoped 
 **Committed:** ✓
 **Tests/linters:** ✓ (commands run)
 **Pushed:** ✓ openspec/<name>
-**PR:** <url> — **open, not merged** | opened by you, URL not recorded | **not opened yet** — create it at <compare-url>, still at `awaiting-test`
+**PR:** <url> — **open, not merged** | opened by you, URL not recorded | **not opened yet** — create it at <compare-url>, still at `manual-test-done`
 
 **What to do (Gate D):**
 1. Review the PR at the link above
 2. Changes needed → `/myflow-do-fix <name>` (commits and pushes to this PR)
 3. **Merge the PR yourself** — myflow never merges for you
-4. Then → `/myflow-finish <name>` (verify merged, sync specs, archive)
+4. Then → `/myflow-review-done <name>` to confirm, then `/myflow-finish <name>` (verify merged, sync specs, archive)
+```
+
+With `automerge`:
+
+```
+## Review Complete — Auto-merged
+
+**Change:** <name>
+**Nested fixes included:** <name>-fix-1, ... | none
+**Manual test (Gate C):** all items checked | SKIPPED (intentional) | proceeded with N unchecked (user override)
+**Test coverage:** all scenarios covered | proceeded with N gap(s) (user override)
+**Committed:** ✓
+**Tests/linters:** ✓ (commands run)
+**Merged:** ✓ openspec/<name> → develop (automerge — no PR was opened)
+**Stage:** review-done
+
+**What to do:**
+1. `/myflow-finish <name>` (verify merged, sync specs, archive) — no Gate D, no PR review needed
 ```
 
 ## Guardrails
@@ -214,21 +269,24 @@ There is no state commit and no follow-up commit: the state file is user-scoped 
 - **Never** write missing tests yourself here — flag them and route to `/myflow-do-fix <name>`.
 - **Always commit** uncommitted apply work before verification (unless already committed via `commit-during-apply`).
 - Never mark verification complete with failing tests unless the user explicitly overrides after seeing failures.
-- **Never merge.** This stage pushes and opens a PR; merging is Gate D, done by the human.
-- **Never push directly to `develop`/`main`** as a substitute for opening a PR.
+- **Never merge unless the user explicitly passed `automerge` to this invocation** — see **Auto-merge (opt-in)**. Without it, this stage pushes and opens a PR; merging is Gate D, done by the human.
+- **Never push directly to `develop`/`main`** as a substitute for opening a PR, unless `automerge` was passed (branch 6.4).
 - **Never assume `gh` is installed or that the forge is GitHub** — detect capability (step 6) and use the confirmation branch otherwise.
 - **Never `git add`, commit, or push the state file** — it is user-scoped and outside the repo.
-- **Write `stage: awaiting-pr-review` only when a PR actually exists** (created by `gh`, or confirmed by the human); otherwise stay at `awaiting-test` with `gates.prOpened: false`.
+- **Write `stage: awaiting-pr-review` only when a PR actually exists** (created by `gh`, or confirmed by the human); otherwise stay at `manual-test-done` with `gates.prOpened: false`. With `automerge`, skip `awaiting-pr-review` entirely and write `stage: review-done`.
 - **Never lower a gate value** — gates are monotonic; `gates.tested: "skipped"`/`true` are sticky.
 - Do not force-push or amend unless user rules allow.
 - Do not archive here — that is `/myflow-finish`'s job.
+- **`automerge` is opt-in only** — never inferred from a prior run, never defaulted.
 
 ## Commands (user-facing)
 
 | Intent | Say |
 |--------|-----|
 | Run review (coverage, tests, commit, push, PR) | `/myflow-review <name>` |
+| Run review and merge without a PR | `/myflow-review <name> automerge` |
 | Fix a coverage gap or test/lint failure | `/myflow-do-fix <name>` |
 | After review — PR review (Gate D, human) | review the PR on the forge and merge it |
 | Changes requested during Gate D | `/myflow-do-fix <name>` (commits and pushes to the existing PR) |
-| After the PR is merged | `/myflow-finish <name>` |
+| Confirm PR reviewed/merged | `/myflow-review-done <name>` |
+| After the PR is merged (or after `automerge`) | `/myflow-finish <name>` |

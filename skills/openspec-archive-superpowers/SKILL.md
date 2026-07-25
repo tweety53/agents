@@ -21,7 +21,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 ... → manual test (Gate C) → review (commit + PR, no merge) → PR review (Gate D, human merges) → finish (this skill)
 ```
 
-`/myflow-review` committed, pushed, and opened the PR, then deliberately stopped — it never merges. Merging is a **human** action (Gate D) that happens on the forge, outside myflow, and may simply not have happened yet: an open PR is the normal, expected state when this skill runs, not an anomaly. This skill only **verifies** the PR merged and archives; it never commits, tests, merges, or pushes anything itself.
+`/myflow-review` committed, pushed, and opened the PR, then deliberately stopped without merging — unless the user passed `automerge`, in which case `/myflow-review` merged directly and there was no PR to review (see **Auto-merge (opt-in)**). Absent `automerge`, merging is a **human** action (Gate D) that happens on the forge, outside myflow, and may simply not have happened yet: an open PR is the normal, expected state when this skill runs, not an anomaly. This skill only **verifies** the PR (or the automerge) actually landed on the base branch, then archives; it never commits, tests, merges, or pushes anything itself.
 
 ## Required sub-skills
 
@@ -33,10 +33,13 @@ Optional: **openspec-sync-specs** when the user chooses to sync delta specs to m
 
 ### 0. Check stage
 
-Requires stage **`awaiting-pr-review`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+Requires stage **`review-done`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
-- At `awaiting-test` → recommend `/myflow-review <name>` first.
+- At `manual-test-done` → recommend `/myflow-review <name>` first.
+- At `awaiting-pr-review` → recommend `/myflow-review-done <name>` once the PR has actually been reviewed and merged.
 - At `finished` → already archived; stop.
+
+**`review-done` is a claim, not proof.** It only means a human confirmed they reviewed (and, outside `automerge`, merged) the PR — it is not independent evidence the merge actually happened. This skill's PR-merge check below is what verifies it; do not treat `stage: review-done` alone as sufficient to archive, and do not let a future edit remove the check just because the two now look redundant.
 
 ### 1. Select change and validate it's ready to finish
 
@@ -98,9 +101,10 @@ Follow **openspec-archive-change** step 5:
 ```json
 {
   "stage": "finished",
-  "gates": { "reviewed": true, "tested": <as recorded>, "prOpened": true, "prMerged": true },
+  "gates": { "reviewed": true, "tested": <as recorded>, "prOpened": <as recorded — false if automerge was used>, "prMerged": true },
   "worktree": null,
   "branch": "openspec/<name>",
+  "originStage": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-finish"
 }

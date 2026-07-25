@@ -111,9 +111,9 @@ If the resolved economic slug is unavailable in the Task tool allowlist, fall ba
 
 Read the change's state per **State file** and validate per **State self-heal** in `rules/myflow-manual-review.mdc`.
 
-This command requires stage **`start`**. If the change is at any other stage, **stop** and emit the mismatch handoff from **Stage transitions**, then AskUserQuestion for an explicit override (default: **No — run the suggested command instead**).
+This command requires stage **`proposal-done`**. If the change is at any other stage, **stop** and emit the mismatch handoff from **Stage transitions**, then AskUserQuestion for an explicit override (default: **No — run the suggested command instead**).
 
-The most common mismatch: the change is at `awaiting-review` or later, meaning the user probably wants `/myflow-do-fix <name>`. Recommend that. This replaces the older ad-hoc "guard against a mistaken re-run" heuristic — the stage check now covers it.
+The most common mismatch: the change is at `awaiting-do-review` or later, meaning the user probably wants `/myflow-do-fix <name>`. Recommend that. This replaces the older ad-hoc "guard against a mistaken re-run" heuristic — the stage check now covers it.
 
 Missing state file → infer per **State self-heal**, write it, announce the correction, then apply the check to the inferred stage.
 
@@ -203,10 +203,11 @@ Write the state file before handing off. Resolve its path per **State file** in 
 
 ```json
 {
-  "stage": "awaiting-review",
+  "stage": "awaiting-do-review",
   "gates": { "reviewed": false, "tested": null, "prOpened": null, "prMerged": null },
   "worktree": "<absolute worktree path>",
   "branch": "openspec/<name>",
+  "originStage": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-do"
 }
@@ -238,10 +239,15 @@ Stop here.
   git diff --cached              # full staged diff
   git diff <MERGE_BASE>         # full tree vs merge base (staged + any leftover unstaged)
 
+**Open in IntelliJ:**
+open -na "IntelliJ IDEA" --args "<absolute worktree path>"
+
+**Next:** `/myflow-do-manual-review <name>` to mark review started, or `/myflow-do-done <name>` when the diff looks right.
+
 **Next steps:**
 - Open the worktree folder in your IDE and review staged changes (Gate B).
 - Request fixes: `/myflow-do-fix <name>` (resumes on same branch/worktree)
-- After manual review looks good: `/myflow-manual-test <name>` (Gate C — run guide + checklist MD)
+- After manual review looks good: `/myflow-do-done <name>` to advance to `do-done`, then `/myflow-manual-test <name>` (Gate C — run guide + checklist MD)
 - After manual testing: `/myflow-review <name>` (coverage check, tests/linters, commit + push + open PR — never merges), then a human reviews and merges the PR (Gate D), then `/myflow-finish <name>` (verify PR merged, sync specs, archive)
 ```
 
@@ -249,8 +255,8 @@ Stop here.
 
 - **Never skip** Basic Workflow steps #2–#6 when implementing.
 - **Never commit, push, merge, or open a PR** during apply unless user explicitly passed `commit-during-apply`.
-- **Always check the incoming stage first** (step 0) — never start applying a change that is past `start` without an explicit user override.
-- **Always write `stage: awaiting-review`** before the Gate B handoff — to the user-scoped state file, which is **never staged or committed**.
+- **Always check the incoming stage first** (step 0) — never start applying a change that is past `proposal-done` without an explicit user override.
+- **Always write `stage: awaiting-do-review`** before the Gate B handoff — to the user-scoped state file, which is **never staged or committed**.
 - **Always `git add -A`** (stage) in every affected repo before Gate B handoff — so the IDE shows the changes.
 - **Never** run `finishing-a-development-branch` (#7) during apply.
 - Do not use the lightweight openspec-apply-change step-6 loop.
