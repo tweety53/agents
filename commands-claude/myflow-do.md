@@ -9,7 +9,7 @@ Follow that skill exactly. Requires stage `proposal-done` — the stage `/myflow
 
 Also follow `.cursor/rules/myflow-manual-review.mdc`.
 
-**Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active proposal is apply-ready, use it automatically; if multiple, ask which. Optional legacy flag: `commit-during-apply`.
+**Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active proposal is apply-ready, use it automatically; if multiple, ask which. Optional flags: `full-panel` (every review-panel re-run uses all six agents over the whole-branch diff instead of the default targeted re-run), `commit-during-apply` (legacy).
 
 **If this change already looks applied** (manual-test guide exists, or a clean final-review-panel record exists, or every original task is checked): ask first whether the user meant `/myflow-do-fix` instead — default/recommended answer is **No, use `/myflow-do-fix`**. Only proceed with a fresh/expanded run if they explicitly say yes.
 

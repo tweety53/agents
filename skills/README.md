@@ -30,7 +30,7 @@ See also: `.cursor/rules/myflow-manual-review.mdc`
 | 3 | writing-plans | `/myflow-start` (+ validated at do) |
 | 4 | subagent-driven-development | `/myflow-do` (+ `/myflow-do-fix` rounds) |
 | 5 | test-driven-development | `/myflow-do` (+ `/myflow-do-fix` rounds, every task) |
-| 6 | requesting-code-review + strict panel (Bugbot, Security, Adversarial, Senior, Economic Senior) | `/myflow-do` (per-task + final **1+5 agents**; full re-run on every `/myflow-do-fix` round) |
+| 6 | requesting-code-review + strict panel (Bugbot, Security, Adversarial, Senior, Conventions) | `/myflow-do` (per-task + final **1+5 agents**; pass 1 full, re-runs targeted unless escalated or `full-panel`) |
 | 7 | finishing-a-development-branch | `/myflow-review` (commit + push + open PR, never merges) |
 
 | Command | Skill | Stage |
@@ -71,7 +71,7 @@ See also: `.cursor/rules/myflow-manual-review.mdc`
 # pure state write — confirms the proposal was reviewed → stage: proposal-done
 
 /myflow-do add-my-feature
-# #2 worktree → #4 SDD → #5 TDD → #6 review panel (primary+Bugbot+Security+Adversarial+Senior+Economic Senior) → git add -A (staged; no #7)
+# #2 worktree → #4 SDD → #5 TDD → #6 review panel (primary+Bugbot+Security+Adversarial+Senior+Conventions) → git add -A (staged; no #7)
 # stage: awaiting-do-review
 
 # Gate B — open worktree in IDE; review staged changes
