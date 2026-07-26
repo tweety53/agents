@@ -26,7 +26,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 | **3** | writing-plans | Start (+ validate at do) | openspec-propose-superpowers / apply |
 | **4** | subagent-driven-development | Do (+ Do-fix rounds) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
 | **5** | test-driven-development | Do (+ Do-fix rounds, every task) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
-| **6** | requesting-code-review + strict panel (Bugbot, Security, Adversarial, Senior, Economic Senior) | Do (+ Do-fix rounds, full re-run each time) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
+| **6** | requesting-code-review + strict panel (Bugbot, Security, Adversarial, Senior, Conventions) | Do (+ Do-fix rounds; pass 1 full, re-runs targeted unless escalated or `full-panel`) | openspec-apply-superpowers / openspec-apply-fix-superpowers |
 | **7** | finishing-a-development-branch — **commit + push + open PR only, no merge** | Review | openspec-review-superpowers |
 
 **Mandatory:** Steps #1–#6 run in start/do/do-fix; none may be skipped. **Review runs the commit + push + open-PR portion of #7** and then stops — it never merges. The human merges the PR at Gate D, outside myflow.

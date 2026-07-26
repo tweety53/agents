@@ -67,8 +67,8 @@ Every implementer dispatch **must** include TDD requirement:
 - `MERGE_BASE` = commit recorded at worktree setup (from progress ledger or `git merge-base HEAD main`).
 - Write `.superpowers/sdd/final-review.diff` via `git diff MERGE_BASE` (include staged + unstaged).
 - Run the **strict review panel** below in **every** affected repo/worktree (backend + sibling frontends).
-- Fix Critical/Important findings from **any** panel agent before handoff; re-diff and **re-run the full panel** until clean.
-- Record panel results in `.superpowers/sdd/final-review-panel.md` (one section per agent).
+- Fix Critical/Important findings from **any** panel agent before handoff; re-diff and re-run per **Panel re-runs** below until clean.
+- Record panel results in `.superpowers/sdd/final-review-panel.md` (one section per agent, one block per pass).
 
 #### Strict review panel (mandatory — 1 primary + 5 additional)
 
@@ -81,7 +81,9 @@ Dispatch **six separate** review subagents. Prefer **parallel** spawn of the fiv
 | 2 | **Security** — authZ / injection / secrets | `subagent_type: security-review`, `description: "Security Review"`, prompt shape from `review-security` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [security-reviewer-prompt.md](security-reviewer-prompt.md) |
 | 3 | **Adversarial** — skeptic / regressions / test theater | `generalPurpose` + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) | same |
 | 4 | **Senior engineer** — pragmatic teammate PR review | `generalPurpose` + [senior-engineer-reviewer-prompt.md](senior-engineer-reviewer-prompt.md); **omit** `model` (inherit parent) | same |
-| 5 | **Economic senior engineer** — same persona, economy model | `generalPurpose` + [senior-engineer-reviewer-prompt.md](senior-engineer-reviewer-prompt.md); **must** set `model` to the economic sibling of the parent agent (table below); `description: "Economic senior engineer review"` | same + economic `model` |
+| 5 | **Conventions & hygiene** — project-standard compliance, economy model | `generalPurpose` + [conventions-reviewer-prompt.md](conventions-reviewer-prompt.md); **must** set `model` to the economic sibling of the parent agent (table below); `description: "Conventions review"` | same + economic `model` |
+
+Slot 5 no longer duplicates slot 4. It runs a **distinct, mechanical lens** — compliance with this repo's written standards (module layout, core-purity imports, lint policy, no new suppressions) plus hygiene sweeps (leftover debug logging, TODOs, dead code, misplaced tests). That work is high-recall and rule-checkable rather than judgment-heavy, which is exactly what an economy model is good at, and no other panel slot owns it.
 
 ##### Economic model mapping (slot 5 only)
 
@@ -101,9 +103,43 @@ If the resolved economic slug is unavailable in the Task tool allowlist, fall ba
 
 - Union all Critical/Important findings; dedupe by file:line + theme.
 - One fix subagent gets the combined list (not one fixer per agent).
-- After fixes: rewrite `final-review.diff`, re-dispatch **all six** agents (full panel), not only the agent that complained.
+- After fixes: re-run per **Panel re-runs** below.
 - Gate B handoff is blocked while any panel agent still reports Critical/Important.
 - If Bugbot or Security Review fails to start (wrong prompt / empty diff), retry once per their skill rules, then fall back to the portable prompt templates — still as a **separate** spawned agent.
+
+#### Panel re-runs (targeted by default)
+
+**Pass 1 is always the full six-agent panel** over `final-review.diff`. Only *re-runs* after a fix round are scoped — the first look at the branch is never partial.
+
+After each fix round, record `FIX_BASE` before the fix subagent runs and write the fix-scoped diff:
+
+```bash
+git diff FIX_BASE > .superpowers/sdd/fix-round-N.diff
+```
+
+Then choose the re-run shape:
+
+| Mode | Who re-runs | Diff they get |
+|------|-------------|---------------|
+| **Targeted** (default) | Slot 0 primary (always, as integration check) + every agent that raised a finding in the round being fixed | `fix-round-N.diff` |
+| **Full** (escalation or flag) | All six | rewritten `final-review.diff` (`git diff MERGE_BASE`) |
+
+**Escalate a targeted re-run to full automatically** when any of these hold — do not ask, just escalate and say why in the panel record:
+
+- The fix touched a file or module **outside** the set named in the findings it was fixing.
+- The fix diff exceeds **~150 changed lines**.
+- The fix altered a delta spec, a public API/contract, a DB migration, or anything under `core/ports/`.
+- A targeted re-run surfaced a **new** Critical finding (not a restatement of the one being fixed).
+- Three or more fix rounds have already run on this change — drift risk outweighs the saving.
+
+**`full-panel` flag.** When the user passes `full-panel` to `/myflow-do` (or `/myflow-do-fix`), every re-run is the full six-agent panel over the whole-branch diff, exactly as before this rule existed. Use it when the change is large, security-sensitive, or when a previous targeted round missed something. The flag is opt-in and never inferred.
+
+**Invariants** — targeting is a cost optimization, never a coverage waiver:
+
+- A targeted re-run is **never fewer than two agents** (primary + the originating agent).
+- Gate B handoff still requires **zero** open Critical/Important findings from every agent that has run, whatever the mode.
+- The **final** pass before handoff must show a clean result for every one of the six slots — from that pass or an earlier one with no intervening change to the files that agent flagged. If any slot's clean result is stale under that test, run the full panel once before handing off.
+- Record in `final-review-panel.md`, per pass: mode (targeted/full), which agents ran, why (finding IDs or escalation reason), and the diff path they reviewed.
 
 ## Workflow
 
@@ -169,9 +205,9 @@ Invoke **superpowers:subagent-driven-development** with the **no-commit override
 
 ### 5. Basic Workflow #6 — Code review (strict panel)
 
-SDD per-task reviewers satisfy **between-task** review. Before handoff, run the **final whole-branch strict review panel** (primary requesting-code-review **plus** Bugbot, Security Review, Adversarial, Senior engineer, and Economic senior engineer — see above).
+SDD per-task reviewers satisfy **between-task** review. Before handoff, run the **final whole-branch strict review panel** (primary requesting-code-review **plus** Bugbot, Security Review, Adversarial, Senior engineer, and Conventions & hygiene — see above).
 
-Critical/Important findings from **any** of the six agents must be fixed and the **full panel** re-run before handoff.
+Critical/Important findings from **any** of the six agents must be fixed and the panel re-run per **Panel re-runs** — targeted by default, full on escalation or the `full-panel` flag — before handoff.
 
 ### 6. Verify completion
 
@@ -224,7 +260,7 @@ Stop here.
 ## Apply Complete — Manual Review Required
 
 **Change:** <name>
-**Basic Workflow:** #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ (strict panel: primary + Bugbot + Security + Adversarial + Senior + Economic Senior)
+**Basic Workflow:** #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ (strict panel: primary + Bugbot + Security + Adversarial + Senior + Conventions)
 **Deferred to review:** #7 (commit + push + open PR — never merges)
 **Progress:** N/N tasks complete
 **Branch:** openspec/<name>
@@ -264,8 +300,10 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 - **Never** run `finishing-a-development-branch` (#7) during apply.
 - Do not use the lightweight openspec-apply-change step-6 loop.
 - Do not skip per-task SDD review (#6) or final whole-branch review (#6).
-- Do not skip any of the **five additional** final-review agents (Bugbot, Security, Adversarial, Senior engineer, Economic senior engineer), and do not collapse them into one agent.
-- Do not omit the `model` parameter on the Economic senior engineer (slot 5); resolve it from the economic model mapping.
+- Do not skip any of the **five additional** final-review agents (Bugbot, Security, Adversarial, Senior engineer, Conventions & hygiene) **on pass 1**, and do not collapse them into one agent. Re-runs may be targeted per **Panel re-runs**; pass 1 may not.
+- Do not omit the `model` parameter on the Conventions & hygiene agent (slot 5); resolve it from the economic model mapping.
+- Do not run slot 5 with the senior-engineer prompt — it has its own lens (`conventions-reviewer-prompt.md`). Two agents with one persona is the redundancy this slot was rewritten to remove.
+- Do not hand off while any slot's clean result is stale under the **Panel re-runs** invariant; run the full panel once if in doubt.
 - Do not hand off to Gate B while any panel agent still has open Critical/Important findings.
 - Do not skip TDD (#5) on any implementer dispatch.
 - Do not mark OpenSpec checkboxes before task review passes.
@@ -276,6 +314,7 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 | Intent | Say |
 |--------|-----|
 | Apply (#2–#6, stage; no commits) | `/myflow-do <name>` |
+| Apply, full panel on every re-run | `/myflow-do <name> full-panel` |
 | Continue partial apply | Same command; SDD ledger + unchecked tasks resume |
 | Fix a Gate B/C finding instead | `/myflow-do-fix <name>` |
 | Legacy per-task commits | `/myflow-do <name> commit-during-apply` |

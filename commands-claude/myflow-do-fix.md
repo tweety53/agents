@@ -5,7 +5,7 @@ description: Fix a Gate B (manual review), Gate C (manual test), or Gate D (PR r
 
 Use the **openspec-apply-fix-superpowers** skill (`.claude/skills/openspec-apply-fix-superpowers/SKILL.md`).
 
-Follow that skill exactly. For fixes to an **already-applied** change found during manual review (Gate B), manual test (Gate C), or PR review (Gate D). Resumes the **existing** apply worktree/branch — never creates a new one. Documents the fix in the change's proposal first (append a "Manual Review Fixes"/"Manual Test Fixes"/"PR Review Fixes" section, or a linked nested sub-change — asks which), then runs Superpowers Basic Workflow **#4–#6** (SDD + TDD + full strict review panel re-run).
+Follow that skill exactly. For fixes to an **already-applied** change found during manual review (Gate B), manual test (Gate C), or PR review (Gate D). Resumes the **existing** apply worktree/branch — never creates a new one. Documents the fix in the change's proposal first (append a "Manual Review Fixes"/"Manual Test Fixes"/"PR Review Fixes" section, or a linked nested sub-change — asks which), then runs Superpowers Basic Workflow **#4–#6** (SDD + TDD + strict review panel — targeted by default, full on escalation, always full for Gate D origins or with `full-panel`).
 
 Accepts **six** incoming stages. The incoming stage is recorded as `originStage` and — never asked, always derived — selects the git behavior at the end:
 

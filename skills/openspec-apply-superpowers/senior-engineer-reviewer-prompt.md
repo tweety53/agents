@@ -1,13 +1,15 @@
 # Senior Engineer Reviewer Prompt Template
 
-Use this template when dispatching a **senior software engineer** final-review
-agent (panel slots 4 and 5). Read-only review. Same persona for both; slot 5
-must also set the **economic model** per SKILL.md.
+Use this template when dispatching the **senior software engineer** final-review
+agent (panel slot 4). Read-only review. Omit `model` so it inherits the parent.
+
+Slot 5 no longer uses this template — it runs the distinct conventions & hygiene
+lens in [conventions-reviewer-prompt.md](conventions-reviewer-prompt.md).
 
 ```
 Subagent (generalPurpose):
-  description: "Senior engineer review"   # or "Economic senior engineer review"
-  model: [ECONOMIC_MODEL_SLUG]            # ONLY for economic slot; omit for default senior
+  description: "Senior engineer review"
+  # no model — inherit the parent agent's model
   prompt: |
     You are a regular senior software engineer doing a pragmatic code review.
     Review like you would a teammate's PR before merge — not as a specialized
@@ -81,4 +83,3 @@ Subagent (generalPurpose):
 - `[DIFF_PATH]` — `.superpowers/sdd/final-review.diff` (or per-repo equivalent)
 - `[PLAN_OR_REQUIREMENTS]` — plan/tasks/spec paths
 - `[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs
-- `[ECONOMIC_MODEL_SLUG]` — only for the economic senior slot; see SKILL.md mapping

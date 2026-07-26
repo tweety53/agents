@@ -156,9 +156,9 @@ Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 | Command | What it does |
 |---------|-------------|
 | `/myflow-start <name>` | Brainstorm → design approval gate → OpenSpec artifacts → writing-plans enriched tasks |
-| `/myflow-do <name>` | git worktree → validate plan → SDD + TDD → **strict review panel** (primary + Bugbot + Security + Adversarial + Senior + Economic Senior) → **`git add -A` (staged + uncommitted; no #7)** |
+| `/myflow-do <name>` | git worktree → validate plan → SDD + TDD → **strict review panel** (primary + Bugbot + Security + Adversarial + Senior + Conventions) → **`git add -A` (staged + uncommitted; no #7)** |
 | *(Gate B)* | **You** open the worktree in IDE and review staged changes (`git diff --cached`) |
-| `/myflow-do-fix <name>` | Fix something found at Gate B (manual review), Gate C (manual test), or Gate D (PR review) — documents it in `proposal.md`/`tasks.md` (or a linked nested `<name>-fix-N` sub-change, your choice) → resumes the **same** worktree → SDD + TDD → full strict review panel re-run. **Gate B and C: staged, no commits. Gate D: commits and pushes to the PR branch** (the one place this command commits; it still never merges). Loop as many rounds as needed at any of the three gates. |
+| `/myflow-do-fix <name>` | Fix something found at Gate B (manual review), Gate C (manual test), or Gate D (PR review) — documents it in `proposal.md`/`tasks.md` (or a linked nested `<name>-fix-N` sub-change, your choice) → resumes the **same** worktree → SDD + TDD → strict review panel (targeted re-run by default; always full for Gate D origins or with `full-panel`). **Gate B and C: staged, no commits. Gate D: commits and pushes to the PR branch** (the one place this command commits; it still never merges). Loop as many rounds as needed at any of the three gates. |
 | `/myflow-manual-test <name>` | Write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip Gate C (default No); reply with **link only** |
 | *(Gate C)* | **You** run the apps and check off items in the guide |
 | `/myflow-review <name>` | Verifies every Gate C box is checked (or the guide is marked `SKIPPED`) — checks test coverage against delta specs (routes gaps to `/myflow-do-fix`) — then tests/linters → **commit + push + open PR** (never merges) |
@@ -168,7 +168,7 @@ Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 | `/myflow-status <name>` | Read-only stage report for open changes |
 | `/myflow-info` | Reads the rule file and explains the pipeline |
 
-**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test` (now pre-answers the Gate C skip prompt with Yes and must announce it), `commit-during-apply` (legacy)
+**Flags:** `skip-propose`, `propose-only`, `skip-review`, `skip-manual-test` (now pre-answers the Gate C skip prompt with Yes and must announce it), `full-panel` (forces all six review agents over the whole-branch diff on every re-run, instead of the default targeted re-run), `commit-during-apply` (legacy)
 
 ### How to invoke a skill
 

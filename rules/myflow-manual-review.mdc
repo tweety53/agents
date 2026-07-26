@@ -279,7 +279,8 @@ Paths are absolute, resolved from `git worktree list`. Never emit a relative pat
 - **`git add` is required** at end of do (and allowed during do) so Gate B shows staged changes in the IDE Source Control view.
 - Record `MERGE_BASE` at worktree setup; before each SDD task record `TASK_BASE=$(git rev-parse HEAD)`.
 - Per-task and final automated review (#6): review **working tree** diffs (`git diff TASK_BASE`, `git diff MERGE_BASE`), not commit ranges.
-- Final #6 is a **strict multi-agent panel**: primary `requesting-code-review` **plus 5 additional** separate agents (Bugbot, Security Review, Adversarial, Senior engineer, Economic senior engineer). The economic senior **must** use the provider's economy-tier model (e.g. Grok parent → `composer-2.5-fast`). Do not skip or collapse them. Re-run the full panel after fixes.
+- Final #6 is a **strict multi-agent panel**: primary `requesting-code-review` **plus 5 additional** separate agents (Bugbot, Security Review, Adversarial, Senior engineer, Conventions & hygiene). The conventions agent **must** use the provider's economy-tier model (e.g. Grok parent → `composer-2.5-fast`) and its own prompt — it is not a second senior-engineer pass. Do not skip or collapse them.
+- **Panel pass 1 is always all six.** Re-runs after a fix round are **targeted** by default — primary plus the agents that raised the findings, over the fix-scoped diff — and escalate to the full whole-branch panel on the triggers in `openspec-apply-superpowers` (**Panel re-runs**), which is canonical. Gate D-origin fixes and the `full-panel` flag always run full. Handoff still requires a non-stale clean result from every one of the six slots.
 - Progress ledger: `Task N: complete (uncommitted, review clean)` — not commit SHAs.
 - Before handoff: in every affected repo/worktree, `git add -A` (respects `.gitignore`), confirm `git status` shows changes as **staged**, then hand off worktree path + review commands; tell user to run `/myflow-manual-test <name>` after manual review, then `/myflow-review` after testing.
 - **Guard against a mistaken re-run:** if `<name>` already has an apply worktree and looks like it's already past do (a manual-test guide exists, or a clean final-review-panel record exists, or every original task is checked), **AskUserQuestion** before proceeding — did the user mean `/myflow-do-fix` instead? Default/recommended answer: **No, use `/myflow-do-fix`**. Only continue with a fresh/expanded `/myflow-do` run if the user explicitly picks **Yes**.
@@ -404,6 +405,7 @@ below rest on — see the paragraph in **Opt-out (explicit only)**.
 
 - `skip-review` on `/myflow-full` — skip Gate B only; Gate C still runs unless also skipped. Records `gates.reviewed: false` (Gate B explicitly skipped), never `true`.
 - `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**, then carries the change through to `manual-test-done` with `gates.tested: "skipped"` (the Gate C question is not asked); review still runs and still checks coverage.
+- `full-panel` on `/myflow-do` and `/myflow-do-fix` (and `/myflow-full`, which forwards it) — force every review-panel re-run to use all six agents over the whole-branch diff, disabling targeted re-runs. Opt-in; the default is targeted with automatic escalation.
 - `commit-during-apply` — legacy SDD per-task commits; only when the user explicitly requests it.
 - `automerge` on `/myflow-review` (and therefore on `/myflow-full`, which forwards it) — see **Auto-merge (opt-in)**. Opt-in only; never implied by any other flag.
 

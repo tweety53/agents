@@ -155,11 +155,24 @@ Same discipline as `openspec-apply-superpowers` steps 4–6:
 - Mark fix task checkboxes `[x]` only after task review passes.
 - Progress ledger: append to the same `.superpowers/sdd/progress-<name>.md` used by the original apply (do not start a new ledger file).
 
-### 6. Full strict review panel — always re-run in full
+### 6. Strict review panel — targeted by default, full on escalation
 
-Do **not** review only the fix diff in isolation. Re-run the **entire final whole-branch strict review panel** (primary + Bugbot + Security + Adversarial + Senior + Economic Senior — same six agents, same prompts, same economic-model mapping as `openspec-apply-superpowers`) against `git diff MERGE_BASE`, exactly as a normal apply handoff. A fix can introduce regressions elsewhere; the full panel is what makes handoff to another Gate B trustworthy.
+Same six agents, same prompts, same economic-model mapping as `openspec-apply-superpowers`. Follow its **Panel re-runs** section — it is canonical; do not restate or diverge from it here. Two rules are specific to this command:
 
-Fix any new Critical/Important findings, then re-run the full panel again until clean — identical aggregation rules to apply.
+**Default: targeted.** A `/myflow-do-fix` round is driven by one human finding, so its diff is usually small. Run slot 0 primary (always) plus the agents whose domain the fix actually touches, against the fix diff:
+
+```bash
+git diff FIX_BASE > .superpowers/sdd/fix-round-N.diff
+```
+
+**Escalate to the full whole-branch panel** (`git diff MERGE_BASE`, all six agents) when any apply-skill escalation trigger fires — fix touched files outside the finding's module, >~150 changed lines, spec/contract/migration/`core/ports/` changed, a new Critical appeared, or three-plus rounds already run — **or** when either of these holds:
+
+- **`originStage` is a Gate D origin** (`awaiting-pr-review`, `review-done`). This is the one mode that commits and pushes to a live PR branch, so it gets the full panel every round regardless of fix size.
+- The user passed **`full-panel`**.
+
+The concern that motivated the old always-full rule is real — a fix can regress code the fix diff does not show. The escalation triggers are what cover it: any fix that reaches outside its own finding's blast radius stops being targeted. When in doubt, escalate; the invariant below is the backstop.
+
+**Handoff invariant (unchanged):** every one of the six slots must have a clean result that is not stale — i.e. from this round, or from an earlier round with no intervening change to the files that agent flagged. If any slot's clean result is stale, run the full panel once before handing off to Gate B/C/D. Handoff is blocked while any agent has open Critical/Important findings.
 
 ### 7. Stage/commit and hand off (not archive)
 
