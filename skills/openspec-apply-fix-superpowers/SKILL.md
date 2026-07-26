@@ -28,7 +28,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 | — | Fix-organization choice | Before any edit — append vs nested sub-change (below) |
 | **4** | **subagent-driven-development** | Execute fix task(s) |
 | **5** | **test-driven-development** | Every implementer subagent, every fix task |
-| **6** | **requesting-code-review** + **strict review panel** | Full re-run after the fix, same bar as apply |
+| **6** | **requesting-code-review** + **strict review panel** | Targeted re-run by default, full on escalation — see step 6 (canonical) |
 | — | Stage/commit and hand off | Stage-only when `originStage != awaiting-pr-review`; **commit + push** when `originStage == awaiting-pr-review` (PR-fix) |
 
 No new worktree (**#2** already done by the original apply), no branch finishing (**#7** — merging stays Gate D, done by the human). The only exception: PR-fix mode (`originStage == awaiting-pr-review`) commits and pushes to the existing PR branch — see step 0.
@@ -59,6 +59,16 @@ Identical to apply — every implementer dispatch **must** include:
 And the TDD requirement:
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this task. Delete any code written before tests.
+
+And the test-scope line (see **Test scope** below) — pass it verbatim, since an implementer that reads only `CLAUDE.md` will otherwise run the full cross-platform matrix:
+
+> **TEST SCOPE — WEB TARGET ONLY:** In `gymie-frontend`, run **only** the web/JS test tasks for your RED-GREEN cycle — `./gradlew :shared:jsTest :webApp:jsTest`. Do **not** run `desktopTest`, Android, or iOS test tasks, even for code you changed in `commonMain` or a platform source set. In the `gymie` backend repo, run its tests normally (`:auth:test`, `:app:test`, etc.). Still **write** tests and implementations for every platform the fix touches — only their *execution* is deferred. Lint is **not** scoped: `./gradlew ktlintCheck detekt` runs in full, per the Lint Fix Priority rule in `CLAUDE.md`.
+
+### Test scope (current setting — user preference, not a permanent property)
+
+The user set this on **2026-07-26** and it holds **until they say otherwise**: among `gymie-frontend`'s KMP targets, only the web target's tests run during a fix round; other platforms are still implemented, just not test-executed. The backend repo is unaffected. Broader platform coverage is picked up later at `/myflow-review`, which runs the project's full test and linter suite before it commits and opens the PR.
+
+If the user lifts the restriction, delete the `TEST SCOPE` block above and this section — do not leave a narrowed scope in place silently.
 
 ## Workflow
 
@@ -133,7 +143,7 @@ This decides the section title used in step 4 (`Manual Review Fixes` / `Manual T
 ### 4a. Append path
 
 - **proposal.md**: append (never replace existing content) a `## Manual Review Fixes`, `## Manual Test Fixes`, or `## PR Review Fixes` section. If that heading already exists from an earlier fix round, do **not** duplicate it — add a dated sub-entry under it instead (`### Fix — YYYY-MM-DD`). Each entry: what was found, why, what changes. Keep it terse — this documents *why*, not a diff. Otherwise follow standard OpenSpec proposal formatting (matches the rest of the file).
-- **tasks.md**: append matching checkbox task(s) under a `## Manual Review Fixes` / `## Manual Test Fixes` / `## PR Review Fixes` heading (create once, append entries on repeat rounds), meeting **writing-plans** quality — exact file paths, verification commands, no placeholders.
+- **tasks.md**: append matching checkbox task(s) under a `## Manual Review Fixes` / `## Manual Test Fixes` / `## PR Review Fixes` heading (create once, append entries on repeat rounds), meeting **writing-plans** quality — exact file paths, verification commands, no placeholders. Write these tasks at the granularity step 5 dispatches them: **one task per module touched**, listing every finding it covers — not one task per finding.
 - **specs**: only touch delta spec files if the fix changes *intended* behavior (not just restores it to match the existing spec). Most Gate B/C/D fixes correct an implementation defect against an already-correct spec and need no spec edit. If the fix reveals genuinely new/changed intended behavior, add an `ADDED`/`MODIFIED` requirement the same way `/myflow-start` would.
 - Show the user the proposed additions before writing (same confirm-before-write discipline as `openspec-update-change`).
 
@@ -150,7 +160,9 @@ This decides the section title used in step 4 (`Manual Review Fixes` / `Manual T
 Same discipline as `openspec-apply-superpowers` steps 4–6:
 
 - Invoke **superpowers:subagent-driven-development** with the no-commit override and TDD requirement above.
-- One SDD task per fix item from step 4a/4b's `tasks.md` entries.
+- **Group fix items into SDD tasks by blast radius, not one-per-finding.** A review pass usually surfaces several small findings; dispatching an implementer (and a per-task review) for each one is mostly overhead. Fold every finding that touches the **same module** into a **single** SDD task — one implementer, one TDD cycle, one review. Split into separate tasks only when findings are genuinely independent (different modules, or one's fix would change the other's premise).
+- **Dispatch independent tasks in parallel**, in one message, exactly as apply does. Serialize only where a real dependency exists — never merely because the findings arrived as a numbered list.
+- Include the **TEST SCOPE** line from the no-commit override in every dispatch — implementers default to `CLAUDE.md`'s full cross-platform checklist otherwise.
 - After each implementer returns: per-task review via `git diff TASK_BASE`, same pattern as apply.
 - Mark fix task checkboxes `[x]` only after task review passes.
 - Progress ledger: append to the same `.superpowers/sdd/progress-<name>.md` used by the original apply (do not start a new ledger file).
@@ -254,7 +266,7 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 - **Always** document the fix in OpenSpec artifacts (append or nested) **before** implementing — this is the whole point of this skill over ad hoc reuse of `/myflow-do`.
 - **Never** duplicate a `## Manual Review Fixes` / `## Manual Test Fixes` / `## PR Review Fixes` heading in `proposal.md` or `tasks.md` — append a dated sub-entry to the existing one.
 - **Never** archive a nested `<name>-fix-N` change on its own; it archives only together with its parent (see `openspec-archive-superpowers`).
-- **Always** re-run the **full** strict review panel (not a fix-only partial review) before handoff.
+- **Always** re-run the strict review panel before handoff, in the shape step 6 selects — **targeted** (slot 0 + the agents whose domain the fix touched) by default, **full** when any escalation trigger fires, when `originStage` is a Gate D origin, or with `full-panel`. Never hand off on a fix-only partial review that leaves a slot without a fresh-or-unstale clean result (see the handoff invariant in step 6).
 - Do not skip TDD on fix tasks.
 - Pause on ambiguity (which gate, how to organize) — never guess silently past the AskUserQuestion prompts in steps 2–3.
 - **Always record `originStage`** on entry (step 0) and write it into the state file — `/myflow-do-fix-done` depends on it to return the change to the right stage.

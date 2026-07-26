@@ -87,7 +87,8 @@ Write the full object, preserving every field you did not change:
 - `updatedBy` → the invoking command, e.g. `"/myflow-do-done"`
 - when `TARGET_STAGE` was the dynamic form, also `originStage` → `null`
 - **everything else carried forward verbatim** — all four `gates` values, `worktree`, `branch`,
-  `originStage` (unless just cleared above), `artifactUrl`
+  `originStage` (unless just cleared above), `artifactUrl`, `fastPath`, `REVIEWED_TREE`, and any
+  other field present in the file you did not explicitly change
 
 **Gate values are monotonic** — never lower one, never infer `gates.tested: true`, never overwrite
 `"skipped"`. This skill has no reason to change a gate at all; if you find yourself writing one,

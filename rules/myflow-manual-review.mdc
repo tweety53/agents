@@ -41,7 +41,7 @@ A change is always in exactly one of twelve stages, recorded in its state file (
 |-------|--------|------------|
 | `awaiting-proposal-review` | `/myflow-start`, `/myflow-start-fix` | human — read the proposal artifact |
 | `proposal-done` | `/myflow-start-done` | `/myflow-do` |
-| `awaiting-do-review` | `/myflow-do` | human — review staged diff |
+| `awaiting-do-review` | `/myflow-do`; also `/myflow-fast-path` in `checkpoint` mode (resume by re-invoking `/myflow-fast-path <name>` — **not** `/myflow-do-done`) | human — review staged diff |
 | `do-review-started` | `/myflow-do-manual-review` | human — mid-review |
 | `do-done` | `/myflow-do-done` | `/myflow-manual-test` |
 | `awaiting-fix-review` | `/myflow-do-fix` | human — review the fix |
@@ -92,6 +92,9 @@ Every command resolves the path this way, so the same change maps to the same fi
   "branch": "openspec/<name>",
   "originStage": null,
   "artifactUrl": null,
+  "fastPath": null,
+  "REVIEWED_TREE": null,
+  "MERGE_BASE": null,
   "updatedAt": "2026-07-25T10:00:00Z",
   "updatedBy": "/myflow-manual-test"
 }
@@ -103,6 +106,20 @@ Every command resolves the path this way, so the same change maps to the same fi
 - `worktree` — absolute path, or `null` when no worktree exists.
 - `originStage` — the stage `/myflow-do-fix` was invoked from; `null` when no fix is in flight.
 - `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
+- `fastPath` — `true` when the change reached its current stage via `/myflow-fast-path`; `null`/absent otherwise. Written only by `/myflow-fast-path`; every other command **carries it forward verbatim**.
+- `REVIEWED_TREE` — the `git write-tree` hash(es) recorded at a `/myflow-fast-path checkpoint` stop, proving the reviewed diff has not moved; `null` otherwise. Written only by `/myflow-fast-path`; every other command **carries it forward verbatim**.
+- `MERGE_BASE` — the commit each affected worktree branched from, so a later session can still run `git diff MERGE_BASE`; `null` otherwise. Written by `/myflow-fast-path`; every other command **carries it forward verbatim**. (`/myflow-do` and `/myflow-do-fix` record their own `MERGE_BASE` in the SDD progress ledger at `.superpowers/sdd/progress-<name>.md` instead — the fast path uses the state file because it keeps no ledger.)
+
+**Multi-repo shape for `REVIEWED_TREE` and `MERGE_BASE`.** Both are objects **keyed by the absolute worktree path** of each affected repo, so a change spanning `gymie` and `gymie-frontend` records one entry per repo:
+
+```json
+"MERGE_BASE": {
+  "/Users/tweety53/Projects/gymie/.worktrees/openspec-<name>": "5ee4c9a…",
+  "/Users/tweety53/Projects/gymie-frontend/.worktrees/openspec-<name>": "b31f7c2…"
+}
+```
+
+The scalar `worktree` and `branch` fields name the **primary** repo only. When a change spans repos, the full set of affected worktrees is the **key set of `MERGE_BASE`** — that is the authoritative list, and `worktree` is one of its keys.
 - `updatedBy` — the command that last wrote the file, e.g. `"/myflow-do"`.
 
 Read it with:
@@ -115,7 +132,9 @@ Write it by rendering the full object above — always write every field, never 
 
 **Gate values are monotonic.** No command may lower a gate value. `gates.tested: true` and `gates.tested: "skipped"` are **sticky** — once set they are never overwritten or demoted. No command may write a `stage` earlier than the one it found, other than the one permitted rewind below. A self-heal may only **raise or fill** a value, never lower one, and must **never infer `gates.tested: true`** — only `/myflow-review` writes `true`.
 
-Because writes render the whole object, every command must first **read the existing file and carry forward** every gate it does not itself own (e.g. `/myflow-manual-test` re-emits the `prOpened`/`prMerged` values it read, rather than resetting them to `null`).
+Because writes render the whole object, every command must first **read the existing file and carry forward** every gate it does not itself own (e.g. `/myflow-manual-test` re-emits the `prOpened`/`prMerged` values it read, rather than resetting them to `null`). The same applies to
+every non-gate field it does not own — including `fastPath` and `REVIEWED_TREE`: re-emit them as
+read. Dropping them would strand a fast-path change mid-resume.
 
 ## State self-heal
 
@@ -406,6 +425,7 @@ below rest on — see the paragraph in **Opt-out (explicit only)**.
 - `skip-review` on `/myflow-full` — skip Gate B only; Gate C still runs unless also skipped. Records `gates.reviewed: false` (Gate B explicitly skipped), never `true`.
 - `skip-manual-test` on `/myflow-full` — pre-answers the Gate C skip prompt with **Yes**, then carries the change through to `manual-test-done` with `gates.tested: "skipped"` (the Gate C question is not asked); review still runs and still checks coverage.
 - `full-panel` on `/myflow-do` and `/myflow-do-fix` (and `/myflow-full`, which forwards it) — force every review-panel re-run to use all six agents over the whole-branch diff, disabling targeted re-runs. Opt-in; the default is targeted with automatic escalation.
+- `checkpoint` on `/myflow-fast-path` — adds a Gate B stop on the staged diff after verification, before anything is pushed. On **Continue**, the cycle writes `do-done` directly with `gates.reviewed: false` (the same in-the-moment-confirmation reasoning as **Crossing Gate B/C on an explicit "Continue"**); on **Stop here** the change is left at `awaiting-do-review` and re-invoking the command resumes it. `/myflow-fast-path` itself always records `gates.reviewed: false` and `gates.tested: "skipped"` — it never claims a gate that nobody ran — and never accepts `automerge`.
 - `commit-during-apply` — legacy SDD per-task commits; only when the user explicitly requests it.
 - `automerge` on `/myflow-review` (and therefore on `/myflow-full`, which forwards it) — see **Auto-merge (opt-in)**. Opt-in only; never implied by any other flag.
 
