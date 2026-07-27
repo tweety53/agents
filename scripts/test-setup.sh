@@ -147,6 +147,11 @@ assert_eq() { # <desc> <expected> <actual>
 assert_exists() { # <desc> <path>
   if [[ -e "$2" || -L "$2" ]]; then pass "$1"; else fail "$1" "$2 does not exist"; fi
 }
+# Distinct from assert_exists: this one requires a regular FILE. Used where a directory at
+# the same path would be the actual defect (a managed instruction file, never a directory).
+assert_file_exists() { # <desc> <path>
+  if [[ -f "$2" ]]; then pass "$1"; else fail "$1" "$2 is not a regular file"; fi
+}
 assert_absent() { # <desc> <path>
   if [[ -e "$2" || -L "$2" ]]; then fail "$1" "$2 exists and must not"; else pass "$1"; fi
 }
@@ -246,6 +251,40 @@ seed_stale_skill_dir() {
   mkdir -p "$1" || die "cannot create $1"
   seed_guard "$1/SKILL.md"
   printf '# stale copy\nSENTINEL-PREEXISTING-SKILL\n' >"$1/SKILL.md"
+}
+
+# seed_project_md <project-dir> <standards-entry>… — a `.myflow/project.md` whose
+# `## standards` section lists the given entries, one bullet each, in the backticked form
+# real project files use. Sections before and after it are included so the section-boundary
+# parsing is exercised rather than assumed.
+seed_project_md() {
+  local proj="$1"; shift
+  local bullets="" entry
+  for entry in "$@"; do bullets+="- \`$entry\` — seeded by the harness"$'\n'; done
+  seed_file "$proj/.myflow/project.md" 644 <<EOF
+# myflow project configuration — fixture project
+
+## test
+
+\`\`\`bash
+./gradlew test
+\`\`\`
+
+## standards
+
+Files the principles reviewer receives, and the rules this project opts into.
+
+$bullets
+A bullet inside a fenced block is illustration, not an entry:
+
+\`\`\`text
+- fenced-not-an-entry.mdc
+\`\`\`
+
+## jira
+
+none
+EOF
 }
 
 # make_fixture_repo <dir> [bad-rule] — a minimal agents repo the harness fully controls.
@@ -604,6 +643,172 @@ assert_eq "the stale copy is preserved outside the scanned tree" 1 "$backup_hits
 scanned_hits="$(find -L "$home/.claude/skills" -name SKILL.md -print0 2>/dev/null |
   xargs -0 grep -lF SENTINEL-PREEXISTING-SKILL 2>/dev/null | wc -l | tr -d '[:space:]')"
 assert_eq "the stale copy is no longer reachable from the skills tree" 0 "$scanned_hits"
+
+# ===========================================================================
+# Group 5 — project-level opt-in rule rendering.
+#
+# An opt-in rule is installed nowhere by path, so before this existed the only way a project
+# could actually load one was to paste a copy into its own CLAUDE.md and AGENTS.md — two
+# copies with nothing keeping them in step with the rule they came from. The installer now
+# renders whatever the project's `.myflow/project.md ## standards` section names into a
+# managed block in both files.
+#
+# Everything below is a containment or convergence claim about a file the user WROTE
+# (a project's CLAUDE.md is hand-maintained far more often than ~/.claude/CLAUDE.md is), so
+# the same guarantees the global block carries have to hold here too.
+# ===========================================================================
+
+group "A project's opted-in shared rule is rendered into both its instruction files"
+
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-optin-$CASE_SEQ"
+seed_project_md "$proj" "CLAUDE.md" "opt-in-false.mdc" "good-always.mdc"
+# `cursor` on purpose: it copies neither CLAUDE.md nor AGENTS.md into the project, so both
+# files exist below only because the standards rendering created them. Under `claude-code`
+# the CLAUDE.md existence assertion could not fail whatever this feature did.
+run_setup "$FIXTURE" "$home" cursor "$proj"
+assert_rc_zero "the project install succeeds" "$RUN_RC" "$RUN_LOG"
+for f in "$proj/CLAUDE.md" "$proj/AGENTS.md"; do
+  label="${f#"$proj"/}"
+  assert_file_exists "$label exists after the install" "$f"
+  assert_contains "$label carries the opted-in rule body" "$f" "BODY-OPT-IN"
+  assert_contains "$label labels the rule it inlined" "$f" "<!-- rule: opt-in-false.mdc -->"
+  assert_eq "$label has exactly one begin" 1 "$(count_lines_matching "$f" "$BEGIN")"
+  assert_eq "$label has exactly one end" 1 "$(count_lines_matching "$f" "$END")"
+  # An always-on rule already reaches every session through the global block. Rendering it
+  # again here is the duplication this feature exists to remove, not a harmless extra.
+  assert_not_contains "$label does not re-render the always-on rule" "$f" "BODY-GOOD-ALWAYS"
+  # `CLAUDE.md` is a bare non-.mdc entry — the project's own file, not a shared rule.
+  assert_not_contains "$label treats a bare non-.mdc entry as no shared rule" "$f" "<!-- rule: CLAUDE.md -->"
+done
+assert_contains "the run reports which rule it rendered" "$RUN_LOG" "opt-in-false.mdc"
+
+group "Project rendering is idempotent and preserves hand-written content"
+
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-idem-$CASE_SEQ"
+seed_project_md "$proj" "opt-in-false.mdc"
+seed_file "$proj/CLAUDE.md" 640 <<'EOF'
+# Gymie-like project instructions
+
+PROJECT-HANDWRITTEN — this line predates the managed block.
+EOF
+cp -p "$proj/CLAUDE.md" "$SANDBOX/project-handwritten-original.md"
+for run in 1 2 3; do
+  run_setup "$FIXTURE" "$home" all "$proj"
+  assert_rc_zero "project run $run succeeds" "$RUN_RC" "$RUN_LOG"
+  assert_contains "project run $run keeps the hand-written line" "$proj/CLAUDE.md" "PROJECT-HANDWRITTEN"
+  assert_eq "project run $run: exactly one begin in CLAUDE.md" 1 "$(count_lines_matching "$proj/CLAUDE.md" "$BEGIN")"
+  assert_eq "project run $run: exactly one begin in AGENTS.md" 1 "$(count_lines_matching "$proj/AGENTS.md" "$BEGIN")"
+  assert_eq "project run $run: CLAUDE.md keeps its 640 mode" 640 "$(file_mode "$proj/CLAUDE.md")"
+  if [[ "$run" == 2 ]]; then
+    cp -p "$proj/CLAUDE.md" "$SANDBOX/project-idem-claudefile-run2.md"
+    cp -p "$proj/AGENTS.md" "$SANDBOX/project-idem-agentsfile-run2.md"
+  fi
+done
+assert_identical "project run 3 leaves CLAUDE.md byte-identical to run 2" \
+  "$proj/CLAUDE.md" "$SANDBOX/project-idem-claudefile-run2.md"
+assert_identical "project run 3 leaves AGENTS.md byte-identical to run 2" \
+  "$proj/AGENTS.md" "$SANDBOX/project-idem-agentsfile-run2.md"
+assert_identical "the project's pre-myflow copy is the file as the user wrote it" \
+  "$proj/CLAUDE.md.myflow.bak" "$SANDBOX/project-handwritten-original.md"
+
+group "Which modes render project standards"
+
+for mode in cursor claude-code codex all; do
+  new_home; home="$HOME_DIR"
+  proj="$SANDBOX/project-mode-$CASE_SEQ"
+  seed_project_md "$proj" "opt-in-false.mdc"
+  run_setup "$FIXTURE" "$home" "$mode" "$proj"
+  assert_rc_zero "mode $mode installs cleanly over a project with standards" "$RUN_RC" "$RUN_LOG"
+  assert_contains "mode $mode renders the rule into CLAUDE.md" "$proj/CLAUDE.md" "BODY-OPT-IN"
+  assert_contains "mode $mode renders the rule into AGENTS.md" "$proj/AGENTS.md" "BODY-OPT-IN"
+done
+
+# `global` installs no project files at all, so it must not create these either — otherwise a
+# user-level install would start writing into whatever directory it happened to be run from.
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-global-$CASE_SEQ"
+seed_project_md "$proj" "opt-in-false.mdc"
+run_setup "$FIXTURE" "$home" global "$proj"
+assert_rc_zero "global installs cleanly beside a project with standards" "$RUN_RC" "$RUN_LOG"
+assert_absent "global writes no project CLAUDE.md" "$proj/CLAUDE.md"
+assert_absent "global writes no project AGENTS.md" "$proj/AGENTS.md"
+
+group "A project with nothing to render is left alone, silently"
+
+# No .myflow/project.md at all.
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-noconfig-$CASE_SEQ"
+mkdir -p "$proj"
+run_setup "$FIXTURE" "$home" cursor "$proj"
+assert_rc_zero "a project with no .myflow/project.md installs cleanly" "$RUN_RC" "$RUN_LOG"
+assert_absent "no CLAUDE.md is created for a project with no config" "$proj/CLAUDE.md"
+assert_absent "no AGENTS.md is created for a project with no config" "$proj/AGENTS.md"
+
+# A project.md that names only its own files — no shared rule to render, so no block.
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-noshared-$CASE_SEQ"
+seed_project_md "$proj" "CLAUDE.md" "CONTRIBUTING.md" "docs/standards/api.mdc"
+run_setup "$FIXTURE" "$home" cursor "$proj"
+assert_rc_zero "a project naming no shared rule installs cleanly" "$RUN_RC" "$RUN_LOG"
+assert_absent "no block is written when no entry resolves to the shared library" "$proj/CLAUDE.md"
+# `docs/standards/api.mdc` contains a `/`, so it is a project path — form 3, never the
+# shared library. Resolving it there would be the containment bypass.
+assert_not_contains "a slashed .mdc entry is not looked up in the shared library" "$RUN_LOG" "docs/standards/api.mdc"
+
+group "A named rule that does not exist is reported and skipped"
+
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-missing-$CASE_SEQ"
+seed_project_md "$proj" "no-such-rule.mdc" "opt-in-false.mdc"
+run_setup "$FIXTURE" "$home" claude-code "$proj"
+assert_contains "the missing rule is reported by name" "$RUN_LOG" "no-such-rule.mdc"
+assert_contains "the rules that do exist are still rendered" "$proj/CLAUDE.md" "BODY-OPT-IN"
+assert_not_contains "a bullet inside a fenced block is not read as an entry" "$RUN_LOG" "fenced-not-an-entry.mdc"
+# Reported, not fatal: the rest of the install completed. But a run that could not deliver
+# something the project asked for is not a clean install either, and `$?` is where that has
+# to show — same contract as every other skip in this installer.
+assert_rc_nonzero "a missing rule makes the run report a skip in its exit status" "$RUN_RC"
+assert_contains "both instruction files still got the rules that do exist" "$proj/AGENTS.md" "BODY-OPT-IN"
+
+group "The delimiter guards fire on a project file exactly as on a global one"
+
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-reversed-$CASE_SEQ"
+seed_project_md "$proj" "opt-in-false.mdc"
+seed_file "$proj/CLAUDE.md" 644 <<EOF
+# Project notes
+
+$END
+generated-looking content
+$BEGIN
+
+keep-me-below
+EOF
+cp -p "$proj/CLAUDE.md" "$SANDBOX/project-reversed-expected.md"
+run_setup "$FIXTURE" "$home" claude-code "$proj"
+assert_rc_nonzero "reversed delimiters in a project file abort the run" "$RUN_RC"
+assert_contains "the project abort names the delimiter shape" "$RUN_LOG" "not one begin followed by one end"
+assert_identical "reversed: the project CLAUDE.md is byte-identical afterwards" \
+  "$proj/CLAUDE.md" "$SANDBOX/project-reversed-expected.md"
+assert_absent "reversed: no project .myflow.bak was written" "$proj/CLAUDE.md.myflow.bak"
+
+group "The real Kotlin standard reaches a project that opts into it"
+
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-kotlin-$CASE_SEQ"
+seed_project_md "$proj" "CLAUDE.md" "$KOTLIN_RULE"
+run_setup "$REPO_ROOT" "$home" claude-code "$proj"
+assert_rc_zero "the real-repo project install succeeds" "$RUN_RC" "$RUN_LOG"
+for f in "$proj/CLAUDE.md" "$proj/AGENTS.md"; do
+  label="${f#"$proj"/}"
+  assert_contains "$label inlines the Kotlin standard" "$f" "<!-- rule: $KOTLIN_RULE -->"
+  assert_contains "$label carries the Kotlin standard's text" "$f" "Kotlin Backend Development Standard"
+  # The frontmatter is stripped exactly as it is for the global block; leaving `globs:` or
+  # `alwaysApply:` in the rendered body would feed a Cursor-only header to every harness.
+  assert_not_contains "$label strips the rule's frontmatter" "$f" "alwaysApply: false"
+done
 
 # ===========================================================================
 # Safety close-out. Every case above ran with a sandboxed HOME; this proves it.
