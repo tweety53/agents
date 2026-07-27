@@ -28,7 +28,7 @@ accepted — recommend `/myflow-do`, or `/myflow-do-fix` if implementation has b
 2. **Revise the artifacts** — `proposal.md`, `design.md`, delta `specs/**`, `tasks.md` — so they
    stay coherent with each other. A change to scope must reach the specs and the task list, not
    just the prose.
-3. **Re-run the architect pass only if the feedback reopens an architectural question.** If it
+3. **Re-open the design discussion only if the feedback reopens an architectural question.** If it
    does, put the reopened decision to the user, then update the `## Decisions` section using the
    **same ID-based supersede mechanism** `openspec-propose-superpowers` defines: locate the
    reopened entry **by its `**ID:**`, never by heading text** — headings may be reworded across
@@ -39,8 +39,16 @@ accepted — recommend `/myflow-do`, or `/myflow-do-fix` if implementation has b
    `**Status:**` lines, per the shape in `openspec-propose-superpowers/SKILL.md`.
 4. **Republish the artifact to the same URL** by passing the same file path to the Artifact tool.
    `artifactUrl` must not change.
-5. **Write state:** stage stays `awaiting-proposal-review`; update only `updatedAt` and
-   `updatedBy: "/myflow-start-fix"`. Carry every other field forward, gates included.
+5. **Sync added scope to the Jira issue.** When this round adds scope the linked issue does not
+   describe, append **one dated bullet** under `## Added during implementation`, per **Description
+   sync** in **Jira integration** (`rules/myflow-manual-review.mdc`) — canonical, not restated
+   here. Feedback that only sharpens wording adds no scope and writes nothing. Skip when
+   `jiraIssue` is `null`; report the append (or one skipped-with-reason line) in the
+   handoff. **Never transition the issue here** — the proposal gate is inside In Progress already.
+6. **Write state:** stage stays `awaiting-proposal-review`; update only `updatedAt` and
+   `updatedBy: "/myflow-start-fix"`. Carry every other field forward, gates included — and
+   `artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE` and `MERGE_BASE` with them. Writes
+   render the whole object, so an omitted field is erased permanently.
 
 ## Handoff
 
@@ -51,6 +59,7 @@ accepted — recommend `/myflow-do`, or `/myflow-do-fix` if implementation has b
 **Round:** <N>
 **Artifact:** <artifactUrl> (same link, updated)
 **Decisions:** <unchanged | 1 superseded, 1 added>
+**Jira description:** appended 1 entry under `## Added during implementation` | unchanged (no added scope) | none linked
 
 **Open in IntelliJ:**
 open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
@@ -63,4 +72,6 @@ open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
 - **Never** write code, create a worktree, or create a branch.
 - **Never** advance the stage — that is `/myflow-start-done`'s job.
 - **Never** mint a new artifact URL; republish to the recorded one.
+- **Never** transition the Jira issue, and never let a Jira call block the revision — one
+  skipped-with-reason line and continue, per **Jira integration**.
 - **Never** delete a superseded decision; mark it superseded.

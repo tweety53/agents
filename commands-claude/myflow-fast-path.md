@@ -1,22 +1,25 @@
 ---
 model: sonnet
-description: Shortened single-session flow for a small, well-understood feature — minimal OpenSpec artifacts, inline TDD, two-agent review, ends at a PR. Five human gates collapse to one. Escalates to the standard pipeline on any size trigger.
+description: Shortened single-session flow for a small, well-understood feature — minimal OpenSpec artifacts, inline TDD, three-agent review, ends at a PR. Five human gates collapse to one. Escalates to the standard pipeline on any size trigger.
 ---
 
-Use the **openspec-fast-path-superpowers** skill (`.claude/skills/openspec-fast-path-superpowers/SKILL.md`).
+Use the **openspec-fast-path-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
 Follow that skill exactly. For **small, well-understood features** where the design is already
 settled. Writes a terse `proposal.md` + `tasks.md` (no `design.md`, no proposal artifact, no Gate A),
 creates the standard worktree, implements **inline with TDD** (no implementer subagents), reviews
-with **primary + Bugbot**, runs web-scoped tests and full lint, then commits, pushes, and opens a PR.
+with **primary + Bugbot + Principles** (the three required panel slots), runs the project's tests and lint (resolved from `.myflow/project.md`'s `## test` / `## lint`), then commits, pushes, and opens a PR.
 
 **Ends at `stage: awaiting-pr-review`** with `gates.reviewed: false`, `gates.tested: "skipped"`, and
 `fastPath: true` — honest values; it never claims a gate that nobody ran.
 
 **Flags:** `checkpoint` (stop on the staged diff before pushing; resumable by re-invoking),
-`full-panel` (all six reviewers). **`automerge` is not accepted** — this command never merges.
+`full-panel` (every roster slot, including both extra principle lenses). **`automerge` is not accepted** — this command never merges.
 
-**Escalation:** more than 3 tasks, or touching `core/ports/`, a migration, or a delta spec, or a new
+**Accepts stages:** *(none — creates the change)* · `proposal-done` · `awaiting-do-review` **with `fastPath: true`** (checkpoint resume; re-invoke this command rather than `/myflow-do-done`). Must match the `## Stage transitions` row in the myflow manual-review rule.
+
+**Escalation:** more than 3 tasks, or touching a public contract or port boundary as defined by the project's standards, a migration, or a delta spec, or a new
 Critical from the panel → it stops and asks whether to continue or hand off to `/myflow-do`.
 
 `model: sonnet` — no brainstorming happens here; the premise is that the design is settled. If it

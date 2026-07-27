@@ -88,9 +88,61 @@ Before running verification, assess whether the change's tests actually cover wh
 
 Invoke **superpowers:verification-before-completion**:
 
-- Run project-appropriate tests (e.g. `./gradlew test`, `./gradlew ktlintCheck detekt`, frontend compile checks) in every affected repo/worktree.
+- Run the project's tests and linters in **every** affected repo/worktree. Take the commands from `## test` and `## lint` in `<main checkout>/.myflow/project.md`; when that file or either key is absent, **auto-detect from the repository** (build files, `package.json` scripts, existing CI config). Both are defined once under **Project configuration** in `rules/myflow-manual-review.mdc` — canonical, not restated here. Run the auto-fix command from `## lint` first when the project names one. Never substitute a task name remembered from another project; if nothing resolves, say so and ask.
 - Show command output before claiming ready.
 - If tests fail: **stop** — fix in worktree and re-verify, or suggest `/myflow-do-fix <name>` for larger fixes.
+
+**Agents-repo guards.** The agents repo carries two of them, and both run here:
+
+- `scripts/check-vocabulary.sh` — the **vocabulary drift guard**. Run it when the change touched
+  myflow's own skills, rules, or command files.
+- `scripts/test-setup.sh` — the **installer regression harness**. `setup.sh` writes into the user's
+  home directory and has already shipped two data-loss defects; this exercises it against a
+  sandboxed `HOME` under `/tmp`. Run it whenever the agents repo is in the affected set, not only
+  when the diff touched `setup.sh` — the rules and skills it installs are its inputs, so a change to
+  those can break an install without touching the installer.
+
+Show each script's output.
+
+**Resolve which worktree to run them from — do not assume the cwd.** A multi-repo change is the
+normal case for a myflow edit: the agents repo carries the skills and rules while the cwd is some
+project worktree. The affected worktree set is the **key set of `MERGE_BASE`** (from the state file,
+or from the progress ledger when `/myflow-do` recorded it there) — the same authoritative list this
+step already iterates for tests. Find the one that holds the scripts and run them **from that
+absolute root**:
+
+```bash
+# AFFECTED_WORKTREES = the MERGE_BASE key set from the state file (the authoritative list).
+# GUARD_ROOT = whichever of them holds the scripts.
+AFFECTED_WORKTREES=( "${!MERGE_BASE[@]}" )     # or read the key set from the state file
+GUARD_ROOT=""
+for root in "${AFFECTED_WORKTREES[@]}"; do
+  [ -x "$root/scripts/check-vocabulary.sh" ] && { GUARD_ROOT="$root"; break; }
+done
+
+if [ -n "$GUARD_ROOT" ]; then
+  ( cd "$GUARD_ROOT" && ./scripts/check-vocabulary.sh ) || exit 1
+  ( cd "$GUARD_ROOT" && ./scripts/test-setup.sh )       || exit 1
+else
+  echo "No affected worktree carries scripts/ — guards skipped. Searched: ${AFFECTED_WORKTREES[*]}"
+fi
+```
+
+The explicit `else` is the point. An earlier version left `GUARD_ROOT` unset and relied on
+`cd "$GUARD_ROOT" && …`, which fails silently and short-circuits past **both** guards with no
+message — the precise silent no-op the paragraph below forbids, produced by the snippet meant to
+prevent it. Each guard runs in a subshell so a failure cannot leave the rest of the stage running
+from the wrong directory.
+
+Running them with the project worktree as cwd, on the strength of a repo-relative path, is how a
+guard silently no-ops on exactly the changes it exists to check: the run whose diff rewrites the
+agents repo's skills, rules and both command trees.
+
+**Pass no path list.** The scan scope is the script's own default set, defined in one place so it cannot drift from the call sites — see **Stage transitions** in `rules/myflow-manual-review.mdc`.
+
+This step is the only thing that invokes either script — skipping it makes them unreachable. Treat a non-zero exit exactly like a failing test: **stop**, fix what it reported, and re-run. For the vocabulary guard, fix the reported `file:line` hits; add a `vocab-guard:allow` marker only on a line that must quote a retired token to do its job — never to silence real drift. For the installer harness, fix `setup.sh` or the rule/skill input that broke it — never weaken an assertion to make it pass, and never leave it failing on the grounds that the diff "did not touch the installer". Skip a script **only when no affected worktree contains it** (a change that touches no myflow repo at all) — and say so in one line, naming the roots you searched. Both are cwd-independent, so the only thing that can go wrong here is picking the wrong repo.
+
+**A clean run of either is not proof of completeness.** The vocabulary guard matches known-retired *literals* only; it passes over paraphrases and knows nothing of a rename whose literals were never added to it. The installer harness covers `setup.sh`'s observable filesystem effects only — the shapes listed in its header — and says nothing about whether the installed content is correct. Verify the sweep yourself and report each result as one input, not as the verdict.
 
 ### 5. Commit apply work
 
@@ -141,7 +193,7 @@ gh pr list --head openspec/<name> --state open --json number,url    # reuse if o
 gh pr create --base <base-branch> --head openspec/<name> --title "<change title>" --body "<summary + link to proposal>"
 ```
 
-If a PR for this branch already exists (a `/myflow-do-fix` round pushed to it), skip creation and reuse it. → PR is open: `stage: awaiting-pr-review`, `gates.prOpened: true`.
+If a PR for this branch already exists (a `/myflow-do-fix` round pushed to it), skip creation and reuse it. → PR is open: `stage: awaiting-pr-review`, `gates.prOpened: true`. Jira moves to In Review later, in **step 6c**, *after* the state write.
 
 **6.2 — a remote exists but there is no usable PR CLI for that host** (Bitbucket, GitLab without `glab`, or `gh` simply not installed — **this project's case**: `origin` is Bitbucket and `gh` is not installed):
 
@@ -160,12 +212,12 @@ Then **AskUserQuestion**:
 > - **No — not yet** *(default, recommended)*
 > - **Yes — the PR is open**
 
-- **Yes** → the human's confirmation is the evidence (the same trust model already used at Gates B and C): `stage: awaiting-pr-review`, `gates.prOpened: true`. Ask for the PR URL and record it in the summary if they have it; **do not block** if they don't.
-- **No** → stay at `manual-test-done`, `gates.prOpened: false`. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-review <name>` (it will skip straight to this step) or confirm on the next run.
+- **Yes** → the human's confirmation is the evidence (the same trust model already used at Gates B and C): `stage: awaiting-pr-review`, `gates.prOpened: true`. Jira moves to In Review later, in **step 6c**, *after* the state write. Ask for the PR URL and record it in the summary if they have it; **do not block** if they don't.
+- **No** → stay at `manual-test-done`, `gates.prOpened: false`, and **make no Jira call** — no PR exists, so In Review would be a false claim. Say plainly what to do next: open the printed URL, create the PR, then re-run `/myflow-review <name>` (it will skip straight to this step) or confirm on the next run.
 
 **Never** substitute a merge or a direct push to `develop`/`main` for opening a PR in this branch.
 
-**6.3 — no remote at all:** pushing is impossible. Stop, stay at `manual-test-done`, `gates.prOpened: false`, and tell the user to add a remote. Do not fall back to merging.
+**6.3 — no remote at all:** pushing is impossible. Stop, stay at `manual-test-done`, `gates.prOpened: false`, and tell the user to add a remote. **No Jira call is made on this branch** — nothing was opened. Do not fall back to merging.
 
 **6.4 — Auto-merge path (`automerge` passed, and only then):**
 
@@ -205,7 +257,7 @@ fall back to the old in-worktree `git checkout` form.
 If the main checkout has uncommitted work that blocks the merge, **stop** — do not stash, reset, or
 commit on the user's behalf.
 
-- No PR is created — there is nothing for a human to review.
+- No PR is created — there is nothing for a human to review, so **no In Review transition fires**; the issue moves at `/myflow-finish` instead.
 - Announce plainly that auto-merge was used and that no PR exists for this change.
 - → `stage: review-done` directly (skip `awaiting-pr-review`), `gates.prOpened: false` (no PR was ever created — carried forward, never set to `true`), `gates.prMerged: true`.
 - This is the **only** place in this skill — and the only place in myflow other than the Gate D fix exception — that merges into a base branch. It only runs when the user typed `automerge` on this invocation; it is never inferred or remembered from a prior run.
@@ -224,6 +276,10 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "branch": "openspec/<name>",
   "originStage": null,
   "artifactUrl": "<unchanged — carried forward from the file as read>",
+  "jiraIssue": "<unchanged — carried forward from the file as read>",
+  "fastPath": <carried forward from the file as read>,
+  "REVIEWED_TREE": <carried forward from the file as read>,
+  "MERGE_BASE": <carried forward from the file as read>,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
@@ -239,6 +295,10 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "branch": "openspec/<name>",
   "originStage": null,
   "artifactUrl": "<unchanged — carried forward from the file as read>",
+  "jiraIssue": "<unchanged — carried forward from the file as read>",
+  "fastPath": <carried forward from the file as read>,
+  "REVIEWED_TREE": <carried forward from the file as read>,
+  "MERGE_BASE": <carried forward from the file as read>,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
@@ -254,16 +314,34 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "branch": "openspec/<name>",
   "originStage": null,
   "artifactUrl": "<unchanged — carried forward from the file as read>",
+  "jiraIssue": "<unchanged — carried forward from the file as read>",
+  "fastPath": <carried forward from the file as read>,
+  "REVIEWED_TREE": <carried forward from the file as read>,
+  "MERGE_BASE": <carried forward from the file as read>,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-review"
 }
 ```
 
-**`artifactUrl` is carried forward in all three templates above, never dropped** — writes render the whole object, so omitting it would erase the published proposal link that `myflow-status` surfaces.
+**`artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` are carried forward in all three templates above, never dropped** — writes render the whole object, so omitting one erases it permanently. Dropping `artifactUrl` erases the published proposal link `myflow-status` surfaces; dropping `jiraIssue` unlinks the change from its issue; dropping `fastPath`/`REVIEWED_TREE` strands a fast-path change mid-resume; and dropping `MERGE_BASE` destroys the authoritative list of affected worktrees — the very list step 4 needs to run tests in every affected repo of a multi-repo change. Read the existing file first and re-emit each value verbatim (`null` only if it was already `null`).
 
 **Carry gates forward.** Read the existing state file first and preserve every gate this command does not own. Gate values are **monotonic** — never lower `gates.reviewed`, never overwrite `gates.tested: "skipped"`, never write a stage earlier than the one found.
 
 There is no state commit: the state file is user-scoped and outside the repo. Without `automerge`, step 5's code commit is the only commit this stage makes. With `automerge`, branch 6.4's merge commit is an additional git action, still not touching the state file.
+
+### 6c. Jira → In Review
+
+**This stage's row: In Review, after the state write above.** The mechanism — when to skip, how to
+resolve the transition, and what a failure degrades to — is defined once under **Jira integration**
+in `rules/myflow-manual-review.mdc`; follow it there.
+
+**Ordering is deliberate and matches `/myflow-start` and `/myflow-finish`: the state write comes
+first, the Jira call second.** Jira is a projection of pipeline state, so it must never be able to
+prevent that state from being recorded — an MCP hang here must not leave a pushed PR with no stage
+written.
+
+Fires on branches **6.1** and **6.2-Yes** only, and only after the PR is confirmed open. Branches
+**6.2-No**, **6.3**, and **6.4** (automerge, no PR) make **no** Jira call at all.
 
 ### 7. Summary
 
@@ -279,6 +357,7 @@ Default (no `automerge`):
 **Committed:** ✓
 **Tests/linters:** ✓ (commands run)
 **Pushed:** ✓ openspec/<name>
+**Jira:** <KEY> → In Review | <KEY> already In Review (no transition) | none linked | ⚠ Jira: skipped — <reason>
 **PR:** <url> — **open, not merged** | opened by you, URL not recorded | **not opened yet** — create it at <compare-url>, still at `manual-test-done`
 
 **Open in IntelliJ:**
@@ -303,6 +382,7 @@ With `automerge`:
 **Committed:** ✓
 **Tests/linters:** ✓ (commands run)
 **Merged:** ✓ openspec/<name> → <base-branch> (automerge — no PR was opened)
+**Jira:** unchanged — no PR was opened, so no In Review transition (moves to Done at `/myflow-finish`)
 **Stage:** review-done
 
 **What to do:**
@@ -325,6 +405,7 @@ With `automerge`:
 - **Never `git add`, commit, or push the state file** — it is user-scoped and outside the repo.
 - **Write `stage: awaiting-pr-review` only when a PR actually exists** (created by `gh`, or confirmed by the human); otherwise stay at `manual-test-done` with `gates.prOpened: false`. With `automerge`, skip `awaiting-pr-review` entirely and write `stage: review-done`.
 - **Never lower a gate value** — gates are monotonic; `gates.tested: "skipped"`/`true` are sticky.
+- **Never transition Jira before a PR is confirmed open**, and never let a Jira call block or roll back the commit, the PR, or the state write — one skipped-with-reason line and continue, per **Jira integration**.
 - Do not force-push or amend unless user rules allow.
 - Do not archive here — that is `/myflow-finish`'s job.
 - **`automerge` is opt-in only** — never inferred from a prior run, never defaulted.

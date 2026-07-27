@@ -7,13 +7,13 @@ description: Full cycle — start → do → manual review → manual test → r
 
 **Model:** Sonnet (or your default) is fine for most of this pipeline. If Phase A ends up running brainstorming (a fresh proposal, not `skip-propose`), switch to Opus for that phase manually — Cursor can't auto-switch mid-command. For brainstorming-heavy work, prefer running `/myflow-start` standalone on Opus first, then `/myflow-full <name> skip-propose` on Sonnet for the rest.
 
-Use the **openspec-full-cycle-superpowers** skill (`.cursor/skills/openspec-full-cycle-superpowers/SKILL.md`).
+Use the **openspec-full-cycle-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
 Follow that skill exactly. Pipeline: **start → do (#2–#6, no commits) → Gate B manual review (optional `/myflow-do-fix` loop) → Gate C manual test (skip prompt; optional `/myflow-do-fix` loop) → review (coverage check, commit + push + open PR) → Gate D — STOP**.
 
 `/myflow-full` ends at Gate D with an open, unmerged PR **unless `automerge` was passed**. Merging is normally a human action on the forge; `automerge` is the one explicit exception — passed through to `/myflow-review`, it merges immediately, so there is no PR to stop at and the cycle ends at `review-done`. `/myflow-finish <name>` (verify merged, sync specs, archive) is always a separate command you run yourself after merging — this command never invokes it.
 
-Also follow `.cursor/rules/myflow-manual-review.mdc`.
+Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
 
 **Input:** Change name + what to build from `$ARGUMENTS` or conversation. If the name is omitted and a description implies a new change, propose with that description; if both are omitted: run `openspec list --json`, use the sole active change automatically, or ask if there are multiple.
 

@@ -1,4 +1,4 @@
-# Gymie Cursor skills — myflow
+# myflow skills
 
 **myflow** = OpenSpec + Superpowers **Basic Workflow** bridge with a **twelve-stage** state
 machine: a proposal gate, **manual review** and **manual test** gates (each with an inline fix
@@ -15,7 +15,9 @@ awaiting-pr-review (Gate D) → review-done → finished
 artifact reading, and no git. They record a human confirmation as a discrete fact, separate from
 `/myflow-finish` independently verifying the PR merged.
 
-See also: `.cursor/rules/myflow-manual-review.mdc`
+See also: `myflow-manual-review.mdc` — authored at `rules/myflow-manual-review.mdc` in this
+repo, installed by `setup.sh global` to `~/.cursor/rules/` and inlined into the managed block
+in `~/.claude/CLAUDE.md`.
 
 `<name>` is **optional** on every `/myflow-*` command below — if omitted, the sole active (non-archived) change relevant to that stage is used automatically; if there are multiple, you're asked which.
 
@@ -30,7 +32,7 @@ See also: `.cursor/rules/myflow-manual-review.mdc`
 | 3 | writing-plans | `/myflow-start` (+ validated at do) |
 | 4 | subagent-driven-development | `/myflow-do` (+ `/myflow-do-fix` rounds) |
 | 5 | test-driven-development | `/myflow-do` (+ `/myflow-do-fix` rounds, every task) |
-| 6 | requesting-code-review + strict panel (Bugbot, Security, Adversarial, Senior, Conventions) | `/myflow-do` (per-task + final **1+5 agents**; pass 1 full, re-runs targeted unless escalated or `full-panel`) |
+| 6 | requesting-code-review + strict panel (required: primary, Bugbot, Principles; conditional: Security, Adversarial, principle lenses B and C) | `/myflow-do` (per-task + final panel — **three required slots**, conditional slots by trigger; pass 1 full, re-runs targeted unless escalated or `full-panel`) |
 | 7 | finishing-a-development-branch | `/myflow-review` (commit + push + open PR, never merges) |
 
 | Command | Skill | Stage |
@@ -54,6 +56,7 @@ See also: `.cursor/rules/myflow-manual-review.mdc`
 | `/myflow-review-done <name>` | `myflow-state-advance` | *Pure state write* → `review-done` |
 | `/myflow-finish <name>` | `openspec-archive-superpowers` | Verify the PR merged → delta sync → archive |
 | `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle through Gate D (PR open, stop) — or `review-done` with `automerge`; `/myflow-finish` is a separate human-initiated step |
+| `/myflow-fast-path <name>` | `openspec-fast-path-superpowers` | Small, well-understood change: minimal artifacts → inline TDD → three-agent panel → tests/lint → commit + push + open PR. Five human gates collapse to one; never merges; escalates to the standard pipeline on any size trigger |
 | `/myflow-status <name>` | — (read-only) | Stage report for open changes |
 | `/myflow-info` | — (read-only) | Reads the rule file and explains the pipeline |
 
@@ -71,7 +74,7 @@ See also: `.cursor/rules/myflow-manual-review.mdc`
 # pure state write — confirms the proposal was reviewed → stage: proposal-done
 
 /myflow-do add-my-feature
-# #2 worktree → #4 SDD → #5 TDD → #6 review panel (primary+Bugbot+Security+Adversarial+Senior+Conventions) → git add -A (staged; no #7)
+# #2 worktree → #4 SDD → #5 TDD → #6 review panel (primary+Bugbot+Principles required; Security/Adversarial/lenses conditional) → git add -A (staged; no #7)
 # stage: awaiting-do-review
 
 # Gate B — open worktree in IDE; review staged changes
@@ -80,7 +83,7 @@ See also: `.cursor/rules/myflow-manual-review.mdc`
 
 # Found something to fix? /myflow-do-fix add-my-feature
 # documents the fix in proposal.md/tasks.md (or a linked <name>-fix-N sub-change),
-# resumes the SAME worktree, #4-#6 again (full panel re-run), stage; no commits
+# resumes the SAME worktree, #4-#6 again (targeted panel re-run; full for Gate D or with full-panel), stage; no commits
 # records originStage, stage: awaiting-fix-review
 # /myflow-do-fix-manual-review add-my-feature — pure state write, stage: fix-review-started (optional)
 # /myflow-do-fix-done add-my-feature — pure state write, returns to originStage, clears it
@@ -126,7 +129,7 @@ One-shot with approval gates:
 # /myflow-finish is always a separate, human-initiated step after the PR merges
 ```
 
-**Full cycle flags:** `skip-propose`, `propose-only`, `skip-review` (skips Gate B only; typing the flag at invocation is the human's explicit opt-out, so the cycle writes stage: do-done with gates.reviewed: false rather than self-certifying a review nobody did), `skip-manual-test` (pre-answers the Gate C skip prompt with Yes, writing stage: manual-test-done with gates.tested: "skipped" for the same reason; review still runs and still checks coverage), `automerge` (opt-in only, on `/myflow-review`/`/myflow-full` — commits, pushes, and merges, skipping Gate D and ending at review-done; never implied by any other flag), `commit-during-apply` (legacy)
+**Full cycle flags:** `skip-propose`, `propose-only`, `skip-review` (skips Gate B only; typing the flag at invocation is the human's explicit opt-out, so the cycle writes stage: do-done with gates.reviewed: false rather than self-certifying a review nobody did), `skip-manual-test` (pre-answers the Gate C skip prompt with Yes, writing stage: manual-test-done with gates.tested: "skipped" for the same reason; review still runs and still checks coverage), `automerge` (opt-in only, on `/myflow-review`/`/myflow-full` — commits, pushes, and merges, skipping Gate D and ending at review-done; never implied by any other flag), `full-panel` (on `/myflow-do` and `/myflow-do-fix` — forces every roster slot, including both extra principle lenses, over the whole-branch diff on every re-run instead of the default targeted re-run), `checkpoint` (on `/myflow-fast-path` — adds a Gate B staged-diff stop before anything is pushed; the run is resumable by re-invoking the command), `commit-during-apply` (legacy)
 
 **Resume:** `/myflow-do <name>` (partial) · `/myflow-do-fix <name>` (Gate B/C/D finding) · `/myflow-manual-test <name>` (Gate C) · `/myflow-review <name>` (after both gates) · `/myflow-finish <name>` (after the PR merges) · `/myflow-status <name>` (find where a change is) · `/myflow-full <name> skip-propose` (do → review → test → review → Gate D)
 

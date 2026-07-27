@@ -7,11 +7,11 @@ description: Finish — verify the PR merged (Gate D), sync delta specs, archive
 
 **Model:** Sonnet (or your default) is fine here — Opus is reserved for `/myflow-start`'s brainstorming stage. Cursor doesn't yet support a per-command model frontmatter field, so this is a recommendation, not an enforced switch.
 
-Use the **openspec-archive-superpowers** skill (`.cursor/skills/openspec-archive-superpowers/SKILL.md`).
+Use the **openspec-archive-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
 Follow that skill exactly. Requires stage `review-done` — the stage `/myflow-review-done` writes once the human has reviewed and merged the PR (or that `/myflow-review automerge` writes directly). On mismatch, stop with the standard mismatch handoff. Runs **after `/myflow-review`** (which committed, pushed, and opened the PR, then deliberately stopped) **and after the human has reviewed and merged the PR on the forge (Gate D)**: verify the PR actually merged → OpenSpec delta sync (offer, recommended) → archive the change. **Never commits, tests, merges, or pushes anything itself** — it only verifies the PR merged and archives.
 
-Also follow `.cursor/rules/myflow-manual-review.mdc`.
+Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
 
 **Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active change is at stage `review-done`, use it automatically; if multiple, ask which.
 

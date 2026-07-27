@@ -18,10 +18,12 @@ Explain the myflow pipeline: stages, who acts at each gate, which command advanc
 This skill holds **presentation instructions only**. The pipeline content lives in the rule file and must be read at invocation time so this command can never drift out of date:
 
 ```bash
-cat .cursor/rules/myflow-manual-review.mdc
+# global install first, then a project-local install as fallback
+cat ~/.cursor/rules/myflow-manual-review.mdc 2>/dev/null \
+  || cat .cursor/rules/myflow-manual-review.mdc
 ```
 
-Also read the agents-data README for the Basic Workflow step map and the typical-flow walkthrough — on this machine `/Users/tweety53/Projects/agents/README.md` (**machine-specific**: it is the sync target of `.cursor/hooks/sync-agents-data.sh`, overridable via `AGENTS_DATA`; if that path does not exist, skip it and use the rule file alone rather than failing).
+Also read the agents repo README for the Basic Workflow step map and the typical-flow walkthrough — on this machine `/Users/tweety53/Projects/agents/README.md` (**machine-specific**: it is the local checkout of the agents repo, which is the **source of truth** these skills, commands, and rules are authored in and installed from; overridable via the `AGENTS_DATA` environment variable, which holds the **root of the agents repo checkout** and defaults to `/Users/tweety53/Projects/agents`; if that path does not exist, skip it and use the rule file alone rather than failing).
 
 **Never** answer from memory, and **never** paste a hardcoded pipeline table into this skill file. If the rule file is missing, say so and stop — do not reconstruct it.
 

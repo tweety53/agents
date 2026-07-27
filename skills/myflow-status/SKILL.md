@@ -36,7 +36,7 @@ MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
 STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
 
-jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged, .worktree, .branch, .artifactUrl, .originStage, .updatedAt, .updatedBy' \
+jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged, .worktree, .branch, .artifactUrl, .jiraIssue, .originStage, .updatedAt, .updatedBy' \
   "$STATE_FILE" 2>/dev/null
 ```
 
@@ -67,15 +67,19 @@ archived.
 ```
 ## myflow status
 
-| Change | Stage | Gates | Next | Worktree / branch | Updated |
-|--------|-------|-------|------|------|-----------|
-| user-workout-core | awaiting-manual-test | review ✓ · test ☐ · PR — | run the guide, then `/myflow-manual-test-done` | `.worktrees/openspec-user-workout-core` @ `openspec/user-workout-core` | 22h ago (/myflow-manual-test) |
-| active-workout-session-editing | proposal-done | — | `/myflow-do` | none | 19h ago (/myflow-start-done) |
+| Change | Jira | Stage | Gates | Next | Worktree / branch | Updated |
+|--------|------|-------|-------|------|------|-----------|
+| kan-31-user-workout-core | KAN-31 | awaiting-manual-test | review ✓ · test ☐ · PR — | run the guide, then `/myflow-manual-test-done` | `.worktrees/openspec-kan-31-user-workout-core` @ `openspec/kan-31-user-workout-core` | 22h ago (/myflow-manual-test) |
+| active-workout-session-editing | — | proposal-done | — | `/myflow-do` | none | 19h ago (/myflow-start-done) |
 
 ⚠ = state file was stale and has been corrected from artifacts.
 ```
 
 Gate glyphs: `✓` passed · `☐` pending · `⊘` skipped · `—` not yet reached.
+
+The **Jira** column shows `jiraIssue` verbatim, or `—` when the change has no linked issue. This
+is a **read-only** report: never call Jira, never transition an issue, never infer a key from the
+change name.
 
 Surface, when present:
 - `artifactUrl` — link to the published proposal artifact
@@ -107,6 +111,7 @@ Next-command mapping:
 
 Add below the table:
 
+- Linked Jira issue key, or "none linked"
 - Task progress (`N/M` checked from `tasks.md`)
 - Nested `<name>-fix-N` sub-changes, if any
 - Manual test guide path + checked/total box count, or `SKIPPED`
