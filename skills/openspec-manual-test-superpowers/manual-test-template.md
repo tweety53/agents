@@ -1,15 +1,17 @@
 # Manual test template
 
-Copy this structure into `docs/manual-test/<change-name>.md`. Replace every `<…>` placeholder with **real absolute paths** for the apply worktrees (or main checkouts if no worktree). Omit entire app subsections that are out of scope.
+Copy this structure into `docs/manual-test/<change-name>.md`. Replace every `<…>` placeholder with **real absolute paths** for the apply worktrees (or main checkouts if no worktree), and with the **real commands, URLs, and credentials for this project**.
 
-**Hard rule:** every shell command runs from the involved app's current apply worktree. Never use relative `../gymie-frontend` / `../gymie-admin-frontend`.
+Those project specifics come from `<main checkout>/.myflow/project.md` at generation time — `## apps`, `## run`, and `## credentials` — or from auto-detection when the project has no such file. See **Project configuration** in `rules/myflow-manual-review.mdc`. This template deliberately names no build tool, task, port, URL, or account: anything of that kind appearing below as a placeholder must be filled from the project, never from another project.
+
+**Hard rule:** every shell command runs from the involved app's current apply worktree, as an absolute path. Never a relative sibling `cd ../<other-app>`.
 
 ```markdown
 # Manual test — <change-name>
 
 **Purpose:** <one sentence from proposal>
-**Branch / worktree:** `<branch>` · backend `<BACKEND_ROOT>` · frontend `<FRONTEND_ROOT>` · admin `<ADMIN_ROOT>`
-**(Omit frontend/admin path segments when out of scope.)**
+**Branch / worktree:** `<branch>` · <app name> `<absolute root>` · <app name> `<absolute root>`
+**(One segment per involved app; omit apps that are out of scope.)**
 **Next after sign-off:** `/myflow-review <change-name>`
 <!-- Skip mode only: add a line here — **Manual test status:** SKIPPED — YYYY-MM-DD (Gate C intentionally bypassed) -->
 <!-- and leave every checklist / sign-off box below unchecked. -->
@@ -18,78 +20,47 @@ Copy this structure into `docs/manual-test/<change-name>.md`. Replace every `<�
 
 ### Prerequisites
 
-- Docker running
-- JDK 21 on `PATH`
-- Apply worktrees listed in the header (do **not** run from main `develop` checkouts for this change)
+- <Runtime / toolchain / service prerequisites for this project>
+- Apply worktrees listed in the header (do **not** run from the main-branch checkouts for this change)
 
 ### Start local stack
 
-From the **backend apply worktree**, point `devStart` at the **frontend apply worktree** when KMP is in scope (default `../gymie-frontend` is wrong from `.worktrees/`):
+<!-- The start sequence from the project's `## run`, rooted at the app that owns it. -->
+<!-- When a command takes another app's root as a parameter, pass that app's ABSOLUTE worktree root. -->
 
 ```bash
-cd <BACKEND_ROOT>
+cd <absolute root of the app that owns the run commands>
 
-docker compose up -d
-
-./gradlew dbSeed
-
-./gradlew devStart \
-  -PfrontendRoot=<FRONTEND_ROOT>
+<start command(s) from the project's `## run`>
+<seed / fixture command, only when the checklist needs seeded data>
 ```
-
-<!-- If KMP is out of scope, drop -PfrontendRoot and the frontend header path. -->
-<!-- If admin is in scope and started by the stack, note it; otherwise use the admin-only block below. -->
 
 Useful:
 
 ```bash
-cd <BACKEND_ROOT>
-./gradlew devStatus
-./gradlew devLogs
-./gradlew devStop
+cd <same absolute root>
+<status / logs / stop commands from the project's `## run`, if it defines them>
 ```
 
 ### Apps in scope for this change
 
-<!-- Keep only rows that apply -->
+<!-- One row per involved app, from the project's `## apps`. Delete rows that are out of scope. -->
 
 | App | URL | Notes |
 |-----|-----|-------|
-| Gateway + API | http://localhost:8080 | Clients always hit gateway, not :8081 |
-| Backend app | http://localhost:8081/actuator/health | Health only |
-| KMP web (`gymie-frontend` worktree) | http://localhost:3000 | Started by `devStart` when `-PfrontendRoot` is set |
-| Admin panel (`gymie-admin-frontend` worktree) | http://localhost:3001 | `superadmin@gymie.dev` / `GymieDev1` after `dbSeed` |
+| <app name> | <local URL from `## apps`> | <how it is started; anything that surprises> |
 
-**Seeded credentials (after `dbSeed`):** document which apply (`user@…` / `superadmin@…`).
+**Sign-in credentials:** <from the project's `## credentials`, and only when the checklist needs a signed-in session. State which app each account is for and what seeds it. Omit this line entirely otherwise — never invent an account.>
 
 ### Optional: run only touched surfaces
 
 <!-- Include only if helpful; otherwise delete this subsection. Always absolute cds. -->
 
-**Backend only:**
+**<App name> only:**
 
 ```bash
-cd <BACKEND_ROOT>
-docker compose up -d
-./gradlew :app:bootRun --args='--spring.profiles.active=local'
-# other terminal:
-cd <BACKEND_ROOT>
-./gradlew :gateway:bootRun --args='--spring.profiles.active=local'
-```
-
-**Admin frontend only** (gateway already up):
-
-```bash
-cd <ADMIN_ROOT>
-npm install
-npm run dev                  # http://localhost:3001
-```
-
-**KMP web only** (gateway already up):
-
-```bash
-cd <FRONTEND_ROOT>
-./gradlew :webApp:jsBrowserDevelopmentRun
+cd <absolute root for that app>
+<that app's single-service command(s) from the project's `## run`>
 ```
 
 ## Functionality checklist

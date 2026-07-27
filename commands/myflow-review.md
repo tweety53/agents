@@ -7,11 +7,11 @@ description: Review — verify Gate C, check coverage, verify tests/linters, com
 
 **Model:** Sonnet (or your default) is fine here — Opus is reserved for `/myflow-start`'s brainstorming stage. Cursor doesn't yet support a per-command model frontmatter field, so this is a recommendation, not an enforced switch.
 
-Use the **openspec-review-superpowers** skill (`.cursor/skills/openspec-review-superpowers/SKILL.md`).
+Use the **openspec-review-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
 Follow that skill exactly. Requires stage **`manual-test-done`** — on mismatch, stop with the standard mismatch handoff. Runs **after Gate B (manual review) and Gate C (manual test)**, before Gate D (human PR review): verify Gate C completion (reads `gates.tested`, promotes `false`→`true` when every checkbox is ticked, never overwrites `"skipped"`) → check test coverage against delta specs (if thin, suggests `/myflow-do-fix <name>` to add tests) → run tests/linters → **commit** the apply work → push and open a PR (Basic Workflow **#7**, constrained to the PR path — **never merges**) → write `stage: awaiting-pr-review`. Ends at Gate D with a PR URL; the human reviews and merges the PR themselves.
 
-Also follow `.cursor/rules/myflow-manual-review.mdc`.
+Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
 
 **Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active change is at stage `manual-test-done`, use it automatically; if multiple, ask which.
 

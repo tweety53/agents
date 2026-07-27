@@ -7,7 +7,7 @@ description: Fix a Gate B (manual review), Gate C (manual test), or Gate D (PR r
 
 **Model:** Sonnet (or your default) is fine here — Opus is reserved for `/myflow-start`'s brainstorming stage. Cursor doesn't yet support a per-command model frontmatter field, so this is a recommendation, not an enforced switch.
 
-Use the **openspec-apply-fix-superpowers** skill (`.cursor/skills/openspec-apply-fix-superpowers/SKILL.md`).
+Use the **openspec-apply-fix-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
 Follow that skill exactly. For fixes to an **already-applied** change found during manual review (Gate B), manual test (Gate C), or PR review (Gate D). Resumes the **existing** apply worktree/branch — never creates a new one. Documents the fix in the change's proposal first (append a "Manual Review Fixes"/"Manual Test Fixes"/"PR Review Fixes" section, or a linked nested sub-change — asks which), then runs Superpowers Basic Workflow **#4–#6** (SDD + TDD + strict review panel — targeted by default, full on escalation, always full for Gate D origins or with `full-panel`).
 
@@ -21,7 +21,7 @@ Accepts **six** incoming stages. The incoming stage is recorded as `originStage`
 
 **This command always ends at `stage: awaiting-fix-review`**, in every mode — it never returns the change to the stage it started from. Returning to `originStage` is `/myflow-do-fix-done`'s job (`do-review-started` returns to `awaiting-do-review`; every other origin returns to itself). Do not start another fix round from `awaiting-fix-review` or `fix-review-started` — those are not accepted origins; run `/myflow-do-fix-done <name>` first.
 
-Also follow `.cursor/rules/myflow-manual-review.mdc`.
+Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
 
 **Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active change already has an apply worktree, use it automatically; if multiple, ask which.
 

@@ -23,7 +23,7 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 | **3** | **writing-plans** | Validate plan; re-run if `tasks.md` not apply-ready |
 | **4** | **subagent-driven-development** | Execute remaining tasks (default). **executing-plans** only if user explicitly wants a separate session |
 | **5** | **test-driven-development** | Every implementer subagent, every task |
-| **6** | **requesting-code-review** + **strict review panel** | Per-task review (via SDD) + final whole-branch review (**1 primary + 5 additional agents**) |
+| **6** | **requesting-code-review** + **strict review panel** | Per-task review (via SDD) + final whole-branch review (**3 required slots + conditional slots**) |
 
 **Deferred to code review:** **#7** `finishing-a-development-branch` (commit, push, open PR — never merges; PR review is Gate D, then `/myflow-finish` archives).
 
@@ -37,7 +37,7 @@ Step **#1** (brainstorming) completed in **openspec-propose-superpowers**.
 4. **superpowers:subagent-driven-development** — Basic Workflow **#4** (with no-commit override below).
 5. **superpowers:test-driven-development** — Basic Workflow **#5** (mandatory per implementer dispatch).
 6. **superpowers:requesting-code-review** — Basic Workflow **#6** primary final reviewer (after SDD tasks).
-7. **Strict review panel (5 additional agents)** — mandatory alongside #6; see below.
+7. **Strict review panel** — mandatory alongside #6: Bugbot and the Principles reviewer always, plus every optional slot the triggers select; see below.
 8. **superpowers:verification-before-completion** — evidence before claiming apply done.
 
 **Do not invoke** `finishing-a-development-branch` in this stage.
@@ -54,6 +54,10 @@ Every implementer dispatch **must** include TDD requirement:
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this task. Delete any code written before tests.
 
+Every implementer dispatch **must** include the principles requirement:
+
+> **REQUIRED READING:** [engineering-principles.md](engineering-principles.md) — your implementation must satisfy these principles; the review panel's principles reviewer checks the diff against them.
+
 ### Per-task review without commits
 
 - Before dispatch: `TASK_BASE=$(git rev-parse HEAD)`; record in progress ledger.
@@ -66,28 +70,53 @@ Every implementer dispatch **must** include TDD requirement:
 
 - `MERGE_BASE` = commit recorded at worktree setup (from progress ledger or `git merge-base HEAD main`).
 - Write `.superpowers/sdd/final-review.diff` via `git diff MERGE_BASE` (include staged + unstaged).
-- Run the **strict review panel** below in **every** affected repo/worktree (backend + sibling frontends).
+- Run the **strict review panel** below in **every** affected repo/worktree. Resolve that set from the change's own record — the `MERGE_BASE` key set, or the apps listed under `## apps` in the project's `.myflow/project.md` (see **Project configuration** in `rules/myflow-manual-review.mdc`). Never assume a repo topology remembered from another project.
 - Fix Critical/Important findings from **any** panel agent before handoff; re-diff and re-run per **Panel re-runs** below until clean.
 - Record panel results in `.superpowers/sdd/final-review-panel.md` (one section per agent, one block per pass).
 
-#### Strict review panel (mandatory — 1 primary + 5 additional)
+#### Strict review panel (three required slots + conditional slots)
 
-Dispatch **six separate** review subagents. Prefer **parallel** spawn of the five additional agents after (or with) the primary. Do **not** skip any agent. Do **not** merge their roles into one prompt.
+Dispatch **separate** review subagents — one per selected slot. Prefer **parallel** spawn of the non-primary agents after (or with) the primary. Do **not** skip a slot the selection rules included. Do **not** merge their roles into one prompt.
 
-| # | Role | How to spawn (Cursor) | Portable fallback |
-|---|------|------------------------|-------------------|
-| 0 | **Primary** — plan alignment + code quality | `generalPurpose` via **superpowers:requesting-code-review** / `code-reviewer.md`; pass `final-review.diff` + plan/spec constraints | same |
-| 1 | **Bugbot** — defect hunt | `subagent_type: bugbot`, `description: "Bugbot"`, prompt shape from `review-bugbot` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [bug-hunter-reviewer-prompt.md](bug-hunter-reviewer-prompt.md) |
-| 2 | **Security** — authZ / injection / secrets | `subagent_type: security-review`, `description: "Security Review"`, prompt shape from `review-security` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [security-reviewer-prompt.md](security-reviewer-prompt.md) |
-| 3 | **Adversarial** — skeptic / regressions / test theater | `generalPurpose` + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) | same |
-| 4 | **Senior engineer** — pragmatic teammate PR review | `generalPurpose` + [senior-engineer-reviewer-prompt.md](senior-engineer-reviewer-prompt.md); **omit** `model` (inherit parent) | same |
-| 5 | **Conventions & hygiene** — project-standard compliance, economy model | `generalPurpose` + [conventions-reviewer-prompt.md](conventions-reviewer-prompt.md); **must** set `model` to the economic sibling of the parent agent (table below); `description: "Conventions review"` | same + economic `model` |
+| # | Slot | Required? | Model | How to spawn (Cursor) | Portable fallback |
+|---|------|-----------|-------|------------------------|-------------------|
+| 0 | **Primary** — plan alignment + code quality | **always** | parent (**omit** `model`) | `generalPurpose` via **superpowers:requesting-code-review** / `code-reviewer.md`; pass `final-review.diff` + plan/spec constraints | same |
+| 1 | **Bugbot** — defect hunt | **always** | own | `subagent_type: bugbot`, `description: "Bugbot"`, prompt shape from `review-bugbot` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [bug-hunter-reviewer-prompt.md](bug-hunter-reviewer-prompt.md) |
+| 2 | **Principles** — merged principle list + project hard invariants | **always** | parent (**omit** `model`) | `generalPurpose` + [principles-reviewer-prompt.md](principles-reviewer-prompt.md) with `[LENS]` = **Merged**; `description: "Principles review (Merged)"` | same |
+| 3 | **Security** — authZ / injection / secrets | conditional | own | `subagent_type: security-review`, `description: "Security Review"`, prompt shape from `review-security` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [security-reviewer-prompt.md](security-reviewer-prompt.md) |
+| 4 | **Adversarial** — skeptic / regressions / test theater | conditional | parent (**omit** `model`) | `generalPurpose` + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) | same |
+| 5+ | **Principles lens B / lens C** — extra breadth on a narrowed lens | conditional | **economy** (mapping below) | `generalPurpose` + [principles-reviewer-prompt.md](principles-reviewer-prompt.md) with `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops**; **must** set `model` | same + economic `model` |
 
-Slot 5 no longer duplicates slot 4. It runs a **distinct, mechanical lens** — compliance with this repo's written standards (module layout, core-purity imports, lint policy, no new suppressions) plus hygiene sweeps (leftover debug logging, TODOs, dead code, misplaced tests). That work is high-recall and rule-checkable rather than judgment-heavy, which is exactly what an economy model is good at, and no other panel slot owns it.
+Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads [engineering-principles.md](engineering-principles.md) — never a pasted copy of the list — and additionally owns the **hard invariants** read out of the project's own standards files (`[STANDARDS_PATHS]`): architecture/layer purity, new suppressions, weakened lint config. Those checks came from the retired conventions slot and still block; they were relocated, not dropped.
 
-##### Economic model mapping (slot 5 only)
+**Resolve `[PRINCIPLES_PATH]` before dispatching any principles slot (2 and 5+).** It is the **absolute** path of `engineering-principles.md` in the skill directory you are reading this file from — `<that directory>/engineering-principles.md`; under the global install, `~/.claude/skills/openspec-apply-superpowers/engineering-principles.md`. The subagent's working directory is the **project worktree**, which has no `skills/` tree, so a repo-relative `skills/…` path fails to open and the reviewer runs with no principle list. Confirm the file exists before spawning; if it does not, stop and report it rather than dispatching a blind reviewer.
 
-Detect the **parent / current agent provider family**, then pass the matching economy-tier slug to Task `model`. Do **not** use the parent's main model for slot 5.
+**Resolve `[STANDARDS_PATHS]` before dispatching slot 2** — from the entries listed under the `## standards` section of the project's `.myflow/project.md` when it has one, else auto-detection. Entries are **not** paths to use as-is: each resolves to an absolute path through the entry-form table and the containment rule, and an entry that fails either is reported by name and dropped. The resolution order is stated once, with the placeholder it fills, in [principles-reviewer-prompt.md](principles-reviewer-prompt.md); follow it there rather than a copy here (the entry forms and containment rule themselves are defined under **Project configuration** in `rules/myflow-manual-review.mdc`). Pass the **resolved absolute paths**, and pass an **empty** value when none resolve — that empties the Hard Invariants section by design and is a correct outcome in an unconfigured project, not a reason to substitute standards from anywhere else. Record in `final-review-panel.md` which standards files were passed, or that none resolved.
+
+Slots 5+ are the same template on a **narrowed** lens, which is what makes them worth an economy-tier agent: breadth over one theme, not a second opinion on everything. **No two principle reviewers in one run may share a lens.**
+
+##### Optional slot selection
+
+Evaluate these triggers against `final-review.diff` **before** dispatching, and record in `final-review-panel.md` which optional slots were included and which were excluded and why.
+
+| Slot | Include when the diff touches | Ask when |
+|------|-------------------------------|----------|
+| 3 — Security | auth/authz, JWT/tokens, crypto, secrets or config, SQL/query construction, path or file handling, deserialization, CORS/HTTP edge, new dependencies, or any gateway/auth module file | a config or dependency file changed, but **only** comments or a version bump |
+| 4 — Adversarial | DB migrations, concurrency/scheduling, behavior changes to code with existing tests, any test modified or deleted, or **>~300** changed lines | **150–300** changed lines with no other trigger |
+| 5 — Lens B (simplicity & state) | **>~200** changed lines, or **≥3** new classes/modules | — |
+| 5 — Lens C (robustness & ops) | error handling, retries, schedulers, external integrations, config/env, migrations | — |
+
+**Borderline → ask.** When an "Ask when" cell fires and no other trigger for that slot already applies, use **AskUserQuestion**: name the slot, say why it is borderline, and offer **include** as the default/recommended answer. Erring toward including a reviewer costs tokens; erring toward excluding costs a defect.
+
+**`full-panel` forces every slot** — 0 through 5+, including *both* extra lenses — and **bypasses trigger evaluation** entirely. It is opt-in and never inferred.
+
+A documentation-, prompt-, or test-only diff with no trigger runs the three required slots alone. That is a correct outcome, not a skipped review — say so explicitly in the panel record.
+
+##### Economic model mapping (slots 5+ only)
+
+**This mapping applies only to the conditional extra lens reviewers (slots 5+).** The **required** principles reviewer (slot 2) inherits the **parent model** — pass **no** `model` override at all. Weighing principle tradeoffs is judgment work that degrades on a weaker agent; a narrowed breadth pass does not.
+
+Detect the **parent / current agent provider family**, then pass the matching economy-tier slug to Task `model` for each slot 5+ reviewer.
 
 | Parent provider family (examples) | Economic model slug |
 |-----------------------------------|---------------------|
@@ -97,7 +126,7 @@ Detect the **parent / current agent provider family**, then pass the matching ec
 | GPT (`gpt-5.6*`, `gpt-5.5*`, `gpt-5.3*`) | `gpt-5.5-medium` |
 | Unknown / other | `composer-2.5-fast` |
 
-If the resolved economic slug is unavailable in the Task tool allowlist, fall back to `composer-2.5-fast`. Never skip slot 5 because of model selection — pick the closest economy sibling and continue.
+If the resolved economic slug is unavailable in the Task tool allowlist, fall back to `composer-2.5-fast`. Never skip a slot 5+ reviewer because of model selection — pick the closest economy sibling and continue.
 
 **Aggregation rules:**
 
@@ -109,7 +138,7 @@ If the resolved economic slug is unavailable in the Task tool allowlist, fall ba
 
 #### Panel re-runs (targeted by default)
 
-**Pass 1 is always the full six-agent panel** over `final-review.diff`. Only *re-runs* after a fix round are scoped — the first look at the branch is never partial.
+**Pass 1 always runs the full roster selected for this change** over `final-review.diff` — every required slot plus every optional slot the trigger rules included. Only *re-runs* after a fix round are scoped; the first look at the branch is never narrowed for cost.
 
 After each fix round, record `FIX_BASE` before the fix subagent runs and write the fix-scoped diff:
 
@@ -122,23 +151,23 @@ Then choose the re-run shape:
 | Mode | Who re-runs | Diff they get |
 |------|-------------|---------------|
 | **Targeted** (default) | Slot 0 primary (always, as integration check) + every agent that raised a finding in the round being fixed | `fix-round-N.diff` |
-| **Full** (escalation or flag) | All six | rewritten `final-review.diff` (`git diff MERGE_BASE`) |
+| **Full** (escalation or flag) | Every slot in this run's roster | rewritten `final-review.diff` (`git diff MERGE_BASE`) |
 
 **Escalate a targeted re-run to full automatically** when any of these hold — do not ask, just escalate and say why in the panel record:
 
 - The fix touched a file or module **outside** the set named in the findings it was fixing.
 - The fix diff exceeds **~150 changed lines**.
-- The fix altered a delta spec, a public API/contract, a DB migration, or anything under `core/ports/`.
+- The fix altered a delta spec, a DB migration, or a public contract or port boundary as defined by the project's standards (the files under `## standards`, or auto-detection when none are configured).
 - A targeted re-run surfaced a **new** Critical finding (not a restatement of the one being fixed).
 - Three or more fix rounds have already run on this change — drift risk outweighs the saving.
 
-**`full-panel` flag.** When the user passes `full-panel` to `/myflow-do` (or `/myflow-do-fix`), every re-run is the full six-agent panel over the whole-branch diff, exactly as before this rule existed. Use it when the change is large, security-sensitive, or when a previous targeted round missed something. The flag is opt-in and never inferred.
+**`full-panel` flag.** When the user passes `full-panel` to `/myflow-do` (or `/myflow-do-fix`), every slot is dispatched — trigger evaluation is bypassed, both extra lenses run — and every re-run is that full roster over the whole-branch diff. Use it when the change is large, security-sensitive, or when a previous targeted round missed something. The flag is opt-in and never inferred.
 
 **Invariants** — targeting is a cost optimization, never a coverage waiver:
 
 - A targeted re-run is **never fewer than two agents** (primary + the originating agent).
 - Gate B handoff still requires **zero** open Critical/Important findings from every agent that has run, whatever the mode.
-- The **final** pass before handoff must show a clean result for every one of the six slots — from that pass or an earlier one with no intervening change to the files that agent flagged. If any slot's clean result is stale under that test, run the full panel once before handing off.
+- The **final** pass before handoff must show a clean result for **every slot in this run's roster** — from that pass or an earlier one with no intervening change to the files that agent flagged. If any slot's clean result is stale under that test, run the full roster once before handing off.
 - Record in `final-review-panel.md`, per pass: mode (targeted/full), which agents ran, why (finding IDs or escalation reason), and the diff path they reviewed.
 
 ## Workflow
@@ -205,9 +234,9 @@ Invoke **superpowers:subagent-driven-development** with the **no-commit override
 
 ### 5. Basic Workflow #6 — Code review (strict panel)
 
-SDD per-task reviewers satisfy **between-task** review. Before handoff, run the **final whole-branch strict review panel** (primary requesting-code-review **plus** Bugbot, Security Review, Adversarial, Senior engineer, and Conventions & hygiene — see above).
+SDD per-task reviewers satisfy **between-task** review. Before handoff, run the **final whole-branch strict review panel** — the three required slots (primary requesting-code-review, Bugbot, Principles) plus every optional slot the trigger rules selected (Security, Adversarial, extra principle lenses B/C) — see above.
 
-Critical/Important findings from **any** of the six agents must be fixed and the panel re-run per **Panel re-runs** — targeted by default, full on escalation or the `full-panel` flag — before handoff.
+Critical/Important findings from **any** dispatched agent must be fixed and the panel re-run per **Panel re-runs** — targeted by default, full on escalation or the `full-panel` flag — before handoff.
 
 ### 6. Verify completion
 
@@ -222,7 +251,7 @@ Invoke **superpowers:verification-before-completion**:
 
 **Do not** commit, push, merge, or run #7. **Do** stage all apply changes so Gate B is visible in the IDE.
 
-In **every** affected repo/worktree (backend worktree and any sibling frontend repos touched):
+In **every** affected repo/worktree — the set resolved above from the `MERGE_BASE` key set or `## apps`, never a topology assumed from another project:
 
 ```bash
 cd <worktree-or-repo>
@@ -245,6 +274,10 @@ Write the state file before handing off. Resolve its path per **State file** in 
   "branch": "openspec/<name>",
   "originStage": null,
   "artifactUrl": "<unchanged — carried forward from the file as read>",
+  "jiraIssue": "<unchanged — carried forward from the file as read>",
+  "fastPath": <carried forward from the file as read>,
+  "REVIEWED_TREE": <carried forward from the file as read>,
+  "MERGE_BASE": <carried forward from the file as read>,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-do"
 }
@@ -252,7 +285,7 @@ Write the state file before handing off. Resolve its path per **State file** in 
 
 The state file lives **outside** the repo — do not `git add` it, do not commit it, and do not archive it. Carry forward any gate values already present in the file; gates are monotonic.
 
-**`artifactUrl` is carried forward, never dropped.** `/myflow-start` published the proposal artifact and recorded its URL; writes render the whole object, so omitting the field here would permanently destroy the link that `myflow-status` surfaces. Read the existing file first and re-emit the value verbatim (`null` only if it was already `null`).
+**`artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` are carried forward, never dropped.** Writes render the whole object, so omitting any of them destroys it permanently: `artifactUrl` is the proposal link `myflow-status` surfaces, `jiraIssue` is the link to the issue, `fastPath` and `REVIEWED_TREE` are what let a fast-path change resume, and `MERGE_BASE`'s key set is the authoritative list of affected worktrees for a multi-repo change. Read the existing file first and re-emit each value verbatim (`null` only if it was already `null`). This command makes **no** Jira call of its own — see **Jira integration** in `rules/myflow-manual-review.mdc`.
 
 Stop here.
 
@@ -260,7 +293,7 @@ Stop here.
 ## Apply Complete — Manual Review Required
 
 **Change:** <name>
-**Basic Workflow:** #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ (strict panel: primary + Bugbot + Security + Adversarial + Senior + Conventions)
+**Basic Workflow:** #2 ✓ #3 ✓ #4 ✓ #5 ✓ #6 ✓ (strict panel — required: primary + Bugbot + Principles; optional selected: <Security / Adversarial / lens B / lens C, or "none — no triggers fired">)
 **Deferred to review:** #7 (commit + push + open PR — never merges)
 **Progress:** N/N tasks complete
 **Branch:** openspec/<name>
@@ -300,9 +333,10 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 - **Never** run `finishing-a-development-branch` (#7) during apply.
 - Do not use the lightweight openspec-apply-change step-6 loop.
 - Do not skip per-task SDD review (#6) or final whole-branch review (#6).
-- Do not skip any of the **five additional** final-review agents (Bugbot, Security, Adversarial, Senior engineer, Conventions & hygiene) **on pass 1**, and do not collapse them into one agent. Re-runs may be targeted per **Panel re-runs**; pass 1 may not.
-- Do not omit the `model` parameter on the Conventions & hygiene agent (slot 5); resolve it from the economic model mapping.
-- Do not run slot 5 with the senior-engineer prompt — it has its own lens (`conventions-reviewer-prompt.md`). Two agents with one persona is the redundancy this slot was rewritten to remove.
+- **Never skip a required slot:** primary, Bugbot, and Principles run on **every** panel pass 1, in every affected repo, and are never collapsed into one agent. Re-runs may be targeted per **Panel re-runs**; pass 1 may not.
+- Do not decide the optional slots (Security, Adversarial, lens B, lens C) by feel — evaluate **Optional slot selection** against the diff, ask when a borderline cell fires (default **include**), and record what was excluded and why.
+- Do not pass a `model` override to the required Principles reviewer (slot 2) — it inherits the parent model. Do not omit `model` on a slot 5+ lens reviewer — resolve it from the economic model mapping.
+- Do not dispatch two principle reviewers with the same `[LENS]`, and do not paste the principle list into a prompt — the reviewer reads `engineering-principles.md`.
 - Do not hand off while any slot's clean result is stale under the **Panel re-runs** invariant; run the full panel once if in doubt.
 - Do not hand off to Gate B while any panel agent still has open Critical/Important findings.
 - Do not skip TDD (#5) on any implementer dispatch.

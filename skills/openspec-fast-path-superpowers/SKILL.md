@@ -1,6 +1,6 @@
 ---
 name: openspec-fast-path-superpowers
-description: Shortened single-session myflow variant for small, well-understood features. Writes minimal OpenSpec artifacts, implements inline with TDD, reviews with a two-agent panel, and ends at a PR — collapsing five human gates to one. Escalates to the standard pipeline on any size trigger. Use for /myflow-fast-path.
+description: Shortened single-session myflow variant for small, well-understood features. Writes minimal OpenSpec artifacts, implements inline with TDD, reviews with a three-agent panel, and ends at a PR — collapsing five human gates to one. Escalates to the standard pipeline on any size trigger. Use for /myflow-fast-path.
 allowed-tools: Bash(openspec:*)
 license: MIT
 compatibility: Requires openspec CLI and Superpowers plugin skills.
@@ -32,14 +32,14 @@ Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-ma
 | Brainstorming (#1) + Gate A proposal artifact | A terse `proposal.md` you confirm once, inline |
 | `design.md`, delta specs by default | Delta specs only when intended behaviour genuinely changes |
 | SDD subagent per task (#4) | Inline RED-GREEN-REFACTOR by the main agent |
-| Four of six review panel slots | Primary + Bugbot (all six with `full-panel`) |
+| The conditional review panel slots | Primary + Bugbot + Principles — the three required slots (every slot with `full-panel`) |
 | Gate B staged-diff stop | Optional, via `checkpoint` |
 | Gate C manual test guide + run | Nothing — `gates.tested: "skipped"`, honestly recorded |
 
 ## Flags
 
 - `checkpoint` — add a Gate B stop on the staged diff before anything is pushed.
-- `full-panel` — run all six review agents instead of the lean two.
+- `full-panel` — run every review slot (required plus both extra principle lenses) instead of the lean three.
 - **`automerge` is not accepted.** This command always ends at a PR a human reviews. If the user
   passes it, say so and continue without it.
 
@@ -58,6 +58,11 @@ This skill adds **no new stages**. It writes only stages that already exist in *
 Also write **`fastPath: true`** into the state file, so `/myflow-status` and `/myflow-finish` can
 report how the change got here. Resolve the state file path per **State file** in
 `rules/myflow-manual-review.mdc`. It lives outside the repo — **never stage, commit, or push it.**
+
+**`jiraIssue`** is carried forward verbatim on every write this skill makes. On a change this
+command creates from scratch, resolve it the same way `/myflow-start` does (issue-key scan → fetch
+to confirm → ask once, accepting "none") and record it on the first write; on a change entering at
+`proposal-done`, `/myflow-start` already recorded it — never overwrite or reset it to `null`.
 
 **Gate honesty.** Never write `gates.reviewed: true` or `gates.tested: true`. Invoking this command
 is the human's explicit, in-the-moment decision to skip those gates — which authorizes writing the
@@ -105,6 +110,16 @@ explicit override (default: **No — run the suggested command instead**).
 
 A change that is already past `proposal-done` has had real work done under the standard pipeline's
 guarantees; silently continuing it on the fast path would misrepresent what was reviewed.
+
+**Resolve `jiraIssue` and move the issue to In Progress — the run has begun.** Read it from the
+state file when one exists; for a **new** change, resolve it per **Resolution** under **Jira
+integration** in `rules/myflow-manual-review.mdc` — that section is canonical and its rules are
+**not** restated here in any form; follow it there. Name the change `<key>-<slug>` when one is
+linked and record it on the first state write in step 2.
+
+**This stage's row: In Progress, when the run begins.** The transition mechanism is the same
+canonical section. On a checkpoint resume the issue is already In Progress, so this is a no-op
+report.
 
 ### 1. Write minimal OpenSpec artifacts
 
@@ -173,7 +188,7 @@ state file is its only durable place to put it.
 Without these, a later session — the checkpoint resume in step 6a especially — cannot run
 `git diff MERGE_BASE` and would silently review nothing.
 
-**When the change spans repos** (e.g. `gymie` + `gymie-frontend`): `worktree` and `branch` name the
+**When the change spans repos** (more than one app in scope): `worktree` and `branch` name the
 **primary** repo only, and every affected worktree gets its own entry in `MERGE_BASE`, keyed by
 absolute path — the same keying `REVIEWED_TREE` uses. The key set of `MERGE_BASE` is the
 authoritative list of affected worktrees; step 6a, the resume comparison, and step 7 all iterate it.
@@ -191,12 +206,21 @@ If the state file's `worktree` is missing or stale, fall back to resolving it fr
 3. **REFACTOR** — clean up with tests green.
 4. Check the box `[x]`.
 
-**Test scope while iterating:** in `gymie-frontend` run only `./gradlew :shared:jsTest :webApp:jsTest`
-— not `desktopTest`, Android, or iOS. In the `gymie` backend run its tests normally. Still **write**
-tests and implementations for every platform the change touches; only their execution is deferred.
+**Test scope while iterating:** take the command(s) from `## test` in
+`<main checkout>/.myflow/project.md`, using its narrower iteration subset when it names one; when
+that file or key is absent, **auto-detect from the repository** (build files, `package.json`
+scripts, CI config) and announce what you detected from. Still **write** tests and implementations
+for every platform the change touches; only their execution is deferred. Never substitute a task
+name remembered from another project — if nothing resolves, say so and ask.
+
+**REQUIRED READING:** [../openspec-apply-superpowers/engineering-principles.md](../openspec-apply-superpowers/engineering-principles.md)
+— your implementation must satisfy these principles; the review panel's principles reviewer checks
+the diff against them. This applies whether the task is implemented inline by the main agent or
+handed to a subagent, and it is **not** waived because the change is small — pass the same line
+verbatim in any implementer dispatch this command makes.
 
 **No commits during implementation.** The first commit happens in step 7 (or step 6a's continue
-path), after review is clean.
+path), after review is clean. Do not `git commit`, `git push`, merge, or open a PR here.
 
 Delete any implementation code written before its test, per TDD.
 
@@ -211,8 +235,11 @@ step 5** (from the actual diff). Triggers:
   `grep -cE '^[[:space:]]*- \[[ x]\]' openspec/changes/<name>/tasks.md`
   Counting only `- [ ]` is wrong: this check also runs after step 5, when tasks are already checked
   off, and would then undercount to near zero precisely when it is re-verifying scope drift.
-- touches `core/ports/`
-- touches a DB migration (Flyway, under `src/app/`)
+- touches a public contract or port boundary as defined by the project's standards (the files under
+  `## standards` in `.myflow/project.md`, or auto-detection when none are configured) — never a
+  package layout remembered from another project
+- touches a DB migration, wherever this project keeps them (resolve from the repository: the
+  migration tool's configured directory, or the layout the project's standards mandate)
 - touches a delta spec
 - the review panel raised a **Critical** finding
 
@@ -239,7 +266,7 @@ reuses. That is the cheap moment to catch this, which is why the check runs ther
 
 ### 5. Lean review panel
 
-Write the whole-branch diff, then dispatch **two** review agents in parallel:
+Write the whole-branch diff, then dispatch the **three required** review agents in parallel:
 
 ```bash
 git diff MERGE_BASE > .superpowers/sdd/fast-path-review.diff
@@ -249,28 +276,53 @@ git diff MERGE_BASE > .superpowers/sdd/fast-path-review.diff
 |---|------|--------------|-------------------|
 | 0 | **Primary** — plan alignment + code quality | `superpowers:requesting-code-review`; pass the diff + `tasks.md` | same |
 | 1 | **Bugbot** — defect hunt | `subagent_type: bugbot`, `description: "Bugbot"`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>` | `generalPurpose` + [../openspec-apply-superpowers/bug-hunter-reviewer-prompt.md](../openspec-apply-superpowers/bug-hunter-reviewer-prompt.md) |
+| 2 | **Principles** — merged principle list + project hard invariants | `generalPurpose` + [../openspec-apply-superpowers/principles-reviewer-prompt.md](../openspec-apply-superpowers/principles-reviewer-prompt.md) with `[LENS]` = **Merged**; **omit** `model` (inherit parent) | same |
 
-With **`full-panel`**, run all six slots instead, exactly as defined in
+These are the same three required slots the standard panel always runs — the fast path cuts the
+*conditional* slots (Security, Adversarial, extra principle lenses), not the required ones.
+
+**Resolve `[PRINCIPLES_PATH]` and `[STANDARDS_PATHS]` before dispatching slot 2.** Both are
+mandatory pre-dispatch steps, defined once under **Resolve `[PRINCIPLES_PATH]`** and **Resolve
+`[STANDARDS_PATHS]`** in [../openspec-apply-superpowers/SKILL.md](../openspec-apply-superpowers/SKILL.md)
+— canonical, and followed there rather than restated here, exactly as the `full-panel` paragraph
+below defers for the roster. Dispatching with either placeholder unresolved is a defect, not a
+degraded run: the subagent's working directory is the **project worktree**, which has no `skills/`
+tree, so an unresolved `[PRINCIPLES_PATH]` produces a principles reviewer holding **no principles**
+that still reports "Principles-compliant? Yes". Confirm the principles file exists before spawning;
+if it does not, stop and report it rather than dispatching a blind reviewer.
+
+With **`full-panel`**, run every slot instead, exactly as defined in
 [../openspec-apply-superpowers/SKILL.md](../openspec-apply-superpowers/SKILL.md) — same roster, same
-prompts, same economic-model mapping for slot 5. Reference those prompt files by path; never copy them.
+prompts, same optional-slot triggers, same economic-model mapping for slots 5+. Reference those
+prompt files by path; never copy them.
 
 **Aggregation:** union Critical/Important findings, dedupe by file:line + theme, hand the combined
-list to one fix pass, then re-run both slots. **Handoff is blocked while any slot reports an open
+list to one fix pass, then re-run every slot that ran. **Handoff is blocked while any slot reports an open
 Critical or Important finding.** Record results in `.superpowers/sdd/final-review-panel.md` with
 `mode: fast-path-lean` (or `fast-path-full`) and the diff path reviewed.
 
-**Re-run the full step 4a escalation check against this diff now** — all five triggers, not just the Critical-finding one. Step 2's check ran against what `tasks.md` predicted; this one runs against what actually landed, which is the only way scope drift discovered during implementation (a `core/ports/` file touched, a migration added, a delta spec edited) gets caught.
+**Re-run the full step 4a escalation check against this diff now** — all five triggers, not just the Critical-finding one. Step 2's check ran against what `tasks.md` predicted; this one runs against what actually landed, which is the only way scope drift discovered during implementation (a contract or port boundary crossed, a migration added, a delta spec edited) gets caught.
 
 ### 6. Verify
 
+Run the project's tests and linters in **every** affected repo/worktree, each from its own absolute
+worktree root:
+
 ```bash
-cd <gymie-frontend worktree> && ./gradlew :shared:jsTest :webApp:jsTest
-cd <gymie worktree>          && ./gradlew :auth:test :app:test
-./gradlew ktlintCheck detekt   # in every affected repo — never scoped
+cd <absolute worktree root>      # repeat for each affected repo
+<the project's test command>     # from `## test`, or auto-detected
+<the project's lint-fix command> # from `## lint`, when it names one
+<the project's lint command>     # from `## lint`, or auto-detected — never scoped
 ```
 
-Lint must pass with zero violations. Fix, never suppress and never weaken config, per **Lint Fix
-Priority** in `CLAUDE.md`. Use `./gradlew ktlintFormat` for formatting first.
+Resolve both from `<main checkout>/.myflow/project.md` (`## test`, `## lint`); when that file or a
+key is absent, **auto-detect from the repository** and announce what you detected from. Both keys
+and the fallback are defined once under **Project configuration** in `rules/myflow-manual-review.mdc`
+— canonical, not restated here.
+
+Unlike step 4's iteration subset, verification here runs the **full** test command, not the narrow
+one. Lint must pass with zero violations: fix, never suppress and never weaken config. Run the
+auto-fix command first when the project names one.
 
 If `checkpoint` was passed, go to **6a** before step 7.
 
@@ -279,8 +331,8 @@ If `checkpoint` was passed, go to **6a** before step 7.
 The stop comes **after** verification, not before — the human should be reading a diff whose tests
 and lint already pass, not one that may still change.
 
-Run this **in every affected repo/worktree** (the backend worktree and any sibling frontend repos
-the change touched — the same set step 6 verified):
+Run this **in every affected repo/worktree** — the `MERGE_BASE` key set recorded in step 3, which is
+the same set step 6 verified:
 
 ```bash
 cd <worktree-or-repo>
@@ -300,7 +352,7 @@ Write `stage: awaiting-do-review` (gates unchanged), then present:
 ## Fast Path — Checkpoint
 
 **Change:** <name>
-**Review:** primary ✓ bugbot ✓ (clean)   **Tests:** ✓   **Lint:** ✓
+**Review:** primary ✓ bugbot ✓ principles ✓ (clean)   **Tests:** ✓   **Lint:** ✓
 **Git state:** staged + uncommitted (nothing pushed)
 
 **Open in IntelliJ:**
@@ -352,8 +404,8 @@ refuse per step 0 and recommend `/myflow-do-done`.
 
 Only after step 5 is clean and step 6 passes:
 
-Commit and push **in every affected repo/worktree** — the backend worktree and any sibling frontend
-repos the change touched (the same set step 6 verified and step 6a staged). A repo that was verified
+Commit and push **in every affected repo/worktree** — the `MERGE_BASE` key set recorded in step 3
+(the same set step 6 verified and step 6a staged). A repo that was verified
 but never committed and pushed would be missing from the PR while the final report claims the change
 is complete:
 
@@ -391,8 +443,15 @@ On the branches that do write `stage: awaiting-pr-review`, write alongside it:
   if the state file already carries `gates.reviewed: true`, carry that `true` forward untouched.
   (Step 0 permits an explicit user override from a later stage, so `true` is reachable here.)
 - `fastPath: true`.
+- `jiraIssue` — carried forward exactly as read.
 
 Every other gate is carried forward unchanged.
+
+**This stage's second row: In Review, after the PR is confirmed open and after the state write
+above** — the state must be recorded whether or not Jira answers. The mechanism is defined once
+under **Jira integration** in `rules/myflow-manual-review.mdc`; follow it there. Fires on those same
+branches only (cases 1 and 2-**Yes**); cases 2-**No** and 3 open no PR, so they make **no** Jira
+call.
 
 **Never merge.** Never force-push.
 
@@ -406,11 +465,12 @@ the pushed branch and what the user must do instead):
 **Mode:** fast-path (lean panel | full-panel) (checkpoint: yes | no)
 **Artifacts:** openspec/changes/<name>/ (proposal.md, tasks.md<, delta specs>)
 **Tasks:** N/N complete, TDD per task
-**Review:** primary ✓ bugbot ✓ (clean)
-**Tests:** web target (:shared:jsTest :webApp:jsTest) ✓  backend ✓  lint ✓
+**Review:** primary ✓ bugbot ✓ principles ✓ (clean)
+**Tests:** ✓ (commands run, per repo)  **Lint:** ✓
 **Gates:** reviewed: false (Gate B skipped) · tested: "skipped" (Gate C skipped)
 **Stage:** awaiting-pr-review
 **PR:** <URL>
+**Jira:** <KEY> → In Progress → In Review | <KEY> already In Review (no transition) | none linked | ⚠ Jira: skipped — <reason>
 
 **Next steps:**
 - Review and merge the PR (Gate D) — never merged by this command
@@ -444,7 +504,7 @@ the pushed branch and what the user must do instead):
 |--------|-----|
 | Small, well-understood feature, one session | `/myflow-fast-path <name>` |
 | Same, but let me eyeball the diff before it pushes | `/myflow-fast-path <name> checkpoint` |
-| Same, but I want all six reviewers | `/myflow-fast-path <name> full-panel` |
+| Same, but I want every reviewer slot | `/myflow-fast-path <name> full-panel` |
 | Design needs exploring first | `/myflow-start <name>` |
 | Something found on the PR | `/myflow-do-fix <name>` |
 | After the PR merges | `/myflow-review-done <name>` → `/myflow-finish <name>` |

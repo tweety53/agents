@@ -1,0 +1,45 @@
+---
+description: Agents must fix lint violations — never suppress, disable, or ignore them
+alwaysApply: true
+---
+
+# Lint Fix Priority
+
+Fixing lint violations is **mandatory** and takes **priority** over finishing unrelated work. Do not bypass checks to ship faster.
+
+Lint and formatter commands are project-specific. Resolve them from the project's configured lint commands (see `.myflow/project.md`); if that file is absent, detect them from the repository's build or task configuration. This rule governs the policy, not the tool names.
+
+## Rules
+
+1. **Fix, don't bypass** — Refactor or reformat code to satisfy the project's lint rules.
+2. **No new suppressions** — Do not add inline suppression directives unless the user explicitly asks for that approach. Suppression syntax varies by language — `@Suppress`, `@SuppressWarnings`, `// detekt:ignore`, linter disable comments, `eslint-disable`, `# noqa`, `# type: ignore`, `//nolint`, `#[allow(...)]` — treat all of them as the same violation of this rule.
+3. **No config weakening** — Do not disable rules or lower thresholds in lint or formatter configuration to make checks pass.
+4. **Verify before completion** — Run the project's configured lint commands (see `.myflow/project.md`) before claiming work is done.
+5. **Auto-fix first** — Run the project's configured auto-format/auto-fix command for formatting issues before manual fixes.
+
+## Documented exceptions
+
+Pre-approved suppressions and config deviations live in the project's contributor documentation (e.g. `CONTRIBUTING.md`). Do not expand that list without user approval.
+
+## Examples
+
+```
+// BAD — suppressing instead of fixing
+<suppress "long-function">
+function processOrder() { /* 200 lines */ }
+
+// GOOD — extract helpers until the linter passes
+function processOrder() {
+    validateOrder();
+    chargePayment();
+    notifyCustomer();
+}
+```
+
+```
+// BAD — disabling a rule in the lint config to silence a warning
+
+// GOOD — rename, refactor, or restructure to satisfy the rule
+```
+
+When lint fails on your changes, stop and fix it first.

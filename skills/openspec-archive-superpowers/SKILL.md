@@ -106,6 +106,10 @@ Follow **openspec-archive-change** step 5:
   "branch": "openspec/<name>",
   "originStage": null,
   "artifactUrl": "<unchanged — carried forward from the file as read>",
+  "jiraIssue": "<unchanged — carried forward from the file as read>",
+  "fastPath": "<carried forward from the file as read>",
+  "REVIEWED_TREE": "<carried forward from the file as read>",
+  "MERGE_BASE": "<carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-finish"
 }
@@ -113,7 +117,14 @@ Follow **openspec-archive-change** step 5:
 
 **`artifactUrl` is carried forward, never dropped** — this is the terminal record, so the published proposal link must survive into it. Writes render the whole object; omitting the field would erase it.
 
-Set `worktree` to `null` — the worktree is removed or stale after finishing. Carry `gates.tested` forward exactly as recorded (`true` or `"skipped"` are sticky — never demote them). Write the same terminal state to each nested `<name>-fix-N` change's own user-scoped state file before archiving it.
+Set `worktree` to `null` — the worktree is removed or stale after finishing. `jiraIssue` is carried
+forward for the same reason as `artifactUrl`: this is the terminal record of which ticket the work
+came from.
+
+**This stage's row: Done, after the archive move and the state write above** — the archive is
+already complete and is never rolled back or re-attempted because of a Jira call. The mechanism is
+defined once under **Jira integration** in `rules/myflow-manual-review.mdc`; follow it there. A nested `<name>-fix-N` sub-change has no
+issue of its own; only the parent's `jiraIssue` is transitioned, once. Carry `gates.tested` forward exactly as recorded (`true` or `"skipped"` are sticky — never demote them). Write the same terminal state to each nested `<name>-fix-N` change's own user-scoped state file before archiving it.
 
 ### 4. Summary
 
@@ -125,6 +136,7 @@ Set `worktree` to `null` — the worktree is removed or stale after finishing. C
 **PR:** <url> — merged <date> | archived unmerged (user override)
 **Archived to:** <path>
 **Specs:** <synced | skipped | none>
+**Jira:** <KEY> → Done | <KEY> already Done (no transition) | none linked | ⚠ Jira: skipped — <reason>
 ```
 
 ## Guardrails

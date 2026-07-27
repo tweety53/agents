@@ -32,6 +32,20 @@ Steps **2, 4–7** run in **openspec-apply-superpowers**. Do not skip or substit
 
 ### A. Understand the change
 
+**Resolve the linked Jira issue first** — it decides the change name. This is one of only two
+commands that resolve a key; do it exactly as **Resolution** under **Jira integration** in
+`rules/myflow-manual-review.mdc` specifies — that section is canonical and its rules are **not**
+restated here in any form; follow it there.
+
+This command's own row: it is one of only two commands that resolve a key, and it records the
+resolved key (or `null`) as `jiraIssue` in the state file written in step **E**.
+
+Then the change name:
+
+- **With a linked issue**, the name is `<key>-<slug>` — lowercased key plus kebab-case descriptive
+  slug, per **Change naming** in **Jira integration**. Derive the slug from the issue summary when
+  the user gave only a key. The change directory, branch, worktree, and state file all use it.
+- **Without one**, the name is the descriptive slug alone, exactly as below.
 - If a change name or description was given, use it (derive kebab-case name from description if only a description was given).
 - **If both are omitted:** run `openspec list --json`, filter to non-archived changes with incomplete planning artifacts. Exactly one match → resume it automatically, announce which; multiple matches → **AskUserQuestion** listing each (name, status, last modified) — do not guess; zero matches → ask what to build.
 - If a change with that name exists: ask continue vs new name.
@@ -53,44 +67,6 @@ Invoke **superpowers:brainstorming** in full:
 
 **OpenSpec bridge:** Treat the approved brainstorming design as the source for OpenSpec `design.md` content (adapt format to OpenSpec template; do not duplicate conflicting designs).
 
-### Architect pass (always runs)
-
-Dispatch an **architect subagent** before writing any artifact. It always runs — do not gate it
-behind a heuristic; a skipped architect on a change that needed one is the expensive error.
-
-Give the subagent: the brainstormed intent, the affected modules, and the project's layout rules
-from `CLAUDE.md`. Ask it to identify the architectural decisions this change genuinely forces —
-module placement, persistence shape, API surface, boundary ownership, migration strategy — and for
-each to produce: the decision, 2–3 concrete options, the tradeoffs of each, and a recommendation.
-
-Then put each decision to the user with **AskUserQuestion**, one question per decision,
-recommendation first and labelled `(Recommended)`.
-
-**If the architect reports no significant choices, say so in one line and continue** — do not
-manufacture questions to justify the pass.
-
-Record the outcome in `design.md` under a `## Decisions` heading, one entry per decision. **This pass runs before any artifact exists, so hold the decisions in the session and write them into `design.md` at step C, when that file is created** — do not try to write them now, and do not skip recording them later.
-
-```markdown
-### <the decision>
-
-**ID:** <kebab-case-slug>
-**Status:** active
-**Chosen:** <option> — <one-line rationale>
-**Considered:** <other options, each with the tradeoff that ruled it out>
-```
-
-**ID** is a short kebab-case slug derived from the decision (e.g. `persistence-shape`,
-`api-surface`). It is assigned once, at creation, and is **immutable** — the heading prose may be
-reworded across rounds, but the ID never changes. This ID is the match key `/myflow-start-fix`
-(Task 6) uses to **supersede** a decision when feedback reopens it: it keeps the old entry, sets
-its `**Status:**` to `superseded by <new-id>`, and appends the new entry with a fresh ID rather
-than duplicating or silently rewriting the old one. Matching on the free-text heading alone would
-break on any rewording, so the ID — not the heading — is authoritative.
-
-This section is what keeps the reasoning alive during implementation, when the alternatives are
-no longer visible.
-
 ### C. OpenSpec change + draft artifacts
 
 After design approval, follow **openspec-propose** steps 2–5:
@@ -106,10 +82,40 @@ Create all artifacts required by `applyRequires`:
 
 - **proposal.md** — what & why (from brainstorm)
 - **specs/** — delta specs (from brainstorm + design)
-- **design.md** — how (from approved brainstorming design; aligned with spec file above). **Write the architect pass's held decisions into its `## Decisions` heading here** — the architect pass ran before any artifact existed, so this is where its output actually lands, in the format specified in **Architect pass**.
+- **design.md** — how (from approved brainstorming design; aligned with spec file above). **Write the decisions reached during the brainstorming dialogue into its `## Decisions` heading here**, in the format specified in **Decisions** below.
 - **tasks.md** — initial checkbox scaffold (sections + high-level tasks only; **writing-plans enriches this next**)
 
 Do not copy `<context>` / `<rules>` blocks from CLI instructions into artifact files.
+
+#### Decisions
+
+The `## Decisions` section of `design.md` is sourced from the **brainstorming dialogue** — the
+approach the user chose, the alternatives that were on the table, and the tradeoff that ruled each
+one out. There is no separate pass that produces them: whenever brainstorming presented competing
+approaches and the user picked one, that is a decision, and it gets an entry.
+
+**A design that forced no choices records none.** Leave the section empty or omit it — do **not**
+fabricate entries to make the section look substantial.
+
+```markdown
+### <the decision>
+
+**ID:** <kebab-case-slug>
+**Status:** active
+**Chosen:** <option> — <one-line rationale>
+**Considered:** <other options, each with the tradeoff that ruled it out>
+```
+
+**ID** is a short kebab-case slug derived from the decision (e.g. `persistence-shape`,
+`api-surface`). It is assigned once, at creation, and is **immutable** — the heading prose may be
+reworded across rounds, but the ID never changes. This ID is the match key `/myflow-start-fix`
+uses to **supersede** a decision when feedback reopens it: it keeps the old entry, sets its
+`**Status:**` to `superseded by <new-id>`, and appends the new entry with a fresh ID rather than
+duplicating or silently rewriting the old one. Matching on the free-text heading alone would break
+on any rewording, so the ID — not the heading — is authoritative.
+
+This section is what keeps the reasoning alive during implementation, when the alternatives are
+no longer visible.
 
 The state file is not written yet — it is written once, at the end (see **Write final state and handoff**), once the artifact URL and decision count are known. Do not create it here.
 
@@ -162,10 +168,23 @@ Write the state file per **State file** in `rules/myflow-manual-review.mdc`
   "branch": null,
   "originStage": null,
   "artifactUrl": "<published URL>",
+  "jiraIssue": "<resolved issue key from step A, or null>",
+  "fastPath": <carried forward from the file as read>,
+  "REVIEWED_TREE": <carried forward from the file as read>,
+  "MERGE_BASE": <carried forward from the file as read>,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-start"
 }
 ```
+
+**This stage's row: In Progress, after the state write** — Jira must never be able to prevent the
+stage from being recorded. Also sync added scope here. Both mechanisms — when to skip, how to
+resolve a transition, what a failure degrades to, and the mandatory pre-write assertion and handoff
+echo for a description write — are defined once under **Jira integration** in
+`rules/myflow-manual-review.mdc`; follow them there.
+
+Description sync applies **only** when the user added scope during brainstorming that the issue does
+not already describe. No added scope → no write.
 
 The state file lives **outside** the repo — do **not** `git add` it, commit it, or archive it. Only the planning artifacts under `<changeRoot>` are staged.
 
@@ -181,6 +200,8 @@ Hand off:
 **Change:** <name>
 **Artifact:** <artifactUrl>
 **Decisions recorded:** <N> | none
+**Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
+**Jira description:** appended 1 entry under `## Added during implementation` | unchanged
 
 **Open in IntelliJ:**
 open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
@@ -197,10 +218,10 @@ proposal artifacts live in the main checkout. Resolve it the same way as `<proje
 ## Guardrails
 
 - **Never skip** brainstorming (#1) or writing-plans (#3) for net-new features or behavior changes.
-- **Never skip** the architect pass — it always runs and self-assesses; it may conclude "no significant choices" and exit, but it must run.
 - **Never** skip the design approval gate before `openspec new change`.
 - **Never** leave `tasks.md` as a thin scaffold — writing-plans enrichment is mandatory.
 - **Never** finish this skill without publishing the proposal artifact and recording `artifactUrl` in the state file — it is the review surface for the new proposal gate.
+- **Never** let a Jira call block, delay, or alter the proposal — every failure is one skipped-with-reason line, per **Jira integration**.
 - Do not start implementation (#2+) in this skill — propose only.
 - Prefer reasonable decisions over blocking; pause only on genuine ambiguity.
 

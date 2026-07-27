@@ -10,7 +10,7 @@ license: MIT
 compatibility: Requires openspec CLI.
 metadata:
     author: gymie
-    version: "1.4"
+    version: "1.5"
 ---
 
 Generate (or refresh) a **manual test guide** markdown file for an OpenSpec change, then **give the user a link to that file only** and stop for Gate C (manual testing). No commits, push, merge, or archive in this stage.
@@ -94,42 +94,54 @@ openspec status --change "<name>" --json
 - If change missing or not apply-ready: **stop** — suggest `/myflow-do <name>`.
 - Prefer the apply worktree if present (from `.superpowers/sdd/progress-*.md` / `progress.md`, or `openspec/<name>`); otherwise use the main checkout. Treat that checkout/worktree root as `repoRoot`.
 
-### 2. Detect involved apps
+### 2. Load the project configuration
 
-From proposal Impact, design, tasks, and any staged/uncommitted paths, mark which surfaces are in scope:
+Read `<main checkout>/.myflow/project.md` — the project's own apps, run/test/lint commands,
+local URLs, and credentials. Its format and the auto-detect fallback are defined once, under
+**Project configuration** in `rules/myflow-manual-review.mdc`; that section is canonical and is
+not restated here.
 
-| App | Detect when | Local URL |
-|-----|-------------|-----------|
-| **Backend + gateway** (`gymie`) | Always if any backend/API/Flyway/module work; default on for most changes | Gateway http://localhost:8080 · App http://localhost:8081 |
-| **KMP frontend** (`gymie-frontend`) | tasks/design mention KMP, Compose, web/mobile, `gymie-frontend`, `:webApp` | http://localhost:3000 |
-| **Admin frontend** (`gymie-admin-frontend`) | tasks/design mention admin panel, Next.js admin, `gymie-admin-frontend` | http://localhost:3001 |
+- **File present** → take the app list from its `## apps`, the start/stop commands from `## run`,
+  and any sign-in credentials from `## credentials`. Use them verbatim; do not "improve" a
+  command the project wrote down.
+- **File absent, or a key absent** → **auto-detect from this repository**: its build files,
+  `package.json` scripts, compose files, and existing run docs. Announce that no project file
+  was found and what you detected from.
+- **Neither** → leave that part of the guide an explicit `TBD` and say so in the handoff. Never
+  substitute app names, task names, ports, URLs, or credentials from any other project.
+
+### 2a. Detect involved apps
+
+From proposal Impact, design, tasks, and any staged/uncommitted paths, mark which of the
+configured (or detected) apps are in scope. `## apps` rows carry a "when to include" note — use
+it as the detection rule, together with any app name, module, or path the change's artifacts
+mention.
 
 Omit run sections for apps clearly out of scope (e.g. proposal says "Out of scope: admin panel").
+When exactly one app exists, it is in scope.
 
 ### 2b. Resolve absolute roots for every involved app (required)
 
 **All "How to run" commands must target the apply worktree (or main checkout if no worktree) for that app — never a different branch's checkout.**
 
-For each involved app, resolve an **absolute** root path and put it in the guide header + every `cd` / Gradle / npm command:
+For each involved app, resolve an **absolute** root path and put it in the guide header + every `cd` and every command:
 
 | Source (prefer in order) | What to read |
 |--------------------------|--------------|
-| `.superpowers/sdd/progress-<name>.md` or `progress.md` | `Backend worktree`, `Frontend worktree`, admin worktree lines |
-| `git worktree list` in each repo | Path whose branch is `openspec/<name>` (or the apply branch) |
-| Fallback | Main checkout absolute path only if no apply worktree exists |
+| `.superpowers/sdd/progress-<name>.md` or `progress.md` | the recorded worktree line for that app |
+| `git worktree list` in that app's repo | Path whose branch is `openspec/<name>` (or the apply branch) |
+| Fallback | that app's main-checkout absolute path from `## apps`, only if no apply worktree exists |
 
-Record variables (use real absolute paths in the MD, not these names):
-
-- `BACKEND_ROOT` — `gymie` apply worktree (this is also `repoRoot` for writing the guide)
-- `FRONTEND_ROOT` — `gymie-frontend` apply worktree when KMP is in scope
-- `ADMIN_ROOT` — `gymie-admin-frontend` apply worktree when admin is in scope
+Record one absolute root per involved app, keyed by the app's name from `## apps` (use the real
+absolute paths in the MD, never a variable name). The root of the repo holding the change is also
+`repoRoot`, where the guide is written.
 
 Hard rules for the guide:
 
-1. **Every** shell block starts with `cd <absolute-root>` (or uses absolute `-P…=` paths). No bare relative `cd ../gymie-frontend` / `cd ../gymie-admin-frontend`.
-2. When KMP is in scope, `devStart` **must** pass `-PfrontendRoot=<FRONTEND_ROOT>` (default sibling `../gymie-frontend` is wrong from `.worktrees/`).
-3. Optional per-app sections (`:webApp:jsBrowserDevelopmentRun`, `npm run dev`, backend-only bootRun) must `cd` into that app's absolute worktree root.
-4. Prerequisites must say: do **not** run from main `develop` checkouts when apply worktrees exist.
+1. **Every** shell block starts with `cd <absolute-root>` (or passes absolute paths as parameters). Never a bare relative sibling `cd ../<other-app>`.
+2. When a `## run` command takes another app's root as a parameter, pass that app's **resolved absolute worktree root** — the command's own default is a sibling path and is wrong from inside a worktree.
+3. Optional per-app sections must `cd` into that app's absolute worktree root.
+4. Prerequisites must say: do **not** run from main-branch checkouts when apply worktrees exist.
 5. Header **Branch / worktree** line lists absolute paths for every involved app.
 
 ### 3. Build the functionality checklist
@@ -138,7 +150,7 @@ Derive checkbox items from, in order of preference:
 
 1. Delta spec **Requirements / Scenarios** (user-visible behaviors)
 2. `design.md` acceptance criteria / UX flows
-3. User-facing `tasks.md` items (skip pure infra like "add detekt", "wire Gradle" unless they have a verifiable runtime effect)
+3. User-facing `tasks.md` items (skip pure infra like "add a linter", "wire the build" unless they have a verifiable runtime effect)
 
 Each item must be:
 
@@ -158,9 +170,9 @@ Create `docs/manual-test/` if missing. Use the structure in [manual-test-templat
 
 1. **Change** name + one-line purpose (from proposal Why/What)
 2. **How to run** — only involved apps, **all commands rooted at resolved absolute worktree paths** (step 2b):
-   - Preferred full stack from `BACKEND_ROOT`: `docker compose up -d`, `./gradlew dbSeed` when seeded users/catalog needed, then `./gradlew devStart` with `-PfrontendRoot=<FRONTEND_ROOT>` when KMP is in scope
-   - Admin-only / KMP-only optional blocks use `ADMIN_ROOT` / `FRONTEND_ROOT` absolute `cd`s
-   - URLs, default local credentials when relevant (`superadmin@gymie.dev` / `GymieDev1` for admin; note user auth separately)
+   - The full-stack sequence from `## run`, rooted at the app that owns it, with any other-app root passed as an absolute path
+   - Single-app blocks from `## run` for the involved apps only, each with its own absolute `cd`
+   - Local URLs from `## apps`, and sign-in credentials from `## credentials` only when the checklist actually needs a signed-in session
 3. **Functionality checklist** — unchecked `- [ ]` items from step 3
 4. **Sign-off** — ready for `/myflow-review <name>`
 
@@ -181,7 +193,7 @@ In skip mode, leave **every** functionality-checklist and sign-off checkbox unch
 
 ### 5. Stage the guide (no commit)
 
-In `repoRoot` (usually `gymie` or its apply worktree):
+In `repoRoot` (the change's repo, or its apply worktree):
 
 ```bash
 mkdir -p docs/manual-test
@@ -209,12 +221,16 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
   "branch": "<unchanged>",
   "originStage": "<carried forward from the file as read>",
   "artifactUrl": "<carried forward from the file as read>",
+  "jiraIssue": "<unchanged — carried forward from the file as read>",
+  "fastPath": "<carried forward from the file as read>",
+  "REVIEWED_TREE": "<carried forward from the file as read>",
+  "MERGE_BASE": "<carried forward from the file as read>",
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-manual-test"
 }
 ```
 
-**`artifactUrl` is carried forward, never dropped** — writes render the whole object, so omitting it would erase the published proposal link that `myflow-status` surfaces.
+**`artifactUrl` and `jiraIssue` are carried forward, never dropped** — writes render the whole object, so omitting either would erase the published proposal link that `myflow-status` surfaces or silently unlink the change from its issue. This command makes **no** Jira call of its own — see **Jira integration** in `rules/myflow-manual-review.mdc`.
 
 **Monotonic gates (mandatory).** Never reset `prOpened`/`prMerged` to `null` — carry the read values through verbatim. Never lower `gates.tested`: `true` and `"skipped"` are sticky and this command never demotes them (it only sets `false`/`"skipped"` on a fresh advance run where the prior value was `null`). Never write a `stage` earlier than the one found — from `awaiting-manual-test`, re-emit `awaiting-manual-test`.
 
@@ -270,7 +286,8 @@ Guide: <absolute path to docs/manual-test/<change-name>.md>
 - Do not invent features not in proposal/specs/design/tasks.
 - Do not include apps marked out of scope.
 - Do not emit run commands that `cd` into main checkouts when apply worktrees exist for those apps.
-- Do not use relative sibling paths (`../gymie-frontend`, `../gymie-admin-frontend`) in guide commands — always absolute worktree (or main-checkout) roots.
+- Do not use relative sibling paths (`../<other-app>`) in guide commands — always absolute worktree (or main-checkout) roots.
+- **Never emit an app name, task name, port, URL, or credential that did not come from this project's `.myflow/project.md` or from detection in this repository** — no value carried over from another project, ever. When something cannot be resolved, write `TBD` and say so.
 - Do not run `/myflow-review` or `/myflow-finish` from this skill.
 - Keep the guide concise and actionable; prefer checklists over essays.
 - **Skip mode never checks a box it didn't verify** — only the `SKIPPED` status line marks the gate bypassed.

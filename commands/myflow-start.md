@@ -7,9 +7,10 @@ description: Start — Superpowers #1 brainstorming + #3 writing-plans woven int
 
 **Model:** Opus recommended for this command — brainstorming/design work benefits from the strongest reasoning available. Cursor doesn't yet support a per-command model frontmatter field (open feature request), so switch to Opus manually in the composer/chat model picker before running this; all other `/myflow-*` commands are fine on Sonnet or your default.
 
-Use the **openspec-propose-superpowers** skill (`.cursor/skills/openspec-propose-superpowers/SKILL.md`).
+Use the **openspec-propose-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
-Follow that skill exactly. Runs Superpowers Basic Workflow **#1** (brainstorming) and **#3** (writing-plans) intertwined with OpenSpec artifact creation, plus an always-on **architect pass** (before any artifact is written — it may find no significant decisions and say so) and a **published proposal artifact** (self-contained page, review surface for the new proposal gate) before handoff. Do not skip any of these.
+Follow that skill exactly. Runs Superpowers Basic Workflow **#1** (brainstorming) and **#3** (writing-plans) intertwined with OpenSpec artifact creation, plus a **published proposal artifact** (self-contained page, review surface for the new proposal gate) before handoff. Do not skip any of these.
 
 **Input:** Change name (kebab-case) and/or description of what to build — from `$ARGUMENTS` or conversation. If both are omitted: run `openspec list --json`; if exactly one active (non-archived) change has incomplete planning artifacts, resume it automatically; if multiple, ask which; if none, ask what to build.
 

@@ -87,8 +87,9 @@ Write the full object, preserving every field you did not change:
 - `updatedBy` → the invoking command, e.g. `"/myflow-do-done"`
 - when `TARGET_STAGE` was the dynamic form, also `originStage` → `null`
 - **everything else carried forward verbatim** — all four `gates` values, `worktree`, `branch`,
-  `originStage` (unless just cleared above), `artifactUrl`, `fastPath`, `REVIEWED_TREE`, and any
-  other field present in the file you did not explicitly change
+  `originStage` (unless just cleared above), `artifactUrl`, `jiraIssue`, `fastPath`,
+  `REVIEWED_TREE`, `MERGE_BASE`, and any other field present in the file you did not explicitly
+  change
 
 **Gate values are monotonic** — never lower one, never infer `gates.tested: true`, never overwrite
 `"skipped"`. This skill has no reason to change a gate at all; if you find yourself writing one,
@@ -116,6 +117,9 @@ Omit the IntelliJ block when the next step is an agent command rather than a hum
 
 - **Never** verify, test, commit, push, merge, or archive — this skill writes one field (plus
   `originStage` when clearing it under the dynamic form).
+- **Never** touch Jira. `*-done` / `*-manual-review` commands are pure state writes; giving one an
+  external side effect would break that invariant — see **Jira integration** in
+  `rules/myflow-manual-review.mdc`. Carry `jiraIssue` forward untouched.
 - **Never** advance from a stage outside `ACCEPTED_STAGES` without an explicit user override.
 - **Never** modify gates; carry them forward untouched.
 - **Never** guess a dynamic target — if `originStage` is `null`/missing, stop and report it.

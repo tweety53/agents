@@ -40,7 +40,7 @@ Same as **openspec-apply-superpowers** steps 4–6 (reuse [../openspec-apply-sup
 1. **superpowers:subagent-driven-development** — Basic Workflow **#4**, with the no-commit override below.
 2. **superpowers:test-driven-development** — Basic Workflow **#5**, mandatory per implementer dispatch.
 3. **superpowers:requesting-code-review** — Basic Workflow **#6** primary reviewer.
-4. **Strict review panel (5 additional agents)** — same roster/prompts/economic-model mapping as apply; see `../openspec-apply-superpowers/SKILL.md`.
+4. **Strict review panel** — same roster (three required slots plus the conditional ones), same prompts, same optional-slot triggers and economic-model mapping as apply; see `../openspec-apply-superpowers/SKILL.md`, which is canonical.
 5. **superpowers:verification-before-completion** — evidence before re-handoff.
 
 Plus, for documenting the fix:
@@ -60,15 +60,25 @@ And the TDD requirement:
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this task. Delete any code written before tests.
 
-And the test-scope line (see **Test scope** below) — pass it verbatim, since an implementer that reads only `CLAUDE.md` will otherwise run the full cross-platform matrix:
+And the principles requirement:
 
-> **TEST SCOPE — WEB TARGET ONLY:** In `gymie-frontend`, run **only** the web/JS test tasks for your RED-GREEN cycle — `./gradlew :shared:jsTest :webApp:jsTest`. Do **not** run `desktopTest`, Android, or iOS test tasks, even for code you changed in `commonMain` or a platform source set. In the `gymie` backend repo, run its tests normally (`:auth:test`, `:app:test`, etc.). Still **write** tests and implementations for every platform the fix touches — only their *execution* is deferred. Lint is **not** scoped: `./gradlew ktlintCheck detekt` runs in full, per the Lint Fix Priority rule in `CLAUDE.md`.
+> **REQUIRED READING:** [../openspec-apply-superpowers/engineering-principles.md](../openspec-apply-superpowers/engineering-principles.md) — your implementation must satisfy these principles; the review panel's principles reviewer checks the diff against them.
 
-### Test scope (current setting — user preference, not a permanent property)
+And the test-scope line (see **Test scope** below) — resolve it as described there, then pass it verbatim, since an implementer left to its own judgment will otherwise run whatever matrix the repo's docs describe:
 
-The user set this on **2026-07-26** and it holds **until they say otherwise**: among `gymie-frontend`'s KMP targets, only the web target's tests run during a fix round; other platforms are still implemented, just not test-executed. The backend repo is unaffected. Broader platform coverage is picked up later at `/myflow-review`, which runs the project's full test and linter suite before it commits and opens the PR.
+> **TEST SCOPE:** For your RED-GREEN cycle, run **only** `<the iteration test command(s) resolved below>`. Do not run broader platform/target test tasks even for code in shared source sets. Still **write** tests and implementations for every platform the fix touches — only their *execution* is deferred. Lint is **not** scoped: run `<the lint command(s) resolved below>` in full, and fix rather than suppress.
 
-If the user lifts the restriction, delete the `TEST SCOPE` block above and this section — do not leave a narrowed scope in place silently.
+### Test scope
+
+myflow is installed globally and must never carry one project's task names. Resolve the commands for the `TEST SCOPE` line from the project itself:
+
+- **`## test` and `## lint` in `<main checkout>/.myflow/project.md`** — use them verbatim; do not "improve" a command the project wrote down. If `## test` names a narrower iteration subset (and a fuller suite for verification), use the narrow one in the `TEST SCOPE` line.
+- **File or key absent** → **auto-detect from the repository**: build files, `package.json` scripts, existing CI config. Announce what you detected from.
+- **Neither resolves** → say so and ask. Never substitute a task name, module path, or repo name remembered from another project.
+
+Both keys and the auto-detect fallback are defined once under **Project configuration** in `rules/myflow-manual-review.mdc` — canonical, not restated here.
+
+Narrowing execution during a fix round is deliberate: broader coverage is picked up later at `/myflow-review`, which runs the project's full test and linter suite before it commits and opens the PR. If the project's `## test` names no narrower subset, the `TEST SCOPE` line simply carries the full command.
 
 ## Workflow
 
@@ -155,6 +165,18 @@ This decides the section title used in step 4 (`Manual Review Fixes` / `Manual T
 - Implementation still happens in the **same** apply worktree/branch as the parent — do **not** create a new worktree or branch for the fix.
 - The nested change **must not** be archived on its own; see the archive-time guardrail in `openspec-archive-superpowers`.
 
+### 4c. Sync added scope to the Jira issue (both paths)
+
+When this round adds scope the linked issue does not describe, append **one dated bullet** under
+`## Added during implementation`, per **Description sync** in **Jira integration**
+(`rules/myflow-manual-review.mdc`) — canonical, not restated here. A round that only corrects an
+implementation defect against an already-correct spec adds no scope and writes nothing. Skip when
+`jiraIssue` is `null`, and report the append (or one skipped-with-reason line) in step 7's
+handoff.
+
+**This command never transitions the issue** — a fix round must not drag it backwards, per the
+forward-only rule.
+
 ### 5. Implement the fix (Basic Workflow #4–#6)
 
 Same discipline as `openspec-apply-superpowers` steps 4–6:
@@ -162,14 +184,14 @@ Same discipline as `openspec-apply-superpowers` steps 4–6:
 - Invoke **superpowers:subagent-driven-development** with the no-commit override and TDD requirement above.
 - **Group fix items into SDD tasks by blast radius, not one-per-finding.** A review pass usually surfaces several small findings; dispatching an implementer (and a per-task review) for each one is mostly overhead. Fold every finding that touches the **same module** into a **single** SDD task — one implementer, one TDD cycle, one review. Split into separate tasks only when findings are genuinely independent (different modules, or one's fix would change the other's premise).
 - **Dispatch independent tasks in parallel**, in one message, exactly as apply does. Serialize only where a real dependency exists — never merely because the findings arrived as a numbered list.
-- Include the **TEST SCOPE** line from the no-commit override in every dispatch — implementers default to `CLAUDE.md`'s full cross-platform checklist otherwise.
+- Include the resolved **TEST SCOPE** line from the no-commit override in every dispatch — an implementer without it falls back to whatever full checklist the repo's own agent instructions describe.
 - After each implementer returns: per-task review via `git diff TASK_BASE`, same pattern as apply.
 - Mark fix task checkboxes `[x]` only after task review passes.
 - Progress ledger: append to the same `.superpowers/sdd/progress-<name>.md` used by the original apply (do not start a new ledger file).
 
 ### 6. Strict review panel — targeted by default, full on escalation
 
-Same six agents, same prompts, same economic-model mapping as `openspec-apply-superpowers`. Follow its **Panel re-runs** section — it is canonical; do not restate or diverge from it here. Two rules are specific to this command:
+Same roster, same prompts, same optional-slot triggers and economic-model mapping as `openspec-apply-superpowers`. Follow its **Strict review panel**, **Optional slot selection**, and **Panel re-runs** sections — they are canonical; do not restate or diverge from them here. Two rules are specific to this command:
 
 **Default: targeted.** A `/myflow-do-fix` round is driven by one human finding, so its diff is usually small. Run slot 0 primary (always) plus the agents whose domain the fix actually touches, against the fix diff:
 
@@ -177,18 +199,18 @@ Same six agents, same prompts, same economic-model mapping as `openspec-apply-su
 git diff FIX_BASE > .superpowers/sdd/fix-round-N.diff
 ```
 
-**Escalate to the full whole-branch panel** (`git diff MERGE_BASE`, all six agents) when any apply-skill escalation trigger fires — fix touched files outside the finding's module, >~150 changed lines, spec/contract/migration/`core/ports/` changed, a new Critical appeared, or three-plus rounds already run — **or** when either of these holds:
+**Escalate to the full whole-branch panel** (`git diff MERGE_BASE`, every slot in this run's roster) when any apply-skill escalation trigger fires — fix touched files outside the finding's module, >~150 changed lines, a delta spec / DB migration / public contract or port boundary (as defined by the project's standards) changed, a new Critical appeared, or three-plus rounds already run — **or** when either of these holds:
 
 - **`originStage` is a Gate D origin** (`awaiting-pr-review`, `review-done`). This is the one mode that commits and pushes to a live PR branch, so it gets the full panel every round regardless of fix size.
 - The user passed **`full-panel`**.
 
 The concern that motivated the old always-full rule is real — a fix can regress code the fix diff does not show. The escalation triggers are what cover it: any fix that reaches outside its own finding's blast radius stops being targeted. When in doubt, escalate; the invariant below is the backstop.
 
-**Handoff invariant (unchanged):** every one of the six slots must have a clean result that is not stale — i.e. from this round, or from an earlier round with no intervening change to the files that agent flagged. If any slot's clean result is stale, run the full panel once before handing off to Gate B/C/D. Handoff is blocked while any agent has open Critical/Important findings.
+**Handoff invariant (unchanged):** every slot in this run's roster must have a clean result that is not stale — i.e. from this round, or from an earlier round with no intervening change to the files that agent flagged. If any slot's clean result is stale, run the full roster once before handing off to Gate B/C/D. Handoff is blocked while any agent has open Critical/Important findings.
 
 ### 7. Stage/commit and hand off (not archive)
 
-Branch on the mode selected in **step 0** (derived from `originStage`). In both branches, write the state file with **`stage: awaiting-fix-review`** and **`originStage`** set to the value recorded in step 0; `updatedAt` and `updatedBy` (`"/myflow-do-fix"`) also change; every other gate value is carried forward exactly as read (gates are monotonic). Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo — **never stage, commit, or push it.**
+Branch on the mode selected in **step 0** (derived from `originStage`). In both branches, write the state file with **`stage: awaiting-fix-review`** and **`originStage`** set to the value recorded in step 0; `updatedAt` and `updatedBy` (`"/myflow-do-fix"`) also change; every other gate value is carried forward exactly as read (gates are monotonic), as are `artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` — writes render the whole object, so dropping `jiraIssue` would silently unlink the change from its issue, and dropping `MERGE_BASE` would destroy the authoritative list of affected worktrees a multi-repo change depends on (this command accepts fast-path origins, where `MERGE_BASE` lives only in the state file). Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo — **never stage, commit, or push it.**
 
 **Stage-only mode** (`originStage` is `awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-manual-test`, or `manual-test-done`) — same as `openspec-apply-superpowers` step 7, in every affected repo/worktree:
 
@@ -206,7 +228,8 @@ Confirm the fix appears under **Changes to be committed** (staged), then stop. *
 
 **Change:** <name> (fix for: Manual Review | Manual Test)
 **Tracked as:** appended to proposal.md | openspec/changes/<name>-fix-N (nested, parent: <name>)
-**Basic Workflow:** #4 ✓ #5 ✓ #6 ✓ (strict panel re-run clean)
+**Jira description:** appended 1 entry under `## Added during implementation` | unchanged (no added scope) | none linked
+**Basic Workflow:** #4 ✓ #5 ✓ #6 ✓ (strict panel re-run clean — mode: targeted | full; slots run: <primary + Bugbot + Principles + any optional slots>)
 **Fix tasks:** N/N complete
 **Branch / worktree:** <same as original apply — unchanged>
 **Git state:** staged + uncommitted (not pushed)
@@ -242,7 +265,8 @@ Never merge, force-push, or amend. Stop after pushing.
 
 **Change:** <name> (fix for: PR review, Gate D)
 **Tracked as:** appended to proposal.md | openspec/changes/<name>-fix-N (nested, parent: <name>)
-**Basic Workflow:** #4 ✓ #5 ✓ #6 ✓ (strict panel re-run clean)
+**Jira description:** appended 1 entry under `## Added during implementation` | unchanged (no added scope) | none linked
+**Basic Workflow:** #4 ✓ #5 ✓ #6 ✓ (strict panel re-run clean — mode: targeted | full; slots run: <primary + Bugbot + Principles + any optional slots>)
 **Fix tasks:** N/N complete
 **Branch / worktree:** <same as original apply — unchanged>
 **Git state:** committed and pushed to the PR branch
