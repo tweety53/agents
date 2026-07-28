@@ -9,11 +9,11 @@ metadata:
   version: "2.0"
 ---
 
-Run the **review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path). By default this stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges. The one exception is `/myflow-review automerge` — see **Auto-merge (opt-in)** in `rules/myflow-manual-review.mdc`.
+Run the **review** stage after manual review (Gate B) and manual test (Gate C): verify test coverage and quality, commit the apply work, then push and open a PR via Basic Workflow **#7** (finishing-a-development-branch, constrained to the PR path). By default this stage ends at Gate D (human PR review + merge); `/myflow-finish` runs after the human merges. The one exception is `/myflow-review automerge` — see **Auto-merge (opt-in)** in `skills/myflow-contracts/pipeline.md`.
 
 **Announce at start:** "Using openspec-review-superpowers for change `<name>`."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical.
 
 ## Superpowers Basic Workflow (this stage)
 
@@ -37,12 +37,12 @@ Steps **#1–#6** completed in the start/do/do-fix stages. **#7 runs here** — 
 
 ### 0. Check stage
 
-Requires stage **`manual-test-done`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+Requires stage **`manual-test-done`** per **Stage transitions** in `skills/myflow-contracts/pipeline.md`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
 - At `awaiting-manual-test` → recommend `/myflow-manual-test-done <name>` (once testing is actually complete) first.
 - At `awaiting-pr-review` → the PR is already open; recommend `/myflow-do-fix <name>` for changes, or `/myflow-finish <name>` once merged.
 
-**`automerge` flag.** If the user passed `automerge` to this command, remember it for step 6 — it is the **only** way this stage merges. See **Auto-merge (opt-in)** in `rules/myflow-manual-review.mdc`; nothing in the rest of this workflow changes.
+**`automerge` flag.** If the user passed `automerge` to this command, remember it for step 6 — it is the **only** way this stage merges. See **Auto-merge (opt-in)** in `skills/myflow-contracts/pipeline.md`; nothing in the rest of this workflow changes.
 
 ### 1. Select change and locate apply work
 
@@ -152,7 +152,7 @@ Running them with the project worktree as cwd, on the strength of a repo-relativ
 guard silently no-ops on exactly the changes it exists to check: the run whose diff rewrites the
 agents repo's skills, rules and both command trees.
 
-**Pass no path list.** The scan scope is the script's own default set, defined in one place so it cannot drift from the call sites — see **Stage transitions** in `rules/myflow-manual-review.mdc`.
+**Pass no path list.** The scan scope is the script's own default set, defined in one place so it cannot drift from the call sites — see **Stage transitions** in `skills/myflow-contracts/pipeline.md`.
 
 This step is the only thing that invokes either script — skipping it makes them unreachable. Treat a non-zero exit exactly like a failing test: **stop**, fix what it reported, and re-run. For the vocabulary guard, fix the reported `file:line` hits; add a `vocab-guard:allow` marker only on a line that must quote a retired token to do its job — never to silence real drift. For the installer harness, fix `setup.sh` or the rule/skill input that broke it — never weaken an assertion to make it pass, and never leave it failing on the grounds that the diff "did not touch the installer". Skip a script **only when no affected worktree contains it** (a change that touches no myflow repo at all) — and say so in one line, naming the roots you searched. Both are cwd-independent, so the only thing that can go wrong here is picking the wrong repo.
 
@@ -169,7 +169,7 @@ This step is the only thing that invokes either script — skipping it makes the
 
 ### 6. Push, and open a PR or auto-merge — then stop
 
-**Branch on `automerge` first**, per **Auto-merge (opt-in)** in `rules/myflow-manual-review.mdc`:
+**Branch on `automerge` first**, per **Auto-merge (opt-in)** in `skills/myflow-contracts/pipeline.md`:
 
 - **No `automerge` (default):** follow **6.1–6.3** below — push, open a PR (or confirm one was opened), **never merge**. Stop at `awaiting-pr-review`. Gate D (human review + merge) follows.
 - **`automerge` passed:** skip PR creation entirely — see **6.4 Auto-merge path**. Merge locally into the base branch, push, and write `stage: review-done` directly. There is no PR for a human to review.

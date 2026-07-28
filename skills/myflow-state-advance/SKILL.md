@@ -11,11 +11,11 @@ metadata:
 
 Advance one OpenSpec change to an explicit pipeline stage. **This skill only writes state.** It
 never reads artifacts, never runs git write operations, never verifies anything. That separation
-is deliberate — see **Pipeline stages** in `rules/myflow-manual-review.mdc`.
+is deliberate — see **Pipeline stages** in `skills/myflow-contracts/pipeline.md`.
 
 **Announce at start:** "Using myflow-state-advance: `<name>` → `<TARGET_STAGE>`."
 
-Follow **rules/myflow-manual-review.mdc** — sections **Stage transitions**, **IntelliJ
+Follow **skills/myflow-contracts/pipeline.md** — sections **Stage transitions**, **IntelliJ
 commands** — plus **State file** (`skills/myflow-contracts/state-file.md`) and
 **State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
 

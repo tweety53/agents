@@ -13,7 +13,7 @@ Finish an OpenSpec change **after review (`/myflow-review`) and the human's PR r
 
 **Announce at start:** "Using openspec-archive-superpowers for change `<name>`."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical.
 
 ## Pipeline position
 
@@ -33,7 +33,7 @@ Optional: **openspec-sync-specs** when the user chooses to sync delta specs to m
 
 ### 0. Check stage
 
-Requires stage **`review-done`** per **Stage transitions** in `rules/myflow-manual-review.mdc`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
+Requires stage **`review-done`** per **Stage transitions** in `skills/myflow-contracts/pipeline.md`. On mismatch, stop with the standard mismatch handoff and AskUserQuestion override (default: **No**).
 
 - At `manual-test-done` → recommend `/myflow-review <name>` first.
 - At `awaiting-pr-review` → recommend `/myflow-review-done <name>` once the PR has actually been reviewed and merged.

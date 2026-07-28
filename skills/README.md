@@ -17,11 +17,12 @@ artifact reading, and no git. They record a human confirmation as a discrete fac
 
 See also: `myflow-manual-review.mdc` — authored at `rules/myflow-manual-review.mdc` in this
 repo, installed by `setup.sh global` to `~/.cursor/rules/` and inlined into the managed block
-in `~/.claude/CLAUDE.md`.
+in `~/.claude/CLAUDE.md`. It is a **stub**: the pipeline itself lives in
+`skills/myflow-contracts/pipeline.md`, loaded on demand by every `/myflow-*` command.
 
 `<name>` is **optional** on every `/myflow-*` command below — if omitted, the sole active (non-archived) change relevant to that stage is used automatically; if there are multiple, you're asked which.
 
-**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; manual switch elsewhere). Every other command → Sonnet. See "Model policy" in `myflow-manual-review.mdc`.
+**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; manual switch elsewhere). Every other command → Sonnet. See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
 ## Superpowers Basic Workflow map
 
@@ -58,7 +59,7 @@ in `~/.claude/CLAUDE.md`.
 | `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle through Gate D (PR open, stop) — or `review-done` with `automerge`; `/myflow-finish` is a separate human-initiated step |
 | `/myflow-fast-path <name>` | `openspec-fast-path-superpowers` | Small, well-understood change: minimal artifacts → inline TDD → three-agent panel → tests/lint → commit + push + open PR. Five human gates collapse to one; never merges; escalates to the standard pipeline on any size trigger |
 | `/myflow-status <name>` | — (read-only) | Stage report for open changes |
-| `/myflow-info` | — (read-only) | Reads the rule file and explains the pipeline |
+| `/myflow-info` | — (read-only) | Reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
 
 ### Typical flow
 

@@ -20,7 +20,7 @@ agents-data/
 ├── AGENTS.md                          ← drop into project root for Codex / OpenAI CLI
 ├── setup.sh                           ← installer: `global` (recommended) or per-project harness installs
 ├── rules/
-│   ├── myflow-manual-review.mdc       ← myflow stage boundaries (always-on, installed globally)
+│   ├── myflow-manual-review.mdc       ← myflow trigger + contract pointers (always-on stub, installed globally)
 │   ├── lint-fix-priority.mdc          ← never suppress/bypass linters (always-on, installed globally)
 │   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.myflow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── scripts/
@@ -46,7 +46,7 @@ agents-data/
     ├── openspec-update-change/
     ├── openspec-propose-fix-superpowers/  ← revise proposal after Gate A review, republish artifact to same URL
     ├── myflow-status/                 ← read-only stage report for open changes
-    ├── myflow-info/                   ← reads the rule file and explains the pipeline
+    ├── myflow-info/                   ← reads skills/myflow-contracts/pipeline.md and explains the pipeline
     ├── myflow-state-advance/          ← pure state write used by every `*-done`/`*-manual-review` command
     └── myflow-contracts/              ← on-demand contract definitions (state file, self-heal, project config, Jira)
 ```
@@ -76,7 +76,7 @@ awaiting-pr-review (Gate D) → review-done → finished
 
 `automerge` on `/myflow-review`/`/myflow-full` skips Gate D entirely (commits, pushes, and merges) and ends at `review-done` instead of `awaiting-pr-review`.
 
-See `rules/myflow-manual-review.mdc` and `skills/README.md`.
+See `skills/myflow-contracts/pipeline.md` (the pipeline itself), `rules/myflow-manual-review.mdc` (the always-on stub that points at it), and `skills/README.md`.
 
 ---
 
@@ -151,7 +151,7 @@ Every **per-project** install (`cursor`, `claude-code`, `codex`, `all`) closes t
    `.mdc`** (`kotlin-backend-development-standard.mdc` → `<agents repo>/rules/<name>`). An
    entry containing a `/` is a project path, and any other bare filename is the project's own
    file — neither is a shared rule. See the resolution table in
-   `rules/myflow-manual-review.mdc`, which is canonical.
+   `skills/myflow-contracts/project-configuration.md`, which is canonical.
 3. It drops any rule that is already `alwaysApply: true` — that one arrives through the
    global block, and rendering it again is the duplication this exists to remove.
 4. It renders what remains into a managed block — same `<!-- myflow:begin -->` /
@@ -357,7 +357,7 @@ degraded but the OpenSpec-specific steps still work.
 | `/myflow-finish <name>` | `openspec-archive-superpowers` | Verify the PR merged → delta sync → archive (also archives nested `<name>-fix-N` sub-changes together) |
 | `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle: Gate A + Gate B + Gate C + review, ending at Gate D (PR open, stop) — or at `review-done` with `automerge`; `/myflow-finish` is always a separate human-initiated step. Never auto-invokes any `*-done`/`*-manual-review` command. |
 | `/myflow-status <name>` | — (read-only) | Stage report for open changes |
-| `/myflow-info` | — (read-only) | Reads the rule file and explains the pipeline |
+| `/myflow-info` | — (read-only) | Reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
 | `/opsx:propose <name>` | `openspec-propose` | Lightweight: artifacts only, no Superpowers steps |
 | `/opsx:apply <name>` | `openspec-apply-change` | Lightweight: implement tasks only |
 | `/opsx:archive <name>` | `openspec-archive-change` | Lightweight: archive only |

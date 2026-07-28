@@ -1,9 +1,9 @@
 ---
 name: myflow-info
-description: Explain the myflow pipeline — stages, gates, commands, and flags — by reading the current rule file. Read-only reference. Use for /myflow-info.
+description: Explain the myflow pipeline — stages, gates, commands, and flags — by reading skills/myflow-contracts/pipeline.md. Read-only reference. Use for /myflow-info.
 allowed-tools: Bash(cat:*), Read
 license: MIT
-compatibility: Requires rules/myflow-manual-review.mdc.
+compatibility: Requires skills/myflow-contracts/pipeline.md.
 metadata:
   author: gymie
   version: "1.0"
@@ -15,23 +15,30 @@ Explain the myflow pipeline: stages, who acts at each gate, which command advanc
 
 ## Source of truth — do not embed a copy
 
-This skill holds **presentation instructions only**. The pipeline content lives in the rule file and must be read at invocation time so this command can never drift out of date:
+This skill holds **presentation instructions only**. The pipeline content lives in
+`skills/myflow-contracts/pipeline.md` and must be read at invocation time so this command can never
+drift out of date:
 
 ```bash
 # global install first, then a project-local install as fallback
-cat ~/.cursor/rules/myflow-manual-review.mdc 2>/dev/null \
-  || cat .cursor/rules/myflow-manual-review.mdc
+cat ~/.claude/skills/myflow-contracts/pipeline.md 2>/dev/null \
+  || cat ~/.cursor/skills/myflow-contracts/pipeline.md 2>/dev/null \
+  || cat skills/myflow-contracts/pipeline.md
 ```
 
-Also read the agents repo README for the Basic Workflow step map and the typical-flow walkthrough — on this machine `/Users/tweety53/Projects/agents/README.md` (**machine-specific**: it is the local checkout of the agents repo, which is the **source of truth** these skills, commands, and rules are authored in and installed from; overridable via the `AGENTS_DATA` environment variable, which holds the **root of the agents repo checkout** and defaults to `/Users/tweety53/Projects/agents`; if that path does not exist, skip it and use the rule file alone rather than failing).
+`rules/myflow-manual-review.mdc` is now a **stub** — it carries the trigger and the pointers, not
+the pipeline. Reading it instead of the file above yields no stage table, no transitions, and no
+flags, so this command must read `pipeline.md`.
 
-**Never** answer from memory, and **never** paste a hardcoded pipeline table into this skill file. If the rule file is missing, say so and stop — do not reconstruct it.
+Also read the agents repo README for the Basic Workflow step map and the typical-flow walkthrough — on this machine `/Users/tweety53/Projects/agents/README.md` (**machine-specific**: it is the local checkout of the agents repo, which is the **source of truth** these skills, commands, and rules are authored in and installed from; overridable via the `AGENTS_DATA` environment variable, which holds the **root of the agents repo checkout** and defaults to `/Users/tweety53/Projects/agents`; if that path does not exist, skip it and use pipeline.md alone rather than failing).
+
+**Never** answer from memory, and **never** paste a hardcoded pipeline table into this skill file. If pipeline.md is missing, say so and stop — do not reconstruct it.
 
 ## Workflow
 
 ### 1. Read the sources
 
-Read the rule file's **Pipeline stages**, **Stage transitions**, gate sections, and **Opt-out**
+Read `pipeline.md`'s **Pipeline stages**, **Stage transitions**, gate sections, and **Opt-out**
 list, plus **State file** in `skills/myflow-contracts/state-file.md`.
 
 ### 2. Render the overview (no argument)
@@ -42,7 +49,7 @@ list, plus **State file** in `skills/myflow-contracts/state-file.md`.
 start → do → manual review (Gate B) → manual test (Gate C) → review → PR review (Gate D) → finish (Gate E)
 
 ### Stages
-<the Pipeline stages table, from the rule file>
+<the Pipeline stages table, from pipeline.md>
 
 ### Who acts at each gate
 | Gate | Who | What |
@@ -69,7 +76,7 @@ Close with a one-line pointer: "Run `/myflow-status` to see where your changes a
 ## Guardrails
 
 - **Never** modify anything — no files, no git, no state.
-- **Never** answer from memory; always re-read the rule file first.
+- **Never** answer from memory; always re-read pipeline.md first.
 - **Never** duplicate the pipeline tables into this skill file.
 - Keep the output scannable — tables over prose.
 

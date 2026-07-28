@@ -15,7 +15,7 @@ already settled — no brainstorming, no design approval gate, no manual test gu
 
 **Announce at start:** "Using openspec-fast-path-superpowers for change `<name>`."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical.
 
 ## When to use this vs `/myflow-start` + `/myflow-do`
 
@@ -112,7 +112,7 @@ guarantees; silently continuing it on the fast path would misrepresent what was 
 
 **Resolve `jiraIssue` and move the issue to In Progress — the run has begun.** Read it from the
 state file when one exists; for a **new** change, resolve it per **Resolution** under **Jira
-integration** in `rules/myflow-manual-review.mdc` — that section is canonical and its rules are
+integration** in `skills/myflow-contracts/jira-integration.md` — that section is canonical and its rules are
 **not** restated here in any form; follow it there. Name the change `<key>-<slug>` when one is
 linked and record it on the first state write in step 2.
 
@@ -416,7 +416,7 @@ git push -u origin openspec/<name>
 ```
 
 **Opening the PR is forge-agnostic.** Follow **PR opening is forge-agnostic** under **Review** in
-`rules/myflow-manual-review.mdc` exactly, with all three of its cases — that section is canonical
+`skills/myflow-contracts/pipeline.md` exactly, with all three of its cases — that section is canonical
 and is **not** restated here in simplified form. In particular: `gh` being installed does **not**
 mean the remote is a GitHub host, and `gh pr create` is a *write*, so it requires both conditions
 the rules file names. Open one PR per affected repo.
