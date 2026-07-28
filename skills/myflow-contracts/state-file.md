@@ -41,7 +41,7 @@ Every command resolves the path this way, so the same change maps to the same fi
 }
 ```
 
-- `stage` — one of the twelve values in **Pipeline stages** (`rules/myflow-manual-review.mdc`).
+- `stage` — one of the twelve values in **Pipeline stages** (`skills/myflow-contracts/pipeline.md`).
 - `gates.tested` — `null` (stage not reached), `false` (guide written, not yet tested), `"skipped"` (Gate C intentionally bypassed — permanent, never overwritten), or `true` (testing completed and verified by `/myflow-review`, the only writer of `true`).
 - `gates.reviewed` / `gates.prOpened` / `gates.prMerged` — boolean, or `null` before that stage is reached.
 - `worktree` — absolute path, or `null` when no worktree exists.

@@ -17,11 +17,11 @@ Generate (or refresh) a **manual test guide** markdown file for an OpenSpec chan
 
 **Announce at start:** "Using openspec-manual-test-superpowers for change `<name>`."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical.
 
 ## Stage gate
 
-Accepts **two** stages per **Stage transitions** in `rules/myflow-manual-review.mdc`:
+Accepts **two** stages per **Stage transitions** in `skills/myflow-contracts/pipeline.md`:
 
 | Incoming stage | Mode |
 |----------------|------|
@@ -63,7 +63,7 @@ Both answers advance the stage to `awaiting-manual-test`. Never default to skip;
 
 ## Pipeline position
 
-See **Pipeline stages** in `rules/myflow-manual-review.mdc` for the full twelve-stage sequence. This stage is **Gate C**, entered from `do-done` and sitting between Gate B (manual review, with optional `/myflow-do-fix` rounds) and `/myflow-review`.
+See **Pipeline stages** in `skills/myflow-contracts/pipeline.md` for the full twelve-stage sequence. This stage is **Gate C**, entered from `do-done` and sitting between Gate B (manual review, with optional `/myflow-do-fix` rounds) and `/myflow-review`.
 
 ## Required inputs
 

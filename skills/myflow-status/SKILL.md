@@ -13,7 +13,7 @@ Report the pipeline stage of every open (non-archived) OpenSpec change. **Read-o
 
 **Announce at start:** "Using myflow-status."
 
-Follow **rules/myflow-manual-review.mdc** — section **Pipeline stages** — and **State file** (`skills/myflow-contracts/state-file.md`) and **State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
+Follow **skills/myflow-contracts/pipeline.md** — section **Pipeline stages** — and **State file** (`skills/myflow-contracts/state-file.md`) and **State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
 
 ## Workflow
 

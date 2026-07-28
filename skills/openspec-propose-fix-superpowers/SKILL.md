@@ -14,7 +14,7 @@ written and no worktree is created** — implementation has not started.
 
 **Announce at start:** "Using openspec-propose-fix-superpowers for change `<name>`."
 
-Follow **rules/myflow-manual-review.mdc** — **Stage transitions**, **Pipeline stages** — and
+Follow **skills/myflow-contracts/pipeline.md** — **Stage transitions**, **Pipeline stages** — and
 **State file** in `skills/myflow-contracts/state-file.md`.
 
 ## Stage gate

@@ -13,7 +13,7 @@ Apply a **fix** for a problem found during **manual review (Gate B)**, **manual 
 
 **Announce at start:** "Using openspec-apply-fix-superpowers for change `<name>`."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical.
 
 ## When to use this vs `/myflow-do`
 
@@ -84,7 +84,7 @@ Narrowing execution during a fix round is deliberate: broader coverage is picked
 
 ### 0. Check stage and select mode
 
-Requires one of the six accepted origins — **`awaiting-do-review`**, **`do-review-started`**, **`do-done`**, **`awaiting-manual-test`**, **`manual-test-done`**, **`awaiting-pr-review`** — per **Stage transitions** in `rules/myflow-manual-review.mdc`. At `proposal-done`, stop and recommend `/myflow-do <name>`. At `finished`, stop — the change is archived.
+Requires one of the six accepted origins — **`awaiting-do-review`**, **`do-review-started`**, **`do-done`**, **`awaiting-manual-test`**, **`manual-test-done`**, **`awaiting-pr-review`** — per **Stage transitions** in `skills/myflow-contracts/pipeline.md`. At `proposal-done`, stop and recommend `/myflow-do <name>`. At `finished`, stop — the change is archived.
 
 `do-done` and `manual-test-done` are accepted because both mean "the work is complete and the human confirmed it, but something was found before the next command ran". Accepting `manual-test-done` in particular is what lets `/myflow-review`'s coverage check recommend `/myflow-do-fix` without a stage-mismatch override.
 

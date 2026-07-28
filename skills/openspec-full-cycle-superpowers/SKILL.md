@@ -15,7 +15,7 @@ Run **start → do (#2–#6) → manual review (Gate B) → manual test (Gate C,
 
 **Announce at start:** "Using openspec-full-cycle-superpowers."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`). In particular see **## Pipeline stages**, **## Stage transitions**, **## Full cycle gates**, and **## Opt-out (explicit only)** — the source of truth for stage names, gate behavior, and flags.
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical. In particular see **## Pipeline stages**, **## Stage transitions**, **## Full cycle gates**, and **## Opt-out (explicit only)** — the source of truth for stage names, gate behavior, and flags.
 
 ## Superpowers Basic Workflow — full map
 

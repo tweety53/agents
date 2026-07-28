@@ -71,9 +71,9 @@ All skills require the `openspec` CLI to be installed.
 | `skills/openspec-sync-specs/` | `/opsx:sync-specs` | Sync delta specs from a change to main specs |
 | `skills/openspec-update-change/` | `/opsx:update` | Revise existing planning artifacts; keep them coherent |
 | `skills/myflow-status/` | `/myflow-status` | Read-only stage report for open changes |
-| `skills/myflow-info/` | `/myflow-info` | Reads the rule file and explains the pipeline |
+| `skills/myflow-info/` | `/myflow-info` | Reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
 | `skills/myflow-state-advance/` | *(internal)* | Pure state write used by every `*-done`/`*-manual-review` command: validates the incoming stage, writes the new one, prints the next step |
-| `skills/myflow-contracts/` | *(on demand)* | The pipeline's contract definitions — state file, state self-heal, project configuration, Jira integration. Load the one file you need; each is canonical for its own contract |
+| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — load first for any `/myflow-*` command) plus its contract definitions: state file, state self-heal, project configuration, Jira integration. Load the one file you need; each is canonical for its own contract |
 
 ### /myflow commands summary
 
@@ -81,11 +81,11 @@ All skills require the `openspec` CLI to be installed.
 
 **`*-done` and `*-manual-review` commands are pure state writes.** They call `myflow-state-advance` to update `stage`/`updatedAt`/`updatedBy` only — no verification, no artifact reading, no git. They exist to record a human confirmation as a discrete fact, separate from `/myflow-finish` independently verifying the PR merged.
 
-Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
+Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load `skills/myflow-contracts/pipeline.md` first**; that file holds the stages, transitions, gates, boundaries and flags, and is canonical.
 
 `<name>` is **optional** on every command below — if omitted, the sole active (non-archived) change relevant to that stage is used automatically; if there are multiple, you're asked which.
 
-**Model:** `/myflow-start` → **Opus** (brainstorming/design benefits from stronger reasoning). Every other command → **Sonnet**. In Claude Code this is enforced via `model:` frontmatter on each command; Cursor and Codex don't support per-command model selection yet, so switch manually — see "Model policy" in `rules/myflow-manual-review.mdc`. Note `/myflow-full` runs as one session on Sonnet throughout, including Phase A — for brainstorming-heavy new work, run `/myflow-start` standalone first.
+**Model:** `/myflow-start` → **Opus** (brainstorming/design benefits from stronger reasoning). Every other command → **Sonnet**. In Claude Code this is enforced via `model:` frontmatter on each command; Cursor and Codex don't support per-command model selection yet, so switch manually — see "Model policy" in `skills/myflow-contracts/pipeline.md`. Note `/myflow-full` runs as one session on Sonnet throughout, including Phase A — for brainstorming-heavy new work, run `/myflow-start` standalone first.
 
 | Command | What it does |
 |---------|-------------|
@@ -110,9 +110,9 @@ Also follow `rules/myflow-manual-review.mdc` (always-on stage boundaries).
 | `/myflow-full <name>` | Full cycle: Gate A (proposal) → do → Gate B (review) → Gate C (manual test) → review, ending at Gate D (PR open, stop) — or at `review-done` with `automerge`. Never auto-invokes any `*-done`/`*-manual-review` command — those remain separate human confirmations. |
 | `/myflow-fast-path <name>` | **Fast path for small, well-understood features.** Minimal `proposal.md` + `tasks.md` → worktree → inline TDD → primary + Bugbot + Principles review (the three required panel slots) → tests/lint → commit + push + **open PR** → `stage: awaiting-pr-review` (`reviewed: false`, `tested: "skipped"`, `fastPath: true`). One human stop instead of five. `checkpoint` adds a staged-diff stop; stops and asks whenever the change stops looking small. Never merges. |
 | `/myflow-status <name>` | Read-only stage report for open changes |
-| `/myflow-info` | Reads the rule file and explains the pipeline |
+| `/myflow-info` | Reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
 
-**Flags:** `skip-propose`, `propose-only`, `skip-review` (skips Gate B only; the flag itself is the human's explicit opt-out, so the cycle writes `stage: do-done` with `gates.reviewed: false` — see "Opt-out (explicit only)" in the rule file), `skip-manual-test` (pre-answers the Gate C skip prompt with Yes, writing `stage: manual-test-done` with `gates.tested: "skipped"`, for the same reason; review still runs and still checks coverage), `automerge` (opt-in only, on `/myflow-review`/`/myflow-full` — commits, pushes, and **merges**, skipping Gate D and ending at `review-done`; never implied by any other flag), `full-panel` (forces every roster slot, including both extra principle lenses, over the whole-branch diff on every re-run, instead of the default targeted re-run), `commit-during-apply` (legacy), `checkpoint` (on `/myflow-fast-path` — adds a Gate B staged-diff stop before anything is pushed; the run is resumable by re-invoking the command)
+**Flags:** `skip-propose`, `propose-only`, `skip-review` (skips Gate B only; the flag itself is the human's explicit opt-out, so the cycle writes `stage: do-done` with `gates.reviewed: false` — see "Opt-out (explicit only)" in `skills/myflow-contracts/pipeline.md`), `skip-manual-test` (pre-answers the Gate C skip prompt with Yes, writing `stage: manual-test-done` with `gates.tested: "skipped"`, for the same reason; review still runs and still checks coverage), `automerge` (opt-in only, on `/myflow-review`/`/myflow-full` — commits, pushes, and **merges**, skipping Gate D and ending at `review-done`; never implied by any other flag), `full-panel` (forces every roster slot, including both extra principle lenses, over the whole-branch diff on every re-run, instead of the default targeted re-run), `commit-during-apply` (legacy), `checkpoint` (on `/myflow-fast-path` — adds a Gate B staged-diff stop before anything is pushed; the run is resumable by re-invoking the command)
 
 ### How to invoke a skill
 

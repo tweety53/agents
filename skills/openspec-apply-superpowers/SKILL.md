@@ -13,7 +13,7 @@ Implement an OpenSpec change with Superpowers Basic Workflow steps **#2–#6**. 
 
 **Announce at start:** "Using openspec-apply-superpowers for change `<name>`."
 
-Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`).
+Also follow **rules/myflow-manual-review.mdc** (Cursor: `.cursor/rules/myflow-manual-review.mdc`), and **load `skills/myflow-contracts/pipeline.md` first** — the rule is a stub; the pipeline itself (stages, transitions, gates, boundaries, flags) lives in that file and is canonical.
 
 ## Superpowers Basic Workflow (this stage)
 

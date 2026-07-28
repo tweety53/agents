@@ -1,6 +1,6 @@
 ---
 name: myflow-contracts
-description: The myflow pipeline's contract definitions — state file shape, state self-heal, project configuration, and Jira integration. Load the one file you need; each is canonical for its own contract. Referenced by the stubs in rules/myflow-manual-review.mdc.
+description: The myflow pipeline itself plus its contract definitions — pipeline stages and transitions, state file shape, state self-heal, project configuration, and Jira integration. Load the one file you need; each is canonical for its own contract. Referenced by the stubs in rules/myflow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -10,15 +10,17 @@ metadata:
 
 # myflow contracts
 
-myflow's contract definitions, split out of `rules/myflow-manual-review.mdc` so the always-on rule
-layer carries only the judgment an agent needs without being asked to load anything.
+myflow's pipeline and its contract definitions, split out of `rules/myflow-manual-review.mdc` so the
+always-on rule layer carries only the trigger, without being asked to load anything.
 
-**Load the one file you need — not this whole directory.**
+**Load the one file you need — not this whole directory.** The exception is `pipeline.md`: every
+`/myflow-*` command and `openspec-*-superpowers` skill needs it, so load it first, always.
 
 ## Index
 
 | File | Load it when you need to |
 |------|--------------------------|
+| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command or `openspec-*` skill — load this first.** Stage definitions, the command→stage transition table, mismatch handoff, fix re-entry, IntelliJ commands, stage boundaries, Gates B/C/D, auto-merge, opt-out flags |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic gates, carry-forward |
 | [state-self-heal.md](state-self-heal.md) | Validate a state file against on-disk artifacts, or handle a missing/contradicted one |
 | [project-configuration.md](project-configuration.md) | Resolve `.myflow/project.md` — apps, run, test, lint, standards, jira — including standards-entry resolution and containment |
