@@ -1,15 +1,16 @@
 ---
 name: myflow-info
-description: Explain the myflow pipeline — stages, gates, commands, and flags — by reading skills/myflow-contracts/pipeline.md. Read-only reference. Use for /myflow-info.
+description: Explain the myflow pipeline — the three states, the three commands, and the finish contract — by reading skills/myflow-contracts/pipeline.md. Read-only reference. Use for /myflow-info.
 allowed-tools: Bash(cat:*), Read
 license: MIT
 compatibility: Requires skills/myflow-contracts/pipeline.md.
 metadata:
   author: gymie
-  version: "1.0"
+  version: "2.0"
 ---
 
-Explain the myflow pipeline: stages, who acts at each gate, which command advances what, and the available flags. **Read-only** — touches no change, no git state, no files.
+Explain the myflow pipeline: the states, who acts at each gate, and which command does what.
+**Read-only** — touches no change, no git state, no files.
 
 **Announce at start:** "Using myflow-info."
 
@@ -26,64 +27,45 @@ cat ~/.claude/skills/myflow-contracts/pipeline.md 2>/dev/null \
   || cat skills/myflow-contracts/pipeline.md
 ```
 
-`rules/myflow-manual-review.mdc` is now a **stub** — it carries the trigger and the pointers, not
-the pipeline. Reading it instead of the file above yields no stage table, no transitions, and no
-flags, so this command must read `pipeline.md`.
+**Never answer from memory.** The pipeline is versioned, and this command exists precisely so the
+answer reflects the installed contract rather than a remembered one. If none of those paths
+resolve, say so and stop — a confidently remembered pipeline is the failure this command prevents.
 
-Also read the agents repo README for the Basic Workflow step map and the typical-flow walkthrough — on this machine `/Users/tweety53/Projects/agents/README.md` (**machine-specific**: it is the local checkout of the agents repo, which is the **source of truth** these skills, commands, and rules are authored in and installed from; overridable via the `AGENTS_DATA` environment variable, which holds the **root of the agents repo checkout** and defaults to `/Users/tweety53/Projects/agents`; if that path does not exist, skip it and use pipeline.md alone rather than failing).
+For a question about the state file's shape, the self-heal rules, project configuration, or Jira,
+read the matching contract file beside it rather than paraphrasing.
 
-**Never** answer from memory, and **never** paste a hardcoded pipeline table into this skill file. If pipeline.md is missing, say so and stop — do not reconstruct it.
+## What to say
 
-## Workflow
+Scale the answer to the question. A specific question ("when does it commit?") gets a specific
+answer, not the whole pipeline.
 
-### 1. Read the sources
+For a general "how does this work", lead with the shape:
 
-Read `pipeline.md`'s **Pipeline stages**, **Stage transitions**, gate sections, and **Opt-out**
-list, plus **State file** in `skills/myflow-contracts/state-file.md`.
-
-### 2. Render the overview (no argument)
-
-```
-## myflow pipeline
-
-start → do → manual review (Gate B) → manual test (Gate C) → review → PR review (Gate D) → finish (Gate E)
-
-### Stages
-<the Pipeline stages table, from pipeline.md>
-
-### Who acts at each gate
-| Gate | Who | What |
-|------|-----|------|
-| A | You | Approve the plan after /myflow-start (`/myflow-start-done` or `/myflow-start-fix`) |
-| B | You | Review the staged diff in the worktree IDE (`/myflow-do-manual-review`, then `/myflow-do-done`) |
-| C | You | Run the apps and work the manual-test checklist (`/myflow-manual-test-done`) |
-| D | You | Review the PR on the forge and **merge it** — never automated (`/myflow-review-done`) |
-| E | Agent | /myflow-finish verifies the merge, syncs specs, archives |
-
-### Commands
-<the Stage transitions table, plus /myflow-status and /myflow-info>
-
-### Flags
-<the Opt-out list>
+```text
+/myflow-start  → STARTED      you: read the proposal artifact
+/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
+/myflow-finish → FINISHED     terminal (it integrates on its first run)
 ```
 
-Close with a one-line pointer: "Run `/myflow-status` to see where your changes actually are."
+Then the points that are load-bearing and least guessable:
 
-### 3. Detail view (argument given)
+- **Each command ends in the state named after it.** The human gate is a property of the state, so
+  no command exists whose only job is to record that a review happened.
+- **`/myflow-do` emits both the staged diff and the manual test guide**, so reviewing and testing
+  are one sitting.
+- **Every command is re-entrant.** Re-run `/myflow-start` to revise the proposal, `/myflow-do` to
+  fix something. A fix never moves the state.
+- **`/myflow-finish` runs twice** — once to integrate (open a PR by default, merge, or leave it to
+  you), and again once the branch is merged, to sync specs, archive, push, and remove the
+  worktrees.
+- **No command takes a flag.** The only argument is the optional change name.
+- **Nothing runs tests or linters before integration** — that happened during `/myflow-do`.
 
-`/myflow-info <stage-or-command>` — print only that stage or command: what it requires, what it does, what it writes to the state file, and what runs next. Match loosely (`do-fix`, `/myflow-do-fix`, and `awaiting-do-review` all resolve). Unrecognized argument → list the valid stage and command names.
+Also available: `/myflow-status` for where the open changes actually are.
 
 ## Guardrails
 
-- **Never** modify anything — no files, no git, no state.
-- **Never** answer from memory; always re-read pipeline.md first.
-- **Never** duplicate the pipeline tables into this skill file.
-- Keep the output scannable — tables over prose.
-
-## Commands (user-facing)
-
-| Intent | Say |
-|--------|-----|
-| Explain the whole pipeline | `/myflow-info` |
-| Explain one stage or command | `/myflow-info <stage-or-command>` |
-| See where changes actually are | `/myflow-status` |
+- **Never** write, stage, or commit anything.
+- **Never** advance or repair a change's state — that is not this command's job.
+- **Never** describe a state, command, or flag that is not in `pipeline.md`.
+- **No flags.** The only argument is an optional topic to explain.

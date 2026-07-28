@@ -1,18 +1,21 @@
 ---
 model: sonnet
-description: Finish — verify the PR merged (Gate D), sync delta specs, archive the OpenSpec change
+description: Finish — integrate the branch, then archive and clean up once it is merged
 ---
 
-Use the **openspec-archive-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+Use the **myflow-finish** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
-Follow that skill exactly. Requires stage `review-done` — the stage `/myflow-review-done` writes once the human has reviewed and merged the PR (or that `/myflow-review automerge` writes directly). On mismatch, stop with the standard mismatch handoff. Runs **after `/myflow-review`** (which committed, pushed, and opened the PR, then deliberately stopped) **and after the human has reviewed and merged the PR on the forge (Gate D)**: verify the PR actually merged → OpenSpec delta sync (offer, recommended) → archive the change. **Never commits, tests, merges, or pushes anything itself** — it only verifies the PR merged and archives.
+Follow that skill exactly. Accepts **`IN_PROGRESS`**. It runs **twice**, and the branch's merge status alone decides which run happens:
 
-Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
+- **Run 1 — branch not merged.** Asks up front how it should land: open a pull request (default), merge and push, or leave it to you. Commits the staged work, takes that route, and **stops** — the state stays `IN_PROGRESS`.
+- **Run 2 — branch merged.** Verifies the merge, syncs delta specs, archives the change, **commits and pushes the archive**, removes the worktrees and branches, and writes **`FINISHED`**.
 
-**Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active change is at stage `review-done`, use it automatically; if multiple, ask which.
+**Runs no tests, linters, or coverage check** before integrating — that happened during `/myflow-do`.
 
-**If the change is still at `awaiting-pr-review`:** the PR review has not been confirmed yet — run `/myflow-review-done <name>` first (a pure state write; it is what moves the change to `review-done`). This command does not accept `awaiting-pr-review`.
+Worktree removal runs four gating checks first (no uncommitted tracked changes, no untracked-and-unignored files, no commits that exist only here, local stack stopped) and **leaves everything alone if any of them fails**. It then discloses the ignored files `--force` will destroy and asks before removing.
 
-**If the PR is still open:** this is the normal, expected block — Gate D hasn't happened yet. Stop and tell the user to review and merge the PR themselves, then re-run; never offer to merge it for them, and never silently archive a change whose code never reached the base branch. Only proceed unmerged on an explicit user override (AskUserQuestion, default No).
+Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git boundaries and the finish contract.
 
-**If nested `<name>-fix-N` sub-changes exist** (from `/myflow-do-fix`): archives them together with `<name>` in the same operation — never one without the other.
+**Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
+
+**When done:** run 1 hands back to `/myflow-finish <name>` — the same command — once the branch is merged. Run 2 is terminal.

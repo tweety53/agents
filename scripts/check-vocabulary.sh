@@ -190,18 +190,46 @@ collect_hits() {
 # COMMAND files, leaving four commands gating on stages that no longer existed and contradicting
 # the skills they delegate to. This check makes that class of drift loud instead of silent.
 #
-# The legal stages are owned by `rules/myflow-manual-review.mdc` — see its `## Stage transitions`
-# section. They are deliberately not copied here; a second list would drift from the first.
+# The legal states are owned by `skills/myflow-contracts/pipeline.md` — see its `## State
+# transitions` section. They are deliberately not copied here; a second list would drift from
+# the first.
+#
+# `checkpoint` is deliberately NOT in the list below, though it was a retired flag. It is an
+# ordinary English word that appears legitimately in prose about review checkpoints, so matching
+# it as a literal produces hits that are not drift — and the only way to silence those is a
+# `vocab-guard:allow` marker on a line that is telling the truth, which teaches the guard to lie.
+# It is swept by hand instead.
 #
 # Legitimate exceptions, deliberately allowed:
 #   - `requesting-code-review` — a real external Superpowers skill; never rename it. The pattern
 #     already excludes it structurally (the `-` before `code-review` fails `[^-]`), so no  # vocab-guard:allow
 #     whole-line filter is needed — one that dropped the line would also hide a genuine retired
 #     token sitting on the same line.
-#   - "(not `start`)" in myflow-start.md — names the retired legacy value on purpose, to contrast.
 #   - Any line carrying the marker `vocab-guard:allow` — see above.
 check_retired_stage_vocabulary() {
-  local pattern='awaiting-review|awaiting-test|(^|[^-])\bcode-review\b' # vocab-guard:allow
+  # Retired by the twelve-stage → three-state rename (KAN-8): the twelve stage values, the
+  # removed and renamed commands, the retired skill, and every removed flag.
+  local pattern='awaiting-review|awaiting-test|(^|[^-])\bcode-review\b'   # vocab-guard:allow
+  pattern+='|awaiting-proposal-review|proposal-done|awaiting-do-review'   # vocab-guard:allow
+  pattern+='|do-review-started|do-done|awaiting-fix-review'               # vocab-guard:allow
+  pattern+='|fix-review-started|awaiting-manual-test|manual-test-done'    # vocab-guard:allow
+  pattern+='|awaiting-pr-review|review-done'                              # vocab-guard:allow
+  pattern+='|myflow-full|myflow-fast-path|myflow-manual-test'             # vocab-guard:allow
+  pattern+='|myflow-start-fix|myflow-start-done|myflow-do-fix'            # vocab-guard:allow
+  pattern+='|myflow-do-done|myflow-do-manual-review|myflow-review-done'   # vocab-guard:allow
+  pattern+='|myflow-state-advance|automerge|skip-manual-test'             # vocab-guard:allow
+  pattern+='|skip-review|skip-propose|propose-only|full-panel'            # vocab-guard:allow
+  pattern+='|commit-during-apply'                                         # vocab-guard:allow
+  # Retired by the five-state → three-state collapse: the test and review commands folded  # vocab-guard:allow
+  # into /myflow-do and /myflow-finish. They were still live commands when the list above was
+  # first written, which is why they arrive separately.
+  # Bounded so `myflow-test-setup` (a sandbox prefix in test-setup.sh) and the separately
+  # listed `myflow-review-done` / `myflow-fast-path` are not matched twice or spuriously.  # vocab-guard:allow
+  pattern+='|myflow-test([^-]|$)|myflow-review([^-]|$)|myflow-fast([^-]|$)'  # vocab-guard:allow
+  # Retired FIELD and GATE vocabulary. Omitting these is how a wholly stale file — the contracts
+  # index, which still described stage boundaries and Gates B/C/D — passed a clean run.
+  pattern+='|gates\.[a-zA-Z]|originStage|fastPath|REVIEWED_TREE|MERGE_BASE'   # vocab-guard:allow
+  pattern+='|Gate [ABCD]\b|monotonic gates'                                   # vocab-guard:allow
   local hits="" tree
   for tree in "${TREES[@]}"; do
     collect_hits "$tree" -E "$pattern"
@@ -209,8 +237,9 @@ check_retired_stage_vocabulary() {
   done
 
   if [[ -n "$hits" ]]; then
-    printf '\n⚠ Retired myflow stage vocabulary found:\n%s\n' "$hits" >&2
-    printf 'Stage gates must match the rule file'"'"'s `## Stage transitions` table.\n' >&2
+    printf '\n⚠ Retired myflow state vocabulary found:\n%s\n' "$hits" >&2
+    printf 'State gates must match the `## State transitions` table in\n' >&2
+    printf 'skills/myflow-contracts/pipeline.md.\n' >&2
     return 1
   fi
 

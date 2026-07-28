@@ -145,10 +145,51 @@ always_on_rules() {
   done
 }
 
+# prune_stale_links <target-dir>
+#
+# Remove symlinks in <target-dir> whose target no longer exists. Installs are additive — both
+# loops below iterate the CURRENT source tree — so an entry deleted from this repo leaves its
+# symlink behind at every destination it was ever installed to, forever.
+#
+# That is not cosmetic. A stale `~/.claude/commands/myflow-review.md` still matches the harness's
+# command glob, so a command deleted from this repo goes on being offered and invoked; it then
+# fails on a broken link, or worse, serves cached content naming skills that are also gone. The
+# rename that retired twelve commands and fifteen skills is exactly when this bites.
+#
+# THREE conditions, all required. `[[ -L ]]` and `[[ ! -e ]]` alone are not enough: `[[ ! -e ]]`
+# follows the link and is true whenever the target cannot be stat'd, which cannot distinguish
+# "deleted from this repo" from "on a volume that is not mounted right now". A user's own symlink
+# into a removable disk or a checkout they moved is broken *at this moment* and must survive.
+#
+# So the third condition is the load-bearing one: the link must point INTO this repo. That is
+# exactly the set this installer creates, and nothing else — a link the user made to anywhere else
+# is left alone however broken it looks. `readlink` is used rather than `realpath`, because the
+# target does not exist and cannot be resolved; the raw stored path is what we test.
+prune_stale_links() {
+  local target_dir="$1" entry link_target removed=0
+  [[ -d "$target_dir" ]] || return 0
+  if [[ ! -r "$target_dir" ]]; then
+    warn "cannot read $target_dir — skipping the stale-link prune (fix its permissions and re-run)"
+    return 0
+  fi
+  for entry in "$target_dir"/* "$target_dir"/.[!.]*; do
+    [[ -L "$entry" ]] || continue          # never touch a real file or directory
+    [[ -e "$entry" ]] && continue          # still resolves — leave it
+    link_target="$(readlink "$entry")"
+    # Only ours: a link whose stored target is inside this repo. Anything else is the user's.
+    [[ "$link_target" == "$SCRIPT_DIR"/* ]] || continue
+    rm -f "$entry"
+    removed=$((removed + 1))
+    info "Pruned stale link $(basename "$entry") (its source in this repo no longer exists)"
+  done
+  (( removed == 0 )) || info "Pruned $removed stale link(s) from $target_dir"
+}
+
 install_skills() {
   local target_dir="$1" skill_dir skill_name
   info "Installing project skills into $target_dir"
   mkdir -p "$target_dir"
+  prune_stale_links "$target_dir"
   for skill_dir in "$SKILLS_SRC"/*/; do
     [[ -d "$skill_dir" ]] || continue
     skill_name=$(basename "$skill_dir")
@@ -219,6 +260,7 @@ install_commands() {
   [[ -d "$commands_src" ]] || return 0
   info "Installing slash commands into $target_dir"
   mkdir -p "$target_dir"
+  prune_stale_links "$target_dir"
   for cmd_file in "$commands_src"/*.md; do
     [[ -f "$cmd_file" ]] || continue
     cmd_name=$(basename "$cmd_file")

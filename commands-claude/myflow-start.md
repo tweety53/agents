@@ -1,15 +1,18 @@
 ---
-description: Start — Superpowers #1 brainstorming + #3 writing-plans woven into OpenSpec artifacts
 model: opus
+description: Start — brainstorm, write the OpenSpec artifacts, publish the proposal artifact
 ---
 
-Use the **openspec-propose-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
-Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+Use the **myflow-start** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
-Follow that skill exactly. Runs Superpowers Basic Workflow **#1** (brainstorming) and **#3** (writing-plans) intertwined with OpenSpec artifact creation, plus a **published proposal artifact** (self-contained page, review surface for the new proposal gate) before handoff. Do not skip any of these.
+Follow that skill exactly. Accepts **no change** (creates one) or **`STARTED`** (revises the existing proposal, republishing the artifact to the **same** URL). Ends at **`STARTED`**.
 
-**Input:** Change name (kebab-case) and/or description of what to build — from `$ARGUMENTS` or conversation. If both are omitted: run `openspec list --json`; if exactly one active (non-archived) change has incomplete planning artifacts, resume it automatically; if multiple, ask which; if none, ask what to build.
+Runs Superpowers **#1** (brainstorming, with its design approval gate) and **#3** (writing-plans), woven into the OpenSpec artifacts, then publishes the proposal artifact the human reads.
 
-**Ends at:** `awaiting-proposal-review` (not `start`) — a new human gate. The handoff prints the artifact URL and the `open -na "IntelliJ IDEA"` command for the **main checkout** (no worktree exists yet).
+**Never** writes code, creates a worktree, or creates a branch.
 
-**Next:** `/myflow-start-fix <name>` to revise the plan, or `/myflow-start-done <name>` once reviewed, then `/myflow-do <name>` (#2–#6, no commits). `/myflow-full <name>` runs the gated end-to-end flow.
+Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git boundaries and the finish contract.
+
+**Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
+
+**When done:** read the artifact. Re-run `/myflow-start <name>` to revise the plan, or run `/myflow-do <name>` to implement it.

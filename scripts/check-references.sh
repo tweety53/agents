@@ -140,8 +140,8 @@ normalize_token() {
 # pairing "**" without excluding code spans first lets that literal pair
 # desync the real "**State file**" bold span next to it. Masking only the
 # in-code occurrences (not the whole span) is deliberate: a bold span that
-# itself WRAPS a code span, e.g. "**`fastPath: true`**", must still extract
-# as "`fastPath: true`" untouched — replacing the whole code span would lose
+# itself WRAPS a code span, e.g. "**`fastPath: true`**", must still extract  # vocab-guard:allow
+# as "`fastPath: true`" untouched — replacing the whole code span would  # vocab-guard:allow lose
 # real content the same bug this fixes is trying to preserve.
 #
 # Scoped to single-backtick spans (the shape every real reference in this

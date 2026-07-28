@@ -1,13 +1,20 @@
 ---
-description: Status — show every open myflow change with its stage, gates, next command, and worktree
+name: /myflow-status
+id: myflow-status
+category: myflow
+description: Status — where every open change actually is (read-only)
 ---
+
+**Model:** Sonnet (or your default) is fine here — Opus is reserved for `/myflow-start`'s brainstorming stage. Cursor doesn't yet support a per-command model frontmatter field, so this is a recommendation, not an enforced switch.
 
 Use the **myflow-status** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
-Follow that skill exactly. **Read-only** — reports stage and gate state for open changes; never commits, merges, or advances a stage.
+Follow that skill exactly. Accepts **any** state and never blocks. **Read-only** — it never commits, never advances a state, and never creates a worktree. Its one write is state self-heal: correcting a stale cache to match the artifacts already on disk.
 
-Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
+Reports each open change's state, PR, absolute worktree path, last update, and the next command — including which `/myflow-finish` run comes next, since that depends on whether the branch is merged.
 
-**Input:** Optional change name from `$ARGUMENTS`. With a name, show the detail view for that change; without one, show the table of all open changes.
+Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git boundaries and the finish contract.
 
-**Model:** run on Sonnet (Cursor cannot enforce this per-command — switch manually if needed).
+**Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
+
+**When done:** run whichever next command it reported.

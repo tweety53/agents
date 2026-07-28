@@ -823,6 +823,47 @@ for f in "$proj/CLAUDE.md" "$proj/AGENTS.md"; do
 done
 
 # ===========================================================================
+# ===========================================================================
+# A re-install after a skill or command is DELETED from the source tree must remove the
+# stale symlink it left behind. Installs iterate the current source tree only, so without
+# a prune every deletion leaves a dangling link at every destination forever — and a stale
+# command link still matches the harness's command glob, so a deleted command goes on being
+# offered and then fails on a broken link. The 12→3 state rename retired fifteen skills and
+# thirteen commands at once, which is what made this reachable.
+
+group "A re-install prunes links whose source was deleted"
+
+FIXTURE="$SANDBOX/fixture-repo-prune"
+make_fixture_repo "$FIXTURE"
+new_home; home="$HOME_DIR"
+mkdir -p "$FIXTURE/skills/doomed-skill"
+printf -- '---\nname: doomed-skill\n---\nbody\n' > "$FIXTURE/skills/doomed-skill/SKILL.md"
+printf -- '---\nname: /doomed\n---\nbody\n' > "$FIXTURE/commands-claude/doomed.md"
+
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "first install succeeds" "$RUN_RC" "$RUN_LOG"
+assert_symlink "the doomed skill is installed" "$home/.claude/skills/doomed-skill"
+assert_symlink "the doomed command is installed" "$home/.claude/commands/doomed.md"
+
+# Two things of the user's own, sitting alongside — both must survive the prune.
+printf 'mine\n' > "$home/.claude/commands/my-own-note.md"
+# A BROKEN symlink the user made, pointing outside this repo — e.g. an unmounted volume or a
+# checkout they moved. It is broken right now, which is exactly what makes it indistinguishable
+# from a stale installer link unless the prune checks where the link points.
+ln -s "$SANDBOX/not-mounted-right-now/thing.md" "$home/.claude/commands/user-own-broken.md"
+
+rm -rf "$FIXTURE/skills/doomed-skill" "$FIXTURE/commands-claude/doomed.md"
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "re-install after deletion succeeds" "$RUN_RC" "$RUN_LOG"
+assert_absent "the stale skill link is pruned" "$home/.claude/skills/doomed-skill"
+assert_absent "the stale command link is pruned" "$home/.claude/commands/doomed.md"
+assert_file_exists "a real file the user put there is NOT pruned" "$home/.claude/commands/my-own-note.md"
+assert_symlink "a user's own BROKEN symlink outside this repo is NOT pruned" "$home/.claude/commands/user-own-broken.md"
+assert_symlink "a still-live skill link survives the prune" "$home/.claude/skills/demo-skill"
+assert_symlink "a still-live command link survives the prune" "$home/.claude/commands/demo.md"
+
+# ===========================================================================
+
 # Safety close-out. Every case above ran with a sandboxed HOME; this proves it.
 # ===========================================================================
 

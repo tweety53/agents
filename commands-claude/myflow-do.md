@@ -1,16 +1,20 @@
 ---
 model: sonnet
-description: Do — Superpowers Basic Workflow #2–#6 with OpenSpec tasks (no commits)
+description: Do — implement the plan with TDD and the review panel, and write the manual test guide
 ---
 
-Use the **openspec-apply-superpowers** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
+Use the **myflow-do** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
-Follow that skill exactly. Requires stage `proposal-done` — the stage `/myflow-start-done` writes once the human has read the proposal artifact. On mismatch, stop with the standard mismatch handoff. Ends at `awaiting-do-review`. Runs Superpowers Basic Workflow **#2–#6** only (#2 worktree, #3 plan validate, #4 SDD, #5 TDD, #6 review). **No git commits, push, merge, or PR.** **#7 deferred to `/myflow-review`.** Do **not** use the lightweight openspec-apply-change task loop.
+Follow that skill exactly. Accepts **`STARTED`** (first run — creates the worktree) or **`IN_PROGRESS`** (fix run — resumes the **existing** worktree). Ends at **`IN_PROGRESS`** from `STARTED`; from `IN_PROGRESS` it writes the state back **unchanged**, because a fix never moves the state.
 
-Also follow the myflow manual-review rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path.
+Produces **both** the staged diff **and** `docs/manual-test/<name>.md`, so reviewing the code and running the apps are one human gate.
 
-**Input:** Change name from `$ARGUMENTS` or conversation. If omitted: run `openspec list --json`; if exactly one active proposal is apply-ready, use it automatically; if multiple, ask which. Optional flags: `full-panel` (every review-panel re-run uses every roster slot, including both extra principle lenses, over the whole-branch diff instead of the default targeted re-run), `commit-during-apply` (legacy).
+**No commits, push, merge, or PR** — with one exception: if the state file records a `prUrl`, a PR is already open and a staged-only fix would be invisible on it, so the fix is committed and pushed to that branch instead.
 
-**If this change already looks applied** (manual-test guide exists, or a clean final-review-panel record exists, or every original task is checked): ask first whether the user meant `/myflow-do-fix` instead — default/recommended answer is **No, use `/myflow-do-fix`**. Only proceed with a fresh/expanded run if they explicitly say yes.
+Runs the project's lint and test commands before handing off, because **nothing runs them later** — `/myflow-finish` has no verification gate.
 
-**When done:** Manual review (Gate B) — optionally `/myflow-do-manual-review <name>`, then `/myflow-do-done <name>` to confirm (writes `do-done`) — then `/myflow-manual-test <name>` (Gate C), `/myflow-manual-test-done <name>`, and `/myflow-review <name>`. Request fixes via `/myflow-do-fix <name>`.
+Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git boundaries and the finish contract.
+
+**Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
+
+**When done:** review the staged diff and run the apps against the guide. Re-run `/myflow-do <name>` to fix anything you find, then `/myflow-finish <name>`.
