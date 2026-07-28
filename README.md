@@ -26,29 +26,17 @@ agents-data/
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
-├── commands/                          ← Cursor slash commands (myflow + opsx)
+├── commands/                          ← Cursor slash commands (myflow + opsx:explore)
 ├── commands-claude/                   ← Claude Code slash commands (myflow only)
 └── skills/                            ← OpenSpec / /myflow skills
     ├── README.md                      ← myflow command map
-    ├── openspec-propose/
-    ├── openspec-propose-superpowers/
-    ├── openspec-apply-change/
-    ├── openspec-apply-superpowers/   ← includes the review-panel reviewer prompts + engineering-principles.md
-    ├── openspec-apply-fix-superpowers/  ← fixes for Gate B/C/D findings, reuses the panel prompts above
-    ├── openspec-fast-path-superpowers/  ← shortened single-session flow for small features
-    ├── openspec-manual-test-superpowers/
-    ├── openspec-review-superpowers/  ← coverage check, tests/linters, commit + push + open PR (never merges)
-    ├── openspec-archive-change/
-    ├── openspec-archive-superpowers/  ← the "finish" stage: verify PR merged, sync specs, archive
-    ├── openspec-full-cycle-superpowers/
-    ├── openspec-explore/
-    ├── openspec-sync-specs/
-    ├── openspec-update-change/
-    ├── openspec-propose-fix-superpowers/  ← revise proposal after Gate A review, republish artifact to same URL
-    ├── myflow-status/                 ← read-only stage report for open changes
-    ├── myflow-info/                   ← reads skills/myflow-contracts/pipeline.md and explains the pipeline
-    ├── myflow-state-advance/          ← pure state write used by every `*-done`/`*-manual-review` command
-    └── myflow-contracts/              ← on-demand contract definitions (state file, self-heal, project config, Jira)
+    ├── myflow-start/                  ← /myflow-start
+    ├── myflow-do/                     ← /myflow-do; carries the review-panel prompts + engineering-principles.md
+    ├── myflow-finish/                 ← /myflow-finish (integrate, then archive + clean up)
+    ├── myflow-status/                 ← read-only state report for open changes
+    ├── myflow-info/                   ← reads pipeline.md and explains the pipeline
+    ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
+    └── openspec-explore/              ← /opsx:explore — thinking-partner mode, touches no state
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in
@@ -61,20 +49,37 @@ that project named into a managed block in **that project's own `CLAUDE.md` and 
 loads for the harness instead of merely being referenced. The tree above is an illustrative
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
-**Skills** (loaded on demand):
-- `/myflow-start` (+ `/myflow-start-fix`, `/myflow-start-done`), `/myflow-do` (+ `/myflow-do-manual-review`, `/myflow-do-done`), manual review (Gate B), `/myflow-do-fix` (Gate B/C/D fixes, + `/myflow-do-fix-manual-review`, `/myflow-do-fix-done`), `/myflow-manual-test` (Gate C, always asks whether to skip, + `/myflow-manual-test-done`), `/myflow-review` (+ `/myflow-review-done`), `/myflow-finish`, `/myflow-full`, `/myflow-status`, `/myflow-info` — OpenSpec + Superpowers with **manual review + manual test before commit**. The `*-done`/`*-manual-review` commands are pure state writes (via `myflow-state-advance`) — no verification, no git.
-- `/opsx:*` — lighter OpenSpec-only variants
-- `/opsx:explore` — thinking-partner mode (no code)
+**Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, plus the read-only
+`/myflow-status` and `/myflow-info`, and `/opsx:explore` for thinking-partner mode.
 
-**myflow pipeline (default, twelve stages):**
+**myflow pipeline — three states, three commands:**
 
-```text
-awaiting-proposal-review (Gate A) → proposal-done → awaiting-do-review (Gate B) → do-review-started → do-done →
-[awaiting-fix-review → fix-review-started] → awaiting-manual-test (Gate C) → manual-test-done →
-awaiting-pr-review (Gate D) → review-done → finished
+```mermaid
+stateDiagram-v2
+    [*] --> STARTED: /myflow-start
+    STARTED --> STARTED: /myflow-start (revise the proposal)
+    STARTED --> IN_PROGRESS: /myflow-do
+    IN_PROGRESS --> IN_PROGRESS: /myflow-do (fix — never moves the state)
+    IN_PROGRESS --> IN_PROGRESS: /myflow-finish (run 1 — integrate)
+    IN_PROGRESS --> FINISHED: /myflow-finish (run 2 — after the merge)
+    FINISHED --> [*]
 ```
 
-`automerge` on `/myflow-review`/`/myflow-full` skips Gate D entirely (commits, pushes, and merges) and ends at `review-done` instead of `awaiting-pr-review`.
+```text
+/myflow-start  → STARTED      you: read the proposal artifact
+/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
+/myflow-finish → FINISHED     terminal (it integrates on its first run)
+```
+
+Each command ends in the state named after it, and **the human gate is a property of the state** —
+which is why no command exists whose only job is to record that a review happened. `/myflow-do`
+emits both the staged diff and the manual test guide, so reviewing and testing are one sitting.
+Every command is re-entrant, and a fix never moves the state. **No command takes a flag.**
+
+`/myflow-finish` runs **twice**: once to integrate the branch (open a PR by default, merge and
+push, or leave it to you), and again once the branch is merged, to sync delta specs, archive,
+commit and push the archive, and remove the worktrees. It runs **no** tests, linters or coverage
+check — that happened during `/myflow-do`.
 
 See `skills/myflow-contracts/pipeline.md` (the pipeline itself), `rules/myflow-manual-review.mdc` (the always-on stub that points at it), and `skills/README.md`.
 
@@ -231,7 +236,7 @@ managed block in `CLAUDE.md` (and `AGENTS.md`), so run it **after** step 2 — t
 into the file step 2 put there.
 
 Without `.claude/commands/`, `/myflow-*` typed in the CLI will fail with "Unknown command" —
-Claude Code only auto-discovers skills by their `SKILL.md` `name:` (e.g. `openspec-apply-superpowers`),
+Claude Code only auto-discovers skills by their `SKILL.md` `name:` (e.g. `myflow-do`),
 not by the `/myflow-*` alias. The `commands-claude/*.md` files are thin wrappers that map the
 `/myflow-*` name to the underlying skill.
 
@@ -290,7 +295,7 @@ The `setup.sh codex` form (unlike the manual loop) also renders any opt-in rule 
 named in its `.myflow/project.md` into the managed block in `AGENTS.md` and `CLAUDE.md`.
 Run it **after** step 2.
 
-**Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `openspec-propose-superpowers` (the `/myflow-start` equivalent); the rest of the pipeline is fine on your default.
+**Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `myflow-start` (the `/myflow-start` equivalent); the rest of the pipeline is fine on your default.
 
 ---
 
@@ -319,7 +324,7 @@ If Superpowers is **not** installed, the agent can still use the project skills
 by reading the `SKILL.md` file directly:
 
 ```
-Read file: .claude/skills/openspec-propose-superpowers/SKILL.md
+Read file: .claude/skills/myflow-start/SKILL.md
 (follow the instructions in that file)
 ```
 
@@ -331,41 +336,25 @@ degraded but the OpenSpec-specific steps still work.
 
 ## /myflow commands reference
 
-`<name>` is **optional** on every command below — if omitted, the sole active (non-archived) change relevant to that stage is used automatically; if there are multiple, you're asked which.
+`<name>` is **optional** on every command below — if omitted, the sole active (non-archived) change relevant to that state is used automatically; if there are multiple, you're asked which.
 
-**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command → Sonnet. `/myflow-full` runs as one session on Sonnet throughout, including Phase A — for brainstorming-heavy new work, run `/myflow-start` standalone first.
+**No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-| Command | Skill file | What it does |
-|---------|-----------|-------------|
-| `/myflow-start <name>` | `openspec-propose-superpowers` | Brainstorm → design gate → artifacts → plan → publishes proposal artifact → `awaiting-proposal-review` |
-| *(Gate A)* | User | Read the proposal artifact |
-| `/myflow-start-fix <name>` | `openspec-propose-fix-superpowers` | Revise the proposal after Gate A feedback, republish artifact to the **same** URL, stay at `awaiting-proposal-review` |
-| `/myflow-start-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the proposal was reviewed → `proposal-done` |
-| `/myflow-do <name>` | `openspec-apply-superpowers` | Worktree → validate plan → SDD+TDD → **strict review panel** (primary+Bugbot+Principles required; Security/Adversarial/extra lenses conditional) → **`git add` (staged; no commits)** → `awaiting-do-review` |
-| *(manual review)* | User (Gate B) | Inspect **staged** diff in worktree IDE |
-| `/myflow-do-manual-review <name>` | `myflow-state-advance` | *Pure state write* — confirms review is in progress → `do-review-started` |
-| `/myflow-do-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the diff was reviewed → `do-done` |
-| `/myflow-do-fix <name>` | `openspec-apply-fix-superpowers` | Fix a Gate B/C/D finding — document in `proposal.md`/`tasks.md` (append) or a linked nested `<name>-fix-N` sub-change (your choice) → resume the **same** worktree → SDD+TDD → strict review panel (targeted re-run by default; full for Gate D origins or with `full-panel`) → staged; no commits (except Gate D, which commits+pushes to the PR branch). Records `originStage`; sets `awaiting-fix-review`. Loop at any of the four origins as many rounds as needed. |
-| `/myflow-do-fix-manual-review <name>` | `myflow-state-advance` | *Pure state write* — confirms review of the fix is in progress → `fix-review-started` |
-| `/myflow-do-fix-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the fix was reviewed → returns to `originStage`, clears it |
-| `/myflow-manual-test <name>` | `openspec-manual-test-superpowers` | Gate C — write `docs/manual-test/<name>.md` (run apps + checklist); always asks whether to skip (default No); reply with link only → `awaiting-manual-test` |
-| *(manual test)* | User (Gate C) | Run the apps and check off items in the guide |
-| `/myflow-manual-test-done <name>` | `myflow-state-advance` | *Pure state write* — confirms testing is complete → `manual-test-done` |
-| `/myflow-review <name>` | `openspec-review-superpowers` | Verify Gate C (or `SKIPPED`) → test coverage check (routes gaps to `/myflow-do-fix`) → tests/linters → **commit + push + open PR** → `awaiting-pr-review` (or, with `automerge`, commits+pushes+**merges** → `review-done`, no PR) |
-| *(PR review)* | User (Gate D) | Review and merge the PR on the forge — skipped entirely when `automerge` was used |
-| `/myflow-review-done <name>` | `myflow-state-advance` | *Pure state write* — confirms the PR was reviewed (and merged) → `review-done` |
-| `/myflow-finish <name>` | `openspec-archive-superpowers` | Verify the PR merged → delta sync → archive (also archives nested `<name>-fix-N` sub-changes together) |
-| `/myflow-full <name>` | `openspec-full-cycle-superpowers` | Full cycle: Gate A + Gate B + Gate C + review, ending at Gate D (PR open, stop) — or at `review-done` with `automerge`; `/myflow-finish` is always a separate human-initiated step. Never auto-invokes any `*-done`/`*-manual-review` command. |
-| `/myflow-status <name>` | — (read-only) | Stage report for open changes |
-| `/myflow-info` | — (read-only) | Reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
-| `/opsx:propose <name>` | `openspec-propose` | Lightweight: artifacts only, no Superpowers steps |
-| `/opsx:apply <name>` | `openspec-apply-change` | Lightweight: implement tasks only |
-| `/opsx:archive <name>` | `openspec-archive-change` | Lightweight: archive only |
-| `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation |
-| `/opsx:sync-specs <name>` | `openspec-sync-specs` | Sync delta specs to main specs |
-| `/opsx:update <name>` | `openspec-update-change` | Revise planning artifacts, keep coherent |
+**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command → Sonnet, and **every review-panel reviewer runs on Sonnet** regardless of the parent model.
 
-**Flags:** `skip-propose`, `propose-only`, `skip-review` (skips Gate B only; the flag is the human's explicit opt-out at invocation time, so the cycle writes `do-done` with `gates.reviewed: false` rather than self-certifying a review nobody did), `skip-manual-test` (pre-answers the Gate C skip prompt with Yes, writing `manual-test-done` with `gates.tested: "skipped"` for the same reason; review still runs and still checks coverage), `automerge` (opt-in only, on `/myflow-review`/`/myflow-full` — commits, pushes, and merges, skipping Gate D, ending at `review-done`; never implied by any other flag), `full-panel` (forces every roster slot, including both extra principle lenses, over the whole-branch diff on every panel re-run, disabling the default targeted re-run; opt-in, never inferred), `commit-during-apply` (legacy per-task commits during apply)
+| Command | Skill | What it does |
+|---------|-------|-------------|
+| `/myflow-start <name>` | `myflow-start` | Brainstorm → design gate → OpenSpec artifacts → writing-plans enriched tasks → publish the proposal artifact → `STARTED`. Re-run to revise, republishing to the **same** URL. |
+| *(gate)* | You | Read the proposal artifact |
+| `/myflow-do <name>` | `myflow-do` | Worktree → validate plan → SDD + TDD → **review panel** (primary + Bugbot + Principles required; Security, Adversarial and extra lenses conditional) → **manual test guide** → lint + tests → `git add` → `IN_PROGRESS`. Re-run to fix; a fix never moves the state. Commits only when a PR is already open. |
+| *(gate)* | You | Review the staged diff **and** run the apps against the guide |
+| `/myflow-finish <name>` | `myflow-finish` | **Run 1:** asks how to land the branch — open a PR (default), merge and push, or handle it manually — commits, pushes, takes that route, stops. **Run 2** (once the branch is merged): verify, sync delta specs, archive, **commit + push the archive**, **remove the worktrees and branches** → `FINISHED`. Runs no tests, linters or coverage check. |
+| `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |
+| `/myflow-info` | `myflow-info` | Read-only — reads `pipeline.md` and explains the pipeline |
+| `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
+
+The branch's merge status alone decides which `/myflow-finish` run happens, so a PR you merged on
+the forge and a merge it performed itself are indistinguishable to it — which is correct.
 
 All skills require the `openspec` CLI (`npm install -g openspec` or check project README).
 
@@ -377,7 +366,7 @@ All skills require the `openspec` CLI (`npm install -g openspec` or check projec
 
 ```bash
 cd /path/to/agents-data
-$EDITOR skills/openspec-apply-superpowers/SKILL.md   # or any rule / command / skill
+$EDITOR skills/myflow-do/SKILL.md   # or any rule / command / skill
 ./setup.sh global
 ```
 

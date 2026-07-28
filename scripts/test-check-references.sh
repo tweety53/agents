@@ -135,8 +135,8 @@ run_guard "$FIXTURE"
 
 # 9. Headings match case-insensitively and ignore backticks in the heading.
 new_fixture
-printf '## The `automerge` flag\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'see **The automerge flag** in `rules/contract.mdc`\n' \
+printf '## The `widget` setting\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
+printf 'see **The widget setting** in `rules/contract.mdc`\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "heading normalization" || fail "heading normalization: out=$OUT"

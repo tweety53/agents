@@ -21,64 +21,73 @@ Every command resolves the path this way, so the same change maps to the same fi
 
 ```json
 {
-  "stage": "awaiting-manual-test",
-  "gates": {
-    "reviewed": true,
-    "tested": false,
-    "prOpened": null,
-    "prMerged": null
-  },
-  "worktree": "<main checkout of the primary repo>/.worktrees/openspec-<name>",
+  "state": "IN_PROGRESS",
   "branch": "openspec/<name>",
-  "originStage": null,
+  "worktrees": {
+    "/absolute/path/to/worktree": "<merge-base sha>"
+  },
   "artifactUrl": null,
   "jiraIssue": null,
-  "fastPath": null,
-  "REVIEWED_TREE": null,
-  "MERGE_BASE": null,
-  "updatedAt": "2026-07-25T10:00:00Z",
-  "updatedBy": "/myflow-manual-test"
+  "prUrl": null,
+  "updatedAt": "2026-07-28T10:00:00Z",
+  "updatedBy": "/myflow-do"
 }
 ```
 
-- `stage` — one of the twelve values in **Pipeline stages** (`skills/myflow-contracts/pipeline.md`).
-- `gates.tested` — `null` (stage not reached), `false` (guide written, not yet tested), `"skipped"` (Gate C intentionally bypassed — permanent, never overwritten), or `true` (testing completed and verified by `/myflow-review`, the only writer of `true`).
-- `gates.reviewed` / `gates.prOpened` / `gates.prMerged` — boolean, or `null` before that stage is reached.
-- `worktree` — absolute path, or `null` when no worktree exists.
-- `originStage` — the stage `/myflow-do-fix` was invoked from; `null` when no fix is in flight.
+- `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
+  `STARTED`, `IN_PROGRESS`, `FINISHED`.
+- `branch` — the change's branch, `openspec/<name>`; `null` before one exists.
+- `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
+  that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
+  legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal
+  actually succeeded, so a worktree that could not be removed stays listed and remains findable.
+  See **Multi-repo shape** below.
 - `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
-- `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-7"`), or `null` when no issue is linked. Written only by `/myflow-start` (and `/myflow-fast-path` when it creates the change); every other command **carries it forward verbatim**. See **Jira integration** (jira-integration.md).
-- `fastPath` — `true` when the change reached its current stage via `/myflow-fast-path`; `null`/absent otherwise. Written only by `/myflow-fast-path`; every other command **carries it forward verbatim**.
-- `REVIEWED_TREE` — the `git write-tree` hash(es) recorded at a `/myflow-fast-path checkpoint` stop, proving the reviewed diff has not moved; `null` otherwise. Written only by `/myflow-fast-path`; every other command **carries it forward verbatim**.
-- `MERGE_BASE` — the commit each affected worktree branched from, so a later session can still run `git diff MERGE_BASE`; `null` otherwise. Written by `/myflow-fast-path`; every other command **carries it forward verbatim**. (`/myflow-do` and `/myflow-do-fix` record their own `MERGE_BASE` in the SDD progress ledger at `.superpowers/sdd/progress-<name>.md` instead — the fast path uses the state file because it keeps no ledger.)
+- `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (jira-integration.md).
+- `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
+  records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
+  that a fix must be committed and pushed rather than merely staged.
 - `updatedAt` — the ISO-8601 UTC instant of the last write. Read the actual current time
   (`date -u +%Y-%m-%dT%H:%M:%SZ`); never invent or placeholder it, since `/myflow-status` reports
   "last update" from this field and a fabricated value makes a stalled change look freshly touched.
 - `updatedBy` — the command that last wrote the file, e.g. `"/myflow-do"`.
 
-**Multi-repo shape for `REVIEWED_TREE` and `MERGE_BASE`.** Both are objects **keyed by the absolute worktree path** of each affected repo, so a change spanning two repos records one entry per repo:
+**There is no `gates` object, no `tested`, no `originStage`, no `REVIEWED_TREE`, and no <!-- vocab-guard:allow -->
+`fastPath`.** Each was removed with the thing that fed it: nothing records a human confirmation now <!-- vocab-guard:allow -->
+that the `*-done` commands are gone; no command observes whether the human ran the apps, so nothing
+could write `tested` honestly; a fix no longer moves the state, so there is no origin to return to;
+and the shortened single-session variant that carried `fastPath` no longer exists. <!-- vocab-guard:allow -->
+
+**Multi-repo shape.** `worktrees` carries one entry per affected repository, so a change spanning
+two repos records both:
 
 ```json
-"MERGE_BASE": {
-  "<main checkout of the primary repo>/.worktrees/openspec-<name>": "5ee4c9a…",
-  "<main checkout of the second repo>/.worktrees/openspec-<name>": "b31f7c2…"
+"worktrees": {
+  "/Users/tweety53/Projects/agents-worktrees/openspec-<name>": "5ee4c9a…",
+  "/Users/tweety53/Projects/other-worktrees/openspec-<name>": "b31f7c2…"
 }
 ```
 
-The scalar `worktree` and `branch` fields name the **primary** repo only. When a change spans repos, the full set of affected worktrees is the **key set of `MERGE_BASE`** — that is the authoritative list, and `worktree` is one of its keys.
+The **key set of `worktrees` is the authoritative list of affected worktrees** — it is what
+`/myflow-finish` cleans up, and what resolves an app's root when a handoff needs an absolute
+path. The scalar `branch` names the shared branch only. Never infer a worktree path from a
+conventional layout; layout differs per repository.
 
 Read it with:
 
 ```bash
-jq -r '.stage' "$STATE_FILE" 2>/dev/null || echo "MISSING"
+jq -r '.state' "$STATE_FILE" 2>/dev/null || echo "MISSING"
 ```
 
 Write it by rendering the full object above — always write every field, never a partial merge. Never `git add` it, never include it in a commit, and never move it into `openspec/changes/archive/`.
 
-**Gate values are monotonic.** No command may lower a gate value. `gates.tested: true` and `gates.tested: "skipped"` are **sticky** — once set they are never overwritten or demoted. No command may write a `stage` earlier than the one it found, other than the single carve-out described under **State self-heal** (`skills/myflow-contracts/state-self-heal.md`). A self-heal may only **raise or fill** a value, never lower one, and must **never infer `gates.tested: true`** — only `/myflow-review` writes `true`.
+**State writes are monotonic.** No command may write a `state` earlier than the one it found. The
+single carve-out is described under **State self-heal**
+(`skills/myflow-contracts/state-self-heal.md`) and clears `prUrl` rather than moving the state.
 
-Because writes render the whole object, every command must first **read the existing file and carry forward** every gate it does not itself own (e.g. `/myflow-manual-test` re-emits the `prOpened`/`prMerged` values it read, rather than resetting them to `null`). The same applies to
-every non-gate field it does not own — including `artifactUrl`, `jiraIssue`, `fastPath`,
-`REVIEWED_TREE` and `MERGE_BASE`: re-emit them as read. Dropping them would erase the published
-proposal link, silently unlink the change from its Jira issue, strand a fast-path change
-mid-resume, or destroy the authoritative list of affected worktrees for a multi-repo change.
+Because writes render the whole object, every command must first **read the existing file and
+carry forward** every field it does not itself own — `artifactUrl`, `jiraIssue`, `prUrl` and
+`worktrees` among them. Re-emit each as read (`null` only if it was already `null`). Dropping one
+erases it permanently: the published proposal link, the link to the Jira issue, the PR (which also
+silently downgrades the next fix from commit-and-push to staged-only), or the authoritative list of
+worktrees for a multi-repo change.

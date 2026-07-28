@@ -9,12 +9,12 @@ and writes it through the Atlassian MCP tools available to the session (`getJira
 this machine — never shell out to one.
 
 The linked issue key lives in the state file's `jiraIssue` field (see **State file**, state-file.md).
-`/myflow-start` resolves it — as does `/myflow-fast-path` for a change it creates itself; every
+`/myflow-start` resolves it; every
 other command carries it forward verbatim.
 
 ### Resolution (how `jiraIssue` is decided)
 
-Only `/myflow-start` and `/myflow-fast-path` resolve a key; both follow this contract exactly.
+Only `/myflow-start` resolves a key, and it follows this contract exactly.
 
 **Ask at all?** Not every project has a tracker, and a prompt that is answered "none" forever is
 noise in every repo that has none.
@@ -78,17 +78,13 @@ before — no prefix, no placeholder.
 | Command | When | Target status |
 |---------|------|---------------|
 | `/myflow-start` | end of the run, after the state write | **In Progress** |
-| `/myflow-fast-path` | when the run begins | **In Progress** |
-| `/myflow-review` | after the PR is confirmed open | **In Review** |
-| `/myflow-fast-path` | after it opens the PR | **In Review** |
+| `/myflow-finish` | run 1, after the PR is confirmed open | **In Review** |
 | `/myflow-finish` | after the archive move and state write | **Done** |
 
-No other command transitions the issue. In particular `/myflow-do`, `/myflow-do-fix`, and every
-`*-done` / `*-manual-review` command touch Jira's **status** not at all — `*-done` commands are pure
-state writes by design, and giving one an external side effect would break that invariant.
-`/myflow-do-fix` is not a no-op against Jira, though: it still writes the issue **description** when
-a fix round adds scope, per **Description sync** below. Status and description are separate
-concerns — the forward-only status machine is what `*-done` commands must never touch.
+No other command transitions the issue. In particular `/myflow-do` touches Jira's **status** not at all.
+`/myflow-do` is not a no-op against Jira, though: it still writes the issue **description** when a
+fix round adds scope, per **Description sync** below. Status and description are separate
+concerns.
 
 **Resolve transitions by name, never by identifier.** Transition IDs are not portable across
 projects or workflows. Always read the issue's available transitions first
@@ -103,7 +99,7 @@ an issue back from In Review to In Progress.
 
 ### Never blocking
 
-**No stage write, gate value, commit, PR, or archive ever depends on a Jira call succeeding.**
+**No state write, commit, PR, or archive ever depends on a Jira call succeeding.**
 Every failure path — no linked issue, integration unreachable, transition rejected, target
 transition name not offered, issue not found — degrades to exactly **one** line in the handoff:
 
@@ -111,16 +107,15 @@ transition name not offered, issue not found — degrades to exactly **one** lin
 ⚠ Jira: skipped — <reason>
 ```
 
-Then the command continues normally and writes the stage and gates exactly as it would have. Do
-not retry in a loop, do not roll back, do not abort the stage, and do not emit more than that one
-line. When `jiraIssue` is `null`, no Jira call is attempted at all.
+Then the command continues normally and writes the state exactly as it would have. Do not retry in
+a loop, do not roll back, do not abort the run, and do not emit more than that one line. When `jiraIssue` is `null`, no Jira call is attempted at all.
 
 On success, report it just as briefly, e.g. `Jira: KAN-7 → In Progress` or
 `Jira: KAN-7 already In Review (no transition)`.
 
 ### Description sync
 
-`/myflow-start`, `/myflow-start-fix`, and `/myflow-do-fix` are the only commands that write the
+`/myflow-start` and `/myflow-do` are the only commands that write the
 issue description, and only when **the user added scope during that run** that is not already in
 the issue. In that case, `editJiraIssue` appends a dated bullet under an
 `## Added during implementation` heading (creating the heading once, at the end of the description,

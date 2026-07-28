@@ -26,7 +26,6 @@ HOME="$SANDBOX" ./setup.sh global
 ```bash
 scripts/test-setup.sh
 scripts/test-check-references.sh
-scripts/test-state-advance.sh
 ```
 
 ## lint
@@ -40,6 +39,12 @@ scripts/check-references.sh
 auto-fix command first" step is therefore inapplicable here — not skipped. Both guards report
 `file:line` and are fixed by editing the offending line, never by weakening the guard or adding a
 suppression marker to silence a real hit.
+
+## stop
+
+This repository has **no runnable stack**, so there is nothing to stop. The key is present rather
+than omitted so that `/myflow-finish`'s stack-stopped check is skipped as a recorded decision, not
+as an oversight.
 
 ## standards
 

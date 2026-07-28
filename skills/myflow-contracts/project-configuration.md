@@ -20,11 +20,12 @@ whatever reads best for a human, since agents and humans read the same file.
 |-----|----------|
 | `## apps` | Every application in the change's blast radius: display name, **absolute** repo root of the main checkout, kind/stack, local URL, and when to consider it in scope. |
 | `## run` | How to start the stack and individual services locally — the actual commands, including any parameter that must point at another app's root. |
+| `## stop` | Optional. The command that stops the project's local stack, run by `/myflow-finish` before its stack-stopped check so nothing holds a port or file handle open in a worktree about to be removed. **Absent means that check is skipped, not failed** — cleanup proceeds on the strength of the other two checks. A project with no stack should say so here rather than omit the key, so its absence is a recorded fact rather than an oversight. |
 | `## credentials` | Local-development-only sign-in credentials (which app, user, password) and what seeds them. Never deployed-environment secrets. |
 | `## test` | The command(s) that run the project's tests. |
 | `## lint` | The command(s) that verify lint, and the auto-fix command to run first. |
 | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. |
-| `## jira` | Optional. The project's Jira project key(s), or the literal `none`. Governs whether `/myflow-start` and `/myflow-fast-path` ask about an issue at all — see **Jira integration** (jira-integration.md). |
+| `## jira` | Optional. The project's Jira project key(s), or the literal `none`. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (jira-integration.md). |
 
 **How a `## standards` entry resolves to a file.** Every entry in the `## standards` section is
 one of three forms, and there is no fourth. **"Bare" is mechanical throughout: the entry contains
