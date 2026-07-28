@@ -31,7 +31,8 @@ Also read the agents repo README for the Basic Workflow step map and the typical
 
 ### 1. Read the sources
 
-Read the rule file's **Pipeline stages**, **State file**, **Stage transitions**, gate sections, and **Opt-out** list.
+Read the rule file's **Pipeline stages**, **Stage transitions**, gate sections, and **Opt-out**
+list, plus **State file** in `skills/myflow-contracts/state-file.md`.
 
 ### 2. Render the overview (no argument)
 

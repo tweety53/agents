@@ -33,9 +33,9 @@ Steps **2, 4–7** run in **openspec-apply-superpowers**. Do not skip or substit
 ### A. Understand the change
 
 **Resolve the linked Jira issue first** — it decides the change name. This is one of only two
-commands that resolve a key; do it exactly as **Resolution** under **Jira integration** in
-`rules/myflow-manual-review.mdc` specifies — that section is canonical and its rules are **not**
-restated here in any form; follow it there.
+commands that resolve a key; do it exactly as **Resolution** under **Jira integration**
+(`skills/myflow-contracts/jira-integration.md`) specifies — that file is canonical and its rules
+are **not** restated here in any form; follow it there.
 
 This command's own row: it is one of only two commands that resolve a key, and it records the
 resolved key (or `null`) as `jiraIssue` in the state file written in step **E**.
@@ -147,7 +147,7 @@ and the task list. Publish it with the Artifact tool.
 Write the page's source file to the deterministic path
 `/Users/tweety53/Agents/myflow/state/<project-key>/<name>-proposal-artifact.html`, using the same
 `<project-key>` resolution (`--git-common-dir`) as **State file** in
-`rules/myflow-manual-review.mdc`. This keeps the file outside the repo, beside the state file —
+`skills/myflow-contracts/state-file.md`. This keeps the file outside the repo, beside the state file —
 never `git add` or commit it. `/myflow-start-fix` republishes to this **same** file path, which is
 what keeps the artifact URL stable across revision rounds.
 
@@ -156,7 +156,7 @@ proposal gate — it is what the user reads before running `/myflow-start-done`.
 
 ### E. Write final state and handoff
 
-Write the state file per **State file** in `rules/myflow-manual-review.mdc`
+Write the state file per **State file** in `skills/myflow-contracts/state-file.md`
 (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`;
 `mkdir -p` its directory first):
 
@@ -181,7 +181,7 @@ Write the state file per **State file** in `rules/myflow-manual-review.mdc`
 stage from being recorded. Also sync added scope here. Both mechanisms — when to skip, how to
 resolve a transition, what a failure degrades to, and the mandatory pre-write assertion and handoff
 echo for a description write — are defined once under **Jira integration** in
-`rules/myflow-manual-review.mdc`; follow them there.
+`skills/myflow-contracts/jira-integration.md`; follow them there.
 
 Description sync applies **only** when the user added scope during brainstorming that the issue does
 not already describe. No added scope → no write.

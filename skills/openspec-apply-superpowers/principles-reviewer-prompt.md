@@ -188,7 +188,7 @@ Subagent (generalPurpose):
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
   1. the entries listed under the `## standards` section of `.myflow/project.md`, when the
      project has one — resolved to absolute paths **per the entry-form table and the
-     containment rule in `rules/myflow-manual-review.mdc` (`## Project configuration`)**,
+     containment rule in `skills/myflow-contracts/project-configuration.md`**,
      which is canonical. Entries are not paths to use as-is: a bare `*.mdc` filename means
      the shared agents rule library, any other bare filename means the project's own file,
      and a path that escapes the project root is dropped;
@@ -199,5 +199,7 @@ Subagent (generalPurpose):
   file or that fails containment. Pass an empty value when none resolve, which empties the
   Hard Invariants section by design.
 - `[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs
-- `[ECONOMIC_MODEL_SLUG]` — **slots 5+ only**; see the economic model mapping in SKILL.md.
+- `[ECONOMIC_MODEL_SLUG]` — for slots 5+, the only economy slots this template serves (slot 4 is
+  the Adversarial reviewer and uses `adversarial-reviewer-prompt.md`, resolving its slug from the
+  same mapping). See the economic model mapping in SKILL.md.
   **Omit the whole `model` line for the required slot 2**, which inherits the parent model.

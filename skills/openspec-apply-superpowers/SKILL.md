@@ -70,7 +70,7 @@ Every implementer dispatch **must** include the principles requirement:
 
 - `MERGE_BASE` = commit recorded at worktree setup (from progress ledger or `git merge-base HEAD main`).
 - Write `.superpowers/sdd/final-review.diff` via `git diff MERGE_BASE` (include staged + unstaged).
-- Run the **strict review panel** below in **every** affected repo/worktree. Resolve that set from the change's own record — the `MERGE_BASE` key set, or the apps listed under `## apps` in the project's `.myflow/project.md` (see **Project configuration** in `rules/myflow-manual-review.mdc`). Never assume a repo topology remembered from another project.
+- Run the **strict review panel** below in **every** affected repo/worktree. Resolve that set from the change's own record — the `MERGE_BASE` key set, or the apps listed under `## apps` in the project's `.myflow/project.md` (see **Project configuration** in `skills/myflow-contracts/project-configuration.md`). Never assume a repo topology remembered from another project.
 - Fix Critical/Important findings from **any** panel agent before handoff; re-diff and re-run per **Panel re-runs** below until clean.
 - Record panel results in `.superpowers/sdd/final-review-panel.md` (one section per agent, one block per pass).
 
@@ -84,16 +84,18 @@ Dispatch **separate** review subagents — one per selected slot. Prefer **paral
 | 1 | **Bugbot** — defect hunt | **always** | own | `subagent_type: bugbot`, `description: "Bugbot"`, prompt shape from `review-bugbot` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [bug-hunter-reviewer-prompt.md](bug-hunter-reviewer-prompt.md) |
 | 2 | **Principles** — merged principle list + project hard invariants | **always** | parent (**omit** `model`) | `generalPurpose` + [principles-reviewer-prompt.md](principles-reviewer-prompt.md) with `[LENS]` = **Merged**; `description: "Principles review (Merged)"` | same |
 | 3 | **Security** — authZ / injection / secrets | conditional | own | `subagent_type: security-review`, `description: "Security Review"`, prompt shape from `review-security` skill with `Diff: uncommitted changes` and `Full Repository Path: <worktree>` | `generalPurpose` + [security-reviewer-prompt.md](security-reviewer-prompt.md) |
-| 4 | **Adversarial** — skeptic / regressions / test theater | conditional | parent (**omit** `model`) | `generalPurpose` + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) | same |
+| 4 | **Adversarial** — skeptic / regressions / test theater | conditional | **economy** (mapping below) | `generalPurpose` + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md); **must** set `model` | same + economic `model` |
 | 5+ | **Principles lens B / lens C** — extra breadth on a narrowed lens | conditional | **economy** (mapping below) | `generalPurpose` + [principles-reviewer-prompt.md](principles-reviewer-prompt.md) with `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops**; **must** set `model` | same + economic `model` |
 
 Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads [engineering-principles.md](engineering-principles.md) — never a pasted copy of the list — and additionally owns the **hard invariants** read out of the project's own standards files (`[STANDARDS_PATHS]`): architecture/layer purity, new suppressions, weakened lint config. Those checks came from the retired conventions slot and still block; they were relocated, not dropped.
 
 **Resolve `[PRINCIPLES_PATH]` before dispatching any principles slot (2 and 5+).** It is the **absolute** path of `engineering-principles.md` in the skill directory you are reading this file from — `<that directory>/engineering-principles.md`; under the global install, `~/.claude/skills/openspec-apply-superpowers/engineering-principles.md`. The subagent's working directory is the **project worktree**, which has no `skills/` tree, so a repo-relative `skills/…` path fails to open and the reviewer runs with no principle list. Confirm the file exists before spawning; if it does not, stop and report it rather than dispatching a blind reviewer.
 
-**Resolve `[STANDARDS_PATHS]` before dispatching slot 2** — from the entries listed under the `## standards` section of the project's `.myflow/project.md` when it has one, else auto-detection. Entries are **not** paths to use as-is: each resolves to an absolute path through the entry-form table and the containment rule, and an entry that fails either is reported by name and dropped. The resolution order is stated once, with the placeholder it fills, in [principles-reviewer-prompt.md](principles-reviewer-prompt.md); follow it there rather than a copy here (the entry forms and containment rule themselves are defined under **Project configuration** in `rules/myflow-manual-review.mdc`). Pass the **resolved absolute paths**, and pass an **empty** value when none resolve — that empties the Hard Invariants section by design and is a correct outcome in an unconfigured project, not a reason to substitute standards from anywhere else. Record in `final-review-panel.md` which standards files were passed, or that none resolved.
+**Resolve `[STANDARDS_PATHS]` before dispatching slot 2** — from the entries listed under the `## standards` section of the project's `.myflow/project.md` when it has one, else auto-detection. Entries are **not** paths to use as-is: each resolves to an absolute path through the entry-form table and the containment rule, and an entry that fails either is reported by name and dropped. The resolution order is stated once, with the placeholder it fills, in [principles-reviewer-prompt.md](principles-reviewer-prompt.md); follow it there rather than a copy here (the entry forms and containment rule themselves are defined under **Project configuration** in `skills/myflow-contracts/project-configuration.md`). Pass the **resolved absolute paths**, and pass an **empty** value when none resolve — that empties the Hard Invariants section by design and is a correct outcome in an unconfigured project, not a reason to substitute standards from anywhere else. Record in `final-review-panel.md` which standards files were passed, or that none resolved.
 
-Slots 5+ are the same template on a **narrowed** lens, which is what makes them worth an economy-tier agent: breadth over one theme, not a second opinion on everything. **No two principle reviewers in one run may share a lens.**
+**Resolve that contract file by absolute path before dispatching, exactly as `[PRINCIPLES_PATH]` is resolved above.** The repo-relative `skills/…` path names it for a reader of this repository, but the subagent's working directory is the **project worktree**, which has no `skills/` tree — so that path does not open there. Use the installed location: `<the directory holding the myflow-contracts skill>/project-configuration.md`; under the global install, `~/.claude/skills/myflow-contracts/project-configuration.md`. Confirm it is readable before resolving a single entry. If it is not, **stop and report it** — do not fall back to resolving `## standards` entries without the containment rule. That rule is the only thing between an attacker-editable list in a tracked file and an arbitrary file read whose output is written into `final-review-panel.md` and committed.
+
+Slots 5+ are the same template on a **narrowed** lens (why that suits an economy-tier agent is stated once, in the economic model mapping below). **No two principle reviewers in one run may share a lens.**
 
 ##### Optional slot selection
 
@@ -112,11 +114,24 @@ Evaluate these triggers against `final-review.diff` **before** dispatching, and 
 
 A documentation-, prompt-, or test-only diff with no trigger runs the three required slots alone. That is a correct outcome, not a skipped review — say so explicitly in the panel record.
 
-##### Economic model mapping (slots 5+ only)
+##### Economic model mapping (slots 4 and 5+)
 
-**This mapping applies only to the conditional extra lens reviewers (slots 5+).** The **required** principles reviewer (slot 2) inherits the **parent model** — pass **no** `model` override at all. Weighing principle tradeoffs is judgment work that degrades on a weaker agent; a narrowed breadth pass does not.
+**This mapping applies to the Adversarial reviewer (slot 4) and the conditional extra lens
+reviewers (slots 5+).** The **required** principles reviewer (slot 2) and the primary reviewer
+(slot 0) inherit the **parent model** — pass **no** `model` override at all. Weighing principle
+tradeoffs and judging plan alignment is open-ended judgment work that degrades on a weaker agent.
 
-Detect the **parent / current agent provider family**, then pass the matching economy-tier slug to Task `model` for each slot 5+ reviewer.
+The two economy slots earn the tier for different reasons, and each is stated here rather than
+borrowed from the other:
+
+- **Slot 4 (Adversarial)** hunts regressions and test theater over a diff that is already bounded
+  and already scoped by its own triggers — deleted or modified tests, migrations, behavior changes
+  under existing coverage. It is looking for specific, nameable things in a known place, not
+  forming an overall judgment about the change, and that search does not need the parent model.
+- **Slots 5+ (extra principle lenses)** are the same principles template narrowed to one lens:
+  breadth over a single theme, not a second opinion on everything.
+
+Detect the **parent / current agent provider family**, then pass the matching economy-tier slug to Task `model` for each slot 4 and slot 5+ reviewer.
 
 | Parent provider family (examples) | Economic model slug |
 |-----------------------------------|---------------------|
@@ -126,7 +141,7 @@ Detect the **parent / current agent provider family**, then pass the matching ec
 | GPT (`gpt-5.6*`, `gpt-5.5*`, `gpt-5.3*`) | `gpt-5.5-medium` |
 | Unknown / other | `composer-2.5-fast` |
 
-If the resolved economic slug is unavailable in the Task tool allowlist, fall back to `composer-2.5-fast`. Never skip a slot 5+ reviewer because of model selection — pick the closest economy sibling and continue.
+If the resolved economic slug is unavailable in the Task tool allowlist, fall back to `composer-2.5-fast`. Never skip a slot 4 or 5+ reviewer because of model selection — pick the closest economy sibling and continue.
 
 **Aggregation rules:**
 
@@ -174,7 +189,8 @@ Then choose the re-run shape:
 
 ### 0. Check stage
 
-Read the change's state per **State file** and validate per **State self-heal** in `rules/myflow-manual-review.mdc`.
+Read the change's state per **State file** (`skills/myflow-contracts/state-file.md`) and
+validate per **State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
 
 This command requires stage **`proposal-done`**. If the change is at any other stage, **stop** and emit the mismatch handoff from **Stage transitions**, then AskUserQuestion for an explicit override (default: **No — run the suggested command instead**).
 
@@ -264,7 +280,7 @@ git diff --cached --stat
 - Confirm implementation files appear under **Changes to be committed** (staged), not only as unstaged/untracked.
 - If a sibling repo was modified outside the main worktree, stage there too and list each path in the handoff.
 
-Write the state file before handing off. Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`) — resolving via `--git-common-dir` is what makes the worktree and the main checkout agree on one file:
+Write the state file before handing off. Resolve its path per **State file** in `skills/myflow-contracts/state-file.md` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`) — resolving via `--git-common-dir` is what makes the worktree and the main checkout agree on one file:
 
 ```json
 {
@@ -285,7 +301,8 @@ Write the state file before handing off. Resolve its path per **State file** in 
 
 The state file lives **outside** the repo — do not `git add` it, do not commit it, and do not archive it. Carry forward any gate values already present in the file; gates are monotonic.
 
-**`artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` are carried forward, never dropped.** Writes render the whole object, so omitting any of them destroys it permanently: `artifactUrl` is the proposal link `myflow-status` surfaces, `jiraIssue` is the link to the issue, `fastPath` and `REVIEWED_TREE` are what let a fast-path change resume, and `MERGE_BASE`'s key set is the authoritative list of affected worktrees for a multi-repo change. Read the existing file first and re-emit each value verbatim (`null` only if it was already `null`). This command makes **no** Jira call of its own — see **Jira integration** in `rules/myflow-manual-review.mdc`.
+**`artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` are carried forward, never dropped.** Writes render the whole object, so omitting any of them destroys it permanently: `artifactUrl` is the proposal link `myflow-status` surfaces, `jiraIssue` is the link to the issue, `fastPath` and `REVIEWED_TREE` are what let a fast-path change resume, and `MERGE_BASE`'s key set is the authoritative list of affected worktrees for a multi-repo change. Read the existing file first and re-emit each value verbatim (`null` only if it was already `null`). This command makes **no** Jira call of its own — see **Jira integration** in
+`skills/myflow-contracts/jira-integration.md`.
 
 Stop here.
 
@@ -335,7 +352,7 @@ open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 - Do not skip per-task SDD review (#6) or final whole-branch review (#6).
 - **Never skip a required slot:** primary, Bugbot, and Principles run on **every** panel pass 1, in every affected repo, and are never collapsed into one agent. Re-runs may be targeted per **Panel re-runs**; pass 1 may not.
 - Do not decide the optional slots (Security, Adversarial, lens B, lens C) by feel — evaluate **Optional slot selection** against the diff, ask when a borderline cell fires (default **include**), and record what was excluded and why.
-- Do not pass a `model` override to the required Principles reviewer (slot 2) — it inherits the parent model. Do not omit `model` on a slot 5+ lens reviewer — resolve it from the economic model mapping.
+- Do not pass a `model` override to the required Principles reviewer (slot 2) or the primary reviewer (slot 0) — both inherit the parent model. Do not omit `model` on the Adversarial reviewer (slot 4) or a slot 5+ lens reviewer — resolve it from the economic model mapping.
 - Do not dispatch two principle reviewers with the same `[LENS]`, and do not paste the principle list into a prompt — the reviewer reads `engineering-principles.md`.
 - Do not hand off while any slot's clean result is stale under the **Panel re-runs** invariant; run the full panel once if in doubt.
 - Do not hand off to Gate B while any panel agent still has open Critical/Important findings.

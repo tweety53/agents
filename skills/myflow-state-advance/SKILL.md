@@ -15,8 +15,28 @@ is deliberate — see **Pipeline stages** in `rules/myflow-manual-review.mdc`.
 
 **Announce at start:** "Using myflow-state-advance: `<name>` → `<TARGET_STAGE>`."
 
-Follow **rules/myflow-manual-review.mdc** — sections **Stage transitions**, **State file**,
-**State self-heal**, **IntelliJ commands**.
+Follow **rules/myflow-manual-review.mdc** — sections **Stage transitions**, **IntelliJ
+commands** — plus **State file** (`skills/myflow-contracts/state-file.md`) and
+**State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
+
+## The script runs first
+
+Each of the seven invoking commands now runs `state-advance.sh` before loading this skill. On the
+happy path it writes the stage itself and the skill is never invoked. The skill is only reached on
+one of the script's four escalation codes (any **other** non-zero exit — 1, 126, 127 — means the
+script is missing or not executable, and the invoking command loads this skill just the same):
+
+| Exit | Condition | What this skill does |
+|------|-----------|-----------------------|
+| 3 | State file missing, unparseable, not a JSON object, missing a required key, or a non-null `worktree` its own repository no longer lists | Fall back to artifact-based self-heal per **State self-heal** (`skills/myflow-contracts/state-self-heal.md`), announce the correction, then continue this workflow from step 1 on the healed state |
+| 4 | Current stage not in `ACCEPTED_STAGES` | Emit the stage-mismatch handoff from **Stage transitions** and AskUserQuestion for an explicit override (default: **No — run the suggested command instead**) |
+| 5 | Dynamic target (`originStage`) is `null`/missing | Stop and report it — do not guess a stage, per **Target forms** below |
+| 6 | Dynamic target (`originStage`) holds a value outside the six legal origins | Stop and report it as corruption, per **Target forms** below — never repair it |
+
+In every one of these cases, this skill's own workflow below is **unchanged** — it runs exactly as
+it did before the script existed, resolving the name, validating the stage, and writing the state
+file itself. The script is a fast path for the happy case, not a replacement for this skill's
+judgment on anything it escalates.
 
 ## Parameters (supplied by the invoking command)
 
@@ -59,7 +79,7 @@ zero → stop and say which stage was expected and what to run instead.
 
 ### 2. Read and validate state
 
-Resolve the state file per **State file**:
+Resolve the state file per **State file** in `skills/myflow-contracts/state-file.md`:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
@@ -70,8 +90,9 @@ jq -r '.stage' "$STATE_FILE"
 
 If the current stage is not in `ACCEPTED_STAGES`, **stop** and emit the mismatch handoff from
 **Stage transitions**, then AskUserQuestion for an explicit override (default: **No — run the
-suggested command instead**). Missing or contradicted file → self-heal per **State self-heal**,
-announce the correction, then re-apply this check to the healed stage.
+suggested command instead**). Missing or contradicted file → self-heal per **State self-heal**
+(`skills/myflow-contracts/state-self-heal.md`), announce the correction, then re-apply this check
+to the healed stage.
 
 If `TARGET_STAGE` is the dynamic form (`originStage`), resolve the actual target now per
 **Target forms** before proceeding — read `originStage` from the same state file, validate it
@@ -119,7 +140,7 @@ Omit the IntelliJ block when the next step is an agent command rather than a hum
   `originStage` when clearing it under the dynamic form).
 - **Never** touch Jira. `*-done` / `*-manual-review` commands are pure state writes; giving one an
   external side effect would break that invariant — see **Jira integration** in
-  `rules/myflow-manual-review.mdc`. Carry `jiraIssue` forward untouched.
+  `skills/myflow-contracts/jira-integration.md`. Carry `jiraIssue` forward untouched.
 - **Never** advance from a stage outside `ACCEPTED_STAGES` without an explicit user override.
 - **Never** modify gates; carry them forward untouched.
 - **Never** guess a dynamic target — if `originStage` is `null`/missing, stop and report it.

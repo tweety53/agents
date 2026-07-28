@@ -47,7 +47,8 @@ agents-data/
     ├── openspec-propose-fix-superpowers/  ← revise proposal after Gate A review, republish artifact to same URL
     ├── myflow-status/                 ← read-only stage report for open changes
     ├── myflow-info/                   ← reads the rule file and explains the pipeline
-    └── myflow-state-advance/          ← pure state write used by every `*-done`/`*-manual-review` command
+    ├── myflow-state-advance/          ← pure state write used by every `*-done`/`*-manual-review` command
+    └── myflow-contracts/              ← on-demand contract definitions (state file, self-heal, project config, Jira)
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in

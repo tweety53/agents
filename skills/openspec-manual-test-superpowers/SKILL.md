@@ -98,8 +98,8 @@ openspec status --change "<name>" --json
 
 Read `<main checkout>/.myflow/project.md` — the project's own apps, run/test/lint commands,
 local URLs, and credentials. Its format and the auto-detect fallback are defined once, under
-**Project configuration** in `rules/myflow-manual-review.mdc`; that section is canonical and is
-not restated here.
+**Project configuration** in `skills/myflow-contracts/project-configuration.md`; that file is
+canonical and is not restated here.
 
 - **File present** → take the app list from its `## apps`, the start/stop commands from `## run`,
   and any sign-in credentials from `## credentials`. Use them verbatim; do not "improve" a
@@ -204,7 +204,7 @@ Do **not** `git commit`. Leave for archive with the rest of the apply work.
 
 ### 5b. Write state
 
-Resolve the state file path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo: **never `git add` it, never commit it.**
+Resolve the state file path per **State file** in `skills/myflow-contracts/state-file.md` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo: **never `git add` it, never commit it.**
 
 **Read the existing file first and carry forward everything this command does not own.** Writes render the whole object, so anything not carried forward would be silently erased:
 
@@ -230,7 +230,7 @@ Resolve the state file path per **State file** in `rules/myflow-manual-review.md
 }
 ```
 
-**`artifactUrl` and `jiraIssue` are carried forward, never dropped** — writes render the whole object, so omitting either would erase the published proposal link that `myflow-status` surfaces or silently unlink the change from its issue. This command makes **no** Jira call of its own — see **Jira integration** in `rules/myflow-manual-review.mdc`.
+**`artifactUrl` and `jiraIssue` are carried forward, never dropped** — writes render the whole object, so omitting either would erase the published proposal link that `myflow-status` surfaces or silently unlink the change from its issue. This command makes **no** Jira call of its own — see **Jira integration** in `skills/myflow-contracts/jira-integration.md`.
 
 **Monotonic gates (mandatory).** Never reset `prOpened`/`prMerged` to `null` — carry the read values through verbatim. Never lower `gates.tested`: `true` and `"skipped"` are sticky and this command never demotes them (it only sets `false`/`"skipped"` on a fresh advance run where the prior value was `null`). Never write a `stage` earlier than the one found — from `awaiting-manual-test`, re-emit `awaiting-manual-test`.
 
