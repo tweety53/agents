@@ -73,6 +73,7 @@ All skills require the `openspec` CLI to be installed.
 | `skills/myflow-status/` | `/myflow-status` | Read-only stage report for open changes |
 | `skills/myflow-info/` | `/myflow-info` | Reads the rule file and explains the pipeline |
 | `skills/myflow-state-advance/` | *(internal)* | Pure state write used by every `*-done`/`*-manual-review` command: validates the incoming stage, writes the new one, prints the next step |
+| `skills/myflow-contracts/` | *(on demand)* | The pipeline's contract definitions — state file, state self-heal, project configuration, Jira integration. Load the one file you need; each is canonical for its own contract |
 
 ### /myflow commands summary
 

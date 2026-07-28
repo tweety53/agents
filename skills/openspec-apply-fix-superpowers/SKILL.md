@@ -40,7 +40,7 @@ Same as **openspec-apply-superpowers** steps 4–6 (reuse [../openspec-apply-sup
 1. **superpowers:subagent-driven-development** — Basic Workflow **#4**, with the no-commit override below.
 2. **superpowers:test-driven-development** — Basic Workflow **#5**, mandatory per implementer dispatch.
 3. **superpowers:requesting-code-review** — Basic Workflow **#6** primary reviewer.
-4. **Strict review panel** — same roster (three required slots plus the conditional ones), same prompts, same optional-slot triggers and economic-model mapping as apply; see `../openspec-apply-superpowers/SKILL.md`, which is canonical.
+4. **Strict review panel (three required slots + conditional slots)** — same roster, same prompts, same optional-slot triggers and economic-model mapping as apply; see `../openspec-apply-superpowers/SKILL.md`, which is canonical.
 5. **superpowers:verification-before-completion** — evidence before re-handoff.
 
 Plus, for documenting the fix:
@@ -76,7 +76,7 @@ myflow is installed globally and must never carry one project's task names. Reso
 - **File or key absent** → **auto-detect from the repository**: build files, `package.json` scripts, existing CI config. Announce what you detected from.
 - **Neither resolves** → say so and ask. Never substitute a task name, module path, or repo name remembered from another project.
 
-Both keys and the auto-detect fallback are defined once under **Project configuration** in `rules/myflow-manual-review.mdc` — canonical, not restated here.
+Both keys and the auto-detect fallback are defined once under **Project configuration** in `skills/myflow-contracts/project-configuration.md` — canonical, not restated here.
 
 Narrowing execution during a fix round is deliberate: broader coverage is picked up later at `/myflow-review`, which runs the project's full test and linter suite before it commits and opens the PR. If the project's `## test` names no narrower subset, the `TEST SCOPE` line simply carries the full command.
 
@@ -169,7 +169,7 @@ This decides the section title used in step 4 (`Manual Review Fixes` / `Manual T
 
 When this round adds scope the linked issue does not describe, append **one dated bullet** under
 `## Added during implementation`, per **Description sync** in **Jira integration**
-(`rules/myflow-manual-review.mdc`) — canonical, not restated here. A round that only corrects an
+(`skills/myflow-contracts/jira-integration.md`) — canonical, not restated here. A round that only corrects an
 implementation defect against an already-correct spec adds no scope and writes nothing. Skip when
 `jiraIssue` is `null`, and report the append (or one skipped-with-reason line) in step 7's
 handoff.
@@ -210,7 +210,7 @@ The concern that motivated the old always-full rule is real — a fix can regres
 
 ### 7. Stage/commit and hand off (not archive)
 
-Branch on the mode selected in **step 0** (derived from `originStage`). In both branches, write the state file with **`stage: awaiting-fix-review`** and **`originStage`** set to the value recorded in step 0; `updatedAt` and `updatedBy` (`"/myflow-do-fix"`) also change; every other gate value is carried forward exactly as read (gates are monotonic), as are `artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` — writes render the whole object, so dropping `jiraIssue` would silently unlink the change from its issue, and dropping `MERGE_BASE` would destroy the authoritative list of affected worktrees a multi-repo change depends on (this command accepts fast-path origins, where `MERGE_BASE` lives only in the state file). Resolve its path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo — **never stage, commit, or push it.**
+Branch on the mode selected in **step 0** (derived from `originStage`). In both branches, write the state file with **`stage: awaiting-fix-review`** and **`originStage`** set to the value recorded in step 0; `updatedAt` and `updatedBy` (`"/myflow-do-fix"`) also change; every other gate value is carried forward exactly as read (gates are monotonic), as are `artifactUrl`, `jiraIssue`, `fastPath`, `REVIEWED_TREE`, and `MERGE_BASE` — writes render the whole object, so dropping `jiraIssue` would silently unlink the change from its issue, and dropping `MERGE_BASE` would destroy the authoritative list of affected worktrees a multi-repo change depends on (this command accepts fast-path origins, where `MERGE_BASE` lives only in the state file). Resolve its path per **State file** in `skills/myflow-contracts/state-file.md` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo — **never stage, commit, or push it.**
 
 **Stage-only mode** (`originStage` is `awaiting-do-review`, `do-review-started`, `do-done`, `awaiting-manual-test`, or `manual-test-done`) — same as `openspec-apply-superpowers` step 7, in every affected repo/worktree:
 

@@ -96,7 +96,7 @@ Follow **openspec-archive-change** step 5:
 - Target: `<planningHome.changesDir>/archive/YYYY-MM-DD-<name>`
 - Fail if target exists; otherwise move `changeRoot`.
 - **If nested `<name>-fix-N` sub-changes were found in step 2**, archive each of them the same way, in the same session, right alongside `<name>` (same date). Do not stop after archiving the parent while a nested fix remains unarchived.
-- Write the terminal state into the change's **user-scoped** state file — resolve the path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It is **not** moved into the archive and **not** committed; it stays at that path as the terminal record:
+- Write the terminal state into the change's **user-scoped** state file — resolve the path per **State file** in `skills/myflow-contracts/state-file.md` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It is **not** moved into the archive and **not** committed; it stays at that path as the terminal record:
 
 ```json
 {
@@ -123,7 +123,7 @@ came from.
 
 **This stage's row: Done, after the archive move and the state write above** — the archive is
 already complete and is never rolled back or re-attempted because of a Jira call. The mechanism is
-defined once under **Jira integration** in `rules/myflow-manual-review.mdc`; follow it there. A nested `<name>-fix-N` sub-change has no
+defined once under **Jira integration** in `skills/myflow-contracts/jira-integration.md`; follow it there. A nested `<name>-fix-N` sub-change has no
 issue of its own; only the parent's `jiraIssue` is transitioned, once. Carry `gates.tested` forward exactly as recorded (`true` or `"skipped"` are sticky — never demote them). Write the same terminal state to each nested `<name>-fix-N` change's own user-scoped state file before archiving it.
 
 ### 4. Summary

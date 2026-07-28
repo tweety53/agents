@@ -56,8 +56,7 @@ This skill adds **no new stages**. It writes only stages that already exist in *
 | End of run (step 7), **only once a PR exists** | `awaiting-pr-review` | `prOpened: true`, `tested: "skipped"` |
 
 Also write **`fastPath: true`** into the state file, so `/myflow-status` and `/myflow-finish` can
-report how the change got here. Resolve the state file path per **State file** in
-`rules/myflow-manual-review.mdc`. It lives outside the repo — **never stage, commit, or push it.**
+report how the change got here. Resolve the state file path per **State file** in `skills/myflow-contracts/state-file.md`. It lives outside the repo — **never stage, commit, or push it.**
 
 **`jiraIssue`** is carried forward verbatim on every write this skill makes. On a change this
 command creates from scratch, resolve it the same way `/myflow-start` does (issue-key scan → fetch
@@ -92,7 +91,7 @@ Resolve the change name from `$ARGUMENTS` or the conversation. If omitted, follo
 resolution**: `openspec list --json`, exactly one active candidate → use it and announce; multiple →
 **AskUserQuestion**; zero → treat as a new change and ask for a name.
 
-Read the state per **State file** and validate per **State self-heal**.
+Read the state per **State file** in `skills/myflow-contracts/state-file.md` and validate per **State self-heal** in `skills/myflow-contracts/state-self-heal.md`.
 
 | Current stage | Action |
 |---------------|--------|
@@ -179,7 +178,7 @@ edit; the review panel in step 5 diffs against it.
 - `worktree` — the absolute worktree path (the schema already has this field)
 - `branch` — `openspec/<name>` (already in the schema)
 - `MERGE_BASE` — the commit recorded above, as an object **keyed by absolute worktree path** (see
-  **State file** in the rules for the shape)
+  **State file** in `skills/myflow-contracts/state-file.md` for the shape)
 
 Note this differs from `/myflow-do` and `/myflow-do-fix`, which record `MERGE_BASE` in the SDD
 progress ledger at `.superpowers/sdd/progress-<name>.md`. The fast path keeps no ledger, so the
@@ -194,7 +193,7 @@ absolute path — the same keying `REVIEWED_TREE` uses. The key set of `MERGE_BA
 authoritative list of affected worktrees; step 6a, the resume comparison, and step 7 all iterate it.
 
 If the state file's `worktree` is missing or stale, fall back to resolving it from
-`git worktree list` (branch `openspec/<name>`) per **State self-heal**, and rewrite the field.
+`git worktree list` (branch `openspec/<name>`) per **State self-heal** in `skills/myflow-contracts/state-self-heal.md`, and rewrite the field.
 
 ### 4. Implement inline with TDD
 
@@ -293,7 +292,7 @@ if it does not, stop and report it rather than dispatching a blind reviewer.
 
 With **`full-panel`**, run every slot instead, exactly as defined in
 [../openspec-apply-superpowers/SKILL.md](../openspec-apply-superpowers/SKILL.md) — same roster, same
-prompts, same optional-slot triggers, same economic-model mapping for slots 5+. Reference those
+prompts, same optional-slot triggers, same economic-model mapping for slots 4 and 5+. Reference those
 prompt files by path; never copy them.
 
 **Aggregation:** union Critical/Important findings, dedupe by file:line + theme, hand the combined
@@ -317,7 +316,7 @@ cd <absolute worktree root>      # repeat for each affected repo
 
 Resolve both from `<main checkout>/.myflow/project.md` (`## test`, `## lint`); when that file or a
 key is absent, **auto-detect from the repository** and announce what you detected from. Both keys
-and the fallback are defined once under **Project configuration** in `rules/myflow-manual-review.mdc`
+and the fallback are defined once under **Project configuration** in `skills/myflow-contracts/project-configuration.md`
 — canonical, not restated here.
 
 Unlike step 4's iteration subset, verification here runs the **full** test command, not the narrow
@@ -449,7 +448,7 @@ Every other gate is carried forward unchanged.
 
 **This stage's second row: In Review, after the PR is confirmed open and after the state write
 above** — the state must be recorded whether or not Jira answers. The mechanism is defined once
-under **Jira integration** in `rules/myflow-manual-review.mdc`; follow it there. Fires on those same
+under **Jira integration** in `skills/myflow-contracts/jira-integration.md`; follow it there. Fires on those same
 branches only (cases 1 and 2-**Yes**); cases 2-**No** and 3 open no PR, so they make **no** Jira
 call.
 

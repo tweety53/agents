@@ -88,11 +88,11 @@ Before running verification, assess whether the change's tests actually cover wh
 
 Invoke **superpowers:verification-before-completion**:
 
-- Run the project's tests and linters in **every** affected repo/worktree. Take the commands from `## test` and `## lint` in `<main checkout>/.myflow/project.md`; when that file or either key is absent, **auto-detect from the repository** (build files, `package.json` scripts, existing CI config). Both are defined once under **Project configuration** in `rules/myflow-manual-review.mdc` — canonical, not restated here. Run the auto-fix command from `## lint` first when the project names one. Never substitute a task name remembered from another project; if nothing resolves, say so and ask.
+- Run the project's tests and linters in **every** affected repo/worktree. Take the commands from `## test` and `## lint` in `<main checkout>/.myflow/project.md`; when that file or either key is absent, **auto-detect from the repository** (build files, `package.json` scripts, existing CI config). Both are defined once under **Project configuration** in `skills/myflow-contracts/project-configuration.md` — canonical, not restated here. Run the auto-fix command from `## lint` first when the project names one. Never substitute a task name remembered from another project; if nothing resolves, say so and ask.
 - Show command output before claiming ready.
 - If tests fail: **stop** — fix in worktree and re-verify, or suggest `/myflow-do-fix <name>` for larger fixes.
 
-**Agents-repo guards.** The agents repo carries two of them, and both run here:
+**Agents-repo guards.** The agents repo carries five of them, and all five run here:
 
 - `scripts/check-vocabulary.sh` — the **vocabulary drift guard**. Run it when the change touched
   myflow's own skills, rules, or command files.
@@ -101,6 +101,16 @@ Invoke **superpowers:verification-before-completion**:
   sandboxed `HOME` under `/tmp`. Run it whenever the agents repo is in the affected set, not only
   when the diff touched `setup.sh` — the rules and skills it installs are its inputs, so a change to
   those can break an install without touching the installer.
+- `scripts/check-references.sh` — the **stale cross-reference guard**: it checks that a section
+  referenced by name still exists in the file it is referenced from, which no list of retired
+  literals can catch.
+- `scripts/test-check-references.sh` — the **assertion harness for that guard**. It builds fixture
+  trees under a sandboxed `TMPDIR` and asserts the guard's exit status and output, including that
+  it still fails on a genuinely stale reference. A guard whose own rule silently stops
+  discriminating is worse than no guard, and only this harness catches that.
+- `scripts/test-state-advance.sh` — the **assertion harness for `state-advance.sh`**, the script
+  the seven pure-state-write commands run before loading their skill. It exercises every exit code
+  against sandboxed state files and never touches the real state tree under `~/Agents/myflow`.
 
 Show each script's output.
 
@@ -121,8 +131,11 @@ for root in "${AFFECTED_WORKTREES[@]}"; do
 done
 
 if [ -n "$GUARD_ROOT" ]; then
-  ( cd "$GUARD_ROOT" && ./scripts/check-vocabulary.sh ) || exit 1
-  ( cd "$GUARD_ROOT" && ./scripts/test-setup.sh )       || exit 1
+  ( cd "$GUARD_ROOT" && ./scripts/check-vocabulary.sh )  || exit 1
+  ( cd "$GUARD_ROOT" && ./scripts/test-setup.sh )        || exit 1
+  ( cd "$GUARD_ROOT" && ./scripts/check-references.sh )  || exit 1
+  ( cd "$GUARD_ROOT" && ./scripts/test-check-references.sh ) || exit 1
+  ( cd "$GUARD_ROOT" && ./scripts/test-state-advance.sh )    || exit 1
 else
   echo "No affected worktree carries scripts/ — guards skipped. Searched: ${AFFECTED_WORKTREES[*]}"
 fi
@@ -132,7 +145,8 @@ The explicit `else` is the point. An earlier version left `GUARD_ROOT` unset and
 `cd "$GUARD_ROOT" && …`, which fails silently and short-circuits past **both** guards with no
 message — the precise silent no-op the paragraph below forbids, produced by the snippet meant to
 prevent it. Each guard runs in a subshell so a failure cannot leave the rest of the stage running
-from the wrong directory.
+from the wrong directory. The two `test-*` harnesses are listed explicitly for the same reason the
+guards are: a harness nothing invokes can never fail, so it protects nothing.
 
 Running them with the project worktree as cwd, on the strength of a repo-relative path, is how a
 guard silently no-ops on exactly the changes it exists to check: the run whose diff rewrites the
@@ -264,7 +278,7 @@ commit on the user's behalf.
 
 ### 6b. Write state
 
-Resolve the state file path per **State file** in `rules/myflow-manual-review.mdc` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo: **never `git add` it, never commit it, never push it.**
+Resolve the state file path per **State file** in `skills/myflow-contracts/state-file.md` (`--git-common-dir` → `<project-key>` → `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`). It lives outside the repo: **never `git add` it, never commit it, never push it.**
 
 **If branch 6.1 opened/reused a PR, or branch 6.2 got a "Yes":**
 
@@ -333,7 +347,7 @@ There is no state commit: the state file is user-scoped and outside the repo. Wi
 
 **This stage's row: In Review, after the state write above.** The mechanism — when to skip, how to
 resolve the transition, and what a failure degrades to — is defined once under **Jira integration**
-in `rules/myflow-manual-review.mdc`; follow it there.
+in `skills/myflow-contracts/jira-integration.md`; follow it there.
 
 **Ordering is deliberate and matches `/myflow-start` and `/myflow-finish`: the state write comes
 first, the Jira call second.** Jira is a projection of pipeline state, so it must never be able to

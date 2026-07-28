@@ -14,7 +14,8 @@ written and no worktree is created** — implementation has not started.
 
 **Announce at start:** "Using openspec-propose-fix-superpowers for change `<name>`."
 
-Follow **rules/myflow-manual-review.mdc** — **Stage transitions**, **State file**, **Pipeline stages**.
+Follow **rules/myflow-manual-review.mdc** — **Stage transitions**, **Pipeline stages** — and
+**State file** in `skills/myflow-contracts/state-file.md`.
 
 ## Stage gate
 
@@ -41,7 +42,7 @@ accepted — recommend `/myflow-do`, or `/myflow-do-fix` if implementation has b
    `artifactUrl` must not change.
 5. **Sync added scope to the Jira issue.** When this round adds scope the linked issue does not
    describe, append **one dated bullet** under `## Added during implementation`, per **Description
-   sync** in **Jira integration** (`rules/myflow-manual-review.mdc`) — canonical, not restated
+   sync** in **Jira integration** (`skills/myflow-contracts/jira-integration.md`) — canonical, not restated
    here. Feedback that only sharpens wording adds no scope and writes nothing. Skip when
    `jiraIssue` is `null`; report the append (or one skipped-with-reason line) in the
    handoff. **Never transition the issue here** — the proposal gate is inside In Progress already.

@@ -2,7 +2,7 @@
 
 Copy this structure into `docs/manual-test/<change-name>.md`. Replace every `<…>` placeholder with **real absolute paths** for the apply worktrees (or main checkouts if no worktree), and with the **real commands, URLs, and credentials for this project**.
 
-Those project specifics come from `<main checkout>/.myflow/project.md` at generation time — `## apps`, `## run`, and `## credentials` — or from auto-detection when the project has no such file. See **Project configuration** in `rules/myflow-manual-review.mdc`. This template deliberately names no build tool, task, port, URL, or account: anything of that kind appearing below as a placeholder must be filled from the project, never from another project.
+Those project specifics come from `<main checkout>/.myflow/project.md` at generation time — `## apps`, `## run`, and `## credentials` — or from auto-detection when the project has no such file. See **Project configuration** in `skills/myflow-contracts/project-configuration.md`. This template deliberately names no build tool, task, port, URL, or account: anything of that kind appearing below as a placeholder must be filled from the project, never from another project.
 
 **Hard rule:** every shell command runs from the involved app's current apply worktree, as an absolute path. Never a relative sibling `cd ../<other-app>`.
 

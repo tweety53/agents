@@ -13,7 +13,7 @@ Report the pipeline stage of every open (non-archived) OpenSpec change. **Read-o
 
 **Announce at start:** "Using myflow-status."
 
-Follow **rules/myflow-manual-review.mdc** — sections **State file**, **State self-heal**, **Pipeline stages**.
+Follow **rules/myflow-manual-review.mdc** — section **Pipeline stages** — and **State file** (`skills/myflow-contracts/state-file.md`) and **State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
 
 ## Workflow
 
@@ -29,7 +29,7 @@ Zero open changes → say so and suggest `/myflow-start`. Stop.
 
 ### 2. Resolve each change's stage
 
-For each change, resolve its user-scoped state file path per **State file** in `rules/myflow-manual-review.mdc`, then read it:
+For each change, resolve its user-scoped state file path per **State file** in `skills/myflow-contracts/state-file.md`, then read it:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
@@ -40,7 +40,7 @@ jq -r '.stage, .gates.reviewed, .gates.tested, .gates.prOpened, .gates.prMerged,
   "$STATE_FILE" 2>/dev/null
 ```
 
-Then validate against artifacts per **State self-heal** — including its "read artifacts from the apply worktree when one exists" rule. Resolve the worktree **first**, then root every subsequent artifact check there:
+Then validate against artifacts per **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) — including its "read artifacts from the apply worktree when one exists" rule. Resolve the worktree **first**, then root every subsequent artifact check there:
 
 1. worktree resolution — find the apply worktree for branch `openspec/<name>` in `git worktree list`; if found, treat its path as the artifact root for the rest of this step, otherwise use the main checkout
 2. `tasks.md` (at the resolved root) — count `- [x]` vs `- [ ]` items
@@ -49,7 +49,7 @@ Then validate against artifacts per **State self-heal** — including its "read 
 
 If the file is missing, unparseable, or contradicted, infer the stage from artifacts, **rewrite the state file**, and mark the row `⚠`.
 
-**Self-heal is stage-only and monotonic** (per **State file** → gate monotonicity):
+**Self-heal is stage-only and monotonic** (per **State file** in `skills/myflow-contracts/state-file.md` → gate monotonicity):
 
 - Infer and correct **`stage` only**. Preserve every existing gate value exactly as read.
 - Fill `null` gates **conservatively** — `false`, never `true`.
