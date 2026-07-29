@@ -1,6 +1,6 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Always-on rule layer carries only always-on judgment
+### Requirement: Always-on rule layer carries only the trigger and the pointers
 
 `rules/myflow-manual-review.mdc` SHALL contain only what an agent needs in order to recognise
 that myflow governs the work and to know where the rest lives: the state diagram, the
@@ -33,6 +33,8 @@ The rule's frontmatter `description` SHALL name the three states, not the retire
 - **THEN** it names `STARTED`, `IN_PROGRESS` and `FINISHED`, and no retired
   stage value appears in it
 
+## MODIFIED Requirements
+
 ### Requirement: Extracted contracts live in a dedicated on-demand skill
 
 The extracted content SHALL live in `skills/myflow-contracts/`, one file per contract:
@@ -43,7 +45,7 @@ file and states when it is needed, and SHALL NOT restate the contract bodies.
 `pipeline.md` SHALL be canonical for the three states, the command→state transition table, git
 boundaries, and the finish contract.
 
-#### Scenario: One file per contract
+#### Scenario: One file per contract section
 
 - **WHEN** `skills/myflow-contracts/` is listed
 - **THEN** it contains exactly `SKILL.md`, `pipeline.md`, `state-file.md`,
@@ -68,6 +70,12 @@ contracts file that now holds it.
   and description sync
 - **AND** it finds the path `skills/myflow-contracts/jira-integration.md`
 
+#### Scenario: All four stubs are present
+
+- **WHEN** `rules/myflow-manual-review.mdc` is searched for the four moved contract section
+  headings
+- **THEN** all four headings are still present, each followed by a stub naming its contracts file
+
 #### Scenario: The pipeline pointer is unmissable
 
 - **WHEN** the always-on rule is read
@@ -81,7 +89,27 @@ contracts file that now holds it.
 `README.md`, described as the on-demand contract definitions. The retired
 `myflow-state-advance` skill SHALL NOT appear alongside it in any of those indexes.
 
+#### Scenario: The skill index names the contracts skill
+
+- **WHEN** the skill index in `CLAUDE.md`, `AGENTS.md`, or `README.md` is read
+- **THEN** `skills/myflow-contracts/` is listed with its purpose
+
 #### Scenario: The index names the surviving skills only
 
 - **WHEN** the skill index in `CLAUDE.md`, `AGENTS.md` or `README.md` is read
 - **THEN** `myflow-contracts` is listed and `myflow-state-advance` is absent
+
+## REMOVED Requirements
+
+### Requirement: Always-on rule layer carries only always-on judgment
+
+**Reason**: The requirement named the rule file's contents as "judgment sections" — Model policy,
+Pipeline stages, Stage transitions, Fix re-entry, Stage boundaries, Full cycle gates, Opt-out —
+and its scenarios asserted those sections are *retained* in full, at up to 32 KB. This change does
+the opposite: the pipeline moves out to `skills/myflow-contracts/pipeline.md` and the rule keeps
+only the trigger and the pointers, at most 8 KB. The scenarios "Contract bodies are absent from
+the always-on rule" and "Judgment sections are retained" therefore assert a shape that no longer
+exists, and the stage vocabulary they are written in is itself retired by this change.
+
+**Migration**: Replaced by "Always-on rule layer carries only the trigger and the pointers" above,
+which states the smaller budget and the pipeline exclusion explicitly.
