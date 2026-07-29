@@ -1,6 +1,6 @@
-# KAN-19 — finish safety and session records
+# KAN-19 — finish safety, session records, and planning effort
 
-**Change:** `kan-19-finish-safety-and-records`
+**Change:** `kan-19-finish-safety-records-and-effort`
 **Issue:** KAN-19 — "KAN-14 follow-up — widen the provenance guard's scope, and make the model
 record durable"
 **Date:** 2026-07-29
@@ -23,6 +23,11 @@ rewrite.
 
 Item 3 is the reason for the ordering. On KAN-14 it very nearly archived and `--force`-deleted a
 worktree holding 29 staged entries.
+
+**A fifth item was added by the operator during this planning run**, and is in scope here:
+`/myflow-start` should ask what effort to spend on a change the first time it is run for that
+change. It belongs with these because it lands in the same contracts — the state file gains a field,
+and the closed state-file schema turns out to make adding one non-trivial.
 
 ## The problem
 
@@ -74,8 +79,30 @@ not.
    deleting with no preservation and over retaining it where it is.
 6. **Item 3 becomes an executable, tested script**, over prose contract only and over a script for
    the decision with prose for everything else.
+7. **The effort level governs this `/myflow-start` run's reasoning only**, over scaling pipeline
+   depth across all three commands and over one scale doing both.
+8. **The chosen effort is recorded in a new state-file `effort` field**, over recording it only in
+   the proposal artifact and over asking fresh on every run.
 
 Rationales are recorded per decision in the change's `design.md`.
+
+## The effort item, in brief
+
+`/myflow-start` asks once, on the run that **creates** the change — determined by the state file's
+absence, not by a guess. A revision round reads the recorded level, says which it is reusing, and
+does not ask. Three levels, `medium` the default; they change how many rounds of questions are put
+and how finely the design is presented, and they may not switch any gate off. Brainstorming, the
+design approval gate, writing-plans and plan-quality `tasks.md` hold at every level, and the review
+panel's breadth is never scaled from this field.
+
+The interesting part is the storage. `state-self-heal.md` closes the state-file schema **in both
+directions** — a file missing a documented field is unparseable, and a file carrying an undocumented
+key is unparseable too. Adding `effort` naively breaks both ways at once. It is therefore documented
+as a field whose **absence is a legal value** meaning "not recorded", which is different from the
+present-and-nullable shape `artifactUrl`, `jiraIssue` and `prUrl` have. Requiring the key would route
+all three existing finished changes through self-heal — a loud correction for a value nobody had the
+chance to set — and a schema-version key would introduce a migration mechanism for one optional field
+while itself being an undocumented key on every file predating it.
 
 ## Design
 
@@ -186,6 +213,12 @@ confirmation at implementation time rather than asserting it.
     `scripts/test-check-finish-preflight.sh` and `scripts/test-preserve-session-records.sh`.
     Neither new check joins `## lint`: both need a git branch context rather than a tree scan, and
     a lint step that cannot run outside a change would fire on every unrelated invocation.
+- **`myflow-effort`** (new)
+  - ADDED — the once-per-change ask, what the levels may and may not change, and the `effort` field
+    with its absence carve-out.
+- **`myflow-state-integrity`**
+  - MODIFIED — `effort` joins the fields a self-heal rewrite carries forward and a failed recovery
+    announces, with an explicit rule that a legally absent `effort` is not reported as a loss.
 
 Contract and skill text follows the specs. `pipeline.md`'s Finish contract points at the preflight
 script; `myflow-finish/SKILL.md` gains the copy step in section 1.2 and the artifact removal in run
@@ -212,5 +245,7 @@ one of the guard's own defects as its specification.
 ## Out of scope
 
 - Item 1, the provenance guard's scan scope — a separate change under this ticket.
+- Effort governing `/myflow-do` or `/myflow-finish`. The recorded value is a record and a
+  revision-round default; widening it is a change to those commands' specs.
 - Commit messages, which the issue notes are outside any guard's reach.
 - KAN-15, serialization of independent tasks in `/myflow-do`.
