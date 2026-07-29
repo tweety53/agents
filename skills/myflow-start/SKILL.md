@@ -113,12 +113,19 @@ Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan q
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
 coverage, placeholder scan, type consistency) before finishing.
 
+While enriching `tasks.md`, tag every fenced block and every numeric claim per **Plan provenance**
+(`skills/myflow-contracts/plan-provenance.md`): code that cannot be verified is tagged
+`unverified:` and **kept** — a plan without the snippet is worse than a plan with a labelled guess.
+
 Add this header to `tasks.md`:
 
 ```markdown
 > **Execution:** `/myflow-do` implements this plan. Mark each checkbox when its task passes spec +
 > quality review.
 ```
+
+Before publishing the artifact, run the project's configured plan-provenance guard if it declares
+one, and fix any hit.
 
 ## E. Publish the proposal artifact
 
@@ -182,6 +189,7 @@ The IntelliJ path is the **main checkout** — no worktree exists at this state.
 
 - **Never skip** brainstorming (#1) or writing-plans (#3), or the design approval gate.
 - **Never** leave `tasks.md` a thin scaffold.
+- **Never** publish a plan carrying an untagged block or an unsourced number.
 - **Never** finish without publishing the artifact and recording `artifactUrl`.
 - **Never** mint a new artifact URL on a revision round.
 - **Never** delete a superseded decision; mark it superseded.

@@ -47,6 +47,14 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # The default scan set: everything in this repo that can carry the vocabulary. Kept here
 # and nowhere else, so callers only ever have to say `scripts/check-vocabulary.sh`.
+#
+# Scanning `openspec/specs` was tried and reverted: a requirement that forbids a retired term
+# has to name that term to do its job (e.g. "SHALL NOT contain `gates`, `tested`, ..."), so a
+# live spec written correctly still trips a bare vocabulary scan. There is no honest fix for
+# that false positive — rewording deletes the requirement, and a suppression marker is
+# forbidden by this repo's own lint policy. Don't re-add `openspec/specs` here; if drift in
+# specs needs catching, it needs a check that understands requirement structure, not a flat
+# grep over retired literals.
 DEFAULT_TARGETS=(skills rules commands commands-claude scripts README.md AGENTS.md CLAUDE.md)
 
 if [[ $# -gt 0 ]]; then

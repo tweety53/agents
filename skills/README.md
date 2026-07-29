@@ -28,7 +28,11 @@ installed by `setup.sh global` to `~/.cursor/rules/` and inlined into the manage
 asked which.
 
 **Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; manual switch
-elsewhere). Every other command → Sonnet, and **every review-panel reviewer runs on Sonnet** too.
+elsewhere). Every other command's **session** → Sonnet, and **every review-panel reviewer runs on
+Sonnet** too. But the **implementer subagents `/myflow-do` dispatches run on Opus** — or the
+harness's strongest model — named explicitly at dispatch. Frontmatter sets the session's model and
+cannot set a subagent's, so that one is enforced by the dispatch and recorded in the SDD ledger.
+See "Model policy" in `myflow-contracts/pipeline.md`, which is canonical.
 See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
 ## Superpowers Basic Workflow map

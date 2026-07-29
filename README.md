@@ -340,7 +340,7 @@ degraded but the OpenSpec-specific steps still work.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command → Sonnet, and **every review-panel reviewer runs on Sonnet** regardless of the parent model.
+**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command's **session** → Sonnet, and **every review-panel reviewer runs on Sonnet** regardless of the parent model. The **implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest model — named explicitly at dispatch, since frontmatter sets a session's model and cannot set a subagent's; each dispatch's model is recorded in the SDD ledger. See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|

@@ -19,7 +19,7 @@ Accepts **`STARTED`** (first run) or **`IN_PROGRESS`** (fix run).
 
 - From `STARTED`: create the worktree, implement the plan, end at `IN_PROGRESS`.
 - From `IN_PROGRESS`: resume the **existing** worktree, apply a fix, and **write the state back
-  unchanged**. There is no `originStage` and no fix re-entry table — a fix never moves the state. <!-- vocab-guard:allow -->
+  unchanged** — a fix never moves the state.
 
 At `FINISHED` the change is archived; emit the wrong-state handoff and stop.
 
@@ -74,7 +74,7 @@ transition the issue here.
 ## 4. Execute (SDD + TDD)
 
 Invoke **superpowers:subagent-driven-development**, treating each remaining checkbox (or a tightly
-coupled group) as one task. Every implementer dispatch **must** carry all three of:
+coupled group) as one task. Every implementer dispatch **must** carry all four of:
 
 > **MYFLOW — NO COMMITS:** Do **not** run `git commit`, `git push`, merge, or open a PR. Leave all
 > changes uncommitted in the worktree. You **may** `git add`. The parent records
@@ -87,9 +87,22 @@ coupled group) as one task. Every implementer dispatch **must** carry all three 
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.
 
+> **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
+> Establish the real API before writing against it, and report what you found. A block tagged
+> `verified:<how>` was checked as stated; if it does not compile, report that — do not contort the
+> code to match it.
+
+**Dispatch every implementer on Opus** (or the harness's strongest available model), naming it
+explicitly — never by omission, which silently inherits the parent's model. This **overrides**
+subagent-driven-development's "least powerful model that can handle each role" guidance; see
+**Model policy** in `skills/myflow-contracts/pipeline.md` for why, and for the operator-override
+rule. The panel's slots stay on Sonnet — the two rules differ on purpose.
+
 Per-task review without commits: write `git diff TASK_BASE > .superpowers/sdd/task-N.diff` and give
 the reviewer that path, never a commit range. Ledger line: `Task N: complete (uncommitted, review
-clean)`. Mark a checkbox `[x]` only after its task passes spec **and** quality review.
+clean, model: <model>)` — **record the model on every dispatch**, implementer and reviewer alike, so
+the policy is auditable after the fact. Mark a checkbox `[x]` only after its task passes spec **and**
+quality review.
 
 On BLOCKED: pause and report. Never guess.
 
@@ -252,6 +265,7 @@ Next:
 - **Never** advance the state from `IN_PROGRESS`; write back what you read.
 - **Always `git add -A`** in every affected worktree before handing off.
 - **Never skip** a required panel slot, and never collapse two slots into one prompt.
+- **Never dispatch an implementer without the provenance clause.**
 - **Never** pass a model override to Bugbot or Security Review; **always** name Sonnet on every
   other slot.
 - **Never** paste the principle list into a prompt — the reviewer reads the file.

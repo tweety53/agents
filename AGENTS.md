@@ -135,10 +135,17 @@ change relevant to that state is used automatically; if there are multiple, you'
 rather than ignored.
 
 **Model:** `/myflow-start` → **Opus** (brainstorming/design benefits from stronger reasoning).
-Every other command → **Sonnet**, and **every review-panel reviewer runs on Sonnet** regardless of
-the parent model. In Claude Code this is enforced via `model:` frontmatter on each command; Cursor
-and Codex don't support per-command model selection yet, so switch manually — see "Model policy"
-in `skills/myflow-contracts/pipeline.md`.
+Every other command's **session** → **Sonnet**, and **every review-panel reviewer runs on Sonnet**
+regardless of the parent model. In Claude Code the *session* model is enforced via `model:`
+frontmatter on each command; Cursor and Codex don't support per-command model selection yet, so
+switch manually.
+
+**The implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest
+available model — named explicitly on each dispatch rather than inherited. Frontmatter cannot set
+a subagent's model, so this rule is carried by the dispatch itself and recorded, per dispatch, in
+the SDD ledger. It deliberately overrides superpowers:subagent-driven-development's "least
+powerful model that can handle each role". See "Model policy" in
+`skills/myflow-contracts/pipeline.md`, which is canonical.
 
 | Command | What it does |
 |---------|-------------|
