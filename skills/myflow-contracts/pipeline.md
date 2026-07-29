@@ -382,8 +382,53 @@ and design benefit most from stronger reasoning. Every other `/myflow-*` command
 **Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on Sonnet**
 regardless of the parent model.
 
-- **Claude Code**: enforced via `model: opus` / `model: sonnet` in each command's frontmatter
-  (`commands-claude/*.md`) — no manual action needed.
+**Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
+available model). This **explicitly overrides** superpowers:subagent-driven-development's model
+guidance — that skill says to pick "the least powerful model that can handle each role" and to use
+the cheapest tier where the plan already contains the code to write. That guidance does not govern
+this pipeline. The saving it offers is false here: an implementation defect is not avoided by the
+review panel, it is *found* by the panel, at the cost of a fix wave and a re-run of every slot.
+Buying a cheaper implementer with a more expensive review is the wrong trade.
+
+The two rules point in opposite directions on purpose. A reviewer's job is to be many independent
+readings of a finished diff, so its cost must not scale with the operator's session model. An
+implementer's job is to get the diff right the first time, where capability compounds.
+
+**Two further instructions in that same upstream skill are also overridden, and are named here
+rather than left to be discovered.** subagent-driven-development says to dispatch the *final
+review* on the most capable model: myflow does not — it fixes every panel slot at Sonnet, for the
+reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
+and extra-principle-lens slots), which buys more independent readings rather than one stronger one.
+It also says to *escalate the model in fix rounds 4-5*: myflow cannot, because its implementers
+already sit at the ceiling from round 1. Fix rounds escalate the same way — more lenses, not a
+bigger model — and round 5 hands back to the operator rather than pretending an escalation is
+available.
+
+**An explicit operator instruction overrides either default, in either direction** — raising the
+panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
+work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
+from a mistake.
+
+**Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
+A model policy that nothing records is a policy nothing can verify — and the absence of that record
+is precisely how this rule came to be missing in the first place.
+
+Where the dispatcher **cannot know** the model, the ledger records `unknown (agent-defined)` and
+never a guess. Slots dispatched by `subagent_type` (Bugbot, Security Review) resolve their model
+from their own agent definition, which the dispatcher does not read; writing a plausible slug for
+them puts an unmeasured value into the audit trail.
+
+**This record is session-scoped.** The ledger lives under `.superpowers/`, which is gitignored, in
+a worktree `/myflow-finish` run 2 removes — so it serves the operator and the panel *during* the
+change, and does not survive archival. Do not plan an after-the-fact audit around it. Making it
+durable is a change to `/myflow-finish`'s archive step and belongs to whichever change owns that.
+
+- **Claude Code**: the **session** model is enforced via `model: opus` / `model: sonnet` in each
+  command's frontmatter (`commands-claude/*.md`) — no manual action needed *for the session*.
+  Frontmatter cannot set a **subagent's** model, so the implementer rule above is not enforced by
+  it: `/myflow-do` must name the model on each implementer dispatch, and the ledger line for that
+  task is what records that it did. Slots dispatched by `subagent_type` (Bugbot, Security Review)
+  carry their own agent definitions and take no override from either mechanism.
 - **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) —
   each `.cursor/commands/myflow-*.md` file carries an explicit note; switch models manually in the
   composer/chat picker.

@@ -24,11 +24,44 @@ When the file is missing, unparseable, or contradicted: fall back to artifact in
 
 Self-heal obeys the monotonicity rule stated under **State file** (`skills/myflow-contracts/state-file.md`): it may only raise or fill values. It infers `state` only, and never fabricates a `prUrl`.
 
+**A rewrite carries forward every field it did not infer.** **State file**
+(`skills/myflow-contracts/state-file.md`) requires every write to first read the existing file and
+carry forward the fields it does not itself own; self-heal is a write, and its only owned field is
+`state`. `branch`, `worktrees`, `artifactUrl`, `jiraIssue` and `prUrl` are re-emitted exactly as
+read — never collapsed to `null` in place of the value that was there. A write renders the whole
+object, so a field left out of the render is not left unchanged, it is erased.
+
+**When the prior file is missing or unparseable, those fields have no source.** Artifact inference
+only produces `state`; it has nothing to carry forward for the fields self-heal does not infer, and
+writing `null` for them there is indistinguishable from a value that was legitimately never set —
+the loss stays invisible until a later command can't find the proposal artifact or the tracker
+issue. In that case, name every field that could not be recovered in the correction announcement
+itself, so the loss is visible at the moment it happens rather than inferred later from a failure:
+
+```text
+⚠ state corrected: none → IN_PROGRESS (file unparseable; artifactUrl, jiraIssue unrecovered — prior file could not be read)
+```
+
+JSON that parses but is missing one or more of the fields this contract requires is treated as
+unparseable in full, not partially recovered — the announcement above still names every field that
+could not be read, exactly as if the file had failed to parse at all. A parseable-but-incomplete
+file is not a smaller version of the all-or-nothing rule; it is the same case.
+
+A file that read successfully but was merely *contradicted* by artifacts (the table above) carries
+every unowned field forward from that successful read, so nothing is unrecovered in that case — the
+announcement names only the state change, per the existing `⚠ state corrected: <old> → <new>
+(reason)` shape.
+
 **There is no legacy-value migration.** A state file predating the three-state model carries a
 `stage` field this contract does not recognise, which makes it *unparseable* by the rule above —
 so it is rewritten from artifacts like any other unparseable file, and the correction is
 announced. Backward compatibility was explicitly waived for this rename, and a mapping table would
 be a second, drifting definition of a vocabulary that no longer exists.
+
+The schema is closed in both directions: just as a file missing a required field is unparseable,
+**a file carrying any key not among this contract's documented fields is unparseable too** — that
+is the general, mechanical rule for recognising a legacy field, without this file having to name
+which fields have been retired.
 
 ## The stale-`prUrl` gap — recorded, not closed
 

@@ -52,11 +52,9 @@ Every command resolves the path this way, so the same change maps to the same fi
   "last update" from this field and a fabricated value makes a stalled change look freshly touched.
 - `updatedBy` — the command that last wrote the file, e.g. `"/myflow-do"`.
 
-**There is no `gates` object, no `tested`, no `originStage`, no `REVIEWED_TREE`, and no <!-- vocab-guard:allow -->
-`fastPath`.** Each was removed with the thing that fed it: nothing records a human confirmation now <!-- vocab-guard:allow -->
-that the `*-done` commands are gone; no command observes whether the human ran the apps, so nothing
-could write `tested` honestly; a fix no longer moves the state, so there is no origin to return to;
-and the shortened single-session variant that carried `fastPath` no longer exists. <!-- vocab-guard:allow -->
+**This file records no human confirmation and no fix origin.** No command observes whether the
+human ran the apps, so nothing could honestly confirm that a human reviewed the work. And a fix
+never moves the state, so there is no origin state for a fix to return to.
 
 **Multi-repo shape.** `worktrees` carries one entry per affected repository, so a change spanning
 two repos records both:
@@ -80,6 +78,25 @@ jq -r '.state' "$STATE_FILE" 2>/dev/null || echo "MISSING"
 ```
 
 Write it by rendering the full object above — always write every field, never a partial merge. Never `git add` it, never include it in a commit, and never move it into `openspec/changes/archive/`.
+
+**Five fields from the twelve-stage predecessor are retired and never appear in a state file this
+contract produces.** A file still carrying one is unparseable under **State self-heal**
+(`skills/myflow-contracts/state-self-heal.md`):
+
+- the field that recorded where a dynamic-target write originated — meaningless once targets
+  stopped being dynamic.
+- the boolean flag that recorded a change having taken the shortened single-session route — that
+  route is gone, and its shape does not survive in three states. It did **not** mark a change as
+  skipping review: the route it recorded ran a review panel of its own, just a smaller roster than
+  the standard one. What actually skipped review was a separate *invocation flag* on the
+  twelve-stage cycle, which was never a state-file field at all and so has no tombstone here.
+- the cache key that pinned a stage-advance script's last-scanned commit — the script it belonged
+  to no longer exists.
+- the four-valued object that tracked pass/fail across four named checkpoints of the old
+  twelve-stage pipeline — collapsed into the single `state` field above.
+- the boolean recording whether a human had exercised the change — no command ever observes this
+  honestly (see "This file records no human confirmation" above), so the field recorded a claim
+  nobody could verify.
 
 **State writes are monotonic.** No command may write a `state` earlier than the one it found. The
 single carve-out is described under **State self-heal**

@@ -48,7 +48,7 @@ Then validate against artifacts per **State self-heal** (`skills/myflow-contract
 4. merge status — `git merge-base --is-ancestor <branch> origin/<base>`, which decides whether the next `/myflow-finish` integrates or archives
 5. PR — `gh pr list --head <branch> --state all --json number,state,url`, **only when `gh` is installed and the remote is a GitHub host**. Otherwise (Bitbucket, no `gh`, no network, branch never pushed) PR state is **unknown** — report it as unknown and treat it as inconclusive, never as "no PR exists".
 
-If the file is missing, unparseable, or contradicted, infer the state from artifacts, **rewrite the state file**, and mark the row `⚠`.
+If the file is missing, unparseable, or contradicted, infer the state from artifacts, **rewrite the state file** — carrying forward every field this command did not infer, per **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) — and mark the row `⚠`.
 
 **Self-heal is state-only and monotonic** (per **State file** in `skills/myflow-contracts/state-file.md`):
 
