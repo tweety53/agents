@@ -1,0 +1,290 @@
+<title>KAN-20 — Widen the plan-provenance guard's scan scope</title>
+<style>
+  :root {
+    --ground: #f6f7f7;
+    --panel: #ffffff;
+    --rule: #dde2e2;
+    --ink: #1b2124;
+    --ink-soft: #4d5a5e;
+    --ink-faint: #78878b;
+    --accent: #2f5d62;
+    --accent-soft: #e4eded;
+    --flag: #a8492c;
+    --flag-soft: #f6e7e1;
+    --pass: #4a6b45;
+    --pass-soft: #e6eee4;
+    --code-bg: #eef1f1;
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #14181a;
+      --panel: #1b2023;
+      --rule: #2c3438;
+      --ink: #e6ebec;
+      --ink-soft: #a9b7ba;
+      --ink-faint: #7d8d91;
+      --accent: #7fb3b6;
+      --accent-soft: #22383a;
+      --flag: #d98b6c;
+      --flag-soft: #3a2620;
+      --pass: #9ec095;
+      --pass-soft: #24301f;
+      --code-bg: #222a2d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #14181a; --panel: #1b2023; --rule: #2c3438;
+    --ink: #e6ebec; --ink-soft: #a9b7ba; --ink-faint: #7d8d91;
+    --accent: #7fb3b6; --accent-soft: #22383a;
+    --flag: #d98b6c; --flag-soft: #3a2620;
+    --pass: #9ec095; --pass-soft: #24301f; --code-bg: #222a2d;
+  }
+  :root[data-theme="light"] {
+    --ground: #f6f7f7; --panel: #ffffff; --rule: #dde2e2;
+    --ink: #1b2124; --ink-soft: #4d5a5e; --ink-faint: #78878b;
+    --accent: #2f5d62; --accent-soft: #e4eded;
+    --flag: #a8492c; --flag-soft: #f6e7e1;
+    --pass: #4a6b45; --pass-soft: #e6eee4; --code-bg: #eef1f1;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    padding: clamp(1.5rem, 4vw, 4rem) 1.25rem 6rem;
+  }
+  .wrap { max-width: 43rem; margin: 0 auto; display: flex; flex-direction: column; gap: 2.75rem; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 .75rem;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: clamp(1.9rem, 5vw, 2.7rem);
+    line-height: 1.15; text-wrap: balance; margin: 0 0 .9rem; letter-spacing: -.015em;
+  }
+  .standfirst { font-size: 1.08rem; color: var(--ink-soft); margin: 0; text-wrap: pretty; }
+
+  .meta {
+    display: flex; flex-wrap: wrap; gap: .5rem 2rem;
+    border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+    padding: .9rem 0; font-family: var(--mono); font-size: .78rem; color: var(--ink-faint);
+  }
+  .meta b { color: var(--ink-soft); font-weight: 500; }
+
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  h2 {
+    font-family: var(--serif); font-size: 1.35rem; font-weight: 600; letter-spacing: -.01em;
+    margin: 0; padding-bottom: .5rem; border-bottom: 2px solid var(--accent);
+    text-wrap: balance;
+  }
+  h3 { font-family: var(--sans); font-size: .96rem; font-weight: 650; margin: 0; }
+  p, li { margin: 0; text-wrap: pretty; }
+  ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .55rem; }
+  code {
+    font-family: var(--mono); font-size: .85em; background: var(--code-bg);
+    padding: .1em .35em; border-radius: 3px;
+  }
+  strong { font-weight: 650; }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--rule); }
+  th {
+    font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500;
+  }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: .68rem; letter-spacing: .06em;
+    text-transform: uppercase; padding: .18em .5em; border-radius: 3px; white-space: nowrap;
+  }
+  .tag.flag { background: var(--flag-soft); color: var(--flag); }
+  .tag.pass { background: var(--pass-soft); color: var(--pass); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: .6rem;
+  }
+  .card .id {
+    font-family: var(--mono); font-size: .72rem; color: var(--accent);
+    background: var(--accent-soft); padding: .15em .45em; border-radius: 3px; align-self: flex-start;
+  }
+  .card .considered { font-size: .9rem; color: var(--ink-soft); }
+
+  .callout {
+    border-left: 3px solid var(--flag); background: var(--flag-soft);
+    padding: .9rem 1.1rem; border-radius: 0 4px 4px 0;
+    display: flex; flex-direction: column; gap: .55rem;
+  }
+  .callout p { font-size: .95rem; }
+
+  ol.tasks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .75rem; counter-reset: t; }
+  ol.tasks li {
+    display: grid; grid-template-columns: 2rem 1fr; gap: .85rem; align-items: baseline;
+    border-bottom: 1px solid var(--rule); padding-bottom: .75rem;
+  }
+  ol.tasks li::before {
+    counter-increment: t; content: counter(t);
+    font-family: var(--mono); font-size: .78rem; color: var(--accent);
+  }
+  ol.tasks li:last-child { border-bottom: 0; }
+  ol.tasks .what { font-size: .92rem; color: var(--ink-soft); }
+
+  footer { border-top: 1px solid var(--rule); padding-top: 1rem; font-size: .82rem; color: var(--ink-faint); }
+  a { color: var(--accent); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">KAN-20 · Proposal · agents</p>
+    <h1>Widen the plan-provenance guard's scan scope beyond tasks.md</h1>
+    <p class="standfirst">
+      The guard reads a change's <code>tasks.md</code> and nothing else. Its <code>design.md</code>
+      and <code>proposal.md</code> make numeric claims like any plan, and nothing checks them. This
+      widens the scan — and first removes the two false-positive classes that widening would expose.
+    </p>
+  </header>
+
+  <div class="meta">
+    <span><b>Change</b> kan-20-widen-plan-provenance-guard-scan-scope</span>
+    <span><b>Effort</b> high</span>
+    <span><b>Decisions</b> 3</span>
+    <span><b>Measured at</b> c1f5aa6</span>
+  </div>
+
+  <section>
+    <h2>What the measurements changed</h2>
+    <p>
+      The ticket predicted the numeric rule would "fire heavily", projecting up to seventy-odd hits
+      per <code>design.md</code> from a bare-number proxy. The guard's real classifier only fires on
+      a digit group followed by one of eight unit words, so the true cost is an order of magnitude
+      smaller. Every figure below comes from calling the guard's own
+      <code>ProvenanceGuard.check_file</code> directly.
+    </p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Candidate scope</th><th class="num">Violations</th><th class="num">Aborts</th><th>Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>design.md</code></td><td class="num">3</td><td class="num">0</td><td><span class="tag flag">in scope</span></td></tr>
+          <tr><td><code>proposal.md</code></td><td class="num">3</td><td class="num">0</td><td><span class="tag flag">in scope</span></td></tr>
+          <tr><td>change <code>specs/**</code></td><td class="num">1</td><td class="num">0</td><td><span class="tag pass">excluded</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Zero classification aborts means the container-prefix grammar already handles these file
+      types. Of the hits, most are false positives in two classes — a self-referential quotation of
+      the historical invented baseline, which the provenance documentation must reproduce to explain
+      itself, and an issue key read as a quantity, where <code>KAN-6 errors</code> parses as a count
+      of errors.
+    </p>
+  </section>
+
+  <section>
+    <h2>The premise, corrected</h2>
+    <div class="callout">
+      <p>
+        <strong>Scope was not the binding constraint.</strong> Of the four defects the ticket cites
+        as motivation, widening the scan would have caught essentially none. The most-instanced one —
+        <code>measured:</code> tags citing a ref where the cited scripts do not exist — had most of
+        its instances inside <code>tasks.md</code>, already fully in scope, and the guard passed
+        clean on them.
+      </p>
+      <p>
+        The guard checks that provenance is <em>stated</em>, never that it is <em>true</em>. That
+        boundary, not the file list, is what let those defects through. Verifying the
+        <code>@ &lt;ref&gt;</code> half of a tag is deliberately left to its own ticket rather than
+        smuggled in here.
+      </p>
+    </div>
+    <p>
+      What this change genuinely buys: two unattributed numeric claims the guard cannot currently
+      see, a false-positive class removed before it can provoke a suppression marker, and a module
+      docstring corrected to describe the behaviour the code actually has.
+    </p>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+
+    <div class="card">
+      <span class="id">scope-not-truth</span>
+      <h3>Widen the scope and fix its false-positive classes, rather than re-aiming at tag truth</h3>
+      <p>Stay close to the ticket, and be honest that this catches two real defects rather than the four cited.</p>
+      <p class="considered">
+        <strong>Considered:</strong> block rule only — zero cost, but close to a no-op on this
+        repository's evidence. Re-aiming at ref verification — what would have caught the
+        most-instanced defect, but it amends a deliberate documented boundary. Both together — wants
+        decomposing into two changes.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="id">specs-excluded</span>
+      <h3>A change's <code>specs/</code> directory stays out of scope</h3>
+      <p>Spec text legislates rather than describes, and a requirement forbidding a shape must be able to name that shape.</p>
+      <p class="considered">
+        <strong>Considered:</strong> including it — immediately raises why <code>openspec/specs/</code>,
+        the synced copy of the same text, stays unscanned. Including it for the block rule only —
+        invents a per-file rule split to save nothing measurable.
+      </p>
+    </div>
+
+    <div class="card">
+      <span class="id">quotation-syntactic</span>
+      <h3>The quoted-number false positive is fixed syntactically, not with a fifth tag</h3>
+      <p>
+        A number enclosed in matched double quotes or an inline code span is a quotation, not a
+        claim. Line-scoped, and fails closed — an unmatched delimiter exempts nothing.
+      </p>
+      <p class="considered">
+        <strong>Considered:</strong> a fifth tag <code>quoted:</code> — auditable, but it amends
+        "four tags exist, and no others" to cover instances that are all the same self-referential
+        quotation. A hybrid — more surface to specify and test for a case that has not arisen.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The plan</h2>
+    <p>
+      Ordered so the repository never passes through a state where the widened scan reports a false
+      hit on its own tree: classifier fixes first, scope second, contract last.
+    </p>
+    <ol class="tasks">
+      <li><div><h3>Stop reading an issue key as a quantity</h3><p class="what">A fixed-width lookbehind on the numeric pattern, plus the docstring sentence that described a property the code lacked.</p></div></li>
+      <li><div><h3>A quoted number is reproduced, not claimed</h3><p class="what">A line-scoped, fail-closed enclosure predicate, routed through the single existing claim-check method.</p></div></li>
+      <li><div><h3>Scan design.md and proposal.md</h3><p class="what">The scan set, a generalised containment gate covering every scanned file, and the restated scan-integrity invariant.</p></div></li>
+      <li><div><h3>Bring the contract into line</h3><p class="what">The scope section rewritten, the exemption documented, and what did <em>not</em> change said plainly.</p></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Out of scope</h2>
+    <ul>
+      <li><strong>Tag truth.</strong> Verifying that a <code>measured:</code> tag's ref resolves, or that its cited command exists there. It deserves its own ticket.</li>
+      <li><strong>Commit messages.</strong> Outside any guard's reach, as the ticket itself records.</li>
+      <li><strong>The published <code>openspec/specs/</code> tree.</strong> Excluding a change's <code>specs/</code> keeps this consistent by construction.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Once this ships, the guard scans this change's own <code>design.md</code> and
+    <code>proposal.md</code>, and <code>/myflow-do</code> runs the lint step at the end of its run.
+    Those artifacts are written tag-clean under the new rules from the start — the most direct
+    end-to-end proof that the widening works.
+  </footer>
+
+</div>

@@ -145,7 +145,7 @@ clean_tasks_md
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "archived tasks.md is not scanned" || fail "archive: out=$OUT"
 
-# 8. An untagged block in proposal.md (not tasks.md) is out of scope.
+# 8. An untagged block in proposal.md IS in scope.
 new_fixture
 clean_tasks_md
 {
@@ -154,7 +154,7 @@ clean_tasks_md
   printf '```\n'
 } > "$FIXTURE/openspec/changes/demo-change/proposal.md"
 run_guard "$FIXTURE"
-[ "$RC" -eq 0 ] && pass "proposal.md is out of scope" || fail "proposal.md: out=$OUT"
+[ "$RC" -eq 1 ] && pass "proposal.md is in scope" || fail "proposal.md: rc=$RC out=$OUT"
 
 # 9. An untagged block in skills/foo/SKILL.md is out of scope.
 new_fixture
@@ -1014,7 +1014,7 @@ new_fixture
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "depth-2 fence: a one-level-deep line does not falsely close it (the pass-6 brief repro)" \
   || fail "depth-2 blockquote fence: rc=$RC out=$OUT"
-[ "$OUT" = "check-plan-provenance: 1 tasks.md file(s) scanned, all provenance stated" ] \
+[ "$OUT" = "check-plan-provenance: 1 file(s) scanned, all provenance stated" ] \
   && pass "depth-2 fence: zero violations reported" \
   || fail "depth-2 fence: expected zero violations, out=$OUT"
 
@@ -1433,7 +1433,7 @@ run_guard "$FIXTURE"
 # coverage.
 # ===========================================================================
 
-# 67. A tasks.md larger than MAX_TASKS_MD_BYTES must be refused (exit 2),
+# 67. A tasks.md larger than MAX_SCANNED_FILE_BYTES must be refused (exit 2),
 # naming the file, rather than read unbounded.
 new_fixture
 python3 -c "
@@ -1522,7 +1522,7 @@ new_fixture
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "blockquote rel indent 2 (coordinator's exact repro): real fence recognized" \
   || fail "blockquote rel indent 2: rc=$RC out=$OUT"
-[ "$OUT" = "check-plan-provenance: 1 tasks.md file(s) scanned, all provenance stated" ] \
+[ "$OUT" = "check-plan-provenance: 1 file(s) scanned, all provenance stated" ] \
   && pass "blockquote rel indent 2: zero violations reported" \
   || fail "blockquote rel indent 2: expected zero violations, out=$OUT"
 
@@ -2088,7 +2088,7 @@ new_fixture
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an over-indented (6-column) closer does not close the fence early; the real closer does" \
   || fail "over-indented closer: rc=$RC out=$OUT"
-[ "$OUT" = "check-plan-provenance: 1 tasks.md file(s) scanned, all provenance stated" ] \
+[ "$OUT" = "check-plan-provenance: 1 file(s) scanned, all provenance stated" ] \
   && pass "over-indented closer: zero violations reported (no false 'never closed', no false claim)" \
   || fail "over-indented closer: expected zero violations, out=$OUT"
 
@@ -2576,7 +2576,7 @@ case "$OUT" in
   *) fail "bad encoding + violation (violation last): violation missing: out=$OUT" ;;
 esac
 
-# 120-121. Oversized (> MAX_TASKS_MD_BYTES) tasks.md beside a violating
+# 120-121. Oversized (> MAX_SCANNED_FILE_BYTES) tasks.md beside a violating
 # sibling, both sort orders.
 new_fixture
 mkdir -p "$FIXTURE/openspec/changes/oversized-change"
@@ -2884,7 +2884,7 @@ done
 # outranks a violation found elsewhere, per the adjudicated priority
 # ladder — see check-plan-provenance.py's module docstring).
 #
-# NOTE on branch count: `verify_tasks_md_containment` has eight `sys.exit`
+# NOTE on branch count: `verify_scanned_file_containment` has eight `sys.exit`
 # (now `return False`) sites, but they collapse to four DISTINCT
 # constructible fixtures — "symlinked change directory" and "directory
 # escape" are the SAME source-code branch (`real_dir != expected`): a
@@ -3149,7 +3149,7 @@ case "$OUT" in
   *) fail "exit 1 banner: wording changed or missing: out=$OUT" ;;
 esac
 case "$OUT" in
-  *"For the violations above: fix by adding the missing verified:/unverified: tag or measured:/predicted: comment; never suppress."*) \
+  *"For the violations above: fix by adding the missing verified:/unverified: tag or measured:/predicted: comment — or, where a note above says the quotation exemption was withdrawn, by rewording the line; never suppress."*) \
     pass "exit 1 remedy line: exact wording" ;;
   *) fail "exit 1 remedy line: wording changed or missing: out=$OUT" ;;
 esac
@@ -3178,7 +3178,7 @@ run_guard "$FIXTURE"
 chmod 644 "$FIXTURE/openspec/changes/demo-change/tasks.md" 2>/dev/null || true
 [ "$RC" -eq 2 ] && pass "exit 2 banner fixture: rc=2" || fail "exit 2 banner fixture: rc=$RC out=$OUT"
 case "$OUT" in
-  *"1 tasks.md file(s) could not be read (environment failure — a permission, encoding or size problem on disk, see above) — refusing to report a clean run"*) \
+  *"1 file(s) could not be read (environment failure — a permission, encoding or size problem on disk, see above) — refusing to report a clean run"*) \
     pass "exit 2 banner: exact wording, distinct from exit 4's 'could not be classified'" ;;
   *) fail "exit 2 banner: wording changed or missing: out=$OUT" ;;
 esac
@@ -3191,11 +3191,15 @@ esac
 # tasks.md, no violation, no abort and no unrelated file-read failure
 # anywhere else in the fixture.
 #
-# The noun in this banner is "path(s)", not "tasks.md file(s)", since
-# Critical 5 of the pass-14 fix wave: the same counter now also carries a
-# refusal on `openspec/changes` ITSELF, which is a directory, not a
-# tasks.md. Naming it "tasks.md file(s)" would have made the banner state
-# something false for that case — the shape this change exists to police.
+# The noun in this banner is "path(s)", deliberately generic, since
+# Critical 5 of the pass-14 fix wave: the same counter carries refusals on
+# things that are not planning artifacts at all — `openspec/changes`
+# ITSELF, which is a directory. Naming the noun after any one scanned file
+# would make the banner state something false for that case, which is the
+# shape this change exists to police. (The banner is also older than the
+# widened scan set: no message in this guard names a single artifact any
+# more, so there is no competing wording left to contrast against — the
+# reason for the generic noun is the directory case, not the file set.)
 # The exit code, the stream and the rest of the sentence are unchanged.
 new_fixture
 rm -rf "$FIXTURE/openspec/changes/demo-change"
@@ -3903,6 +3907,802 @@ printf 'clean\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "real changes/ directory: anchor check does not fire" \
   || fail "real changes/ directory: expected rc=0, got rc=$RC out=$OUT"
+
+# ===========================================================================
+# SECTION: Claim boundaries (cont'd) — an issue key is not a quantity
+# (the numeric rule proper is cases 4-6; its left boundary, case 16)
+# ===========================================================================
+
+# 189. An issue key whose digit run happens to be followed by a unit word is
+# an identifier, not a quantity. Case 16 established that a digit run must
+# not be the TAIL of a token; this is the neighbouring shape, where the
+# digits are a whole token but the token before them is an issue-key
+# prefix. `(?<!\w)` cannot see it, because the hyphen it sits on is not
+# word-constituent.
+new_fixture
+printf 'catches the KAN-6 errors in one pass\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "issue key followed by a unit word is not a claim" \
+  || fail "KAN-6 adjacency: rc=$RC out=$OUT"
+
+# 190. Control: the same unit word after a bare digit run IS a claim, so the
+# issue-key exclusion has not made CLAIM_RE toothless on the shape it exists
+# to catch.
+new_fixture
+printf 'the suite reported 6 errors\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a bare digit run before a unit word is still a claim" \
+  || fail "bare claim control: rc=$RC out=$OUT"
+
+# ===========================================================================
+# SECTION: Claim boundaries (cont'd) — a quoted number is reproduced, not
+# claimed (the numeric rule proper is cases 4-6; its left boundary, case 16;
+# the issue-key exclusion, cases 189-190)
+# ===========================================================================
+
+# 191. A number inside straight double quotes is a quotation, not a claim.
+# The line REPRODUCES a figure it is discussing; the author is not asserting
+# it, so there is nothing for a measured:/predicted: comment to attribute.
+new_fixture
+printf 'a baseline of "194 tests" was invented, not measured\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "straight-quoted number is not a claim" \
+  || fail "straight quotes: rc=$RC out=$OUT"
+
+# 192. A code span is NOT a delimiter class (pass-17 fix wave — the design
+# change that dropped code spans entirely; see `_QUOTE_PAIRS`' comment block in
+# the guard and design decision `quotation-quotes-only`). A number inside
+# `` `85 lines` `` is an ordinary unattributed claim and must be REPORTED. This
+# case is the specification of that removal: an absence would let a future edit
+# re-add the class without anything objecting.
+new_fixture
+printf 'the offending line read `85 lines` with no tag\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a number in a code span is an ordinary claim, not a quotation" \
+  || fail "code span no longer exempts: rc=$RC out=$OUT"
+# No veto fired here — the line simply has no quotation on it — so the operator
+# must NOT be told an exemption was withdrawn.
+case "$OUT" in
+  *": note: the quotation exemption was withdrawn"*) \
+    fail "code span: a non-vetoed line must not carry a veto note: out=$OUT" ;;
+  *) pass "code span: an unquoted claim carries no veto note" ;;
+esac
+
+# 192b. The same removal reached through a WIDER code span, so that a reader
+# cannot mistake 192 for "single-backtick spans specifically". Under the old
+# design this was case 200's exemption; there is nothing special about the run
+# width any more, because backticks are not delimiters at all.
+new_fixture
+printf 'the log read ``a ` tick and 7 errors`` verbatim\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a number in a multi-backtick span is an ordinary claim too" \
+  || fail "wide code span no longer exempts: rc=$RC out=$OUT"
+
+# 193. And for curly quotes (U+201C/U+201D), which this repository's prose
+# uses as readily as the ASCII pair — the same defect shape as the claim
+# boundary's ASCII-only allowlist (see the CLAIM_RE comment block).
+new_fixture
+printf 'quoting \342\200\234194 tests\342\200\235 from the earlier plan\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "curly-quoted number is not a claim" \
+  || fail "curly quotes: rc=$RC out=$OUT"
+
+# 194. Fail closed: one unmatched delimiter creates no quotation, so the
+# number stays a violation. The exemption may only ever REMOVE a finding
+# where the number is demonstrably enclosed.
+new_fixture
+printf 'it ran "and then reported 12 failures\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "unmatched delimiter does not exempt" \
+  || fail "fail-closed: rc=$RC out=$OUT"
+
+# 195. An apostrophe is not a delimiter. Prose possessives are unpaired by
+# nature, so admitting the single quote would exempt most lines of this
+# repository's documentation.
+new_fixture
+printf "the guard's own suite reported 12 failures\n" \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "apostrophe is not a quotation delimiter" \
+  || fail "apostrophe: rc=$RC out=$OUT"
+
+# 196. A bare claim on the same line as a quoted one is still reported: the
+# check scans every match rather than stopping at the first, so a quoted
+# number cannot mask a bare one beside it.
+new_fixture
+printf 'we quoted "194 tests" but then asserted 12 failures\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a bare claim beside a quoted one is still reported" \
+  || fail "mixed line: rc=$RC out=$OUT"
+
+# ===========================================================================
+# SECTION: Claim boundaries (cont'd) — the quotation exemption must fail
+# CLOSED (the exemption itself is cases 191-196)
+# ===========================================================================
+#
+# The exemption may only ever REMOVE a finding, and only where the number is
+# DEMONSTRABLY enclosed by a genuinely matched pair. A line whose delimiters
+# of a given class do not balance has no determinate pairing — the stray
+# delimiter could belong on either side of the number — so that class must
+# yield no region at all on that line rather than guess. These three cases
+# pin that, because the shapes below are exactly the ones a parity test
+# ("is the count of openers before the number odd, and does a closer appear
+# anywhere after it?") gets wrong: a stray delimiter plus an unrelated
+# complete pair later on the line manufactures a region that encloses
+# nothing.
+
+# 197. A stray double quote plus an unrelated complete quotation later on
+# the line does not exempt a number that is genuinely asserted between them.
+new_fixture
+printf 'a "quote" and a stray " mark, then 99 tests ran, "done"\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "stray quote plus a later pair does not exempt" \
+  || fail "stray quote: rc=$RC out=$OUT"
+# The author of this line wrote a correctly closed quotation and lost its
+# exemption to an unrelated stray delimiter. Saying only "no provenance
+# comment" sends them to add a tag to a number that was already quoted; the
+# note has to name the veto and the remedy (Lens C, pass-17 fix wave).
+case "$OUT" in
+  *"quotation exemption was withdrawn on this line (unbalanced quotation delimiters)"*) \
+    pass "class-wide veto names itself in the output" ;;
+  *) fail "class-wide veto note missing: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"balance them or reword the line"*"skills/myflow-contracts/plan-provenance.md"*) \
+    pass "class-wide veto names the remedy and the contract" ;;
+  *) fail "class-wide veto remedy/contract missing: out=$OUT" ;;
+esac
+
+# 198. Backticks are not a delimiter class (pass-17), so this line carries no
+# quotation at all and `50 files` is asserted prose. It reported before the
+# design change too — as an indeterminate code-span veto — so the assertion is
+# unchanged and only its REASON moved; the note assertion below is what pins
+# that it is no longer reached through a veto.
+new_fixture
+printf 'a `span` and a stray ` then 50 files were read `ok`\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a backtick run does not create a quotation" \
+  || fail "stray backtick: rc=$RC out=$OUT"
+case "$OUT" in
+  *": note: the quotation exemption was withdrawn"*) \
+    fail "backticks must not veto anything any more: out=$OUT" ;;
+  *) pass "a backtick run vetoes nothing" ;;
+esac
+
+# 199. An opener left unclosed at end of line unbalances the class, so the
+# pair that looks matched earlier on the same line stops exempting too. With
+# a leftover delimiter the intended pairing is undetermined — the stray one
+# could as easily have been meant to open before the number as to open after
+# it — and the fail-closed answer to an undetermined line is to report. This
+# is the case that separates the rule from mere left-to-right pairing, which
+# would still exempt the number here; case 194 covers the neighbouring shape
+# where the claim follows the unclosed opener.
+new_fixture
+printf 'a matched "194 tests" pair, then a dangling "\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "an opener unclosed at end of line exempts nothing" \
+  || fail "dangling opener: rc=$RC out=$OUT"
+
+# 200. A quotation that IS demonstrably enclosed still exempts — the control
+# that keeps the fail-closed cases above from being satisfied by a guard that
+# simply exempts nothing. Case 191 is the same property stated positively; this
+# one places the enclosed claim between two unrelated balanced pairs, which is
+# the arrangement a naive "first opener to last closer" region would also
+# accept and a correct nearest-pair scan accepts for the right reason.
+new_fixture
+printf 'the log read "a tick" then "7 errors" then "done" verbatim\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "an enclosed claim between unrelated pairs stays exempt" \
+  || fail "enclosed claim between pairs: rc=$RC out=$OUT"
+
+# ===========================================================================
+# SECTION: Scan scope — design.md and proposal.md alongside tasks.md
+# ===========================================================================
+
+# 201. An untagged numeric claim in design.md is in scope.
+new_fixture
+clean_tasks_md
+printf 'the suite reported 197 tests\n' \
+  > "$FIXTURE/openspec/changes/demo-change/design.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "design.md numeric claim is in scope" \
+  || fail "design.md: rc=$RC out=$OUT"
+
+# 202. A change's specs/ directory is NOT scanned: spec text legislates rather
+# than describes, and a requirement forbidding a shape must be able to name
+# that shape.
+new_fixture
+clean_tasks_md
+mkdir -p "$FIXTURE/openspec/changes/demo-change/specs/some-capability"
+printf 'a baseline of 197 tests\n' \
+  > "$FIXTURE/openspec/changes/demo-change/specs/some-capability/spec.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "change specs/ is not scanned" || fail "specs/: rc=$RC out=$OUT"
+
+# 203. An archived change's design.md is not scanned — the archive exclusion
+# applies to every scanned filename, not only tasks.md.
+new_fixture
+clean_tasks_md
+printf 'the suite reported 197 tests\n' \
+  > "$FIXTURE/openspec/changes/archive/old-change/design.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "archived design.md is not scanned" \
+  || fail "archived design.md: rc=$RC out=$OUT"
+
+# 204. A change directory with a design.md but no tasks.md is a scanned
+# change, not the "broken glob" scan-integrity failure: a change mid-planning
+# legitimately has no tasks.md yet.
+new_fixture
+rm -f "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf '```bash verified:ran it locally\necho hi\n```\n' \
+  > "$FIXTURE/openspec/changes/demo-change/design.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "design.md alone is a scanned change, not a broken glob" \
+  || fail "design.md alone: rc=$RC out=$OUT"
+
+# 205. Containment applies to every scanned file, not only tasks.md.
+new_fixture
+clean_tasks_md
+ln -s /etc/hosts "$FIXTURE/openspec/changes/demo-change/design.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 3 ] && pass "a symlinked design.md is a containment refusal" \
+  || fail "design.md symlink: rc=$RC out=$OUT"
+
+# 206. The scan count in the success line counts every scanned file, not just
+# tasks.md: three planning artifacts in one change is three files scanned.
+new_fixture
+clean_tasks_md
+printf 'ran the suite, 3 tests <!-- measured: pytest -q -->\n' \
+  > "$FIXTURE/openspec/changes/demo-change/design.md"
+printf 'ran the suite, 3 tests <!-- measured: pytest -q -->\n' \
+  > "$FIXTURE/openspec/changes/demo-change/proposal.md"
+run_guard "$FIXTURE"
+[ "$OUT" = "check-plan-provenance: 3 file(s) scanned, all provenance stated" ] \
+  && pass "every scanned planning artifact is counted" \
+  || fail "scan count: rc=$RC out=$OUT"
+
+# 207. A containment refusal skips exactly ONE CANDIDATE, never the rest of
+# its own change directory. Cases 205 and 206 pin the per-directory half of
+# that (other directories keep being scanned); nothing pinned the per-candidate
+# half, so an edit that `continue`d the OUTER loop instead of the inner one
+# passed the whole suite.
+#
+# 207a is the ordering that actually catches it. `SCANNED_FILENAMES` is
+# ("tasks.md", "design.md", "proposal.md"), so the refused candidate has to
+# sort BEFORE the violating sibling for an outer-loop `continue` to be able to
+# swallow it: symlinked tasks.md first, violating design.md second. Exit 3
+# still wins the exit code (containment outranks violations), and the
+# violation must STILL be printed.
+#
+# DETERMINISM (pass-15 fix wave, Important 4): two reviewers each observed one
+# transient FAIL on the second assertion below — rc=3 held, but the design.md
+# violation was missing from the captured output — and neither could reproduce
+# it. No cause was found in the guard: 4000 isolated repetitions of this exact
+# fixture and 40 consecutive full-suite runs were clean, `os.listdir` is
+# `sorted()`, `SCANNED_FILENAMES` is a fixed tuple, and nothing here depends on
+# iteration order. What WAS reproduced is that running this suite against a
+# tree whose `check-plan-provenance.py` is being edited concurrently produces
+# exactly this shape of one-off failure — and a review panel runs concurrently
+# with the agent fixing the file by construction.
+#
+# Two dependencies were removed rather than left to be re-litigated:
+#
+#   1. `/etc/hosts` as the symlink target. It is an OS-managed file outside the
+#      sandbox this harness otherwise never leaves, mutated by VPN clients,
+#      container runtimes and security software. The refusal under test is
+#      `os.path.islink`, which never looks at the target, so a fixture-local
+#      target tests exactly the same thing with nothing outside the fixture in
+#      the loop.
+#   2. Silent fixture construction. A `printf` or `ln -s` that did not do what
+#      it was asked used to surface as this case's own assertion message
+#      ("refused tasks.md swallowed its sibling design.md"), blaming the guard
+#      for a broken fixture. The preconditions are now asserted separately, so
+#      the two failures can never again be confused for each other.
+new_fixture
+printf 'not a planning artifact\n' > "$FIXTURE/symlink-target.txt"
+rm -f "$FIXTURE/openspec/changes/demo-change/tasks.md"
+ln -s "$FIXTURE/symlink-target.txt" "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'the suite reported 197 tests\n' \
+  > "$FIXTURE/openspec/changes/demo-change/design.md"
+[ -L "$FIXTURE/openspec/changes/demo-change/tasks.md" ] \
+  && [ -s "$FIXTURE/openspec/changes/demo-change/design.md" ] \
+  && pass "sibling candidate: fixture built (symlinked tasks.md, non-empty design.md)" \
+  || fail "sibling candidate: fixture construction failed before the guard ran"
+run_guard "$FIXTURE"
+[ "$RC" -eq 3 ] && pass "sibling candidate: rc=3 (containment outranks the violation)" \
+  || fail "sibling candidate: rc=$RC out=$OUT"
+case "$OUT" in
+  *"openspec/changes/demo-change/design.md:1: numeric claim with no measured:/predicted: provenance comment"*) \
+    pass "sibling candidate: the violating design.md was still scanned and reported" ;;
+  *) fail "sibling candidate: refused tasks.md swallowed its sibling design.md: out=$OUT" ;;
+esac
+
+# 207b. The mirror ordering — refused candidate SECOND, violating sibling
+# first — pins that a refusal does not abandon the candidates after it either.
+# Fixture-local symlink target and asserted preconditions, for 207a's reasons.
+new_fixture
+printf 'not a planning artifact\n' > "$FIXTURE/symlink-target.txt"
+printf 'the suite reported 197 tests\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+ln -s "$FIXTURE/symlink-target.txt" "$FIXTURE/openspec/changes/demo-change/design.md"
+printf 'ran the suite, 3 tests <!-- measured: pytest -q -->\n' \
+  > "$FIXTURE/openspec/changes/demo-change/proposal.md"
+[ -L "$FIXTURE/openspec/changes/demo-change/design.md" ] \
+  && [ -s "$FIXTURE/openspec/changes/demo-change/tasks.md" ] \
+  && pass "sibling candidate (mirror): fixture built" \
+  || fail "sibling candidate (mirror): fixture construction failed before the guard ran"
+run_guard "$FIXTURE"
+[ "$RC" -eq 3 ] && pass "sibling candidate (mirror): rc=3" \
+  || fail "sibling candidate (mirror): rc=$RC out=$OUT"
+case "$OUT" in
+  *"openspec/changes/demo-change/tasks.md:1: numeric claim with no measured:/predicted: provenance comment"*) \
+    pass "sibling candidate (mirror): the violating tasks.md was still reported" ;;
+  *) fail "sibling candidate (mirror): violation missing: out=$OUT" ;;
+esac
+
+# 208. `verify_scanned_file_containment` confirms the BASENAME, not only the
+# containing directory. `main()` builds every candidate path from
+# `SCANNED_FILENAMES`, so no CLI fixture can reach a mismatch — the method is
+# called directly here, which is the only way to pin a claim its sole caller
+# structurally cannot violate. It is worth pinning because this is the
+# security-relevant gate: a future caller that derives the filename from
+# anything less literal would otherwise inherit a check that never looked at
+# the name it was told to confirm.
+new_fixture
+clean_tasks_md
+# A here-document is deliberately NOT used: bash 3.2 (what macOS ships, and
+# what this harness runs under) mis-parses a here-document nested inside a
+# command substitution, and the whole file then fails with "unexpected EOF".
+BASENAME_RESULT="$(python3 -c '
+import importlib.util
+import os
+import sys
+
+spec = importlib.util.spec_from_file_location(
+    "cpp_under_test", os.path.join(sys.argv[1], "check-plan-provenance.py")
+)
+mod = importlib.util.module_from_spec(spec)
+# Registered before exec because @dataclass resolves a field annotation
+# through sys.modules[cls.__module__], which is None for a module that was
+# never registered (a hard AttributeError under Python 3.9).
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+
+changes_dir = os.path.join(sys.argv[2], "openspec", "changes")
+guard = mod.ProvenanceGuard()
+# A real, regular, contained file inside the right change directory, but
+# under a DIFFERENT name than the one being confirmed.
+path = os.path.join(changes_dir, "demo-change", "tasks.md")
+print(guard.verify_scanned_file_containment(path, changes_dir, "design.md"))
+' "$SCRIPT_DIR" "$FIXTURE")"
+[ "$BASENAME_RESULT" = "False" ] \
+  && pass "containment confirms the basename, not only the directory" \
+  || fail "containment basename: expected False, got '$BASENAME_RESULT'"
+
+# ===========================================================================
+# SECTION: The quotation exemption is BLIND to backticks (cases 209-212)
+# ===========================================================================
+#
+# Cases 209-212 were the two INTERACTION fail-opens of the code-span class:
+# backtick runs whose leftovers were reused as fresh openers, and an
+# indeterminate span state handed to the quote scanner as if it were a fact.
+# The pass-17 design change removed the class outright, so the interaction
+# these cases pinned no longer exists in either direction. They are kept, with
+# their verdicts restated for the shipped rule, because their LINES are the
+# awkward shapes: each one still has to be classified, and a future edit that
+# reintroduced backtick awareness would change at least one of these answers.
+#
+# The rule the four now pin together: a backtick is an ordinary character. It
+# neither exempts (209/210) nor vetoes (211/212).
+
+# 209. Backtick runs that pair, plus a leftover run — the old overlapping-region
+# repro. The claim sits in open prose, and there is no quotation delimiter on
+# the line at all, so it is reported. The verdict is unchanged from the
+# code-span era; the reason is not, and case 198's note assertion is what pins
+# the difference.
+new_fixture
+printf '`a``b` and then we saw 99 tests happen ``\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a backtick run neither exempts nor vetoes (leftover run)" \
+  || fail "leftover backtick run: rc=$RC out=$OUT"
+
+# 210. The mirror shape — the wide span first, the loose matching-width run
+# after the claim. Same verdict, same reason: no quotation delimiters.
+new_fixture
+printf 'the log said ``a ` b`` and 42 files changed ` done\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a backtick run neither exempts nor vetoes (trailing run)" \
+  || fail "trailing backtick run: rc=$RC out=$OUT"
+
+# 211. INVERTED by the pass-17 design change, deliberately. The straight quotes
+# here pair cleanly and enclose the claim; under CommonMark the first backtick
+# pair forms a span and the third backtick is literal text, so the quotes are
+# live markup and this really is a quotation. The old code-span scanner called
+# the line indeterminate and vetoed it. Quotes-only reads the quotation and
+# exempts — which is both simpler AND, on this line, the more faithful answer.
+new_fixture
+{
+  printf '## Task\n'
+  printf '\n'
+  printf '`a` "b` and 7 tests failed" c\n'
+} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "a matched quotation is read without consulting backticks" \
+  || fail "quotation beside backticks: rc=$RC out=$OUT"
+
+# 212. The accepted COST of the same change, written down as an assertion so it
+# is met as a decision rather than rediscovered as a surprise. Here the curly
+# opener sits inside what CommonMark would read as a code span, so a full
+# inline parser would call it content and report the claim. Quotes-only pairs
+# it with the later closer and exempts. That is a real, narrow divergence from
+# CommonMark, and it is the price of deleting the class that produced five
+# fail-opens — see design decision `quotation-quotes-only`. A claim written
+# this way is not the shape the guard exists to catch: the number is still
+# visibly between two quotation marks on the page.
+new_fixture
+printf 'the tool printed `\342\200\234` before 8 failures and \342\200\235 after, plus ` more\n' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "a curly pair spanning a backtick run exempts (the accepted cost)" \
+  || fail "curly across backticks: rc=$RC out=$OUT"
+
+# 213. Regression pin on the operator-visible message COUNT for an
+# undeterminable change directory. Case 51 pins only rc=2, so a collapse back
+# to a single message — or two of the three naming the wrong artifact — would
+# pass silently. The per-candidate gate is required to emit exactly one
+# "cannot determine whether <filename> exists" per entry in
+# SCANNED_FILENAMES, each naming a DIFFERENT one, because collapsing them
+# would mean deciding for the operator that the three failures share one cause.
+new_fixture
+mkdir -p "$FIXTURE/openspec/changes/locked-change"
+chmod 000 "$FIXTURE/openspec/changes/locked-change"
+clean_tasks_md
+run_guard "$FIXTURE"
+chmod 755 "$FIXTURE/openspec/changes/locked-change"
+CANNOT_COUNT="$(printf '%s\n' "$OUT" | grep -c 'cannot determine whether .* exists' || true)"
+[ "$CANNOT_COUNT" -eq 3 ] \
+  && pass "a locked change dir emits one 'cannot determine' per scanned filename" \
+  || fail "locked dir message count: expected 3, got $CANNOT_COUNT out=$OUT"
+CANNOT_NAMES="$(printf '%s\n' "$OUT" \
+  | sed -n 's/.*cannot determine whether \([^ ]*\) exists.*/\1/p' | sort | tr '\n' ' ')"
+[ "$CANNOT_NAMES" = "design.md proposal.md tasks.md " ] \
+  && pass "each 'cannot determine' names a distinct, correct planning artifact" \
+  || fail "locked dir message names: got '$CANNOT_NAMES' out=$OUT"
+
+# ===========================================================================
+# SECTION: The quotation exemption, BACKSLASH ESCAPES (cases 214-221)
+# ===========================================================================
+#
+# Fourth fail-open of the quotation exemption. CommonMark §2.4 makes a
+# backslash-escaped ASCII punctuation character a LITERAL character, so \" is
+# not a quotation delimiter. The scanner had no notion of escapes at all: it
+# paired them as live delimiters and manufactured regions that do not exist,
+# exempting numbers standing in open prose. The veto SURVIVED the pass-17
+# removal of the code-span class, because `\"` is still a literal quote — only
+# the backtick half of the old delimiter set went away, and cases 214-216/218
+# below are kept as the pins that it did.
+#
+# Every line below is written with `printf '%s\n'` rather than a format
+# string, because a backslash inside printf's FORMAT is interpreted by printf
+# itself — the fixture would then not contain the backslash under test.
+
+# 214. A backslash before a backtick vetoes NOTHING after pass-17: a backtick
+# is not a delimiter, so there is nothing for an escape of one to be an escape
+# OF. The claim is reported because it is plainly asserted, and the note
+# assertion is what distinguishes that from a veto firing on the old set.
+new_fixture
+printf '%s\n' 'Escape it as \` in the shell, and `grep -c` reported 42 files after the \` fix' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "an escaped backtick is an ordinary character now" \
+  || fail "escaped backticks around a real span: rc=$RC out=$OUT"
+case "$OUT" in
+  *": note: the quotation exemption was withdrawn"*) \
+    fail "an escaped backtick must not veto the line: out=$OUT" ;;
+  *) pass "an escaped backtick vetoes nothing" ;;
+esac
+
+# 215. The control for 214, differing in ONE character: the backslashes are
+# replaced by a plain letter. Same verdict, which is the point — 214's verdict
+# must not be attributable to anything about the sentence other than the
+# claim's being asserted.
+new_fixture
+printf '%s\n' 'Escape it as X in the shell, and `grep -c` reported 42 files after the X fix' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "the unescaped control for 214 reports identically" \
+  || fail "unescaped control: rc=$RC out=$OUT"
+
+# 216. Two escaped backticks and nothing else: the pair the old scanner
+# invented spanned the whole middle of the sentence, including the claim.
+# Neither the invention nor its veto exists any more; the claim is asserted.
+new_fixture
+printf '%s\n' 'Write \` to escape a backtick; the run then reported 99 tests and exited \` cleanly' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a pair of escaped backticks exempts nothing" \
+  || fail "escaped backtick pair: rc=$RC out=$OUT"
+
+# 217. The load-bearing escape case, and the one the veto still exists for:
+# \" is a literal quote (§2.4), so these two characters are not a matched pair
+# and there is no quotation on this line at all. Delete the veto and this line
+# exempts a bare asserted claim.
+new_fixture
+printf '%s\n' 'Use \" for a literal quote; the run reported 99 tests, then printed \" done' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a pair of escaped straight quotes is not a quotation" \
+  || fail "escaped quote pair: rc=$RC out=$OUT"
+# An author who wrote \" on purpose needs to be told that is why their
+# neighbouring quotation stopped exempting (Lens C, pass-17 fix wave).
+case "$OUT" in
+  *"quotation exemption was withdrawn on this line (a backslash-escaped quotation delimiter)"*) \
+    pass "escape veto names itself in the output" ;;
+  *) fail "escape veto note missing: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"unescape it or reword the line"*"skills/myflow-contracts/plan-provenance.md"*) \
+    pass "escape veto names the remedy and the contract" ;;
+  *) fail "escape veto remedy/contract missing: out=$OUT" ;;
+esac
+
+# 218. The tightest escaped-backtick form, with the delimiters directly against
+# the claim. Reported — as of pass-17 simply because backticks never enclosed
+# anything, not because a veto fired.
+new_fixture
+printf '%s\n' 'the suite ran \`99 tests\` today' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "escaped backticks hugging the claim do not exempt it" \
+  || fail "escaped delimiters hugging the claim: rc=$RC out=$OUT"
+
+# 219. Parity: \\ is an escaped BACKSLASH (§2.4), so the quote after it is NOT
+# escaped and still opens a genuine quotation. The claim really is reproduced
+# inside that pair and must stay exempt. This is the case that fails if the fix
+# treats "any backslash before a delimiter" as an escape instead of counting
+# the run — the mutation used to prove the parity logic non-vacuous. It is also
+# the one that proves the veto has not swallowed the exemption whole.
+new_fixture
+printf '%s\n' 'notes: \\"99 tests\\" recorded' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "an escaped backslash leaves the following quote live" \
+  || fail "escaped backslash then live quote: rc=$RC out=$OUT"
+
+# 220. Three backslashes: \\ then \" — an odd run, so the quote IS escaped and
+# the line carries no quotation. The claim is asserted.
+new_fixture
+printf '%s\n' 'notes: \\\"99 tests\\\" recorded' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "an odd backslash run escapes the delimiter after it" \
+  || fail "odd backslash run: rc=$RC out=$OUT"
+
+# 221. The KNOWN LIMITATION made an assertion rather than left to be
+# rediscovered: an escaped quote anywhere on the line withdraws the exemption
+# from the WHOLE line, including a quotation elsewhere on it that pairs
+# perfectly. A lost exemption is a loud false positive; a wrongly granted one is
+# a silent false negative, and this exemption may only ever REMOVE a finding.
+new_fixture
+printf '%s\n' 'the baseline was "99 tests", and a literal quote is written \"' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "an escaped quote withdraws a sound quotation elsewhere on the line" \
+  || fail "escape veto is whole-line: rc=$RC out=$OUT"
+
+# ===========================================================================
+# SECTION: The quotation exemption and the `<` character (cases 222-228)
+# ===========================================================================
+#
+# The quotation exemption's SIXTH fail-open, and the end of every attempt to
+# describe HTML with a regex. A delimiter inside raw HTML is literal CONTENT,
+# not markup — CommonMark (0.31.2 §6.6) makes `<!-- ... -->`, tags,
+# declarations, CDATA sections and processing instructions raw HTML — so the
+# veto is right to exist. What was wrong was LOCATING those constructs with an
+# approximate grammar: §6.6 permits `>` inside a single-quoted attribute value,
+# the tag alternative `</?[A-Za-z][^<>]*>` truncated at the first `>`, and the
+# truncated prefix carried no delimiter, so the whole veto cleared a line whose
+# `"` was genuinely inside the tag (`<a b='>"'> the benchmark ran 77 tests "`,
+# pinned by 227). A differential sweep against an accurate §6.6 grammar found
+# 150 distinct arrangements of that shape.
+#
+# What ships instead has no grammar to approximate: IF THE LINE CONTAINS A `<`
+# AT ALL, THE QUOTATION EXEMPTION IS WITHDRAWN FOR THAT LINE. Trivially
+# fail-closed, trivially auditable, and measured to cost this repository
+# essentially nothing (see design.md's `quotation-angle-bracket-veto`).
+
+# 222. The original raw-HTML reproducer, transposed to the shipped delimiter
+# set: the two quote characters sit inside an HTML comment, where they are
+# literal text, so `77 tests` stands in open prose. Without the veto they pair
+# into a region that swallows the claim and the guard exits 0 on a bare number.
+new_fixture
+printf '%s\n' 'See <!--"--> the benchmark ran 77 tests <!--"-->.' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "quotes inside an HTML comment are not live delimiters" \
+  || fail "html comment delimiters: rc=$RC out=$OUT"
+# The note must state something the author can VERIFY BY LOOKING AT THE LINE.
+# "a quotation delimiter inside raw HTML" was not that: it was printed for the
+# "opened a construct it never closed" answer too, sending an author to hunt
+# for a delimiter inside raw HTML that did not exist.
+case "$OUT" in
+  *"quotation exemption was withdrawn on this line (a \`<\` character on the line)"*) \
+    pass "angle-bracket veto names itself in the output" ;;
+  *) fail "angle-bracket veto note missing: out=$OUT" ;;
+esac
+case "$OUT" in
+  *"remove the \`<\` or reword the line"*"skills/myflow-contracts/plan-provenance.md"*) \
+    pass "angle-bracket veto names the remedy and the contract" ;;
+  *) fail "angle-bracket veto remedy/contract missing: out=$OUT" ;;
+esac
+
+# 223. The veto is whole-line, exactly as the escape veto is: a quotation that
+# pairs perfectly loses its exemption because an unrelated tag sits on the same
+# line. Coarse on purpose — a partial HTML parser is the failure mode this
+# design refuses to repeat.
+new_fixture
+printf '%s\n' 'the baseline was "99 tests", per <a href="x">the report</a>' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "an HTML tag on the line withdraws the whole line" \
+  || fail "html tag attribute: rc=$RC out=$OUT"
+
+# 224. THE VISIBLE BEHAVIOUR CHANGE, and the case this section previously
+# asserted the opposite of. The trigger is the `<` itself, not a delimiter
+# inside a construct: a line whose raw HTML carries no quotation delimiter at
+# all still loses its exemption, because deciding otherwise requires knowing
+# where the construct ENDS, and knowing that is the grammar that leaked six
+# times. The cost is measured, not assumed — across this repository's markdown
+# only two exempted claims sit on a line containing `<`, and neither is inside
+# the guard's own scan scope.
+new_fixture
+printf '%s\n' 'the baseline was "194 tests" <!-- see the earlier plan -->' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a \`<\` with no delimiter in it still withdraws the exemption" \
+  || fail "angle bracket without delimiters: rc=$RC out=$OUT"
+
+# 225. A curly delimiter is withdrawn by the same rule — the veto answers for
+# the whole delimiter set at once, because it never looks at the delimiters.
+new_fixture
+printf '%s\n' 'See <!--\342\200\234--> the benchmark ran 77 tests <!--\342\200\235-->.' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "curly quotes inside an HTML comment are not live delimiters" \
+  || fail "html comment curly delimiters: rc=$RC out=$OUT"
+
+# 226. The control for 222, differing only in the `<`: with the comments
+# removed the two quotes are live markup and the claim really is reproduced
+# between them, so it is exempt. This is what makes 222's verdict attributable
+# to the `<` and to nothing else about the sentence — and what proves the
+# coarse rule has not swallowed the exemption whole.
+new_fixture
+printf '%s\n' 'See " the benchmark ran 77 tests ".' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "the angle-bracket-free control for 222 exempts the claim" \
+  || fail "angle-bracket control: rc=$RC out=$OUT"
+
+# 227. THE SIXTH FAIL-OPEN, pinned as a regression test. §6.6 permits `>`
+# inside a single-quoted attribute value, so this tag really does extend to the
+# second `>`; the old tag alternative stopped at the first, found no delimiter
+# in the truncated prefix, cleared the line and let the trailing `"` pair with
+# the one inside the attribute — exit 0 on a bare `77 tests`. Under the coarse
+# rule there is nothing to truncate.
+new_fixture
+printf '%s\n' "<a b='>\"'> the benchmark ran 77 tests \"" \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a \`>\` inside a single-quoted attribute cannot hide a delimiter" \
+  || fail "attribute-value reproducer: rc=$RC out=$OUT"
+
+# 228. THE HONEST NOTE, on a line with no quotation delimiter anywhere. The old
+# helper answered "opened a construct it never closed" here and the note still
+# said "a quotation delimiter inside raw HTML" — telling the operator to look
+# for something that is provably not on the line. Every veto reason must state
+# a fact the author can check by reading their own line; this one says `<`, and
+# there is a `<`.
+new_fixture
+printf '%s\n' 'the range a <b and c covers 5 tests' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "a bare \`<\` withdraws the exemption" \
+  || fail "bare angle bracket: rc=$RC out=$OUT"
+case "$OUT" in
+  *"quotation exemption was withdrawn on this line (a \`<\` character on the line)"*) \
+    pass "the note on a delimiter-free line names the \`<\`, not a delimiter" ;;
+  *) fail "bare angle-bracket note wrong: out=$OUT" ;;
+esac
+
+# ===========================================================================
+# SECTION: The exit-1 remedy banner (case 229)
+# ===========================================================================
+
+# 229. Minor, pass-17 fix wave. The banner told the author to add a tag and
+# nothing else. For a veto-triggered report the contract's actual remedy is to
+# REWORD the line — an author following the banner literally would tag a number
+# that was already correctly quoted, which is the tag vocabulary being written
+# untruthfully to silence a guard.
+new_fixture
+printf '%s\n' 'a "quote" and a stray " mark, then 99 tests ran, "done"' \
+  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "banner case: the vetoed claim is reported" \
+  || fail "banner case: rc=$RC out=$OUT"
+case "$OUT" in
+  *"For the violations above: fix by adding the missing verified:/unverified: tag or measured:/predicted: comment — or, where a note above says the quotation exemption was withdrawn, by rewording the line; never suppress."*) \
+    pass "the exit-1 banner offers rewording as a remedy" ;;
+  *) fail "exit-1 banner does not mention rewording: out=$OUT" ;;
+esac
+
+# ===========================================================================
+# SECTION: `_region_at`'s precondition is enforced, not merely documented
+# (case 230)
+# ===========================================================================
+
+# 230. Lens B, pass-17 fix wave. `_region_at`'s single `bisect` probe is only
+# correct when its region list is sorted and pairwise disjoint. That
+# precondition was stated in three docstrings and enforced nowhere, in the one
+# function every exemption flows through — and a violation does not raise, it
+# returns a silently WRONG answer in the FAIL-OPEN direction (a region reported
+# as containing an index it does not contain), which is the shape of four prior
+# defects here. No CLI fixture can reach it, because the sole producer builds
+# the list correctly; the function is called directly, which is the only way to
+# pin a claim its own caller structurally cannot violate.
+new_fixture
+clean_tasks_md
+# A here-document is deliberately NOT used — see case 208 for the bash 3.2
+# reason.
+REGION_RESULT="$(python3 -c '
+import importlib.util
+import os
+import sys
+
+spec = importlib.util.spec_from_file_location(
+    "cpp_under_test", os.path.join(sys.argv[1], "check-plan-provenance.py")
+)
+mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
+spec.loader.exec_module(mod)
+
+# Overlapping regions: (0, 10) and (4, 20). Index 6 is inside BOTH, so the
+# probe has no single right answer and must not invent one.
+overlapping = [(0, 10), (4, 20)]
+# Out of order: the probe would miss (0, 10) entirely.
+unsorted = [(10, 20), (0, 5)]
+# Inverted: end before start, so no index is inside it.
+inverted = [(9, 3)]
+print(mod._region_at(6, overlapping) is None)
+print(mod._region_at(2, unsorted) is None)
+print(mod._region_at(5, inverted) is None)
+print(mod._regions_are_sorted_disjoint(overlapping))
+print(mod._regions_are_sorted_disjoint(unsorted))
+print(mod._regions_are_sorted_disjoint(inverted))
+print(mod._regions_are_sorted_disjoint([(0, 4), (4, 9), (9, 9)]))
+' "$SCRIPT_DIR")"
+[ "$REGION_RESULT" = "True
+True
+True
+False
+False
+False
+True" ] \
+  && pass "_region_at fails closed on a violated precondition, and the producer check agrees" \
+  || fail "_region_at precondition: got '$REGION_RESULT'"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '\n%d assertion(s) failed\n' "$FAILURES" >&2
