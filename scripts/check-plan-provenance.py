@@ -1,36 +1,39 @@
 #!/usr/bin/env python3
-"""check-plan-provenance.py — fail when a live change's tasks.md carries a
-fenced code block or a numeric claim with no stated provenance.
+"""check-plan-provenance.py — fail when a live change's planning
+artifacts carry a fenced code block or a numeric claim with no stated
+provenance.
 
 Exit codes:
-  0  clean — every tasks.md scanned states its provenance (or there is
+  0  clean — every scanned file states its provenance (or there is
      nothing in flight to scan).
   1  violations found — one or more untagged fences or unattributed
      numeric claims. Fix the named file:line; never suppress.
   2  environment — the guard cannot determine anything about the tree:
      CHECK_PLAN_PROVENANCE_ROOT set but empty or not a directory,
      openspec/changes/ missing, or change directories exist but none of
-     them yielded a tasks.md at the expected depth (scan-integrity). This
-     last case is grouped under "environment" rather than given its own
-     code: it means the root or the changes tree is misconfigured (a
-     broken glob, a tasks.md at the wrong depth), the same class of
-     "cannot determine" as a missing openspec/changes/ — not a malicious
-     payload (that's 3) and not a parsing question (that's 4). Also
-     covers a `tasks.md` that passed containment but cannot be read
-     (permission denied, I/O error) or cannot be decoded as UTF-8: both
-     are "cannot determine this file's content", the OS/encoding-level
-     counterpart of a misconfigured root, not a security escape and not
-     an ambiguous parse.
-  3  containment/security — a symlinked tasks.md, a change directory that
-     resolves outside its expected path, or a non-regular file where
-     tasks.md should be. The scan refuses to open something PR-author-
-     controlled that reaches outside the tree it was told to scan. A
-     containment refusal stops only THAT candidate `tasks.md` (pass-11
-     fix wave, Critical 2 — the same shape an unreadable/undecodable file
-     or a classification abort already use): every OTHER change
-     directory is still scanned, and every violation/abort/environment
-     failure found anywhere is still reported alongside it — but exit 3
-     OUTRANKS ALL OF THEM (1, 2 and 4) for the process's own exit code.
+     them yielded any of `SCANNED_FILENAMES` at the expected depth
+     (scan-integrity). This last case is grouped under "environment"
+     rather than given its own code: it means the root or the changes
+     tree is misconfigured (a broken glob, a planning artifact at the
+     wrong depth), the same class of "cannot determine" as a missing
+     openspec/changes/ — not a malicious payload (that's 3) and not a
+     parsing question (that's 4). Also covers a file that passed
+     containment but cannot be read (permission denied, I/O error) or
+     cannot be decoded as UTF-8: both are "cannot determine this file's
+     content", the OS/encoding-level counterpart of a misconfigured root,
+     not a security escape and not an ambiguous parse.
+  3  containment/security — a symlinked planning artifact, a change
+     directory that resolves outside its expected path, or a non-regular
+     file where one of `SCANNED_FILENAMES` should be. The scan refuses to
+     open something PR-author-controlled that reaches outside the tree it
+     was told to scan. A containment refusal stops only THAT CANDIDATE
+     (pass-11 fix wave, Critical 2 — the same shape an unreadable/
+     undecodable file or a classification abort already use): the
+     candidate's own SIBLINGS in the same change directory are still
+     scanned, every OTHER change directory is still scanned, and every
+     violation/abort/environment failure found anywhere is still
+     reported alongside it — but exit 3 OUTRANKS ALL OF THEM (1, 2 and
+     4) for the process's own exit code.
      Two review slots disagreed on this and both were right about half of
      it: exit 3 must not be downgraded just because a violation or an
      abort was ALSO found elsewhere (downgrading a symlink escape because
@@ -85,23 +88,115 @@ that instruction is never a special case again: every snippet either
 says how it was checked, or says plainly that it was not, and every
 number names the command that would confirm it.
 
-Scope is deliberately narrow: only `openspec/changes/*/tasks.md`, and
-never `openspec/changes/archive/`. check-references.sh's own header
-records that a guard once widened past the shape it was designed for
-produced 28 false failures on this repo's own tree, and the only way to
-silence a false failure under time pressure is a suppression marker —
-one that then switches off whatever real check shares that line. This
-guard is scoped to exactly the file it exists to police: the live plan
-being acted on right now.
+Scope is `openspec/changes/*/{tasks,design,proposal}.md` — the three
+artifacts named in `SCANNED_FILENAMES` — and never
+`openspec/changes/archive/`. All three make claims about the world, and
+a claim is no more attributable for sitting in the design than in the
+tasks; scanning only tasks.md left the two artifacts the tasks are
+derived FROM unchecked.
+
+`specs/` under a change is still excluded, and the reason is a
+difference in kind rather than in risk: spec text legislates rather than
+describes, so a requirement forbidding a shape must be able to name that
+shape, and an untagged fence there is the requirement doing its job.
+
+check-references.sh's own header records that a guard once widened past
+the shape it was designed for produced 28 false failures on this repo's
+own tree, and the only way to silence a false failure under time
+pressure is a suppression marker — one that then switches off whatever
+real check shares that line. That is why this widening removed its own
+false-positive classes FIRST: the issue-key exclusion in the numeric
+rule and the quotation exemption below both landed before the scan set
+grew, so the extra prose being read is prose this guard can already
+classify without over-firing.
 
 The numeric rule is intentionally narrow for the same reason: it
 matches only a digit group directly followed by one of a small closed
 set of unit words (tests, failures, errors, files, lines, seconds,
 minutes, ms), and only when that digit group itself is not just the
-tail end of some other token. It deliberately does NOT match "step 1.2",
-"line 452", "IU-262", "KAN-14", "sha256", or a bare version number —
-none of those are numeric claims a plan needs to attribute, and
+tail end of some other token. So it does not match "step 1.2", "line
+452", "IU-262", "KAN-14", "sha256", or a bare version number — the
+first four because no unit word follows, "sha256" because its digits
+are the tail of a token. A digit group directly preceded by an
+uppercase letter and a hyphen is an issue key rather than a quantity,
+and the leading lookbehind excludes it even when a unit word DOES
+follow, so "KAN-6 errors" reads as an identifier and not as six errors.
+None of these are numeric claims a plan needs to attribute, and
 flagging them is exactly the over-firing failure mode described below.
+
+=============================================================================
+WHY THE QUOTATION EXEMPTION IS QUOTES-ONLY
+=============================================================================
+
+**This block is the single authoritative account of the quotation
+exemption's history.** Every other docstring, comment and contract section
+that needs it refers to it BY THIS HEADING and does not restate it. Four
+rounds of edits previously had to keep six near-verbatim copies of the
+narrative below in sync, which is the same Single Source of Truth defect
+this guard's own subject matter is about.
+
+A number a line REPRODUCES rather than ASSERTS needs no provenance tag, so
+a number inside a matched delimiter pair is exempt. The exemption may only
+ever REMOVE a finding, so every error it makes is a claim silently
+accepted — it must fail closed.
+
+It shipped with two delimiter classes: matched double quotes (straight and
+curly) and CommonMark inline code spans. The code-span class then failed
+OPEN five times, each caught by a different reviewer:
+
+  1. parity counting instead of nearest-enclosing-pair;
+  2. overlapping span regions — interior runs were not consumed, so a run
+     CommonMark treats as content was reused as an independent opener;
+  3. `[]` conflating "this line has no code spans" with "this line's
+     code-span state is indeterminate";
+  4. backslash-escaped delimiters paired as live ones;
+  5. backticks inside raw HTML (`<!-- ... -->`) treated as live
+     delimiters — `See <!--``--> the benchmark ran 77 tests ``.` exited 0
+     with the bare claim unreported.
+
+All five lived in code-span handling, because that class had made this
+guard a re-implementation of a CommonMark INLINE parser — and CommonMark
+has further inline contexts still unhandled here (character references,
+autolinks, link destinations), so a sixth was a matter of time.
+
+The evidence that ended it: every measured false positive that ever
+justified this exemption is DOUBLE-QUOTE delimited. Measured over the
+archived changes, four exemptions fire and all four have the form
+`"194 tests"`. Not one needed a code span. The code-span delimiter was
+added during design without evidence, and it was the sole source of all
+five fail-opens, so it was removed outright (design decision
+`quotation-quotes-only`).
+
+The SIXTH arrived anyway, in the raw-HTML veto that replaced part of the
+code-span class — not in what it decided, but in how it LOCATED §6.6
+constructs: a per-construct regex whose tag alternative truncated at the
+first `>`, where §6.6 permits a `>` inside a single-quoted attribute
+value. `<a b='>"'> the benchmark ran 77 tests "` exited 0 with the bare
+claim unreported, one of 150 fail-open arrangements a differential sweep
+against an accurate §6.6 grammar found.
+
+That is the same defect as the other five wearing different clothes: a
+spec grammar approximated by a regex. Six failures is enough evidence
+that the approach does not work, so the sixth fix DELETES the grammar
+instead of improving it (design decision
+`quotation-angle-bracket-veto`). Nothing is approximated, so nothing
+leaks.
+
+What ships, therefore:
+
+  - **Delimiters are matched double quotes only** — straight (U+0022) and
+    curly (U+201C/U+201D). A backtick is an ordinary character; a number
+    inside `` `85 lines` `` is an ordinary unattributed claim.
+  - **Three vetoes**, each of which can only ever WITHDRAW an exemption:
+    a backslash-escaped delimiter (`_has_escaped_delimiter`), a `<`
+    ANYWHERE ON THE LINE (`_has_angle_bracket`), and a delimiter class
+    whose delimiters do not all pair (`_quote_regions`). The first two
+    are whole-line; the third is per class.
+  - **Both whole-line vetoes are COARSE on purpose**, and the raw-HTML
+    one is now as coarse as a rule can be: it asks only whether a `<` is
+    present, never what the `<` is part of or where that part ends. Every
+    question it declines to ask is a question one of the six fail-opens
+    answered wrongly.
 
 =============================================================================
 WHY THIS FILE IS PYTHON, NOT BASH — the reshape's own history
@@ -246,11 +341,11 @@ optional checkbox, trailing blockquote run) because that is what the
 existing fixtures and this repository's own plans need; a fourth slot
 would require an unbounded per-level loop, and the Bash version's own
 history (defect 8) is the reason that trade was rejected once already.
-Verified absent from every tasks.md in this repository, including
-archived ones — a real, loud, documented refusal on a shape nothing here
-produces, not a silent gap.
+Verified absent from every planning artifact in this repository,
+including archived ones — a real, loud, documented refusal on a shape
+nothing here produces, not a silent gap.
 
-KNOWN LIMITATION — containment/read TOCTOU: `verify_tasks_md_containment`
+KNOWN LIMITATION — containment/read TOCTOU: `verify_scanned_file_containment`
 resolves and checks `path` and then `check_file` opens it separately; a
 symlink swap between the two calls is a real, narrow race. Accepted, not
 fixed: this guard's threat model is static PR-checked-out content
@@ -260,17 +355,18 @@ file descriptor across both checks (`os.path.samestat` against an
 `fstat`), which is real work for a race this scope does not need to
 defend against.
 
-KNOWN LIMITATION — read size: `check_file` refuses (exit 2) a `tasks.md`
-larger than `MAX_TASKS_MD_BYTES` before reading it, rather than reading
-an arbitrarily large file into memory in one call. This is defense in
-depth, not a realistic ceiling — every `tasks.md` in this repository is a
-few hundred KB at most — chosen because the check costs a few lines and
-an `os.path.getsize` call, not because an unbounded regular file is a
-observed problem here.
+KNOWN LIMITATION — read size: `check_file` refuses (exit 2) a scanned
+file larger than `MAX_SCANNED_FILE_BYTES` before reading it, rather than
+reading an arbitrarily large file into memory in one call. This is
+defense in depth, not a realistic ceiling — every planning artifact in
+this repository is a few hundred KB at most — chosen because the check
+costs a few lines and an `os.path.getsize` call, not because an
+unbounded regular file is a observed problem here.
 """
 
 from __future__ import annotations
 
+import bisect
 import os
 import re
 import stat
@@ -278,13 +374,32 @@ import sys
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-# MAX_TASKS_MD_BYTES — a defense-in-depth cap on how large a single
-# tasks.md this guard will read into memory in one call. Every tasks.md
-# in this repository is a few hundred KB at most; this is not a
+# MAX_SCANNED_FILE_BYTES — a defense-in-depth cap on how large a single
+# planning artifact this guard will read into memory in one call. Every
+# such file in this repository is a few hundred KB at most; this is not a
 # realistic ceiling for ordinary use, it exists so an oversized file
 # (however it got that way) is refused (exit 2) rather than read
 # unbounded — see the module docstring's "KNOWN LIMITATION — read size".
-MAX_TASKS_MD_BYTES = 10 * 1024 * 1024  # 10 MiB
+MAX_SCANNED_FILE_BYTES = 10 * 1024 * 1024  # 10 MiB
+
+# SCANNED_FILENAMES — the planning artifacts a change is scanned for, and
+# the single source of truth for that set in CODE: the scan loop and the
+# scan-integrity failure both derive from it rather than restating it.
+#
+# The module docstring's scope paragraph does NOT derive from it — it
+# hardcodes the three filenames, because a docstring cannot interpolate a
+# module constant. That is a restatement, and it is named as one here rather
+# than claimed away: a fourth filename added to this tuple must be written
+# into that paragraph by hand, and nothing mechanical will notice if it is
+# not.
+#
+# `specs/` is deliberately absent. Spec text legislates rather than
+# describes: a requirement forbidding a shape must be able to name that
+# shape, so an untagged fence there is the requirement doing its job, not
+# an unverified claim. tasks.md, design.md and proposal.md are the three
+# artifacts that make claims ABOUT the world — the claims this guard
+# exists to make attributable.
+SCANNED_FILENAMES = ("tasks.md", "design.md", "proposal.md")
 
 # --- Regexes -----------------------------------------------------------
 #
@@ -325,8 +440,25 @@ UNITS = r"tests|failures|errors|files|lines|seconds|minutes|ms"
 # engine could not produce this shape, Python's `re` can, and a language
 # migration must budget for verifying its *new* failure modes, not just
 # confirm the old ones are gone.
+#
+# A FOURTH one has since been caught, in review, before it shipped: the
+# quotation exemption's region-membership test was a linear scan called once
+# per character index, which is quadratic in the number of code spans on a
+# single line. See `_region_at`. The lesson generalises past regex engines to
+# any "scan a list once per element of another list" shape, which is why that
+# fix is a `bisect` probe and not a faster loop.
+#
+# `(?<![A-Z]-)` is the issue-key exclusion. `(?<!\w)` alone cannot make
+# this call: the character before the digits in `KAN-6 errors` is a
+# hyphen, which is not word-constituent, so the boundary is satisfied and
+# the key's number is read as a quantity. An uppercase letter followed by
+# a hyphen immediately before a digit run is the issue-key shape
+# (`KAN-6`, `IU-262`), never a measurement, so it is excluded here rather
+# than left to the generic boundary. The lookbehind is fixed-width, which
+# Python's `re` requires; every other boundary decision stays with
+# `(?<!\w)`.
 CLAIM_RE = re.compile(
-    rf"(?<!\w)[0-9](?:,?[0-9]){{0,20}}[\s]+(?:{UNITS})(?!\w)"
+    rf"(?<![A-Z]-)(?<!\w)[0-9](?:,?[0-9]){{0,20}}[\s]+(?:{UNITS})(?!\w)"
 )
 
 # PROVENANCE_RE — anchored on the HTML comment opener, not merely
@@ -336,6 +468,475 @@ CLAIM_RE = re.compile(
 # `<!-- unmeasured: revisit -->`) would satisfy the rule exactly as well
 # as a real one.
 PROVENANCE_RE = re.compile(r"<!--\s*(measured|predicted):")
+
+# _QUOTE_PAIRS — the quotation delimiters that make a number a QUOTATION
+# rather than a claim, and the WHOLE delimiter set: matched double quotes,
+# straight and curly. Single quotes are deliberately absent: prose
+# apostrophes ("the guard's scope") are unpaired by nature, so admitting them
+# would make pairing meaningless on most lines of this repository's
+# documentation. Inline code spans were a third class and are gone — see the
+# module docstring's "WHY THE QUOTATION EXEMPTION IS QUOTES-ONLY", which is
+# the only place that history is written down.
+_QUOTE_PAIRS = (('"', '"'), ("“", "”"))
+
+# _DELIMITER_CHARS — every delimiter character, DERIVED from `_QUOTE_PAIRS`
+# rather than re-listed, so a future delimiter class cannot be added to the
+# pairing scanner while the escape veto below keeps answering for the old set.
+#
+# The angle-bracket veto does NOT consume this: it never looks at delimiters at
+# all (see `_ANGLE_BRACKET`), which is precisely what makes it answer for every
+# delimiter class, present and future, without being told about any of them.
+_DELIMITER_CHARS = "".join(sorted({c for pair in _QUOTE_PAIRS for c in pair}))
+
+# VETO_* — why a line's quotation exemption was withdrawn, in the operator's
+# words. These strings are printed (see `_veto_note`), so they are phrased as
+# the cause an author can act on rather than as an internal enum.
+#
+# EVERY REASON MUST NAME SOMETHING THE AUTHOR CAN VERIFY BY READING THEIR OWN
+# LINE (pass-18 fix wave, Important). `VETO_RAW_HTML` — "a quotation delimiter
+# inside raw HTML" — did not: it was returned for the old helper's SECOND
+# answer as well ("this line opened a construct it never closed"), which fires
+# on `the range a <b and c covers 5 tests`, a line carrying no quotation
+# delimiter anywhere. The operator was sent to look for something provably not
+# there. The replacement states the literal character that triggered it.
+VETO_ESCAPE = "a backslash-escaped quotation delimiter"
+VETO_ANGLE_BRACKET = "a `<` character on the line"
+VETO_UNBALANCED = "unbalanced quotation delimiters"
+
+# _VETO_REMEDIES — the fix for each veto. Lens C, pass-17 fix wave: the
+# distinguishing information existed in-process and was discarded before
+# printing, so an author whose correctly-quoted number lost its exemption to
+# an unrelated stray delimiter had no way to learn that from the tool — and
+# the exit-1 banner's only advice ("add the missing tag") would have had them
+# write a `measured:` tag for a number that was already quoted, which is the
+# tag vocabulary being used untruthfully to silence a guard.
+_VETO_REMEDIES = {
+    VETO_ESCAPE: "unescape it or reword the line",
+    VETO_ANGLE_BRACKET: "remove the `<` or reword the line",
+    VETO_UNBALANCED: "balance them or reword the line",
+}
+
+# _ESCAPED_DELIMITER_RE — the escape veto's trigger (pass-16 fix wave,
+# Critical 1 — item 4 of the module docstring's "WHY THE QUOTATION EXEMPTION
+# IS QUOTES-ONLY", which is the only place that history is written out).
+#
+# CommonMark 0.31.2 §2.4 makes a backslash followed by ASCII punctuation a
+# LITERAL character: `\"` is a quotation mark, not a quotation delimiter.
+# `_quote_regions`'s character scan did not know that, so it paired escaped
+# delimiters as live ones and manufactured regions that do not exist —
+# exempting numbers standing in open prose.
+#
+# `(?<!\\)(\\+)` captures a MAXIMAL backslash run: the lookbehind pins the
+# match to the run's first character, so `group(1)` is the whole run and its
+# parity is CommonMark's own. An ODD run escapes the delimiter after it; an
+# EVEN one is a sequence of escaped backslashes leaving that delimiter LIVE
+# (`\\` then `"` still opens a quotation). Parity, not mere adjacency, is
+# what makes the veto stop at the escapes and no further.
+#
+# DELIBERATE OVER-APPROXIMATION, in the safe direction only: §2.4 escapes
+# ASCII punctuation, so a backslash before a CURLY quote (U+201C/U+201D) is
+# not an escape at all — the backslash is literal and the curly quote stays
+# live. This pattern vetoes that line anyway, because keeping the delimiter
+# set derived from `_QUOTE_PAIRS` is worth more than the one exemption it
+# costs, and every error a veto can make is a finding REPORTED rather than a
+# finding removed.
+_ESCAPED_DELIMITER_RE = re.compile(
+    r"(?<!\\)(\\+)[" + re.escape(_DELIMITER_CHARS) + r"]"
+)
+
+# _ANGLE_BRACKET — the raw-HTML veto's ENTIRE trigger, and deliberately not a
+# regex (pass-18 fix wave, Critical: the SIXTH fail-open).
+#
+# CommonMark 0.31.2 §6.6 makes an HTML comment, a tag, a declaration, a CDATA
+# section and a processing instruction RAW HTML: their contents are passed
+# through untouched and nothing inside one is parsed as an inline delimiter.
+# A `"` inside `<!-- ... -->` is therefore literal content, and pairing it with
+# a live delimiter elsewhere on the line invents a region exactly as the escape
+# case did. That much was always right. What was wrong was how the constructs
+# were LOCATED.
+#
+# The previous version matched them with a per-construct regex whose tag
+# alternative was `</?[A-Za-z][^<>]*>`. §6.6 permits `>` inside a
+# SINGLE-QUOTED attribute value, so a real tag can extend past the first `>`
+# and the pattern truncated there. When the truncated prefix carried no
+# delimiter, the veto cleared it, advanced past it, found no further `<` and
+# returned False — leaving a `"` that is genuinely inside the tag live as a
+# delimiter:
+#
+#     <a b='>"'> the benchmark ran 77 tests "
+#
+# exited 0 with the bare claim unreported. A differential sweep against an
+# accurate §6.6 grammar found 150 distinct fail-open arrangements of that
+# shape; the DOUBLE-quoted attribute form self-vetoes, which is why it was
+# missed. It was the fifth consecutive attempt to approximate a spec grammar
+# with a regex, and every fail-open this exemption has ever had came from one.
+#
+# So the grammar is GONE, not improved. The rule is now the coarsest one that
+# can be stated:
+#
+#     IF THE LINE CONTAINS A `<` AT ALL, THE EXEMPTION IS WITHDRAWN.
+#
+# There is no tag grammar, no comment/PI/CDATA/declaration alternative and no
+# attribute parsing — nothing to approximate, so nothing to leak. It is
+# trivially fail-closed and trivially auditable, it is O(1) work per line with
+# no engine behind it (this file has already fixed four quadratics; a veto
+# cannot introduce a fifth if it does not scan), and it answers for every
+# delimiter class at once because it never looks at delimiters.
+#
+# The cost was measured before it was chosen, over all 110 markdown files in
+# this repository: 38 numeric claims are exempted, and exactly 2 sit on a line
+# containing `<`. One of those is the manual-test guide's own fixture line for
+# the behaviour being replaced; the other already carries a provenance tag, so
+# it reports nothing. Inside the guard's actual scan scope
+# (`openspec/changes/*/{tasks,design,proposal}.md`) the loss is zero.
+_ANGLE_BRACKET = "<"
+
+
+def _has_escaped_delimiter(text: str) -> bool:
+    """True when `text` carries a backslash-escaped quotation delimiter — an
+    ODD run of backslashes immediately before one.
+
+    See `_ESCAPED_DELIMITER_RE` for the escape rule and `quotation_regions`
+    for what the answer is used for (a whole-line veto).
+    """
+    return any(
+        len(m.group(1)) % 2 == 1 for m in _ESCAPED_DELIMITER_RE.finditer(text)
+    )
+
+
+def _has_angle_bracket(text: str) -> bool:
+    """True when `text` contains a `<` — the whole raw-HTML veto.
+
+    This asks nothing about HTML. It does not decide whether the `<` opens a
+    construct, where that construct ends, or whether a delimiter is inside it,
+    because deciding any of those requires a §6.6 grammar and five successive
+    approximations of one are what produced every fail-open this exemption has
+    had (see `_ANGLE_BRACKET` for the sixth, which is why this function has no
+    regex in it at all).
+
+    The trade this makes is stated rather than hidden: a line that merely
+    mentions `<` in prose loses its quotation exemption. That is a finding
+    REPORTED where a strict CommonMark reader would have exempted it — a loud
+    false positive, the only direction this exemption is allowed to be wrong
+    in — and it was measured to cost this repository nothing inside the scan
+    scope before it was chosen.
+    """
+    return _ANGLE_BRACKET in text
+
+
+# _REGION_HI — the "larger than any end offset" second element used to make
+# a `bisect` probe land after every region whose START equals the probed
+# index. `sys.maxsize` is a plain int, so the tuple comparison stays a
+# total order on `(int, int)`.
+_REGION_HI = sys.maxsize
+
+
+def _regions_are_sorted_disjoint(regions: list) -> bool:
+    """True when `regions` is sorted by start, pairwise disjoint, and made
+    only of non-inverted half-open spans — `_region_at`'s precondition,
+    stated as something executable rather than as prose in three docstrings.
+    """
+    previous_end = 0
+    for start, end in regions:
+        if start < previous_end or end < start:
+            return False
+        previous_end = end
+    return True
+
+
+def _region_at(index: int, regions: list) -> Optional[Tuple[int, int]]:
+    """The region of `regions` containing `index`, or `None`.
+
+    `regions` must be sorted by start and pairwise DISJOINT — which every
+    region list this module builds is, by construction (`_quote_regions`
+    emits strictly left-to-right, non-overlapping runs). Disjointness is what
+    makes one `bisect` probe sufficient: the last region whose start is
+    `<= index` is the ONLY one that can contain it.
+
+    THE PRECONDITION IS ENFORCED, NOT MERELY DOCUMENTED (Lens B, pass-17 fix
+    wave). It used to be stated in three docstrings and checked nowhere,
+    which matters more here than it would elsewhere: this is the single
+    chokepoint every exemption flows through, and a violated precondition
+    makes the `bisect` probe return a silently WRONG answer in the fail-open
+    direction — a region reported as containing an index it does not. That is
+    the shape of four prior defects in this exemption, and "silently wrong,
+    fail-open" is the one outcome this code may not have.
+
+    Two checks, deliberately split by cost:
+
+      - here, an O(1) LOCAL check on the probed region and its immediate
+        neighbours, which fails CLOSED (returns `None` — "not enclosed") so a
+        violation withdraws an exemption instead of granting one;
+      - at the producer, an O(N) full check (`_quote_regions`'s `assert`),
+        which fails FAST and loudly, because a producer emitting an
+        out-of-order list is programmer error rather than input.
+
+    The O(1) check cannot be an O(N) validation: `_quote_regions` calls this
+    once per character index, so validating the whole list here would restore
+    exactly the O(N^2) the `bisect` probe below was introduced to remove.
+
+    Important 3 (pass-15 fix wave): that probe replaced a linear
+    `any(start <= index < end for ...)` scan, which made the exemption
+    quadratic in the number of regions on a single line.
+
+    ONE figure, with the line shape it was measured on (pass-16 fix wave,
+    Minor A). Three different numbers for this same nominal measurement were
+    in circulation — 3.38 s, 6.709 s and 3.13 s — because each was taken on a
+    differently-crafted line and none said which, in a guard whose entire
+    subject is numeric claims that do not name their source. They are
+    superseded by this one, which states its shape:
+
+        line  = "`x` " * 4000 + "99 tests"   (4000 regions, 16,008 chars)
+        timed = quotation_regions(line), linear membership vs this `bisect`
+        3.15 s before, 0.014 s after; /usr/bin/python3 3.9.6, macOS 25.5.0
+
+    Doubling the region count quadrupled the "before" time (0.05 / 0.20 /
+    0.79 / 3.15 / 12.83 s at 500 / 1000 / 2000 / 4000 / 8000 regions) and
+    doubled the "after" time, which is the quadratic-vs-linear claim itself
+    rather than any single number. Hours on a line still well inside
+    `MAX_SCANNED_FILE_BYTES`, on a guard that runs as a CI gate over
+    PR-authored content. That is a denial of service, and it would have been
+    the FOURTH quadratic in this guard (see the module docstring's "WHY THIS
+    FILE IS PYTHON" enumeration and `CLAIM_RE`'s comment block for the
+    previous three). `bisect` is standard library, which this file is
+    restricted to.
+
+    The measurement was taken while code spans were still a delimiter class,
+    which is what made 4000 regions on one line easy to construct; the
+    quadratic it records is a property of the probe, not of that class, and
+    the probe is unchanged.
+    """
+    i = bisect.bisect_right(regions, (index, _REGION_HI)) - 1
+    if i < 0:
+        return None
+    start, end = regions[i]
+    if end < start:
+        return None
+    if i > 0 and regions[i - 1][1] > start:
+        return None
+    if i + 1 < len(regions) and regions[i + 1][0] < end:
+        return None
+    return (start, end) if start <= index < end else None
+
+
+def _encloses(start: int, end: int, regions: list) -> bool:
+    """True when the half-open span `[start, end)` lies wholly inside one
+    region of the sorted, disjoint list `regions`."""
+    region = _region_at(start, regions)
+    return region is not None and end <= region[1]
+
+
+def _quote_regions(text: str, opener: str, closer: str) -> Optional[list]:
+    """The interior of every matched `opener`/`closer` pair on `text`, or
+    `None` when any delimiter of that class is left over — the CLASS-WIDE
+    VETO.
+
+    `None` and `[]` are different answers, and the difference is what
+    `_check_numeric_claim` prints: `[]` means "this class has no delimiters
+    on this line, so it exempts nothing", while `None` means "this class's
+    delimiters do not all pair, so nothing it might have enclosed can be
+    trusted". Both exempt nothing — the veto is fail-closed either way — but
+    only the second is something an author can act on, and discarding that
+    distinction before printing is what left an author staring at "no
+    provenance comment" for a number they had correctly quoted.
+
+    The returned regions are sorted by start and pairwise disjoint — the
+    scan emits them strictly left to right and never reopens a closed one —
+    which is the precondition `_region_at`'s single `bisect` probe needs, and
+    which the `assert` below turns from a comment into a check (Lens B,
+    pass-17 fix wave; see `_region_at` for why this producer asserts while
+    the consumer fails closed).
+
+    THE CLOSER/OPENER ASYMMETRY (pass-16 fix wave, Minor B). A leftover
+    OPENER vetoes the class (`pending is not None` below returns `None`), but
+    a closer arriving with no pending opener is silently SKIPPED — the `elif`
+    chain simply falls through it. That asymmetry is deliberate and safe, and
+    the reason is that the two leftovers are not the same kind of ignorance:
+
+      - A leftover opener leaves the class's region EXTENTS undetermined:
+        text after it is inside an unterminated quotation whose end is not on
+        this line, so nothing downstream of it can be said to be enclosed or
+        not. Undetermined means veto.
+      - A leftover closer removes nothing. Every region this scan emits is
+        bounded by an opener and the very next closer after it, with no
+        opener in between (a second opener vetoes the class outright). A
+        number inside such a region is therefore literally between a curly
+        open quote and a curly close quote — a genuine enclosure — whatever
+        stray closer happened to appear earlier in the line. Skipping it
+        cannot manufacture a region; it can only fail to consume a character
+        that could not have opened anything anyway.
+
+    This is why it is NOT the same shape as the straight-quote parity
+    failure `_is_quoted` describes. There, opener and closer are the SAME
+    character, so a stray delimiter is indistinguishable from an opener and
+    the pairing itself becomes ambiguous. Here the roles are typed by the
+    character, so a stray `”` is unambiguously not an opener. This asymmetry
+    is reachable only for the curly class; for a same-character class the
+    "closer with nothing pending" branch is unreachable by construction,
+    because such a character is taken as an opener.
+
+    Checked, not merely argued: exhaustively over every arrangement of up to
+    six curly delimiters around a claim, every exemption this function
+    granted had the claim's nearest live delimiter to the left an opener and
+    its nearest to the right a closer — i.e. no exemption was ever granted
+    without a genuine enclosing pair.
+    """
+    regions = []
+    pending = None
+    for i, char in enumerate(text):
+        if pending is None:
+            if char == opener:
+                pending = i
+        elif char == closer:
+            regions.append((pending + 1, i))
+            pending = None
+        elif char == opener:
+            # A second opener before the first is closed (possible only for
+            # a distinct opener/closer pair). Nesting is not a shape this
+            # guard can resolve, so the class is vetoed.
+            return None
+    if pending is not None:
+        return None
+    assert _regions_are_sorted_disjoint(regions), (
+        "quotation regions must be sorted and pairwise disjoint: "
+        f"{regions!r}"
+    )
+    return regions
+
+
+@dataclass(frozen=True)
+class QuotationScan:
+    """One line's quotation analysis: the regions inside which a number is
+    reproduced rather than asserted, and why — if at all — the exemption was
+    withdrawn.
+
+    `classes` holds one sorted, pairwise-disjoint region list per delimiter
+    class that survived. A vetoed class contributes NO list, so an empty
+    `classes` exempts nothing: the fail-closed answer is the absence of
+    regions rather than a sentinel that every consumer has to remember to
+    check. This replaced an `Optional[list]` whose `None` meant "the whole
+    line is indeterminate" (pass-17 fix wave): with the code-span class gone
+    that sentinel had one producer and one consumer, and an empty tuple says
+    the same thing without a second way to spell "exempt nothing".
+
+    `veto` is the reason, or `None` when no veto fired. It exists so the
+    guard can tell an author WHY a correctly-quoted number was reported —
+    see `_veto_note` and `_check_numeric_claim`.
+
+    The classes are kept as separate lists rather than merged into one:
+    within a class the regions are disjoint (which is what lets `_region_at`
+    answer with a single `bisect` probe), but a straight-quoted passage may
+    legitimately contain a curly-quoted one, so a merged list would not be.
+    """
+
+    classes: Tuple[list, ...]
+    veto: Optional[str]
+
+
+def quotation_regions(text: str) -> QuotationScan:
+    """Analyse `text` for the regions inside which a number is a QUOTATION
+    rather than an assertion.
+
+    Computed ONCE PER LINE and threaded into `_is_quoted` (Important 3,
+    pass-15 fix wave). `_check_numeric_claim` used to call `_is_quoted` once
+    per `CLAIM_RE` match, each call recomputing every region on the line from
+    scratch. The helpers stay pure — the regions are a parameter, not a cache
+    hidden inside a function — so the only thing that changed is who owns the
+    one computation.
+
+    Three vetoes, in order, each able only to WITHDRAW an exemption. The
+    first two are whole-line and are checked before any pairing is attempted;
+    the third is per class. See the module docstring's "WHY THE QUOTATION
+    EXEMPTION IS QUOTES-ONLY" for the history that produced them, and
+    `_has_escaped_delimiter` / `_has_angle_bracket` / `_quote_regions` for each
+    one's own rule.
+
+    Why VETO rather than "strike the offending delimiters and pair what
+    remains": a veto's output is the absence of regions, and an absence can
+    only ever withdraw an exemption. Whatever a veto's analysis gets wrong,
+    the worst outcome is a claim REPORTED that a strict CommonMark reader
+    would have exempted — a loud false positive — never a claim silently
+    accepted. Striking, by contrast, needs two passes to agree about a
+    structure neither can compute alone, and "two passes that must agree" is
+    the shape of every fail-open in the history above.
+
+    KNOWN LIMITATION, and it is that worst outcome made explicit: a whole
+    line loses its exemption for a delimiter problem anywhere on it — or, for
+    the angle-bracket veto, for a single `<` anywhere on it — however soundly
+    a quotation elsewhere on the same line pairs. Harness cases 221, 223 and
+    224 pin the escape form, the angle-bracket form and the case where the `<`
+    is nowhere near a delimiter, so a later reader meets the trade-off as an
+    assertion rather than rediscovering it as a surprise.
+    """
+    if _has_escaped_delimiter(text):
+        return QuotationScan(classes=(), veto=VETO_ESCAPE)
+    if _has_angle_bracket(text):
+        return QuotationScan(classes=(), veto=VETO_ANGLE_BRACKET)
+    classes = []
+    veto = None
+    for opener, closer in _QUOTE_PAIRS:
+        regions = _quote_regions(text, opener, closer)
+        if regions is None:
+            veto = VETO_UNBALANCED
+        else:
+            classes.append(regions)
+    return QuotationScan(classes=tuple(classes), veto=veto)
+
+
+def _veto_note(relfile: str, lineno: int, veto: str) -> str:
+    """The operator-facing explanation of a withdrawn exemption.
+
+    Names the cause and the remedy, and points at the contract — the three
+    things missing from `_check_numeric_claim`'s message, which said only
+    that provenance was absent and so sent an author to tag a number that
+    was already correctly quoted.
+    """
+    return (
+        f"{relfile}:{lineno}: note: the quotation exemption was withdrawn "
+        f"on this line ({veto}) — {_VETO_REMEDIES[veto]}; "
+        "see skills/myflow-contracts/plan-provenance.md"
+    )
+
+
+def _is_quoted(start: int, end: int, scan: QuotationScan) -> bool:
+    """True when the half-open offset span `[start, end)` sits inside a
+    matched delimiter pair on the line `scan` was computed from — see
+    `quotation_regions`, which is where that line's text is read. This
+    predicate never sees the text itself, so it cannot disagree with the
+    regions it was handed.
+
+    Line-scoped by construction: a pair spanning a line break is not
+    recognised, which keeps this a pure predicate rather than a second
+    piece of parser state that would have to agree with the fence tracker.
+
+    FAILS CLOSED, and the strength of that is the whole point: this
+    function can only ever REMOVE a finding, so anything it gets wrong is
+    a claim the guard silently accepts. It therefore answers "is this
+    offset inside a genuinely matched pair?" by pairing the line's
+    delimiters in order — NOT by the cheaper test of "is the count of
+    openers before it odd, and does a closer appear anywhere after it?".
+    That parity test fails OPEN on an ordinary shape: in
+
+        a "quote" and a stray " mark, then 99 tests ran, "done"
+
+    the odd count before `99` and the closer after it are both satisfied,
+    yet the number is plainly asserted rather than reproduced. Pairing in
+    order is not sufficient on its own either — it would pair the stray
+    delimiter with the opener of the final quotation and manufacture the
+    same bogus region. So a class whose delimiters do not ALL pair yields
+    no region at all on that line: with a leftover delimiter, the intended
+    pairing is undetermined (the stray one could belong on either side of
+    the number), and the fail-closed answer to an undetermined line is to
+    report the claim.
+
+    The two delimiter classes are independent of each other — an unbalanced
+    line for one of them does not withdraw an enclosure the other
+    demonstrates. The two whole-line vetoes are not classes at all: they
+    remove every class, which `quotation_regions` expresses by returning no
+    classes to iterate.
+    """
+    return any(_encloses(start, end, regions) for regions in scan.classes)
+
 
 # FENCE_TAG_RE — a fence's info string must carry verified:/unverified:
 # as a whole token, immediately preceded by start-of-string or
@@ -1545,12 +2146,12 @@ def is_closing_line(line: str, context: FenceContext, fence_char: str, fence_len
 
 
 class ProvenanceGuard:
-    """Scans tasks.md files for stated provenance, accumulating a single
-    running failure count across every file in the scan — the count a
-    mid-scan containment abort (exit 3, from `verify_tasks_md_containment`)
-    reports before it exits, so an abort that fires after several files
-    have already been scanned does not drop the summary of what was
-    already found.
+    """Scans a change's planning artifacts for stated provenance,
+    accumulating a single running failure count across every file in the
+    scan — the count a mid-scan containment abort (exit 3, from
+    `verify_scanned_file_containment`) reports before it exits, so an
+    abort that fires after several files have already been scanned does
+    not drop the summary of what was already found.
 
     `abort_messages` (Critical 2, pass-8 fix wave) is the analogous
     record for a content-classification abort (exit 4, from
@@ -1569,25 +2170,29 @@ class ProvenanceGuard:
     violation anywhere still outranks a classification abort.
 
     `containment_errors` (Critical 2, pass-11 fix wave) is the same
-    accumulator shape applied to `verify_tasks_md_containment`'s eight
+    accumulator shape applied to `verify_scanned_file_containment`'s eight
     `sys.exit(3)` sites, which — until this fix — each terminated the
     entire scan the moment the FIRST symlinked/escaping/non-regular
-    `tasks.md` was found, in whatever directory sorted first: every LATER
+    candidate was found, in whatever directory sorted first: every LATER
     change directory was never scanned, and any violation it carried was
     never reported. Two review slots looked at this and disagreed on the
     remedy: one argued exit 3 must keep outranking everything else (a
     symlink escape must never be downgraded to a mere violation or
     environment code just because something else was also found), the
     other argued the scan itself must not stop. Both are correct and
-    both are implemented: `verify_tasks_md_containment` now records the
-    message here and returns (never exits), so `main()`'s per-directory
-    loop moves on to the next candidate exactly as it already does for
-    `file_errors`; and `main()`'s end-of-scan priority decision checks
-    `containment_errors` FIRST, before violations/aborts/file errors, so
-    exit 3 still wins even though the scan no longer stops the instant it
-    is found. Every violation, abort or file error recorded from OTHER
-    directories is still printed — the containment refusal does not
-    silence them, it only outranks them for the exit code.
+    both are implemented: `verify_scanned_file_containment` now records the
+    message here and returns (never exits), so `main()`'s scan loop —
+    nested since the scan set widened, one candidate per entry in
+    `SCANNED_FILENAMES` inside one iteration per change directory — moves
+    on to the next CANDIDATE, not merely the next directory, exactly as
+    it already does for `file_errors`; and `main()`'s end-of-scan
+    priority decision checks `containment_errors` FIRST, before
+    violations/aborts/file errors, so exit 3 still wins even though the
+    scan no longer stops the instant it is found. Every violation, abort
+    or file error recorded from OTHER directories — and from the refused
+    candidate's own siblings in the SAME directory — is still printed:
+    the containment refusal does not silence them, it only outranks them
+    for the exit code.
     """
 
     def __init__(self) -> None:
@@ -1595,19 +2200,24 @@ class ProvenanceGuard:
         self.abort_messages: list = []
         self.containment_errors: list = []
 
-    def verify_tasks_md_containment(self, path: str, changes_dir: str) -> bool:
+    def verify_scanned_file_containment(
+        self, path: str, changes_dir: str, filename: str
+    ) -> bool:
         """Confirms `path` really sits at exactly
-        <changes_dir>/<name>/tasks.md before it is opened. `find -L`-style
-        traversal is what lets the walk descend into a symlinked change
-        directory in the first place (a PR-author-controlled slug that
-        never gets scanned would be a guard that reports clean having
-        never opened the plan), but following links means the walk is no
-        longer bounded to the named target — two escapes are closed here
-        rather than left for `check_file` to discover the hard way: the
-        change directory itself resolving outside the expected path, and
-        `tasks.md` itself being a symlink (an out-of-tree read at best,
-        an unbounded-read hang at worst — a symlink to /dev/zero never
-        yields EOF).
+        <changes_dir>/<name>/<filename> before it is opened —
+        `find -L`-style traversal is what lets the walk descend into a
+        symlinked change directory in the first place (a
+        PR-author-controlled slug that never gets scanned would be a
+        guard that reports clean having never opened the plan), but
+        following links means the walk is no longer bounded to the named
+        target. Two escapes are closed here rather than left for
+        `check_file` to discover the hard way: the change directory
+        itself resolving outside the expected path, and the scanned file
+        itself being a symlink (an out-of-tree read at best, an
+        unbounded-read hang at worst — a symlink to /dev/zero never
+        yields EOF). The path's own BASENAME is confirmed too, so
+        "exactly `<changes_dir>/<name>/<filename>`" is a claim every
+        component of is actually checked.
 
         Both refuse (exit 3, via `containment_errors` — see this class's
         own docstring) rather than silently skipping the file, because a
@@ -1616,14 +2226,19 @@ class ProvenanceGuard:
         `path`) and `True` when containment is confirmed; it no longer
         calls `sys.exit` itself (Critical 2, pass-11 fix wave) — doing so
         here stopped the ENTIRE scan at the first escaping/symlinked
-        `tasks.md`, silently dropping every later change directory. The
+        file, silently dropping every later change directory. The
         caller (`main()`) continues scanning the remaining directories
         either way, and decides the final exit code once, after every
         directory has had a chance to be scanned.
+
+        `filename` is the artifact being confirmed — one of
+        `SCANNED_FILENAMES`. Every refusal names it rather than a literal
+        `tasks.md`, so an operator reading the message knows which of a
+        change's three planning artifacts was refused.
         """
         if os.path.islink(path):
             print(
-                f"{path}: tasks.md is a symlink — refusing to open it "
+                f"{path}: {filename} is a symlink — refusing to open it "
                 "(out-of-tree read / unbounded-read risk)",
                 file=sys.stderr,
             )
@@ -1632,6 +2247,25 @@ class ProvenanceGuard:
 
         directory = os.path.dirname(path)
         name = os.path.basename(directory)
+
+        # The BASENAME half of "sits at exactly
+        # <changes_dir>/<name>/<filename>". Everything below confirms the
+        # containing DIRECTORY; without this the method would confirm a
+        # claim it never checked. `main()` builds every candidate from
+        # `SCANNED_FILENAMES`, so no caller can reach this today — which is
+        # precisely why it is cheap to assert rather than to weaken the
+        # docstring: this is the security-relevant gate, and a future
+        # caller that derives `filename` from anything less literal would
+        # otherwise inherit a check that never looked at the name it was
+        # told to confirm.
+        if os.path.basename(path) != filename:
+            print(
+                f"{path}: is not the {filename} it was checked as — "
+                "refusing to open it",
+                file=sys.stderr,
+            )
+            self.containment_errors.append(path)
+            return False
 
         # Minor 5 (pass-8 fix wave): `os.path.isdir` has the exact same
         # swallow-every-OSError-and-report-False shape already fixed
@@ -1725,6 +2359,35 @@ class ProvenanceGuard:
         lookahead window starting at `lines[i]` (the claim's own line, or
         one of the two after it)?
 
+        Every `CLAIM_RE` match is examined, not merely the first: a match
+        that `_is_quoted` reports as enclosed in a delimiter pair is a
+        number the line REPRODUCES rather than asserts, and skipping it
+        must not stop the scan — otherwise a quoted number would mask a
+        bare one sitting beside it on the same line.
+
+        The line's quotation regions are computed ONCE, here, and threaded
+        into every `_is_quoted` call (Important 3, pass-15 fix wave). This
+        loop used to call `_is_quoted(text, ...)` per match, and each call
+        recomputed every delimiter class on the line from scratch — the
+        per-match half of the quadratic that made a single crafted line a
+        denial of service on a CI gate. `quotation_regions` is also skipped
+        entirely when the line has no match at all, which is almost every
+        line.
+
+        WHEN THE EXEMPTION WAS WITHDRAWN, SAY SO (Lens C, pass-17 fix wave).
+        There are several distinct routes to the message below — no
+        exemption was ever possible, a delimiter class did not fully pair, an
+        escaped delimiter vetoed the line, raw HTML vetoed the line — and
+        only the first is what the message alone implies. The distinguishing
+        fact exists right here in `scan.veto` and used to be discarded before
+        printing, so an author whose correctly-quoted number lost its
+        exemption to an unrelated stray delimiter elsewhere on the line had
+        no way to learn that from the tool, and the remedy banner's only
+        advice would have had them write a provenance tag for a number that
+        was already quoted. The note is printed alongside the violation, on
+        its own line, and changes neither the exit code nor the failure
+        count: this is message only.
+
         Extracted (Important 7, pass-12 fix wave) because this exact
         lookahead-and-print shape was duplicated near-verbatim in
         `check_file` for the info-string case and the prose case, with a
@@ -1736,7 +2399,15 @@ class ProvenanceGuard:
         the lookahead window or the message text could easily update one
         copy and miss the other.
         """
-        if not CLAIM_RE.search(text):
+        claim = None
+        scan = None
+        for candidate in CLAIM_RE.finditer(text):
+            if scan is None:
+                scan = quotation_regions(text)
+            if not _is_quoted(candidate.start(), candidate.end(), scan):
+                claim = candidate
+                break
+        if claim is None:
             return
         satisfied = False
         for j in range(i, min(i + 3, total)):
@@ -1748,6 +2419,8 @@ class ProvenanceGuard:
                 f"{relfile}:{lineno}: numeric claim with no "
                 "measured:/predicted: provenance comment"
             )
+            if scan.veto is not None:
+                print(_veto_note(relfile, lineno, scan.veto))
             self.failures += 1
 
     def check_file(self, path: str, repo_root: str) -> Optional[str]:
@@ -1776,7 +2449,7 @@ class ProvenanceGuard:
             anything about this file's content, the same "cannot know"
             class as a missing `openspec/changes/` — not a malicious
             payload (that is exit 3, already ruled out by
-            `verify_tasks_md_containment` above) and not a parsing
+            `verify_scanned_file_containment` above) and not a parsing
             question (that is exit 4, `classify_line`'s abort path).
           - Content that cannot be decoded as UTF-8: scanning it anyway
             with `errors="replace"` would silently substitute
@@ -1836,10 +2509,10 @@ class ProvenanceGuard:
             print(msg, file=sys.stderr)
             return msg
 
-        if size > MAX_TASKS_MD_BYTES:
+        if size > MAX_SCANNED_FILE_BYTES:
             msg = (
                 f"{relfile}: {size} bytes exceeds the "
-                f"{MAX_TASKS_MD_BYTES}-byte cap — refusing to read it "
+                f"{MAX_SCANNED_FILE_BYTES}-byte cap — refusing to read it "
                 "unbounded"
             )
             print(msg, file=sys.stderr)
@@ -2097,7 +2770,7 @@ def _report_containment_refusal(guard: "ProvenanceGuard", file_errors: list) -> 
         )
     if file_errors:
         print(
-            f"{len(file_errors)} tasks.md file(s) could not be read "
+            f"{len(file_errors)} file(s) could not be read "
             "(environment failure, see above).",
             file=sys.stderr,
         )
@@ -2202,7 +2875,7 @@ def main() -> None:
     # Critical 5 (pass-14 fix wave): validate the ANCHOR itself before
     # anything is anchored on it.
     #
-    # `verify_tasks_md_containment` decides every per-file containment
+    # `verify_scanned_file_containment` decides every per-file containment
     # question by comparing against `os.path.realpath(changes_dir)` — and
     # never checked that `changes_dir` was itself where it claimed to be.
     # `os.path.isdir` below follows symlinks, so `openspec/changes` being
@@ -2219,7 +2892,7 @@ def main() -> None:
     #
     # The strictly WEAKER version of the same escape — a symlink one
     # level deeper, at `changes/<name>` — was already refused with exit 3
-    # by `verify_tasks_md_containment`. Refusing the weak form and
+    # by `verify_scanned_file_containment`. Refusing the weak form and
     # following the strong one is not a defensible line. (The security
     # slot rated this Important because the trigger is conspicuous in a
     # diff; a reviewer noticing a symlink is not a control this guard
@@ -2272,9 +2945,9 @@ def main() -> None:
     # is not "cannot determine", and reporting exit 2 for it would make
     # this guard's declared place in `## lint` spuriously red on an
     # ordinary day. It is NOT the same state as "changes exist but none
-    # of them yielded a tasks.md" below, which stays a hard failure: that
-    # shape means a broken glob or a tasks.md at the wrong depth, not
-    # "nothing to do".
+    # of them yielded any scanned file" below, which stays a hard
+    # failure: that shape means a broken glob or a planning artifact at
+    # the wrong depth, not "nothing to do".
     try:
         entries = sorted(os.listdir(changes_dir))
     except OSError as exc:
@@ -2332,7 +3005,7 @@ def main() -> None:
     # sorted BEFORE it — already scanned, already carrying a real
     # violation — still lost to exit 2 instead of exit 1. The fix is to
     # record the message in `file_errors` (declared once, above this
-    # loop, precisely so both this gate and the tasks.md-lstat gate below
+    # loop, precisely so both this gate and the candidate-lstat gate below
     # share the one accumulator `check_file` already uses) and `continue`
     # to the next entry — never adding the unclassifiable entry to
     # `change_dirs` (it cannot be scanned; it can be reported as a
@@ -2377,66 +3050,91 @@ def main() -> None:
         )
         sys.exit(0)
 
+    # Each change directory contributes one candidate per entry in
+    # `SCANNED_FILENAMES`, and each candidate keeps the identical
+    # per-file semantics the single-candidate version established: an
+    # absent file is an ordinary skip, an undeterminable one is a
+    # scan-integrity failure recorded in `file_errors`, and a containment
+    # refusal skips that one candidate while the scan continues. A change
+    # mid-planning that has a design.md and no tasks.md is therefore a
+    # scanned change, not a broken glob.
     scanned = 0
     for name in change_dirs:
-        candidate = os.path.join(changes_dir, name, "tasks.md")
-        # Critical 1 fix, second half: `os.path.lexists` has the exact
-        # same swallow-every-OSError-and-say-False shape as
-        # `os.path.isdir` above — a `tasks.md` this guard cannot even
-        # LOOK UP because its parent directory is `chmod 000` reports
-        # "does not exist", identically to a directory that genuinely
-        # has no tasks.md, and the entry is silently skipped rather than
-        # refused. `os.lstat` distinguishes them: `FileNotFoundError`
-        # (or `NotADirectoryError`, a path component that isn't a
-        # directory) means genuinely absent — an ordinary, unremarkable
-        # skip; any OTHER `OSError` (permission denied being the
-        # realistic case) means "cannot determine", the same
-        # scan-integrity failure as above, and must abort loudly instead
-        # of being read as "nothing here".
-        #
-        # Critical 1 (pass-10 fix wave): same defect as the entry-stat
-        # gate above — this used to be a direct `sys.exit(2)`, skipping
-        # every remaining change directory and outranking a violation
-        # already found in one scanned earlier. Now: record into the same
-        # `file_errors` accumulator and `continue` to the next change
-        # directory, exactly the pattern `check_file`'s own OSError/decode
-        # handling already uses.
-        try:
-            os.lstat(candidate)
-        except (FileNotFoundError, NotADirectoryError):
-            continue
-        except OSError as exc:
-            # Minor 6 (pass-11 fix wave): `exc.strerror`, not `exc` — see
-            # check_file's identical fix above.
-            msg = (
-                f"{os.path.relpath(candidate, repo_root)}: cannot "
-                f"determine whether tasks.md exists ({exc.strerror or exc}) "
-                "— refusing to report a clean run"
-            )
-            print(msg, file=sys.stderr)
-            file_errors.append(msg)
-            continue
+        for filename in SCANNED_FILENAMES:
+            candidate = os.path.join(changes_dir, name, filename)
+            # Critical 1 fix, second half: `os.path.lexists` has the exact
+            # same swallow-every-OSError-and-say-False shape as
+            # `os.path.isdir` above — a candidate this guard cannot even
+            # LOOK UP because its parent directory is `chmod 000` reports
+            # "does not exist", identically to a directory that genuinely
+            # has no such file, and the entry is silently skipped rather
+            # than refused. `os.lstat` distinguishes them:
+            # `FileNotFoundError` (or `NotADirectoryError`, a path
+            # component that isn't a directory) means genuinely absent —
+            # an ordinary, unremarkable skip; any OTHER `OSError`
+            # (permission denied being the realistic case) means "cannot
+            # determine", the same scan-integrity failure as above, and
+            # must abort loudly instead of being read as "nothing here".
+            #
+            # OPERATOR-VISIBLE COUNT: this gate is now per CANDIDATE, so
+            # one undeterminable change directory (a `chmod 000` parent)
+            # emits one "cannot determine whether <filename> exists"
+            # message per entry in `SCANNED_FILENAMES` — three where the
+            # tasks.md-only scan emitted one. That is the required
+            # consequence of per-candidate semantics, not duplication:
+            # each message names a different candidate, and collapsing
+            # them would mean deciding for the operator that the three
+            # failures share one cause, which this gate cannot know. The
+            # exit code (2) and the diagnosis are unchanged.
+            #
+            # Critical 1 (pass-10 fix wave): same defect as the entry-stat
+            # gate above — this used to be a direct `sys.exit(2)`, skipping
+            # every remaining change directory and outranking a violation
+            # already found in one scanned earlier. Now: record into the
+            # same `file_errors` accumulator and `continue` to the next
+            # candidate, exactly the pattern `check_file`'s own
+            # OSError/decode handling already uses.
+            try:
+                os.lstat(candidate)
+            except (FileNotFoundError, NotADirectoryError):
+                continue
+            except OSError as exc:
+                # Minor 6 (pass-11 fix wave): `exc.strerror`, not `exc` —
+                # see check_file's identical fix above.
+                msg = (
+                    f"{os.path.relpath(candidate, repo_root)}: cannot "
+                    f"determine whether {filename} exists ({exc.strerror or exc}) "
+                    "— refusing to report a clean run"
+                )
+                print(msg, file=sys.stderr)
+                file_errors.append(msg)
+                continue
 
-        # Critical 2 (pass-11 fix wave): a containment refusal must not
-        # stop the scan — `verify_tasks_md_containment` now records the
-        # refusal (see ProvenanceGuard's docstring) and returns `False`
-        # rather than exiting, so a symlinked/escaping/non-regular
-        # `tasks.md` in an early directory no longer prevents every LATER
-        # directory from being scanned. `check_file` must not be called
-        # on a `path` that failed containment — that refusal exists
-        # precisely so this guard never opens it.
-        if not guard.verify_tasks_md_containment(candidate, changes_dir):
-            continue
-        err = guard.check_file(candidate, repo_root)
-        if err is not None:
-            file_errors.append(err)
-        scanned += 1
+            # Critical 2 (pass-11 fix wave): a containment refusal must not
+            # stop the scan — `verify_scanned_file_containment` records the
+            # refusal (see ProvenanceGuard's docstring) and returns `False`
+            # rather than exiting, so a symlinked/escaping/non-regular
+            # candidate in an early directory no longer prevents every
+            # LATER directory from being scanned. `check_file` must not be
+            # called on a `path` that failed containment — that refusal
+            # exists precisely so this guard never opens it.
+            if not guard.verify_scanned_file_containment(
+                candidate, changes_dir, filename
+            ):
+                continue
+            err = guard.check_file(candidate, repo_root)
+            if err is not None:
+                file_errors.append(err)
+            scanned += 1
 
-    # Change directories exist, but none of them produced a tasks.md: a
-    # misconfigured root or a tasks.md at the wrong depth, and must never
-    # be reported as a clean run — distinct from "zero non-archived
-    # changes" above, which is handled before this point precisely so it
-    # cannot be confused with this genuinely broken shape.
+    # Change directories exist, but none of them produced ANY of
+    # `SCANNED_FILENAMES`: a misconfigured root or a planning artifact at
+    # the wrong depth, and must never be reported as a clean run —
+    # distinct from "zero non-archived changes" above, which is handled
+    # before this point precisely so it cannot be confused with this
+    # genuinely broken shape. A change that has only some of the three
+    # (a design.md and no tasks.md, say) does not trip this: it produced
+    # one of them, so it was scanned.
     #
     # Guarded by `not file_errors` (pass-10 fix wave, Critical 1): when
     # every change directory failed classification above (an
@@ -2445,15 +3143,22 @@ def main() -> None:
     # priority block below is where that explanation — and its exit code
     # — belongs, not this generic "wrong depth" message.
     # Guarded by `not guard.containment_errors` too (pass-11 fix wave):
-    # when every change directory's `tasks.md` failed containment above,
+    # when every change directory's candidates failed containment above,
     # that already explains why nothing was scanned, and the end-of-scan
     # priority block below — which checks `containment_errors` first — is
     # where that explanation and its exit code belong, not this generic
     # "wrong depth" message.
     if scanned == 0 and not file_errors and not guard.containment_errors:
         print(
-            f"no tasks.md found among {len(change_dirs)} non-archived "
-            f"change(s) under {changes_dir} — refusing to report a clean run",
+            # "none of ... at all" rather than "no tasks.md, design.md,
+            # proposal.md": the bare list reads as "not all three were
+            # found", which is an ordinary state (a change mid-planning
+            # legitimately has only some of them) and not what this
+            # failure means. It fires only when NOT ONE of them turned up
+            # anywhere.
+            f"none of {', '.join(SCANNED_FILENAMES)} found at all, in any "
+            f"of {len(change_dirs)} non-archived change(s) under "
+            f"{changes_dir} — refusing to report a clean run",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -2470,7 +3175,7 @@ def main() -> None:
     # nothing being wrong at all (exit 0) — because a symlink escape or a
     # directory-traversal attempt must never be downgraded just because
     # something else, anywhere else, was also found (Critical 2, pass-11
-    # fix wave; see ProvenanceGuard's and verify_tasks_md_containment's
+    # fix wave; see ProvenanceGuard's and verify_scanned_file_containment's
     # docstrings for the two-slot disagreement this adjudicates). Below
     # exit 3: real violations (exit 1) outrank classification aborts
     # (exit 4), which outrank an unreadable/undecodable file (exit 2),
@@ -2503,7 +3208,7 @@ def main() -> None:
             # rather than one bad byte in one file silencing everything
             # a clean file already reported.
             print(
-                f"{len(file_errors)} additional tasks.md file(s) could not "
+                f"{len(file_errors)} additional file(s) could not "
                 "be read (environment failure, see above); fix those "
                 "independently of the violations reported here.",
                 file=sys.stderr,
@@ -2519,9 +3224,20 @@ def main() -> None:
             # fixes a stated-provenance violation; it does not resolve an
             # unclassifiable line or an unreadable file, which have their
             # own remedies (see the abort/file-error messages themselves).
+            #
+            # Minor (pass-17 fix wave): the banner used to offer tagging as
+            # the ONLY remedy. For a claim reported because a veto withdrew
+            # its quotation exemption, the contract's actual remedy is to
+            # REWORD the line — an author following the old banner literally
+            # would have written a measured:/predicted: tag for a number
+            # that was already correctly quoted, which is the tag vocabulary
+            # being used untruthfully to silence a guard. The per-claim note
+            # (`_veto_note`) names the specific cause and fix; this scopes
+            # the banner so it does not contradict it.
             "For the violations above: fix by adding the missing "
-            "verified:/unverified: tag or measured:/predicted: comment; "
-            "never suppress.",
+            "verified:/unverified: tag or measured:/predicted: comment — or, "
+            "where a note above says the quotation exemption was withdrawn, "
+            "by rewording the line; never suppress.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -2542,7 +3258,7 @@ def main() -> None:
         )
         if file_errors:
             print(
-                f"{len(file_errors)} tasks.md file(s) also could not be "
+                f"{len(file_errors)} file(s) also could not be "
                 "read (environment failure, see above).",
                 file=sys.stderr,
             )
@@ -2550,7 +3266,7 @@ def main() -> None:
 
     if exit_code == 2:
         # No provenance violations or classification aborts were found,
-        # but at least one tasks.md could not be read/decoded — that is
+        # but at least one scanned file could not be read/decoded — that is
         # still not a clean run; report it and exit 2 (environment),
         # never 0.
         #
@@ -2564,14 +3280,14 @@ def main() -> None:
         # here told an operator to go re-read prose when the actual fix
         # was a filesystem permission or an encoding issue.
         print(
-            f"\n{len(file_errors)} tasks.md file(s) could not be read "
+            f"\n{len(file_errors)} file(s) could not be read "
             "(environment failure — a permission, encoding or size problem "
             "on disk, see above) — refusing to report a clean run",
             file=sys.stderr,
         )
         sys.exit(2)
 
-    print(f"check-plan-provenance: {scanned} tasks.md file(s) scanned, all provenance stated")
+    print(f"check-plan-provenance: {scanned} file(s) scanned, all provenance stated")
 
 
 if __name__ == "__main__":
