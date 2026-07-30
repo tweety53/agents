@@ -3,13 +3,21 @@
 ## Purpose
 TBD - created by archiving change kan-10-myflow-economical-updates. Update Purpose after archive.
 ## Requirements
+
 ### Requirement: This repository declares its own myflow project configuration
 
 `.myflow/project.md` SHALL exist in this repository and SHALL declare `## apps`, `## test`,
 `## lint`, `## standards`, and `## jira`. `## test` SHALL name `scripts/test-setup.sh`,
-`scripts/test-check-references.sh` and `scripts/test-check-plan-provenance.sh`. `## lint` SHALL name
-`scripts/check-vocabulary.sh`, `scripts/check-references.sh` and
+`scripts/test-check-references.sh`, `scripts/test-check-plan-provenance.sh`,
+`scripts/test-check-finish-preflight.sh` and `scripts/test-preserve-session-records.sh`. `## lint`
+SHALL name `scripts/check-vocabulary.sh`, `scripts/check-references.sh` and
 `scripts/check-plan-provenance.sh`, and SHALL state explicitly that no auto-fix command exists.
+
+`## lint` SHALL name every guard that **scans the repository tree** and can therefore run at any
+time. A check that requires context no tree scan provides — a branch, a worktree, a resolved base ref
+— SHALL NOT be named in `## lint`, because a lint step that cannot run outside a change would fail on
+every unrelated invocation. Such a check is invoked by the command that owns it, and its harness is
+named in `## test` like any other.
 
 #### Scenario: myflow reads this repository's own commands
 
@@ -30,11 +38,18 @@ TBD - created by archiving change kan-10-myflow-economical-updates. Update Purpo
 - **THEN** it states that there is no runnable application and names the guard scripts and the
   sandboxed `setup.sh` run as the verification surface
 
-#### Scenario: A new guard is reachable through the declared configuration
+#### Scenario: A new tree-scanning guard is reachable through the declared configuration
 
-- **WHEN** a guard script is added to this repository
+- **WHEN** a guard script that scans the repository tree is added to this repository
 - **THEN** it is named in `## lint` and its harness in `## test`
 - **AND** a myflow run verifying this repository invokes it without any per-guard special-casing
+
+#### Scenario: A context-requiring check is tested but not linted
+
+- **WHEN** a check is added that needs a branch, worktree or resolved base ref to run
+- **THEN** its harness is named in `## test`
+- **AND** it is not named in `## lint`, because it cannot run against a bare tree
+
 ### Requirement: A guard fails when a cross-referenced section no longer exists
 
 `scripts/check-references.sh` SHALL, for every backticked `.md` or `.mdc` path that resolves to a
@@ -145,4 +160,3 @@ capability. Four guards remain.
 
 - **WHEN** `/myflow-finish` integrates the change
 - **THEN** it runs none of the guards, because verification happened during `/myflow-do`
-

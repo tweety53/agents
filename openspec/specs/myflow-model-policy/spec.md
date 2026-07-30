@@ -4,7 +4,7 @@
 
 Define which model each subagent role runs on, why the implementer and reviewer defaults
 point in opposite directions, how an operator overrides either, and the record that makes the
-policy auditable for the session that made it.
+policy auditable after the change is archived.
 
 ## Requirements
 
@@ -63,7 +63,7 @@ later.
 - **WHEN** no operator instruction addresses the model
 - **THEN** the defaults apply — implementers strongest, panel Sonnet
 
-### Requirement: Every dispatch records the model it used, for the session that made it
+### Requirement: Every dispatch records the model it used
 
 The SDD ledger SHALL record the model used for each subagent dispatch, implementer and reviewer
 alike, alongside the task or slot it ran. Where the dispatcher cannot know the model — a slot
@@ -75,20 +75,18 @@ how the implementer rule came to be missing: the panel's model choices were part
 while the implementers' were not recorded anywhere, so no one could tell whether any policy had
 been followed.
 
-**Scope, stated plainly: this record is session-scoped and does not survive the change.** The SDD
-ledger lives under `.superpowers/`, which is gitignored, in a worktree `/myflow-finish` run 2
-removes. It is therefore a record for the operator *during* the change and for the review panel
-reading it — not an after-the-fact audit trail, and no requirement here pretends otherwise. This
-is the same disclosure task 7 made about its own unverifiable claim, for the same reason: a
-capability the artifacts cannot actually provide is worse than an absent one, because a reader
-plans around it. Making it durable (copying the ledger into the repository at archive time) was
-considered and deliberately deferred — it adds a write to the one command that performs
-irreversible operations, and it belongs in the change that owns `/myflow-finish`'s archive step.
+**Scope: the record outlives the change.** The ledger is authored under `.superpowers/`, which is
+gitignored, in a worktree `/myflow-finish` run 2 removes — but it SHALL be preserved into the
+repository before that happens, so it serves the operator and the review panel during the change and
+remains answerable afterwards. The preservation duty itself belongs to `myflow-finish-cleanup`; this
+requirement depends on it rather than restating it.
 
-The `unknown (agent-defined)` value exists for the same reason. Slots the panel dispatches by
-`subagent_type` resolve their model from their own definition, which the dispatcher never reads.
-Recording a plausible model for them would put a value in the audit trail that nothing measured —
-precisely the failure mode this whole change exists to police.
+The `unknown (agent-defined)` value exists for the same reason it always did, and durability SHALL
+NOT weaken it. Slots the panel dispatches by `subagent_type` resolve their model from their own
+definition, which the dispatcher never reads. Recording a plausible model for them would put a value
+in the audit trail that nothing measured — precisely the failure mode this policy exists to police,
+and one this repository's own panel record has already made once. A record that persists is a
+stronger reason to leave an unobserved entry unobserved, not a weaker one.
 
 #### Scenario: A ledger entry is written for a completed task
 
@@ -103,7 +101,13 @@ precisely the failure mode this whole change exists to police.
 
 #### Scenario: A reader asks which model implemented a given task
 
-- **WHEN** the change is still in flight and its worktree exists
-- **THEN** the ledger answers from the record rather than from the transcript
-- **AND** once the change is archived the record is gone, which the requirement states rather than
-  leaving to be discovered
+- **WHEN** the change has been integrated and archived and its worktree removed
+- **THEN** the preserved ledger in the repository answers from the record rather than from the
+  transcript
+- **AND** the answer is available to a reader who was not present for the session
+
+#### Scenario: Durability does not fill in an unobserved entry
+
+- **WHEN** a ledger is preserved into the repository and contains `unknown (agent-defined)` entries
+- **THEN** those entries are preserved as they stand
+- **AND** no step substitutes a model the dispatcher never read
