@@ -36,7 +36,7 @@ MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
 STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
 
-jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .updatedAt, .updatedBy, (.worktrees // {} | keys[])' \
+jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .effort, .updatedAt, .updatedBy, (.worktrees // {} | keys[])' \
   "$STATE_FILE" 2>/dev/null
 ```
 
@@ -88,6 +88,16 @@ is a **read-only** report: never call Jira, never transition an issue, never inf
 change name.
 
 Surface `artifactUrl` when present — the link to the published proposal artifact.
+
+Surface `effort` the same way: the recorded level verbatim when there is one, and, when the field is
+`null` or absent, `not recorded — planned at <default>`, filled in from the default level
+under **Effort** in **State file** (`skills/myflow-contracts/state-file.md`) — that file is
+canonical for which level is the default, and naming it here as well would be a second copy to keep
+in step.
+An absent `effort` is legal and is never a `⚠`:
+per **State file** (`skills/myflow-contracts/state-file.md`), a file that omits it reads as `null`,
+so it is neither a contradiction nor a field to infer. This report never writes `effort`; it carries
+it forward untouched on a self-heal, like every other field it does not own.
 
 Next-command mapping:
 

@@ -39,6 +39,8 @@ HOME="$SANDBOX" ./setup.sh global
 scripts/test-setup.sh
 scripts/test-check-references.sh
 scripts/test-check-plan-provenance.sh
+scripts/test-check-finish-preflight.sh
+scripts/test-preserve-session-records.sh
 ```
 
 ## lint
@@ -54,19 +56,23 @@ auto-fix command first" step is therefore inapplicable here — not skipped. All
 `file:line` and are fixed by editing the offending line, never by weakening the guard or adding a
 suppression marker to silence a real hit.
 
-**`check-plan-provenance.sh` is currently expected to exit 1** (violations found — see the script's
-own header for the full exit-code contract: 0 clean/nothing-in-flight, 1 violations found, 2
-environment, 3 containment, 4 content-classification; a caller that treats "non-zero" uniformly,
-as this repository's own lint step does, is unaffected by that split). Its 25 hits
-<!-- measured: ./scripts/check-plan-provenance.sh 2>&1 | grep -c 'kan-8-myflow-updates/tasks.md' @ d38372a -->
-are confined to one file — `openspec/changes/kan-8-myflow-updates/tasks.md` — a completed plan
-whose fenced snippets nobody can now retroactively attribute. They are the other change's, not
-this one's: `kan-8-myflow-updates` is still open, and the guard excludes
-`openspec/changes/archive/` by design, so these hits clear on their own the moment that change
-archives (verified directly: copying that change's directory under `archive/` in a sandboxed root
-drops it out of scan scope entirely, reporting "nothing in flight"). Nothing here needs to act on
-them before then. The fix is never to narrow the guard's scope to exclude this file, nor to add a
-suppression marker — only this one file, in its current pre-archive state, is the known exception.
+**`check-finish-preflight.sh` and `preserve-session-records.sh` are deliberately not lint steps.**
+Both are `/myflow-finish` helpers that need a real worktree, a branch and a resolved base ref
+passed in as arguments; they answer a question about one change in flight, not about the state of
+the repository's text. A lint step that cannot run against a bare tree would fail on every
+unrelated invocation, so the omission is a decision, not an oversight. They are covered instead by
+their harnesses under `## test`.
+
+**All three guards are currently expected to exit 0.** `check-plan-provenance.sh` reports
+"all provenance stated" — see the script's own header for the full exit-code contract: 0
+clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
+content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint
+step does, is unaffected by that split. The long-standing exception recorded here previously — a
+block of unattributed fenced snippets in `kan-8-myflow-updates`'s plan — cleared on its own when
+that change archived, exactly as predicted, because the guard excludes `openspec/changes/archive/`
+by design. There is no known exception left. A future non-zero exit is a real hit on a plan in
+flight: fix the offending line by stating its provenance, never by narrowing the guard's scope or
+adding a suppression marker.
 
 ## stop
 

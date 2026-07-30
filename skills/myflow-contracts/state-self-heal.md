@@ -27,8 +27,8 @@ Self-heal obeys the monotonicity rule stated under **State file** (`skills/myflo
 **A rewrite carries forward every field it did not infer.** **State file**
 (`skills/myflow-contracts/state-file.md`) requires every write to first read the existing file and
 carry forward the fields it does not itself own; self-heal is a write, and its only owned field is
-`state`. `branch`, `worktrees`, `artifactUrl`, `jiraIssue` and `prUrl` are re-emitted exactly as
-read — never collapsed to `null` in place of the value that was there. A write renders the whole
+`state`. `branch`, `worktrees`, `artifactUrl`, `jiraIssue`, `effort` and `prUrl` are re-emitted
+exactly as read — never collapsed to `null` in place of the value that was there. A write renders the whole
 object, so a field left out of the render is not left unchanged, it is erased.
 
 **When the prior file is missing or unparseable, those fields have no source.** Artifact inference
@@ -62,6 +62,11 @@ The schema is closed in both directions: just as a file missing a required field
 **a file carrying any key not among this contract's documented fields is unparseable too** — that
 is the general, mechanical rule for recognising a legacy field, without this file having to name
 which fields have been retired.
+
+**One documented exception exists: `effort`.** A file that omits it is valid and reads as `null`, per
+**State file** (`skills/myflow-contracts/state-file.md`). An omitted `effort` is therefore not a
+failed recovery and is never named among the unrecovered fields; every other absent documented field
+still makes the file unparseable.
 
 ## The stale-`prUrl` gap — recorded, not closed
 

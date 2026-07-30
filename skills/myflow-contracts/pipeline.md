@@ -177,6 +177,47 @@ Paths are absolute, resolved from `git worktree list`. Never emit a relative pat
 change's branch has already reached the base branch. No field records "integration started" — the
 branch's merge status is the only source of truth, and a field could disagree with it.
 
+**The merge status is decided by three signals, in this order, and by a script — not by prose.**
+`scripts/check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
+line and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
+worktree at all — an unreadable tree is never a licence to proceed.
+
+| Verdict | Meaning |
+|---------|---------|
+| `RUN1` | integrate — the branch has not reached the base branch |
+| `RUN2` | archive — merged, and nothing is outstanding |
+| `REFUSE` | stop and ask the operator before anything is archived |
+
+1. **`HEAD` against the merge base recorded in the state file's `worktrees` map.** No recorded
+   value, or one that does not resolve → `REFUSE`; an honest unknown is never inferred. Equal to
+   `HEAD` means the branch has no commits of its own → `RUN1`, whatever the ancestor test says.
+   Both are answered before the base ref is resolved, so no environmental failure can hide them.
+2. **The ancestor test** — `git merge-base --is-ancestor`, and only that. The script consults no PR
+   CLI: it must give the same answer on every forge, and git alone already answers this question.
+   The base ref is resolved first, so a base ref that does not resolve is its own `REFUSE` rather
+   than an accidental `RUN1`.
+3. **The worktree's cleanliness.** Merged by ancestry with uncommitted entries → `REFUSE`.
+   Merged, distinct from the recorded merge base, and clean → `RUN2`.
+
+**Signal 1 precedes signal 2, and that ordering is the point.** A branch with no commits of its own
+is an ancestor of every branch, so the ancestor test alone reports *merged* on a branch whose work is
+staged and never committed — after which run 2 archives the change and `--force`-removes the worktree
+holding all of it.
+
+**Never substitute a commit count.** `git rev-list --count <base>..HEAD` is zero both for a branch
+with no commits and for a branch whose commits have joined the base branch, so it cannot separate the
+dangerous state from the correct terminal one, and using it would refuse every legitimate archive.
+
+On a `REFUSE`, stop before touching anything, report `HEAD`, the base branch and the uncommitted
+count, and ask the operator explicitly. On a multi-repo change, run the script once per `worktrees`
+key and proceed to run 2 only when **every** worktree returns `RUN2`.
+
+**When the script is absent** — a harness whose repository does not carry it — perform the same three
+signals by hand in the same order and say in the handoff that the check was run manually. The check is
+never skipped for want of the script. Signal 2 may then be answered by a PR CLI when one is usable
+for the host, as in run 2 below — that option belongs to the human doing this by hand, never to the
+script — but signals 1 and 3 still run, and still run in this order.
+
 ### Run 1 — the branch is not merged
 
 Ask, **before any git action**, how the branch should land:
@@ -188,8 +229,35 @@ Ask, **before any git action**, how the branch should land:
 
 Then run to completion without asking again. The answer is never remembered between runs.
 
-All three routes first commit the staged work — implementation, `docs/manual-test/<name>.md`, and
-the `openspec/` planning artifacts.
+All three routes first commit the staged work — implementation, `docs/manual-test/<name>.md`, the
+`openspec/` planning artifacts, and the session records preserved under `docs/superpowers/` (the SDD
+ledger, the review panel record, and the proposal artifact source). The records are copied out of the
+gitignored worktree before staging, by
+`scripts/preserve-session-records.sh <worktree> <name> <state-dir>`.
+
+**That script has three outcomes, and they are not interchangeable.** This is where they are
+defined; the two call sites point here rather than each describing them.
+
+| Outcome | What it means | What you do |
+|---------|---------------|-------------|
+| `skipped: <src> (absent)`, exit 0 | The source does not exist. A change may legitimately have no panel record. | Nothing. Proceed. |
+| `preserved: <dest>`, exit 0 | The record reached the repository at that path. | Nothing. Proceed. |
+| A message on stderr, **exit non-zero** | A copy was attempted and refused or failed — an untrusted source or destination path, or a write that could not be made. | **Report it to the operator, with the script's own message.** Then proceed with the integration. |
+
+**A non-zero exit is never silent and never a stop.** Those two rules pull in opposite directions
+and both hold: a preservation step able to abandon an integration whose work is already committed
+would be a worse failure than the missing record, *and* a refused write that passed unmentioned
+would leave the operator believing a record exists when none does. So it is reported and the run
+continues — and the handoff says which records were preserved and which were not. The remaining
+sources are still attempted after any one failure, so a single bad path costs one record, not three.
+
+**That ordering is deliberate, and deliberately differs from `/myflow-do`'s.** Here the preservation
+call comes *before* `git add -A`, because all three routes commit — one staging pass then covers the
+preserved files. `/myflow-do` runs the same script *after* its unconditional staging and stages a
+second time, because it stages on every run and commits only when a `prUrl` is already recorded;
+hoisting the call there would create and stage `docs/superpowers/` files on every ordinary
+staged-only run. **Do not harmonise the two orderings for symmetry** — the asymmetry is what keeps
+preserved records out of the staged-only path.
 
 | Route | Then |
 |-------|------|
@@ -252,7 +320,13 @@ the one irreversible step.
    invoked with a non-base branch checked out, it commits there, merges into the base branch, and
    pushes that. A finished change never leaves the archive move uncommitted in the working tree.
 4. **Clean up the worktrees** — see below.
-5. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
+5. **Remove the proposal artifact source.** `/myflow-start` wrote
+   `<state-dir>/<name>-proposal-artifact.html` so a revision round could republish to the same URL.
+   Delete it here, disclosed the same way the worktree removal is — **but only if a preserved copy
+   exists** under `docs/superpowers/artifacts/`. The terminal state file keeps `artifactUrl`
+   indefinitely; removing the only source that could republish it would leave a URL advertised and
+   unrepublishable. No preserved copy → leave the file and say so.
+6. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** (see the removal rules below — a failed removal keeps its entry), and carry every
    other field forward.
 
@@ -418,10 +492,17 @@ never a guess. Slots dispatched by `subagent_type` (Bugbot, Security Review) res
 from their own agent definition, which the dispatcher does not read; writing a plausible slug for
 them puts an unmeasured value into the audit trail.
 
-**This record is session-scoped.** The ledger lives under `.superpowers/`, which is gitignored, in
-a worktree `/myflow-finish` run 2 removes — so it serves the operator and the panel *during* the
-change, and does not survive archival. Do not plan an after-the-fact audit around it. Making it
-durable is a change to `/myflow-finish`'s archive step and belongs to whichever change owns that.
+**This record outlives the change.** The ledger is authored under `.superpowers/`, which is
+gitignored, in a worktree `/myflow-finish` run 2 removes — but run 1 preserves it into the
+repository first, under `docs/superpowers/ledgers/`, so it serves the operator and the panel
+*during* the change and stays answerable afterwards. An after-the-fact audit of which model
+implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
+The preservation duty itself is stated once, under **Run 1 — the branch is not merged**; this
+section depends on it rather than restating it.
+
+Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
+persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly
+as written above and no step fills it in on the way into the repository.
 
 - **Claude Code**: the **session** model is enforced via `model: opus` / `model: sonnet` in each
   command's frontmatter (`commands-claude/*.md`) — no manual action needed *for the session*.

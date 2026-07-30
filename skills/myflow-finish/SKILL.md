@@ -32,8 +32,17 @@ copy that can drift.
 Which run happens is decided by one thing: whether the change's branch has already reached the
 base branch. No field records "integration started" — a field could disagree with git.
 
-- **not merged** → run 1 (integrate)
-- **merged** → run 2 (archive and clean up)
+Run `scripts/check-finish-preflight.sh` once per worktree recorded in the state file's `worktrees`
+map, per **Finish contract**, and act on the verdict:
+
+- **`RUN1`** → run 1 (integrate)
+- **`RUN2`** from every worktree → run 2 (archive and clean up)
+- **`REFUSE`** → stop, report what the script reported, and ask the operator before anything else
+- **No verdict line at all, and exit 2** → the script could not read the tree, which is a fourth
+  outcome and not a verdict. Treat it exactly as `REFUSE`: stop, report the message it printed on
+  stderr, and ask the operator. Never re-run it hoping for a verdict, and never read the missing
+  line as either run — a caller that greps for `RUN2` in empty output finds nothing, which is why
+  the exit code has to be checked as well as the line.
 
 A PR a human merged on the forge, a colleague's merge, and run 1's own merge are indistinguishable
 here, and that is correct — all three mean the same thing.
@@ -65,8 +74,18 @@ the operator answers. Re-asking cold invites a duplicate PR.
 
 ## 1.2 Commit the staged work
 
-All three routes commit first — implementation, `docs/manual-test/<name>.md`, and the `openspec/`
-planning artifacts. The planning artifacts were hidden from the review diff, not from the commit.
+All three routes commit first — implementation, `docs/manual-test/<name>.md`, the `openspec/`
+planning artifacts, and the session records preserved under `docs/superpowers/`. The planning
+artifacts were hidden from the review diff, not from the commit.
+
+**Preserve the session records first.** Run
+`scripts/preserve-session-records.sh <worktree> <name> <state-dir>` before staging, so the SDD ledger,
+the review panel record and the proposal artifact source land in the same commit as the work they
+describe. A source that does not exist is reported and skipped — never a failure, and never a reason
+to stop the integration. **A non-zero exit means a copy was attempted and refused or failed:** report
+it with the script's own stderr message and continue the integration, per the outcome table under
+**Finish contract** in `skills/myflow-contracts/pipeline.md`, which is canonical for all three
+outcomes. Say in the handoff which records were preserved and which were not.
 
 Run `git add -A` first rather than assuming everything is already staged: the operator may have
 edited the worktree at the human gate without staging.
@@ -146,8 +165,10 @@ step that fails:
 4. **Remove the worktrees** — the four gating checks, the ignored-file disclosure, and the removal
    sequence are all in **Finish contract**. The disclosure is not optional: `--force` destroys
    every ignored file, so show the list and get confirmation. Verify each removal succeeded.
-5. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
-   succeeded** — a failed removal keeps its entry, so it stays findable. Carry `artifactUrl`, `jiraIssue` and `prUrl` forward. The state file stays at its
+5. **Remove the proposal artifact source** from the state directory, per **Finish contract** — only
+   when the preserved copy under `docs/superpowers/artifacts/` exists.
+6. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
+   succeeded** — a failed removal keeps its entry, so it stays findable. Carry `artifactUrl`, `jiraIssue`, `effort` and `prUrl` forward. The state file stays at its
    user-scoped path as the terminal record — it is **never** moved into the archive.
 
 **Transition the issue to Done** after the state write, per **Jira integration**.
@@ -167,6 +188,8 @@ Run 2 is terminal and names **no** next command.
 ## Guardrails
 
 - **Never** archive a change whose branch has not reached the base branch.
+- **Never** decide run 1 versus run 2 from the ancestor test alone, and never from a commit count —
+  both answer wrongly on a branch that was never committed.
 - **Never** run tests, linters, or a coverage check.
 - **Never** hardcode `main` or `develop`, and **never** resolve the base branch from `HEAD`'s
   upstream — this skill runs on the change's own branch, so that compares it against itself.
@@ -175,6 +198,7 @@ Run 2 is terminal and names **no** next command.
 - **Never** let a git failure pass silently — report its output and stop at `IN_PROGRESS`.
 - **Never** merge the change branch in run 2; step 2.1 already proved it merged.
 - **Never** use `git branch -D`.
+- **Never** delete the proposal artifact source without a preserved copy in the repository.
 - **Never** remove any worktree if any check failed for any worktree.
 - **Never** `git add` the state file, and never move it into the archive.
 - **Never** let a Jira call block the archive — one skipped-with-reason line.
