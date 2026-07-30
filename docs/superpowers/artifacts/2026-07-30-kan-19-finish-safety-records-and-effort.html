@@ -1,0 +1,913 @@
+<title>KAN-19 — finish safety, session records, and planning effort</title>
+<style>
+  :root {
+    --ground: #f6f7f9;
+    --raised: #ffffff;
+    --ink: #161a21;
+    --ink-soft: #4a5261;
+    --ink-faint: #737d8e;
+    --rule: #dfe3ea;
+    --rule-soft: #ecEFF4;
+    --accent: #45539b;
+    --accent-soft: #eceEF8;
+    --run1: #4e6180;
+    --run2: #2c6e52;
+    --refuse: #a8453a;
+    --code-bg: #f0f2f6;
+
+    --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, serif;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #14171d;
+      --raised: #1a1e26;
+      --ink: #e7eaf0;
+      --ink-soft: #a8b1c1;
+      --ink-faint: #7c8698;
+      --rule: #2c323d;
+      --rule-soft: #232830;
+      --accent: #93a0e0;
+      --accent-soft: #232941;
+      --run1: #93a8c8;
+      --run2: #6fbc95;
+      --refuse: #e08c80;
+      --code-bg: #1f242d;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #14171d;
+    --raised: #1a1e26;
+    --ink: #e7eaf0;
+    --ink-soft: #a8b1c1;
+    --ink-faint: #7c8698;
+    --rule: #2c323d;
+    --rule-soft: #232830;
+    --accent: #93a0e0;
+    --accent-soft: #232941;
+    --run1: #93a8c8;
+    --run2: #6fbc95;
+    --refuse: #e08c80;
+    --code-bg: #1f242d;
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f6f7f9;
+    --raised: #ffffff;
+    --ink: #161a21;
+    --ink-soft: #4a5261;
+    --ink-faint: #737d8e;
+    --rule: #dfe3ea;
+    --rule-soft: #eceff4;
+    --accent: #45539b;
+    --accent-soft: #eceef8;
+    --run1: #4e6180;
+    --run2: #2c6e52;
+    --refuse: #a8453a;
+    --code-bg: #f0f2f6;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 43rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { display: flex; flex-direction: column; gap: 1rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(1.85rem, 5vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.028em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    color: var(--ink-soft);
+    font-size: 1.08rem;
+    max-width: 38rem;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.25rem 1.5rem;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 1rem 0;
+    margin-top: 0.5rem;
+  }
+
+  .fact { display: flex; flex-direction: column; gap: 0.15rem; }
+
+  .fact dt {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .fact dd {
+    font-family: var(--mono);
+    font-size: 0.86rem;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1rem; }
+
+  h2 {
+    font-family: var(--sans);
+    font-size: 1.3rem;
+    font-weight: 650;
+    letter-spacing: -0.018em;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--ink);
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 1.02rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-top: 0.5rem;
+  }
+
+  p { max-width: 38rem; }
+
+  ul, ol { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1.15rem; }
+  li { max-width: 37rem; }
+
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.855em;
+    background: var(--code-bg);
+    padding: 0.1em 0.34em;
+    border-radius: 2px;
+  }
+
+  a { color: var(--accent); }
+
+  /* ---------- the verdict table: the heart of the change ---------- */
+
+  .verdicts {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--rule);
+    background: var(--raised);
+  }
+
+  .verdict {
+    display: grid;
+    grid-template-columns: 6.2rem 1fr;
+    gap: 0.25rem 1rem;
+    padding: 0.85rem 1rem;
+    align-items: baseline;
+  }
+
+  .verdict + .verdict { border-top: 1px solid var(--rule-soft); }
+
+  .verdict-word {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .v-run1 { color: var(--run1); }
+  .v-run2 { color: var(--run2); }
+  .v-refuse { color: var(--refuse); }
+
+  .verdict p { margin: 0; font-size: 0.95rem; }
+
+  .signals {
+    counter-reset: sig;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .signals li {
+    counter-increment: sig;
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    gap: 0.75rem;
+    align-items: baseline;
+  }
+
+  .signals li::before {
+    content: counter(sig);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    border: 1px solid var(--rule);
+    text-align: center;
+    padding: 0.1rem 0;
+    align-self: start;
+    margin-top: 0.2rem;
+  }
+
+  /* ---------- callouts ---------- */
+
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .note p { margin: 0; font-size: 0.97rem; }
+
+  .danger { border-left-color: var(--refuse); }
+
+  /* ---------- decision cards ---------- */
+
+  .decisions { display: flex; flex-direction: column; gap: 1rem; }
+
+  .decision {
+    border: 1px solid var(--rule);
+    background: var(--raised);
+    padding: 1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .decision h3 { margin: 0; }
+
+  .decision-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+    align-items: center;
+  }
+
+  .pill {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    border: 1px solid var(--rule);
+    padding: 0.12rem 0.45rem;
+    color: var(--ink-faint);
+  }
+
+  .pill-active { color: var(--run2); border-color: currentColor; }
+
+  .decision dl { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; }
+
+  .decision dt {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .decision dd { margin: 0; font-size: 0.96rem; }
+
+  /* ---------- tables ---------- */
+
+  .scroller { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.92rem;
+    min-width: 26rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.8rem 0.55rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-bottom-color: var(--rule);
+  }
+
+  td code { background: none; padding: 0; }
+
+  /* ---------- task list ---------- */
+
+  .tasks { display: flex; flex-direction: column; gap: 0.9rem; list-style: none; padding: 0; }
+
+  .task {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    gap: 0.9rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--rule-soft);
+    max-width: none;
+  }
+
+  .task:last-child { border-bottom: none; }
+
+  .task-n {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    border: 1px solid var(--rule);
+    text-align: center;
+    padding: 0.15rem 0;
+    align-self: start;
+    height: fit-content;
+  }
+
+  .task-body { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .task-title { font-family: var(--sans); font-weight: 620; font-size: 0.98rem; }
+
+  .task-files {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    line-height: 1.5;
+  }
+
+  .footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    color: var(--ink-faint);
+    font-size: 0.88rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  @media (max-width: 34rem) {
+    .verdict { grid-template-columns: 1fr; }
+    .task { grid-template-columns: 1fr; gap: 0.4rem; }
+    .task-n { width: 2.6rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">KAN-19 · proposal · awaiting review</div>
+    <h1>Finish safety, session records, and planning effort</h1>
+    <p class="standfirst">
+      <code>/myflow-finish</code> can decide a branch is merged when it was never committed, and then
+      archive the change and force-delete the worktree holding all of it. This closes that, preserves
+      two records that currently die with the worktree, accounts for a file nothing owned, and lets
+      you size a change's planning once.
+    </p>
+    <dl class="facts">
+      <div class="fact"><dt>Change</dt><dd>kan-19-finish-safety-records-and-effort</dd></div>
+      <div class="fact"><dt>Issue</dt><dd>KAN-19</dd></div>
+      <div class="fact"><dt>State</dt><dd>STARTED</dd></div>
+      <div class="fact"><dt>Decisions</dt><dd>8 recorded</dd></div>
+      <div class="fact"><dt>Tasks</dt><dd>8</dd></div>
+      <div class="fact"><dt>Breaking</dt><dd>no</dd></div>
+    </dl>
+  </header>
+
+  <section>
+    <h2>Why</h2>
+    <p>
+      <code>/myflow-finish</code> chooses between its integrating run and its archiving run with
+      <code>git merge-base --is-ancestor HEAD origin/$BASE</code>. A branch whose work is staged but
+      never committed still has <code>HEAD</code> at the merge base — so it is trivially an ancestor of
+      the base branch, and the check answers <em>merged</em>.
+    </p>
+    <div class="note danger">
+      <p>
+        <strong>This was reproduced on KAN-14.</strong> <code>HEAD</code> and the merge base were both
+        the same commit, zero commits ahead of <code>origin/main</code>, with 29 staged entries
+        totalling 8,543 insertions. Run 2 would have synced the specs, archived the change, pushed the
+        archive, and run <code>git worktree remove --force</code> over all of it. Only a manual check
+        stopped it.
+      </p>
+    </div>
+    <p>
+      The existing guard did its job: base resolution is protected against
+      <code>HEAD@{upstream}</code>, and it correctly resolved <code>main</code>. The hole is elsewhere
+      and unguarded — <strong>a branch with no commits of its own is an ancestor of every branch.</strong>
+    </p>
+    <p>
+      Two smaller gaps of the same family live in the same command. The SDD ledger recording which
+      model ran each dispatch is gitignored and dies with the worktree, so
+      <code>myflow-model-policy</code> currently has to disclaim its own record. And nothing removes
+      the proposal artifact source <code>/myflow-start</code> writes beside the state file, so whether
+      a finished change leaves one behind has depended on whether someone noticed.
+    </p>
+    <p>
+      A fifth item was added during this planning run: <code>/myflow-start</code> should ask what
+      effort to spend on a change the first time it runs for it.
+    </p>
+  </section>
+
+  <section>
+    <h2>The decision, made executable</h2>
+    <p>
+      <code>scripts/check-finish-preflight.sh</code> takes a worktree, a resolved base ref and the
+      merge base recorded in the state file, and prints exactly one verdict:
+    </p>
+
+    <div class="verdicts">
+      <div class="verdict">
+        <span class="verdict-word v-run1">RUN1</span>
+        <p>Integrate. The branch has not reached the base branch — or has no commits of its own.</p>
+      </div>
+      <div class="verdict">
+        <span class="verdict-word v-run2">RUN2</span>
+        <p>Archive. Merged, distinct from the recorded merge base, and nothing outstanding.</p>
+      </div>
+      <div class="verdict">
+        <span class="verdict-word v-refuse">REFUSE</span>
+        <p>Stop and ask, before anything is archived, synced, pushed or removed.</p>
+      </div>
+    </div>
+
+    <p>Three signals decide it, and the <em>order</em> is the fix:</p>
+
+    <ol class="signals">
+      <li><code>HEAD</code> against the merge base recorded in <code>worktrees</code>. Equal means the
+        branch has no commits of its own → <span class="verdict-word v-run1">RUN1</span>, whatever the
+        ancestor test says.</li>
+      <li>The ancestor test — <code>git merge-base --is-ancestor</code>, or a PR CLI when one is usable.</li>
+      <li>The worktree's cleanliness. Merged by ancestry with uncommitted entries →
+        <span class="verdict-word v-refuse">REFUSE</span>.</li>
+    </ol>
+
+    <div class="note">
+      <p>
+        <strong>Signal 1 precedes signal 2</strong> because a zero-commit branch is an ancestor of
+        everything — so signal 2 alone is wrong on precisely the most dangerous input.
+        <strong>Signal 3 follows signal 2</strong> because dirty-and-unmerged is the ordinary
+        <code>IN_PROGRESS</code> state and must stay <span class="verdict-word v-run1">RUN1</span>,
+        not become a prompt on every finish.
+      </p>
+      <p>
+        <strong>The commit count is not a signal.</strong> The issue's first proposed fix —
+        <code>git rev-list --count $BASE..HEAD &gt; 0</code> — is disproved in the ticket itself: a
+        genuinely merged branch is <em>also</em> zero ahead once its commit joins the base branch. It
+        would trade a rare destructive failure for a permanent one that blocks every finish.
+      </p>
+    </div>
+
+    <p>
+      Base-branch resolution stays in the contract and is passed in. The hard-won
+      <code>HEAD@{upstream}</code> guard already lives there, and a second copy of a procedure gating
+      a destructive operation is a second copy that can drift. On a multi-repo change the script runs
+      once per worktree, and run 2 proceeds only if <em>every</em> one returns
+      <span class="verdict-word v-run2">RUN2</span>.
+    </p>
+    <p>
+      Run 2's existing cleanup checks would already have caught KAN-14's staged entries — they just
+      run at step 4, after the irreversible archive-and-push at step 3. Signal 3 is those checks
+      hoisted to a precondition.
+    </p>
+  </section>
+
+  <section>
+    <h2>Preserving what dies with the worktree</h2>
+    <p>
+      <code>scripts/preserve-session-records.sh</code> copies three files out of the gitignored
+      worktree and into the repository. It runs at <code>/myflow-finish</code> run 1, before staging,
+      so the records land in the same commit as the work they describe — and again on
+      <code>/myflow-do</code>'s commit path, so a fix round raised after a PR is open refreshes them.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Source</th><th>Destination</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>.superpowers/sdd/tasks/progress.md</code></td>
+            <td><code>docs/superpowers/ledgers/&lt;date&gt;-&lt;name&gt;.md</code></td>
+          </tr>
+          <tr>
+            <td><code>.superpowers/sdd/final-review-panel.md</code></td>
+            <td><code>docs/superpowers/reviews/&lt;date&gt;-&lt;name&gt;-panel.md</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;state-dir&gt;/&lt;name&gt;-proposal-artifact.html</code></td>
+            <td><code>docs/superpowers/artifacts/&lt;date&gt;-&lt;name&gt;.html</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      Both destination shapes match what was kept by hand on KAN-8 and KAN-14. The date is fixed at
+      the first copy — an existing file for the change is reused, so a fix round overwrites in place
+      rather than leaving one dated duplicate per round. <strong>A missing source is reported and
+      skipped, never fatal:</strong> a change may legitimately have no panel record, and a preservation
+      step able to block an integration would be worse than the gap it closes.
+    </p>
+    <p>
+      The rest of <code>.superpowers/sdd/</code> is let go, as it was by hand — the per-task diffs
+      duplicate commits already in git history.
+    </p>
+    <div class="note">
+      <p>
+        <strong>Durability must not soften <code>unknown (agent-defined)</code>.</strong> Panel slots
+        dispatched by agent type resolve their model from a definition the dispatcher never reads.
+        KAN-14's own record listed two such slots as <code>sonnet</code> — a value nothing measured. A
+        record that persists is a stronger reason to leave an unobserved entry unobserved, not a
+        weaker one.
+      </p>
+    </div>
+    <p>
+      Run 2 then removes the state-directory artifact source, disclosed like the worktree removal —
+      but <em>only</em> when the preserved copy exists. The terminal state file advertises
+      <code>artifactUrl</code> forever; deleting the only source that could republish it would leave
+      a URL advertised and unrepublishable.
+    </p>
+  </section>
+
+  <section>
+    <h2>The effort ask</h2>
+    <p>
+      <code>/myflow-start</code> asks once, on the run that <em>creates</em> the change — determined by
+      the state file's absence, not by a guess about you or the conversation. A revision round reads
+      the recorded level, says which it is reusing, and does not ask again. It uses the same
+      interactive mechanism as <code>/myflow-finish</code>'s integration question, so the no-flags rule
+      is untouched.
+    </p>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Level</th><th>What it changes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>low</code></td><td>Questions batched rather than asked one at a time; the design presented once; <code>tasks.md</code> grouped more coarsely</td></tr>
+          <tr><td><code>medium</code></td><td>The default. The checklist followed with related questions grouped</td></tr>
+          <tr><td><code>high</code></td><td>Each checklist item worked separately, alternatives enumerated per open question, each design section approved on its own</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      <strong>No level may switch a gate off.</strong> Brainstorming runs, the design approval gate
+      holds, writing-plans runs, and <code>tasks.md</code> is never left a scaffold — at every level. A
+      lower level means fewer rounds, never fewer gates. The review panel's breadth is decided by its
+      own escalation triggers and is never scaled from this field.
+    </p>
+
+    <div class="note">
+      <p>
+        <strong>The storage is the interesting part.</strong> <code>state-self-heal.md</code> closes
+        the state-file schema in <em>both</em> directions — a file missing a documented field is
+        unparseable, and a file carrying an undocumented key is unparseable too. Adding
+        <code>effort</code> naively breaks both ways at once.
+      </p>
+      <p>
+        So it is documented as a field whose <strong>absence is a legal value</strong>, meaning "not
+        recorded" — different from the present-and-nullable shape <code>artifactUrl</code>,
+        <code>jiraIssue</code> and <code>prUrl</code> have. Requiring the key would route all three
+        existing finished changes through self-heal, which announces unrecovered fields and rewrites
+        from artifact inference: a loud correction for a value nobody had the chance to set.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+    <div class="decisions">
+
+      <article class="decision">
+        <h3>Split KAN-19, shipping the finish items first</h3>
+        <div class="decision-meta">
+          <span class="pill">split-finish-first</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>Items 2, 3 and 4 here; item 1 (the provenance guard's scan scope) separately — they share
+            no file, and item 3 destroys work, so it must not wait behind a parser rewrite.</dd>
+          <dt>Considered</dt>
+          <dd>One change covering all four — one review panel and one merge, but a plan mixing a Python
+            parser rewrite with a git-safety contract change, holding the destructive bug behind it.
+            Item 3 alone as a hotfix — fastest, but leaves three follow-ups open and re-opens
+            <code>/myflow-finish</code> three times.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>A missing recorded merge base refuses and asks</h3>
+        <div class="decision-meta">
+          <span class="pill">missing-merge-base-refuses</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>Stop, report <code>HEAD</code>, the base and the uncommitted count, and require explicit
+            confirmation — no recorded merge base is an honest unknown, and this change exists because
+            a check returned a confident wrong answer where an unknown was available.</dd>
+          <dt>Considered</dt>
+          <dd>Fall back to the ancestor test plus a clean-tree check — catches the KAN-14 shape without
+            input, but a committed-then-reset worktree passes silently. Refuse with no override —
+            safest, but locks out every pre-fix state file and invites hand-editing it.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>Run 1 preserves the session records, not run 2</h3>
+        <div class="decision-meta">
+          <span class="pill">preserve-at-run-1</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>Run 1, before <code>git add -A</code> — the records land in the same commit as the work
+            and merge with it, they survive a change merged but never archived, and run 2 gains no new
+            write before its irreversible steps.</dd>
+          <dt>Considered</dt>
+          <dd>Run 2 before worktree removal, as the issue suggested — but it adds a write to the one
+            command performing irreversible operations, and loses the record for a change that merges
+            without being archived. <code>/myflow-do</code> authoring them in-repo from the start —
+            maximum durability, but it puts per-task ledger churn into the diff you review.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>Preserve the ledger and the review panel record, and nothing else</h3>
+        <div class="decision-meta">
+          <span class="pill">preserve-ledger-and-panel</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>Exactly what was kept by hand on both prior changes — the ledger answers "which model ran
+            this task", the panel answers "what was found and how it was resolved", and nothing else
+            reproduces either.</dd>
+          <dt>Considered</dt>
+          <dd>The ledger alone — smallest, and all <code>myflow-model-policy</code> strictly needs, but
+            it drops a record you chose to keep by hand twice. Everything under
+            <code>.superpowers/sdd/</code> — nothing to decide per change, but per-task diffs duplicate
+            commits already in git history.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>The artifact source is preserved in-repo, then removed from the state directory</h3>
+        <div class="decision-meta">
+          <span class="pill">artifact-source-preserve-then-remove</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>Copy it into the repository at run 1 with the other records; remove the state-directory
+            copy in run 2's disclosed cleanup — the recorded URL stays republishable from git history,
+            and the state directory stops growing by one file per finished change.</dd>
+          <dt>Considered</dt>
+          <dd>Delete at run 2 with no preservation, as KAN-8 and KAN-10 did by hand — simplest, but the
+            terminal state file advertises a URL whose only source is gone. Retain it in place and say
+            so — zero machinery, but unbounded growth and it still looks like litter.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>The run-2 decision becomes an executable script with a test harness</h3>
+        <div class="decision-meta">
+          <span class="pill">preflight-as-script</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd><code>check-finish-preflight.sh</code> plus its harness, matching this repository's three
+            existing check/test pairs — the one item with real branching logic becomes the one item a
+            test can hold to account.</dd>
+          <dt>Considered</dt>
+          <dd>Prose contract only — consistent with every other finish rule and nothing to install, but
+            the fix would be verified only by review, exactly as the broken version was. A script for
+            the decision with prose for the rest — smallest executable surface, but it leaves the copy
+            step, with three sources that can each be absent, untestable.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>Effort governs this <code>/myflow-start</code> run's reasoning, and nothing further</h3>
+        <div class="decision-meta">
+          <span class="pill">effort-scopes-this-run</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>The answer sets how much reasoning <code>/myflow-start</code> spends on its own
+            brainstorming and plan enrichment; later commands decide their own depth.</dd>
+          <dt>Considered</dt>
+          <dd>Pipeline depth across all three commands — one question sizes the whole change, but a
+            value chosen before anything was known could silently thin the panel that catches
+            implementation defects, the one place this pipeline deliberately does not economise. Both
+            as one scale — simplest to answer, but it conflates a planning budget with a review one.</dd>
+        </dl>
+      </article>
+
+      <article class="decision">
+        <h3>The chosen effort is recorded in the state file</h3>
+        <div class="decision-meta">
+          <span class="pill">effort-in-state-file</span>
+          <span class="pill pill-active">active</span>
+        </div>
+        <dl>
+          <dt>Chosen</dt>
+          <dd>A new <code>effort</code> field, written by <code>/myflow-start</code> and carried forward
+            verbatim by every other command — the shape <code>jiraIssue</code> already has, so the
+            carry-forward duty needs no new mechanism.</dd>
+          <dt>Considered</dt>
+          <dd>Recording it in the proposal artifact only — human-readable with no schema change, but a
+            command would have to parse markdown to read it, which nothing in the pipeline does. Asking
+            fresh each run — no schema change, but you answer repeatedly and a revision round could
+            silently contradict the first.</dd>
+        </dl>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Spec deltas</h2>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Capability</th><th>Operation</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>myflow-finish-cleanup</code></td>
+            <td>MODIFIED the run-2 merge verification (three ordered signals, the refusal path, the
+              explicit ban on a commit count). ADDED session-record preservation. ADDED artifact-source
+              removal.</td>
+          </tr>
+          <tr>
+            <td><code>myflow-model-policy</code></td>
+            <td>REMOVED "…for the session that made it", ADDED the same requirement without the
+              retracted scope limit. The <code>unknown (agent-defined)</code> rule is carried over
+              intact and reinforced.</td>
+          </tr>
+          <tr>
+            <td><code>myflow-effort</code> <em>(new)</em></td>
+            <td>ADDED the once-per-change ask, what the levels may and may not change, and the
+              <code>effort</code> field with its absence carve-out.</td>
+          </tr>
+          <tr>
+            <td><code>myflow-state-integrity</code></td>
+            <td>MODIFIED both requirements so <code>effort</code> joins the carried-forward and
+              announced field lists — with a rule that a legally absent <code>effort</code> is not
+              reported as a loss.</td>
+          </tr>
+          <tr>
+            <td><code>agents-repo-verification</code></td>
+            <td>MODIFIED the declared-configuration requirement: two new harnesses in
+              <code>## test</code>, and the "every new guard joins <code>## lint</code>" rule narrowed
+              to guards that scan the tree.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plan</h2>
+    <ol class="tasks">
+
+      <li class="task">
+        <span class="task-n">1</span>
+        <div class="task-body">
+          <span class="task-title">The preflight check and its harness</span>
+          <span class="task-files">create scripts/check-finish-preflight.sh · scripts/test-check-finish-preflight.sh</span>
+          <span>Harness first, six cases — the KAN-14 zero-commit shape, merged-and-clean,
+            merged-but-dirty, unmerged-and-dirty, absent merge base, abbreviated sha.</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">2</span>
+        <div class="task-body">
+          <span class="task-title">Wire the preflight into the contract and the finish skill</span>
+          <span class="task-files">modify skills/myflow-contracts/pipeline.md · skills/myflow-finish/SKILL.md</span>
+          <span>The contract states the three signals and the verdicts; the skill points at it and acts
+            on the verdict. A manual fallback for harnesses without the script.</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">3</span>
+        <div class="task-body">
+          <span class="task-title">The preservation script and its harness</span>
+          <span class="task-files">create scripts/preserve-session-records.sh · scripts/test-preserve-session-records.sh</span>
+          <span>Opens by confirming the ledger's real path in the worktree — it is the one fact this
+            plan could not verify while planning.</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">4</span>
+        <div class="task-body">
+          <span class="task-title">Finish run 1 and <code>/myflow-do</code>'s commit path preserve the records</span>
+          <span class="task-files">modify skills/myflow-finish/SKILL.md · skills/myflow-do/SKILL.md · pipeline.md</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">5</span>
+        <div class="task-body">
+          <span class="task-title">Run 2 removes the artifact source</span>
+          <span class="task-files">modify skills/myflow-contracts/pipeline.md · skills/myflow-finish/SKILL.md</span>
+          <span>Conditional on the preserved copy existing, disclosed like the worktree removal.</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">6</span>
+        <div class="task-body">
+          <span class="task-title"><code>effort</code> in the state-file and self-heal contracts</span>
+          <span class="task-files">modify skills/myflow-contracts/state-file.md · state-self-heal.md</span>
+          <span>The field, its values, and the absence carve-out named where the schema is closed.</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">7</span>
+        <div class="task-body">
+          <span class="task-title"><code>/myflow-start</code> asks for the effort level</span>
+          <span class="task-files">modify skills/myflow-start/SKILL.md · state-file.md</span>
+          <span>The creating-run-only ask, the state write, the handoff line, two guardrails.</span>
+        </div>
+      </li>
+
+      <li class="task">
+        <span class="task-n">8</span>
+        <div class="task-body">
+          <span class="task-title">Declared configuration, docs, and the full sweep</span>
+          <span class="task-files">modify .myflow/project.md · CLAUDE.md · AGENTS.md</span>
+          <span>Also corrects a stale note: <code>## lint</code> still says the provenance guard is
+            expected to exit 1 over KAN-8's plan, which archived — it now exits 0.</span>
+        </div>
+      </li>
+
+    </ol>
+  </section>
+
+  <section>
+    <h2>What this deliberately leaves alone</h2>
+    <ul>
+      <li><strong>Item 1 of KAN-19</strong> — widening the provenance guard's scan scope past
+        <code>tasks.md</code>. A separate change under the same ticket.</li>
+      <li><strong>Commit messages</strong>, which the issue notes are outside any guard's reach.</li>
+      <li><strong>A verification gate in <code>/myflow-finish</code>.</strong> The preflight checks the
+        branch's own state; it runs no tests and no linters. That rule stands.</li>
+      <li><strong>Effort governing <code>/myflow-do</code> or <code>/myflow-finish</code>.</strong>
+        Widening it is a change to those commands' specs, not a reinterpretation of this field.</li>
+    </ul>
+  </section>
+
+  <footer class="footer">
+    <div>Re-run <code>/myflow-start kan-19-finish-safety-records-and-effort</code> to revise this proposal — it republishes to this same URL.</div>
+    <div>Next: <code>/myflow-do kan-19-finish-safety-records-and-effort</code></div>
+  </footer>
+
+</div>
