@@ -53,6 +53,28 @@ design gate unless the feedback reopens an architectural question, revise the ar
 and **republish the artifact to the same source path** (see **Publish the proposal artifact**),
 which keeps its URL stable. Never mint a new URL.
 
+## Ask the effort — creating runs only
+
+**Ask once, on the run that creates the change**, and never again for it. "Creates" means the state
+file does not exist — not a guess about the operator or the conversation.
+
+Use **AskUserQuestion**, the same mechanism `/myflow-finish` uses for its integration choice. Effort
+is **never** an argument: the only argument this command accepts is the optional change name, and
+anything else is still reported rather than interpreted.
+
+> **How much effort should planning this change take?**
+> - **Medium** *(default, recommended)* — the checklist followed with related questions grouped
+> - **High** — each checklist item worked separately, every design section approved on its own
+> - **Low** — questions batched, the design presented once
+
+Record the answer for the state write in section F. The levels and what they may change are defined
+under **Effort** (`skills/myflow-contracts/state-file.md`) — that section carries the operational
+table and is the one to read; do not restate it here.
+
+**Revising an existing proposal** (the change is already at `STARTED`): do not ask. Read `effort`
+from the state file, state which level is being reused, and proceed at it. A file that records no
+level is planned at `medium`, and that is said in the handoff too.
+
 ## B. Basic Workflow #1 — Brainstorming
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
@@ -152,6 +174,7 @@ Write the state file per **State file** (`skills/myflow-contracts/state-file.md`
   "worktrees": {},
   "artifactUrl": "<published URL>",
   "jiraIssue": "<resolved key, or null>",
+  "effort": "<low|medium|high, or null>",
   "prUrl": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-start"
@@ -172,6 +195,7 @@ Stage the planning artifacts. The state file lives outside the repo — never `g
 **Artifact:** <artifactUrl>
 **Decisions recorded:** <N> | none
 **Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
+**Effort:** <level> | <level> (reused from the creating run) | not recorded — planned at medium
 
 Open in IntelliJ:
 open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
@@ -193,6 +217,9 @@ The IntelliJ path is the **main checkout** — no worktree exists at this state.
 - **Never** finish without publishing the artifact and recording `artifactUrl`.
 - **Never** mint a new artifact URL on a revision round.
 - **Never** delete a superseded decision; mark it superseded.
+- **Never** ask for an effort level on a revision round — read the recorded one and say so.
+- **Never** let an effort level skip brainstorming, the design approval gate, writing-plans, or leave
+  `tasks.md` a scaffold. It sizes the thinking inside the gates, never the gates.
 - **Never** write code, create a worktree, or create a branch.
 - **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line.
 - **No flags.** The only argument is the optional change name; report anything else.

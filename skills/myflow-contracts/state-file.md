@@ -28,6 +28,7 @@ Every command resolves the path this way, so the same change maps to the same fi
   },
   "artifactUrl": null,
   "jiraIssue": null,
+  "effort": null,
   "prUrl": null,
   "updatedAt": "2026-07-28T10:00:00Z",
   "updatedBy": "/myflow-do"
@@ -44,6 +45,22 @@ Every command resolves the path this way, so the same change maps to the same fi
   See **Multi-repo shape** below.
 - `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (jira-integration.md).
+- `effort` — the reasoning effort chosen for this change's planning: `"low"`, `"medium"`, `"high"`, or
+  `null` when none was chosen. Written only by `/myflow-start`, on the run that **creates** the
+  change; every other command **carries it forward verbatim**. It governs `/myflow-start`'s own
+  reasoning depth and nothing else — no command derives behaviour from it, and the review panel's
+  breadth is never scaled from it. See **Effort** below.
+
+  **A state file that omits `effort` entirely is valid**, and is read as `null`. This is a
+  deliberate exception to the closed-schema rule in
+  **State self-heal** (`skills/myflow-contracts/state-self-heal.md`), which otherwise makes a file
+  unparseable both for missing a documented field and for carrying an undocumented one. Without
+  the exception every
+  file written before this field existed would be routed through self-heal, which announces
+  unrecovered fields and rewrites from artifact inference — a loud correction for a value nobody
+  had the chance to set. `effort` is the first field added since the schema closed, so the
+  carve-out is stated rather than inferred: `artifactUrl`, `jiraIssue` and `prUrl` are all
+  *present and nullable*, which is a different thing from *absent*.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
   that a fix must be committed and pushed rather than merely staged.
@@ -108,3 +125,26 @@ carry forward** every field it does not itself own — `artifactUrl`, `jiraIssue
 erases it permanently: the published proposal link, the link to the Jira issue, the PR (which also
 silently downgrades the next fix from commit-and-push to staged-only), or the authoritative list of
 worktrees for a multi-repo change.
+
+## Effort
+
+**Which file to change first.** The normative requirement — that three levels exist, that `medium`
+is the default offered, and that no level may switch a gate off — is stated in
+`openspec/specs/myflow-effort/spec.md`, under *Effort scales the reasoning spent inside the gates,
+never the gates themselves*. That spec is the requirement; the table below is the **operational form
+the commands read**, and it exists here so `/myflow-start` has one place to look rather than a
+requirements document to interpret. Change the spec first and bring this table with it: a table that
+contradicts the requirement is this file's defect, not the spec's.
+
+Three levels, offered by `/myflow-start` on the run that creates a change, with `medium` the default:
+
+| Level | What it changes |
+|-------|-----------------|
+| `low` | Questions batched rather than asked one at a time; the design presented once; `tasks.md` grouped more coarsely |
+| `medium` | The checklist followed with related questions grouped |
+| `high` | Each checklist item worked separately, alternatives enumerated per open question, each design section approved on its own |
+
+**No level may switch a gate off.** Brainstorming runs, the design approval gate holds,
+writing-plans runs, and `tasks.md` is never left a thin scaffold — at every level. A lower level
+means fewer rounds and coarser grouping, never a gate that does not run. An effort level able to
+skip a gate would be a way to skip review rather than a way to size the thinking inside it.

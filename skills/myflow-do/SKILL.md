@@ -229,11 +229,20 @@ git -C <worktree> diff --cached --stat -- . ':(exclude)openspec/'
 
 **The one commit exception.** If the state file records a `prUrl`, a PR is already open and a
 staged-only fix would be invisible on it — commit and push to the PR branch instead of leaving the
-work staged. Otherwise never commit.
+work staged. Otherwise never commit. On that path only — and in this order — run
+`scripts/preserve-session-records.sh <worktree> <name> <state-dir>`, then `git add -A` **again**, and
+only then commit. The script writes new files under `docs/superpowers/`, and the staging above has
+already run, so without that second `add` the commit would carry none of them. That ordering is what
+makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
+round stale. The script overwrites in place; it never creates a second dated copy. A source that does
+not exist is reported and skipped; **a non-zero exit means a copy was attempted and refused or
+failed** — report it with the script's own stderr message and continue committing the fix, per the
+outcome table under **Finish contract** in `skills/myflow-contracts/pipeline.md`, which is canonical
+for all three outcomes.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
-`artifactUrl`, `jiraIssue` and `prUrl` forward verbatim. The state file lives outside the repo —
+`artifactUrl`, `jiraIssue`, `effort` and `prUrl` forward verbatim. The state file lives outside the repo —
 never `git add` it.
 
 ```
