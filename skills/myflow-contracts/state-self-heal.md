@@ -24,12 +24,13 @@ When the file is missing, unparseable, or contradicted: fall back to artifact in
 
 Self-heal obeys the monotonicity rule stated under **State file** (`skills/myflow-contracts/state-file.md`): it may only raise or fill values. It infers `state` only, and never fabricates a `prUrl`.
 
-**A rewrite carries forward every field it did not infer.** **State file**
-(`skills/myflow-contracts/state-file.md`) requires every write to first read the existing file and
-carry forward the fields it does not itself own; self-heal is a write, and its only owned field is
-`state`. `branch`, `worktrees`, `artifactUrl`, `jiraIssue`, `effort` and `prUrl` are re-emitted
-exactly as read — never collapsed to `null` in place of the value that was there. A write renders the whole
-object, so a field left out of the render is not left unchanged, it is erased.
+**A rewrite carries forward every field it did not infer.**
+**State file** (`skills/myflow-contracts/state-file.md`) requires every write to first read the
+existing file and carry forward the fields it does not itself own; self-heal is a write, and its
+only owned field is `state`. `branch`, `worktrees`, `artifactUrl`, `jiraIssue`, `effort` and
+`prUrl` are re-emitted exactly as read — never collapsed to `null` in place of the value that was
+there. A write renders the whole object, so a field left out of the render is not left unchanged,
+it is erased.
 
 **When the prior file is missing or unparseable, those fields have no source.** Artifact inference
 only produces `state`; it has nothing to carry forward for the fields self-heal does not infer, and

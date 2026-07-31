@@ -19,8 +19,9 @@ Accepts **no change** (creates one) or **`STARTED`** (revises the existing propo
 `STARTED`.
 
 At `IN_PROGRESS` the proposal has already been implemented against — emit the wrong-state handoff
-from **Wrong state for this command** and recommend `/myflow-do`, which documents a change of plan
-in the proposal before implementing it. Only proceed on an explicit override.
+from **Wrong state for this command** (`skills/myflow-contracts/pipeline.md`) and recommend
+`/myflow-do`, which documents a change of plan in the proposal before implementing it. Only proceed
+on an explicit override.
 
 ## Superpowers Basic Workflow (this stage)
 
@@ -33,14 +34,15 @@ Steps **2, 4–6** run in `myflow-do`. Do not run them here.
 
 ## A. Resolve the change
 
-**Resolve the linked Jira issue first** — it decides the change name. Follow **Resolution** under
-**Jira integration** (`skills/myflow-contracts/jira-integration.md`) exactly; it is canonical and
-is not restated here. This is the only command that resolves a key.
+**Resolve the linked Jira issue first** — it decides the change name. Follow
+**Resolution (how `jiraIssue` is decided)** in `skills/myflow-contracts/jira-integration.md`
+exactly; it is canonical and is not restated here. This is the only command that resolves a key.
 
 Then the change name:
 
-- **With a linked issue**, the name is `<lowercased-key>-<slug>`, per **Change naming** in
-  **Jira integration**. Derive the slug from the issue summary when only a key was given.
+- **With a linked issue**, the name is `<lowercased-key>-<slug>`, per
+  **Change naming** (`skills/myflow-contracts/jira-integration.md`). Derive the slug from the issue
+  summary when only a key was given.
 - **Without one**, the name is the descriptive slug alone.
 - If a name or description was given, use it (derive kebab-case from the description if only a
   description was given).
@@ -52,6 +54,11 @@ Then the change name:
 design gate unless the feedback reopens an architectural question, revise the artifacts in place,
 and **republish the artifact to the same source path** (see **Publish the proposal artifact**),
 which keeps its URL stable. Never mint a new URL.
+
+**Transition the issue to In Progress now**, per
+**Transitions** in Jira integration (`skills/myflow-contracts/jira-integration.md`) — before
+brainstorming, so the board is correct while planning runs. A failure is one skipped-with-reason
+line and planning continues; nothing about this call may delay or alter the proposal.
 
 ## Ask the effort — creating runs only
 
@@ -135,8 +142,8 @@ Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan q
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
 coverage, placeholder scan, type consistency) before finishing.
 
-While enriching `tasks.md`, tag every fenced block and every numeric claim per **Plan provenance**
-(`skills/myflow-contracts/plan-provenance.md`): code that cannot be verified is tagged
+While enriching `tasks.md`, tag every fenced block and every numeric claim per
+**Plan provenance** (`skills/myflow-contracts/plan-provenance.md`): code that cannot be verified is tagged
 `unverified:` and **kept** — a plan without the snippet is worse than a plan with a labelled guess.
 
 Add this header to `tasks.md`:
@@ -181,10 +188,9 @@ Write the state file per **State file** (`skills/myflow-contracts/state-file.md`
 }
 ```
 
-**Transition the issue to In Progress after the state write** — Jira must never be able to prevent
-the state from being recorded. Sync added scope here too. Both mechanisms are defined once under
-**Jira integration** (`skills/myflow-contracts/jira-integration.md`); follow them there. Description
-sync applies **only** when this run added scope the issue does not already describe.
+The In Progress transition already happened in section **A**. Sync added scope here, per
+**Description sync** in Jira integration (`skills/myflow-contracts/jira-integration.md`) — only
+when this run added scope the issue does not already describe.
 
 Stage the planning artifacts. The state file lives outside the repo — never `git add` it.
 
@@ -195,6 +201,7 @@ Stage the planning artifacts. The state file lives outside the repo — never `g
 **Artifact:** <artifactUrl>
 **Decisions recorded:** <N> | none
 **Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
+**Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 **Effort:** <level> | <level> (reused from the creating run) | not recorded — planned at medium
 
 Open in IntelliJ:
@@ -209,6 +216,11 @@ Next:
 The IntelliJ path is the **main checkout** — no worktree exists at this state. Resolve it via
 `--git-common-dir`.
 
+The pre-edit description line is present only on a run that wrote the description, and reproduces
+that text without summarising or reflowing it — the transcript is then the recovery path, since
+there is no local backup. A run that wrote nothing omits the line rather than printing an empty
+one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
+
 ## Guardrails
 
 - **Never skip** brainstorming (#1) or writing-plans (#3), or the design approval gate.
@@ -221,5 +233,15 @@ The IntelliJ path is the **main checkout** — no worktree exists at this state.
 - **Never** let an effort level skip brainstorming, the design approval gate, writing-plans, or leave
   `tasks.md` a scaffold. It sizes the thinking inside the gates, never the gates.
 - **Never** write code, create a worktree, or create a branch.
-- **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line.
+- **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line. The
+  one carve-out, with its limits, is
+  **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`): a single yes/no when
+  the issue sits at a status outside the four ordered names, where anything but an explicit yes is
+  that same skipped-with-reason line and the proposal is untouched either way.
+- **Never** resolve an open question by assumption. Put it to the operator, at the point the
+  answer is first needed, and do everything that does not depend on it in the meantime. A lower
+  effort level may group questions into fewer rounds and batch related ones into one prompt; it
+  may never turn a question into an assumption.
+- **Never** ask for an approval in open prose. Offer named options, mark the recommended one, and
+  say what each one will do.
 - **No flags.** The only argument is the optional change name; report anything else.

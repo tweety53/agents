@@ -13,7 +13,11 @@ Report the pipeline state of every open (non-archived) OpenSpec change. **Read-o
 
 **Announce at start:** "Using myflow-status."
 
-Follow **skills/myflow-contracts/pipeline.md** — section **States** — and **State file** (`skills/myflow-contracts/state-file.md`) and **State self-heal** (`skills/myflow-contracts/state-self-heal.md`).
+Follow all three contracts:
+
+- **States** (`skills/myflow-contracts/pipeline.md`)
+- **State file** (`skills/myflow-contracts/state-file.md`)
+- **State self-heal** (`skills/myflow-contracts/state-self-heal.md`)
 
 ## Workflow
 
@@ -91,7 +95,7 @@ Surface `artifactUrl` when present — the link to the published proposal artifa
 
 Surface `effort` the same way: the recorded level verbatim when there is one, and, when the field is
 `null` or absent, `not recorded — planned at <default>`, filled in from the default level
-under **Effort** in **State file** (`skills/myflow-contracts/state-file.md`) — that file is
+under **Effort** in State file (`skills/myflow-contracts/state-file.md`) — that file is
 canonical for which level is the default, and naming it here as well would be a second copy to keep
 in step.
 An absent `effort` is legal and is never a `⚠`:
@@ -129,8 +133,9 @@ Add below the table:
 - **Never** commit, stage, push, merge, or archive.
 - **Never** advance a state — only correct a stale cache to match artifacts.
 - **Never** rewind a state, and never fabricate a `prUrl`. Clearing a `prUrl` that a conclusive
-  probe disproved is the one permitted correction, per **State self-heal**
-  (`skills/myflow-contracts/state-self-heal.md`); everything else about the file is read-only.
+  probe disproved is the one permitted correction, per
+  **State self-heal** (`skills/myflow-contracts/state-self-heal.md`); everything else about the
+  file is read-only.
 - **Never** create a worktree or branch.
 - Report `gh` being unavailable, or a non-GitHub forge, as "PR state unknown" rather than guessing — and never clear `prUrl` on that unknown.
 - Never guess a state when artifacts are ambiguous — show `?` and say which check was inconclusive.

@@ -25,7 +25,7 @@ whatever reads best for a human, since agents and humans read the same file.
 | `## test` | The command(s) that run the project's tests. |
 | `## lint` | The command(s) that verify lint, and the auto-fix command to run first. |
 | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. |
-| `## jira` | Optional. The project's Jira project key(s), or the literal `none`. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (jira-integration.md). |
+| `## jira` | Optional. The project's Jira project key(s), or the literal `none`. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
 
 **How a `## standards` entry resolves to a file.** Every entry in the `## standards` section is
 one of three forms, and there is no fourth. **"Bare" is mechanical throughout: the entry contains

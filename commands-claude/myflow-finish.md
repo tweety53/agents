@@ -7,12 +7,12 @@ Use the **myflow-finish** skill — installed globally, so let your harness reso
 
 Follow that skill exactly. Accepts **`IN_PROGRESS`**. It runs **twice**, and the branch's merge status alone decides which run happens:
 
-- **Run 1 — branch not merged.** Asks up front how it should land: open a pull request (default), merge and push, or leave it to you. Commits the staged work, takes that route, and **stops** — the state stays `IN_PROGRESS`.
-- **Run 2 — branch merged.** Verifies the merge, syncs delta specs, archives the change, **commits and pushes the archive**, removes the worktrees and branches, and writes **`FINISHED`**.
+- **Run 1 — branch not merged.** Checks each recorded worktree for **unfinished work** first — before the landing question and before any git action — and offers exactly three courses: continue, stop, or file a Jira task. Then asks how it should land: open a pull request (default), merge and push, or leave it to you. Makes **two commits** — the implementation first, the planning artifacts second — takes that route, moves the linked issue to **In Review** whichever route was taken, and **stops** — the state stays `IN_PROGRESS`.
+- **Run 2 — branch merged.** Verifies the merge, syncs delta specs, archives the change, **commits and pushes the archive**, removes the worktrees, the local branch, the **remote branch** and the proposal artifact source, then **verifies the cleanup** and writes **`FINISHED`**.
 
 **Runs no tests, linters, or coverage check** before integrating — that happened during `/myflow-do`.
 
-Worktree removal runs four gating checks first (no uncommitted tracked changes, no untracked-and-unignored files, no commits that exist only here, local stack stopped) and **leaves everything alone if any of them fails**. It then discloses the ignored files `--force` will destroy and asks before removing.
+Every rule about what run 2 removes — which artifact, when, and on what condition — is stated once under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`), which also points at the removal procedure and its safety checks. None of it is repeated here.
 
 Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git boundaries and the finish contract.
 

@@ -41,6 +41,8 @@ scripts/test-check-references.sh
 scripts/test-check-plan-provenance.sh
 scripts/test-check-finish-preflight.sh
 scripts/test-preserve-session-records.sh
+scripts/test-check-unfinished-work.sh
+scripts/test-check-cleanup-complete.sh
 ```
 
 ## lint
@@ -56,12 +58,13 @@ auto-fix command first" step is therefore inapplicable here — not skipped. All
 `file:line` and are fixed by editing the offending line, never by weakening the guard or adding a
 suppression marker to silence a real hit.
 
-**`check-finish-preflight.sh` and `preserve-session-records.sh` are deliberately not lint steps.**
-Both are `/myflow-finish` helpers that need a real worktree, a branch and a resolved base ref
-passed in as arguments; they answer a question about one change in flight, not about the state of
-the repository's text. A lint step that cannot run against a bare tree would fail on every
-unrelated invocation, so the omission is a decision, not an oversight. They are covered instead by
-their harnesses under `## test`.
+**`check-finish-preflight.sh`, `preserve-session-records.sh`, `check-unfinished-work.sh` and
+`check-cleanup-complete.sh` are deliberately not lint steps.** All four are `/myflow-finish` helpers
+that need a change in flight and a real worktree, a repository or a state directory passed in as
+arguments; they answer a question about one change, not about the state of the repository's text. A
+lint step that cannot run against a bare tree would fail on every unrelated invocation, so the
+omission is a decision, not an oversight. They are covered instead by their harnesses under
+`## test`.
 
 **All three guards are currently expected to exit 0.** `check-plan-provenance.sh` reports
 "all provenance stated" — see the script's own header for the full exit-code contract: 0

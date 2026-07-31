@@ -105,10 +105,10 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 | Command | Condition | Allowed git actions |
 |---------|-----------|---------------------|
 | `/myflow-start` | — | None — planning artifacts only |
-| `/myflow-do` | from `STARTED` | Create branch/worktree + **`git add`** — no commits, push, merge, or PR |
-| `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **`git add`** — no commits |
-| `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits and pushes** to the PR branch — the one exception |
-| `/myflow-finish` | run 1 | **Commits and pushes**; opens a PR or merges, by the operator's choice |
+| `/myflow-do` | from `STARTED` | Create branch/worktree + **`git add` excluding the planning paths** — no commits, push, merge, or PR |
+| `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **`git add` excluding the planning paths** — no commits |
+| `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
+| `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
 | `/myflow-finish` | run 2 | **Commits and pushes the archive**; removes worktrees and branches |
 | `/myflow-status`, `/myflow-info` | — | None — read-only |
 
@@ -116,7 +116,49 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 staged-only fix would be invisible on it. Before that the operator reviews a staged diff in the
 IDE, and committing would take that away.
 
+**The planning paths** are the three that
+**Handoff output** (`pipeline.md`) names below. `/myflow-do` clears them from the index and only
+then stages with them excluded by pathspec — an exclusion governs what an
+`add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
+rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
+`/myflow-finish` is what commits them.
+
 `git add -A` respects `.gitignore`. Never force-add.
+
+**Both commits are guarded, and an empty one is skipped rather than failed.** `git commit` exits
+non-zero when nothing is staged, so an unguarded two-commit sequence dead-ends on three ordinary
+cases: a fix touching only the three planning paths leaves the implementation commit empty — which
+is exactly what run 1's unfinished-work **Stop** course invites — a fix touching only implementation
+leaves the planning commit empty, and a re-run after a rejected push finds both commits already
+made. Each commit is therefore preceded by a staged-changes test, and the whole sequence is one
+`&&` chain:
+
+```bash
+git -C <abs-worktree> reset -q -- openspec/ docs/manual-test/ docs/superpowers/ \
+  && git -C <abs-worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/' \
+  && { git -C <abs-worktree> diff --cached --quiet \
+       || git -C <abs-worktree> commit -m "<type>(<name>): <what the implementation does>"; } \
+  && git -C <abs-worktree> add -A \
+  && { git -C <abs-worktree> diff --cached --quiet \
+       || git -C <abs-worktree> commit -m "chore(<name>): plan, test guide and session records"; }
+```
+
+**A skipped commit is reported, and a FAILED commit stops the sequence.** Those are different
+outcomes: "nothing to commit" is normal and costs one line in the handoff, while a commit a hook
+rejects is a git failure and gets the standard treatment — report git's own output and stop. The
+chain is what enforces the second, and it is a chain rather than `set -e` deliberately: bash before
+4.0 ignores `set -e` inside a subshell whose parent has errexit off, and this block runs through an
+agent's shell whose state it does not control. Run it as one command. Without that, a first commit
+a hook rejects falls through to the unconstrained second `add`, and the sole resulting commit —
+titled `chore(...)` — carries the implementation, silently breaking the very split this section
+exists to enforce.
+
+**A planning path that is a tracked symlink stops the run, and is never worked around.** When any of
+the three is a symlink, `git add -A -- . ':(exclude)docs/superpowers/'` exits 128 with
+`fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**. Report that message,
+name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bare `git add -A`,
+which puts the planning artifacts into the implementation commit — the one outcome this split
+exists to prevent — so the fix belongs in the repository, by making the path a real directory.
 
 ## Handoff output
 
@@ -135,7 +177,9 @@ Next:
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a five-command surface is the whole mechanism.
 - **`/myflow-finish` run 1 names itself** as the next command, because that is what the operator
-  runs once the branch is merged. Only run 2 is terminal and names nothing.
+  runs once the branch is merged. Only a run 2 that **completed** is terminal and names nothing — a
+  run 2 that stopped on a cleanup leftover names itself too, for the same reason: the operator
+  clears what remains and runs it again.
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
 - **Link, never paste.** Manual test guides, diffs and plans are given as absolute paths.
@@ -143,13 +187,18 @@ Next:
   instructions. Never a relative path, never `../<other-app>`, and never a main-checkout path while
   an apply worktree holds the work. Resolve app roots from `git worktree list` or the state file's
   `worktrees` keys.
-- **The review diff excludes `openspec/`.** The plan was read at `STARTED`; presenting it again as
-  code to review hides the implementation diff it is mixed into. Those files stay staged, and
-  `/myflow-finish` still commits them:
+- **`openspec/`, `docs/manual-test/` and `docs/superpowers/` are never staged before finish.** The
+  plan was read at `STARTED`; presenting it again as code to review hides the implementation diff it
+  is mixed into. Leaving them unstaged, rather than filtering them out of one display command, is
+  what makes them absent from *every* view of the staging area — a filtered display leaves them in
+  the index, where `git status`, a graphical client and the IDE's staged-changes pane show them
+  again. The list is fixed here rather than configured per project; the pipeline chooses these paths
+  itself, so no project can differ. `/myflow-finish` run 1 stages them and commits them separately
+  from the implementation, so nothing is lost:
 
   ```bash
-  git -C <abs-worktree> diff --cached --stat -- . ':(exclude)openspec/'
-  git -C <abs-worktree> diff --cached        -- . ':(exclude)openspec/'
+  git -C <abs-worktree> diff --cached --stat
+  git -C <abs-worktree> diff --cached
   ```
 
 ## IntelliJ commands
@@ -220,7 +269,58 @@ script — but signals 1 and 3 still run, and still run in this order.
 
 ### Run 1 — the branch is not merged
 
-Ask, **before any git action**, how the branch should land:
+**Check for unfinished work first — before the landing question and before any git action.**
+`scripts/check-unfinished-work.sh <worktree> <change-name>` prints one verdict line and exits 0
+whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the worktree.
+Run it once per worktree recorded in the state file's `worktrees` map.
+
+| Verdict | Meaning |
+|---------|---------|
+| `CLEAR` | nothing outstanding — go straight to the landing question, with no extra prompt |
+| `OUTSTANDING` | show the breakdown and offer the three courses below |
+
+A missing verdict line is not a verdict. Treat it exactly as the preflight script's fourth outcome
+above: stop and ask the operator. The exit code is checked as well as the line, because a caller
+that greps for `CLEAR` in empty output finds nothing.
+
+On `OUTSTANDING` the operator is offered **exactly three** courses:
+
+| Course | What run 1 then does |
+|--------|----------------------|
+| **Stop — I'll finish it first** *(recommended)* | stop, leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed |
+| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff |
+| **File a Jira task, then continue** | file an issue carrying the outstanding items, then proceed |
+
+**Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**
+The gate only fires because something really is unfinished, and finishing it is the cheapest of the
+three to recover from — Continue is the only course that reaches an irreversible step, and it exists
+for work the operator deliberately deferred, which is a judgment only they hold. Marking a
+recommendation is not a courtesy here: the planning-gate capability requires every choice a
+`/myflow-*` command offers to name its recommended option, and this prompt is one of them.
+
+There is no fourth course, and in particular none that hands back to `/myflow-do` inline. The filed
+issue is labelled and linked per
+**Labels on issues the pipeline creates** (`skills/myflow-contracts/jira-integration.md`).
+
+**A filing that fails is one skipped-with-reason line, and the run still proceeds** — the same
+degradation every other Jira write in this pipeline has, per
+**Never blocking** (`skills/myflow-contracts/jira-integration.md`). Creation can fail for the usual
+reasons (auth, permission, an unknown project key or label) and there may be no tracker configured
+at all. None of them changes the operator's answer, which was *continue*: the outstanding list still
+reaches the planning commit's message and the handoff, which is where this change requires the
+durable record to be. A failed filing is never silently upgraded to **Stop**, and never passes
+unmentioned.
+
+**The gate precedes the question, and that ordering is the point.** An operator asked how to land a
+branch, and only then told it carries unfinished work, has already answered a question about a
+branch they believed was complete — and the cheapest of the three courses to take by mistake is the
+one that integrates.
+
+**What the operator integrated over is recorded where a transcript is not**: the outstanding list
+goes into the message of the commit that carries the planning artifacts, and into run 1's handoff.
+The signals that produce that list are the script's own and are deliberately not restated here.
+
+Only then ask, **before any git action**, how the branch should land:
 
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*
@@ -229,11 +329,23 @@ Ask, **before any git action**, how the branch should land:
 
 Then run to completion without asking again. The answer is never remembered between runs.
 
-All three routes first commit the staged work — implementation, `docs/manual-test/<name>.md`, the
-`openspec/` planning artifacts, and the session records preserved under `docs/superpowers/` (the SDD
-ledger, the review panel record, and the proposal artifact source). The records are copied out of the
-gitignored worktree before staging, by
+All three routes first commit the work, in **two** commits and never one: the implementation, then
+`docs/manual-test/<name>.md`, the `openspec/` planning artifacts and the session records preserved
+under `docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact
+source). The records are copied out of the gitignored worktree before staging, by
 `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`.
+
+Those three planning paths are cleared from the index before the first `add` and excluded from it by
+pathspec — the same clearing pass **Git boundaries** (`pipeline.md`) above gives `/myflow-do`, and
+for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
+step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
+picks the three paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
+failure rule and the symlink case — is the chain **Git boundaries** (`pipeline.md`) gives, and is
+not written out a second time here.
+
+**Implementation first is the order, not an accident of it.** The newest commit is the one a forge
+shows first, and that should be the code; and the second commit's message is where the outstanding
+list from the gate above is written down.
 
 **That script has three outcomes, and they are not interchangeable.** This is where they are
 defined; the two call sites point here rather than each describing them.
@@ -252,12 +364,14 @@ continues — and the handoff says which records were preserved and which were n
 sources are still attempted after any one failure, so a single bad path costs one record, not three.
 
 **That ordering is deliberate, and deliberately differs from `/myflow-do`'s.** Here the preservation
-call comes *before* `git add -A`, because all three routes commit — one staging pass then covers the
-preserved files. `/myflow-do` runs the same script *after* its unconditional staging and stages a
-second time, because it stages on every run and commits only when a `prUrl` is already recorded;
-hoisting the call there would create and stage `docs/superpowers/` files on every ordinary
-staged-only run. **Do not harmonise the two orderings for symmetry** — the asymmetry is what keeps
-preserved records out of the staged-only path.
+call comes *before* any staging, because all three routes commit: the second, unconstrained `add`
+covers the preserved files wherever in the run they were written, and placing the call first keeps it
+out of the route branches, where it could be forgotten on one of them. `/myflow-do` runs the same
+script *after* its unconditional staging and stages a second time, because it stages on every run
+and commits only when a `prUrl` is already recorded; hoisting the call there would create
+`docs/superpowers/` files on every ordinary staged-only run.
+**Do not harmonise the two orderings for symmetry** — the asymmetry is what keeps preserved records
+out of the staged-only path.
 
 | Route | Then |
 |-------|------|
@@ -319,16 +433,44 @@ the one irreversible step.
    in the normal case: the change branch was already merged, which step 1 proved. When finish is
    invoked with a non-base branch checked out, it commits there, merges into the base branch, and
    pushes that. A finished change never leaves the archive move uncommitted in the working tree.
-4. **Clean up the worktrees** — see below.
-5. **Remove the proposal artifact source.** `/myflow-start` wrote
-   `<state-dir>/<name>-proposal-artifact.html` so a revision round could republish to the same URL.
-   Delete it here, disclosed the same way the worktree removal is — **but only if a preserved copy
-   exists** under `docs/superpowers/artifacts/`. The terminal state file keeps `artifactUrl`
-   indefinitely; removing the only source that could republish it would leave a URL advertised and
-   unrepublishable. No preserved copy → leave the file and say so.
-6. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
-   succeeded** (see the removal rules below — a failed removal keeps its entry), and carry every
-   other field forward.
+4. **Clean up the worktrees, the local branch and the remote branch** — see
+   **Worktree cleanup** (`pipeline.md`) below.
+5. **Remove the proposal artifact source** from the state directory, on the condition its row in
+   **Temporary artifacts registry** (`pipeline.md`) gives. That section carries the condition and
+   the reason for it; this step does not repeat either.
+6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
+   per repository, **after** every removal above — it is there to judge what the run actually left
+   behind, which is the one thing run 2 previously assumed.
+
+   | Verdict | What run 2 does |
+   |---------|-----------------|
+   | `COMPLETE:` | report the cleanup as verified, and go on to step 7 |
+   | `LEFTOVER:` | name what remains, **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
+
+   A non-zero exit with **no verdict line** is the third outcome and not a verdict: report it, leave
+   the affected `worktrees` entries in the state file, and treat it exactly as `LEFTOVER` — an
+   unverified cleanup is not a verified one. The exit code is checked as well as the line, because a
+   caller that greps for `COMPLETE` in empty output finds nothing.
+
+   **A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
+   `FINISHED` is terminal: `/myflow-finish` stops at it and `/myflow-status` does not list it, so a
+   change written `FINISHED` over a known leftover has exactly one record of that leftover — the
+   console line — which is the transcript-only record this pipeline refuses everywhere else. Left at
+   `IN_PROGRESS` instead, the change stays listed, stays re-runnable, and the state file it already
+   has is the durable record; no new field is invented to carry a fact the state itself carries.
+
+   **Run 2 is re-entrant, which is what makes that safe.** Every step is remove-or-move *if present*
+   and a step whose artifact is already gone is success, not an error — so a re-run after the
+   operator clears the leftover repeats the verification and nothing else. An already-archived change
+   directory means step 2 is already done: sync and archive are skipped, not repeated, and the run
+   continues to cleanup and verification.
+
+   **When the script is absent** — a repository that does not carry it — check the same registry rows
+   by hand, in the same order, and say in the handoff that the verification was done manually. The
+   check is never skipped for want of the script, and "not verified" is never reported as verified.
+7. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
+   succeeded** — see **Worktree cleanup** (`pipeline.md`) below — and carry every other field
+   forward. This step is reached only on `COMPLETE:`.
 
 ### Worktree cleanup
 
@@ -337,11 +479,19 @@ each affected repository:
 
 ```bash
 git -C "$REPO" worktree list --porcelain \
-  | awk '/^worktree /{w=$2} /^branch /{if ($2=="refs/heads/openspec/<name>") print w}'
+  | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/openspec/<name>") print w}'
 ```
 
 **Never guess a path.** Worktree layout differs per repository — this repo keeps its worktrees in a
 sibling directory, not `.worktrees/`.
+
+**The path is taken with `substr`, never `$2`.** `worktree list --porcelain` emits it raw, so a
+field reference truncates any path containing a space at the first one: fed
+`worktree /tmp/my worktree/x` it yields `/tmp/my`, and the run then `--force`-removes a path that is
+not the worktree, or fails having named the wrong one. `10` is one past the length of the literal
+`worktree ` prefix. The branch on the next line is a ref name and cannot contain a space, so `$2` is
+right for it. `scripts/check-cleanup-complete.sh` parses the same stream the same way — the guard
+and the snippet it verifies must not disagree, or the wrong one gets copied next.
 
 For each worktree, run **all four** checks before removing anything:
 
@@ -417,10 +567,87 @@ git -C "$REPO" worktree prune
   leave that worktree's entry in `worktrees`. Writing `worktrees: {}` regardless would drop it from
   the only authoritative list, and nothing would ever find it again.
 
+Then the change's **remote** branch:
+
+```bash
+# `push --delete` exits non-zero BOTH when the branch was already gone and when the push was
+# refused, so the two are told apart by git's message and never by the exit code alone. Measured
+# against a scratch remote on this machine (git 2.50.1): an already-absent branch prints
+# `error: unable to delete 'openspec/<name>': remote ref does not exist` and exits 1, and the
+# stale remote-tracking ref SURVIVES that failure.
+OUT="$(git -C "$REPO" push origin --delete "openspec/<name>" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ]; then
+  echo "remote branch deleted: origin/openspec/<name>"
+elif printf '%s' "$OUT" | grep -q 'remote ref does not exist'; then
+  # The forge deleted it on merge. Prune the ref it left behind: check-cleanup-complete.sh reads a
+  # surviving refs/remotes/origin/openspec/<name> as a leftover, and it would be a real one.
+  git -C "$REPO" fetch --prune --quiet origin
+  echo "remote branch already gone — the forge deleted it on merge"
+else
+  echo "remote branch NOT deleted: $OUT"
+fi
+```
+
+- **The remote branch is deleted without a further prompt.** Run 2 is reached only by proving the
+  branch is an ancestor of the base branch, so its commits are in the base branch and nothing can be
+  lost — which is why this is not gated the way check 4's disclosure is.
+- **An already-absent remote branch is success**, not an error, and the outcome is reported either
+  way: deleted, already gone, or refused.
+- **A refused push is reported, never swallowed.** A bare `|| true` would make an expired
+  credential indistinguishable from a branch the forge already removed, and leave the remote branch
+  standing with nothing said about it.
+- **The remote delete is not gated on the local one succeeding.** Gating it would leave the remote
+  branch behind whenever anything unrelated failed, which is the state this step exists to end.
+
 The stack-stopped check reads the optional `## stop` key from the project's `.myflow/project.md` —
 see **Project configuration** in `skills/myflow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
 the other two.
+
+## Temporary artifacts registry
+
+Every artifact the pipeline creates, with what creates it, where it lives, and what removes it.
+
+| Artifact | Created by | Location | Removed by |
+|----------|-----------|----------|-----------|
+| Per-task and review diffs | `/myflow-do` | `.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Panel record | `/myflow-do` | `.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| SDD ledger | `/myflow-do` | `.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| Proposal artifact source | `/myflow-start` | the state directory | run 2, only if a preserved copy exists |
+| Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
+| Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
+| Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
+| Change directory | `/myflow-start` | `openspec/changes/<name>/` | moved to the archive, never deleted |
+| State file | every command | the state directory | never — it is the terminal record |
+
+**This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
+points here rather than restating it, in this file and in every skill.
+**Worktree cleanup** (`pipeline.md`) above is the *procedure* for the rows removed there and not a
+second statement of the rule: the table says what is removed and when, that section says how — and
+a stale second copy of a rule governing
+`git worktree remove --force` is a copy that deletes the wrong thing.
+
+**An artifact no row accounts for is a defect in the registry**, corrected by adding the row. It is
+never left unaccounted for on the grounds that something probably removes it — that assumption is
+exactly how the remote branch went unremoved until it was given a row here.
+
+**Where the proposal artifact source comes from, and why its row is conditional.** `/myflow-start`
+writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish to the same
+URL, and the preserved copy its row requires lives under `docs/superpowers/artifacts/`. The terminal
+state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that
+URL would leave it advertised and unrepublishable. No preserved copy → leave the file and say so.
+The deletion is disclosed the same way the worktree removal is.
+
+**Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
+ends at run 2 is checked back by `scripts/check-cleanup-complete.sh`, whose header explains which
+rows that leaves it reading and why; step 6 of
+**Run 2 — the branch is merged** (`pipeline.md`) above is where its verdict is acted on.
+
+**That derivation is declared, not left implicit.** The guard carries one marker line per row of
+this table saying whether it checks that row or deliberately does not, with the reason; its harness
+reads this table and those markers and fails when the two disagree in either direction. So a row
+added here goes nowhere until someone records a decision about it — which is what stops a future
+artifact from being confirmed clean by a guard that never looked for it.
 
 ## State file
 
@@ -497,8 +724,9 @@ gitignored, in a worktree `/myflow-finish` run 2 removes — but run 1 preserves
 repository first, under `docs/superpowers/ledgers/`, so it serves the operator and the panel
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
-The preservation duty itself is stated once, under **Run 1 — the branch is not merged**; this
-section depends on it rather than restating it.
+The preservation duty itself is stated once, under
+**Run 1 — the branch is not merged** (`pipeline.md`); this section depends on it rather than
+restating it.
 
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
 persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly
@@ -527,5 +755,5 @@ as written above and no step fills it in on the way into the repository.
 - Zero matches → fall back to that command's normal "no change" handling (e.g. `/myflow-start` asks
   what to build; others suggest the prior state's command).
 
-A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see **Change naming** under
-**Jira integration** in `skills/myflow-contracts/jira-integration.md`.
+A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
+**Change naming** in `skills/myflow-contracts/jira-integration.md`.

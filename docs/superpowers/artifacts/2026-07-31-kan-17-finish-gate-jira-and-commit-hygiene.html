@@ -1,0 +1,741 @@
+<title>KAN-17 slice A — finish gate, Jira projection, commit hygiene</title>
+
+<style>
+  :root {
+    --ground:      #f4f5f7;
+    --panel:       #fdfdfd;
+    --ink:         #14171c;
+    --ink-soft:    #4d5563;
+    --ink-faint:   #7c8494;
+    --rule:        #d9dde4;
+    --rule-soft:   #e7eaef;
+    --accent:      #a45c07;
+    --accent-soft: #f2e6d4;
+    --done:        #2c6b4f;
+    --defect:      #963434;
+
+    --serif: "Iowan Old Style", "Charter", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+    --s1: .35rem; --s2: .7rem; --s3: 1.1rem; --s4: 1.8rem; --s5: 2.8rem; --s6: 4.4rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #14171c;
+      --panel:       #1b1f26;
+      --ink:         #e8eaee;
+      --ink-soft:    #a8b0be;
+      --ink-faint:   #757e8d;
+      --rule:        #2e343e;
+      --rule-soft:   #242931;
+      --accent:      #e0a04a;
+      --accent-soft: #3a2c18;
+      --done:        #6fc298;
+      --defect:      #e08585;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #14171c; --panel: #1b1f26; --ink: #e8eaee; --ink-soft: #a8b0be;
+    --ink-faint: #757e8d; --rule: #2e343e; --rule-soft: #242931;
+    --accent: #e0a04a; --accent-soft: #3a2c18; --done: #6fc298; --defect: #e08585;
+  }
+  :root[data-theme="light"] {
+    --ground: #f4f5f7; --panel: #fdfdfd; --ink: #14171c; --ink-soft: #4d5563;
+    --ink-faint: #7c8494; --rule: #d9dde4; --rule-soft: #e7eaef;
+    --accent: #a45c07; --accent-soft: #f2e6d4; --done: #2c6b4f; --defect: #963434;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 78ch;
+    margin: 0 auto;
+    padding: var(--s5) var(--s3) var(--s6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s5);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  h1 {
+    font-size: clamp(1.75rem, 4.4vw, 2.5rem);
+    line-height: 1.14;
+    font-weight: 600;
+    text-wrap: balance;
+    letter-spacing: -.012em;
+    margin-top: var(--s2);
+  }
+
+  h2 {
+    font-size: 1.32rem;
+    font-weight: 600;
+    letter-spacing: -.006em;
+    text-wrap: balance;
+    padding-bottom: var(--s2);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  p, li { max-width: var(--measure); }
+
+  section { display: flex; flex-direction: column; gap: var(--s3); }
+
+  .lede { color: var(--ink-soft); font-size: 1.06rem; }
+
+  code, kbd {
+    font-family: var(--mono);
+    font-size: .82em;
+    background: var(--rule-soft);
+    padding: .1em .34em;
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  a { color: var(--accent); text-underline-offset: .18em; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* Masthead ------------------------------------------------- */
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--s3);
+    padding: var(--s3) 0;
+    border-top: 2px solid var(--ink);
+    border-bottom: 1px solid var(--rule);
+  }
+  .meta div { display: flex; flex-direction: column; gap: var(--s1); }
+  .meta dt, .meta .k {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .meta .v { font-family: var(--mono); font-size: .82rem; color: var(--ink); }
+
+  /* Evidence callout ----------------------------------------- */
+  .evidence {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    padding: var(--s3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+  }
+  .chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s2);
+    font-family: var(--mono);
+    font-size: .74rem;
+  }
+  .chain span {
+    padding: .22em .6em;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--ground);
+  }
+  .chain .miss {
+    border-style: dashed;
+    border-color: var(--defect);
+    color: var(--defect);
+    text-decoration: line-through;
+  }
+  .chain .arrow { border: 0; background: none; color: var(--ink-faint); padding: 0; }
+
+  /* Tables --------------------------------------------------- */
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td {
+    text-align: left;
+    padding: .5rem .7rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule);
+  }
+  tr:last-child td { border-bottom: 0; }
+  td.num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  td.path { font-family: var(--mono); font-size: .78rem; word-break: break-word; }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .16em .5em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .tag.in  { background: var(--accent-soft); color: var(--accent); }
+  .tag.out { background: var(--rule-soft);   color: var(--ink-faint); }
+  .tag.add { background: var(--accent-soft); color: var(--accent); }
+  .tag.mod { background: var(--rule-soft);   color: var(--ink-soft); }
+
+  /* Decisions ------------------------------------------------ */
+  .decisions { display: flex; flex-direction: column; gap: var(--s2); }
+  details {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  details[open] { border-color: var(--ink-faint); }
+  summary {
+    cursor: pointer;
+    padding: var(--s2) var(--s3);
+    display: flex;
+    gap: var(--s2);
+    align-items: baseline;
+    font-weight: 600;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after {
+    content: "+";
+    margin-left: auto;
+    font-family: var(--mono);
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+  details[open] summary::after { content: "\2212"; }
+  .did {
+    font-family: var(--mono);
+    font-size: .68rem;
+    color: var(--accent);
+    white-space: nowrap;
+    letter-spacing: .02em;
+  }
+  .dbody {
+    padding: 0 var(--s3) var(--s3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+    border-top: 1px solid var(--rule-soft);
+    padding-top: var(--s2);
+    margin: 0 var(--s3);
+    padding-left: 0; padding-right: 0;
+  }
+  .dbody p { font-size: .94rem; }
+  .dbody .label {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-right: .5em;
+  }
+
+  /* Plan ----------------------------------------------------- */
+  ol.plan { list-style: none; display: flex; flex-direction: column; gap: var(--s2); }
+  ol.plan li {
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: var(--s2);
+    align-items: baseline;
+    padding-bottom: var(--s2);
+    border-bottom: 1px solid var(--rule-soft);
+    max-width: none;
+  }
+  ol.plan li:last-child { border-bottom: 0; }
+  ol.plan .n {
+    font-family: var(--mono);
+    font-size: .74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  ol.plan .t { font-size: .96rem; }
+  ol.plan .t small {
+    display: block;
+    color: var(--ink-soft);
+    font-size: .84rem;
+    margin-top: .2em;
+  }
+
+  ul.risks { list-style: none; display: flex; flex-direction: column; gap: var(--s2); }
+  ul.risks li {
+    padding-left: var(--s3);
+    border-left: 2px solid var(--rule);
+    font-size: .96rem;
+  }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: var(--s3);
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: .72rem;
+    line-height: 1.7;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Proposal · openspec change · awaiting your read</p>
+    <h1>Finish gate, Jira projection, and commit&nbsp;hygiene</h1>
+    <p class="lede">Slice A of KAN-17: the twelve asks that change how the pipeline behaves.
+      Three of the surfaces they touch have no normative source at all — and each has already
+      produced a defect nothing caught.</p>
+
+    <div class="meta">
+      <div><span class="k">Change</span><span class="v">kan-17-finish-gate-jira-and-commit-hygiene</span></div>
+      <div><span class="k">Issue</span><span class="v">KAN-17 · Myflow updates</span></div>
+      <div><span class="k">Repo</span><span class="v">/Users/tweety53/Projects/agents</span></div>
+      <div><span class="k">State</span><span class="v">STARTED</span></div>
+      <div><span class="k">Planning effort</span><span class="v">medium</span></div>
+      <div><span class="k">Decisions</span><span class="v">15</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why</h2>
+
+    <p><strong>Jira.</strong> <code>jira-integration.md</code> is contract text with no capability
+      behind it. It moves an issue to In&nbsp;Review <em>“once a PR is confirmed open”</em> — so a
+      change that lands by merge-and-push never reaches In&nbsp;Review at all.</p>
+
+    <div class="evidence">
+      <p class="eyebrow">Evidence · KAN-20 changelog</p>
+      <div class="chain">
+        <span>To Do</span><span class="arrow">→</span>
+        <span>In Progress</span><span class="arrow">→</span>
+        <span class="miss">In Review</span><span class="arrow">→</span>
+        <span>Done</span>
+      </div>
+      <p style="font-size:.9rem;color:var(--ink-soft)">Two transitions recorded, not three. KAN-20
+        landed by merge-and-push, so the PR condition never fired. The same file orders statuses by
+        name, which leaves <code>TO&nbsp;DO&nbsp;URGENT</code> — where KAN-13 and KAN-17 both sit —
+        with no position in the order at all.</p>
+    </div>
+
+    <p><strong>The integration gate.</strong> Nothing checks that a branch is finished before it is
+      integrated. The kan-6 branch merged carrying an unfixed defect and unticked manual-test boxes.
+      That is knowable today only because it was typed into a chat transcript.</p>
+
+    <p><strong>The review panel’s bar.</strong> “Zero open Critical/Important findings” lives only in
+      a guardrail line, with findings recorded as free prose — so a minor finding can be deferred
+      with nothing able to notice.</p>
+
+    <p>Alongside these, the diff you review is <em>filtered</em> rather than clean: planning
+      artifacts are staged and then hidden by a pathspec at display time, so they reappear in the
+      IDE’s staged-changes pane and in <code>git status</code>.</p>
+  </section>
+
+  <section>
+    <h2>The eighteen asks, and where each one went</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Ask</th><th>What it wants</th><th>Slice</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">1</td><td>The issue never reaches In Review</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">2</td><td>In Progress timing</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">3</td><td><code>/myflow-status</code> reproduces the next-step handoff</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">4</td><td><code>openspec/</code> out of the reviewed diff; separate commit</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">5</td><td>Always fix minor panel findings</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">6</td><td>Terminal tab colour and rename</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">7</td><td>Never merge with unfinished work</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">8</td><td>Unticked test boxes ask before integrating</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">9</td><td>Label issues created during a run</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">10</td><td>README diagram as a detailed per-command flow</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">11</td><td>“Planning effort”: default / detailed / low</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">12</td><td>Unfinished work is finished, or filed as a task</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">13</td><td>Approval prompts offer options, not free prose</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">14</td><td>The task-progress view is always shown</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">15</td><td>Model choices recorded in the state file</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">16</td><td>A simpler, wider manual-test guide</td><td><span class="tag out">B</span></td></tr>
+          <tr><td class="num">17</td><td><code>AI-generated</code> on issues created via the CLI</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">18</td><td>Standardise cleanup of temporary files and branches</td><td><span class="tag in">A</span></td></tr>
+          <tr><td class="num">19</td><td><code>/myflow-start</code> always asks rather than assuming</td><td><span class="tag in">A</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.92rem;color:var(--ink-soft)">Ask 19 was raised during this planning run and
+      is not in the issue’s description; it will be appended there. Ask 13 moved from B to A because
+      it and 19 are one requirement — splitting them would make slice B amend a spec slice A had
+      just written. The seven B asks go to a follow-up issue filed at the end of this run.</p>
+  </section>
+
+  <section>
+    <h2>What changes</h2>
+    <ul>
+      <li><strong>Jira becomes normative.</strong> A capability holds the transition points, ordering,
+        the unknown-status ask, labels, description sync, and the never-a-gate invariant.</li>
+      <li><strong>In Progress fires when planning begins</strong> — immediately after the key
+        resolves, before brainstorming. Failure still degrades to one skipped-with-reason line.</li>
+      <li><strong>In Review fires at the end of finish run 1 on every route</strong> — PR, merge and
+        push, or manual.</li>
+      <li><strong>An unrecognised status is asked about</strong>, never inferred from
+        <code>statusCategory</code>.</li>
+      <li><strong>Created issues carry the parent’s labels plus <code>AI-generated</code></strong>.
+        No label is invented.</li>
+      <li><strong>A run-1 gate refuses to integrate silently over unfinished work</strong>, offering
+        continue, stop, or file a task — and recording the choice to continue in the planning
+        commit’s message.</li>
+      <li><strong>Findings become countable</strong>: a required table with a status per row, and no
+        handoff while any row is open, at any severity.</li>
+      <li><strong>Planning artifacts leave the staged diff</strong>, and finish commits them
+        separately from the implementation.</li>
+      <li><strong>Cleanup becomes one registry</strong>, and the remote branch — which nothing
+        deletes today — is removed at run 2 and verified.</li>
+      <li><strong><code>/myflow-start</code> asks rather than assumes</strong>, and offers options
+        wherever it asks for approval.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+    <p class="lede">Fifteen, each recording the alternatives that were on the table and the tradeoff
+      that ruled each one out.</p>
+
+    <div class="decisions">
+
+      <details>
+        <summary><span class="did">jira-in-progress-at-start</span> In Progress fires when planning begins</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>Transition immediately after the key resolves, before
+            the first brainstorming question — the board is then correct while a long planning run is
+            in flight.</p>
+          <p><span class="label">Considered</span>Keep it after the state write and report the status
+            more loudly — does not fix the board during the run. Treat the ask as subsumed by the
+            unknown-status fix — you wanted the earlier timing on its own merits.</p>
+          <p><span class="label">Trade-off</span>An abandoned planning session leaves the issue In
+            Progress with no change to show for it. Non-blocking is preserved: a failure is still one
+            line, and the state write later is untouched.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">jira-in-review-any-route</span> In Review fires on every landing route</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>At the end of a successful run 1, whichever route was
+            taken. Route-independence is the fix; conditioning on a PR is what broke it.</p>
+          <p><span class="label">Considered</span>Keep the PR condition and add the manual route —
+            merge-and-push would still skip In Review. Fire at the start of run 1 — would claim In
+            Review even when the push then fails.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">jira-unknown-status-ask</span> An unrecognised status is asked about</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>Show the key, the current status and the target, and
+            ask whether to transition.</p>
+          <p><span class="label">Considered</span>Order by <code>statusCategory</code> — the
+            important rejection: <code>TO DO URGENT</code> and <code>In Progress</code> share
+            <code>indeterminate</code>, so the issue reads as already at the target and the board
+            freezes for the whole change. Declare the order per project — a second list that
+            misorders silently when stale. Treat unknown as before In Progress — would drag a status
+            like <code>Blocked</code> backwards.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">jira-created-issue-labels</span> Created issues inherit the parent’s labels</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>The parent issue’s labels, plus
+            <code>AI-generated</code>; no label is ever invented.</p>
+          <p><span class="label">Considered</span><code>AI-generated</code> alone — follow-ups lose
+            the routing label that makes them findable. A label list in project config — another list
+            to maintain.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">unfinished-work-script</span> The run-1 gate is a script, not prose</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span><code>scripts/check-unfinished-work.sh</code> prints one
+            verdict line, in the shape <code>check-finish-preflight.sh</code> established.</p>
+          <p><span class="label">Considered</span>Prose contract only — prose is the enforcement class
+            that already failed, in the kan-6 case this ask exists to prevent. Adding it to
+            <code>## lint</code> — would fire on every change in flight, which is the normal mid-work
+            state.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">unfinished-work-signals</span> Four signals count as unfinished</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>Unticked guide boxes; unchecked plan items including
+            nested fix sub-changes; findings not closed; and a <code>## Known incomplete</code>
+            section.</p>
+          <p><span class="label">Considered</span>The guide’s boxes alone, which is the literal ask —
+            you widened it to all four.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">known-incomplete-location</span> Undone work lives in the test guide</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>A <code>## Known incomplete</code> section in
+            <code>docs/manual-test/&lt;name&gt;.md</code>, refreshed on every fix run.</p>
+          <p><span class="label">Considered</span>The panel record — an audit file you don’t normally
+            open. A state-file field — that file carries only fields with a live consumer and records
+            no human judgment. <code>proposal.md</code> — buried in an artifact read once.</p>
+          <p><span class="label">Why it needs a home</span>Finish runs in a different session from
+            <code>/myflow-do</code> and has no memory of it.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">unfinished-work-prompt</span> The gate offers three answers</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>Continue and integrate anyway; stop so you can finish
+            it; or file a Jira task and continue.</p>
+          <p><span class="label">Considered</span>A fourth answer handing back to
+            <code>/myflow-do</code> inline and resuming — you ruled it out as making one command
+            re-enter another mid-run.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">unfinished-work-audit</span> Continuing past the gate is recorded</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>The outstanding list appears in the handoff <em>and</em>
+            in the planning commit’s message, so the git history answers whether anything was known
+            to be unfinished at the merge.</p>
+          <p><span class="label">Considered</span>Handoff only — the record dies with the scrollback,
+            which is how the kan-6 case became unprovable. A Jira comment too — a third write to keep
+            consistent for no durability the commit message doesn’t already give.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">findings-table-and-bar</span> Findings become countable, and every severity blocks</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>A required table — slot, severity, location, status,
+            note — whose status is <code>open</code>, <code>fixed</code> or <code>withdrawn</code>.
+            No handoff with any row open.</p>
+          <p><span class="label">Considered</span>A checkbox per finding — severity and slot stay in
+            prose, so nothing could report which slot raised what. No format, with the agent
+            asserting the bar is met — an unverifiable claim is how minors got deferred before.</p>
+          <p><span class="label">Where a dispute ends</span>The panel’s existing ladder hands back to
+            you at the last fix round, and <code>withdrawn</code> is written there, by you, with a
+            reason. That is the existing human gate — the one place a minor can end up unfixed.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">findings-spec-home</span> The findings bar joins the existing panel capability</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span><code>myflow-review-panel-economics</code> — one
+            capability for what the panel costs and what it must produce.</p>
+          <p><span class="label">Considered</span>A new findings capability — two specs about one
+            panel makes “which do I amend?” a question. <code>myflow-command-surface</code> — about
+            the command surface, not review quality.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">planning-artifacts-unstaged</span> Planning artifacts leave the staged diff</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span><code>/myflow-do</code> stages everything except
+            <code>openspec/</code>, <code>docs/manual-test/</code> and <code>docs/superpowers/</code>;
+            finish commits implementation first and those paths second; a fix run with a PR open
+            makes the same two commits.</p>
+          <p><span class="label">Considered</span><code>openspec/</code> only, the literal ask — the
+            guide and preserved records would stay in the reviewed diff. Planning commit first — the
+            newest commit on the branch would be a docs commit, which is the one a forge shows first.
+            Splitting at finish only — the split would hold for the first integration and not for any
+            fix pushed to the PR.</p>
+          <p><span class="label">Verified</span>The exclusion pathspec was run in a scratch
+            repository: it stages the code file alone and leaves both excluded paths untracked.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">exclusion-list-fixed</span> The exclusion list is fixed in the contract</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>The three paths, named in the contract.</p>
+          <p><span class="label">Considered</span>A per-project key — the pipeline chooses these paths
+            itself, so no project can currently differ, and an unset key would need the fixed list as
+            its default anyway.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">cleanup-registry</span> Cleanup becomes one registry, and the remote branch joins it</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>One table listing every artifact the pipeline creates,
+            plus automatic deletion of <code>origin/openspec/&lt;name&gt;</code> at run 2, treating an
+            already-absent branch as success.</p>
+          <p><span class="label">Considered</span>Asking before the remote delete — run 2 has already
+            proved the branch is an ancestor of the base branch, so nothing can be lost. Gating it on
+            the local delete succeeding — leaves the remote branch behind whenever anything unrelated
+            failed.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">cleanup-verification-script</span> Run 2 verifies the registry with its own script</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span><code>scripts/check-cleanup-complete.sh</code>,
+            returning a verdict the way the run-1 gate does.</p>
+          <p><span class="label">Considered</span>Prose reusing the existing per-removal verification
+            — this was the recommendation; you chose mechanical enforcement instead. Folding it into
+            the run-1 guard — a different question at a different time, and no script here answers
+            two.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary><span class="did">planning-gate-always-ask</span> <code>/myflow-start</code> asks rather than assumes</summary>
+        <div class="dbody">
+          <p><span class="label">Chosen</span>A <code>myflow-planning-gate</code> capability with two
+            rules — every unresolved question goes to you, and every approval is offered as options.</p>
+          <p><span class="label">Considered</span>Adding it to <code>myflow-effort</code> — that
+            spec’s subject is the effort level. Contract text with no spec — reproduces the unspecced
+            shape this change fixes elsewhere. Scoping the options rule to one command — one rule
+            covering every command subsumes both readings of ask 13 and costs a sentence.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Spec deltas</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Capability</th><th>Operation</th><th>What it carries</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="path">myflow-jira-projection</td>
+            <td><span class="tag add">Added</span></td>
+            <td>Transition points, forward-only ordering, the unknown-status ask, labels, description
+              sync, never-a-gate</td>
+          </tr>
+          <tr>
+            <td class="path">myflow-planning-gate</td>
+            <td><span class="tag add">Added</span></td>
+            <td>Unresolved questions go to the operator; approvals are offered as options</td>
+          </tr>
+          <tr>
+            <td class="path">myflow-finish-cleanup</td>
+            <td><span class="tag mod">Modified</span></td>
+            <td>The gate before the landing question; remote-branch removal; registry verification;
+              two commits</td>
+          </tr>
+          <tr>
+            <td class="path">myflow-handoff-output</td>
+            <td><span class="tag mod">Modified</span></td>
+            <td>Display filter becomes a staging rule</td>
+          </tr>
+          <tr>
+            <td class="path">myflow-command-surface</td>
+            <td><span class="tag mod">Modified</span></td>
+            <td>Git boundaries follow the split</td>
+          </tr>
+          <tr>
+            <td class="path">myflow-review-panel-economics</td>
+            <td><span class="tag mod">Modified</span></td>
+            <td>The findings table, and zero open findings at any severity</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>The plan</h2>
+    <p class="lede">Ten tasks, ordered so the two guards exist before anything references them and
+      the canonical contracts land before the skills that point at them — no task leaves a dangling
+      cross-reference for <code>check-references.sh</code> to catch.</p>
+    <ol class="plan">
+      <li><span class="n">01</span><span class="t">The run-1 gate script
+        <small>check-unfinished-work.sh and its harness — four signals, one verdict line, a missing
+        file counts as outstanding</small></span></li>
+      <li><span class="n">02</span><span class="t">The run-2 cleanup verification script
+        <small>check-cleanup-complete.sh and its harness; both harnesses join <code>## test</code>,
+        neither joins <code>## lint</code></small></span></li>
+      <li><span class="n">03</span><span class="t">The Jira projection contract
+        <small>transition timings, the unrecognised-status rule, the labels rule</small></span></li>
+      <li><span class="n">04</span><span class="t"><code>/myflow-start</code> — the earlier transition and the planning gate
+        <small>the call moves from section F to section A; two new guardrails</small></span></li>
+      <li><span class="n">05</span><span class="t">The staging split
+        <small>the exclusion pathspec, the unfiltered review command, git boundaries</small></span></li>
+      <li><span class="n">06</span><span class="t">The findings table and the every-severity bar
+        <small>column order is load-bearing — the guard counts the fourth cell</small></span></li>
+      <li><span class="n">07</span><span class="t"><code>## Known incomplete</code> in the manual test guide
+        <small>the heading must be spelled identically in the skill and the guard</small></span></li>
+      <li><span class="n">08</span><span class="t">Finish run 1 — the gate, two commits, In Review
+        <small>the gate precedes the landing question; implementation commits first</small></span></li>
+      <li><span class="n">09</span><span class="t">Finish run 2 — registry, remote branch, verification
+        <small>every scattered removal rule becomes a pointer to one table</small></span></li>
+      <li><span class="n">10</span><span class="t">README and the final sweep
+        <small>all three guards, all five existing harnesses, both new ones, and a sandboxed
+        installer run</small></span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Risks and trade-offs</h2>
+    <ul class="risks">
+      <li><strong>An abandoned planning run leaves its issue In Progress.</strong> Accepted — the
+        board being correct during a long run was judged worth more, and you can move it back.</li>
+      <li><strong>Every severity blocking can cost fix rounds on matters of taste.</strong> Bounded
+        by the panel’s existing handback at the last fix round.</li>
+      <li><strong>Guides predating this change have no <code>## Known incomplete</code> section</strong>
+        and will prompt once at their next finish. Correct, and self-clearing.</li>
+      <li><strong>Two scripts and two harnesses is the heavier option.</strong> Chosen deliberately
+        for mechanical enforcement over prose.</li>
+      <li><strong>Unstaged planning artifacts sit untracked between <code>/myflow-do</code> and
+        finish.</strong> Finish stages them before its second commit, and run 2’s existing
+        untracked-file check would refuse to remove a worktree still holding them.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Artifacts · openspec/changes/kan-17-finish-gate-jira-and-commit-hygiene/{proposal,design,tasks}.md
+      + six delta specs<br>
+      Brainstorming record · docs/superpowers/specs/2026-07-30-kan-17-finish-gate-jira-and-commit-hygiene-design.md<br>
+      Guards at time of writing · check-vocabulary, check-references, check-plan-provenance — all clean<br>
+      Next · <strong>/myflow-do kan-17-finish-gate-jira-and-commit-hygiene</strong></p>
+  </footer>
+
+</div>
