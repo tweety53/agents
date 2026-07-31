@@ -12,8 +12,10 @@ cue for spotting a violation. The cue is a starting point for judgment, not a li
 several of these principles pull against each other (DRY against WET, KISS against
 extensibility), and naming the tradeoff you took is a valid answer to a finding.
 
-The three groups double as the reviewer's lenses: **Structure** is always covered by the
-required principles slot, **Simplicity & state** is lens B, **Robustness & ops** is lens C.
+The three groups below double as the reviewer's lenses: **Structure** is always covered by the
+required principles slot, **Simplicity & state** is lens B, and **Robustness & ops** is lens C.
+They carry no path citation on purpose — they are the next three headings of this file, and a
+citation pointing at the file the reader is already in reads as pointing somewhere else.
 
 ---
 

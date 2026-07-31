@@ -63,12 +63,23 @@ On a fix run, resume the existing worktree. **Never create a second one.**
 
 ## 3. Documenting a fix, before implementing it
 
-On a fix run, record what changed **before** writing code, so the proposal never goes stale: either
-append to `proposal.md`/`tasks.md`, or create a linked nested `<name>-fix-N` sub-change. Ask which.
-A nested sub-change is never archived alone — it goes with its parent.
+On a fix run, record what changed **before** writing code, so the proposal never goes stale. Ask
+which of exactly two, with named options rather than open prose — this is a choice between courses
+of action, which the planning-gate capability governs wherever a `/myflow-*` command asks for one,
+not only in `/myflow-start`:
+
+> **This fix has to be recorded before it is written — where should it go?**
+> - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — the fix is recorded in the
+>   change's own artifacts; nothing new is created, and the plan stays one file
+> - **Create a linked nested `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that
+>   adds scope the parent change does not describe
+
+Appending is recommended because most fixes are corrections within the change's existing scope, and
+a sub-change per fix round buys a directory tree the operator has to read back. A nested sub-change
+is never archived alone — it goes with its parent.
 
 If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
-**Description sync** in **Jira integration** (`skills/myflow-contracts/jira-integration.md`). Never
+**Description sync** in Jira integration (`skills/myflow-contracts/jira-integration.md`). Never
 transition the issue here.
 
 ## 4. Execute (SDD + TDD)
@@ -77,8 +88,10 @@ Invoke **superpowers:subagent-driven-development**, treating each remaining chec
 coupled group) as one task. Every implementer dispatch **must** carry all four of:
 
 > **MYFLOW — NO COMMITS:** Do **not** run `git commit`, `git push`, merge, or open a PR. Leave all
-> changes uncommitted in the worktree. You **may** `git add`. The parent records
-> `TASK_BASE=$(git rev-parse HEAD)` before dispatch; your diff for review is `git diff TASK_BASE`.
+> changes uncommitted in the worktree. You **may** `git add` your own work, but never `openspec/`,
+> `docs/manual-test/` or `docs/superpowers/` — `/myflow-finish` stages and commits those. The parent
+> records `TASK_BASE=$(git rev-parse HEAD)` before dispatch; your diff for review is
+> `git diff TASK_BASE`.
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
@@ -140,9 +153,10 @@ stop and report rather than dispatching a blind reviewer.
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in the
 project's `.myflow/project.md`. Entries are **not** paths to use as-is: each resolves through the
-entry-form table and the containment rule in **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`), and an entry failing either is reported by
-name and dropped. Resolve that contract file by **absolute** path too, for the same reason as
+entry-form table and the containment rule in
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`), and an entry
+failing either is reported by name and dropped. Resolve that contract file by **absolute** path
+too, for the same reason as
 above; if it is not readable, **stop** — do not resolve entries without the containment rule, which
 is the only thing between an attacker-editable list in a tracked file and an arbitrary file read
 whose output lands in a committed review record. Pass an **empty** value when none resolve; that
@@ -150,6 +164,64 @@ correctly empties the Hard Invariants section rather than substituting another p
 Record which standards files were passed, or that none resolved.
 
 **No two principle reviewers may share a lens.**
+
+**Every finding is recorded twice: as a row for the reader, and as a marker line for the guard.**
+The panel record is `.superpowers/sdd/final-review-panel.md`. Write the table:
+
+| ID | Slot | Severity | Location | Note |
+|---|---|---|---|---|
+| F1 | Bugbot | Minor | `src/Foo.kt:42` | replaced the silent catch |
+
+and, below it, the marker block — one line per row, plus the count:
+
+```
+findings-total: 1
+finding-status: F1 fixed
+```
+
+`scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
+its header, not its column order, not its cell boundaries, not where it starts or stops. So an
+unescaped `|` inside a cell is just text, a reordered header changes nothing, and a row that lost a
+boundary pipe still counts. That is the point of the split — the previous shape asked a hand-rolled
+table parser to recover one fact from a grammar defined in prose, and it failed **open** six
+distinct ways across three review passes before it was replaced.
+
+**The rules the guard does enforce, each of which reports outstanding when broken:**
+
+- A marker line **begins its line** and reads `finding-status: F<n> <status>`. Indented, inside a
+  blockquote, or missing its `F<n>`, it is reported as a line naming `finding-status:` that is not
+  one — never silently skipped. Do not quote the marker format inside the record itself.
+- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte. `Open`,
+  `WITHDRAWN`, `open (needs discussion)`, an empty value and a value carrying an invisible character
+  are none of the three, and none of them reads as closed.
+- `withdrawn` **carries its reason on the same line** — the reason is part of the state, not a note
+  about it.
+- The table's `F<n>` identifiers and the marker block's must name the **same** findings. A row with
+  no marker and a marker with no row are each reported.
+- Each `F<n>` names **one** finding. A reused identifier is reported on each side separately, so two
+  distinct findings labelled `F1` in both the table and the marker block cannot cancel out — that
+  shape hid an open Critical, with the word `open` never appearing in a marker at all.
+- The marker lines sit on **consecutive lines**, one unbroken block. This is what stops a marker
+  quoted elsewhere — inside a fenced example, say — standing in for a marker that was never written,
+  which is the one route that still under-counted when the redesign was attacked.
+- `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A record
+  with no total line is outstanding however clean it reads: zero findings is not something to infer
+  from silence. A panel that raised nothing says `findings-total: 0` and carries no markers.
+
+Free prose is not a record of a finding's state: a state that cannot be counted cannot be enforced.
+
+**The table carries no status column, on purpose.** A finding's state is written once, on its
+marker line. A status cell beside the marker is a second surface that can silently disagree with the
+line that governs: the machine's direction is protected — a marker reading `open` blocks whatever a
+cell says — but nothing protects a reader who sees `fixed` in the table and believes it. State the
+fact once. To read a finding's state, look up its `F<n>` in the marker block.
+
+**A `withdrawn` marker's reason is checked for being there at all.** A withdrawal is the operator's
+decision at the panel's handback, not a status a run may write for itself: a fix subagent rewriting
+`open` to `withdrawn` would be closing its own gate, which is the one move this bar exists to
+prevent. Fix subagents write `fixed` when they fixed it, and leave `open` when they did not —
+including when they believe the finding is wrong, which belongs in the note and in the report back,
+never in the status.
 
 ### Optional slot selection
 
@@ -185,12 +257,30 @@ delta spec, a migration, or a public contract; a targeted re-run surfaced a **ne
 finding; or three or more fix rounds have already run.
 
 Targeting is a cost optimization, never a coverage waiver: a targeted re-run is never fewer than
-two agents, and handoff still requires **zero** open Critical/Important findings from every agent
-that has run, with the final pass showing a non-stale clean result for every slot in the roster.
+two agents, and handoff still requires **zero open findings at any severity** from every agent that
+has run, with the final pass showing a non-stale clean result for every slot in the roster.
 
-Union all Critical/Important findings, dedupe by file:line + theme, and give **one** fix subagent
-the combined list. Record every pass in `.superpowers/sdd/final-review-panel.md`: mode, which
+Union all **open** findings, dedupe by file:line + theme, and give **one** fix subagent the
+combined list. Record every pass in `.superpowers/sdd/final-review-panel.md`: mode, which
 agents ran, why, and the diff path they read.
+
+A minor finding blocks the handoff exactly as a critical one does. The escalation ladder is what
+makes that terminate: when fix rounds do not converge the run hands back to the operator, who
+resolves the disagreement — including by marking a finding `withdrawn` with a reason. That handback is
+the existing human gate, not a routine way to defer a finding.
+
+**The handback is an actual prompt, not a claim that one happened.** When a finding survives its
+last fix round, stop and put it to the operator, one finding at a time, with the finding's text, the
+fixer's reason for disputing it, and named options:
+
+> **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
+> - **Take another round on it** *(default, recommended)*
+> - **Withdraw it — I'll give the reason** — the reason is recorded on the finding's marker line
+> - **Stop the run and hand it back to me**
+
+Only that answer writes `withdrawn`, and only with the reason the operator gives. Nothing else in
+the run may write it: the guard reads a `withdrawn` marker with nothing after the status as
+outstanding, so a withdrawal with no stated reason does not clear the gate it appears to.
 
 ## 6. Write the manual test guide
 
@@ -202,11 +292,19 @@ gate: both surfaces are produced together and can never drift apart.
   keys. Never a relative sibling path (`../<other-app>`), and never a main-checkout path while a
   worktree holds the work.
 - Apps in scope come from `## apps` in the project's `.myflow/project.md`, or from auto-detection
-  when that file or key is absent — see **Project configuration**.
+  when that file or key is absent — see
+  **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
 - On a fix run, **refresh** the guide: preserve already-ticked boxes, and re-open only what the fix
   invalidated.
 - There is no skip prompt and no `SKIPPED` marking. The guide is there to use or ignore; nothing
   records whether it was used.
+- **Always write a `## Known incomplete` section.** Either the single word `None.` or a bullet per
+  item the run knows is unfinished — a defect instrumented but not fixed, a case deliberately left
+  for later, a box that cannot be ticked yet. Refresh it on every fix run.
+
+  Finish runs in a different session and has no memory of this one, so anything not written here
+  is invisible at the integration gate. `scripts/check-unfinished-work.sh` reads this section, and
+  treats its **absence** as outstanding rather than as clear.
 
 ## 7. Verify, stage, and hand off
 
@@ -220,25 +318,51 @@ Confirm every intended checkbox is `[x]`, and that no commits were made:
 In **every** affected worktree:
 
 ```bash
-git -C <worktree> add -A
+git -C <worktree> reset -q -- openspec/ docs/manual-test/ docs/superpowers/
+git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/'
 git -C <worktree> status
-git -C <worktree> diff --cached --stat -- . ':(exclude)openspec/'
+git -C <worktree> diff --cached --stat
 ```
+
+**The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
+stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and is not re-derived
+here. What is specific to this command is *whose* staging it retracts (an implementer subagent's own
+`git add`, or a worktree resumed with a dirty index) and why `git reset -- <paths>` is the tool:
+it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
+the way `git rm --cached` would, and succeeds when a path is absent — which `docs/superpowers/` is
+on every run that has not preserved records yet, and where `git restore --staged` would refuse the
+whole command and unstage nothing.
+
+> **Those three paths are never staged.** The exclusion is what keeps them out of the diff, rather
+> than a filter applied when the diff is displayed: a filtered display leaves them in the staging
+> area, where the IDE's staged-changes pane and `git status` show them again. The list is fixed —
+> the pipeline chooses these paths itself, so no project can differ. `/myflow-finish` stages and
+> commits them separately, so nothing is lost by leaving them unstaged here.
 
 `git add -A` respects `.gitignore`; never force-add.
 
 **The one commit exception.** If the state file records a `prUrl`, a PR is already open and a
 staged-only fix would be invisible on it — commit and push to the PR branch instead of leaving the
-work staged. Otherwise never commit. On that path only — and in this order — run
-`scripts/preserve-session-records.sh <worktree> <name> <state-dir>`, then `git add -A` **again**, and
-only then commit. The script writes new files under `docs/superpowers/`, and the staging above has
-already run, so without that second `add` the commit would carry none of them. That ordering is what
-makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
-round stale. The script overwrites in place; it never creates a second dated copy. A source that does
-not exist is reported and skipped; **a non-zero exit means a copy was attempted and refused or
-failed** — report it with the script's own stderr message and continue committing the fix, per the
-outcome table under **Finish contract** in `skills/myflow-contracts/pipeline.md`, which is canonical
-for all three outcomes.
+work staged. Otherwise never commit. That path makes **two** commits, implementation first, so a fix
+pushed to an open PR keeps its code commit free of planning artifacts. On that path only — and in
+this order — run `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; commit what
+the staging above left in the index, which is the implementation alone; then `git add -A` **again**,
+which is what picks up the three excluded paths; then commit those as the second commit, and push
+both. The staging above excluded `docs/superpowers/`, where the script writes, so without that
+second `add` neither commit would carry the preserved records. That ordering is what makes a fix
+round raised after a PR is open refresh the preserved records rather than leave them a round stale.
+
+The script overwrites in place; it never creates a second dated copy. A source that does not exist is
+reported and skipped; **a non-zero exit means a copy was attempted and refused or failed** — report
+it with the script's own stderr message and continue committing the fix. The outcome table under
+**Finish contract** (`skills/myflow-contracts/pipeline.md`) is canonical for all three outcomes.
+
+**Both commits are guarded exactly as run 1's are** — the chain, the skipped-empty rule, the
+stop-on-failure rule and the symlinked-planning-path case are all under
+**Git boundaries** (`skills/myflow-contracts/pipeline.md`), which this path follows rather than
+restates. The empty cases are ordinary here: a fix round that touched only `openspec/` and the test
+guide has nothing for the first commit, and one that touched only code has nothing for the second.
+Neither is an error, and neither is silent — say in the handoff which commit was skipped.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
@@ -251,13 +375,14 @@ never `git add` it.
 **Change:** <name>
 **Panel:** clean — required: primary + Bugbot + Principles; optional: <selected, or "none — no triggers fired">
 **Progress:** N/N tasks
-**Git:** staged and uncommitted | committed and pushed to the PR branch
+**Git:** staged and uncommitted | committed as two commits and pushed to the PR branch
+**Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
 Worktree:   <absolute worktree path>
 Test guide: <absolute path to docs/manual-test/<name>.md>
 
 Review the staged diff, then run the apps against the guide:
-  git -C <absolute worktree path> diff --cached -- . ':(exclude)openspec/'
+  git -C <absolute worktree path> diff --cached
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 
 Re-run this command to fix anything you find.
@@ -266,18 +391,24 @@ Next:
 /myflow-finish <name>
 ```
 
+The pre-edit description line is present only on a fix run that synced the description in section
+**3**, and reproduces that text without summarising or reflowing it — the transcript is then the
+recovery path, since there is no local backup. A run that wrote nothing omits the line rather than
+printing an empty one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
+
 ## Guardrails
 
 - **Never commit, push, merge, or open a PR** — except the `prUrl` exception above.
 - **Never** run `finishing-a-development-branch`.
 - **Never** create a second worktree for the same change.
 - **Never** advance the state from `IN_PROGRESS`; write back what you read.
-- **Always `git add -A`** in every affected worktree before handing off.
+- **Always stage with the exclusion pathspec above** in every affected worktree before handing off —
+  never a bare `git add -A`.
 - **Never skip** a required panel slot, and never collapse two slots into one prompt.
 - **Never dispatch an implementer without the provenance clause.**
 - **Never** pass a model override to Bugbot or Security Review; **always** name Sonnet on every
   other slot.
 - **Never** paste the principle list into a prompt — the reviewer reads the file.
-- **Never** hand off with an open Critical/Important finding, or a stale clean result.
+- **Never** hand off with an open finding of any severity, or a stale clean result.
 - **Never** mark a checkbox before its task review passes.
 - **No flags.** The only argument is the optional change name; report anything else.

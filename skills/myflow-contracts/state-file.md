@@ -44,12 +44,12 @@ Every command resolves the path this way, so the same change maps to the same fi
   actually succeeded, so a worktree that could not be removed stays listed and remains findable.
   See **Multi-repo shape** below.
 - `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
-- `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (jira-integration.md).
+- `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
 - `effort` — the reasoning effort chosen for this change's planning: `"low"`, `"medium"`, `"high"`, or
   `null` when none was chosen. Written only by `/myflow-start`, on the run that **creates** the
   change; every other command **carries it forward verbatim**. It governs `/myflow-start`'s own
   reasoning depth and nothing else — no command derives behaviour from it, and the review panel's
-  breadth is never scaled from it. See **Effort** below.
+  breadth is never scaled from it. See **Effort** (`state-file.md`) below.
 
   **A state file that omits `effort` entirely is valid**, and is read as `null`. This is a
   deliberate exception to the closed-schema rule in
@@ -97,8 +97,8 @@ jq -r '.state' "$STATE_FILE" 2>/dev/null || echo "MISSING"
 Write it by rendering the full object above — always write every field, never a partial merge. Never `git add` it, never include it in a commit, and never move it into `openspec/changes/archive/`.
 
 **Five fields from the twelve-stage predecessor are retired and never appear in a state file this
-contract produces.** A file still carrying one is unparseable under **State self-heal**
-(`skills/myflow-contracts/state-self-heal.md`):
+contract produces.** A file still carrying one is unparseable under
+**State self-heal** (`skills/myflow-contracts/state-self-heal.md`):
 
 - the field that recorded where a dynamic-target write originated — meaningless once targets
   stopped being dynamic.
@@ -116,8 +116,9 @@ contract produces.** A file still carrying one is unparseable under **State self
   nobody could verify.
 
 **State writes are monotonic.** No command may write a `state` earlier than the one it found. The
-single carve-out is described under **State self-heal**
-(`skills/myflow-contracts/state-self-heal.md`) and clears `prUrl` rather than moving the state.
+single carve-out is described under
+**State self-heal** (`skills/myflow-contracts/state-self-heal.md`) and clears `prUrl` rather than
+moving the state.
 
 Because writes render the whole object, every command must first **read the existing file and
 carry forward** every field it does not itself own — `artifactUrl`, `jiraIssue`, `prUrl` and

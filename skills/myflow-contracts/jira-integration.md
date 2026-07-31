@@ -8,9 +8,8 @@ and writes it through the Atlassian MCP tools available to the session (`getJira
 `getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`). There is no Jira CLI on
 this machine — never shell out to one.
 
-The linked issue key lives in the state file's `jiraIssue` field (see **State file**, state-file.md).
-`/myflow-start` resolves it; every
-other command carries it forward verbatim.
+The linked issue key lives in the state file's `jiraIssue` field — see **State file** in `state-file.md`.
+`/myflow-start` resolves it; every other command carries it forward verbatim.
 
 ### Resolution (how `jiraIssue` is decided)
 
@@ -77,14 +76,26 @@ before — no prefix, no placeholder.
 
 | Command | When | Target status |
 |---------|------|---------------|
-| `/myflow-start` | end of the run, after the state write | **In Progress** |
-| `/myflow-finish` | run 1, after the PR is confirmed open | **In Review** |
+| `/myflow-start` | start of the run, immediately after the key resolves | **In Progress** |
+| `/myflow-finish` | run 1, after the chosen route completes — every route | **In Review** |
 | `/myflow-finish` | after the archive move and state write | **Done** |
 
 No other command transitions the issue. In particular `/myflow-do` touches Jira's **status** not at all.
 `/myflow-do` is not a no-op against Jira, though: it still writes the issue **description** when a
-fix round adds scope, per **Description sync** below. Status and description are separate
-concerns.
+fix round adds scope, per **Description sync** (`jira-integration.md`), below. Status and
+description are separate concerns.
+
+`/myflow-start` transitions **before** brainstorming rather than after the state write. That
+ordering does not weaken **Never blocking** (`jira-integration.md`): a failed transition is still
+one line and the run still writes its state at the end exactly as it would have. What the old
+ordering protected was the state write, and nothing about an earlier call makes the state write
+depend on Jira.
+
+`/myflow-finish`'s In Review transition is **not** conditioned on a pull request existing. It fires
+at the end of a successful run 1 whichever route was taken — pull request, merge and push, or
+handled manually — because conditioning it on a PR is what let a merge-and-push change reach Done
+without ever passing through In Review. A run 1 that stops before its chosen route completes — a
+rejected push, a merge conflict, a failed PR creation — transitions nothing.
 
 **Resolve transitions by name, never by identifier.** Transition IDs are not portable across
 projects or workflows. Always read the issue's available transitions first
@@ -97,11 +108,41 @@ issue's current status first (`getJiraIssue`); if it is already **at or past** t
 transition call and report that the status was already correct. A fix round therefore never drags
 an issue back from In Review to In Progress.
 
+### Unrecognised statuses
+
+That order is matched by name, and it has exactly those four names. A status outside them
+has **no position** in it. Do not infer one — in particular do not infer one from Jira's
+`statusCategory`, which groups a custom `TO DO URGENT` with `In Progress` under `indeterminate`
+and would report the issue as already at the target, freezing the board for the whole change.
+
+Show the operator the issue key, its current status and the intended target, and ask whether to
+transition:
+
+> **`<KEY>` is at `<current status>`, which is not one of the four ordered names. Move it to
+> `<target>`?**
+> - **No — leave the status alone** *(default, recommended)*
+> - **Yes — transition it**
+
+**This one ask is the single carve-out from Never blocking, and it is bounded here rather than left
+to be discovered.** `/myflow-start`'s guardrail says a Jira call may never block, delay, or alter
+the proposal, and an interactive question does delay by definition — so the exception is stated with
+its limits: it is asked **once** per run, never repeated and never retried; it is reached only when
+an unrecognised status was actually observed, which is rare; and **only an explicit yes transitions
+the issue**. Anything else — No, silence, an answer that is not a choice, or a session that cannot
+ask at all — leaves the status untouched, emits one `⚠ Jira: skipped — <reason>` line, and the run
+continues and writes its state exactly as it would have. Nothing about the proposal depends on the
+answer, which is what keeps the guardrail's actual promise intact.
+
+The alternative was to infer a position for the unrecognised status, and that is the thing this
+section exists to forbid: an inference here freezes the board for the whole change, silently, while
+a question the operator can ignore costs one line.
+
 ### Never blocking
 
 **No state write, commit, PR, or archive ever depends on a Jira call succeeding.**
 Every failure path — no linked issue, integration unreachable, transition rejected, target
-transition name not offered, issue not found — degrades to exactly **one** line in the handoff:
+transition name not offered, issue not found, **an issue the pipeline tried to create and could
+not** — degrades to exactly **one** line in the handoff:
 
 ```
 ⚠ Jira: skipped — <reason>
@@ -156,3 +197,20 @@ formatting in the prefix region. A skipped sync is a correct, non-blocking outco
 when long), on any run that writes the description. The transcript is then the recovery path: the
 original is recoverable even if the write later proves wrong. Every append is likewise reported in
 that command's handoff so it can be corrected.
+
+### Labels on issues the pipeline creates
+
+An issue any `/myflow-*` command creates carries **every label on the change's linked issue, plus
+`AI-generated`**. No label is invented: the parent's labels exist by construction, and
+`AI-generated` is applied only because the project already uses it. With no linked issue, the
+created issue carries `AI-generated` alone. Link the created issue to the change's issue whenever
+one exists.
+
+**Creation is a Jira write like any other, and fails the same way.** `createJiraIssue` can be
+refused for auth, permission, an unknown project key, a label the project does not allow, or a
+missing required field, and a session may have no Atlassian tooling at all. Any of those is one
+`⚠ Jira: skipped — <reason>` line and the command continues, per
+**Never blocking** (`jira-integration.md`) above. A command whose operator chose an option that
+*includes* filing — run 1's "File a Jira task, then continue" is the one that exists today — still
+does the rest of what that option promised; the filing failing does not silently convert the answer
+into a different one, and it is never left unmentioned.

@@ -127,7 +127,8 @@ explain. A number that a line **reproduces** rather than **asserts** needs no ta
   (`“ ”`) both count, and they are the **whole** delimiter set.
 - **A code span is not a delimiter.** A backtick is an ordinary character here, so a number written
   `` `85 lines` `` is an ordinary unattributed claim and is reported. Inline code spans *were* a
-  delimiter class and were removed — see **Why the delimiters are double quotes only**, below.
+  delimiter class and were removed — see
+  **Why the delimiters are double quotes only** (`plan-provenance.md`), below.
 - **Single quotes and apostrophes are not delimiters.** Prose apostrophes are unpaired by nature,
   so admitting them would make pairing meaningless on most lines this repository writes.
 - **A backslash-escaped delimiter is not a delimiter, and its line is exempted from nothing.**
