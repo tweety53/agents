@@ -95,17 +95,50 @@ machinery.
 
 ### Ask 10 — the diagram, and where it lives
 
-`pipeline.md` gains the three-state mermaid diagram plus a stage table beneath it, one row per
-command, listing the stages that hide under it with the human gates marked. The small diagram stays
-as the at-a-glance shape; the table is what answers "what does each command actually do".
+`pipeline.md` gains the three-state mermaid diagram plus a **two-level** stage table beneath it. The
+small diagram stays as the at-a-glance shape; the table is what answers "what does each command
+actually do".
 
 Three layouts were compared visually. A single flowchart with one subgraph per command puts
 everything in one picture but flattens the loops and branches. One flowchart per command keeps those
 but costs three diagrams and an index. The chosen layout keeps the diagram small and puts the detail
 in a table, which stays greppable and diffs a line at a time.
 
-**The README drops its copy and links to `pipeline.md` instead.** This is the judgment call in this
-section. `check-references.sh` exists in this repository precisely to catch a second copy drifting
+**Level 1** is one row per command, listing its stages in order with the human gates marked.
+**Level 2** expands the stages that themselves hide substructure, marked in level 1 so a reader knows
+an expansion exists. Eight stages get one:
+
+| Command | Stage with a level-2 expansion | What the expansion shows |
+|---------|-------------------------------|--------------------------|
+| `/myflow-start` | brainstorm | the checklist, and the design approval gate |
+| `/myflow-start` | writing-plans | enrichment, the self-review, the provenance tags |
+| `/myflow-do` | SDD + TDD per task | RED-GREEN-REFACTOR, per-task review, and that a box is ticked only after spec **and** quality review pass |
+| `/myflow-do` | review panel | three required slots and four conditional ones, the findings marker block, the zero-open-findings bar, targeted vs full re-runs, the escalation triggers, and the handback |
+| `/myflow-finish` | preflight verdict | `RUN1` / `RUN2` / `REFUSE`, and the three ordered signals that decide it |
+| `/myflow-finish` run 1 | unfinished-work gate | its four signals and its three courses |
+| `/myflow-finish` run 1 | landing routes | pull request, merge and push, handle it manually |
+| `/myflow-finish` run 2 | cleanup | the per-worktree checks, the remote branch, and the verdict that gates the `FINISHED` write |
+
+**The level-2 content is a view, and the split between what it states and what it cites is the
+design decision here.** A stage table that reproduced the panel's roster table would be a second
+copy of something `skills/myflow-do/SKILL.md` owns — the very drift that justifies dropping the
+README's diagram below, and it would be inconsistent to accept it here. So the line is drawn by
+volatility:
+
+- **`pipeline.md` states the structure**, which is stable and is already its subject: which slots are
+  required and which conditional, that every slot runs on Sonnet except the two dispatched by
+  `subagent_type`, that the bar is zero open findings at any severity, that escalation widens the
+  panel's breadth and never its model, that a `REFUSE` stops the run. `pipeline.md` already carries
+  the whole Model policy section, so panel structure sits beside material of exactly its kind.
+- **It cites the owning file for the enumerated thresholds** — `>~300` changed lines, the trigger
+  lists per conditional slot, the five automatic escalation conditions. Those are tuned and will
+  move, and a copy of a tuned number is a copy that goes wrong silently.
+
+Citations use the named-section form `check-references.sh` already verifies, so a cited section that
+is renamed or removed fails the guard rather than rotting.
+
+**The README drops its copy and links to `pipeline.md` instead**, which is the same volatility
+argument applied one level up. `check-references.sh` exists in this repository precisely to catch a second copy drifting
 from its source, and a diagram enumerating every hidden stage will drift the first time a stage
 moves. The cost is real and accepted: a reader browsing the repository on a forge loses the
 at-a-glance shape. `/myflow-info` gains it, having been unable to show a diagram at all, because it
@@ -290,6 +323,11 @@ naming.
   `## Known incomplete` — are unchanged, which is what keeps the guard working.
 - **A forge reader loses the at-a-glance diagram from the README**, accepted in exchange for having
   no second copy to drift.
+- **The eight level-2 expansions add maintenance surface to `pipeline.md`**, and the structure-here /
+  thresholds-cited line is a judgment a later editor could blur by pasting a trigger list in "just
+  to make it complete". The citations are guarded by `check-references.sh`; the *absence* of a copied
+  threshold is not, and no guard can catch it. Stating the rule beside the table is the only
+  mitigation, and it is the same class of protection the cleanup registry relies on.
 - **The follow-up search reads externally-authored titles and descriptions.** Slice A's
   data-never-instructions clause already governs that text and is cited rather than restated.
 
