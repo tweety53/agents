@@ -132,10 +132,16 @@ The regenerated block SHALL carry, for the change's current state:
 
 | State | Contents |
 |-------|----------|
-| `STARTED` | the change name, the artifact URL, the count of decisions recorded, the planning-effort line, the three model choices, the main-checkout IntelliJ command, and `/myflow-do <name>` as the last line |
+| `STARTED` | the change name, the artifact URL, the count of decisions recorded, **the count of open questions**, the planning-effort line, the three model choices, the main-checkout IntelliJ command, and `/myflow-do <name>` as the last line |
 | `IN_PROGRESS`, run 1 not yet done | the change name, the task progress, the git state, the worktree path, the test guide's path, the review command matching the git state, the worktree IntelliJ command, and `/myflow-finish <name>` as the last line |
 | `IN_PROGRESS`, run 1 done | the change name, the pull request URL, and `/myflow-finish <name>` as the last line |
 | `FINISHED` | nothing — `FINISHED` changes are omitted from this report, as they already are |
+
+The open-questions count SHALL be derived from the change's `design.md` — the entries under
+`## Open questions` whose status is still `open` — and SHALL therefore be **regenerable rather than
+run-only**: it is read from an artifact on disk, exactly as the decisions count is, so
+`/myflow-status <name>` renders it rather than omitting it. It SHALL read `none` when no question is
+open, by the same missing-rather-than-dropped rule the other fields follow.
 
 **This table lists what a regenerated block carries, which is the template's fields minus its
 run-only ones** — the panel roster and the pre-edit Jira description on the `IN_PROGRESS` review
@@ -158,46 +164,6 @@ where the merge status is inconclusive. The selection rule, and what the remaini
 limitation costs, are stated in
 **The block each state renders** (`skills/myflow-contracts/pipeline.md`) and SHALL NOT be restated
 here, so there is only one place to correct when they change.
-
-A command that reports the branch as merged in one part of its output SHALL NOT report it as waiting
-on the merge in another. Deriving both from the same signal is what makes that impossible rather
-than merely unlikely.
-
-**"Merged" SHALL NOT be established by an ancestor test alone.** A branch carrying no commits of its
-own is an ancestor of its base branch, and that is the ordinary `IN_PROGRESS` shape because
-`/myflow-do` stages without committing. A command SHALL therefore compare `HEAD` against the merge
-base recorded for that worktree **before** any ancestor test, and SHALL treat an equal result as
-*not merged*. The ordering and its reason are `scripts/check-finish-preflight.sh`'s, which already
-guards the identical trap, and SHALL NOT be re-derived.
-
-**The recorded merge base has three conditions, and two of them are inconclusive.** A worktree with
-**no** recorded merge base, and equally one whose recorded value **does not resolve** in that
-worktree — rewritten history, a shallow clone, a pruned object — SHALL make the merge status
-inconclusive rather than merged. The pre-check SHALL therefore resolve the recorded value before
-comparing it: an unresolvable value compared as a string is merely "not equal to `HEAD`", which
-falls through to the bare ancestor test and reports a never-integrated branch as merged.
-
-**A change spanning more than one worktree SHALL be reported from the combination of their answers,
-never from the first.** It reads merged only when every recorded worktree is proven merged; any
-worktree proven not merged makes the change not merged; otherwise it is inconclusive. That is the
-same rule `/myflow-finish` applies to the preflight's per-worktree verdicts. Where worktrees
-disagree, the detail view SHALL say which.
-
-A value the state file does not carry SHALL be reported as missing rather than omitted, so a block
-with an absent artifact URL is distinguishable from one whose URL was never printed.
-
-A **run-only** value is the exception and SHALL be omitted instead. It is one no regenerated block
-could ever carry, because nothing on disk holds it — it exists only inside the run that emitted it —
-so reporting it as missing would name a fault where there is none. Which values are run-only, and
-the distinction between those and missing ones, are stated in
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and SHALL NOT be enumerated
-here.
-
-Only the form carrying a change name SHALL regenerate a block. The no-argument report remains the
-table it is today.
-
-This SHALL NOT make `/myflow-status` anything other than read-only: it renders what the state and
-the artifacts already say, and performs no action named in the block it prints.
 
 #### Scenario: Re-running status reproduces the handoff
 
@@ -318,6 +284,24 @@ the artifacts already say, and performs no action named in the block it prints.
 - **WHEN** the regenerated block names a command to run
 - **THEN** `/myflow-status` prints it
 - **AND** does not execute it, stage anything, or write any state
+
+#### Scenario: The STARTED block reports open questions
+
+- **WHEN** `/myflow-start` ends a run whose `design.md` records two questions still at `open`
+- **THEN** its handoff carries an open-questions line reading `2`, immediately after the decisions
+  count
+
+#### Scenario: A change with nothing open reports none
+
+- **WHEN** the `## Open questions` section is empty
+- **THEN** the open-questions line reads `none` rather than being omitted
+
+#### Scenario: The count is regenerated rather than remembered
+
+- **WHEN** `/myflow-status <name>` regenerates the `STARTED` block for a change whose open questions
+  were answered by a later revision round
+- **THEN** the count reflects the entries still at `open` in `design.md` as it now stands, not the
+  count the original run printed
 
 ### Requirement: Every pipeline command prints the tab commands at the start of its run
 

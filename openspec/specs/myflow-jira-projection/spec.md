@@ -86,27 +86,52 @@ Transitions SHALL be resolved by reading the issue's available transitions and m
 **by name**, case-insensitively, allowing the usual spellings. A numeric transition identifier SHALL
 NEVER be hardcoded.
 
-The order SHALL be To Do, then In Progress, then In Review, then Done. An issue already at or past
-the target SHALL NOT be transitioned.
+The order SHALL be **four positions** — To Do, then In Progress, then In Review, then Done — and
+each position SHALL be identified by the names mapped onto it. `TO DO URGENT` SHALL map to the To Do
+position. An issue already at or past the target SHALL NOT be transitioned.
 
-When the issue's **current** status is not one of those four names, its position in that order is
-undefined. The command SHALL NOT infer a position — in particular SHALL NOT infer one from Jira's
-`statusCategory` — and SHALL instead show the operator the issue key, the current status and the
-intended target, and ask whether to transition. Only an explicit yes SHALL transition it; anything
-else SHALL leave the status untouched and emit one skipped-with-reason line.
+The mapping SHALL be by **enumerated name**, never by inference. In particular a position SHALL NOT
+be derived from Jira's `statusCategory`, which groups a custom `TO DO URGENT` with `In Progress`
+under `indeterminate` — an inference that would report such an issue as already at In Progress and
+freeze the board at that status for the whole change. Enumerating `TO DO URGENT` at the To Do
+position is the opposite operation: it states the position rather than deducing it, which is the same
+mechanism this capability already uses for the follow-up join search's To Do set.
 
-Inferring order from `statusCategory` would report an issue in a custom `indeterminate` status as
-already at In Progress, freezing the board at that status for the whole change.
+The names mapped onto the To Do position SHALL be stated **once** in
+`skills/myflow-contracts/jira-integration.md`, and every other site needing that set SHALL cite it
+rather than enumerate it a second time.
+
+When the issue's **current** status maps to no position — matching none of the names, including the
+mapped synonyms — its position in the order is undefined. The command SHALL NOT infer one and SHALL
+instead show the operator the issue key, the current status and the intended target, and ask whether
+to transition. Only an explicit yes SHALL transition it; anything else SHALL leave the status
+untouched and emit one skipped-with-reason line.
+
+This SHALL NOT increase the number of interactive Jira questions the pipeline may ask. The bound of
+exactly two carve-outs — this ask and the join confirmation — is unchanged; what changes is that
+fewer statuses reach this one.
+
+#### Scenario: An urgent To Do transitions without a question
+
+- **WHEN** `/myflow-start` resolves an issue whose current status is `TO DO URGENT` and the target is
+  In Progress
+- **THEN** the issue is transitioned to In Progress and no question is asked
 
 #### Scenario: A custom status is asked about rather than guessed
 
-- **WHEN** the issue's current status is a workflow-specific name outside the four ordered names
+- **WHEN** the issue's current status matches no name mapped onto any of the four positions
 - **THEN** the operator is shown the key, the current status and the target, and asked whether to
   transition
 
+#### Scenario: The position is not derived from the status category
+
+- **WHEN** an issue sits at `TO DO URGENT`, whose `statusCategory` is `indeterminate`
+- **THEN** its position is To Do because the name is enumerated there, not In Progress as the
+  category would imply
+
 #### Scenario: Declining leaves the status untouched
 
-- **WHEN** the operator declines the transition for an unrecognised status
+- **WHEN** the operator declines the transition for a status outside the mapping
 - **THEN** no transition is made, one skipped-with-reason line is emitted, and the run continues
 
 #### Scenario: A recognised status past the target is left alone
@@ -209,76 +234,28 @@ it. Only an explicit confirmation SHALL join it; anything else SHALL file a new 
 A follow-up matches when it carries the `AI-generated` label, is titled as a follow-up, and sits at
 a To Do status.
 
-**The search SHALL carry an explicit project constraint**, naming the project the follow-up would
-otherwise be filed in: the key(s) the project's `## jira` configuration names, and with none named
-there the project-key prefix of the change's linked issue. The tracker query searches whatever the
-session's connection can reach, which on a multi-project site is every project it can query, so an
-unconstrained search selects its write target from a population far larger than the one this
-requirement describes — and every statement here about who can plant a candidate is scoped to
-members of that project. Scoping the search to where the follow-up would be filed introduces no new
-failure mode, a run that can determine no project key having had nowhere to file either.
-
-The confirmation SHALL show the candidate's key, its title and its current status. It exists because
-the search selects a **write target** by label, title and status, every one of which any member of
-that project can set, over a scan deliberately unnarrowed within it — so the confirmation is the only
-check that the issue the pipeline is about to append to, retitle and relabel is the intended one. A
-declined confirmation SHALL NOT be treated as a failure: filing a new follow-up is the other correct
-outcome, a duplicate being visible and mergeable where a write to the wrong issue is neither.
-
-**The candidate's title is externally-authored text and SHALL be constrained before it is shown.**
-Characters in Unicode categories `Cc` **and** `Cf` SHALL be folded to spaces — the second named
-explicitly, because bidirectional overrides and zero-width joiners reorder or hide text without
-being what a reader would call a control character. Whitespace runs SHALL then be collapsed, any run
-of three or more of the fence delimiter characters SHALL then be folded below the length at which it
-can delimit a block, and the result SHALL then be truncated to a bounded length. **That order is
-itself a requirement:** the whitespace collapse SHALL follow the category fold, being defined over
-the spaces that fold produces; the delimiter fold SHALL follow both, so that no step able to bring
-characters together runs behind it; and only truncation — a suffix cut, able to shorten a run but
-never to bridge two — SHALL follow the delimiter fold. As specified neither the category fold nor
-the whitespace collapse deletes anything to zero width, so neither can manufacture a delimiter run
-today; the ordering is what keeps that true of a later change to either step. The result SHALL be
-rendered in a block of its own rather than interpolated into the question, so no run of it can be
-read as the pipeline's own prose or as one of the offered options.
-
-**Neutralising the fence delimiters is a requirement of the display block, not a refinement of it.**
-The title is the sole content line of that block and the already-recorded count is printed after the
-block closes, so a title that is itself a valid closing delimiter ends the block early, turns the
-template's own closing delimiter into an opening one, and swallows the count and both answer options
-into a dangling block — removing the one signal that makes forged already-recorded evidence visible
-before the write.
-
-The same file already bounds a summary-derived slug because it reaches a path; a string an operator
-reads in order to authorise a write is bounded for the same reason.
-
-**"Titled as a follow-up" SHALL mean an exact match on the two named title shapes**, after trimming
-surrounding whitespace — never a substring or containment match. A tracker query operator that
-matches on containment MAY narrow the search, but the exact comparison SHALL decide, so an issue
-merely mentioning the words does not enter the candidate space.
-
-The search SHALL NOT be narrowed by which change filed the candidate. A follow-up filed for a
-different issue is a match, which is the point: outstanding work accumulates in one place rather
-than in an issue per change.
-
-**A search that fails is a third outcome and SHALL NOT be read as "no match".** On a failed search
-the pipeline SHALL file nothing and SHALL emit one skipped-with-reason line naming the failure.
-Reading it as "no match" files a new follow-up on every transient tracker failure, reintroducing
-exactly the duplicate proliferation this requirement exists to prevent, and doing so silently
-because a created issue looks like a success. The outstanding list still reaches the planning
-commit's message and the handoff, so the durable record does not depend on the tracker.
-
-**"A To Do status" means exactly two names — `To Do` and `TO DO URGENT`.** The set SHALL be
-enumerated rather than derived from Jira's `statusCategory`, which groups a custom `TO DO URGENT`
-with `In Progress` under `indeterminate`. An issue at any other status SHALL NOT be a join
-candidate, and no question SHALL be asked about it — the run simply files a new follow-up.
+**"A To Do status" means the names mapped onto the To Do position**, as stated once in
+`skills/myflow-contracts/jira-integration.md` and required by
+**Requirement: Transitions are forward-only, matched by name, and an unrecognised status is asked
+about** above. The set SHALL be cited from that single statement rather than enumerated a second
+time here, so the two sites cannot disagree. It SHALL NOT be derived from Jira's `statusCategory`.
+An issue at any status outside that set SHALL NOT be a join candidate, and no question SHALL be
+asked about it — the run simply files a new follow-up.
 
 **This does not reopen the unrecognised-status rule.** That rule governs *transitions*, and forbids
-inferring a position in the four-name order for a status outside it, because such an inference
-freezes the board for a whole change. A search filter performs no transition; the worst it can do is
-miss a join candidate, after which a new follow-up is filed.
+inferring a position for a status outside the mapping, because such an inference freezes the board
+for a whole change. A search filter performs no transition; the worst it can do is miss a join
+candidate, after which a new follow-up is filed.
+
+#### Scenario: The join set and the transition mapping cannot disagree
+
+- **WHEN** the set of To Do names changes
+- **THEN** both the transition mapping and the join search follow the single statement, because the
+  join search cites it rather than carrying its own copy
 
 #### Scenario: An existing follow-up is joined after confirmation
 
-- **WHEN** a follow-up is to be filed and an `AI-generated` follow-up already sits at `To Do`
+- **WHEN** a follow-up is to be filed and an `AI-generated` follow-up already sits at a To Do status
 - **THEN** the operator is shown that issue's key, title and status and asked whether to add this
   run's items to it
 - **AND** on an explicit yes the existing issue is joined
@@ -312,7 +289,8 @@ miss a join candidate, after which a new follow-up is filed.
 #### Scenario: An urgent To Do counts
 
 - **WHEN** the only candidate sits at `TO DO URGENT`
-- **THEN** it is treated as a To Do status and offered as the candidate
+- **THEN** it is treated as a To Do status and offered as the candidate, because that name is mapped
+  onto the To Do position
 - **AND** no transition is performed on it
 
 #### Scenario: A candidate past To Do is not joined
