@@ -39,13 +39,20 @@ read the matching contract file beside it rather than paraphrasing.
 Scale the answer to the question. A specific question ("when does it commit?") gets a specific
 answer, not the whole pipeline.
 
-For a general "how does this work", lead with the shape:
+For a general "how does this work", lead with the shape — the three-line command-to-state summary
+under **States** (`skills/myflow-contracts/pipeline.md`), shown as it was read this invocation. This
+skill carries no copy of it: the one it used to hold had already drifted from the contract's wording
+about which `/myflow-finish` run is terminal, which is exactly what a frozen copy does and exactly
+what the guardrail below forbids presenting.
 
-```text
-/myflow-start  → STARTED      you: read the proposal artifact
-/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (it integrates on its first run)
-```
+When the question is about the flow itself — what runs when, and in what order — present what you
+read rather than a summary of it: the state diagram and the level-1 stage table, one row per
+command, under **Pipeline flow** (`skills/myflow-contracts/pipeline.md`). This skill deliberately
+carries no copy of either.
+
+A question about what one command does is answered from that command's row and the level-2
+expansion of whichever stage the question is about — one expansion per stage that hides
+substructure, in that same section.
 
 Then the points that are load-bearing and least guessable:
 
@@ -68,4 +75,8 @@ Also available: `/myflow-status` for where the open changes actually are.
 - **Never** write, stage, or commit anything.
 - **Never** advance or repair a change's state — that is not this command's job.
 - **Never** describe a state, command, or flag that is not in `pipeline.md`.
+- **Never** present a remembered diagram, stage table or state summary — show the ones read during
+  this invocation, from **States** and from **Pipeline flow** (`skills/myflow-contracts/pipeline.md`).
+  A block this command does not read is one it can never present, which is why this skill holds a
+  copy of none of them.
 - **No flags.** The only argument is an optional topic to explain.

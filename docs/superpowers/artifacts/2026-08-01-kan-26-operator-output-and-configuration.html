@@ -1,0 +1,625 @@
+<title>KAN-26 — operator-facing output and configuration</title>
+
+<style>
+  /* ---- tokens -------------------------------------------------------- */
+  :root {
+    --paper:      #f5f7f8;
+    --card:       #ffffff;
+    --ink:        #12171c;
+    --ink-2:      #3d4852;
+    --muted:      #66737f;
+    --rule:       #d9e0e4;
+    --rule-soft:  #e8edef;
+
+    --accent:     #0d6b80;   /* the `cyan` this change picks for the tab, taken down to ink weight */
+    --accent-2:   #d3e7eb;
+    --accent-ink: #094c5c;
+
+    --new:        #1f6f52;
+    --new-bg:     #dff0e7;
+    --amend:      #8a5c14;
+    --amend-bg:   #f6e9d2;
+    --rename:     #5b4593;
+    --rename-bg:  #e6e1f4;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    --step--1: 0.775rem;
+    --step-0:  1rem;
+    --step-1:  1.2rem;
+    --step-2:  1.5rem;
+    --step-3:  2rem;
+    --step-4:  2.75rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #0e1317;
+      --card:       #151c22;
+      --ink:        #e6edf1;
+      --ink-2:      #b3c1cb;
+      --muted:      #7f8f9c;
+      --rule:       #27333c;
+      --rule-soft:  #1d262d;
+
+      --accent:     #5cc5dc;
+      --accent-2:   #17323b;
+      --accent-ink: #9adcec;
+
+      --new:        #6dc79f;
+      --new-bg:     #14312a;
+      --amend:      #dcae62;
+      --amend-bg:   #362a16;
+      --rename:     #b3a0e6;
+      --rename-bg:  #262040;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0e1317;
+    --card:       #151c22;
+    --ink:        #e6edf1;
+    --ink-2:      #b3c1cb;
+    --muted:      #7f8f9c;
+    --rule:       #27333c;
+    --rule-soft:  #1d262d;
+    --accent:     #5cc5dc;
+    --accent-2:   #17323b;
+    --accent-ink: #9adcec;
+    --new:        #6dc79f;
+    --new-bg:     #14312a;
+    --amend:      #dcae62;
+    --amend-bg:   #362a16;
+    --rename:     #b3a0e6;
+    --rename-bg:  #262040;
+  }
+
+  :root[data-theme="light"] {
+    --paper:      #f5f7f8;
+    --card:       #ffffff;
+    --ink:        #12171c;
+    --ink-2:      #3d4852;
+    --muted:      #66737f;
+    --rule:       #d9e0e4;
+    --rule-soft:  #e8edef;
+    --accent:     #0d6b80;
+    --accent-2:   #d3e7eb;
+    --accent-ink: #094c5c;
+    --new:        #1f6f52;
+    --new-bg:     #dff0e7;
+    --amend:      #8a5c14;
+    --amend-bg:   #f6e9d2;
+    --rename:     #5b4593;
+    --rename-bg:  #e6e1f4;
+  }
+
+  /* ---- base ---------------------------------------------------------- */
+  html { background: var(--paper); }
+
+  .wrap {
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    color: var(--ink-2);
+    background: var(--paper);
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap :is(h1, h2, h3) { color: var(--ink); text-wrap: balance; }
+
+  /* ---- masthead ------------------------------------------------------ */
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.75rem; }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(1.55rem, 1.1rem + 2.2vw, var(--step-4));
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+    margin: 0 0 0.9rem;
+  }
+
+  .standfirst {
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 44ch;
+    margin: 0;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1.25rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .fact dt {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+  .fact dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- sections ------------------------------------------------------ */
+  .sec { margin-top: 3.5rem; }
+
+  .sec > h2 {
+    font-family: var(--mono);
+    font-size: var(--step-1);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.35rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+  }
+  .sec > h2::before {
+    content: "";
+    flex: 0 0 1.4rem;
+    height: 2px;
+    background: var(--accent);
+    transform: translateY(-0.32em);
+  }
+  .sec-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 0 0 1.5rem 2.1rem;
+    max-width: 62ch;
+  }
+  .sec > p, .sec > ul { max-width: 68ch; }
+
+  /* ---- tables -------------------------------------------------------- */
+  .scroll { overflow-x: auto; margin-inline: -0.25rem; padding-inline: 0.25rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; min-width: 34rem; }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.65rem 0.9rem 0.65rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.5rem;
+  }
+  td.num {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    width: 3.2rem;
+  }
+  td code, li code, p code, dd code { font-family: var(--mono); font-size: 0.85em; color: var(--ink); }
+
+  /* ---- capability chips ---------------------------------------------- */
+  .caps { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
+  .cap {
+    background: var(--card);
+    border: 1px solid var(--rule-soft);
+    border-left: 3px solid var(--rule);
+    padding: 0.8rem 1rem;
+  }
+  .cap[data-kind="new"]    { border-left-color: var(--new); }
+  .cap[data-kind="amend"]  { border-left-color: var(--amend); }
+  .cap[data-kind="rename"] { border-left-color: var(--rename); }
+
+  .cap-name { font-family: var(--mono); font-size: 0.85rem; color: var(--ink); font-weight: 600; }
+  .cap-what { font-size: 0.85rem; color: var(--muted); margin-top: 0.3rem; }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.12rem 0.42rem;
+    margin-bottom: 0.45rem;
+  }
+  .tag[data-kind="new"]    { background: var(--new-bg);    color: var(--new); }
+  .tag[data-kind="amend"]  { background: var(--amend-bg);  color: var(--amend); }
+  .tag[data-kind="rename"] { background: var(--rename-bg); color: var(--rename); }
+
+  /* ---- decisions ----------------------------------------------------- */
+  .decisions { display: grid; gap: 0; }
+  .dec { border-top: 1px solid var(--rule-soft); padding: 1.1rem 0; }
+  .dec:last-child { border-bottom: 1px solid var(--rule-soft); }
+  .dec-id {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  .dec-h { font-size: var(--step-0); font-weight: 600; color: var(--ink); margin: 0.2rem 0 0.5rem; }
+  .dec p { margin: 0 0 0.4rem; font-size: 0.9rem; max-width: 70ch; }
+  .dec p:last-child { margin-bottom: 0; }
+  .dec .lab {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 0.4rem;
+  }
+
+  /* ---- plan ---------------------------------------------------------- */
+  .tasks { display: grid; gap: 0; margin-top: 0.5rem; }
+  .task {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    gap: 0 0.9rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .task-n {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.12rem;
+  }
+  .task-t { font-size: 0.95rem; color: var(--ink); }
+  .task-f { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+
+  .callout {
+    background: var(--accent-2);
+    border-left: 3px solid var(--accent);
+    padding: 0.9rem 1.1rem;
+    margin-top: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--ink-2);
+    max-width: 68ch;
+  }
+  .callout strong { color: var(--ink); }
+
+  ul.plain { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.55rem; }
+  ul.plain > li { padding-left: 1.1rem; position: relative; font-size: 0.92rem; }
+  ul.plain > li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0.62em;
+    width: 5px; height: 5px;
+    background: var(--accent);
+  }
+
+  .split { display: grid; gap: 2.5rem; grid-template-columns: 1fr; }
+  @media (min-width: 46rem) { .split { grid-template-columns: 1fr 1fr; } }
+
+  footer.colophon {
+    margin-top: 4.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+  }
+
+  a { color: var(--accent); text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="kicker">
+      <span>KAN-26</span>
+      <span>slice B of KAN-17</span>
+      <span>state · STARTED</span>
+    </div>
+    <h1>Operator-facing output and configuration</h1>
+    <p class="standfirst">Eight asks about what the pipeline shows you and how it is configured — the half of KAN-17 that slice A deferred.</p>
+
+    <dl class="facts">
+      <div class="fact"><dt>Change</dt><dd>kan-26-operator-<wbr>output-and-<wbr>configuration</dd></div>
+      <div class="fact"><dt>Capabilities</dt><dd>9</dd></div>
+      <div class="fact"><dt>Decisions</dt><dd>16</dd></div>
+      <div class="fact"><dt>Plan</dt><dd>11 tasks · 54 steps</dd></div>
+      <div class="fact"><dt>Planning effort</dt><dd>medium</dd></div>
+    </dl>
+  </header>
+
+  <section class="sec">
+    <h2>Why</h2>
+    <p class="sec-note">The proposal's own framing, in two paragraphs.</p>
+    <p>KAN-17 carried eighteen asks. Slice A took the eleven that change how the pipeline behaves, plus one raised during its planning run. This is the remainder: the asks that change what the operator sees and how the pipeline is configured, plus one appended to KAN-26 after filing.</p>
+    <p>Two of the eight surfaces they touch have no capability in <code>openspec/specs/</code> today — the progress view and the manual test guide's shape. That is the same gap slice A found, where the In Review defect survived four archived changes precisely because no requirement existed for it to violate. Both get a spec here rather than a convention.</p>
+  </section>
+
+  <section class="sec">
+    <h2>The eight asks</h2>
+    <p class="sec-note">KAN-17's original ask numbers are kept throughout, so each traces back to the issue without a lookup. The last row was appended to KAN-26 after filing and has no KAN-17 number.</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Ask</th><th>Lands in</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">3</td><td><code>/myflow-status &lt;name&gt;</code> always shows what to do next, as the original run's result did</td><td><code>myflow-handoff-output</code></td></tr>
+          <tr><td class="num">6</td><td>A command running in a terminal tab uses <code>/color</code> and <code>/rename</code></td><td><code>myflow-handoff-output</code></td></tr>
+          <tr><td class="num">10</td><td>The diagram becomes a detailed flow showing what hides under each command</td><td><code>myflow-contract-distribution</code></td></tr>
+          <tr><td class="num">11</td><td>"Planning effort", levels <code>low</code> / <code>default</code> / <code>detailed</code></td><td><code>myflow-planning-effort</code></td></tr>
+          <tr><td class="num">14</td><td>A task count line plus one line per task, always shown</td><td><code>myflow-progress-visibility</code></td></tr>
+          <tr><td class="num">15</td><td>Three model choices asked on the first start run and remembered</td><td><code>myflow-model-policy</code> +2</td></tr>
+          <tr><td class="num">16</td><td>A much simpler manual-test guide, at wider scope</td><td><code>myflow-manual-test-guide</code></td></tr>
+          <tr><td class="num">—</td><td>Follow-ups titled <code>KAN-X follow-up</code>, and joined when several sit in To&nbsp;Do</td><td><code>myflow-jira-projection</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>Nine capabilities</h2>
+    <p class="sec-note">Each ask lands in the capability whose subject it actually is. Folding the two unspecced surfaces into <code>myflow-handoff-output</code> would have cost six capabilities instead of nine — and widened that spec's subject to "every operator-facing surface", after which "which spec do I amend?" stops having one answer.</p>
+    <div class="caps">
+      <div class="cap" data-kind="new">
+        <span class="tag" data-kind="new">new</span>
+        <div class="cap-name">myflow-progress-visibility</div>
+        <div class="cap-what">Commands drive the harness's task-list widget. The view is never a record.</div>
+      </div>
+      <div class="cap" data-kind="new">
+        <span class="tag" data-kind="new">new</span>
+        <div class="cap-name">myflow-manual-test-guide</div>
+        <div class="cap-what">The guide's register, scope, and the two shapes its guards read.</div>
+      </div>
+      <div class="cap" data-kind="rename">
+        <span class="tag" data-kind="rename">renamed</span>
+        <div class="cap-name">myflow-effort → myflow-planning-effort</div>
+        <div class="cap-what">Capability, levels and state-file key renamed together.</div>
+      </div>
+      <div class="cap" data-kind="amend">
+        <span class="tag" data-kind="amend">amended</span>
+        <div class="cap-name">myflow-handoff-output</div>
+        <div class="cap-what">One handoff definition, two renderers; the tab commands printed.</div>
+      </div>
+      <div class="cap" data-kind="amend">
+        <span class="tag" data-kind="amend">amended</span>
+        <div class="cap-name">myflow-contract-distribution</div>
+        <div class="cap-what">The diagram and stage table live in <code>pipeline.md</code>, copied nowhere.</div>
+      </div>
+      <div class="cap" data-kind="amend">
+        <span class="tag" data-kind="amend">amended</span>
+        <div class="cap-name">myflow-model-policy</div>
+        <div class="cap-what">Three roles asked once and recorded; defaults unchanged.</div>
+      </div>
+      <div class="cap" data-kind="amend">
+        <span class="tag" data-kind="amend">amended</span>
+        <div class="cap-name">myflow-review-panel-economics</div>
+        <div class="cap-what">"Every slot runs on Sonnet" becomes a default, not an absolute.</div>
+      </div>
+      <div class="cap" data-kind="amend">
+        <span class="tag" data-kind="amend">amended</span>
+        <div class="cap-name">myflow-state-machine</div>
+        <div class="cap-what">Carries <code>planningEffort</code> and <code>models</code>; closes a drifted field list.</div>
+      </div>
+      <div class="cap" data-kind="amend">
+        <span class="tag" data-kind="amend">amended</span>
+        <div class="cap-name">myflow-jira-projection</div>
+        <div class="cap-what">Follow-up naming, the join search, the append-only join write.</div>
+      </div>
+    </div>
+    <div class="callout"><strong>Found while designing, not while mapping.</strong> <code>myflow-review-panel-economics</code> is the ninth. Its "every review-panel slot runs on Sonnet" is absolute today and would flatly contradict a recorded panel model, so it has to point at the override rather than deny it.</div>
+  </section>
+
+  <section class="sec">
+    <h2>Decisions</h2>
+    <p class="sec-note">Sixteen, each a choice put to the operator during brainstorming. IDs are immutable — a later round supersedes an entry by ID and never rewrites it.</p>
+    <div class="decisions">
+
+      <article class="dec">
+        <div class="dec-id">status-regenerates-handoff</div>
+        <h3 class="dec-h">The status report regenerates the handoff rather than replaying a stored one</h3>
+        <p><span class="lab">Chosen</span>One definition in <code>pipeline.md</code>, two renderers.</p>
+        <p><span class="lab">Rejected</span>Storing the emitted text — it reproduces the original exactly, then goes wrong silently the moment a worktree is removed or an artifact republished, which is precisely when the operator re-reads it.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">progress-uses-harness-widget</div>
+        <h3 class="dec-h">The progress view is the harness's widget, not a lookalike</h3>
+        <p><span class="lab">Chosen</span>Every pipeline command registers its steps with the harness's task mechanism, stated harness-neutrally.</p>
+        <p><span class="lab">Rejected</span>A printed block in that format — it would sit in scrollback while the live view stayed empty.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">no-third-task-marker</div>
+        <h3 class="dec-h"><code>tasks.md</code> gains no third checkbox marker</h3>
+        <p><span class="lab">Chosen</span>The in-progress count comes from the widget alone.</p>
+        <p><span class="lab">Rejected</span>A <code>- [~]</code> marker — a crashed run leaves a permanently in-progress task behind, in a file two guards parse.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">guide-capability-checklist</div>
+        <h3 class="dec-h">The guide becomes a capability checklist and keeps its preamble</h3>
+        <p><span class="lab">Chosen</span>One line per behaviour, grouped by capability; preamble and <code>## Known incomplete</code> retained.</p>
+        <p><span class="lab">Rejected</span>Checklist with no preamble — this repository's guides are script invocations, and with no <code>## apps</code> section there is nowhere else for the commands to live.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">rename-reaches-capability</div>
+        <h3 class="dec-h">The effort rename reaches the capability, not just the levels</h3>
+        <p><span class="lab">Chosen</span>Capability, levels and state-file key renamed together.</p>
+        <p><span class="lab">Cost accepted</span>An OpenSpec capability rename carries every requirement twice in the delta — ADDED under the new name, REMOVED under the old.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">panel-fix-default-unchanged</div>
+        <h3 class="dec-h">The panel-fix model keeps the strongest-model default</h3>
+        <p><span class="lab">Chosen</span>"Panel fixes" names the agent that applies a fix — an implementer — so its default stays Opus. The field makes it overridable, not lower.</p>
+        <p><span class="lab">Rejected</span>Taking KAN-17's wording literally, which would contradict two live requirements at once.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">three-separate-model-prompts</div>
+        <h3 class="dec-h">The three model choices are three separate prompts</h3>
+        <p><span class="lab">Chosen</span>One question per role, each naming its default.</p>
+        <p><span class="lab">Rejected</span>A single defaults-or-customise question, and silent defaults — the latter leaves the field discoverable only by reading the state file.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">tab-commands-printed</div>
+        <h3 class="dec-h">The tab commands are printed, because they cannot be invoked</h3>
+        <p><span class="lab">Chosen</span>Printed at the start of each run, with the contract recording why.</p>
+        <p><span class="lab">Established, not assumed</span>The <code>SlashCommand</code> tool exposes only <code>type: "prompt"</code> commands; both of these are <code>local</code>. No writable <code>/dev/tty</code> is available either, so the escape-sequence route is closed too.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">diagram-table-in-pipeline</div>
+        <h3 class="dec-h">The diagram stays small, and a stage table carries the detail</h3>
+        <p><span class="lab">Chosen</span>Three layouts compared visually; the small diagram plus a table won.</p>
+        <p><span class="lab">Why here</span><code>pipeline.md</code> is what <code>/myflow-info</code> reads at invocation time, so a diagram held only in the README is one it can never show.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">stage-table-two-levels</div>
+        <h3 class="dec-h">The stage table has two levels, with eight expansions</h3>
+        <p><span class="lab">Chosen</span>Every stage that hides substructure gets one — brainstorm, writing-plans, per-task TDD, the review panel, the preflight verdict, the unfinished-work gate, the landing routes, run 2 cleanup.</p>
+        <p><span class="lab">Why</span>A single level hid the pipeline's largest machine behind the cell "review panel → 0 findings".</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">structure-stated-thresholds-cited</div>
+        <h3 class="dec-h">Level 2 states structure and cites tuned thresholds</h3>
+        <p><span class="lab">Chosen</span>Which slots are required, the zero-findings bar, that escalation widens breadth not model — stated. Changed-line counts and trigger lists — cited.</p>
+        <p><span class="lab">Rejected</span>Reproducing the roster table, which is the second copy the README decision rejects one level up.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">readme-links-not-copies</div>
+        <h3 class="dec-h">The README links rather than copies</h3>
+        <p><span class="lab">Chosen</span>The README carries neither the diagram nor the table.</p>
+        <p><span class="lab">Trade-off accepted</span>A reader browsing on a forge loses the at-a-glance shape.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">nine-capabilities-one-change</div>
+        <h3 class="dec-h">Nine capabilities, one change</h3>
+        <p><span class="lab">Rejected</span>Splitting again — KAN-26 is already the deferred half of KAN-17, and a third planning run buys smaller review panels at the cost of another issue to track.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">join-search-two-todo-statuses</div>
+        <h3 class="dec-h">The join search enumerates exactly two To Do statuses</h3>
+        <p><span class="lab">Chosen</span><code>To Do</code> and <code>TO DO URGENT</code>, by name.</p>
+        <p><span class="lab">Rejected</span>Deriving the set from Jira's <code>statusCategory</code> — the same inference slice A forbids for transitions, since <code>TO DO URGENT</code> shares <code>indeterminate</code> with <code>In Progress</code>. Including it here does not reopen that rule: a search filter performs no transition.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">join-retitles-generic</div>
+        <h3 class="dec-h">A joined issue is retitled generically</h3>
+        <p><span class="lab">Chosen</span>The title becomes <code>myflow follow-up</code>; items append under a dated <code>## From &lt;KEY&gt;</code> heading; labels are unioned.</p>
+        <p><span class="lab">Rejected</span>Listing every source in the title, which grows without bound.</p>
+      </article>
+
+      <article class="dec">
+        <div class="dec-id">vocabulary-json-key-only</div>
+        <h3 class="dec-h">The vocabulary guard gains the JSON key form and nothing else</h3>
+        <p><span class="lab">Chosen</span><code>"effort":</code> is added. <code>medium</code> and <code>high</code> are not.</p>
+        <p><span class="lab">Why</span>They are ordinary English here, <code>Medium</code> is a Jira priority, and the only way to silence the false hits is a marker on a line telling the truth — which the guard's own header says teaches it to lie.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>The plan</h2>
+    <p class="sec-note">Eleven tasks, 54 steps. Contracts first, then the skills that point at them, then commands and docs — so no task leaves a dangling cross-reference for <code>check-references.sh</code> to catch.</p>
+    <div class="tasks">
+      <div class="task"><div class="task-n">1</div><div><div class="task-t">The state file contract</div><div class="task-f">state-file.md · state-self-heal.md</div></div></div>
+      <div class="task"><div class="task-n">2</div><div><div class="task-t">Pipeline contract — diagram, stage table, handoff template, progress rule, model roles</div><div class="task-f">pipeline.md</div></div></div>
+      <div class="task"><div class="task-n">3</div><div><div class="task-t">The Jira contract — follow-up naming and joining</div><div class="task-f">jira-integration.md</div></div></div>
+      <div class="task"><div class="task-n">4</div><div><div class="task-t">/myflow-start — the questions, the tab lines, task registration</div><div class="task-f">myflow-start/SKILL.md</div></div></div>
+      <div class="task"><div class="task-n">5</div><div><div class="task-t">/myflow-do — task registration, recorded models, the guide's register</div><div class="task-f">myflow-do/SKILL.md</div></div></div>
+      <div class="task"><div class="task-n">6</div><div><div class="task-t">/myflow-finish — task registration, tab lines, follow-ups</div><div class="task-f">myflow-finish/SKILL.md</div></div></div>
+      <div class="task"><div class="task-n">7</div><div><div class="task-t">/myflow-status — regenerating the handoff</div><div class="task-f">myflow-status/SKILL.md</div></div></div>
+      <div class="task"><div class="task-n">8</div><div><div class="task-t">/myflow-info — presenting the diagram it can now reach</div><div class="task-f">myflow-info/SKILL.md</div></div></div>
+      <div class="task"><div class="task-n">9</div><div><div class="task-t">The command trees — sweep and confirm</div><div class="task-f">commands/ · commands-claude/</div></div></div>
+      <div class="task"><div class="task-n">10</div><div><div class="task-t">The README and the two agent instruction files</div><div class="task-f">README.md · CLAUDE.md · AGENTS.md</div></div></div>
+      <div class="task"><div class="task-n">11</div><div><div class="task-t">The vocabulary guard</div><div class="task-f">scripts/check-vocabulary.sh</div></div></div>
+    </div>
+    <div class="callout"><strong>Task 11 runs last, and the ordering is load-bearing.</strong> The guard scans <code>skills</code>, <code>scripts</code>, both command trees and the three root docs — so adding the <code>"effort":</code> literal while any occurrence survives fails the repository's own lint, with no honest way to silence it. Its step 3 is a positive control: reintroduce the literal, prove the guard fires, revert.</div>
+  </section>
+
+  <section class="sec">
+    <h2>Boundaries</h2>
+    <div class="split">
+      <div>
+        <h3 style="font-family:var(--mono);font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0 0 0.8rem;">Non-goals</h3>
+        <ul class="plain">
+          <li>The three states, the panel roster, plan provenance, the staging and commit split, and the finish verdict scripts — all untouched.</li>
+          <li>No new guard script.</li>
+          <li>No amendment to <code>myflow-planning-gate</code>, which slice A wrote in the preceding change.</li>
+          <li>No migration pass over existing state files.</li>
+          <li>No hook written into <code>settings.json</code>.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-family:var(--mono);font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0 0 0.8rem;">Risks accepted</h3>
+        <ul class="plain">
+          <li>The progress widget is harness-specific; on Cursor and Codex the printed fallback is the only path exercised until someone tests there.</li>
+          <li>The capability rename produces a bulky delta — every requirement written twice.</li>
+          <li>A creating run now asks four questions before brainstorming. A revision round asks none.</li>
+          <li>The guide's register is prose; only the panel's principles slot checks it.</li>
+          <li>A later editor could blur the structure-here / thresholds-cited line. No guard can catch that.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>What the rename touches</h2>
+    <p class="sec-note">Measured before any edit, so the plan's greps have a known starting point.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Fact</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Occurrences of the literal <code>"effort":</code> in scanned targets</td><td>2 — <code>myflow-start/SKILL.md:184</code>, <code>state-file.md:31</code></td></tr>
+          <tr><td>Files mentioning effort at all</td><td>10, of which 2 are false positives</td></tr>
+          <tr><td>False positives to leave alone</td><td>"best-effort reconstruction"; the archived slug <code>kan-19-finish-safety-records-and-effort</code></td></tr>
+          <tr><td>Command files mentioning effort</td><td>0</td></tr>
+          <tr><td>Open changes carrying a non-null effort</td><td>0 — the only two recorded values are both <code>FINISHED</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <span>KAN-26</span>
+    <span>proposal artifact</span>
+    <span>2026-07-31</span>
+    <span>re-run /myflow-start to revise — this URL stays the same</span>
+  </footer>
+
+</div>

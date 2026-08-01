@@ -10,8 +10,22 @@ intertwined with OpenSpec artifact creation. **No code is written and no worktre
 
 **Announce at start:** "Using myflow-start for change `<name>`."
 
+Immediately after that line, print these two commands for the operator to paste, per
+**Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
+records why they are printed rather than invoked; do not restate its reasoning here:
+
+```text
+/rename <change-name>
+/color cyan
+```
+
 **Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
 command→state transition table, the wrong-state handoff, and the handoff output shape.
+
+**Then register this run's steps** with the harness's task-list mechanism, before any work begins,
+and keep each entry's status current as the run proceeds, per
+**Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
+this command registers and is the one to read.
 
 ## State gate
 
@@ -60,27 +74,56 @@ which keeps its URL stable. Never mint a new URL.
 brainstorming, so the board is correct while planning runs. A failure is one skipped-with-reason
 line and planning continues; nothing about this call may delay or alter the proposal.
 
-## Ask the effort — creating runs only
+## Ask the planning effort and the models — creating runs only
 
 **Ask once, on the run that creates the change**, and never again for it. "Creates" means the state
-file does not exist — not a guess about the operator or the conversation.
+file does not exist — not a guess about the operator or the conversation. All four questions below
+share that rule.
 
-Use **AskUserQuestion**, the same mechanism `/myflow-finish` uses for its integration choice. Effort
-is **never** an argument: the only argument this command accepts is the optional change name, and
-anything else is still reported rather than interpreted.
+Use **AskUserQuestion**, the same mechanism `/myflow-finish` uses for its integration choice.
+Neither the planning effort nor a model is **ever** an argument: the only argument this command
+accepts is the optional change name, and anything else is still reported rather than interpreted.
 
-> **How much effort should planning this change take?**
-> - **Medium** *(default, recommended)* — the checklist followed with related questions grouped
-> - **High** — each checklist item worked separately, every design section approved on its own
-> - **Low** — questions batched, the design presented once
+> **How much planning effort should this change take?**
+> - **`default`** *(recommended)* — the checklist followed with related questions grouped
+> - **`detailed`** — each checklist item worked separately, every design section approved on its own
+> - **`low`** — questions batched, the design presented once
 
 Record the answer for the state write in section F. The levels and what they may change are defined
-under **Effort** (`skills/myflow-contracts/state-file.md`) — that section carries the operational
-table and is the one to read; do not restate it here.
+under **Planning effort** (`skills/myflow-contracts/state-file.md`) — that section carries the
+operational table and is the one to read; do not restate it here.
 
-**Revising an existing proposal** (the change is already at `STARTED`): do not ask. Read `effort`
-from the state file, state which level is being reused, and proceed at it. A file that records no
-level is planned at `medium`, and that is said in the handoff too.
+Then ask **three more, one per model role**, each as its own question with its default marked as the
+recommendation:
+
+> **Which model should implement this change?** — the implementer subagents `/myflow-do` dispatches
+> - **Opus** *(default, recommended)* — or the harness's strongest available model
+> - any other model the harness offers
+
+> **Which model should the review panel run on?** — every panel slot that takes a model override
+> - **Sonnet** *(default, recommended)*
+> - any other model the harness offers
+
+> **Which model should apply panel fixes?** — the subagents that repair panel findings
+> - **Opus** *(default, recommended)* — or the harness's strongest available model
+> - any other model the harness offers
+
+Record all three for the state write in section F, as `implementation`, `reviewPanel` and
+`panelFix`. The roles, their defaults, why the panel-fix default is not Sonnet, and how a recorded
+choice relates to a session instruction are defined under
+**Model policy** (`skills/myflow-contracts/pipeline.md`) — that section is the one to read; do not
+restate it here.
+
+**Revising an existing proposal** (the change is already at `STARTED`): do not ask, for any of the
+four. Read `planningEffort` and `models` from the state file, state which level and which models are
+being reused, and proceed at them. A file that records no level is planned at `default`, and that is
+said in the handoff too.
+
+Read the level through the retired-key fallback, not from `planningEffort` alone — a file that
+recorded a level under the old key would otherwise be reused at `default` rather than at the level
+the operator chose, and this run then writes that mistake back. The fallback, the mapping, the
+precedence when both keys are present, and what an unmapped value reads as are all
+**Planning effort** (`skills/myflow-contracts/state-file.md`)'s, and are not restated here.
 
 ## B. Basic Workflow #1 — Brainstorming
 
@@ -181,7 +224,12 @@ Write the state file per **State file** (`skills/myflow-contracts/state-file.md`
   "worktrees": {},
   "artifactUrl": "<published URL>",
   "jiraIssue": "<resolved key, or null>",
-  "effort": "<low|medium|high, or null>",
+  "planningEffort": "<low|default|detailed, or null>",
+  "models": {
+    "implementation": "<model, or null>",
+    "reviewPanel": "<model, or null>",
+    "panelFix": "<model, or null>"
+  },
   "prUrl": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-start"
@@ -194,15 +242,24 @@ when this run added scope the issue does not already describe.
 
 Stage the planning artifacts. The state file lives outside the repo — never `git add` it.
 
+The block below is **not** a second definition of the handoff. It is this command's rendering of the
+`STARTED` template, which is defined once under
+**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
+labels, the field set and their order. What this block adds is the enumeration of the literal
+alternatives `/myflow-start` writes for each placeholder that file describes. **Change the template
+first and bring this block with it** — a field added here and not there is drift the moment
+`/myflow-status <name>` regenerates the same state.
+
 ```
 ## Proposal ready — review required
 
 **Change:** <name>
-**Artifact:** <artifactUrl>
+**Artifact:** <artifactUrl> | missing
 **Decisions recorded:** <N> | none
 **Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
-**Effort:** <level> | <level> (reused from the creating run) | not recorded — planned at medium
+**Planning effort:** <level> | <level> (reused from the creating run) | not recorded — planned at default
+**Models:** implementation <model | not recorded>, review panel <model | not recorded>, panel fixes <model | not recorded>
 
 Open in IntelliJ:
 open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
@@ -215,6 +272,13 @@ Next:
 
 The IntelliJ path is the **main checkout** — no worktree exists at this state. Resolve it via
 `--git-common-dir`.
+
+**`missing` is a real alternative on the artifact line, not a defensive one.** This command's
+guardrails forbid finishing without publishing, so its own runs print a URL; the alternative is
+carried because `/myflow-status <name>` renders this same block from a state file whose
+`artifactUrl` may be `null` — a file self-heal rebuilt from artifacts loses it, and self-heal names
+it among the unrecovered fields when it does. Omitting the alternative here would narrow the
+template and teach the next reader to drop the case the missing-rather-than-dropped rule requires.
 
 The pre-edit description line is present only on a run that wrote the description, and reproduces
 that text without summarising or reflowing it — the transcript is then the recovery path, since
@@ -229,19 +293,23 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
 - **Never** finish without publishing the artifact and recording `artifactUrl`.
 - **Never** mint a new artifact URL on a revision round.
 - **Never** delete a superseded decision; mark it superseded.
-- **Never** ask for an effort level on a revision round — read the recorded one and say so.
-- **Never** let an effort level skip brainstorming, the design approval gate, writing-plans, or leave
-  `tasks.md` a scaffold. It sizes the thinking inside the gates, never the gates.
+- **Never** ask for a planning effort level on a revision round — read the recorded one and say so.
+- **Never** ask for a model choice on a revision round — read the recorded ones and say so.
+- **Never** let a planning effort level skip brainstorming, the design approval gate, writing-plans,
+  or leave `tasks.md` a scaffold. It sizes the thinking inside the gates, never the gates.
 - **Never** write code, create a worktree, or create a branch.
-- **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line. The
-  one carve-out, with its limits, is
+- **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line.
+  **Exactly one carve-out is reachable from this command**, and it is
   **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`): a single yes/no when
   the issue sits at a status outside the four ordered names, where anything but an explicit yes is
-  that same skipped-with-reason line and the proposal is untouched either way.
+  that same skipped-with-reason line and the proposal is untouched either way. The contract bounds
+  the set at **two**; the other is the join confirmation, which only ever occurs during
+  `/myflow-finish` run 1 — `/myflow-start` files and joins nothing — so this is a count for this
+  command, not a competing count for the pipeline.
 - **Never** resolve an open question by assumption. Put it to the operator, at the point the
   answer is first needed, and do everything that does not depend on it in the meantime. A lower
-  effort level may group questions into fewer rounds and batch related ones into one prompt; it
-  may never turn a question into an assumption.
+  planning effort level may group questions into fewer rounds and batch related ones into one
+  prompt; it may never turn a question into an assumption.
 - **Never** ask for an approval in open prose. Offer named options, mark the recommended one, and
   say what each one will do.
 - **No flags.** The only argument is the optional change name; report anything else.

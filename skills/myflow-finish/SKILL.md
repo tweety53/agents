@@ -11,8 +11,26 @@ whether the change's branch has already reached the base branch.
 **Announce at start:** "Using myflow-finish for change `<name>` — run 1 (integrate)." or
 "— run 2 (archive)."
 
+Immediately after that line, print these two commands for the operator to paste, per
+**Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
+records why they are printed rather than invoked; do not restate its reasoning here:
+
+```text
+/rename <change-name>
+/color cyan
+```
+
 **Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, git
 boundaries, the finish contract, and the handoff output shape.
+
+**Then register this run's steps** with the harness's task-list mechanism and keep each entry's
+status current as the run proceeds, per
+**Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
+this command registers and is the one to read. What is specific to this command, and so stated
+here: run 1 and run 2 have different step lists, so the entries registered are the steps of the run
+`scripts/check-finish-preflight.sh`'s verdict named, and none are registered before that verdict is
+in hand. A run that registered run 1's steps and then archived would show the operator a list that
+never matched the work.
 
 ## State gate
 
@@ -71,7 +89,7 @@ and what each course below does, is canonical under
   > **This change carries unfinished work — how should run 1 proceed?**
   > - **Stop — I'll finish it first** *(recommended)*
   > - **Continue — integrate anyway**
-  > - **File a Jira task, then continue**
+  > - **File or join a Jira follow-up, then continue**
 
   There is no fourth, and in particular none that hands back to `/myflow-do` inline.
 - **No verdict line at all, and a non-zero exit** → stop and ask the operator. Never read the
@@ -80,9 +98,14 @@ and what each course below does, is canonical under
 
 **Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed.
 **Continue** carries the outstanding list into **1.2**'s planning commit and into **1.5**'s handoff.
-**File a Jira task** creates an issue carrying the outstanding items, labelled and linked per
-**Labels on issues the pipeline creates** (`skills/myflow-contracts/jira-integration.md`), and then
-continues; **a filing that fails is one skipped-with-reason line and the run still continues**, per
+**File or join a Jira follow-up** puts the outstanding items on a **follow-up** issue and then
+continues — joining an open one when the search finds a candidate and the operator confirms it, and
+filing a new one otherwise. The course is labelled for both outcomes because joining is now the
+usual one, and an option promising to *file* a task while normally joining an existing issue
+describes the wrong write to the operator being asked. What that follow-up is titled, the search,
+the confirmation, what a failed search does, and how it is labelled are all
+**Follow-up issues** (`skills/myflow-contracts/jira-integration.md`), and none of it is restated
+here; **a filing that fails is one skipped-with-reason line and the run still continues**, per
 **Never blocking** (`skills/myflow-contracts/jira-integration.md`) — the outstanding list still
 reaches the planning commit and the handoff, so the durable record does not depend on the tracker.
 Why **Stop** is the marked recommendation is stated under
@@ -204,8 +227,17 @@ pull request, merge and push, or manual. Per
 before, never blocking. A run that stopped on a failed push does **not** transition; the branch
 never left the operator's hands.
 
+The block below is **not** a second definition of the handoff. It is this run's rendering of the
+`IN_PROGRESS`-after-run-1 template, which is defined once under
+**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
+labels, the field set and their order. What this block adds is the enumeration of the literal
+alternatives run 1 writes — the three `PR:` cases below are that enumeration of the template's
+placeholder, one per landing route. **Change the template first and bring this block with it** — a
+field added here and not there is drift the moment `/myflow-status <name>` regenerates the same
+state.
+
 ```
-## Branch integrated — waiting on the merge
+## Branch integrated — waiting on the merge | merged and waiting on run 2
 
 **Change:** <name>
 **Route:** pull request | merged and pushed | manual
@@ -217,6 +249,25 @@ never left the operator's hands.
 Next:
 /myflow-finish <name>
 ```
+
+**Select the heading from the route this run actually took**, not from a claim about run 1 in
+general:
+
+| Route taken in 1.3 | Heading |
+|--------------------|---------|
+| pull request | *waiting on the merge* — the PR is open and unmerged |
+| **merge and push** | *merged and waiting on run 2* — 1.3 merged it into the base branch itself |
+| manual | *waiting on the merge* — the operator has the branch and has not merged it yet |
+
+The merge-and-push route is why this is a choice at all. It merges into the base branch inside
+**1.3**, before this block prints, so a run that took it and then told the operator to *wait on the
+merge* would be contradicting the `Route:` line directly beneath the heading, which reads *merged
+and pushed*. On the other two routes nothing this run did put the branch onto the base branch, so the
+merge is genuinely still ahead. Where the route is not certain — a run resumed after a partial
+failure — take the answer from the merge-status test in
+**The block each state renders** (`skills/myflow-contracts/pipeline.md`) rather than assuming; it is
+the same test `/myflow-status` uses to regenerate this block for a change whose branch has since
+been merged, a run stopped at a run-2 cleanup leftover most often.
 
 **Outstanding is the same list the planning commit carries**, and it is stated in both places
 because either alone is a record the next reader may never reach: a commit message nobody reads
@@ -258,9 +309,12 @@ In outline, and stopping at the first step that fails:
    nothing. Why a leftover blocks the write, and why run 2 is safe to re-enter afterwards, is
    canonical under **Finish contract** (`skills/myflow-contracts/pipeline.md`).
 7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
-   whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `effort` and `prUrl`
-   forward. The state file stays at its user-scoped path as the terminal record — it is **never**
-   moved into the archive.
+   whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`
+   and `prUrl` forward — the planning effort as the **mapped level under `planningEffort`** when the
+   file recorded it under the retired key, per the carry-forward rule in
+   **State file** (`skills/myflow-contracts/state-file.md`), which is canonical and is not restated
+   here. This is the terminal write, so a field dropped here is dropped for good. The state file
+   stays at its user-scoped path as the terminal record — it is **never** moved into the archive.
 
 **Transition the issue to Done** after the state write, per
 **Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 6

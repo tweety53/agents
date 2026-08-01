@@ -7,7 +7,7 @@ Use the **myflow-finish** skill — installed globally, so let your harness reso
 
 Follow that skill exactly. Accepts **`IN_PROGRESS`**. It runs **twice**, and the branch's merge status alone decides which run happens:
 
-- **Run 1 — branch not merged.** Checks each recorded worktree for **unfinished work** first — before the landing question and before any git action — and offers exactly three courses: continue, stop, or file a Jira task. Then asks how it should land: open a pull request (default), merge and push, or leave it to you. Makes **two commits** — the implementation first, the planning artifacts second — takes that route, moves the linked issue to **In Review** whichever route was taken, and **stops** — the state stays `IN_PROGRESS`.
+- **Run 1 — branch not merged.** Checks each recorded worktree for **unfinished work** first — before the landing question and before any git action — and offers exactly three courses: stop and finish it first *(recommended)*, continue anyway, or file **or join** a Jira follow-up and then continue. Then asks how it should land: open a pull request (default), merge and push, or leave it to you. Makes **two commits** — the implementation first, the planning artifacts second — takes that route, moves the linked issue to **In Review** whichever route was taken, and **stops** — the state stays `IN_PROGRESS`.
 - **Run 2 — branch merged.** Verifies the merge, syncs delta specs, archives the change, **commits and pushes the archive**, removes the worktrees, the local branch, the **remote branch** and the proposal artifact source, then **verifies the cleanup** and writes **`FINISHED`**.
 
 **Runs no tests, linters, or coverage check** before integrating — that happened during `/myflow-do`.

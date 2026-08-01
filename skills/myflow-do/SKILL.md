@@ -10,8 +10,25 @@ Implement an OpenSpec change, write its manual test guide, and stage both for th
 
 **Announce at start:** "Using myflow-do for change `<name>`."
 
+Immediately after that line, print these two commands for the operator to paste, per
+**Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
+records why they are printed rather than invoked; do not restate its reasoning here:
+
+```text
+/rename <change-name>
+/color cyan
+```
+
 **Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
 command→state transition table, git boundaries, and the handoff output shape.
+
+**Then register this run's steps** with the harness's task-list mechanism, before any work begins,
+and keep each entry's status current as the run proceeds, per
+**Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
+this command registers and is the one to read. What is specific to this command, and so stated
+here: an entry moves to in-progress when its implementer is dispatched, and to completed when that
+task passes **both** its spec and quality review — the same moment its `tasks.md` checkbox is
+allowed to be ticked, so the progress view and the file never disagree.
 
 ## State gate
 
@@ -105,11 +122,13 @@ coupled group) as one task. Every implementer dispatch **must** carry all four o
 > `verified:<how>` was checked as stated; if it does not compile, report that — do not contort the
 > code to match it.
 
-**Dispatch every implementer on Opus** (or the harness's strongest available model), naming it
-explicitly — never by omission, which silently inherits the parent's model. This **overrides**
-subagent-driven-development's "least powerful model that can handle each role" guidance; see
-**Model policy** in `skills/myflow-contracts/pipeline.md` for why, and for the operator-override
-rule. The panel's slots stay on Sonnet — the two rules differ on purpose.
+**Dispatch every implementer on the model the state file records under `models.implementation`**,
+defaulting to Opus (or the harness's strongest available model) when that field is absent or null.
+Name it explicitly — never by omission, which silently inherits the parent's model. This
+**overrides** subagent-driven-development's "least powerful model that can handle each role"
+guidance; see **Model policy** in `skills/myflow-contracts/pipeline.md` for why, for how a recorded
+choice and a session instruction relate, and for the operator-override rule. The panel's slots
+default to Sonnet — the two rules differ on purpose.
 
 Per-task review without commits: write `git diff TASK_BASE > .superpowers/sdd/task-N.diff` and give
 the reviewer that path, never a commit range. Ledger line: `Task N: complete (uncommitted, review
@@ -125,20 +144,24 @@ Write `.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged 
 dispatch **separate** review subagents — one per selected slot, in **every** affected worktree.
 Never merge two slots into one prompt.
 
-**Every slot runs on Sonnet.** There is no parent-model inheritance and no economy tier — the
-panel's cost must not depend on which model the operator happens to be running.
+**Every slot the panel spawns directly runs on the model the state file records under
+`models.reviewPanel`, defaulting to Sonnet** when that field is absent or null. There is no
+parent-model inheritance and no economy tier — the panel's cost must not depend on which model the
+operator happens to be running, and a recorded value is a deliberate decision for one change rather
+than an inheritance path.
 
 | # | Slot | Required? | Model | How to spawn |
 |---|------|-----------|-------|--------------|
-| 0 | **Primary** — plan alignment + code quality | **always** | `sonnet` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
+| 0 | **Primary** — plan alignment + code quality | **always** | `models.reviewPanel` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
 | 1 | **Bugbot** — defect hunt | **always** | its own | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>` |
-| 2 | **Principles** | **always** | `sonnet` | general-purpose + [principles-reviewer-prompt.md](principles-reviewer-prompt.md), `[LENS]` = **Merged** |
+| 2 | **Principles** | **always** | `models.reviewPanel` | general-purpose + [principles-reviewer-prompt.md](principles-reviewer-prompt.md), `[LENS]` = **Merged** |
 | 3 | **Security** | conditional | its own | `subagent_type: security-review`, same shape as Bugbot |
-| 4 | **Adversarial** | conditional | `sonnet` | general-purpose + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) |
-| 5+ | **Principles lens B / lens C** | conditional | `sonnet` | same template, `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops** |
+| 4 | **Adversarial** | conditional | `models.reviewPanel` | general-purpose + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) |
+| 5+ | **Principles lens B / lens C** | conditional | `models.reviewPanel` | same template, `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops** |
 
 Slots 1 and 3 are dispatched by `subagent_type` and carry their own agent definitions — pass them
-no model override. Every other slot names Sonnet explicitly.
+**no** model override, whatever `models.reviewPanel` records, and record `unknown (agent-defined)`
+for them in the ledger. Every other slot names its model explicitly.
 
 Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
@@ -261,8 +284,11 @@ two agents, and handoff still requires **zero open findings at any severity** fr
 has run, with the final pass showing a non-stale clean result for every slot in the roster.
 
 Union all **open** findings, dedupe by file:line + theme, and give **one** fix subagent the
-combined list. Record every pass in `.superpowers/sdd/final-review-panel.md`: mode, which
-agents ran, why, and the diff path they read.
+combined list. **Dispatch it on the model recorded under `models.panelFix`**, defaulting to Opus
+(or the harness's strongest available model) when that field is absent or null — deliberately not
+the panel's own default, for the reason stated under
+**Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in
+`.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, and the diff path they read.
 
 A minor finding blocks the handoff exactly as a critical one does. The escalation ladder is what
 makes that terminate: when fix rounds do not converge the run hands back to the operator, who
@@ -284,9 +310,23 @@ outstanding, so a withdrawal with no stated reason does not clear the gate it ap
 
 ## 6. Write the manual test guide
 
-In the same run, write or refresh `docs/manual-test/<name>.md` — how to run every app in scope, and
-a functionality checklist derived from the delta specs. This is why reviewing and testing are one
-gate: both surfaces are produced together and can never drift apart.
+In the same run, write or refresh `docs/manual-test/<name>.md`. This is why reviewing and testing
+are one gate: both surfaces are produced together and can never drift apart.
+
+**The guide is a behaviour checklist at capability scope.** One tickable line per user-visible
+behaviour, grouped by capability, scoped to the change's **blast radius** rather than to its plan
+tasks. Phrase each line as the check to perform, in the register an operator would use — say
+`check exercise update — the "key" field saves` — and never as a restatement of the requirement it
+came from. A change that touched every part of exercise CRUD lists create, update, filter, sort and
+delete; not one entry per plan task that produced them. Carry **no** per-step command transcripts,
+**no** expected-output blocks, and **no** explanation of why a check exists.
+
+A guide written per plan task grows with the implementation rather than with the behaviour, which is
+what made earlier guides long without making them more thorough: several entries could exercise one
+behaviour while another went unlisted.
+
+Above the checklist, write a **short preamble stating how to run whatever is in scope**. Nothing
+else belongs in it.
 
 - **Every path is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path (`../<other-app>`), and never a main-checkout path while a
@@ -294,6 +334,12 @@ gate: both surfaces are produced together and can never drift apart.
 - Apps in scope come from `## apps` in the project's `.myflow/project.md`, or from auto-detection
   when that file or key is absent — see
   **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
+- **Where the project declares no runnable application**, state each check as the command to run,
+  one line each, tickable in the same way, and do not give the guide an application shape the
+  project does not have. This repository is that case: it is the source of the myflow skills,
+  commands and rules, and "running the apps" here means running its guard scripts, its assertion
+  harnesses and a sandboxed installer pass. An application-shaped guide written for it would name
+  an app, a port and a URL that do not exist.
 - On a fix run, **refresh** the guide: preserve already-ticked boxes, and re-open only what the fix
   invalidated.
 - There is no skip prompt and no `SKIPPED` marking. The guide is there to use or ignore; nothing
@@ -305,6 +351,12 @@ gate: both surfaces are produced together and can never drift apart.
   Finish runs in a different session and has no memory of this one, so anything not written here
   is invisible at the integration gate. `scripts/check-unfinished-work.sh` reads this section, and
   treats its **absence** as outstanding rather than as clear.
+
+**The register above is prose; two shapes in this guide are machine-read, and neither changes.**
+The checks stay an unordered list written with the `- [ ]` and `- [x]` markers, and the
+`## Known incomplete` section stays exactly as described. `scripts/check-unfinished-work.sh` parses
+both, so altering either would break a guard while appearing only to shorten a document. Shortening
+what a line *says* is the whole of this change; the markers it is written with are not part of it.
 
 ## 7. Verify, stage, and hand off
 
@@ -366,8 +418,22 @@ Neither is an error, and neither is silent — say in the handoff which commit w
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
-`artifactUrl`, `jiraIssue`, `effort` and `prUrl` forward verbatim. The state file lives outside the repo —
-never `git add` it.
+`artifactUrl`, `jiraIssue`, `planningEffort`, `models` and `prUrl` forward verbatim, per the
+carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`), which is canonical
+for what a write must re-emit. The state file lives outside the repo — never `git add` it.
+
+The one field where *verbatim* is not a byte copy is the planning effort: a file that recorded it
+under the retired key is carried forward as the **mapped level under `planningEffort`**, per that
+same carry-forward rule, which is canonical and is not restated here. What matters at this call site
+is that reading only `planningEffort` and writing what it found would erase the recorded level.
+
+The block below is **not** a second definition of the handoff. It is this command's rendering of the
+`IN_PROGRESS`-after-`/myflow-do` template, which is defined once under
+**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
+labels, the field set and their order. What this block adds is the enumeration of the literal
+alternatives `/myflow-do` writes. **Change the template first and bring this block with it** — a
+field added here and not there is drift the moment `/myflow-status <name>` regenerates the same
+state.
 
 ```
 ## Implementation staged — review and test
@@ -381,8 +447,9 @@ never `git add` it.
 Worktree:   <absolute worktree path>
 Test guide: <absolute path to docs/manual-test/<name>.md>
 
-Review the staged diff, then run the apps against the guide:
-  git -C <absolute worktree path> diff --cached
+Review the diff, then run the apps against the guide:
+  git -C <absolute worktree path> diff --cached          # when staged and uncommitted
+  git -C <absolute worktree path> diff <merge base>..HEAD  # when committed and pushed
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 
 Re-run this command to fix anything you find.
@@ -390,6 +457,13 @@ Re-run this command to fix anything you find.
 Next:
 /myflow-finish <name>
 ```
+
+**Print one review command, the one that matches the `Git` line** — the two are shown together above
+only because this block serves both of this command's cases. `--cached` on a committed branch exits
+0 printing nothing, which reads as *there is nothing to review*; the merge base comes from this
+worktree's entry in the state file's `worktrees` map. The template's third `Git` option — committed
+and pushed with no PR — is one `/myflow-do` never emits and `/myflow-status` does; the pairing is
+canonical under **The block each state renders** (`skills/myflow-contracts/pipeline.md`).
 
 The pre-edit description line is present only on a fix run that synced the description in section
 **3**, and reproduces that text without summarising or reflowing it — the transcript is then the
@@ -406,8 +480,8 @@ printing an empty one. See **Description sync** (`skills/myflow-contracts/jira-i
   never a bare `git add -A`.
 - **Never skip** a required panel slot, and never collapse two slots into one prompt.
 - **Never dispatch an implementer without the provenance clause.**
-- **Never** pass a model override to Bugbot or Security Review; **always** name Sonnet on every
-  other slot.
+- **Never** pass a model override to Bugbot or Security Review; **always** name the panel's model
+  explicitly on every other slot.
 - **Never** paste the principle list into a prompt — the reviewer reads the file.
 - **Never** hand off with an open finding of any severity, or a stale clean result.
 - **Never** mark a checkbox before its task review passes.

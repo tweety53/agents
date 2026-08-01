@@ -101,9 +101,9 @@ All skills require the `openspec` CLI to be installed.
 
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
-| `skills/myflow-start/` | `/myflow-start` | Brainstorm → design gate → OpenSpec artifacts → writing-plans → publish the proposal artifact. Re-run to revise, republishing to the **same** URL |
-| `skills/myflow-do/` | `/myflow-do` | Worktree → SDD + TDD → review panel → **manual test guide** → lint + tests → `git add`. Re-run to fix; a fix never moves the state. Carries the reviewer prompts + `engineering-principles.md` |
-| `skills/myflow-finish/` | `/myflow-finish` | **Run 1** integrate (PR by default, merge, or manual). **Run 2** (once merged) sync specs, archive, commit + push the archive, remove the worktrees |
+| `skills/myflow-start/` | `/myflow-start` | Proposal: brainstorming behind a design gate, the OpenSpec artifacts, and a published proposal artifact. Re-run to revise, republishing to the **same** URL |
+| `skills/myflow-do/` | `/myflow-do` | Implementation: SDD + TDD in an isolated worktree, the review panel, a **manual test guide** and a staged diff. Re-run to fix; a fix never moves the state. Carries the reviewer prompts + `engineering-principles.md` |
+| `skills/myflow-finish/` | `/myflow-finish` | **Run 1** integrates the branch (PR by default, merge, or manual). **Run 2**, once merged, archives the change and removes what the pipeline created |
 | `skills/myflow-status/` | `/myflow-status` | Read-only state report for open changes |
 | `skills/myflow-info/` | `/myflow-info` | Read-only — reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
 | `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for any `/myflow-*` command) plus the state file, self-heal, project configuration and Jira contracts. Load the one file you need |
@@ -116,8 +116,24 @@ All skills require the `openspec` CLI to be installed.
 ```text
 /myflow-start  → STARTED      you: read the proposal artifact
 /myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (it integrates on its first run)
+/myflow-finish → FINISHED     terminal (second run — it integrates first)
 ```
+
+**That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
+Codex loads this file into every session in this project, before any `/myflow-*` command runs and
+before anything loads `skills/myflow-contracts/pipeline.md` — being present without that load is the
+whole job of the block, which is why the always-on rule `rules/myflow-manual-review.mdc` carries the
+same three lines. **What the copy reproduces is the states and the transitions, not the wording.**
+The canonical block under **States** (`skills/myflow-contracts/pipeline.md`) closes its third line
+by pointing at the finish contract — a pointer that resolves inside that file and nowhere else —
+so a copy read *before* that file loads states the fact instead, and the two are deliberately
+**not** kept byte-identical. Expect both renderings in one session: `/myflow-info` reads the
+canonical block live and prints what it finds. A difference in what the three lines *say* is drift
+worth reporting; a difference in how the third one is phrased is not. Everything else is cited
+rather than copied: the state diagram and the per-command stage table live under
+**Pipeline flow** (`skills/myflow-contracts/pipeline.md`), and `README.md` and `skills/README.md`
+carry that citation with no digest at all, because a document read on demand can load the file it
+would be copying.
 
 Each command ends in the state named after it. **The human gate is a property of the state**, so
 no command exists whose only job is to record that a review happened — there is no `*-done`
@@ -135,10 +151,11 @@ change relevant to that state is used automatically; if there are multiple, you'
 rather than ignored.
 
 **Model:** `/myflow-start` → **Opus** (brainstorming/design benefits from stronger reasoning).
-Every other command's **session** → **Sonnet**, and **every review-panel reviewer runs on Sonnet**
-regardless of the parent model. In Claude Code the *session* model is enforced via `model:`
-frontmatter on each command; Cursor and Codex don't support per-command model selection yet, so
-switch manually.
+Every other command's **session** → **Sonnet**, and **every review-panel reviewer runs on the
+panel's model — Sonnet by default** — regardless of the parent model, the default being what a
+change may override by recording its own panel model. In Claude Code the *session* model is
+enforced via `model:` frontmatter on each command; Cursor and Codex don't support per-command model
+selection yet, so switch manually.
 
 **The implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest
 available model — named explicitly on each dispatch rather than inherited. Frontmatter cannot set
@@ -149,11 +166,11 @@ powerful model that can handle each role". See "Model policy" in
 
 | Command | What it does |
 |---------|-------------|
-| `/myflow-start <name>` | **Asks the effort level once**, on the run that creates the change — the three levels and which of them is the default are defined under **Effort** in State file (`skills/myflow-contracts/state-file.md`) and are deliberately not repeated here — it sizes the thinking inside the gates and never the gates themselves; a revision round reuses the recorded level instead of asking again → Brainstorm → design approval gate → OpenSpec artifacts → writing-plans enriched tasks → publishes a proposal artifact → records the effort → `state: STARTED`. Re-run at `STARTED` to revise the plan, republishing to the **same** URL |
+| `/myflow-start <name>` | **Asks the planning effort level once**, on the run that creates the change — the three levels and which of them is the default are defined under **Planning effort** in State file (`skills/myflow-contracts/state-file.md`) and are deliberately not repeated here — it sizes the thinking inside the gates and never the gates themselves; that same run also asks which model implements the change, which one the review panel runs on and which one applies panel fixes, the three roles and their defaults being stated once under **Model policy** (`skills/myflow-contracts/pipeline.md`) and deliberately not repeated here; a revision round reuses the recorded level and models instead of asking again. Its stages, in order, are stated once under **Level 1 — the stages of each command** (`skills/myflow-contracts/pipeline.md`) and are deliberately not repeated here; the run ends at `state: STARTED`. Re-run at `STARTED` to revise the plan, republishing to the **same** URL |
 | *(gate)* | **You** read the proposal artifact |
-| `/myflow-do <name>` | git worktree → validate plan → SDD + TDD → **review panel** (primary + Bugbot + Principles required; Security, Adversarial and extra principle lenses conditional; all on Sonnet), which hands off only at **zero open findings at any severity** → writes `docs/manual-test/<name>.md` → runs the project's lint + test commands → **stages the implementation, excluding the planning paths** `openspec/`, `docs/manual-test/` and `docs/superpowers/` → `state: IN_PROGRESS`. Re-run to fix — a fix leaves the state unchanged. **No commits**, unless a `prUrl` is already recorded, in which case the fix is committed and pushed to that branch as two commits, implementation first |
+| `/myflow-do <name>` | Implements the change under SDD + TDD behind a **review panel** (primary + Bugbot + Principles required; Security, Adversarial and extra principle lenses conditional; all on the panel's model, Sonnet by default), which hands off only at **zero open findings at any severity**, and **stages the implementation, excluding the planning paths** `openspec/`, `docs/manual-test/` and `docs/superpowers/`. Its stages, in order, are stated once under **Level 1 — the stages of each command** (`skills/myflow-contracts/pipeline.md`) and are deliberately not repeated here; the run ends at `state: IN_PROGRESS`. Re-run to fix — a fix leaves the state unchanged. **No commits**, unless a `prUrl` is already recorded, in which case the fix is committed and pushed to that branch as two commits, implementation first |
 | *(gate)* | **You** review the staged diff **and** run the apps against the guide |
-| `/myflow-finish <name>` | Which run happens is `scripts/check-finish-preflight.sh`'s verdict, taken once per recorded worktree — `RUN1`, `RUN2` from every worktree, or `REFUSE`, which stops and asks you rather than guessing. **Run 1 — verdict `RUN1`:** checks each worktree for unfinished work with `scripts/check-unfinished-work.sh` **before** the landing question and before any git action, then asks how it should land (open a PR *(default)*, merge and push, or handle it manually), preserves the change's session records into the repository, commits the staged work as **two commits** — implementation first, planning artifacts second — takes that route, moves the linked issue to **In Review** on every route, and **stops** at `IN_PROGRESS`. **Run 2 — verdict `RUN2`:** syncs delta specs, archives (with any nested `<name>-fix-N`), **commits and pushes the archive**, removes the worktrees, the local branch, the **remote branch** and the proposal artifact source, then **verifies the cleanup** with `scripts/check-cleanup-complete.sh` → `state: FINISHED`. Which artifact is removed, when, and on what condition is stated once under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) and is deliberately not repeated here. **Runs no tests, linters or coverage check** |
+| `/myflow-finish <name>` | Which run happens is `scripts/check-finish-preflight.sh`'s verdict, taken once per recorded worktree — `RUN1`, `RUN2` from every worktree, or `REFUSE`, which stops and asks you rather than guessing. Verdict `RUN1` integrates the branch — asking first how it should land, the choices being open a PR *(default)*, merge and push, or handle it manually — and stops at `IN_PROGRESS`. Verdict `RUN2`, reached once the branch has merged, archives the change, removes what the pipeline created, and ends at `state: FINISHED`. The stages of both runs, in order, are stated once under **Level 1 — the stages of each command** (`skills/myflow-contracts/pipeline.md`) and are deliberately not repeated here; which artifact is removed, when, and on what condition is likewise stated once under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`). **Runs no tests, linters or coverage check** |
 | `/myflow-status <name>` | Read-only state report for open changes |
 | `/myflow-info` | Read-only — reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
 

@@ -38,6 +38,181 @@ is why no `*-done` command exists — there would be nothing for one to write.
 the human does both at one sitting. There is no state between implementation and finishing —
 integration is not a stage, it is the first half of finishing.
 
+## Pipeline flow
+
+The diagram and the stage table below are the only copy in this repository. Every command summary
+elsewhere — the `/myflow-*` tables in `README.md`, `skills/README.md`, `CLAUDE.md` and `AGENTS.md` —
+says what each command is *for* and cites the level-1 table for the stages, rather than carrying a
+second ordered list of them; no skill carries one either. All four used to, and the copies had
+already drifted: not one of their `/myflow-do` rows named the state gate or the fix-documentation
+stage, so an agent working from an entry-point file alone would have skipped both. That is the whole
+argument for keeping the stages in one place, and it is why a summary elsewhere may name a command's
+purpose but never its order. Placing them here is what lets
+`/myflow-info` show them: that command reads this file at invocation time and is forbidden from
+answering from memory, so a diagram held only in `README.md` is one it can never present.
+
+```mermaid
+stateDiagram-v2
+    [*] --> STARTED: /myflow-start
+    STARTED --> STARTED: /myflow-start (revise the proposal)
+    STARTED --> IN_PROGRESS: /myflow-do
+    IN_PROGRESS --> IN_PROGRESS: /myflow-do (fix — never moves the state)
+    IN_PROGRESS --> IN_PROGRESS: /myflow-finish (run 1 — integrate)
+    IN_PROGRESS --> FINISHED: /myflow-finish (run 2 — after the merge)
+    FINISHED --> [*]
+```
+
+### Level 1 — the stages of each command
+
+**One row per command** — the five this pipeline has, three of them pipeline commands and two
+read-only, exactly as **Command surface** (`pipeline.md`) below names them. A stage marked ▸ hides
+substructure and is expanded at level 2 below. The gate column is the human gate that *follows* the
+run — a property of the state the command ends in, never a stage of its own.
+
+`/myflow-finish` is one command with two runs, so its row carries both, labelled: the preflight
+verdict picks which one this invocation performs, and the run is never a command of its own.
+
+| Command | Stages, in order | Gate after it |
+|---------|------------------|---------------|
+| `/myflow-start` | resolve the change → ask the planning effort and the three model choices *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
+| `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → write the manual test guide → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps against the guide |
+| `/myflow-finish` | the preflight verdict ▸, taken once per recorded worktree, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
+| `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
+| `/myflow-info` | read-only — no stages, no state write; reads this file and explains the pipeline | — |
+
+### Level 2 — the stages that hide substructure
+
+Each expansion states the **structure** — the shape that changes only when the pipeline changes —
+and cites the file that owns the tuned values. A threshold copied here is a copy that goes wrong
+silently, which is the same reason the README carries no diagram; accepting it one level down would
+make the rule contradict itself.
+
+#### Brainstorm — `/myflow-start`
+
+superpowers:brainstorming runs its checklist in full and ends with the operator approving the
+design, which is a **hard gate inside the command**: nothing is created under `openspec/changes/`
+until that approval lands. The approved design is saved under `docs/superpowers/specs/` and is the
+source for the change's OpenSpec design artifact — adapted, never duplicated into a conflicting
+second design.
+
+The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
+gate itself. The three levels and which of them is the default are owned by
+**Planning effort** (`skills/myflow-contracts/state-file.md`) and are not restated here.
+
+#### Writing-plans — `/myflow-start`
+
+superpowers:writing-plans enriches `tasks.md` from a checkbox scaffold into a plan whose every item
+carries exact paths, verification commands and no placeholders — the unit `/myflow-do`
+dispatches one implementer against. Its self-review — spec coverage, placeholder scan, type
+consistency — runs before the stage finishes.
+
+Every fenced block and every numeric claim in a planning artifact carries a provenance tag,
+`verified:<how>` or `unverified:`, and `scripts/check-plan-provenance.sh` is what makes that
+mechanical rather than a habit. An unverifiable snippet is tagged and **kept**: a plan without the
+snippet is worse than a plan carrying a labelled guess.
+
+A revision round re-enters at this stage and republishes the proposal artifact to the **same** URL
+rather than minting a second one.
+
+#### SDD + TDD per task — `/myflow-do`
+
+One implementer dispatch per checkbox in `tasks.md`, or per tightly coupled group, in plan order.
+Every dispatch carries the same four required blocks — the no-commits boundary,
+superpowers:test-driven-development as a required sub-skill, `engineering-principles.md` as required
+reading, and the plan-provenance rule above — and names its model explicitly rather than inheriting
+the parent's.
+
+The task's diff is written to a file and the reviewer is given that path, never a commit range,
+because nothing is committed at this stage. A checkbox is marked `[x]` only after its task passes
+spec **and** quality review; a blocked task pauses and reports rather than guessing.
+
+Which model a dispatch runs on, and the rule that every dispatch records it, are
+**Model policy** (`pipeline.md`) below.
+
+#### The review panel — `/myflow-do`
+
+**Three required slots and four conditional ones.** Primary, Bugbot and Principles run on every
+change; Security, Adversarial and the two extra principle lenses — B for simplicity and state, C for
+robustness and ops — are selected from what the diff touches. Each selected slot is a **separate**
+subagent with its own prompt, in every affected worktree; two slots are never merged into one.
+
+**Every slot runs on the panel's model — Sonnet by default — except the two dispatched by
+`subagent_type`.** Bugbot and Security Review carry their own agent definitions and take no model
+override, which is also why their ledger entries read `unknown (agent-defined)`. There is no
+parent-model inheritance and no economy tier: the panel's cost must not depend on the model the
+operator happens to be running. That default, the change-level choice recorded against it, and the
+operator override that may raise it are **Model policy** (`pipeline.md`) below, and are stated there
+rather than a second time here.
+
+**No handoff while any finding is open, at any severity.** A minor finding blocks exactly as a
+critical one does. Every finding is recorded twice — as a row for the reader and as a marker line
+for the guard — and `scripts/check-unfinished-work.sh` reads only the marker block.
+
+**Re-runs are targeted by default and escalate to the full roster automatically**, without asking.
+Escalation widens the panel's **breadth** — more lenses — and never its model, because the
+implementers it would raise already sit at the ceiling. When a finding survives its last fix round
+the run **hands back to the operator**, one finding at a time, with named options; only the
+operator's answer may write a `withdrawn` marker, and only with the reason they give.
+
+The tuned values are cited rather than copied. Which diff sizes and which touched areas select a
+conditional slot is **Optional slot selection** in `skills/myflow-do/SKILL.md`; the conditions that
+force a full re-run in place of a targeted one are **Panel re-runs** in `skills/myflow-do/SKILL.md`.
+
+#### The preflight verdict — `/myflow-finish`
+
+`scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
+taken once per worktree recorded in the state file. It prints exactly one verdict line and exits 0
+whenever it reached a verdict; **a missing verdict line is not a verdict**, and neither is a
+worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` **stops the run** and asks
+the operator rather than guessing. Run 2 proceeds only when every recorded worktree returns `RUN2`.
+
+The three signals and why their order is load-bearing are **Finish contract** (`pipeline.md`) below.
+
+#### The unfinished-work gate — `/myflow-finish` run 1
+
+Runs **before** the landing question and before any git action, once per recorded worktree.
+`scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
+prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
+**Stop** marked as the recommendation. There is no fourth course, and none that hands back to
+`/myflow-do` inline.
+
+The ordering is the point: an operator asked how to land a branch, and only then told it carries
+unfinished work, has already answered a question about a branch they believed was complete. What
+was integrated over is written into the planning commit's message and into the handoff, so the
+record outlives the session.
+
+Each course and what run 1 then does are **Run 1 — the branch is not merged** (`pipeline.md`) below.
+
+#### The landing routes — `/myflow-finish` run 1
+
+The operator is asked once, before any git action, how the branch should land: open a pull request
+*(default)*, merge and push, or handle it manually. The run then completes without asking again, and
+the answer is never remembered between runs.
+
+All three routes do the same two things first, in this order: preserve the session records out of
+the gitignored worktree into the repository, then commit in **two** commits — implementation first,
+planning artifacts second. The linked issue moves to In Review on every route, including the manual
+one. Run 1 ends at `IN_PROGRESS` and names itself as the next command, because that is what the
+operator runs once the branch is merged.
+
+The route table is **Run 1 — the branch is not merged** (`pipeline.md`) below; the guarded
+two-commit chain every route uses is **Git boundaries** (`pipeline.md`) above.
+
+#### Cleanup — `/myflow-finish` run 2
+
+Every removal is *remove-or-move if present*, which is what makes run 2 re-entrant: a step whose
+artifact is already gone is a success rather than an error, so a re-run after the operator clears a
+leftover repeats the verification and nothing else.
+
+The removals are verified rather than assumed. `scripts/check-cleanup-complete.sh` runs once per
+repository, **after** all of them: `COMPLETE:` allows the `FINISHED` write, `LEFTOVER:` names what
+remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no verdict line is
+treated exactly as `LEFTOVER` — an unverified cleanup is not a verified one.
+
+What is removed, when, and on what condition is
+**Temporary artifacts registry** (`pipeline.md`) below — the one place a cleanup rule is stated. The
+procedure for the rows it removes is **Worktree cleanup** (`pipeline.md`).
+
 ## Command surface
 
 Three pipeline commands and two read-only ones. **No command accepts a flag.** The only argument
@@ -160,6 +335,41 @@ name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bar
 which puts the planning artifacts into the implementation commit — the one outcome this split
 exists to prevent — so the fix belongs in the repository, by making the path a real directory.
 
+## Progress visibility
+
+**Every pipeline command drives the harness's task-list mechanism.** `/myflow-start`, `/myflow-do`
+and `/myflow-finish` register their steps with it at the start of a run and keep each entry's status
+current — in progress when its step begins, completed when that step finishes — so the harness's
+live progress view, a count line and one line per task, renders throughout the run rather than
+arriving with the handoff. The count line then distinguishes done, in progress and open at every
+point.
+
+| Command | One entry per |
+|---------|---------------|
+| `/myflow-start` | its brainstorming checklist item and each artifact it produces |
+| `/myflow-do` | each item in `tasks.md`, in plan order |
+| `/myflow-finish` | each step of the run it is performing — run 1's steps or run 2's, never both |
+
+`/myflow-status` and `/myflow-info` are read-only and **register nothing**. Registering steps for a
+report would put entries on the operator's task list for work nobody is doing.
+
+**The progress view is a view, never a record.** No command, guard or contract reads the harness's
+task list back as evidence of what was done. `tasks.md` remains the single source of truth for a
+plan's completion state, and `scripts/check-unfinished-work.sh` reads that file — a second source of
+completion state would be one that guard cannot see.
+
+**No third checkbox marker is added to `tasks.md`** to carry an in-progress state. A marker written
+at dispatch and resolved at completion would survive a crashed run as a permanently in-progress
+task, in a file two guards parse. The in-progress count comes from the harness's task list alone,
+which no run persists.
+
+**Stated against the mechanism, never against one harness's tool.** myflow runs in Claude Code,
+Cursor and Codex, and a rule written against one harness's API is unimplementable in the other two.
+Where a harness offers no task-list mechanism, the command prints the equivalent block in its output
+instead: a count line naming how many steps are done, in progress and open, followed by one line per
+step marked done or not done. The rule is satisfied by whichever mechanism the harness provides, and
+no harness has to gain a task tool to satisfy it.
+
 ## Handoff output
 
 Every command ends in the same shape, and prints **nothing** after it:
@@ -200,6 +410,319 @@ Next:
   git -C <abs-worktree> diff --cached --stat
   git -C <abs-worktree> diff --cached
   ```
+
+### The block each state renders
+
+The block a state hands off is defined **here and nowhere else**, as one template per rendering. Two
+commands render it: the command that ends in that state, and `/myflow-status <name>`. **No command
+stores the emitted text.** `/myflow-status <name>` regenerates the block from the state file and the
+artifacts as they now stand; it never reads back a stored copy, because a stored copy reproduces the
+original exactly and then goes wrong silently the moment anything it names moves — a worktree
+removed, an artifact republished, a PR opened. Regeneration is the mechanism, not an implementation
+detail of it.
+
+**The template is the definition, and it carries what the commands print.** A field a command emits
+and the template omits is drift the moment `/myflow-status` renders the same state: the two blocks
+would differ in the one place this section exists to keep identical. So each template below carries
+every field its command emits, under that command's own label and in its `**Label:**` style, and a
+field added to a command is added here in the same change. Labels are the part that must match; the
+`<…>` placeholders describe each value rather than reproducing the alternatives a command writes.
+
+**"Here and nowhere else" is a duty on the producing skills, not a claim about them.** Each of the
+three — `skills/myflow-start/SKILL.md`, `skills/myflow-do/SKILL.md` and
+`skills/myflow-finish/SKILL.md` — carries the block it prints, and each **cites this section as the
+definition** at that block. A block sitting in a skill with no citation is a second, independently
+authored definition however faithfully it happens to match today, and it is exactly how the two
+copies drift: nothing tells the next editor of the skill that this file exists. The citation is what
+turns three copies into one definition and three renderings of it.
+
+**What a skill's block may differ in, and what it may not.** The **label set and the field set are
+identical** — same labels, same order, no field in one and not the other; that is the part
+`/myflow-status` has to reproduce. What a skill *may* do is **enumerate**, in place of a
+placeholder, the literal alternatives its own command writes: this file describes a value's space
+across both renderers, while a skill states what that one command emits. An enumeration is
+therefore a refinement of the placeholder beside it and must stay **inside** it — a skill that lists
+fewer cases than the placeholder describes is narrowing the contract, and teaches a reader to drop a
+case the rule above requires. The missing rule and the run-only rule below bind both files equally.
+
+**A value the state file does not carry is reported as missing, not dropped.** A block whose
+artifact URL reads *missing* is distinguishable from one whose URL was never printed at all; a
+silently absent line is not.
+
+**A run-only field is not a missing one, and the two are never collapsed.** *Missing* means the
+block could have carried the value and did not — the state file has the key and it is `null`.
+**Run-only** means no regenerated block can ever carry it, because nothing on disk holds it: it
+exists only inside the run that emitted it. `(run-only)` immediately after a label in a template
+below marks such a field — the command ending in the state prints it, and `/myflow-status` omits it
+rather than reporting it missing. Reporting a run-only field as *missing* would tell the operator
+something is wrong when nothing is, which is the opposite of what the rule above buys. The marker
+annotates the template and is never text a command prints.
+
+Only the form carrying a change name regenerates a block. `/myflow-status` with no argument stays
+the table it is today. Regenerating performs no action named in the block it prints — the command is
+read-only in both forms.
+
+**`STARTED`** — printed by `/myflow-start`, regenerated by `/myflow-status <name>`
+
+```text
+## Proposal ready — review required
+
+**Change:** <name>
+**Artifact:** <artifactUrl, or "missing">
+**Decisions recorded:** <count, or "none">
+**Jira:** (run-only) <issue key and the transition made, or "none linked", or a skipped-with-reason line>
+**Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
+**Planning effort:** <the level in force, or "not recorded — planned at default">
+**Models:** implementation <model, or "not recorded">, review panel <…>, panel fixes <…>
+
+Open in IntelliJ:
+open -na "IntelliJ IDEA" --args "<absolute main-checkout path>"
+
+<what the operator does next>
+
+Next:
+/myflow-do <name>
+```
+
+**Why the `Jira` line is run-only.** It reports the transition *this run made*, and nothing on disk
+records one: the state file carries the bare `jiraIssue` key and no transition history at all. Nor
+can the value be re-derived by asking the tracker — `/myflow-status` is forbidden from calling Jira,
+its own guardrail being that the report is read-only and never transitions or queries an issue — and
+even a permitted read would not recover it, because a current status cannot separate `→ In Progress`
+from *already In Progress (no transition)* without the status as it stood before the run, which
+nothing records. Two of the line's three alternatives are therefore unreproducible, and the third,
+*none linked*, is not worth a line that would be wrong for every other change. The key itself is not
+lost with it: `/myflow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
+of its detail view, so what the omission drops is the transition, which is the run-only part.
+
+**`IN_PROGRESS`, after `/myflow-do`** — printed by `/myflow-do`, regenerated by `/myflow-status <name>`
+
+```text
+## Implementation staged — review and test
+
+**Change:** <name>
+**Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired">
+**Progress:** <completed>/<total> tasks
+**Git:** <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
+**Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
+
+Worktree:   <absolute worktree path>
+Test guide: <absolute path to the guide, or "missing">
+
+Review the diff, then run the apps against the guide:
+  <the review command that matches the Git line — see below>
+  open -na "IntelliJ IDEA" --args "<absolute worktree path>"
+
+<what the operator does next>
+
+Next:
+/myflow-finish <name>
+```
+
+**The `Git` line has a third option, and the review command follows it.** `/myflow-do` itself only
+ever emits the first two — it stages, or it commits and pushes to a PR branch. The third is reached
+only when `/myflow-status` regenerates this rendering for a change whose run 1 took the *merge and
+push* or *handle it manually* route: the work is committed and pushed with no `prUrl` to prove it.
+Leaving the field at two options meant that block stated something untrue about every such change,
+and the pair below is what the command prints instead:
+
+| `Git` line | Review command |
+|------------|----------------|
+| staged and uncommitted | `git -C <absolute worktree path> diff --cached` |
+| committed and pushed to the PR branch | `git -C <absolute worktree path> diff <merge base>..HEAD` |
+| committed and pushed with no PR | `git -C <absolute worktree path> diff <merge base>..HEAD` |
+
+**A committed branch has an empty staged diff, so `--cached` is not a sparse answer there — it is a
+wrong one.** It exits 0 printing nothing, which reads to an operator as "there is nothing to
+review". The merge base is the value already recorded against that worktree's key in the state
+file's `worktrees` map, so no new field is needed and nothing has to be inferred; a worktree with no
+recorded merge base falls back to the staged-diff line and says the range could not be resolved.
+
+**`IN_PROGRESS`, after `/myflow-finish` run 1** — printed by run 1, regenerated by `/myflow-status <name>`
+
+```text
+## Branch integrated — <waiting on the merge, or merged and waiting on run 2>
+
+**Change:** <name>
+**Route:** (run-only) <pull request, merged and pushed, or manual>
+**PR:** <prUrl, or why there is none on the route taken>
+**Outstanding:** (run-only) <what the unfinished-work gate reported and the operator integrated over, or "none">
+
+<what the operator must do before the next run>
+
+Next:
+/myflow-finish <name>
+```
+
+**`IN_PROGRESS` has two renderings, and one template could not have served both.** Run 1 ends at
+`IN_PROGRESS` but hands off a branch waiting on a merge rather than a diff waiting on review: a
+worktree path, a test-guide path and a staged-diff command are all wrong for it, and it prints none
+of them. Forcing both into one template would leave the rule at the top of this section
+unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
+
+**Why `Route` and `Outstanding` are run-only.** The landing answer is never remembered between runs,
+per **Run 1 — the branch is not merged** (`pipeline.md`) below, so no field records which route was
+taken: a recorded `prUrl` implies the pull-request route, and nothing separates the other two. The
+outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
+is the planning commit's message, which is where a later reader looks, and the state file does not
+carry it.
+
+**Why `Panel` is run-only.** It names the roster *that run selected* — which optional slots fired
+and which did not — and no field carries it. The only on-disk trace is the panel record
+`/myflow-do` writes under `.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
+removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
+there and sometimes not is not a source `/myflow-status` can regenerate from, and reporting it
+*missing* on every change whose worktree is gone would name a fault where there is none. The
+durable copy is the preserved record under `docs/superpowers/reviews/`, which run 1 writes into the
+repository — an operator who needs the roster after the fact reads that, not a regenerated block.
+
+**Which rendering `/myflow-status` regenerates.** **Merge status decides it whenever the merge
+status is known**, and the command already has that answer: it runs the merge-status test in its own
+step 2 to fill the next-command column. A branch proven to have reached the base branch **is**
+integrated, so the run-1 rendering is the correct one for it, whatever `prUrl` says. `prUrl` is the
+tiebreaker only where the stronger signal is genuinely absent:
+
+| Merge status | `prUrl` | Rendering |
+|--------------|---------|-----------|
+| **no commits of its own** — `HEAD` is still the recorded merge base | either | `/myflow-do` |
+| merged (proven) | either | run 1 — and its heading reads *merged and waiting on run 2* |
+| not merged (proven) | either | run 1 — *waiting on the merge* |
+| inconclusive | recorded | run 1 — *waiting on the merge* |
+| inconclusive | none | `/myflow-do` |
+
+**The first row is a pre-check, not a special case, and it must be answered before the ancestor
+test.** `git merge-base --is-ancestor HEAD <base>` returns **true** for a branch carrying no commits
+of its own — every commit it has, the base branch already had — and that is the *ordinary*
+`IN_PROGRESS` shape, because `/myflow-do` stages without committing. Without the pre-check every
+change that has never been through `/myflow-finish` reads as merged and is shown *merged and waiting
+on run 2*. The test is `HEAD` against the merge base **already recorded for that worktree** in the
+state file's `worktrees` map: equal means the branch has no commits of its own and is therefore not
+merged, whatever the ancestor test then says. `scripts/check-finish-preflight.sh` documents this
+trap and guards it in exactly that order — its comment (b), on why the recorded-merge-base check
+must run before the ancestor test — and the reasoning is not re-derived here.
+
+**A proven *not merged* is that same pre-check read forward, which is why `prUrl` does not split
+it.** Reaching that row means the pre-check resolved the recorded merge base and found `HEAD` past
+it — the branch carries commits of its own — and `/myflow-do` puts a commit on a branch only when a
+`prUrl` is already recorded. So every route this pipeline has that leaves a commit there has been
+through run 1: *handle it manually* commits, pushes and leaves `prUrl` `null`; *merge and push*
+lands on the merged row above; and a `/myflow-do` fix commits only while a pull request is already
+open. Splitting the row on `prUrl` was what rendered a manually landed branch as *Implementation
+staged — review and test* — for work that is committed, pushed and already past the human gate —
+with the `Git` line's third variant telling the truth one line under a heading that did not. What
+the row cannot tell apart is a commit made by hand outside the pipeline, which now renders as
+integrated; both renderings end in `/myflow-finish <name>`, so that costs the fields shown and never
+the command named.
+
+**The pre-check paragraph above and the recorded-merge-base one below are the only statement of that
+ordering for a renderer.**
+`/myflow-status` performs the check and cites this section for why; it deliberately carries no copy
+of the argument, because two copies of one piece of reasoning are two things to keep in step and the
+next editor would have no way to tell which was authoritative. Change it here and the consumer
+follows.
+
+**The recorded merge base has three conditions, not two, and two of them are `inconclusive`.**
+Recorded and resolving is the ordinary case, and the pre-check above answers it. **Absent** is the
+plain unknown: the pre-check cannot be performed, so the ancestor test alone cannot be trusted.
+**Recorded but unresolvable** — `git rev-parse --verify` cannot turn the stored sha into a commit,
+because history was rewritten, the clone is shallow, or the object was pruned — is the same unknown
+wearing a value,
+and it is the one that gets missed: compared as a *string* it is merely "not equal to `HEAD`", which
+reads as "the branch has commits of its own" and falls straight through to the bare ancestor test,
+reporting *merged* for a branch that has never been through `/myflow-finish`. Both unknowns put the
+change on the two `inconclusive` rows, where `prUrl` is the tiebreaker. That is the same
+refusal-to-infer `check-finish-preflight.sh` makes twice over — when it is handed `-` for the
+recorded merge base, and when `rev-parse --verify` on a recorded one fails — and the pre-check is
+therefore *resolve, then compare*, never compare alone.
+
+**Using the weaker signal where the stronger one is in hand is what made one invocation contradict
+itself.** A change stopped at a run-2 cleanup leftover is merged and stays at `IN_PROGRESS`, so the
+table reported *branch merged → it will archive* from the ancestor test while the block, keyed on
+`prUrl` alone, printed *waiting on the merge* — two answers from one command, one of them false.
+The two splits still do not compete: the table splits on merge status to say which `/myflow-finish`
+run comes next, this splits on it to say which wait the operator is in, and both end in
+`/myflow-finish <name>`.
+
+**The `prUrl` test is one-way, and the gap is named rather than papered over — it now applies only
+to the inconclusive rows above.** `prUrl` is `null` until a pull request is opened, and only the
+pull-request route ever writes it — see
+**State file** (`skills/myflow-contracts/state-file.md`). *Merge and push* and *handle it manually*
+both complete run 1 and leave it `null`, and self-heal may clear one that was real. So a non-null
+`prUrl` proves run 1 happened; a `null` one proves nothing, and where merge status cannot be
+determined — no remote, no network, an unresolvable base ref — the report shows the `/myflow-do`
+rendering for a branch that may already be integrated.
+
+**What a wrong choice costs is bounded, which is why the imperfect test is accepted rather than
+replaced.** Both renderings end in the same last line, `/myflow-finish <name>`, so the test can
+never send the operator to the wrong command — only show them the wrong fields. And what it shows is
+regenerated from the state as it now stands, so a worktree still present is still named and a
+removed one reads *missing*.
+
+**No field is added to close it.** **Finish contract** (`pipeline.md`) below already refuses one:
+the branch's merge status is the only source of truth for whether the branch has been integrated,
+and a field could disagree with it. That is the same reason merge status governs the table above —
+the rule was already stated here, and the defect was reading `prUrl` in front of it rather than
+behind it. The preflight verdict cannot stand in either — a pushed but unmerged branch returns
+`RUN1` both before run 1 and after it, so it does not answer this question.
+
+**`FINISHED`** has **no regenerated block**: the state is terminal and finished changes are omitted
+from the report, so there is nothing left waiting on the operator to hand off. `/myflow-finish`
+run 2 does print a terminal block — what it synced, archived, removed and verified — and every field
+of it is run-only, because it reports what that run did rather than what the change now is. One
+renderer means nothing to keep in step, which is why that block takes no template here. A run 2 that
+**stops** on a cleanup leftover is not this case: it leaves the change at `IN_PROGRESS` and prints
+its own interrupted-run report, every field of which is likewise run-only — what that run synced,
+archived and left behind, which the state file does not record. `/myflow-status` regenerates one of
+the two `IN_PROGRESS` renderings above for such a change, by the test just given.
+
+Which path each `open` line names, and why `open -na` rather than the `idea` shim, are
+**IntelliJ commands** (`pipeline.md`) below.
+
+### The tab commands, printed at the start of a run
+
+`/myflow-start`, `/myflow-do` and `/myflow-finish` each print, immediately after their announcement
+line and before any work, two commands for the operator to paste:
+
+```text
+/rename <change-name>
+/color cyan
+```
+
+They sit at the **start** of the run rather than in the block above because labelling a tab is
+useful before a long run rather than after it; the rules above govern what a command prints when it
+*ends*, and these lines are not part of a handoff. The colour is one fixed value for every command
+and every change — `cyan`, chosen over `red`, `yellow` and `orange` because those already read as
+error and warning states in this pipeline's output — and it signifies only that a pipeline command
+owns the tab. `/myflow-status` and `/myflow-info` print neither line: a read-only report does not
+own the tab.
+
+**They are printed rather than invoked because neither is reachable from inside a run.** Both
+commands are real, and both routes to calling them are closed. That was established by measurement,
+and it is recorded here so the next reader neither repeats the investigation nor treats the printing
+as an oversight to correct:
+
+- the harness's `SlashCommand` tool exposes only commands of `type: "prompt"`, while `/rename` and
+  `/color` are `type: "local"` or `"local-jsx"` — so the tool route is closed; and
+- no writable `/dev/tty` is available to a command — so writing the terminal escape sequence
+  directly is closed too.
+
+**Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
+against them** — for the reason **Progress visibility** (`pipeline.md`) above gives, which answers
+the identical question for the task list and is not restated here. What every harness can do is
+**print two lines of text**, which is why printing is the rule and the measurement above is only the
+reason invoking is not. So:
+
+- **Where a harness offers a reachable way to set the tab's name and colour from inside a run**, the
+  command may use it, and then prints nothing — the lines exist to be pasted, and there is nothing
+  to paste once the thing is done.
+- **Where it does not** — Claude Code today, for the two reasons measured above, and any harness
+  with no tab concept at all — the command prints the two lines. In a harness with no such commands
+  they are inert text the operator ignores, which costs two lines and leaves nothing broken.
+
+The rule is satisfied by whichever mechanism the harness provides, and no harness has to gain a tab
+API to satisfy it. What is **not** optional is that the naming happens at the start of the run: a
+command that silently skips it because its harness offers no tool has dropped the requirement, not
+adapted it.
 
 ## IntelliJ commands
 
@@ -289,7 +812,7 @@ On `OUTSTANDING` the operator is offered **exactly three** courses:
 |--------|----------------------|
 | **Stop — I'll finish it first** *(recommended)* | stop, leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed |
 | **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff |
-| **File a Jira task, then continue** | file an issue carrying the outstanding items, then proceed |
+| **File or join a Jira follow-up, then continue** | put the outstanding items on a follow-up issue — joining an open one where the operator confirms a candidate, otherwise filing a new one — then proceed |
 
 **Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**
 The gate only fires because something really is unfinished, and finishing it is the cheapest of the
@@ -310,6 +833,14 @@ at all. None of them changes the operator's answer, which was *continue*: the ou
 reaches the planning commit's message and the handoff, which is where this change requires the
 durable record to be. A failed filing is never silently upgraded to **Stop**, and never passes
 unmentioned.
+
+**Three more outcomes of that course behave the same way**, and all three belong to
+**Follow-up issues** (`skills/myflow-contracts/jira-integration.md`) rather than here: the search
+that finds a candidate asks the operator to confirm the join before writing to it, a declined
+confirmation files a new follow-up instead, and a search that *fails* files nothing and says so. Each
+is one line and none of them stops the run or changes the answer already given. That file is
+canonical for all of it — including the ordering of a join's three writes and what a partial one
+reports — and none of it is restated here.
 
 **The gate precedes the question, and that ordering is the point.** An operator asked how to land a
 branch, and only then told it carries unfinished work, has already answered a question about a
@@ -678,10 +1209,28 @@ Jira-related step.
 
 ## Model policy
 
+**This section is canonical for the model roles, their defaults and how an override applies.** One
+location, named here rather than left to be worked out: every `/myflow-*` command is required to
+load this file before acting, and none of them loads `openspec/specs/`, so the file runtime actually
+reads is the file the rule has to live in. **State file** (`skills/myflow-contracts/state-file.md`)
+cites this section for the `models` field rather than defining the roles a second time, and
+`CLAUDE.md` and `AGENTS.md` name this section for the same reason.
+
+**Which file to change first.** The normative requirements behind this section belong to the
+OpenSpec capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`openspec/specs/myflow-model-policy/spec.md`) anchors the defaults below. That capability is the requirement; this section is the **operational form the commands read**, and the two-layer split is the same one **Planning effort** (`skills/myflow-contracts/state-file.md`) already uses. Change the capability first and bring this section with it: a section that contradicts the requirement is this file's defect, not the spec's. A live spec is also behind by construction while a change is open — its delta lands in `openspec/specs/` only at finish run 2 — which is the second reason runtime reads this section rather than that file.
+
+That citation is a **checked** one, not a courtesy: the guard associates a bold token with the path
+beside it and matches it against the target's headings, and an OpenSpec `### Requirement: …` heading
+is a heading like any other, so naming the requirement in full is what makes
+`scripts/check-references.sh` fire when it moves. A bare backticked path with no bold token beside
+it is **not** checked and rots silently — which is what this bullet's predecessor did.
+
 `/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
 and design benefit most from stronger reasoning. Every other `/myflow-*` command should run on
-**Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on Sonnet**
-regardless of the parent model.
+**Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on the
+panel's model — Sonnet by default** — regardless of the parent model. Sonnet is the default rather
+than an absolute because a change may record its own panel model, per the three roles below; what
+never varies is that the panel's model is *chosen*, not inherited from the parent session.
 
 **Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
 available model). This **explicitly overrides** superpowers:subagent-driven-development's model
@@ -697,8 +1246,8 @@ implementer's job is to get the diff right the first time, where capability comp
 
 **Two further instructions in that same upstream skill are also overridden, and are named here
 rather than left to be discovered.** subagent-driven-development says to dispatch the *final
-review* on the most capable model: myflow does not — it fixes every panel slot at Sonnet, for the
-reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
+review* on the most capable model: myflow does not — it fixes every panel slot at the panel's
+model, Sonnet by default, for the reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
 and extra-principle-lens slots), which buys more independent readings rather than one stronger one.
 It also says to *escalate the model in fix rounds 4-5*: myflow cannot, because its implementers
 already sit at the ceiling from round 1. Fix rounds escalate the same way — more lenses, not a
@@ -709,6 +1258,38 @@ available.
 panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
 work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
 from a mistake.
+
+**Three model roles are chosen once per change and recorded in its state file.** The run that
+**creates** a change — `/myflow-start` finding no state file, exactly as the planning-effort
+question determines it — asks three separate questions, one per role, each naming its default and
+marking it as the recommendation. A revision round states the recorded values and does not ask
+again, and every other command carries them forward verbatim, as it does the linked Jira issue.
+
+| Role | Key under `models` | Default |
+|------|--------------------|---------|
+| The implementer subagents `/myflow-do` dispatches | `implementation` | Opus, or the harness's strongest available model |
+| Every review-panel slot that takes a model override | `reviewPanel` | Sonnet |
+| The subagents that repair panel findings | `panelFix` | Opus, or the harness's strongest available model |
+
+The field shape, and the rule that an absent key reads as *not recorded*, belong to
+**State file** (`skills/myflow-contracts/state-file.md`) and are not restated here.
+
+**The panel-fix default is the strongest available model, and deliberately not Sonnet.** The role
+names the agent that *applies* a fix, which is an implementer — so the implementer rule above
+already governs it. Fix rounds escalate the panel's breadth rather than its model precisely because
+implementers sit at the ceiling from round 1, and a fix-wave default of Sonnet would contradict both
+of those rules at once.
+
+**A recorded choice is the operator override this section already permits, made durable.** It
+applies to every run of the change without being restated, which is the point of recording it. A
+session instruction is the narrower and later of the two: it governs the run in which it is given
+and is recorded with its dispatch exactly as above.
+
+**These fields record intent; the ledger records what happened.** A recorded value does **not**
+replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch
+actually ran on. Slots dispatched by `subagent_type` take no override from this mechanism either —
+no recorded panel model is passed to them, none is written for them in the ledger, and their entries
+still read `unknown (agent-defined)`.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 A model policy that nothing records is a policy nothing can verify — and the absence of that record
