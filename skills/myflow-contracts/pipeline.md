@@ -95,6 +95,21 @@ until that approval lands. The approved design is saved under `docs/superpowers/
 source for the change's OpenSpec design artifact — adapted, never duplicated into a conflicting
 second design.
 
+**The stage iterates rather than passing once.** After every planning-stage exchange — a round of
+clarifying questions, the approval of a design section, the operator's review of the written spec —
+one convergence test asks whether the command now holds a question its inputs do not answer, and
+while it does, another round opens or is offered. The stage itself ends only on an explicit
+operator answer — at the confirm, or by declining the offer, recording what is still open rather
+than assuming it away — never on the command's own judgment, with one bounded exception: a session
+that cannot ask at all records the confirm itself as an open question and ends the stage, since no
+operator answer could ever arrive through it. An operator who is present but silent is not that
+exception and still gets another round. One test after every exchange rather than a rule per gate is
+the load-bearing part: a gate added later inherits the loop instead of escaping it by not being
+enumerated.
+
+The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
+both honest are **Convergence** (`skills/myflow-start/SKILL.md`), and are not restated here.
+
 The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
 gate itself. The three levels and which of them is the default are owned by
 **Planning effort** (`skills/myflow-contracts/state-file.md`) and are not restated here.
@@ -279,7 +294,7 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 
 | Command | Condition | Allowed git actions |
 |---------|-----------|---------------------|
-| `/myflow-start` | — | None — planning artifacts only |
+| `/myflow-start` | — | **None — stages planning artifacts and never commits** |
 | `/myflow-do` | from `STARTED` | Create branch/worktree + **`git add` excluding the planning paths** — no commits, push, merge, or PR |
 | `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **`git add` excluding the planning paths** — no commits |
 | `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
@@ -397,12 +412,13 @@ Next:
   instructions. Never a relative path, never `../<other-app>`, and never a main-checkout path while
   an apply worktree holds the work. Resolve app roots from `git worktree list` or the state file's
   `worktrees` keys.
-- **`openspec/`, `docs/manual-test/` and `docs/superpowers/` are never staged before finish.** The
-  plan was read at `STARTED`; presenting it again as code to review hides the implementation diff it
-  is mixed into. Leaving them unstaged, rather than filtering them out of one display command, is
-  what makes them absent from *every* view of the staging area — a filtered display leaves them in
-  the index, where `git status`, a graphical client and the IDE's staged-changes pane show them
-  again. The list is fixed here rather than configured per project; the pipeline chooses these paths
+- **`/myflow-do` never stages `openspec/`, `docs/manual-test/` or `docs/superpowers/` before
+  finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
+  implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
+  display command, is what makes them absent from *every* view of the staging area — a filtered
+  display leaves them in the index, where `git status`, a graphical client and the IDE's
+  staged-changes pane show them again. The list is fixed here rather than configured per project; the
+  pipeline chooses these paths
   itself, so no project can differ. `/myflow-finish` run 1 stages them and commits them separately
   from the implementation, so nothing is lost:
 
@@ -470,6 +486,7 @@ read-only in both forms.
 **Change:** <name>
 **Artifact:** <artifactUrl, or "missing">
 **Decisions recorded:** <count, or "none">
+**Open questions:** <count, or "none">
 **Jira:** (run-only) <issue key and the transition made, or "none linked", or a skipped-with-reason line>
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 **Planning effort:** <the level in force, or "not recorded — planned at default">
@@ -494,6 +511,18 @@ nothing records. Two of the line's three alternatives are therefore unreproducib
 *none linked*, is not worth a line that would be wrong for every other change. The key itself is not
 lost with it: `/myflow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
 of its detail view, so what the omission drops is the transition, which is the run-only part.
+
+**Why the open-questions line is not run-only, and carries no marker.** It is derived from an
+artifact on disk — the entries under `## Open questions` in the change's design whose status is
+still `open` — exactly as the decisions count above it is, so `/myflow-status <name>` regenerates it
+rather than omitting it. The two lines sit next to the `Jira` line and are the opposite case to it:
+what makes that one run-only is that nothing on disk holds it, and that test is about where the
+value lives, not about how close it sits to a line that failed it. A count that has changed since
+`/myflow-start` printed it — a revision round answered a question and moved the entry to
+`answered by <decision-id>` — is this field working: the line reports what is open now, not what was
+open then. It reads `none` when nothing is open, by the missing-rather-than-dropped rule above. The
+entry shape, the immutable ID and the never-delete rule the count reads through are stated once
+under **Open questions** (`skills/myflow-start/SKILL.md`) and are not repeated here.
 
 **`IN_PROGRESS`, after `/myflow-do`** — printed by `/myflow-do`, regenerated by `/myflow-status <name>`
 
