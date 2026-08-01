@@ -1,0 +1,858 @@
+<title>KAN-36 — more brainstorming rounds if needed</title>
+
+<style>
+  :root {
+    --ground:      #F6F8F9;
+    --panel:       #FFFFFF;
+    --panel-sunk:  #EFF3F5;
+    --ink:         #141E27;
+    --ink-soft:    #46586A;
+    --ink-faint:   #6E8092;
+    --rule:        #D9E1E6;
+    --rule-soft:   #E8EDF0;
+    --settled:     #0E6C70;
+    --settled-bg:  #E4F0F0;
+    --open:        #A45908;
+    --open-bg:     #F8EEE1;
+    --shadow:      0 1px 2px rgba(20, 30, 39, .05), 0 8px 24px -16px rgba(20, 30, 39, .18);
+
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+
+    --measure: 68ch;
+    --step--1: 0.812rem;
+    --step-0:  1.0rem;
+    --step-1:  1.18rem;
+    --step-2:  1.45rem;
+    --step-3:  1.95rem;
+    --step-4:  2.6rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:     #0E141A;
+      --panel:      #161F27;
+      --panel-sunk: #121A21;
+      --ink:        #E2E8ED;
+      --ink-soft:   #A2B2BF;
+      --ink-faint:  #7A8B99;
+      --rule:       #27333D;
+      --rule-soft:  #1E2830;
+      --settled:    #4FB6B4;
+      --settled-bg: #11302F;
+      --open:       #D89347;
+      --open-bg:    #33240F;
+      --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:     #0E141A;
+    --panel:      #161F27;
+    --panel-sunk: #121A21;
+    --ink:        #E2E8ED;
+    --ink-soft:   #A2B2BF;
+    --ink-faint:  #7A8B99;
+    --rule:       #27333D;
+    --rule-soft:  #1E2830;
+    --settled:    #4FB6B4;
+    --settled-bg: #11302F;
+    --open:       #D89347;
+    --open-bg:    #33240F;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+
+  :root[data-theme="light"] {
+    --ground:     #F6F8F9;
+    --panel:      #FFFFFF;
+    --panel-sunk: #EFF3F5;
+    --ink:        #141E27;
+    --ink-soft:   #46586A;
+    --ink-faint:  #6E8092;
+    --rule:       #D9E1E6;
+    --rule-soft:  #E8EDF0;
+    --settled:    #0E6C70;
+    --settled-bg: #E4F0F0;
+    --open:       #A45908;
+    --open-bg:    #F8EEE1;
+    --shadow:     0 1px 2px rgba(20, 30, 39, .05), 0 8px 24px -16px rgba(20, 30, 39, .18);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: var(--step-0);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 4rem) clamp(1.1rem, 4vw, 3rem) 6rem;
+  }
+
+  /* ---- masthead ---- */
+
+  .mast { border-bottom: 2px solid var(--ink); padding-bottom: 1.6rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem 1.4rem;
+    margin-bottom: 1.1rem;
+  }
+  .eyebrow b { color: var(--settled); font-weight: 600; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(var(--step-3), 5.5vw, var(--step-4));
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin-bottom: .7rem;
+  }
+
+  .standfirst {
+    font-size: var(--step-1);
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    text-wrap: pretty;
+  }
+
+  /* ---- metadata strip ---- */
+
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 2rem 0 3.5rem;
+  }
+  .meta div { background: var(--panel); padding: .8rem .95rem; }
+  .meta dt {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: .3rem;
+  }
+  .meta dd { font-family: var(--mono); font-size: var(--step--1); color: var(--ink); }
+  .meta dd.on { color: var(--settled); font-weight: 600; }
+
+  /* ---- section scaffolding: the left rail carries the slice letter ---- */
+
+  section { margin-top: 3.5rem; }
+
+  .sec-head {
+    display: grid;
+    grid-template-columns: 3.2rem 1fr;
+    gap: 0 1.2rem;
+    align-items: baseline;
+    border-top: 1px solid var(--rule);
+    padding-top: 1rem;
+    margin-bottom: 1.4rem;
+  }
+  .sec-head .rail {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  h2 {
+    font-size: var(--step-2);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .sec-head p {
+    grid-column: 2;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin-top: .45rem;
+    font-size: var(--step--1);
+  }
+
+  .body { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 0 1.2rem; }
+  .body > * { grid-column: 2; }
+  .body > .full { grid-column: 1 / -1; }
+
+  .prose { max-width: var(--measure); display: flex; flex-direction: column; gap: 1rem; }
+  .prose strong { font-weight: 600; }
+
+  h3 {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 1.4rem;
+  }
+
+  /* ---- slices ---- */
+
+  .slices { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .slice {
+    background: var(--panel);
+    padding: 1.15rem 1.3rem;
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr) minmax(0, 15rem);
+    gap: .4rem 1.1rem;
+    align-items: start;
+  }
+  .slice .letter {
+    font-family: var(--mono);
+    font-size: var(--step-1);
+    font-weight: 600;
+    color: var(--settled);
+    line-height: 1.35;
+  }
+  .slice h4 { font-size: var(--step-0); font-weight: 600; line-height: 1.4; }
+  .slice p { grid-column: 2; color: var(--ink-soft); font-size: var(--step--1); max-width: 54ch; }
+  .slice .cap {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-faint);
+    line-height: 1.7;
+    word-break: break-word;
+  }
+  @media (max-width: 46rem) {
+    .slice { grid-template-columns: 2.2rem minmax(0, 1fr); }
+    .slice .cap { grid-column: 2; grid-row: auto; }
+  }
+
+  /* ---- decisions ---- */
+
+  .decisions { display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .dec { background: var(--panel); padding: 1.15rem 1.3rem; }
+  .dec > h4 { font-size: var(--step-1); font-weight: 600; line-height: 1.35; text-wrap: balance; margin-bottom: .6rem; }
+  .dec-id {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .04em;
+    color: var(--ink-faint);
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .75rem;
+  }
+  .pill {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .15rem .45rem;
+    border-radius: 2px;
+    background: var(--settled-bg);
+    color: var(--settled);
+    font-weight: 600;
+  }
+  .dec dl { display: grid; grid-template-columns: 5.6rem minmax(0, 1fr); gap: .5rem 1rem; max-width: 64ch; }
+  .dec dt {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-top: .25rem;
+  }
+  .dec dd { font-size: var(--step--1); color: var(--ink-soft); }
+  .dec dd.chosen { color: var(--ink); }
+  @media (max-width: 40rem) {
+    .dec dl { grid-template-columns: 1fr; gap: .15rem; }
+    .dec dd { margin-bottom: .5rem; }
+  }
+
+  /* ---- the open-questions empty state: the point is that it is empty ---- */
+
+  .empty {
+    border: 1px dashed var(--open);
+    background: var(--open-bg);
+    padding: 1.4rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    max-width: var(--measure);
+  }
+  .empty .tag {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--open);
+    font-weight: 600;
+  }
+  .empty p { font-size: var(--step--1); color: var(--ink-soft); }
+  .empty .count { font-family: var(--mono); font-size: var(--step-2); color: var(--open); font-weight: 600; }
+
+  /* ---- tables ---- */
+
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+  th, td { text-align: left; padding: .62rem .85rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule);
+  }
+  td.mono, td code { font-family: var(--mono); font-size: .78rem; }
+  tr:last-child td { border-bottom: 0; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .84em;
+    background: var(--panel-sunk);
+    padding: .1em .32em;
+    border-radius: 2px;
+  }
+
+  /* ---- the plan ---- */
+
+  .plan { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .plan-slice { background: var(--panel); padding: 1.05rem 1.3rem; }
+  .plan-slice > h4 {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--settled);
+    margin-bottom: .7rem;
+    font-weight: 600;
+  }
+  .plan ol { list-style: none; display: flex; flex-direction: column; gap: .55rem; }
+  .plan li { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); gap: .9rem; align-items: baseline; }
+  .plan .id { font-family: var(--mono); font-size: .74rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .plan .what { font-size: var(--step--1); color: var(--ink-soft); max-width: 62ch; }
+
+  /* ---- prompts ---- */
+
+  .prompts { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
+  .prompt { border: 1px solid var(--rule); background: var(--panel); padding: 1.05rem 1.2rem; }
+  .prompt h4 { font-size: var(--step-0); font-weight: 600; margin-bottom: .3rem; }
+  .prompt .when { font-family: var(--mono); font-size: .7rem; color: var(--ink-faint); margin-bottom: .8rem; letter-spacing: .03em; }
+  .prompt .rec {
+    font-family: var(--mono);
+    font-size: .74rem;
+    padding: .35rem .55rem;
+    background: var(--panel-sunk);
+    border-left: 2px solid var(--settled);
+    margin-bottom: .7rem;
+  }
+  .prompt p { font-size: var(--step--1); color: var(--ink-soft); }
+
+  ul.marks { display: flex; flex-direction: column; gap: .55rem; max-width: var(--measure); list-style: none; }
+  ul.marks li { display: grid; grid-template-columns: .9rem minmax(0, 1fr); gap: .7rem; font-size: var(--step--1); color: var(--ink-soft); }
+  ul.marks li::before { content: "—"; color: var(--ink-faint); font-family: var(--mono); }
+
+  footer {
+    margin-top: 4rem;
+    border-top: 1px solid var(--rule);
+    padding-top: 1.1rem;
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem 1.5rem;
+  }
+
+  a { color: var(--settled); }
+  :focus-visible { outline: 2px solid var(--settled); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div class="eyebrow">
+      <span>KAN-36</span>
+      <span>state <b>STARTED</b></span>
+      <span>proposal</span>
+      <span>2026-08-01</span>
+    </div>
+    <h1>More brainstorming rounds, if needed</h1>
+    <p class="standfirst">
+      Brainstorming can already refuse to assume. What it cannot do is go back and ask again — so a
+      question raised <em>by</em> an answer has nowhere to land. This change gives the stage a loop,
+      a way to stop, and a record of what was left open.
+    </p>
+  </header>
+
+  <dl class="meta">
+    <div><dt>Change</dt><dd>kan-36-more-brainstorming-rounds-if-needed</dd></div>
+    <div><dt>Planning effort</dt><dd class="on">default</dd></div>
+    <div><dt>Implementer</dt><dd>Opus</dd></div>
+    <div><dt>Review panel</dt><dd>Sonnet</dd></div>
+    <div><dt>Panel fixes</dt><dd>Sonnet</dd></div>
+    <div><dt>Decisions</dt><dd class="on">10</dd></div>
+    <div><dt>Open questions</dt><dd>none</dd></div>
+    <div><dt>Capabilities</dt><dd>4 amended</dd></div>
+  </dl>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Why</span>
+      <h2>The gap is not that questions get assumed away. It is that there is nowhere to ask them.</h2>
+    </div>
+    <div class="body">
+      <div class="prose">
+        <p>
+          <code>skills/myflow-start/SKILL.md</code> invokes superpowers:brainstorming "in full:
+          checklist items 1–8", and that upstream skill's flow is linear — explore, ask, propose,
+          present, approve. Its only loop is <strong>design revision</strong>, which routes a
+          <em>correction</em> back to the design. Nothing routes a <em>question</em> back to the
+          questions.
+        </p>
+        <p>
+          <code>myflow-planning-gate</code> already requires that an unresolved question be put to the
+          operator rather than assumed. That covers a question the command <strong>notices</strong>.
+          It says nothing about a question a previous answer <strong>created</strong>, because the
+          stage has no way to reach a second round.
+        </p>
+        <p>
+          Two further asks arrived during this change's own planning run, both raised at gates this
+          change is about — which is itself the argument for the loop.
+        </p>
+        <ul class="marks">
+          <li>
+            <span><code>TO DO URGENT</code> should be read as <code>To Do</code>. KAN-36 sat at that
+            status, the unrecognised-status carve-out fired, and the answer was that the status simply
+            means To Do.</span>
+          </li>
+          <li>
+            <span><code>/myflow-start</code>'s git boundary contradicts itself three ways. Seven
+            archived changes committed a design doc from it, so the normative requirement forbidding
+            that has been violated by every change this pipeline has planned.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">What</span>
+      <h2>Four slices, three subjects</h2>
+      <p>A and B are the issue's ask, split because the loop and the record are separable — the loop
+      produces more rounds, the record is what makes stopping early honest.</p>
+    </div>
+    <div class="body">
+      <div class="full slices">
+
+        <article class="slice">
+          <span class="letter">A</span>
+          <h4>One convergence test, applied after every exchange</h4>
+          <p>
+            After a question round, a design-section approval, or the spec review, the command asks
+            itself one thing: <em>does it now hold a question its inputs do not answer?</em> While the
+            answer is yes, another round opens. One test rather than a rule per gate means a gate
+            added later inherits the loop instead of escaping it by not being enumerated.
+          </p>
+          <span class="cap">myflow-planning-gate<br>ADDED</span>
+        </article>
+
+        <article class="slice">
+          <span class="letter">B</span>
+          <h4>What survives the last round is recorded and counted</h4>
+          <p>
+            <code>design.md</code> gains <code>## Open questions</code>, beside <code>## Decisions</code>
+            and shaped like it, with an immutable ID. The <code>STARTED</code> handoff gains a count
+            derived from that section — regenerable rather than run-only, so
+            <code>/myflow-status</code> renders it too.
+          </p>
+          <span class="cap">myflow-planning-gate<br>myflow-handoff-output<br>MODIFIED</span>
+        </article>
+
+        <article class="slice">
+          <span class="letter">C</span>
+          <h4><code>TO DO URGENT</code> is a <code>To Do</code> synonym</h4>
+          <p>
+            The four ordered names become four <strong>positions</strong> carrying names. The
+            unrecognised-status ask survives, narrowed to a status matching no mapped name. This
+            enumerates a <em>name</em> — the mechanism the follow-up join search already uses — so
+            kan-26's rejection of <code>statusCategory</code> inference stands untouched.
+          </p>
+          <span class="cap">myflow-jira-projection<br>MODIFIED</span>
+        </article>
+
+        <article class="slice">
+          <span class="letter">D</span>
+          <h4><code>/myflow-start</code> commits the planning artifacts it writes</h4>
+          <p>
+            A worktree is created from the base branch, so an uncommitted plan is absent from it — and
+            nothing copies it across. Committing is what makes the plan reach the implementers, so the
+            exception extends to exactly the two paths that must reach them and no further.
+          </p>
+          <span class="cap">myflow-command-surface<br>MODIFIED</span>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">A</span>
+      <h2>Two prompts bound the loop, and they recommend opposite things</h2>
+      <p>Each is reachable only under the fact that makes its own recommendation true. That is stated
+      in the spec so a later editor does not harmonise them.</p>
+    </div>
+    <div class="body">
+      <div class="full prompts">
+        <div class="prompt">
+          <h4>The confirm</h4>
+          <p class="when">fires when the test comes back empty</p>
+          <p class="rec">recommends → move on</p>
+          <p>
+            The command states what it believes settled and asks whether anything is still unclear.
+            Recommending <em>move on</em> is honest because the prompt is unreachable while the command
+            holds anything at all.
+          </p>
+        </div>
+        <div class="prompt">
+          <h4>The soft-bound offer</h4>
+          <p class="when">fires from the third round onward</p>
+          <p class="rec">recommends → another round</p>
+          <p>
+            In place of silently opening a round, it shows what is still open and what it would ask.
+            Recommending <em>another round</em> is honest for the mirror reason — the same shape as
+            finish run 1's unfinished-work gate, where <strong>Stop</strong> is recommended.
+          </p>
+        </div>
+      </div>
+      <div class="prose" style="margin-top:1.4rem">
+        <p>
+          The threshold is a <strong>tuned value</strong> living in
+          <code>skills/myflow-start/SKILL.md</code>; the requirement says only that later rounds are
+          offered rather than taken. There is <strong>no hard cap</strong> — no round count ends the
+          stage on the command's own authority. Every planning effort level runs the loop: a level
+          changes how many questions are grouped into a round, never whether another opens.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Specs</span>
+      <h2>Four capabilities, all existing</h2>
+      <p>No new capability and no new guard script. The To Do name set is stated once and cited,
+      which <code>scripts/check-references.sh</code> already checks.</p>
+    </div>
+    <div class="body">
+      <div class="full scroll">
+        <table>
+          <thead>
+            <tr><th>Capability</th><th>Delta</th><th>Requirements</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">myflow-planning-gate</td>
+              <td><span class="pill">added</span></td>
+              <td>Brainstorming iterates until no question is left holding · The stage ends by
+                confirmation, not the command's own judgment · Rounds are softly bounded · A question
+                left open is recorded in the change's design · A revision round re-enters the loop,
+                scoped · Every planning effort level runs the loop</td>
+            </tr>
+            <tr>
+              <td class="mono">myflow-jira-projection</td>
+              <td><span class="pill">modified</span></td>
+              <td>Transitions are forward-only, matched by name, and an unrecognised status is asked
+                about · An existing follow-up in To Do is joined rather than duplicated</td>
+            </tr>
+            <tr>
+              <td class="mono">myflow-handoff-output</td>
+              <td><span class="pill">modified</span></td>
+              <td>The handoff block is defined once and rendered by two commands</td>
+            </tr>
+            <tr>
+              <td class="mono">myflow-command-surface</td>
+              <td><span class="pill">modified</span></td>
+              <td>Git actions are bounded by state</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Surface</span>
+      <h2>What the implementation touches</h2>
+    </div>
+    <div class="body">
+      <div class="full scroll">
+        <table>
+          <thead><tr><th>File</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">skills/myflow-contracts/jira-integration.md</td><td>The To Do name set stated once; the transition order becomes positions; the join search cites the set</td></tr>
+            <tr><td class="mono">skills/myflow-contracts/pipeline.md</td><td>The <em>Brainstorm</em> level-2 expansion gains the loop's structure; the Git boundaries row states the bounded commit; the <code>STARTED</code> template gains the count</td></tr>
+            <tr><td class="mono">skills/myflow-start/SKILL.md</td><td>Section B's round mechanics and threshold; section A's revision scoping; <code>## Open questions</code> in C; artifact content in E; the handoff block and commit instruction in F; guardrails</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose" style="margin-top:1.3rem">
+        <h3>Deliberately untouched</h3>
+        <p>
+          <code>/myflow-do</code>, <code>/myflow-finish</code> and <code>/opsx:explore</code>. No new
+          guard script. Open questions do <strong>not</strong> block tasks in <code>tasks.md</code> —
+          coupling the planning record to implementation would stall a task on a question the operator
+          deliberately deferred. <code>skills/myflow-status/SKILL.md</code> needs no edit: it renders
+          the handoff block by citing the template rather than copying it, so the new field flows
+          through.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Decisions</span>
+      <h2>Ten decisions, each with what ruled the alternative out</h2>
+      <p>Sourced from the brainstorming dialogue. Every one was put to the operator as named options
+      with a marked recommendation.</p>
+    </div>
+    <div class="body">
+      <div class="full decisions">
+
+        <article class="dec">
+          <h4>How brainstorming knows a round is the last one</h4>
+          <p class="dec-id">convergence-test-plus-confirm <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">Both — the command loops while it holds unanswered questions, then confirms with the operator before moving on.</dd>
+            <dt>Considered</dt>
+            <dd><em>Agent-judged only</em> — rejected because "everything should be clarified" would rest on the command's own judgment, which is the failure the issue reports. <em>Operator-gated only</em> — rejected because it costs a prompt per round even when nothing is open.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>How far back the loop reaches</h4>
+          <p class="dec-id">every-gate-routes-back <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">Every planning gate routes back — one convergence test after every exchange.</dd>
+            <dt>Considered</dt>
+            <dd><em>Questions stage only</em> — rejected because a design section is where an unasked question most often surfaces, and routing it to a revision is what turns a question into an assumption.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>Whether the number of rounds is bounded</h4>
+          <p class="dec-id">soft-bound-from-third-round <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">A soft bound — early rounds open silently; from the third onward the round is offered as a named choice showing what is still open.</dd>
+            <dt>Considered</dt>
+            <dd><em>No bound</em> — rejected because a command that keeps generating questions has no visible trajectory. <em>Hard cap</em> — rejected because it ships a known gap on a schedule rather than on a judgment.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>Where a question that survives the last round goes</h4>
+          <p class="dec-id">open-questions-section-in-design <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">An <code>## Open questions</code> section in <code>design.md</code>, reaching the proposal artifact and the <code>STARTED</code> handoff count.</dd>
+            <dt>Considered</dt>
+            <dd><em>Also blocking its task in tasks.md</em> — rejected because it couples two stages and stalls implementation on a deliberately deferred question. <em>Nowhere</em> — rejected because it makes the record transcript-only.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>Whether a revision round re-enters the loop</h4>
+          <p class="dec-id">revision-round-scoped-loop <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">Yes, scoped to what the feedback reopened and whatever that opens in turn.</dd>
+            <dt>Considered</dt>
+            <dd><em>Yes, in full</em> — rejected because re-asking answered questions would make operators stop revising. <em>No</em> — rejected because a revision is exactly where a half-clarified plan surfaces.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>How <code>TO DO URGENT</code> is taught to the pipeline</h4>
+          <p class="dec-id">todo-urgent-enumerated-synonym <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">Enumerate it as a <code>To Do</code> synonym — an enumerated name at To Do's position, in the contract and the spec.</dd>
+            <dt>Considered</dt>
+            <dd><em>A configurable synonym map in <code>.myflow/project.md</code></em> — rejected as speculative generality: another untrusted-input path into a transition decision, and nothing today needs a second entry.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>Whether a guard holds the two status enumerations in sync</h4>
+          <p class="dec-id">synonym-set-cited-not-guarded <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">No guard — state the set once and have the join search cite it, which <code>check-references.sh</code> already checks.</dd>
+            <dt>Considered</dt>
+            <dd><em>A sync check</em> — rejected because a script, a harness and a registry entry is more machinery than a two-name list warrants, and a citation removes the divergence rather than detecting it.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>Where the rule is expressed across the layers</h4>
+          <p class="dec-id">extend-existing-capabilities <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">Extend the existing capabilities; structure in <code>pipeline.md</code>, tuned mechanics in <code>myflow-start/SKILL.md</code>, one synonym set in <code>jira-integration.md</code>.</dd>
+            <dt>Considered</dt>
+            <dd><em>A new capability</em> — rejected because planning-gate already owns "a question is asked, never assumed", and convergence is that requirement read forward. <em>Skill-level only</em> — rejected because the repo is spec-first by construction.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>How wide the <code>/myflow-start</code> commit exception is</h4>
+          <p class="dec-id">start-commits-all-planning-artifacts <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">All planning artifacts it writes — the design document and <code>openspec/changes/&lt;name&gt;/</code> — in two commits at the points the run reaches them.</dd>
+            <dt>Considered</dt>
+            <dd><em>The design doc alone</em> — rejected because it leaves the plan reaching the worktree by a route no document states. <em>Any commit bounded only by "no implementation"</em> — rejected because it gives up the path list that makes the boundary checkable.</dd>
+          </dl>
+        </article>
+
+        <article class="dec">
+          <h4>Which way the commit contradiction is resolved</h4>
+          <p class="dec-id">legalise-rather-than-forbid <span class="pill">active</span></p>
+          <dl>
+            <dt>Chosen</dt>
+            <dd class="chosen">Make the practice legal and bounded — modify <code>myflow-command-surface</code> to name <code>/myflow-start</code> for the planning paths.</dd>
+            <dt>Considered</dt>
+            <dd><em>Stop committing</em> — rejected because a worktree created from the base branch would then never contain the plan its implementers read, and because it changes behaviour seven past changes relied on in order to fix a document rather than a defect.</dd>
+          </dl>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Open</span>
+      <h2>Open questions</h2>
+    </div>
+    <div class="body">
+      <div class="empty">
+        <span class="tag">count</span>
+        <span class="count">none</span>
+        <p>
+          Every question raised during this change's brainstorming was put to the operator and
+          answered; each is recorded above as a decision. Four question rounds ran, and the fourth
+          was <em>offered</em> rather than taken — the soft bound working on the change that defines
+          it.
+        </p>
+        <p>
+          The section is empty rather than absent on purpose. Slice A requires it to exist and to be
+          left empty when a stage leaves nothing open, and this run is the first instance of that
+          rule.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Plan</span>
+      <h2>Twelve tasks, in dependency order</h2>
+      <p>C first — smallest and independent. Then D, A and B, which all touch
+      <code>myflow-start/SKILL.md</code>, so ordering them keeps each diff readable.</p>
+    </div>
+    <div class="body">
+      <div class="full plan">
+
+        <div class="plan-slice">
+          <h4>Slice C — the To Do synonym</h4>
+          <ol>
+            <li><span class="id">C1</span><span class="what">State the To Do name set once in <code>jira-integration.md</code>, and rewrite the transition order as four positions carrying names.</span></li>
+            <li><span class="id">C2</span><span class="what">Narrow the unrecognised-status ask to a status matching no mapped name, leaving the two-carve-out bound untouched.</span></li>
+            <li><span class="id">C3</span><span class="what">Make the follow-up join search cite that single statement instead of enumerating the set a second time.</span></li>
+          </ol>
+        </div>
+
+        <div class="plan-slice">
+          <h4>Slice D — the commit boundary</h4>
+          <ol>
+            <li><span class="id">D1</span><span class="what">Rewrite the Git boundaries row for <code>/myflow-start</code> in <code>pipeline.md</code>, and state the worktree reason beneath the table.</span></li>
+            <li><span class="id">D2</span><span class="what">Make section F commit rather than stage, with the <code>chore(&lt;name&gt;): plan and delta specs</code> convention beside section B's existing <code>docs(&lt;key&gt;)</code> one.</span></li>
+            <li><span class="id">D3</span><span class="what">Add a guardrail naming exactly what may be committed, and that the command never pushes.</span></li>
+          </ol>
+        </div>
+
+        <div class="plan-slice">
+          <h4>Slice A — the loop</h4>
+          <ol>
+            <li><span class="id">A1</span><span class="what">Give the <em>Brainstorm</em> level-2 expansion the loop's structure, citing the skill for the tuned mechanics and keeping the threshold out of <code>pipeline.md</code>.</span></li>
+            <li><span class="id">A2</span><span class="what">Write the convergence test, both prompts, the threshold and the no-hard-cap rule into section B.</span></li>
+            <li><span class="id">A3</span><span class="what">Scope the loop on a revision round, keeping the existing same-URL republish rules.</span></li>
+            <li><span class="id">A4</span><span class="what">Add the loop to the guardrails, beside the existing never-assume one.</span></li>
+          </ol>
+        </div>
+
+        <div class="plan-slice">
+          <h4>Slice B — the record</h4>
+          <ol>
+            <li><span class="id">B1</span><span class="what">Add <code>## Open questions</code> to the design artifact, with the entry shape, the immutable ID and the never-delete rule.</span></li>
+            <li><span class="id">B2</span><span class="what">Carry the section into the published proposal artifact.</span></li>
+            <li><span class="id">B3</span><span class="what">Add the count to the <code>STARTED</code> template, explicitly not marked run-only.</span></li>
+            <li><span class="id">B4</span><span class="what">Add the same line to the skill's rendering, and confirm the label set and order match the template.</span></li>
+          </ol>
+        </div>
+
+        <div class="plan-slice">
+          <h4>Verification</h4>
+          <ol>
+            <li><span class="id">V1</span><span class="what">All three configured guards — <code>check-vocabulary.sh</code>, <code>check-references.sh</code>, <code>check-plan-provenance.sh</code> — must exit 0.</span></li>
+            <li><span class="id">V2</span><span class="what">The two relevant guard harnesses, since <code>check-references.sh</code>'s behaviour is load-bearing for slice C's citation.</span></li>
+            <li><span class="id">V3</span><span class="what">Read the Git boundaries row, both skill sections and the command-surface delta side by side, and confirm the three-way contradiction is gone.</span></li>
+          </ol>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <span class="rail">Risks</span>
+      <h2>What this change cannot guarantee</h2>
+    </div>
+    <div class="body">
+      <ul class="marks">
+        <li><span><strong>The convergence test is agent behaviour and no guard can check it.</strong> The requirement's scenarios and the operator at the confirm prompt are the whole enforcement — the same protection the planning gate's existing never-assume requirement relies on. The soft bound exists precisely to put the trajectory in front of the operator rather than trusting it.</span></li>
+        <li><span><strong>The threshold is a judgment, not a measurement.</strong> It comes from the shape of a converging conversation. It lives in the tuned-values file so it can move without touching the requirement.</span></li>
+        <li><span><code>## Open questions</code> <strong>is a second immutable-ID section</strong>, and IDs reworded rather than reassigned are a failure mode <code>## Decisions</code> already has. The rule is stated identically in both places, and the <code>answered by</code> link makes a stale ID visible.</span></li>
+        <li><span><strong>Slice D legalises a commit on the base branch.</strong> That is existing behaviour and the slice does not widen it, but it is now written down and therefore reviewable. The bound that keeps it safe is the path list: two paths, planning-only, with no push, so nothing leaves the machine until <code>/myflow-finish</code>.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <span>kan-36-more-brainstorming-rounds-if-needed</span>
+    <span>STARTED</span>
+    <span>next: /myflow-do</span>
+    <span>re-run /myflow-start to revise — this page republishes to the same URL</span>
+  </footer>
+
+</div>

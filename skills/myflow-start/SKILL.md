@@ -69,6 +69,18 @@ design gate unless the feedback reopens an architectural question, revise the ar
 and **republish the artifact to the same source path** (see **Publish the proposal artifact**),
 which keeps its URL stable. Never mint a new URL.
 
+A revision round re-enters the loop (see **Convergence** below), **scoped to what the operator's
+feedback reopened and to whatever that opens in turn**. A question round opens on it before the
+artifacts are revised; settled parts of the plan are not re-brainstormed. The scoping is what makes
+the loop usable here — a revision round exists because most of the proposal was right, and re-asking
+answered questions would make the cheap path expensive enough that operators stop taking it.
+
+A revision round that answers a question recorded under `## Open questions` follows the same
+transition **Open questions** (in section **C**) describes — set that entry's `**Status:**` to
+`answered by <decision-id>` and add the decision — even though the round itself does not revisit
+section **C**'s artifact-creation steps; the rule governs the file, not the step that happens to be
+running.
+
 **Transition the issue to In Progress now**, per
 **Transitions** in Jira integration (`skills/myflow-contracts/jira-integration.md`) — before
 brainstorming, so the board is correct while planning runs. A failure is one skipped-with-reason
@@ -130,13 +142,117 @@ precedence when both keys are present, and what an unmapped value reads as are a
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
-- Save the design to `docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and commit it when the
+- Save the design to `docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it when the
   brainstorming skill requires it.
 - **HARD GATE:** do not run `openspec new change` until the user approves the design.
 - For multi-subsystem work, decompose before proposing.
 
 The approved design is the source for OpenSpec `design.md`; adapt its format, never duplicate a
 conflicting design.
+
+### Convergence
+
+superpowers:brainstorming's own flow is linear — explore, ask clarifying questions, propose
+approaches, present the design, get approval — and its only loop routes a **correction** back to the
+design. Nothing in it routes a **question** back to the questions, so a question raised *by* an
+answer has nowhere to land. This section is where it lands.
+
+What counts as a planning-stage exchange, the convergence test itself, and why it is one test rather
+than a rule per gate are structure, stated once under **Pipeline flow**
+(`skills/myflow-contracts/pipeline.md`) — specifically its brainstorm expansion — and not restated
+here. What is genuinely tuned for this command follows: the two prompts, the threshold, the
+no-hard-cap rule, and why their opposite recommendations are not to be harmonised.
+
+**Recording a question never satisfies the test when the command records it pre-emptively** — to
+dodge asking a question the operator has not seen; a question recorded that way is still held. **A
+question the operator has explicitly deferred is different**: once recorded under
+`## Open questions` by the operator's own choice — an "I cannot answer this" response at any round,
+or declining the round-3 offer — it stops counting as held, so the next test does not reopen a
+silent round on the very question the operator just said they could not answer. Those are different
+acts: one is the command avoiding a question, the other is the operator answering one by choosing
+not to answer it yet.
+
+**Record it immediately, right where it is given, rather than at the round's end.** The
+record-and-defer path is not reachable only through the round-3 offer's decline — when the operator
+answers with some form of "I cannot answer this," record it under `## Open questions` at that point
+rather than holding the round open indefinitely or treating silence as consent to guess. The rest of
+that round's questions, if any, are still asked; only the unanswerable one is deferred.
+
+**When the test comes back empty, do not silently proceed.** State what you believe settled — the
+answers and the decisions this stage now rests on — **and every question still recorded under
+`## Open questions`**, including one deferred as far back as round one, not only what it settled on,
+so the operator's answer rests on the same picture the command has. Then ask, with named options:
+
+> **That is everything I have settled. Anything still unclear before I move on?**
+> - **Nothing unclear — move on** *(recommended)*
+> - **Another round — I have something** *(default — anything short of an explicit "move on" is
+>   treated as this)*
+
+End the stage only on an explicit choice of **move on**. An answer that names something opens
+another round, and the test applies to that round's answers exactly as to any other. **This is the
+one prompt in this file where the safe default and the recommended option differ, and deliberately
+so**: silence or a stalled prompt from an operator who is present is not "move on," and defaults to
+another round rather than to the recommended choice — recommending *move on* is honest only while an
+operator has actually said so. Print `⚠ another round — no explicit answer` when this default fires,
+so a reader can tell an operator-requested round from one nothing could confirm.
+
+**A session that cannot ask at all is a narrower, bounded exception, not a second version of "an
+operator who is present but silent."** The confirm fires only when the convergence test came back
+empty, so opening "another round" here has nothing to explore and, with no hard cap, only re-empties
+the test and re-fires the confirm — `empty test → confirm → no answer → another round → empty test →
+confirm`, without end. **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`)
+already names this exact failure mode for its own interactive ask — "a session that cannot ask at
+all" — and gives it a terminating outcome rather than a retry; cited rather than restated here. When
+no answer is possible at all — no channel to ask through, not silence from a reachable operator —
+record the confirm itself under `## Open questions` and end the stage, the same outcome declining the
+offer below produces, printing `⚠ open question recorded — no answer was possible` so a reader can
+tell the two apart.
+
+**From the third round onward, do not open a round silently.** Show two lists — the full still-open
+backlog and, separately, what round `<n>` itself would ask — and offer the round as a named choice:
+
+> **Still open: `<full still-open backlog>`. Round `<n>` would ask about `<this round's slice>`.
+> Open it?**
+> - **Yes — run another round** *(default, recommended)*
+> - **No — record everything still open and move on**
+
+A decline records the **full still-open backlog** shown above, not only what round `<n>` would have
+asked — one answer can open more than one question at once, and every one of them is still open
+whether or not this round would have reached it yet. Silence, a stalled prompt, or any answer that is
+not one of the two options above defaults to **Yes** — the option already recommended, since the
+offer is reachable only while something is genuinely open. Print `⚠ another round — no explicit
+answer` when this default fires, for the same reason the confirm's marker does. Running one more
+round costs an exchange; silently skipping it is exactly what the soft bound exists to prevent.
+
+Rounds one and two open without asking. **`3` is a tuned value, and this file is the only place it
+is written** — the contract and the pipeline carry the shape of the bound, never the number, so it
+can move without amending either. **The threshold counts rounds, not questions**, so it lands at a
+different point in the conversation depending on planning effort: at `detailed`, where a round is
+one question, the offer can appear after as few as three questions; at `low`, where a round batches
+many, the same threshold takes much longer to reach, or is never reached at all. That coupling is
+accepted rather than compensated for — the threshold is stated once, in rounds, and each level's own
+grouping decides how much a round holds.
+
+A round the operator opens by answering **Another round — I have something** at the confirm counts
+toward this same 1-2-silent / 3-onward-offered sequence exactly as any other round — an
+operator-initiated round is still a round, and exempting it would let repeated "another round"
+answers at the confirm outrun the offer's own visibility.
+
+**There is no hard cap.** No round count ends the stage; the rule that only an explicit operator
+answer does is stated once under **Pipeline flow** (`skills/myflow-contracts/pipeline.md`) —
+specifically its brainstorm expansion — and not restated here.
+
+**The two prompts recommend opposite courses, and each is honest because of its own trigger — do
+not harmonise them.** The confirm recommends *moving on* precisely because it is unreachable while
+this command holds an unanswered question. The offer recommends *another round* for the mirror
+reason: it is reachable only while this command genuinely holds one. That is the same shape as the
+**Stop** recommendation at the unfinished-work gate of `/myflow-finish` run 1, whose reasoning is
+stated under **Finish contract** (`skills/myflow-contracts/pipeline.md`) and is not re-argued here.
+
+**Every planning effort level runs this loop.** A level changes how many questions one round groups
+— one at a time at `detailed`, batched at `low` — and never whether another round opens. A level
+able to end the loop early would be a way to skip the gate rather than a way to size the thinking
+inside it. The levels are **Planning effort** (`skills/myflow-contracts/state-file.md`).
 
 ## C. Create the change and its artifacts
 
@@ -150,7 +266,8 @@ Create every artifact `applyRequires` names:
 
 - **proposal.md** — what and why
 - **specs/** — delta specs, one file per capability named in the proposal
-- **design.md** — how, from the approved design, including `## Decisions` (below)
+- **design.md** — how, from the approved design, including `## Decisions` and `## Open questions`
+  (both below)
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
 Do not copy `<context>` / `<rules>` blocks from the CLI instructions into artifact files.
@@ -179,6 +296,50 @@ across revision rounds; the ID never changes, because it is the match key a late
 a new entry with a fresh ID. **Never delete or rewrite a superseded entry** — the history is the
 point. Matching on heading text alone breaks on any rewording.
 
+### Open questions
+
+`## Open questions` sits beside `## Decisions` and is shaped like it. It is the record the
+convergence offer in section **B** names when the operator answers *No — record what is open and
+move on*: one entry for each question this stage ends still holding. A decision records a choice
+that was made; an entry here records one that was knowingly not.
+
+**A stage that left nothing open records none.** Leave the section empty rather than inventing
+entries — the same rule `## Decisions` carries above. Empty, not absent: a section that is missing
+reads as a stage that never applied the test.
+
+```markdown
+### <the question>
+
+**ID:** <kebab-case-slug>
+**Status:** open
+**Why it is open:** <deferred by the operator, blocked on something external, …>
+**What it affects:** <what would change depending on the answer>
+```
+
+**ID** is assigned once, at creation, and is **immutable**, for the reason a decision's ID is: it
+is the match key a later round uses to find the entry again, and matching on heading text alone
+breaks on any rewording. **An ID SHALL be unique across `## Decisions` and `## Open questions`
+together, not merely within its own section** — the two are one namespace, because
+`answered by <decision-id>` reaches from one into the other. On a collision — a new entry about to
+be assigned an ID that already exists in either section — assign a fresh, distinguishing ID instead
+of reusing it; the entries do not merge. A round that answers the question sets that entry's
+`**Status:**` to `answered by <decision-id>` and adds the answering entry under `## Decisions`.
+**Never delete or rewrite an entry once recorded** — what was left open, and which decision closed
+it, is the point.
+
+**This cross-reference is instruction-only, and no guard checks it.**
+`scripts/check-references.sh` verifies a bold token beside a backticked path against a heading in
+another *file*; it has no notion of an `answered by <decision-id>` link between two sections of the
+same `design.md`, nor of the uniqueness rule just stated. A decision ID that is never created, a
+status left at `open` after its question was actually answered, or an ID reused across the two
+sections all pass every guard this repository runs — the same limit
+**Plan provenance** (`skills/myflow-contracts/plan-provenance.md`)'s "What the guard does not do"
+names for a provenance tag: the tool confirms a claim is stated, never that it is true.
+
+What this section holds is what the `STARTED` handoff counts. That line is defined once under
+**The block each state renders** (`skills/myflow-contracts/pipeline.md`), which also states why it
+is regenerable rather than run-only.
+
 ## D. Basic Workflow #3 — Writing plans
 
 Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
@@ -202,8 +363,10 @@ one, and fix any hit.
 ## E. Publish the proposal artifact
 
 Load the `artifact-design` skill, then build one self-contained page carrying the proposal's why
-and what, the design including `## Decisions`, the delta specs, and the task list. Publish it with
-the Artifact tool.
+and what, the design including `## Decisions` and `## Open questions`, the delta specs, and the
+task list. Publish it with the Artifact tool. The open questions are carried so that stopping with
+something unanswered is visible at the gate the operator actually reads, rather than held only in
+the session transcript.
 
 Write its source to the deterministic path
 `/Users/tweety53/Agents/myflow/state/<project-key>/<name>-proposal-artifact.html`, resolving
@@ -256,6 +419,7 @@ first and bring this block with it** — a field added here and not there is dri
 **Change:** <name>
 **Artifact:** <artifactUrl> | missing
 **Decisions recorded:** <N> | none
+**Open questions:** <N> | none
 **Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 **Planning effort:** <level> | <level> (reused from the creating run) | not recorded — planned at default
@@ -298,18 +462,26 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
 - **Never** let a planning effort level skip brainstorming, the design approval gate, writing-plans,
   or leave `tasks.md` a scaffold. It sizes the thinking inside the gates, never the gates.
 - **Never** write code, create a worktree, or create a branch.
+- **Never** commit anything. Stage the planning artifacts and leave the commit to `/myflow-finish`,
+  per **Git boundaries** (`skills/myflow-contracts/pipeline.md`).
 - **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line.
   **Exactly one carve-out is reachable from this command**, and it is
   **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`): a single yes/no when
-  the issue sits at a status outside the four ordered names, where anything but an explicit yes is
-  that same skipped-with-reason line and the proposal is untouched either way. The contract bounds
-  the set at **two**; the other is the join confirmation, which only ever occurs during
-  `/myflow-finish` run 1 — `/myflow-start` files and joins nothing — so this is a count for this
-  command, not a competing count for the pipeline.
+  the issue sits at a status matching no name mapped onto the four ordered positions, where anything
+  but an explicit yes is that same skipped-with-reason line and the proposal is untouched either
+  way. The contract bounds the set at **two**; the other is the join confirmation, which only ever
+  occurs during `/myflow-finish` run 1 — `/myflow-start` files and joins nothing — so this is a
+  count for this command, not a competing count for the pipeline.
 - **Never** resolve an open question by assumption. Put it to the operator, at the point the
   answer is first needed, and do everything that does not depend on it in the meantime. A lower
   planning effort level may group questions into fewer rounds and batch related ones into one
   prompt; it may never turn a question into an assumption.
+- **Never** end the stage on this command's own judgment, and never leave brainstorming holding a
+  question the operator was never asked — the rule is stated once under **Pipeline flow**
+  (`skills/myflow-contracts/pipeline.md`), specifically its brainstorm expansion — its tuned exits are
+  **Convergence** in section **B**, and neither is restated here.
+- **Never** let a planning effort level end the loop early. A level may group more questions into
+  one round; it may never decide that no further round opens.
 - **Never** ask for an approval in open prose. Offer named options, mark the recommended one, and
   say what each one will do.
 - **No flags.** The only argument is the optional change name; report anything else.
