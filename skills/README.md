@@ -4,11 +4,12 @@
 proposal gate, one combined review-and-test gate, and a finish command that integrates before it
 archives.
 
-```text
-/myflow-start  → STARTED      you: read the proposal artifact
-/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (it integrates on its first run)
-```
+The three commands, the state each ends in, and the gate that follows it are under
+**States** (`myflow-contracts/pipeline.md`); the state diagram and the per-command stage table are
+under **Pipeline flow** (`myflow-contracts/pipeline.md`). This file copies none of them — it is read
+on demand, beside the contract it would be copying, exactly as `README.md` is. What does carry the
+three-line digest is the layer that is loaded into a session before anything reads the pipeline: the
+always-on rule, and a project's own `CLAUDE.md` / `AGENTS.md`.
 
 Each command ends in the state named after it. **The human gate is a property of the state**, not
 a separate stage — so no command exists whose only job is to record that a review happened.
@@ -29,9 +30,10 @@ asked which.
 
 **Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; manual switch
 elsewhere). Every other command's **session** → Sonnet, and **every review-panel reviewer runs on
-Sonnet** too. But the **implementer subagents `/myflow-do` dispatches run on Opus** — or the
-harness's strongest model — named explicitly at dispatch. Frontmatter sets the session's model and
-cannot set a subagent's, so that one is enforced by the dispatch and recorded in the SDD ledger.
+the panel's model — Sonnet by default** — a change being free to record its own panel model. But
+the **implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest
+model — named explicitly at dispatch. Frontmatter sets the session's model and cannot set a
+subagent's, so that one is enforced by the dispatch and recorded in the SDD ledger.
 See "Model policy" in `myflow-contracts/pipeline.md`, which is canonical.
 See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
@@ -53,14 +55,18 @@ See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
 | Command | Skill | What it does |
 |---------|-------|--------------|
-| `/myflow-start <name>` | `myflow-start` | Brainstorm → design gate → OpenSpec artifacts → writing-plans enriched tasks → publish the proposal artifact → `STARTED`. Re-run to revise, republishing to the **same** URL. |
+| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | you | Read the proposal artifact |
-| `/myflow-do <name>` | `myflow-do` | Worktree → validate plan → SDD + TDD → **review panel** → **manual test guide** → lint + tests → `git add` → `IN_PROGRESS`. Re-run to fix; a fix never moves the state. |
+| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, leaving a manual test guide beside a staged diff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
 | *(gate)* | you | Review the staged diff **and** run the apps against the guide |
-| `/myflow-finish <name>` | `myflow-finish` | **Run 1:** ask how to land the branch (PR by default, merge, or manual), commit, push, take that route, stop. **Run 2** (once merged): verify, sync specs, archive, **commit + push the archive**, **remove the worktrees**, → `FINISHED`. |
+| `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run, asking how to land it (PR by default, merge, or manual); on its second, once merged, archives the change and removes what the pipeline created. |
 | `/myflow-status [name]` | `myflow-status` | Read-only report of where every open change is |
 | `/myflow-info` | `myflow-info` | Read-only explanation, read from the installed contract |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
+
+Each row says what a command is *for*. Its stages, in order, are stated once under
+**Level 1 — the stages of each command** (`myflow-contracts/pipeline.md`) and are deliberately not
+repeated here.
 
 ## Skills
 
@@ -86,7 +92,7 @@ command), plus `state-file.md`, `state-self-heal.md`, `project-configuration.md`
   coverage check before a PR or a merge.
 - **The review panel** — three required slots (primary, Bugbot, Principles) plus conditional slots
   selected by the trigger table in `skills/myflow-do/SKILL.md`, which is canonical for it. **Every
-  slot runs on Sonnet**, regardless of the parent model.
+  slot runs on the panel's model — Sonnet by default** — regardless of the parent model.
 - **Commits** — only `/myflow-finish`, and `/myflow-do` when a PR is already open (a staged-only
   fix would be invisible on it).
 

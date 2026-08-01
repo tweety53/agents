@@ -28,7 +28,12 @@ Every command resolves the path this way, so the same change maps to the same fi
   },
   "artifactUrl": null,
   "jiraIssue": null,
-  "effort": null,
+  "planningEffort": null,
+  "models": {
+    "implementation": null,
+    "reviewPanel": null,
+    "panelFix": null
+  },
   "prUrl": null,
   "updatedAt": "2026-07-28T10:00:00Z",
   "updatedBy": "/myflow-do"
@@ -43,24 +48,85 @@ Every command resolves the path this way, so the same change maps to the same fi
   legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal
   actually succeeded, so a worktree that could not be removed stays listed and remains findable.
   See **Multi-repo shape** below.
+
+  **A `null` value is legal and means *no merge base recorded* for that path.** It arises when
+  self-heal rebuilds the map from `git worktree list`, which reports paths and branches but no merge
+  base — see **State self-heal** (`skills/myflow-contracts/state-self-heal.md`). Every rule this
+  contract and the pipeline already state for a **missing** recorded merge base applies to a `null`
+  one unchanged: the preflight is handed `-` and refuses, the merge status is `inconclusive`, and
+  the review command falls back to the staged diff. A `null` value is therefore never a licence to
+  infer a merge base — it is the refusal to.
 - `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
-- `effort` — the reasoning effort chosen for this change's planning: `"low"`, `"medium"`, `"high"`, or
-  `null` when none was chosen. Written only by `/myflow-start`, on the run that **creates** the
-  change; every other command **carries it forward verbatim**. It governs `/myflow-start`'s own
-  reasoning depth and nothing else — no command derives behaviour from it, and the review panel's
-  breadth is never scaled from it. See **Effort** (`state-file.md`) below.
+- `planningEffort` — the level chosen for this change's planning, or `null` when none was chosen.
+  Written only by `/myflow-start`, on the run that **creates** the change; every other command
+  **carries it forward verbatim**. It governs `/myflow-start`'s own reasoning depth and nothing
+  else — no command derives behaviour from it, and the review panel's breadth is never scaled from
+  it. The levels, and which of them is offered as the recommendation, are stated once under
+  **Planning effort** (`state-file.md`) below and are deliberately not repeated here.
+- `models` — an object carrying `implementation`, `reviewPanel` and `panelFix`, each naming the
+  model chosen for that role, or `null` where none was chosen. Written only by `/myflow-start`, on
+  the run that **creates** the change; every other command **carries it forward verbatim**. Its
+  live consumer is `/myflow-do`, which dispatches on those values. The roles, their defaults and
+  how an operator override applies are stated once under
+  **Model policy** (`skills/myflow-contracts/pipeline.md`), which is canonical for them; a second
+  copy here is what this repository's reference guard exists to prevent. These fields record what
+  was *chosen* — the SDD ledger remains the only record of what a dispatch actually ran on.
 
-  **A state file that omits `effort` entirely is valid**, and is read as `null`. This is a
-  deliberate exception to the closed-schema rule in
+  **A state file that omits `planningEffort` or `models` entirely is valid**, and each absent key
+  is read as *not recorded*. This is a deliberate exception to the closed-schema rule in
   **State self-heal** (`skills/myflow-contracts/state-self-heal.md`), which otherwise makes a file
   unparseable both for missing a documented field and for carrying an undocumented one. Without
   the exception every
-  file written before this field existed would be routed through self-heal, which announces
+  file written before these fields existed would be routed through self-heal, which announces
   unrecovered fields and rewrites from artifact inference — a loud correction for a value nobody
-  had the chance to set. `effort` is the first field added since the schema closed, so the
-  carve-out is stated rather than inferred: `artifactUrl`, `jiraIssue` and `prUrl` are all
-  *present and nullable*, which is a different thing from *absent*.
+  had the chance to set. The carve-out is stated rather than inferred, and it covers a key that is
+  **absent**: `artifactUrl`, `jiraIssue` and `prUrl` are all *present and nullable*, which is a
+  different thing from *absent*.
+
+  **A file carrying the retired `effort` key is read as recording the equivalent level** — `medium`
+  as `default`, `high` as `detailed`, `low` as `low` — and is rewritten under `planningEffort` on
+  the next write that file receives. It is not unparseable, and the rewrite is **not announced as a
+  correction**: the value was written correctly under the contract in force when it was set. **No
+  migration pass is run** — no command sweeps existing state files, and a file nothing writes to
+  keeps the old key indefinitely without that being a fault.
+
+  **The compatibility read is the fallback, not a preference, and every consumer performs it.** A
+  command that reads only `planningEffort` reports a file recording a real level as having recorded
+  none — the exact outcome this exception exists to prevent, and a promise made in prose and
+  implemented nowhere is not a promise. The mechanical form is
+  `(.planningEffort // .effort)`, as `/myflow-status` reads it.
+
+  **When a file carries both keys, `planningEffort` wins.** Both are individually excepted from the
+  closed-schema rule, so such a file parses, and it needs a stated answer rather than an implied
+  one. The current key is the one this contract writes and the retired one is read only for a file
+  that never had it, so a file carrying both is one already migrated whose old key was never
+  cleared — the new value is the later of the two. The next write drops `effort` rather than
+  re-emitting it; a write renders the whole object, so leaving it out is what removes it.
+
+  **A value outside those three reads as *not recorded*, and never makes the file unparseable.**
+  The retired key never held anything else under the contract in force when it was written, so a
+  file carrying, say, `urgent` under it is not one this pipeline produced: it maps to no level, and
+  surfacing the raw value would put a level this pipeline does not have in front of the operator.
+  *Not recorded* is what remains once an unrecognisable value is discarded, and it is the honest
+  answer for a value with no defined target.
+
+  **Reading an unmapped value as *unparseable* was specified first and withdrawn, and the reason is
+  recorded here — once, for both contracts — so it is not reinstated.** *Unparseable* is only worth
+  saying if something detects the key and routes the file to self-heal, and nothing does:
+  `/myflow-do`'s and `/myflow-finish`'s own skills mention self-heal nowhere, and `/myflow-status`
+  reads the file through a literal `jq`
+  projection that silently ignores every key it does not name. A rule whose only effect is an
+  announcement no command emits is worse than no rule, because it reads as a guarantee. *Not
+  recorded* needs no detection to be true, loses nothing the mapping had not already discarded, and
+  is what the commands actually do.
+
+  **This paragraph is the only statement of that reasoning.**
+  **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) applies the rule and cites this
+  one rather than re-arguing it: what decides the question is what the *commands* do with the file,
+  which is this contract's subject, and the two independently authored copies this replaces had
+  already drifted — one said those commands never *invoke* self-heal, this one that they never
+  *mention* it, which is the stronger claim and the one that is true of their skills.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
   that a fix must be committed and pushed rather than merely staged.
@@ -127,25 +193,44 @@ erases it permanently: the published proposal link, the link to the Jira issue, 
 silently downgrades the next fix from commit-and-push to staged-only), or the authoritative list of
 worktrees for a multi-repo change.
 
-## Effort
+**Carrying the planning effort forward is what performs the rewrite**, and it is the one field where
+*verbatim* needs saying precisely. A file read through the retired-key fallback above is carried
+forward as its **mapped level under `planningEffort`** — that is the rewrite the exception promises,
+and the only write that ever performs it. Re-emitting the old key instead leaves the file
+permanently unmigrated, and emitting `planningEffort: null` because the new key was absent from the
+read erases a level the operator chose. Every command that writes a state file it did not create
+does this, so no single command is responsible for a migration none of them run.
 
-**Which file to change first.** The normative requirement — that three levels exist, that `medium`
-is the default offered, and that no level may switch a gate off — is stated in
-`openspec/specs/myflow-effort/spec.md`, under *Effort scales the reasoning spent inside the gates,
-never the gates themselves*. That spec is the requirement; the table below is the **operational form
-the commands read**, and it exists here so `/myflow-start` has one place to look rather than a
-requirements document to interpret. Change the spec first and bring this table with it: a table that
-contradicts the requirement is this file's defect, not the spec's.
+## Planning effort
 
-Three levels, offered by `/myflow-start` on the run that creates a change, with `medium` the default:
+**Which file to change first.** The normative requirement — that three levels exist, that `default`
+is the level offered as the recommendation, and that no level may switch a gate off — is
+**Requirement: Planning effort scales the reasoning spent inside the gates, never the gates themselves** (`openspec/specs/myflow-planning-effort/spec.md`).
+Naming the requirement in full, rather than giving the path alone, is what makes
+`scripts/check-references.sh` check this pointer — an OpenSpec `### Requirement: …` heading is a
+heading like any other. The guard skips a path that does not resolve, so this one is checked only
+once the capability lands in `openspec/specs/` at finish run 2; until then it is a reference nobody
+verifies, which is said here rather than left to look otherwise. That spec is the requirement; the
+table below is the
+**operational form the commands read**, and it exists here so `/myflow-start` has one place to look
+rather than a requirements document to interpret. Change the spec first and bring this table with
+it: a table that contradicts the requirement is this file's defect, not the spec's.
+
+Three levels, offered by `/myflow-start` on the run that creates a change, with `default` the level
+offered as the recommendation:
 
 | Level | What it changes |
 |-------|-----------------|
 | `low` | Questions batched rather than asked one at a time; the design presented once; `tasks.md` grouped more coarsely |
-| `medium` | The checklist followed with related questions grouped |
-| `high` | Each checklist item worked separately, alternatives enumerated per open question, each design section approved on its own |
+| `default` | The checklist followed with related questions grouped |
+| `detailed` | Each checklist item worked separately, alternatives enumerated per open question, each design section approved on its own |
+
+**The retired key belongs to the field, not to this table.** `effort`, its mapping onto these three
+levels, which key wins when a file carries both, and what an unmapped value reads as are all stated
+with the `planningEffort` field above — one statement, beside the field it governs. This section is
+the levels themselves; it names where that rule lives rather than carrying a second copy of it.
 
 **No level may switch a gate off.** Brainstorming runs, the design approval gate holds,
 writing-plans runs, and `tasks.md` is never left a thin scaffold — at every level. A lower level
-means fewer rounds and coarser grouping, never a gate that does not run. An effort level able to
-skip a gate would be a way to skip review rather than a way to size the thinking inside it.
+means fewer rounds and coarser grouping, never a gate that does not run. A planning effort level
+able to skip a gate would be a way to skip review rather than a way to size the thinking inside it.

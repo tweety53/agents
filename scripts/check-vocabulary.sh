@@ -238,6 +238,67 @@ check_retired_stage_vocabulary() {
   # index, which still described stage boundaries and Gates B/C/D — passed a clean run.
   pattern+='|gates\.[a-zA-Z]|originStage|fastPath|REVIEWED_TREE|MERGE_BASE'   # vocab-guard:allow
   pattern+='|Gate [ABCD]\b|monotonic gates'                                   # vocab-guard:allow
+  # Retired by the planning-effort rename (KAN-26): the state file's `effort` key became
+  # `planningEffort`. Only the KEY is listed, and it is matched where a JSON field can actually
+  # stand, so the ordinary English word is untouched: "planning effort" in prose, "best-effort
+  # reconstruction" in the Jira contract, and an archived change slug ending in it are all
+  # legitimate, and none of them is a field.
+  #
+  # The field shape is matched with the tolerance a hand-typed reintroduction actually has:
+  # either quote style around the key, and optional whitespace between the closing quote and
+  # the colon. The first version of this entry matched one exact spelling — double quotes,
+  # colon flush against them — which is how every real JSON example in this repository is
+  # written, and so a single-quoted key, or one with a space before its colon, passed clean.
+  # Both were reproduced in a sandbox copy of the scan set before this line was widened and
+  # are caught after it. That gap sat inside the header's stated limit (a fixed list of
+  # literals, not a completeness proof), but the entry exists precisely to stop a hand-typed
+  # regression, so the QUOTED spellings a hand types are the ones it covers — which is not all
+  # of them, and the ones it does not are named under WHAT IS NOT MATCHED below.
+  #
+  # WHAT THE TWO ALTERNATIVES BELOW MATCH. Both require the key to be QUOTED — either quote
+  # style — and additionally one of two JSON contexts, because quote-plus-colon alone is not one:
+  # measured in a sandbox, the truthful sentence `Two things determine 'effort': the level and
+  # the model.` tripped an earlier form of this entry and exited 1. Nothing in this tree hit that,
+  # so it was dormant rather than broken — but by the reasoning recorded above for leaving
+  # `checkpoint` out and below for leaving the level VALUES out, a pattern that can fire on a line
+  # telling the truth is one whose only silencer is a `vocab-guard:allow` marker that lies. So
+  # each alternative requires a JSON context on one side of the quoted key:
+  #   1. the quoted key stands where a field stands — at the start of a line, after `{`, or after
+  #      the backtick that opens an inline-code span (whitespace between is tolerated); or
+  #   2. the value reads as JSON — a quoted string, `null`, or a `<placeholder>`.
+  # Either is enough, so a field is caught by (1) inside a block and by (2) mid-sentence.
+  #
+  # A `,` sat in (1)'s anchor class and was removed for the same reason the quote requirement
+  # exists. Measured in a sandbox, with either quote style around the key: it made the sentence
+  # `Three settings exist, 'effort': low, medium, high are the names.` exit 1 — prose, not drift,
+  # and dormant only because nothing in this tree happens to be written that way.
+  # What removing it costs was measured rather than argued: a comma-preceded field whose value is
+  # a quoted string, `null` or a `<placeholder>` is still caught by (2), which tests the value
+  # rather than what precedes the key; what is no longer caught is a quoted key after a comma
+  # whose value is ALSO unquoted, which is not JSON and not a line this pipeline writes — it is
+  # the false-positive shape itself. Named rather than left to be discovered.
+  #
+  # WHAT IS NOT MATCHED — measured, not inferred, and named here because it is the shape a
+  # hand-typed line in this repository most often has. An UNQUOTED key is matched by neither
+  # alternative: `effort: low`, `- effort: low`, an inline-code `effort: null`, a bare backticked
+  # `effort`, and the house-style sentence this rename deleted (a run of backticked field names
+  # in prose) all pass clean. That is not a regression from any earlier form of this entry —
+  # every one of them required the quotes too, so the unquoted coverage never existed. Widening
+  # to reach it was considered and deliberately not taken: unquoted, `effort` is the ordinary
+  # English word this repository uses in prose, so the alternation would fire on truthful lines
+  # exactly as `checkpoint` above and the level VALUES below would. The unquoted spellings are
+  # swept by hand, on the reasoning the VALUES paragraph below records and within the limit this
+  # script's header states.
+  #
+  # The retired VALUES `medium` and `high` are deliberately NOT listed, for the same reason
+  # `checkpoint` above is not: they are ordinary English words used throughout this repository,
+  # and `Medium` is also a Jira priority name, so matching them as literals produces hits that are
+  # not drift — and the only way to silence those is a `vocab-guard:allow` marker on a line that
+  # is telling the truth, which teaches the guard to lie. Per this script's header the check
+  # proves a fixed list of literals is absent, not that a rename is complete; the values are
+  # swept by hand.
+  pattern+="|([{\`]|^)[[:space:]]*['\"]effort['\"][[:space:]]*:"          # vocab-guard:allow
+  pattern+="|['\"]effort['\"][[:space:]]*:[[:space:]]*(['\"]|null|<)"     # vocab-guard:allow
   local hits="" tree
   for tree in "${TREES[@]}"; do
     collect_hits "$tree" -E "$pattern"

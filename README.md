@@ -52,24 +52,7 @@ snapshot of today's set, not the definition; read the frontmatter to be sure.
 **Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, plus the read-only
 `/myflow-status` and `/myflow-info`, and `/opsx:explore` for thinking-partner mode.
 
-**myflow pipeline — three states, three commands:**
-
-```mermaid
-stateDiagram-v2
-    [*] --> STARTED: /myflow-start
-    STARTED --> STARTED: /myflow-start (revise the proposal)
-    STARTED --> IN_PROGRESS: /myflow-do
-    IN_PROGRESS --> IN_PROGRESS: /myflow-do (fix — never moves the state)
-    IN_PROGRESS --> IN_PROGRESS: /myflow-finish (run 1 — integrate)
-    IN_PROGRESS --> FINISHED: /myflow-finish (run 2 — after the merge)
-    FINISHED --> [*]
-```
-
-```text
-/myflow-start  → STARTED      you: read the proposal artifact
-/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (it integrates on its first run)
-```
+**myflow pipeline — three states, three commands.**
 
 Each command ends in the state named after it, and **the human gate is a property of the state** —
 which is why no command exists whose only job is to record that a review happened. `/myflow-do`
@@ -81,7 +64,7 @@ push, or leave it to you), and again once the branch is merged, to sync delta sp
 commit and push the archive, and remove the worktrees. It runs **no** tests, linters or coverage
 check — that happened during `/myflow-do`.
 
-See `skills/myflow-contracts/pipeline.md` (the pipeline itself), `rules/myflow-manual-review.mdc` (the always-on stub that points at it), and `skills/README.md`.
+See **Pipeline flow** (`skills/myflow-contracts/pipeline.md`) for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
 
 ---
 
@@ -340,18 +323,23 @@ degraded but the OpenSpec-specific steps still work.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command's **session** → Sonnet, and **every review-panel reviewer runs on Sonnet** regardless of the parent model. The **implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest model — named explicitly at dispatch, since frontmatter sets a session's model and cannot set a subagent's; each dispatch's model is recorded in the SDD ledger. See "Model policy" in `skills/myflow-contracts/pipeline.md`.
+**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command's **session** → Sonnet, and **every review-panel reviewer runs on the panel's model — Sonnet by default** — regardless of the parent model, a change being free to record its own panel model. The **implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest model — named explicitly at dispatch, since frontmatter sets a session's model and cannot set a subagent's; each dispatch's model is recorded in the SDD ledger. See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|
-| `/myflow-start <name>` | `myflow-start` | Brainstorm → design gate → OpenSpec artifacts → writing-plans enriched tasks → publish the proposal artifact → `STARTED`. Re-run to revise, republishing to the **same** URL. |
+| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design-approval gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | You | Read the proposal artifact |
-| `/myflow-do <name>` | `myflow-do` | Worktree → validate plan → SDD + TDD → **review panel** (primary + Bugbot + Principles required; Security, Adversarial and extra lenses conditional), handing off only at **zero open findings at any severity** → **manual test guide** → lint + tests → `git add` excluding the planning paths → `IN_PROGRESS`. Re-run to fix; a fix never moves the state. Commits only when a PR is already open. |
+| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel** (primary + Bugbot + Principles required; Security, Adversarial and extra lenses conditional), which hands off only at **zero open findings at any severity**, and leaves a manual test guide beside a staged diff — `git add` excluding the planning paths. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. Commits only when a PR is already open. |
 | *(gate)* | You | Review the staged diff **and** run the apps against the guide |
-| `/myflow-finish <name>` | `myflow-finish` | **Run 1:** checks each worktree for unfinished work first, then asks how to land the branch — open a PR (default), merge and push, or handle it manually — makes **two commits** (implementation, then planning artifacts), pushes, takes that route, moves the linked issue to **In Review** on every route, stops. **Run 2** (once the branch is merged): verify the merge, sync delta specs, archive, **commit + push the archive**, remove the worktrees, the local branch and the **remote branch**, then **verify the cleanup** → `FINISHED`. Runs no tests, linters or coverage check. |
+| `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
 | `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |
 | `/myflow-info` | `myflow-info` | Read-only — reads `pipeline.md` and explains the pipeline |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
+
+Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
+each — are stated once under
+**Level 1 — the stages of each command** (`skills/myflow-contracts/pipeline.md`) and are deliberately
+not repeated here, for the same reason this file links to the state diagram rather than carrying one.
 
 The branch's merge status alone decides which `/myflow-finish` run happens, so a PR you merged on
 the forge and a merge it performed itself are indistinguishable to it — which is correct.

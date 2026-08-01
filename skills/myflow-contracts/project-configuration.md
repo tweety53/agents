@@ -14,7 +14,9 @@ an optional Markdown file **in the project being worked on**:
 
 It is a normal Markdown document, committed with the project, read by whichever skill needs it.
 Sections are `## <key>` headings; their bodies are prose, tables, or fenced command blocks —
-whatever reads best for a human, since agents and humans read the same file.
+whatever reads best for a human, since agents and humans read the same file. Two keys are the
+exception, and their rows say so: `## standards` and `## jira` carry entries that are resolved and
+validated rather than read, so their bodies are constrained to what that procedure accepts.
 
 | Key | Supplies |
 |-----|----------|
@@ -25,7 +27,7 @@ whatever reads best for a human, since agents and humans read the same file.
 | `## test` | The command(s) that run the project's tests. |
 | `## lint` | The command(s) that verify lint, and the auto-fix command to run first. |
 | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. |
-| `## jira` | Optional. The project's Jira project key(s), or the literal `none`. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
+| `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`jira-integration.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
 
 **How a `## standards` entry resolves to a file.** Every entry in the `## standards` section is
 one of three forms, and there is no fourth. **"Bare" is mechanical throughout: the entry contains
