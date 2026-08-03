@@ -107,8 +107,8 @@ coupled group) as one task. Every implementer dispatch **must** carry all four o
 > **MYFLOW — NO COMMITS:** Do **not** run `git commit`, `git push`, merge, or open a PR. Leave all
 > changes uncommitted in the worktree. You **may** `git add` your own work, but never `openspec/`,
 > `docs/manual-test/` or `docs/superpowers/` — `/myflow-finish` stages and commits those. The parent
-> records `TASK_BASE=$(git rev-parse HEAD)` before dispatch; your diff for review is
-> `git diff TASK_BASE`.
+> records `TASK_BASE=$(skills/myflow-do/scripts/checkpoint)` before dispatch; your diff for review is
+> `skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$TASK_BASE"`.
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
@@ -130,8 +130,9 @@ guidance; see **Model policy** in `skills/myflow-contracts/pipeline.md` for why,
 choice and a session instruction relate, and for the operator-override rule. The panel's slots
 default to Sonnet — the two rules differ on purpose.
 
-Per-task review without commits: write `git diff TASK_BASE > .superpowers/sdd/task-N.diff` and give
-the reviewer that path, never a commit range. Ledger line: `Task N: complete (uncommitted, review
+Per-task review without commits: the parent runs
+`skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$TASK_BASE"` and gives the
+reviewer the printed path, never a commit range. Ledger line: `Task N: complete (uncommitted, review
 clean, model: <model>)` — **record the model on every dispatch**, implementer and reviewer alike, so
 the policy is auditable after the fact. Mark a checkbox `[x]` only after its task passes spec **and**
 quality review.
@@ -267,7 +268,9 @@ That is a correct outcome, not a skipped review — say so explicitly.
 ### Panel re-runs
 
 **Pass 1 always runs the full roster selected for this change.** Only re-runs after a fix are
-scoped. Record `FIX_BASE` before each fix, then `git diff FIX_BASE > .superpowers/sdd/fix-round-N.diff`.
+scoped. Record `FIX_BASE=$(skills/myflow-do/scripts/checkpoint)` before each fix, then
+`skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$FIX_BASE"
+.superpowers/sdd/fix-round-N.diff`.
 
 | Mode | Who re-runs | Diff they get |
 |------|-------------|---------------|

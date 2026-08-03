@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Print a commit-ish that captures the current working tree state, without
+# mutating the working tree, or the stash list. It DOES stage the working
+# tree first (see below) — the index is not left as it was found.
+#
+# On a dirty tree, `git stash create` builds a stash-like commit object, but
+# `git diff`/`git stash create` machinery can't see untracked files at all —
+# a brand-new file that was never `git add`ed is invisible to it, dirty or
+# not. Left alone, that means: take a checkpoint on a clean tree (prints
+# HEAD), create a new untracked file, take a second checkpoint before
+# anything stages that file — `git stash create` still sees nothing to
+# snapshot, so it falls back to HEAD again, the SAME value as the first
+# checkpoint. A later `uncommitted-review-package` call using that second
+# checkpoint as BASE stages everything itself before diffing, so it would
+# then show round one's untracked file as part of round two's diff — leaking
+# round one's work into round two's package. Staging first closes that gap
+# structurally: once staged, `git stash create` snapshots the file like any
+# other tracked change, so it is captured in THIS checkpoint rather than
+# leaking into whichever later one first happens to stage it.
+#
+# Staging is scoped exactly like uncommitted-review-package's own `git add`:
+# repo-root-anchored (via `-C "$toplevel"`, not cwd-relative `-- .`, so a
+# checkpoint taken from a subdirectory still covers the whole repo) and
+# excluding the three NO-COMMITS planning paths (openspec/, docs/manual-test/,
+# docs/superpowers/) that this pipeline never stages via a bare `git add -A`.
+#
+# `git stash create` prints its sha without touching HEAD or the working
+# tree, and without adding an entry to `git stash list`. On a clean tree it
+# prints nothing and exits 0, so this script falls back to `git rev-parse
+# HEAD` — the current commit already is the checkpoint.
+#
+# A single sha (dirty snapshot or HEAD) is what the follow-up
+# uncommitted-review-package script diffs against, so callers get one
+# consistent commit-ish regardless of whether the tree was dirty.
+#
+# Usage: checkpoint
+set -euo pipefail
+
+if [ $# -ne 0 ]; then
+  echo "usage: checkpoint" >&2
+  exit 2
+fi
+
+toplevel=$(git rev-parse --show-toplevel)
+git -C "$toplevel" add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/'
+
+ref=$(git stash create)
+if [ -z "$ref" ]; then
+  ref=$(git rev-parse HEAD)
+fi
+echo "$ref"

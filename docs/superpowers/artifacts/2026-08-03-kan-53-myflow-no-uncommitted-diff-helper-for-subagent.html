@@ -1,0 +1,567 @@
+<title>KAN-53 — uncommitted review-package helper</title>
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --bg-panel: #ffffff;
+    --ink: #1b1f1c;
+    --ink-muted: #59635d;
+    --ink-faint: #8b948e;
+    --border: #ded9d0;
+    --accent: #1f7a4d;
+    --accent-ink: #16532f;
+    --accent-soft: #e3f1e7;
+    --warn: #93600a;
+    --warn-soft: #f7ecd6;
+    --danger: #9c3b3b;
+    --danger-soft: #f6e6e5;
+    --code-bg: #14180f;
+    --code-ink: #dfe6de;
+    --code-border: #2a3524;
+    --code-add: #7fd99a;
+    --code-del: #e2908f;
+    --shadow: 0 1px 2px rgba(20, 20, 15, 0.04), 0 8px 24px -12px rgba(20, 20, 15, 0.12);
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12140f;
+      --bg-panel: #181c16;
+      --ink: #e8ece5;
+      --ink-muted: #a3ada0;
+      --ink-faint: #6d766a;
+      --border: #2b3128;
+      --accent: #5cc98a;
+      --accent-ink: #bdeecf;
+      --accent-soft: rgba(92, 201, 138, 0.13);
+      --warn: #e2ac52;
+      --warn-soft: rgba(226, 172, 82, 0.13);
+      --danger: #e0908f;
+      --danger-soft: rgba(224, 144, 143, 0.13);
+      --code-bg: #0c0f0a;
+      --code-ink: #dbe4d9;
+      --code-border: #232b1f;
+      --code-add: #7fd99a;
+      --code-del: #e2908f;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 30px -14px rgba(0, 0, 0, 0.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12140f; --bg-panel: #181c16; --ink: #e8ece5; --ink-muted: #a3ada0; --ink-faint: #6d766a;
+    --border: #2b3128; --accent: #5cc98a; --accent-ink: #bdeecf; --accent-soft: rgba(92,201,138,.13);
+    --warn: #e2ac52; --warn-soft: rgba(226,172,82,.13); --danger: #e0908f; --danger-soft: rgba(224,144,143,.13);
+    --code-bg: #0c0f0a; --code-ink: #dbe4d9; --code-border: #232b1f;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 30px -14px rgba(0,0,0,.6); color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f5f1; --bg-panel: #ffffff; --ink: #1b1f1c; --ink-muted: #59635d; --ink-faint: #8b948e;
+    --border: #ded9d0; --accent: #1f7a4d; --accent-ink: #16532f; --accent-soft: #e3f1e7;
+    --warn: #93600a; --warn-soft: #f7ecd6; --danger: #9c3b3b; --danger-soft: #f6e6e5;
+    --code-bg: #14180f; --code-ink: #dfe6de; --code-border: #2a3524;
+    --shadow: 0 1px 2px rgba(20,20,15,.04), 0 8px 24px -12px rgba(20,20,15,.12); color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  code, kbd, .path {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    word-break: break-word;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    gap: 56px;
+    justify-content: center;
+  }
+  @media (max-width: 980px) {
+    .shell { grid-template-columns: minmax(0, 1fr); }
+    nav.toc { display: none; }
+  }
+
+  header.top {
+    border-bottom: 1px solid var(--border);
+    padding: 40px 0 28px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  h1.title {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: clamp(22px, 3.4vw, 32px);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--ink-muted);
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .chip.accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+
+  nav.toc {
+    padding-top: 40px;
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    height: fit-content;
+  }
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--border);
+  }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block;
+    padding: 6px 0 6px 16px;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    color: var(--ink-muted);
+    text-decoration: none;
+    font-size: 13.5px;
+  }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--ink-faint); }
+  nav.toc .toc-label {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    color: var(--ink-faint);
+    padding-left: 16px;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  main { padding: 8px 0 80px; min-width: 0; }
+  section { margin: 48px 0; scroll-margin-top: 24px; }
+  section > h2 {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 20px;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  section > h2 .num { color: var(--accent); }
+  section > .lede {
+    color: var(--ink-muted);
+    margin: 0 0 22px;
+    max-width: 65ch;
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 28px 0 8px;
+  }
+  p { max-width: 68ch; }
+  ul, ol { max-width: 68ch; padding-left: 1.3em; }
+  li { margin: 4px 0; }
+
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 14px; }
+
+  .why-what-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .impact-list {
+    display: grid;
+    gap: 6px;
+    list-style: none;
+    padding: 0;
+    max-width: none;
+  }
+  .impact-list li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 14.5px;
+  }
+  .impact-list li:last-child { border-bottom: none; }
+  .impact-list .tag {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    padding: 2px 7px;
+    border-radius: 5px;
+  }
+
+  pre {
+    margin: 12px 0;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border: 1px solid var(--code-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.55;
+    font-variant-numeric: tabular-nums;
+  }
+  pre code { background: none; color: inherit; padding: 0; border-radius: 0; font-size: inherit; }
+  .diffline-add { color: var(--code-add); }
+  .diffline-del { color: var(--code-del); }
+  .cmd-label {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin: 18px 0 4px;
+  }
+
+  .decision {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    background: var(--bg-panel);
+    margin: 14px 0;
+  }
+  .decision h4 { margin: 0 0 8px; font-size: 15px; }
+  .decision dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 14px; }
+  .decision dt { color: var(--ink-faint); font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+  .decision dd { margin: 0; }
+
+  .risk-row { display: grid; grid-template-columns: 1fr; gap: 4px; padding: 12px 0; border-bottom: 1px dashed var(--border); }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-row .risk { font-weight: 600; }
+  .risk-row .risk::before { content: "risk — "; color: var(--danger); font-weight: 600; }
+  .risk-row .mitig::before { content: "mitigation — "; color: var(--accent-ink); font-weight: 600; }
+  .risk-row .mitig { color: var(--ink-muted); font-size: 14.5px; }
+
+  .req { border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; background: var(--bg-panel); box-shadow: var(--shadow); margin: 16px 0; }
+  .req h3 { margin: 0 0 10px; font-size: 15.5px; }
+  .scenario { margin: 10px 0 0; padding: 10px 12px; background: var(--accent-soft); border-radius: 6px; font-size: 13.5px; }
+  .scenario .stitle { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-weight: 700; color: var(--accent-ink); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .scenario ul { margin: 0; padding-left: 1.1em; max-width: none; }
+  .scenario .kw { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-weight: 700; color: var(--accent); }
+
+  .taskgroup { margin: 18px 0; }
+  .taskgroup h3 { display: flex; align-items: center; gap: 8px; }
+  .taskgroup .count { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 11px; color: var(--ink-faint); font-weight: 400; }
+  .task { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 14.5px; }
+  .task:last-child { border-bottom: none; }
+  .task .box { flex: none; width: 16px; height: 16px; margin-top: 3px; border: 1.5px solid var(--ink-faint); border-radius: 4px; }
+  .task .txt code { font-size: 0.85em; }
+  .tagpill { display: inline-block; font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 1px; }
+  .tagpill.unverified { background: var(--warn-soft); color: var(--warn); }
+  .tagpill.verified { background: var(--accent-soft); color: var(--accent-ink); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+    padding-top: 20px;
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+
+  a { color: var(--accent-ink); }
+  @media (prefers-reduced-motion: no-preference) {
+    a, .task .box { transition: color .15s ease, border-color .15s ease; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="toc">
+    <span class="toc-label">On this page</span>
+    <ol>
+      <li><a href="#why">Why</a></li>
+      <li><a href="#what">What changes</a></li>
+      <li><a href="#design">Design</a></li>
+      <li><a href="#decisions">Decisions</a></li>
+      <li><a href="#risks">Risks</a></li>
+      <li><a href="#spec">Spec</a></li>
+      <li><a href="#tasks">Tasks</a></li>
+    </ol>
+  </nav>
+
+  <div>
+    <header class="top">
+      <p class="eyebrow">OpenSpec proposal · agents repo</p>
+      <h1 class="title">No uncommitted-diff helper for subagent-driven-development review packages under NO-COMMITS</h1>
+      <div class="meta-row">
+        <span class="chip accent"><b>kan-53</b>-myflow-no-uncommitted-diff-helper-for-subagent</span>
+        <span class="chip">Jira <b>KAN-53</b> → In Progress</span>
+        <span class="chip">Planning effort <b>default</b></span>
+        <span class="chip">Impl <b>Sonnet</b></span>
+        <span class="chip">Panel <b>Sonnet</b></span>
+        <span class="chip">Fixes <b>Sonnet</b></span>
+      </div>
+    </header>
+
+    <main>
+      <section id="why">
+        <h2><span class="num">01</span> Why</h2>
+        <p>
+          <code>/myflow-do</code>'s NO-COMMITS rule forbids committing until a PR exists, so
+          <code>skills/myflow-do/SKILL.md</code> tracks per-task and per-fix-round review bases as
+          <code>git rev-parse HEAD</code>. Since HEAD never advances while nothing is committed,
+          every task records the <em>same</em> base — <code>git diff TASK_BASE</code> for task 2
+          silently includes task 1's still-uncommitted work too. It is not the isolated diff the
+          review loop needs.
+        </p>
+        <p>
+          This was worked around by hand during KAN-31's <code>/myflow-do</code> run using
+          <code>git stash create</code> to get a non-destructive snapshot object. This change makes
+          that reusable rather than re-derived per run.
+        </p>
+      </section>
+
+      <section id="what">
+        <h2><span class="num">02</span> What changes</h2>
+        <ul>
+          <li>Add <code>skills/myflow-do/scripts/checkpoint</code> — prints a non-destructive
+            snapshot of the current index+worktree state, suitable as an isolating BASE.</li>
+          <li>Add <code>skills/myflow-do/scripts/uncommitted-review-package PLAN_FILE BASE [OUTFILE]</code>
+            — writes a review package (stat + diff) into the same
+            <code>.superpowers/sdd/&lt;plan&gt;/</code> workspace <code>review-package</code> already
+            uses, minus a Commits section.</li>
+          <li>Rewrite <code>SKILL.md</code> step 4 and the fix-round paragraph in step 5 to call
+            these scripts instead of the inline <code>git rev-parse HEAD</code> prose.</li>
+          <li>Add <code>scripts/test-uncommitted-review-package.sh</code> covering both scripts.</li>
+        </ul>
+
+        <div class="cmd-label">capabilities</div>
+        <ul class="impact-list">
+          <li><span class="tag">new</span> <code>myflow-uncommitted-review-package</code> — isolated, per-task/per-fix-round review packages from uncommitted worktree changes</li>
+        </ul>
+
+        <div class="cmd-label">impact</div>
+        <ul class="impact-list">
+          <li><span class="tag">add</span> <span class="path">skills/myflow-do/scripts/checkpoint</span>, <span class="path">skills/myflow-do/scripts/uncommitted-review-package</span></li>
+          <li><span class="tag">edit</span> <span class="path">skills/myflow-do/SKILL.md</span> — step 4, fix-round paragraph in step 5</li>
+          <li><span class="tag">add</span> <span class="path">scripts/test-uncommitted-review-package.sh</span></li>
+          <li><span class="tag">unchanged</span> <code>final-review.diff</code>, the review panel roster, every other myflow command</li>
+        </ul>
+      </section>
+
+      <section id="design">
+        <h2><span class="num">03</span> Design</h2>
+        <p class="lede">Context, goals, and how the two scripts fit together.</p>
+
+        <h3>Goals</h3>
+        <ul>
+          <li>Isolate exactly one task's (or fix round's) own uncommitted changes from prior tasks' still-uncommitted changes, without committing anything.</li>
+          <li>Match <code>review-package</code>'s existing package shape so reviewers read one file, exactly as they already do for the committed case.</li>
+        </ul>
+        <h3>Non-goals</h3>
+        <ul>
+          <li>Editing <code>subagent-driven-development</code>'s <code>review-package</code> script — it ships from the <code>superpowers</code> plugin cache, not this repository.</li>
+          <li>Any change to the whole-branch <code>final-review.diff</code>, which is intentionally cumulative and has no isolation bug.</li>
+        </ul>
+
+        <h3>Data flow</h3>
+        <div class="cmd-label">per task</div>
+        <pre class="mono"><code>TASK_BASE=$(skills/myflow-do/scripts/checkpoint)
+<span class="diffline-add"># ...implementer subagent works, leaves changes uncommitted...</span>
+skills/myflow-do/scripts/uncommitted-review-package tasks.md "$TASK_BASE"
+<span class="diffline-add"># ...task reviewer reads the single package file printed on stdout...</span></code></pre>
+        <p>Fix rounds follow the identical shape with <code>FIX_BASE</code> / <code>fix-round-N.diff</code> as the explicit <code>OUTFILE</code>, so a re-review gets a distinct, freshly named file.</p>
+      </section>
+
+      <section id="decisions">
+        <h2><span class="num">04</span> Decisions</h2>
+
+        <div class="decision">
+          <h4>Isolate per-task/per-round diffs via <code>git stash create</code>, not a real commit</h4>
+          <dl>
+            <dt>id</dt><dd>stash-create-isolation</dd>
+            <dt>status</dt><dd>active</dd>
+            <dt>chosen</dt><dd>Record <code>BASE = git stash create</code> (falling back to <code>HEAD</code> on a clean tree) before each dispatch — a non-destructive snapshot that actually isolates each task's own changes.</dd>
+            <dt>considered</dt><dd>Keeping <code>git rev-parse HEAD</code> and asking reviewers to manually exclude prior work — re-creates the hand-built process this change eliminates. Committing per task and squashing later — violates NO-COMMITS directly.</dd>
+          </dl>
+        </div>
+
+        <div class="decision">
+          <h4>Two small single-purpose scripts, not one combined script</h4>
+          <dl>
+            <dt>id</dt><dd>two-scripts-not-one</dd>
+            <dt>status</dt><dd>active</dd>
+            <dt>chosen</dt><dd>A <code>checkpoint</code> script and a separate <code>uncommitted-review-package</code> script, matching how <code>subagent-driven-development</code> already splits <code>sdd-workspace</code> / <code>review-package</code> / <code>task-brief</code>, keeping <code>BASE</code> an explicit variable the parent tracks.</dd>
+            <dt>considered</dt><dd>One combined script remembering its own last checkpoint internally — makes <code>BASE</code> implicit state, diverging from how step 4 already documents the loop.</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section id="risks">
+        <h2><span class="num">05</span> Risks &amp; trade-offs</h2>
+        <div class="card">
+          <div class="risk-row">
+            <div class="risk">a <code>git stash create</code> object is unreachable from any ref and can be garbage-collected</div>
+            <div class="mitig">it only needs to survive from one <code>checkpoint</code> call to the next <code>uncommitted-review-package</code> call in the same session — the same lifetime <code>review-package</code>'s own BASE/HEAD arguments already assume.</div>
+          </div>
+          <div class="risk-row">
+            <div class="risk"><code>git stash create</code> on a clean tree prints nothing, which a naive caller could mistake for an error</div>
+            <div class="mitig"><code>checkpoint</code> detects this and prints the current <code>HEAD</code> sha instead, exercised directly by the test suite.</div>
+          </div>
+          <div class="risk-row">
+            <div class="risk">the single-ref diff also picks up changes made by anything other than the dispatched subagent</div>
+            <div class="mitig">this is the same trust boundary <code>git diff TASK_BASE</code> already had; nothing here widens it.</div>
+          </div>
+        </div>
+        <h3 style="margin-top:24px;">Migration plan</h3>
+        <p>None needed — additive only: two new scripts and a rewrite of two paragraphs in <code>SKILL.md</code>. No state file, ledger, or review-package format changes shape. Rollback is reverting the commit.</p>
+        <h3>Open questions</h3>
+        <p style="color:var(--ink-faint);">None.</p>
+      </section>
+
+      <section id="spec">
+        <h2><span class="num">06</span> Spec — <code class="mono">myflow-uncommitted-review-package</code></h2>
+        <p class="lede">New capability, added in full (no existing requirements modified).</p>
+
+        <div class="req">
+          <h3>A checkpoint isolates uncommitted work without touching any ref</h3>
+          <p style="font-size:14.5px;"><code>checkpoint</code> SHALL print <code>git stash create</code>'s output when the worktree carries uncommitted changes, or the current <code>HEAD</code> sha when clean — and SHALL NOT modify <code>HEAD</code>, the index, or the stash list either way.</p>
+          <div class="scenario">
+            <div class="stitle">Scenario · dirty tree yields a stash-create snapshot</div>
+            <ul><li><span class="kw">when</span> <code>checkpoint</code> runs against a worktree with uncommitted changes</li>
+            <li><span class="kw">then</span> it prints a valid commit-ish distinct from <code>HEAD</code>, and <code>git status</code>/<code>git stash list</code>/<code>HEAD</code> are unchanged</li></ul>
+          </div>
+          <div class="scenario">
+            <div class="stitle">Scenario · clean tree falls back to HEAD</div>
+            <ul><li><span class="kw">when</span> the worktree has no uncommitted changes</li>
+            <li><span class="kw">then</span> it prints the current <code>HEAD</code> sha</li></ul>
+          </div>
+        </div>
+
+        <div class="req">
+          <h3>A review package diffs BASE against the live working tree</h3>
+          <p style="font-size:14.5px;"><code>uncommitted-review-package PLAN_FILE BASE [OUTFILE]</code> SHALL write a files-changed stat and a <code>-U10</code> diff of BASE against the working tree — never <code>HEAD</code> — into the same plan-scoped <code>.superpowers/sdd/&lt;plan&gt;/</code> workspace, with no Commits section.</p>
+          <div class="scenario">
+            <div class="stitle">Scenario · a later task's changes are isolated from an earlier task's</div>
+            <ul><li><span class="kw">when</span> task 1 changes, a checkpoint is recorded, then task 2 changes further</li>
+            <li><span class="kw">then</span> the package contains only task 2's changes</li></ul>
+          </div>
+          <div class="scenario">
+            <div class="stitle">Scenario · the output file has no Commits section</div>
+            <ul><li><span class="kw">then</span> the file has <code>## Files changed</code> and <code>## Diff</code>, and no <code>## Commits</code></li></ul>
+          </div>
+          <div class="scenario">
+            <div class="stitle">Scenario · a re-review after a fix round gets a distinct file</div>
+            <ul><li><span class="kw">when</span> invoked again with a different BASE and an explicit OUTFILE</li>
+            <li><span class="kw">then</span> the new package is written there, leaving the prior file intact</li></ul>
+          </div>
+        </div>
+
+        <div class="req">
+          <h3>Invalid arguments fail the same way review-package's do</h3>
+          <div class="scenario">
+            <div class="stitle">Scenario · missing plan file</div>
+            <ul><li><span class="kw">then</span> exits non-zero, reports <code>no such plan file: &lt;path&gt;</code>, writes nothing</li></ul>
+          </div>
+          <div class="scenario">
+            <div class="stitle">Scenario · unresolvable BASE</div>
+            <ul><li><span class="kw">then</span> exits non-zero, reports <code>bad BASE: &lt;base&gt;</code>, writes nothing</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="tasks">
+        <h2><span class="num">07</span> Tasks</h2>
+        <p class="lede">Enriched plan <code>/myflow-do</code> executes, one implementer dispatch per group.</p>
+
+        <div class="taskgroup">
+          <h3>1. checkpoint script <span class="count">2 tasks</span></h3>
+          <div class="task"><div class="box"></div><div class="txt">Create <code>skills/myflow-do/scripts/checkpoint</code>, modeled on <code>sdd-workspace</code>'s header style <span class="tagpill unverified">unverified</span></div></div>
+          <div class="task"><div class="box"></div><div class="txt">Manually verify both paths (clean-tree fallback, dirty-tree snapshot) in a scratch repo before writing tests</div></div>
+        </div>
+
+        <div class="taskgroup">
+          <h3>2. uncommitted-review-package script <span class="count">2 tasks</span></h3>
+          <div class="task"><div class="box"></div><div class="txt">Create the script adapted from <code>review-package</code> <span class="tagpill verified">verified:read</span></div></div>
+          <div class="task"><div class="box"></div><div class="txt">Manually verify end-to-end: checkpoint → change → package → inspect sections</div></div>
+        </div>
+
+        <div class="taskgroup">
+          <h3>3. Wire into SKILL.md <span class="count">4 tasks</span></h3>
+          <div class="task"><div class="box"></div><div class="txt">Rewrite the NO-COMMITS block in step 4 (lines 107–111)</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Update the per-task review paragraph (line 133)</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Update the fix-round paragraph in step 5 (line 270)</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Grep for any remaining <code>rev-parse HEAD</code> / <code>TASK_BASE</code> / <code>FIX_BASE</code> reference</div></div>
+        </div>
+
+        <div class="taskgroup">
+          <h3>4. Tests <span class="count">8 tasks</span></h3>
+          <div class="task"><div class="box"></div><div class="txt">Create <code>scripts/test-uncommitted-review-package.sh</code> following this repo's test conventions</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Case: clean-tree checkpoint prints HEAD</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Case: dirty-tree checkpoint differs from HEAD</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Case: two-round isolation — the core property this change provides</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Case: output file shape (Files changed + Diff, no Commits)</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Case: missing plan file fails correctly</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Case: unresolvable BASE fails correctly</div></div>
+          <div class="task"><div class="box"></div><div class="txt">Run the suite, confirm <code>FAILURES=0</code></div></div>
+        </div>
+
+        <div class="taskgroup">
+          <h3>5. Repo-wide verification <span class="count">2 tasks</span></h3>
+          <div class="task"><div class="box"></div><div class="txt">Run <code>check-vocabulary.sh</code>, <code>check-references.sh</code>, <code>check-plan-provenance.sh</code></div></div>
+          <div class="task"><div class="box"></div><div class="txt">Run every <code>scripts/test-*.sh</code>, confirm no regressions</div></div>
+        </div>
+      </section>
+
+      <footer>
+        Published by <code>/myflow-start</code> for KAN-53 · repo: <span class="path">/Users/tweety53/Projects/agents</span>
+      </footer>
+    </main>
+  </div>
+</div>
