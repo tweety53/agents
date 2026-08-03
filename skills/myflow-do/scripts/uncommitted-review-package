@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Generate a review package for uncommitted work: a files-changed summary and
+# the diff of the live working tree against BASE, written to a file the
+# reviewer reads in one call.
+#
+# Unlike subagent-driven-development's review-package (which diffs a real
+# base..head commit range), NO-COMMITS means nothing ever reaches HEAD, so
+# there is no commit range to log and no head to name. This script diffs a
+# single commit-ish BASE (typically the output of `checkpoint`) against
+# whatever is currently sitting in the working tree, and omits the commit log
+# entirely.
+#
+# `git diff BASE` never shows a brand-new file that is still untracked, no
+# matter how BASE relates to history — git's diff machinery ignores untracked
+# paths outright. Since the whole point of this script is to review work that
+# may include new, still-uncommitted files, it stages everything first so new
+# files are registered in the index and show up as additions. Staging is
+# repo-root-anchored (`git -C <toplevel> add -A -- .`, not a bare `git add -A`
+# run from cwd, and not `-- .` without `-C`): scoped with a `.` pathspec and no
+# `-C` it only stages the cwd's subtree, so an untracked file elsewhere in the
+# repo (this script may be invoked from any subdirectory) would stay unstaged
+# and silently missing from the diff below — exactly the gap this script
+# exists to close. `-C <toplevel>` makes `.` mean the whole repo regardless of
+# invocation cwd.
+#
+# The staging pathspec also excludes the three NO-COMMITS planning paths
+# (openspec/, docs/manual-test/, docs/superpowers/) that this pipeline never
+# stages via a bare `git add -A` — skills/myflow-do/SKILL.md's NO-COMMITS
+# block and Guardrails section forbid it, and staging them here would leak
+# uncommitted planning edits into a review package meant to cover
+# implementation only. Real staging (not just intent-to-add) is used because
+# it is simplest, and it is a harmless side effect here: nothing this
+# pipeline runs ever commits on the caller's behalf, and callers are already
+# told they may `git add` their own work.
+#
+# Usage: uncommitted-review-package PLAN_FILE BASE [OUTFILE]
+# Default OUTFILE: <repo-root>/.superpowers/sdd/<plan-basename>/review-<base7>.diff
+set -euo pipefail
+
+if [ $# -lt 2 ] || [ $# -gt 3 ]; then
+  echo "usage: uncommitted-review-package PLAN_FILE BASE [OUTFILE]" >&2
+  exit 2
+fi
+
+plan=$1
+base=$2
+[ -f "$plan" ] || { echo "no such plan file: $plan" >&2; exit 2; }
+
+git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&2; exit 2; }
+
+# Stage everything except the NO-COMMITS planning paths, including
+# brand-new untracked files, so they show up in `git diff BASE` below instead
+# of being silently skipped. See header comment for why this is
+# `-C <toplevel> add -A -- .` with exclusions, not a bare `git add -A` and not
+# a cwd-relative `-- .`.
+toplevel=$(git rev-parse --show-toplevel)
+git -C "$toplevel" add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/'
+
+if [ $# -eq 3 ]; then
+  out=$3
+else
+  script_dir=$(cd "$(dirname "$0")" && pwd)
+  sibling_workspace="$script_dir/../../subagent-driven-development/scripts/sdd-workspace"
+  if [ -x "$sibling_workspace" ]; then
+    workspace=$sibling_workspace
+  else
+    # The sibling relative path only resolves when subagent-driven-development
+    # is installed side by side with myflow-do under the same skills/ root.
+    # In every observed install it instead ships from the superpowers plugin's
+    # own cache, whose root differs per harness (Claude Code, Cursor, Codex
+    # all run this pipeline per skills/myflow-do/SKILL.md), so check each
+    # harness's plugin cache root in turn.
+    workspace=""
+    for cache_root in "$HOME/.claude/plugins/cache" "$HOME/.cursor/plugins/cache" "$HOME/.codex/plugins/cache"; do
+      [ -d "$cache_root" ] || continue
+      found=$(find "$cache_root" -path '*/skills/subagent-driven-development/scripts/sdd-workspace' -print -quit 2>/dev/null || true)
+      if [ -n "$found" ] && [ -x "$found" ]; then
+        workspace=$found
+        break
+      fi
+    done
+    [ -n "$workspace" ] || {
+      echo "cannot locate sdd-workspace (checked $sibling_workspace, $HOME/.claude/plugins/cache, $HOME/.cursor/plugins/cache, $HOME/.codex/plugins/cache)" >&2
+      exit 2
+    }
+  fi
+  dir=$("$workspace" "$plan")
+  out="$dir/review-$(git rev-parse --short "$base").diff"
+fi
+
+{
+  echo "# Review package: uncommitted work relative to ${base}"
+  echo
+  echo "## Files changed"
+  git diff --stat "${base}"
+  echo
+  echo "## Diff"
+  git diff -U10 "${base}"
+} > "$out"
+
+echo "wrote ${out}: $(wc -c < "$out" | tr -d ' ') bytes"
