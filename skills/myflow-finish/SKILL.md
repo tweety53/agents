@@ -320,6 +320,67 @@ In outline, and stopping at the first step that fails:
 **Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 6
 transitions nothing — the change is not done.
 
+8. **Run self-review.** Point at **Self-review — /myflow-finish run 2**
+   (`skills/myflow-contracts/pipeline.md`) as canonical for the procedure. What is specific to
+   *executing* it here: the script invocation `scripts/gather-self-review-context.sh
+   <archived-change-path> <name> <state-dir>`, resolving `<archived-change-path>` as
+   `openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
+   already used when it moved the change there.
+
+   The skip prompt fires first, and reads:
+
+   > **Run self-review for this change?**
+   > - **Yes — run it** *(default, recommended)*
+   > - **No — skip**
+
+   An explicit **No** stops step 8 here; the handoff's `Self-review` line reads `skipped`. Silence
+   or a session that cannot ask runs self-review, exactly as an explicit **Yes** would.
+
+   The reasoning step that follows is **one combined pass** — never four separate dispatches —
+   answering all four angles (problems and the pipeline change that would avoid them; token/time
+   cost and what would reduce it without quality loss; what went well and how to reproduce it; what
+   could be automated or moved to a script) plus the rating request, fed the script's bundle and the
+   live session's own context. A self-review mechanism that itself burned disproportionate tokens on
+   four separate dispatches would be its own finding under the cost angle — the one-pass shape is
+   how this step avoids becoming that finding.
+
+   For each finding that names a concrete pipeline or script change, ask once, per finding:
+
+   > **File `<one-line finding>` as a Jira issue?**
+   > - **No — don't file** *(default, recommended)*
+   > - **Yes — file it**
+
+   A bare observation with no concrete change implied gets no filing ask. Labelling a filed issue
+   and handling a filing failure follow **Labels on issues the pipeline creates** and **Never
+   blocking** (`skills/myflow-contracts/jira-integration.md`) verbatim — not restated here.
+
+   Then ask the operator to rate the run:
+
+   **Rate this myflow run, 1 (rough) to 5 (excellent):**
+
+   Write `docs/self-review/<name>-self-review.md` — the four-angle report, the rating, and which
+   findings were filed versus declined — and commit and push it on the base branch **in the main
+   checkout**, never the removed worktree, as one guarded commit mirroring the shape **Git
+   boundaries** (`skills/myflow-contracts/pipeline.md`) already documents:
+
+   ```bash
+   git -C <main-checkout> add -- docs/self-review/<name>-self-review.md \
+     && { git -C <main-checkout> diff --cached --quiet \
+          || { git -C <main-checkout> commit -m "docs(<name>): self-review report" \
+               && git -C <main-checkout> push; }; }
+   ```
+
+   The inner `{ commit && push; }` grouping matters: without it, `&&`/`||` at equal precedence
+   parse left-to-right as `(diff --quiet || commit) && push`, which runs `push` unconditionally
+   once the outer group is entered — even when nothing was staged or committed. Grouping `commit`
+   and `push` together means `push` only runs on the branch where `commit` actually ran, matching
+   the skip-if-empty shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already
+   documents for the worktree commits above.
+
+   A commit that FAILS (hook rejection, push rejected) is reported with git's own output. The change
+   stays `FINISHED` regardless — a report that failed to commit is a self-review failure to report
+   in the handoff, never a reason to reopen the change.
+
 ```
 ## Finished
 
@@ -329,6 +390,7 @@ transitions nothing — the change is not done.
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
+**Self-review:** <path> (rating: <n>/5) | skipped
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
 
@@ -381,4 +443,8 @@ Next:
   the only record of it, which is exactly the transcript-only record this pipeline refuses.
 - **Never** `git add` the state file, and never move it into the archive.
 - **Never** let a Jira call block the archive — one skipped-with-reason line.
+- **Never** let self-review block, delay, or undo the `FINISHED` write — it runs only after that
+  write succeeds, and a failure or a skip inside it never moves the change off `FINISHED`.
+- **Never** ask the self-review skip prompt, a per-finding filing ask, or the rating question
+  before `FINISHED` has been written.
 - **No flags.** The only argument is the optional change name; report anything else.

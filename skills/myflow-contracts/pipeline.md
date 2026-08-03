@@ -76,7 +76,7 @@ verdict picks which one this invocation performs, and the run is never a command
 |---------|------------------|---------------|
 | `/myflow-start` | resolve the change → ask the planning effort and the three model choices *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
 | `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → write the manual test guide → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps against the guide |
-| `/myflow-finish` | the preflight verdict ▸, taken once per recorded worktree, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
+| `/myflow-finish` | the preflight verdict ▸, taken once per recorded worktree, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` → self-review ▸ | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
 | `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
 | `/myflow-info` | read-only — no stages, no state write; reads this file and explains the pipeline | — |
 
@@ -227,6 +227,27 @@ treated exactly as `LEFTOVER` — an unverified cleanup is not a verified one.
 What is removed, when, and on what condition is
 **Temporary artifacts registry** (`pipeline.md`) below — the one place a cleanup rule is stated. The
 procedure for the rows it removes is **Worktree cleanup** (`pipeline.md`).
+
+#### Self-review — `/myflow-finish` run 2
+
+Self-review runs only after `FINISHED` is written — never before it, and never in a run that stops
+earlier. It is skippable per run, with running it the default. It gathers its input by invoking
+`scripts/gather-self-review-context.sh` rather than having the reasoning pass re-read files inline,
+runs **one** combined reasoning pass covering all four angles — problems and fixes, cost, what went
+well, and automation candidates — together with the operator's 1-5 rating, never as four separate
+dispatches, and offers a per-finding Jira filing ask before committing its report to
+`docs/self-review/<name>-self-review.md`.
+
+**Which file to change first.** The normative requirement is
+**Requirement: Self-review runs only after FINISHED is written** (`openspec/specs/myflow-self-review/spec.md`),
+read alongside the sibling requirements in that same file for context gathering, the combined pass,
+the per-finding filing ask, the rating, and the report path. Naming the requirement in full, rather
+than giving the path alone, is what makes `scripts/check-references.sh` check this pointer — an
+OpenSpec `### Requirement: …` heading is a heading like any other. The guard skips a path that does
+not resolve, so this one is checked only once the capability lands in `openspec/specs/` at finish
+run 2; until then it is a reference nobody verifies, which is said here rather than left to look
+otherwise, exactly as **Planning effort** (`skills/myflow-contracts/state-file.md`) already states
+for its own forward reference.
 
 ## Command surface
 
@@ -698,11 +719,16 @@ behind it. The preflight verdict cannot stand in either — a pushed but unmerge
 from the report, so there is nothing left waiting on the operator to hand off. `/myflow-finish`
 run 2 does print a terminal block — what it synced, archived, removed and verified — and every field
 of it is run-only, because it reports what that run did rather than what the change now is. One
-renderer means nothing to keep in step, which is why that block takes no template here. A run 2 that
-**stops** on a cleanup leftover is not this case: it leaves the change at `IN_PROGRESS` and prints
-its own interrupted-run report, every field of which is likewise run-only — what that run synced,
-archived and left behind, which the state file does not record. `/myflow-status` regenerates one of
-the two `IN_PROGRESS` renderings above for such a change, by the test just given.
+renderer means nothing to keep in step, which is why that block takes no template here. That block
+carries one more field now: `**Self-review:** <path> (rating: <n>/5) | skipped`, immediately after
+`**Cleanup:** verified`, naming step 8's outcome — a value only run 2 ever has, exactly like the
+fields beside it. A run 2 that **stops** on a cleanup leftover is not this case: it leaves the change
+at `IN_PROGRESS` and prints its own interrupted-run report, every field of which is likewise
+run-only — what that run synced, archived and left behind, which the state file does not record.
+That interrupted-run report carries no `Self-review` field, because it is printed only when run 2
+stops **before** step 7 — step 8 never runs there, so there is nothing for the field to name; adding
+it regardless would misstate a run that never reached self-review. `/myflow-status` regenerates one
+of the two `IN_PROGRESS` renderings above for such a change, by the test just given.
 
 Which path each `open` line names, and why `open -na` rather than the `idea` shim, are
 **IntelliJ commands** (`pipeline.md`) below.
@@ -1031,6 +1057,13 @@ the one irreversible step.
 7. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup** (`pipeline.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
+8. **Run self-review** — see **Self-review — `/myflow-finish` run 2** above — after `FINISHED` is
+   written; a skip, a failure, or a decline never moves the change off `FINISHED`.
+
+**The Jira `Done` transition fires before step 8, not after it.** Per **Jira integration**
+(`skills/myflow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
+archive move and the state write — that transition has already happened by the time step 8 begins,
+so self-review has nothing to delay: there is no Jira write left in run 2 for it to sit in front of.
 
 ### Worktree cleanup
 

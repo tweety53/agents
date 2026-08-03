@@ -43,6 +43,7 @@ scripts/test-check-finish-preflight.sh
 scripts/test-preserve-session-records.sh
 scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh
+scripts/test-gather-self-review-context.sh
 ```
 
 ## lint
