@@ -1,0 +1,589 @@
+<title>kan-23 — myflow self-review</title>
+<style>
+  :root {
+    --ink: #10141b;
+    --ink-soft: #2a313d;
+    --paper: #f2f4f3;
+    --paper-raised: #ffffff;
+    --line: #d7dcdb;
+    --muted: #5b6570;
+    --accent: #1f8f86;
+    --accent-soft: #e2f2f0;
+    --accent-ink: #0b5f58;
+    --good: #3a8a4a;
+    --good-soft: #e7f3e9;
+    --warn: #b8862f;
+    --warn-soft: #faf1de;
+    --code-bg: #eef1f0;
+    --shadow: 0 1px 2px rgba(16, 20, 27, 0.06), 0 8px 24px rgba(16, 20, 27, 0.06);
+    --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
+    --sans: "Avenir Next", Avenir, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #eef1f0;
+      --ink-soft: #c3cbd1;
+      --paper: #12161c;
+      --paper-raised: #181e26;
+      --line: #2b333d;
+      --muted: #8b96a1;
+      --accent: #4fc9be;
+      --accent-soft: #10302e;
+      --accent-ink: #7fe0d5;
+      --good: #6bc27f;
+      --good-soft: #12281a;
+      --warn: #d9a94f;
+      --warn-soft: #2c2413;
+      --code-bg: #0e1319;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #eef1f0; --ink-soft: #c3cbd1; --paper: #12161c; --paper-raised: #181e26;
+    --line: #2b333d; --muted: #8b96a1; --accent: #4fc9be; --accent-soft: #10302e;
+    --accent-ink: #7fe0d5; --good: #6bc27f; --good-soft: #12281a; --warn: #d9a94f;
+    --warn-soft: #2c2413; --code-bg: #0e1319;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #10141b; --ink-soft: #2a313d; --paper: #f2f4f3; --paper-raised: #ffffff;
+    --line: #d7dcdb; --muted: #5b6570; --accent: #1f8f86; --accent-soft: #e2f2f0;
+    --accent-ink: #0b5f58; --good: #3a8a4a; --good-soft: #e7f3e9; --warn: #b8862f;
+    --warn-soft: #faf1de; --code-bg: #eef1f0;
+    --shadow: 0 1px 2px rgba(16,20,27,.06), 0 8px 24px rgba(16,20,27,.06);
+  }
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 4vw, 56px) 96px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  @media (min-width: 980px) {
+    .shell { grid-template-columns: 220px minmax(0, 720px); gap: 56px; align-items: start; }
+  }
+
+  /* ---------- header band ---------- */
+  header.masthead {
+    grid-column: 1 / -1;
+    padding: 44px 0 28px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 8px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .kicker .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1.title {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(1.9rem, 3.4vw, 2.7rem);
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+  .subtitle {
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 22px;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 12px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    font-family: var(--mono);
+  }
+  .chip b { color: var(--ink); font-family: var(--sans); font-weight: 600; }
+  .chip.accent { border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
+
+  /* ---------- side nav ---------- */
+  nav.toc {
+    position: sticky;
+    top: 28px;
+    display: none;
+    padding: 4px 0 40px;
+    font-size: 0.86rem;
+  }
+  @media (min-width: 980px) { nav.toc { display: block; } }
+  nav.toc .toc-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block;
+    padding: 7px 0 7px 16px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+  }
+  nav.toc a:hover { color: var(--accent-ink); border-left-color: var(--accent); }
+
+  /* ---------- content ---------- */
+  main { min-width: 0; padding-top: 36px; }
+  section { margin-bottom: 52px; scroll-margin-top: 28px; }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 1.5rem;
+    margin: 0 0 6px;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-weight: 650;
+    font-size: 1.02rem;
+    margin: 26px 0 8px;
+    color: var(--ink);
+  }
+  .section-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin: 0 0 18px;
+  }
+  p { max-width: 68ch; color: var(--ink-soft); }
+  p.lede { font-size: 1.06rem; color: var(--ink); max-width: 66ch; }
+  ul, ol.plain { padding-left: 1.3em; color: var(--ink-soft); max-width: 68ch; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--ink); }
+  code {
+    font-family: var(--mono);
+    background: var(--code-bg);
+    padding: 0.12em 0.4em;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  blockquote {
+    margin: 14px 0;
+    padding: 12px 18px;
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 8px 8px 0;
+    color: var(--ink);
+    max-width: 62ch;
+  }
+  blockquote p { margin: 4px 0; color: var(--ink); }
+  blockquote .opt { color: var(--ink-soft); font-size: 0.92rem; }
+
+  /* decision / question cards */
+  .card-grid { display: grid; gap: 14px; margin: 18px 0; }
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .card h4 {
+    margin: 0 0 8px;
+    font-size: 0.98rem;
+    font-family: var(--sans);
+    font-weight: 650;
+    color: var(--ink);
+  }
+  .card .id {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .card p { margin: 6px 0; font-size: 0.94rem; max-width: none; }
+  .card .chosen { color: var(--accent-ink); }
+  .status-empty {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 0.92rem;
+    background: var(--paper-raised);
+  }
+  .status-empty .badge {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--good-soft);
+    color: var(--good);
+    letter-spacing: 0.04em;
+  }
+
+  /* capability spec blocks */
+  .cap {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper-raised);
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .cap > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 650;
+  }
+  .cap > summary::-webkit-details-marker { display: none; }
+  .cap > summary .name { font-family: var(--mono); font-size: 0.94rem; color: var(--ink); }
+  .cap > summary .tag {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .tag.new { background: var(--accent-soft); color: var(--accent-ink); }
+  .tag.mod { background: var(--warn-soft); color: var(--warn); }
+  .cap-body { padding: 4px 20px 20px; border-top: 1px solid var(--line); }
+  .req { margin: 18px 0; }
+  .req h4 { font-size: 0.92rem; font-weight: 650; margin: 0 0 6px; }
+  .req p.body { font-size: 0.92rem; margin: 4px 0 10px; }
+  .scenario {
+    font-size: 0.86rem;
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 8px 0;
+  }
+  .scenario .label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  .scenario b { font-family: var(--mono); font-size: 0.78rem; color: var(--accent-ink); }
+  .chevron { transition: transform 0.15s ease; color: var(--muted); }
+  details[open] > summary .chevron { transform: rotate(90deg); }
+
+  /* task groups */
+  .task-group { margin: 18px 0; }
+  .task-group .group-title {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .task-list { list-style: none; margin: 0; padding: 0; }
+  .task-list li {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.92rem;
+  }
+  .task-list li:last-child { border-bottom: none; }
+  .task-list .box {
+    width: 15px; height: 15px; margin-top: 3px; flex: none;
+    border: 1.5px solid var(--muted); border-radius: 4px;
+  }
+
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .tablewrap { overflow-x: auto; }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  footer.foot {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    margin-top: 20px;
+    padding-top: 20px;
+    color: var(--muted);
+    font-size: 0.84rem;
+    font-family: var(--mono);
+  }
+
+  a.skip-link { position: absolute; left: -999px; }
+  a.skip-link:focus { left: 12px; top: 12px; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 6px; }
+</style>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="shell">
+  <header class="masthead">
+    <div class="kicker"><span class="dot"></span> myflow proposal &middot; STARTED</div>
+    <h1 class="title">Self-review, after the archive closes</h1>
+    <p class="subtitle">A retrospective step folded into <code>/myflow-finish</code> run 2 — what went wrong, what cost too much, what worked, and what should be a script instead of a conversation.</p>
+    <div class="meta-row">
+      <span class="chip accent"><b>kan-23-myflow-self-review</b></span>
+      <span class="chip">Jira <b>KAN-23</b> → In Progress</span>
+      <span class="chip">Decisions <b>8</b></span>
+      <span class="chip">Open questions <b>0</b></span>
+      <span class="chip">Planning effort <b>default</b></span>
+      <span class="chip">Models <b>Sonnet</b> / <b>Sonnet</b> / <b>Sonnet</b></span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <div class="toc-label">Contents</div>
+    <ol>
+      <li><a href="#why">Why</a></li>
+      <li><a href="#what">What changes</a></li>
+      <li><a href="#decisions">Decisions</a></li>
+      <li><a href="#open-questions">Open questions</a></li>
+      <li><a href="#specs">Delta specs</a></li>
+      <li><a href="#tasks">Task list</a></li>
+      <li><a href="#next">Next</a></li>
+    </ol>
+  </nav>
+
+  <main id="main">
+
+    <section id="why">
+      <h2>Why</h2>
+      <p class="lede">Once a change reaches <code>FINISHED</code>, nothing captures what the run itself revealed. KAN-23 asks for a retrospective: what problems came up and how the pipeline could avoid them, what drove token/time cost and what would cut it without losing quality, what went well worth repeating, and what could be scripted instead of reasoned through by hand — plus an offer to file actionable findings as Jira issues and a spot for the operator to rate the run.</p>
+    </section>
+
+    <section id="what">
+      <h2>What changes</h2>
+      <p class="section-note">Purely additive to <code>/myflow-finish</code> run 2. No new pipeline state, no new command, no state-file schema change.</p>
+      <ul>
+        <li><code>/myflow-finish</code> run 2 gains step 8, immediately after the <code>FINISHED</code> write: a self-review pass.</li>
+        <li>A skip prompt (default: run it) lets the operator opt out per invocation.</li>
+        <li>A new deterministic script, <code>scripts/gather-self-review-context.sh</code>, mechanically collects the SDD ledger, the review-panel record, <code>tasks.md</code> and the relevant git log — no LLM tokens spent scanning for it.</li>
+        <li>One combined reasoning pass — not four separate dispatches — answers all four angles using that bundle plus the live session's own context.</li>
+        <li>Each actionable finding gets its own Jira-filing ask (default: don't file), reusing the existing labelling and never-blocking rules.</li>
+        <li>The operator rates the run 1–5; the rating lives only in the report, never in the state file.</li>
+        <li>The report is written to <code>docs/self-review/&lt;name&gt;-self-review.md</code>, committed and pushed on the base branch.</li>
+        <li>Run 2's terminal handoff gains one line naming the report path and rating, or <code>skipped</code>.</li>
+      </ul>
+    </section>
+
+    <section id="decisions">
+      <h2>Decisions</h2>
+      <p class="section-note">Sourced from the brainstorming dialogue. Each is immutable by ID once recorded — a later round supersedes rather than edits.</p>
+
+      <div class="card-grid">
+        <div class="card">
+          <span class="id">self-review-placement</span>
+          <h4>Where self-review sits in the pipeline</h4>
+          <p class="chosen"><strong>Chosen:</strong> inside <code>/myflow-finish</code> run 2, as step 8, after the <code>FINISHED</code> write — never blocks or delays the archive.</p>
+          <p><strong>Considered:</strong> before the <code>FINISHED</code> write (risks blocking the terminal state); a new standalone <code>/myflow-self-review</code> command (collides with the fixed three-command pipeline surface).</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-pass-count</span>
+          <h4>Review structure — one pass vs. four</h4>
+          <p class="chosen"><strong>Chosen:</strong> one combined reasoning pass covering all four angles plus the rating.</p>
+          <p><strong>Considered:</strong> four distinct passes mirroring the review panel's separate-lens model — rejected as working against the cost-reduction angle it would itself be auditing.</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-context-gathering</span>
+          <h4>Context gathering — script vs. inline reading</h4>
+          <p class="chosen"><strong>Chosen:</strong> a new deterministic script assembles the bundle; the reasoning pass only judges it.</p>
+          <p><strong>Considered:</strong> the skill's own prose reading the files itself — rejected, since every run would then re-read and re-summarize the same files from scratch.</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-inputs</span>
+          <h4>What the self-review analyzes</h4>
+          <p class="chosen"><strong>Chosen:</strong> the preserved artifacts (ledger, panel record, OpenSpec artifacts, archived git history) plus the live session's own context.</p>
+          <p><strong>Considered:</strong> artifacts only, for reproducibility — rejected in favor of the richer signal live context gives for "what went well."</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-task-creation</span>
+          <h4>Task creation for findings</h4>
+          <p class="chosen"><strong>Chosen:</strong> Jira issues, one filing ask per actionable finding, default No.</p>
+          <p><strong>Considered:</strong> one batched ask covering all findings — less granular control per finding.</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-report-storage</span>
+          <h4>Report storage</h4>
+          <p class="chosen"><strong>Chosen:</strong> <code>docs/self-review/&lt;name&gt;-self-review.md</code>, committed and pushed.</p>
+          <p><strong>Considered:</strong> the state file only (machine-local, not in git history); both a report and a state-file mirror — dropped once report-only was chosen.</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-skip-prompt</span>
+          <h4>Skip prompt semantics</h4>
+          <p class="chosen"><strong>Chosen:</strong> fires after <code>FINISHED</code>, never blocks; default answer to "run it?" is Yes.</p>
+          <p><strong>Considered:</strong> none — matched the issue's own phrasing once clarified.</p>
+        </div>
+        <div class="card">
+          <span class="id">self-review-rating-source</span>
+          <h4>Rating source</h4>
+          <p class="chosen"><strong>Chosen:</strong> the operator is asked interactively for the 1–5 rating.</p>
+          <p><strong>Considered:</strong> the agent self-assigning a rating — rejected as a weaker signal than the human who watched the run.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="open-questions">
+      <h2>Open questions</h2>
+      <div class="status-empty">
+        <span class="badge">NONE</span>
+        Every question raised during brainstorming was answered and recorded as a decision above.
+      </div>
+    </section>
+
+    <section id="specs">
+      <h2>Delta specs</h2>
+      <p class="section-note">One capability created, one existing capability gains a requirement.</p>
+
+      <details class="cap" open>
+        <summary><span class="name">myflow-self-review</span><span style="display:flex;align-items:center;gap:10px;"><span class="tag new">NEW CAPABILITY</span><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></summary>
+        <div class="cap-body">
+          <div class="req">
+            <h4>Requirement: Self-review runs only after FINISHED is written</h4>
+            <p class="body">Runs as step 8, immediately after step 7 succeeds, and only then. It cannot prevent, delay, or undo the <code>FINISHED</code> write.</p>
+            <div class="scenario"><span class="label">Scenario</span><b>WHEN</b> a cleanup leftover stops run 2 at step 6 <b>THEN</b> self-review does not run, and the change stays <code>IN_PROGRESS</code></div>
+          </div>
+          <div class="req">
+            <h4>Requirement: A skip prompt defaults to running self-review</h4>
+            <p class="body">Only an explicit <strong>No</strong> skips. Silence or an unaskable session runs it.</p>
+            <div class="scenario"><span class="label">Scenario</span><b>WHEN</b> the operator answers <em>No — skip</em> <b>THEN</b> the handoff prints <code>Self-review: skipped</code> and nothing else changes</div>
+          </div>
+          <div class="req">
+            <h4>Requirement: Context is gathered deterministically</h4>
+            <p class="body"><code>scripts/gather-self-review-context.sh</code> collects the ledger, panel record, <code>tasks.md</code> and git log without performing any judgement; a missing source is reported and skipped, never fatal.</p>
+            <div class="scenario"><span class="label">Scenario</span><b>WHEN</b> the change has no review-panel record <b>THEN</b> the script reports it skipped and still returns the other sources, exiting 0</div>
+          </div>
+          <div class="req">
+            <h4>Requirement: One combined reasoning pass, not four separate dispatches</h4>
+            <p class="body">All four angles are answered in a single pass fed the gathered bundle plus live session context.</p>
+            <div class="scenario"><span class="label">Scenario</span><b>WHEN</b> self-review runs <b>THEN</b> one pass produces findings for all four angles, never four dispatches</div>
+          </div>
+          <div class="req">
+            <h4>Requirement: Each actionable finding gets its own Jira filing ask</h4>
+            <p class="body">A finding naming a concrete change gets a filing ask, default No. A filed issue carries the linked issue's labels plus <code>AI-generated</code>.</p>
+            <div class="scenario"><span class="label">Scenario</span><b>WHEN</b> a finding states a bare observation <b>THEN</b> no filing ask is made for it</div>
+          </div>
+          <div class="req">
+            <h4>Requirement: The operator rates the run, 1 to 5</h4>
+            <p class="body">Recorded only in the report file, never in <code>state.json</code>.</p>
+          </div>
+          <div class="req">
+            <h4>Requirement: The report is committed to a fixed path</h4>
+            <p class="body"><code>docs/self-review/&lt;name&gt;-self-review.md</code>, committed on the base branch in the main checkout, and pushed.</p>
+          </div>
+          <div class="req">
+            <h4>Requirement: The run-2 handoff names the self-review outcome</h4>
+            <p class="body">The <code>## Finished</code> block gains one line naming the report path and rating, or <code>skipped</code>.</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="cap">
+        <summary><span class="name">myflow-finish-cleanup</span><span style="display:flex;align-items:center;gap:10px;"><span class="tag mod">MODIFIED</span><svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></summary>
+        <div class="cap-body">
+          <div class="req">
+            <h4>Requirement: Run 2 invokes self-review after writing FINISHED</h4>
+            <p class="body">States only the invocation point — full behavior lives in <code>myflow-self-review</code>. Self-review cannot prevent the <code>FINISHED</code> write, and a failure inside it cannot move the change off <code>FINISHED</code>.</p>
+            <div class="scenario"><span class="label">Scenario</span><b>WHEN</b> run 2 completes step 7 <b>THEN</b> step 8 runs before the terminal handoff prints</div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section id="tasks">
+      <h2>Task list</h2>
+      <p class="section-note">Enriched to plan quality by <code>writing-plans</code> — exact paths, verification commands, provenance tags. Full detail lives in <code>tasks.md</code>; grouped summary below.</p>
+
+      <div class="task-group">
+        <div class="group-title">1 &middot; scripts/gather-self-review-context.sh and its test</div>
+        <ul class="task-list">
+          <li><span class="box"></span> Write the script — collects ledger, panel record, tasks.md, git log; missing sources are skipped, never fatal; always exits 0</li>
+          <li><span class="box"></span> Write <code>test-gather-self-review-context.sh</code> — sandboxed trees, six cases including all-absent and path-injection rejection</li>
+          <li><span class="box"></span> Register the new test in <code>.myflow/project.md</code></li>
+        </ul>
+      </div>
+
+      <div class="task-group">
+        <div class="group-title">2 &middot; skills/myflow-contracts/pipeline.md</div>
+        <ul class="task-list">
+          <li><span class="box"></span> Level 1 stage table — add <code>self-review ▸</code> to the <code>/myflow-finish</code> row</li>
+          <li><span class="box"></span> Level 2 — new <em>Self-review — /myflow-finish run 2</em> expansion</li>
+          <li><span class="box"></span> Finish contract — run 2 outline gains step 8</li>
+          <li><span class="box"></span> Terminal handoff template gains the <code>Self-review</code> line (Finished block only, not the leftover-stop block)</li>
+        </ul>
+      </div>
+
+      <div class="task-group">
+        <div class="group-title">3 &middot; skills/myflow-finish/SKILL.md</div>
+        <ul class="task-list">
+          <li><span class="box"></span> Add step 8 to the run-2 outline, pointing at pipeline.md as canonical</li>
+          <li><span class="box"></span> State the skip prompt, filing ask, rating ask and report path verbatim</li>
+          <li><span class="box"></span> Mirror the new handoff line in this file's own <code>## Finished</code> block</li>
+          <li><span class="box"></span> Two new guardrails: self-review never blocks/delays/undoes <code>FINISHED</code>; its prompts never fire before the write</li>
+        </ul>
+      </div>
+
+      <div class="task-group">
+        <div class="group-title">4–5 &middot; Bookkeeping and full verification</div>
+        <ul class="task-list">
+          <li><span class="box"></span> Register the new test command in <code>.myflow/project.md</code></li>
+          <li><span class="box"></span> Run every lint guard and every test in <code>.myflow/project.md</code>, including the new one</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="next">
+      <h2>Next</h2>
+      <p>Read this artifact, then run:</p>
+      <pre><code>/myflow-do kan-23-myflow-self-review</code></pre>
+    </section>
+
+  </main>
+
+  <footer class="foot">kan-23-myflow-self-review &middot; STARTED &middot; generated by /myflow-start</footer>
+</div>
