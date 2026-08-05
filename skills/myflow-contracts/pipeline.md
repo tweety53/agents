@@ -1389,14 +1389,37 @@ as written above and no step fills it in on the way into the repository.
 
 ## Change name resolution (all `/myflow-*` commands)
 
-`<name>` is **optional** on every `/myflow-*` command. When omitted:
+`<name>` is **optional** on every `/myflow-*` command. When omitted, the candidate set is the
+**union** of two sources, not `openspec list --json` alone:
 
-- Run `openspec list --json` and filter to changes relevant to that command's state (not yet
-  archived).
+- the non-archived names `openspec list --json` reports; and
+- the basenames (minus `.json`) of every file directly under the project's state directory,
+  `/Users/tweety53/Agents/myflow/state/<project-key>/*.json`, with `<project-key>` resolved exactly
+  as **State file** (`skills/myflow-contracts/state-file.md`) already defines it — that file owns
+  the formula and the bash that computes it, and neither is re-derived here.
+
+From that union, drop any name whose `openspec/changes/<name>/` directory has already reached
+`openspec/changes/archive/`. This is why the second source matters: `openspec list --json` only
+sees change directories present in the *current* git checkout, so a change staged in a worktree —
+`openspec/changes/<name>/` created there but never committed to the main checkout — is invisible to
+it alone, even while it sits at a human gate with a fully staged diff. The state directory is
+per-project rather than per-worktree, so a change's state file is reachable from the main checkout
+regardless of which worktree created it.
+
+**A state-directory file that cannot be parsed is reported and skipped from the union — never
+silently dropped.** Name the unreadable file in the resolution's own output; do not fold it into a
+"zero matches" or "no change" result as if it were never there.
+
+Once the candidate set is built, resolution proceeds exactly as before:
+
 - Exactly one match → use it automatically; announce which change was picked.
 - Multiple matches → **AskUserQuestion** listing each (name, state, last modified) — never guess.
 - Zero matches → fall back to that command's normal "no change" handling (e.g. `/myflow-start` asks
   what to build; others suggest the prior state's command).
+
+This resolution is defined **once, here**, and every `/myflow-*` command's own enumeration step
+cites this section rather than repeating or re-deriving the union — so no command's list of open
+changes can drift from another's.
 
 A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 **Change naming** in `skills/myflow-contracts/jira-integration.md`.

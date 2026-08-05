@@ -26,6 +26,7 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [project-configuration.md](project-configuration.md) | Resolve `.myflow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
+| [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins — and a skill should **point at** these files rather than restate them, because a second
