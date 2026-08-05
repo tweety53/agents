@@ -45,6 +45,7 @@ scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
 scripts/test-uncommitted-review-package.sh
+scripts/test-check-task-build-green.sh
 ```
 
 ## lint
@@ -53,6 +54,7 @@ scripts/test-uncommitted-review-package.sh
 scripts/check-vocabulary.sh
 scripts/check-references.sh
 scripts/check-plan-provenance.sh
+scripts/check-task-build-green.sh
 ```
 
 **There is no auto-fix command in this repository.** The Lint Fix Priority rule's "run the

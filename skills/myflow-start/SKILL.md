@@ -60,8 +60,9 @@ Then the change name:
 - **Without one**, the name is the descriptive slug alone.
 - If a name or description was given, use it (derive kebab-case from the description if only a
   description was given).
-- **If both are omitted:** run `openspec list --json`, filter to non-archived changes with
-  incomplete planning artifacts. Exactly one match → resume it, announcing which; multiple →
+- **If both are omitted:** enumerate the candidate set exactly as **Change name resolution**
+  (`skills/myflow-contracts/pipeline.md`) defines it, restricted to changes with incomplete
+  planning artifacts. Exactly one match → resume it, announcing which; multiple →
   **AskUserQuestion** listing each (name, state, last modified); zero → ask what to build.
 
 **Revising an existing proposal** (the change is already at `STARTED`): skip brainstorming's
@@ -350,6 +351,9 @@ While enriching `tasks.md`, tag every fenced block and every numeric claim per
 **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`): code that cannot be verified is tagged
 `unverified:` and **kept** — a plan without the snippet is worse than a plan with a labelled guess.
 
+While enriching `tasks.md`, also tag every task with `**Build:**` per **The build-green tag**
+(`skills/myflow-contracts/build-green.md`).
+
 Add this header to `tasks.md`:
 
 ```markdown
@@ -357,8 +361,8 @@ Add this header to `tasks.md`:
 > quality review.
 ```
 
-Before publishing the artifact, run the project's configured plan-provenance guard if it declares
-one, and fix any hit.
+Before publishing the artifact, run the project's configured plan-provenance guard and its
+configured build-green guard, if the project declares them, and fix any hit.
 
 ## E. Publish the proposal artifact
 
@@ -454,6 +458,8 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
 - **Never skip** brainstorming (#1) or writing-plans (#3), or the design approval gate.
 - **Never** leave `tasks.md` a thin scaffold.
 - **Never** publish a plan carrying an untagged block or an unsourced number.
+- **Never** publish a plan carrying a task with no `**Build:**` tag, or a `red` tag with no
+  resolvable green partner.
 - **Never** finish without publishing the artifact and recording `artifactUrl`.
 - **Never** mint a new artifact URL on a revision round.
 - **Never** delete a superseded decision; mark it superseded.

@@ -23,9 +23,11 @@ Follow all three contracts:
 
 ### 1. List open changes
 
-```bash
-openspec list --json
-```
+Enumerate the candidate set exactly as **Change name resolution**
+(`skills/myflow-contracts/pipeline.md`) defines it — the union of `openspec list --json` and the
+names of the files in the project's state directory, minus anything archived — rather than running
+`openspec list --json` alone: a change staged only in a worktree has a state file but no change
+directory in this checkout, and would otherwise go unreported.
 
 With a `<name>` argument, restrict to that change and include the detail view (step 4). With no argument, report every non-archived change.
 
