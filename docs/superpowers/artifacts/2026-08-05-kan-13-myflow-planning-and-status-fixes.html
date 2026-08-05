@@ -1,0 +1,467 @@
+<title>kan-13-myflow-planning-and-status-fixes — proposal</title>
+<style>
+  :root {
+    --bg: #f2f4f0;
+    --surface: #ffffff;
+    --ink: #1b211d;
+    --muted: #656d61;
+    --line: #d9dcd3;
+    --accent: #3f6f52;
+    --accent-ink: #2b5138;
+    --accent-soft: #dfe9e0;
+    --code-bg: #eceee8;
+    --red: #a14a3c;
+    --red-soft: #f3e2dd;
+    --shadow: 0 1px 2px rgba(27, 33, 29, 0.06), 0 8px 24px -12px rgba(27, 33, 29, 0.12);
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Menlo", "Consolas", monospace;
+    --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141815;
+      --surface: #1a1f1b;
+      --ink: #e8ebe4;
+      --muted: #98a092;
+      --line: #2b312c;
+      --accent: #7fbb96;
+      --accent-ink: #a8d4b8;
+      --accent-soft: #1f2e24;
+      --code-bg: #10140f;
+      --red: #d98d7c;
+      --red-soft: #2e201c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -14px rgba(0, 0, 0, 0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141815; --surface: #1a1f1b; --ink: #e8ebe4; --muted: #98a092; --line: #2b312c;
+    --accent: #7fbb96; --accent-ink: #a8d4b8; --accent-soft: #1f2e24; --code-bg: #10140f;
+    --red: #d98d7c; --red-soft: #2e201c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 28px -14px rgba(0,0,0,.6);
+  }
+  :root[data-theme="light"] {
+    --bg: #f2f4f0; --surface: #ffffff; --ink: #1b211d; --muted: #656d61; --line: #d9dcd3;
+    --accent: #3f6f52; --accent-ink: #2b5138; --accent-soft: #dfe9e0; --code-bg: #eceee8;
+    --red: #a14a3c; --red-soft: #f3e2dd;
+    --shadow: 0 1px 2px rgba(27,33,29,.06), 0 8px 24px -12px rgba(27,33,29,.12);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    font-size: 16px;
+  }
+  h1, h2, h3, h4 { font-family: var(--mono); font-weight: 600; text-wrap: balance; margin: 0; }
+  code, pre, .mono { font-family: var(--mono); }
+  a { color: var(--accent-ink); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .shell { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.5rem 6rem; }
+
+  /* ---- Header / metadata strip ---- */
+  header.doc {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1.75rem;
+    margin-bottom: 2.25rem;
+  }
+  header.doc .eyebrow { margin-bottom: 0.5rem; }
+  header.doc h1 {
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.1rem);
+    letter-spacing: -0.01em;
+  }
+  header.doc p.dek {
+    font-family: var(--sans);
+    max-width: 62ch;
+    color: var(--muted);
+    margin: 0.85rem 0 0;
+    font-size: 1.02rem;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.6rem;
+    margin-top: 1.4rem;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35em;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    padding: 0.32em 0.7em;
+    border-radius: 5px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .chip.accent { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+  .chip.accent b { color: var(--accent-ink); }
+  .chip a { color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor; }
+
+  /* ---- Layout: rail + article ---- */
+  .layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 3rem; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } nav.toc { display: none; } }
+
+  nav.toc { position: sticky; top: 1.5rem; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+  nav.toc li { margin: 0; }
+  nav.toc a {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 0.4rem 0 0.4rem 0.9rem;
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+  }
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--accent); }
+
+  article section { margin-bottom: 3rem; scroll-margin-top: 1.5rem; }
+  article section > h2 {
+    font-size: 1.15rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 1.1rem;
+  }
+  article section > h2 .num { color: var(--muted); font-weight: 500; }
+
+  article p { max-width: 72ch; margin: 0 0 1rem; }
+  article ul, article ol { max-width: 72ch; padding-left: 1.3rem; }
+  article li { margin-bottom: 0.4rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.25rem 1.4rem;
+    box-shadow: var(--shadow);
+  }
+  .card + .card { margin-top: 0.9rem; }
+
+  /* ---- What changes list ---- */
+  .change-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+  .change-list li {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 0.65rem;
+    align-items: start;
+    padding: 0.7rem 0.9rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .change-list li::before {
+    content: "";
+    width: 8px; height: 8px;
+    margin-top: 0.5em;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ---- Decisions / open questions ---- */
+  .decision { border-left: 3px solid var(--accent); }
+  .decision h3 { font-size: 0.98rem; margin-bottom: 0.55rem; }
+  .decision .field { margin-bottom: 0.5rem; font-size: 0.94rem; }
+  .decision .field b { font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: block; margin-bottom: 0.15rem; }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.18em 0.55em;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border: 1px solid var(--accent);
+  }
+
+  .empty-note { color: var(--muted); font-style: italic; font-size: 0.95rem; }
+
+  /* ---- Spec cards ---- */
+  .req { border-left: 3px solid var(--line); padding-left: 1rem; margin-bottom: 1.4rem; }
+  .req h4 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+  .req .shall { margin: 0 0 0.8rem; }
+  .scenario {
+    font-size: 0.88rem;
+    background: var(--code-bg);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+  .scenario .label { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .scenario code.k { color: var(--accent-ink); font-weight: 600; }
+
+  /* ---- Tasks ---- */
+  .task-group { margin-bottom: 1.4rem; }
+  .task-group > .gname {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .task-group > .gname .count { font-variant-numeric: tabular-nums; }
+  .tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+  .tasks li {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 0.6rem;
+    align-items: start;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--surface);
+    font-size: 0.92rem;
+  }
+  .tasks li .box {
+    width: 15px; height: 15px; margin-top: 0.15em;
+    border: 1.5px solid var(--muted);
+    border-radius: 3px;
+  }
+  .tasks li .id { font-family: var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 0.4em; }
+
+  code.inline, p code, li code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+    font-size: 0.88em;
+  }
+
+  footer.doc {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-family: var(--mono);
+  }
+
+  ::selection { background: var(--accent-soft); }
+</style>
+
+<div class="shell">
+
+  <header class="doc">
+    <div class="eyebrow">OpenSpec proposal · myflow pipeline</div>
+    <h1>kan-13-myflow-planning-and-status-fixes</h1>
+    <p class="dek">
+      Two independent defects surfaced during the KAN-9 frontend run, both in myflow itself: a plan
+      whose task order left the build red for seven tasks, and a status report that silently drops
+      any change whose planning artifacts live only in a worktree.
+    </p>
+    <div class="meta-row">
+      <span class="chip accent"><b>KAN-13</b>&nbsp;→ In Progress</span>
+      <span class="chip">planning effort: <b>default</b></span>
+      <span class="chip">implementation: <b>Sonnet</b></span>
+      <span class="chip">review panel: <b>Sonnet</b></span>
+      <span class="chip">panel fixes: <b>Sonnet</b></span>
+      <span class="chip">decisions: <b>3</b></span>
+      <span class="chip">open questions: <b>0</b></span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc">
+      <ol>
+        <li><a href="#why">Why</a></li>
+        <li><a href="#changes">What changes</a></li>
+        <li><a href="#decisions">Decisions</a></li>
+        <li><a href="#questions">Open questions</a></li>
+        <li><a href="#specs">Specs</a></li>
+        <li><a href="#tasks">Tasks</a></li>
+      </ol>
+    </nav>
+
+    <article>
+
+      <section id="why">
+        <h2><span class="num">1</span> Why</h2>
+        <p>
+          <code>/myflow-start</code> produced a plan for KAN-9's frontend whose task order left
+          <code>:shared</code> uncompilable from Task 2 until Task 9 — seven consecutive tasks
+          whose own "run the tests" step could not run at all, two tasks merged mid-flight to
+          reach a compilable state, and a plan that needed human-adjudicated repair mid-run.
+        </p>
+        <p>
+          Separately, <code>/myflow-status</code> — and, via the same shared resolution logic,
+          every other <code>/myflow-*</code> command — enumerates open changes from
+          <code>openspec list --json</code> alone. That command only sees change directories
+          present in the checkout it runs in, so a change whose planning artifacts exist only in a
+          worktree is silently invisible, even while it sits at the human gate with a fully staged
+          diff.
+        </p>
+      </section>
+
+      <section id="changes">
+        <h2><span class="num">2</span> What changes</h2>
+        <ul class="change-list">
+          <li>Every task <code>/myflow-start</code> produces now carries a required
+            <code>**Build:**</code> tag — <code>green</code>, or
+            <code>red — merges with Task &lt;N&gt;</code> — declaring whether the build (and that
+            task's own verification command) is left runnable.</li>
+          <li>A new guard, run before the proposal artifact publishes, fails the plan when a task
+            has no tag, a <code>red</code> tag names no partner, or a chain never resolves to
+            <code>green</code>.</li>
+          <li>A new contract file, <code>skills/myflow-contracts/build-green.md</code>, becomes
+            canonical for the tag vocabulary and the guard's scope — indexed alongside the other
+            five contract files.</li>
+          <li>The one shared <code>## Change name resolution</code> section every
+            <code>/myflow-*</code> command reads is fixed to enumerate the <strong>union</strong>
+            of <code>openspec list --json</code> and the project's state directory, not
+            <code>openspec list --json</code> alone.</li>
+          <li><code>/myflow-status</code>'s own listing step is updated to cite that shared section
+            instead of running its own independent enumeration.</li>
+        </ul>
+      </section>
+
+      <section id="decisions">
+        <h2><span class="num">3</span> Decisions</h2>
+
+        <div class="card decision">
+          <span class="pill">bundle-scope</span>
+          <h3>Bundle both agents-repo items into one change</h3>
+          <div class="field"><b>Chosen</b>Both KAN-13 items scoped to this repo, in one change — they surfaced in the same KAN-9 run and bundling avoids two proposals sharing one Jira issue with near-identical context.</div>
+          <div class="field"><b>Considered</b>Two separate changes mirroring KAN-9's repo split (rejected — these share a repo and neither depends on the other, so splitting by fix adds review overhead for no isolation benefit); scoping to the planning rule alone and deferring the status fix (rejected — the status fix is small and already fully specified).</div>
+        </div>
+
+        <div class="card decision">
+          <span class="pill">build-green-mechanism</span>
+          <h3>Build-green check is a structural tag, not a semantic build check</h3>
+          <div class="field"><b>Chosen</b>A required per-task <code>**Build:**</code> tag with a merge-partner rule, checked structurally — mirrors the existing <code>verified:</code>/<code>unverified:</code> provenance-tag pattern, generalizes to any reason a task is red, costs one line per task.</div>
+          <div class="field"><b>Considered</b>A file-touch-graph heuristic (<code>Creates:</code>/<code>Modifies:</code>/<code>Deletes:</code> per task) — catches the literal KAN-9 shape but only that shape, and needs a new required field; a fully automated semantic/AST compileability check — infeasible in general and over-engineering for what the postmortem needed.</div>
+        </div>
+
+        <div class="card decision">
+          <span class="pill">enumeration-fix-scope</span>
+          <h3>Fix the shared resolution section, not just <code>/myflow-status</code></h3>
+          <div class="field"><b>Chosen</b>Fix <code>pipeline.md</code>'s one shared section — KAN-13 itself flags that <code>/myflow-finish</code>'s resolution has the identical blind spot and uses the same code path, so fixing it once fixes every command and prevents drift.</div>
+          <div class="field"><b>Considered</b>Fixing only <code>/myflow-status/SKILL.md</code>'s step 1 — narrower and faster, but leaves <code>/myflow-do</code> and <code>/myflow-finish</code> silently exposed to the exact bug this change exists to close.</div>
+        </div>
+      </section>
+
+      <section id="questions">
+        <h2><span class="num">4</span> Open questions</h2>
+        <p class="empty-note">None — every question raised during brainstorming was resolved before the design was approved.</p>
+      </section>
+
+      <section id="specs">
+        <h2><span class="num">5</span> Specs</h2>
+
+        <div class="eyebrow" style="margin-bottom:0.9rem;">New capability — <code>myflow-build-green</code></div>
+
+        <div class="req">
+          <h4>Requirement: Every task in a plan declares its build state</h4>
+          <p class="shall"><code>/myflow-start</code>'s writing-plans stage SHALL tag every task in
+            <code>tasks.md</code> with <code>**Build:** green</code> or
+            <code>**Build:** red — merges with Task &lt;N&gt;</code>, naming at least one partner
+            for a <code>red</code> tag.</p>
+          <div class="scenario"><span class="label">Scenario</span> — a task's ordering could not leave the build green alone → tagged <code class="k">red — merges with Task &lt;N&gt;</code>, naming its dispatch partner(s)</div>
+          <div class="scenario"><span class="label">Scenario</span> — an ordinary task leaves the build green → tagged <code class="k">green</code></div>
+        </div>
+
+        <div class="req">
+          <h4>Requirement: A guard enforces the build-state tags before the proposal publishes</h4>
+          <p class="shall">A guard script SHALL fail the run when a task has no tag, a
+            <code>red</code> tag names no partner, a named partner doesn't exist or isn't
+            <code>green</code>, or a <code>red</code> chain never resolves. It SHALL NOT attempt to
+            verify that a <code>green</code> tag is true.</p>
+          <div class="scenario"><span class="label">Scenario</span> — a missing tag blocks publish → guard fails, naming the task; the artifact is not published until fixed</div>
+          <div class="scenario"><span class="label">Scenario</span> — an unresolved red task blocks publish → guard fails, naming the unresolved task</div>
+          <div class="scenario"><span class="label">Scenario</span> — a resolved red chain passes → every <code class="k">red</code> task names a partner that exists and is <code class="k">green</code></div>
+          <div class="scenario"><span class="label">Scenario</span> — the guard does not claim to verify truth → a falsely-tagged <code class="k">green</code> task still passes; the guard checks presence and consistency, not truth</div>
+        </div>
+
+        <div class="eyebrow" style="margin:1.6rem 0 0.9rem;">Modified capability — <code>myflow-command-surface</code></div>
+
+        <div class="req">
+          <h4>Requirement: Change name resolution enumerates every state-tracked change</h4>
+          <p class="shall">The shared resolution used by every <code>/myflow-*</code> command SHALL
+            enumerate the union of <code>openspec list --json</code> and the project's state
+            directory, minus anything archived. An unreadable state file SHALL be reported and
+            skipped, never silently dropped.</p>
+          <div class="scenario"><span class="label">Scenario</span> — a worktree-only change is discovered → <code class="k">/myflow-status</code> lists a change whose openspec directory exists only in a worktree</div>
+          <div class="scenario"><span class="label">Scenario</span> — every command shares the same enumeration → <code class="k">/myflow-do</code> / <code class="k">/myflow-finish</code> ask among the same match set <code class="k">/myflow-status</code> would show</div>
+          <div class="scenario"><span class="label">Scenario</span> — an archived change is not re-surfaced → a state file whose openspec directory moved to <code class="k">archive/</code> is excluded</div>
+          <div class="scenario"><span class="label">Scenario</span> — an unreadable state file is reported, not silently dropped → skipped from the union and named in the report</div>
+        </div>
+      </section>
+
+      <section id="tasks">
+        <h2><span class="num">6</span> Tasks</h2>
+
+        <div class="task-group">
+          <div class="gname">1. <code>check-task-build-green.py</code>, wrapper, and test <span class="count">— 3 tasks</span></div>
+          <ul class="tasks">
+            <li><span class="box"></span><span><span class="id">1.1</span>Write the parser/checker (task-boundary + build-tag detection, five validation rules, exit codes)</span></li>
+            <li><span class="box"></span><span><span class="id">1.2</span>Write the thin Bash wrapper (python3 probe, repo-wide or single-file scan)</span></li>
+            <li><span class="box"></span><span><span class="id">1.3</span>Write the test harness — 7 fixture cases (all-green, missing tag, red with no partner, nonexistent partner, red partner, resolved chain, malformed tag)</span></li>
+          </ul>
+        </div>
+
+        <div class="task-group">
+          <div class="gname">2. <code>build-green.md</code> contract <span class="count">— 2 tasks</span></div>
+          <ul class="tasks">
+            <li><span class="box"></span><span><span class="id">2.1</span>Write the contract file (tag vocabulary, guard scope, "what it does not verify")</span></li>
+            <li><span class="box"></span><span><span class="id">2.2</span>Add it to the myflow-contracts index table</span></li>
+          </ul>
+        </div>
+
+        <div class="task-group">
+          <div class="gname">3. <code>/myflow-start</code> writing-plans integration <span class="count">— 2 tasks</span></div>
+          <ul class="tasks">
+            <li><span class="box"></span><span><span class="id">3.1</span>Require the Build tag in section D; wire the guard into the pre-publish run</span></li>
+            <li><span class="box"></span><span><span class="id">3.2</span>Add the publish-blocking guardrail line</span></li>
+          </ul>
+        </div>
+
+        <div class="task-group">
+          <div class="gname">4. Shared change-name-resolution fix <span class="count">— 2 tasks</span></div>
+          <ul class="tasks">
+            <li><span class="box"></span><span><span class="id">4.1</span>Rewrite <code>pipeline.md</code>'s <code>## Change name resolution</code> section — the union rule, the unreadable-file rule</span></li>
+            <li><span class="box"></span><span><span class="id">4.2</span>Update <code>/myflow-status</code>'s step 1 to cite the shared section</span></li>
+          </ul>
+        </div>
+
+        <div class="task-group">
+          <div class="gname">5. <code>.myflow/project.md</code> bookkeeping <span class="count">— 1 task</span></div>
+          <ul class="tasks">
+            <li><span class="box"></span><span><span class="id">5.1</span>Register the new guard in <code>## lint</code> and its test in <code>## test</code></span></li>
+          </ul>
+        </div>
+
+        <div class="task-group">
+          <div class="gname">6. Cross-file verification <span class="count">— 2 tasks</span></div>
+          <ul class="tasks">
+            <li><span class="box"></span><span><span class="id">6.1</span>Run every declared lint guard and test script; fix any hit</span></li>
+            <li><span class="box"></span><span><span class="id">6.2</span>Confirm new cross-references resolve; re-validate <code>openspec validate --strict</code></span></li>
+          </ul>
+        </div>
+      </section>
+
+    </article>
+  </div>
+
+  <footer class="doc">
+    12 tasks across 6 groups · every task ordered to leave the build green — no task in this plan
+    itself requires a red tag
+  </footer>
+
+</div>
