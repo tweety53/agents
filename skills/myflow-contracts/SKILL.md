@@ -1,6 +1,6 @@
 ---
 name: myflow-contracts
-description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, state self-heal, project configuration, Jira integration, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract. Referenced by the stubs in rules/myflow-manual-review.mdc.
+description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, state self-heal, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/myflow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -25,6 +25,7 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [state-self-heal.md](state-self-heal.md) | Validate a state file against on-disk artifacts, or handle a missing/contradicted one |
 | [project-configuration.md](project-configuration.md) | Resolve `.myflow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
+| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/myflow-finish` run 1 and no other command** |
 | [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
@@ -32,6 +33,32 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins — and a skill should **point at** these files rather than restate them, because a second
 copy of a procedure drifts even when nobody edits it wrongly.
+
+## Rationale appendices
+
+Where a contract is large enough that its reasoning outweighs its rules, that reasoning is split
+out of the file a command loads. The table below is the list — like the contract table above it,
+this sentence carries no count, because a count goes stale the first time an appendix is added and
+nothing checks it:
+
+| Appendix | Holds the reasoning behind |
+|----------|----------------------------|
+| [pipeline-rationale.md](pipeline-rationale.md) | [pipeline.md](pipeline.md) |
+| [jira-integration-rationale.md](jira-integration-rationale.md) | [jira-integration.md](jira-integration.md) |
+
+**A `/myflow-*` run never loads an appendix.** They exist for whoever *edits* a contract — the
+justification of an ordering, the alternatives that were rejected, the history, and the measurements
+behind a rule. A command that loads one has paid the cost the split exists to remove, which is why
+no appendix appears in the **Index** above: that index is what a command reads, and this section is
+for the editor.
+
+**Nothing enforces this.** It is a judgment rule, like the others this corpus states and does not
+guard.
+
+An appendix carries the **same heading tree as its core**, in the same order, so a section's
+reasoning is found under the heading it belongs to, and a section that is wholly normative leaves
+its appendix heading present with no body — present rather than absent, so it is visible that the
+section was examined rather than skipped.
 
 ## Keeping this index honest
 

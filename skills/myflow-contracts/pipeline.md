@@ -5,10 +5,13 @@ boundaries, the handoff shape, and the finish contract.
 
 **Load this file when running any `/myflow-*` command.** It is split out of
 `rules/myflow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
-whole state machine — the same reason the four contract files beside it were split out.
+whole state machine — the same reason the other contract files beside it were split out.
 
 This file is **canonical** for everything in it. Where a skill or command disagrees with it, this
 file wins.
+
+The reasoning behind this file lives in `skills/myflow-contracts/pipeline-rationale.md`;
+**a `/myflow-*` run never loads it.**
 
 ## States
 
@@ -40,17 +43,6 @@ integration is not a stage, it is the first half of finishing.
 
 ## Pipeline flow
 
-The diagram and the stage table below are the only copy in this repository. Every command summary
-elsewhere — the `/myflow-*` tables in `README.md`, `skills/README.md`, `CLAUDE.md` and `AGENTS.md` —
-says what each command is *for* and cites the level-1 table for the stages, rather than carrying a
-second ordered list of them; no skill carries one either. All four used to, and the copies had
-already drifted: not one of their `/myflow-do` rows named the state gate or the fix-documentation
-stage, so an agent working from an entry-point file alone would have skipped both. That is the whole
-argument for keeping the stages in one place, and it is why a summary elsewhere may name a command's
-purpose but never its order. Placing them here is what lets
-`/myflow-info` show them: that command reads this file at invocation time and is forbidden from
-answering from memory, so a diagram held only in `README.md` is one it can never present.
-
 ```mermaid
 stateDiagram-v2
     [*] --> STARTED: /myflow-start
@@ -81,11 +73,6 @@ verdict picks which one this invocation performs, and the run is never a command
 | `/myflow-info` | read-only — no stages, no state write; reads this file and explains the pipeline | — |
 
 ### Level 2 — the stages that hide substructure
-
-Each expansion states the **structure** — the shape that changes only when the pipeline changes —
-and cites the file that owns the tuned values. A threshold copied here is a copy that goes wrong
-silently, which is the same reason the README carries no diagram; accepting it one level down would
-make the rule contradict itself.
 
 #### Brainstorm — `/myflow-start`
 
@@ -257,10 +244,6 @@ for its own forward reference.
 Three pipeline commands and two read-only ones. **No command accepts a flag.** The only argument
 is the optional change name — see **Change name resolution**.
 
-Behaviour a flag used to select is now either asked at invocation (the integration choice in
-`/myflow-finish`), derived from the current state, or fixed at the single sensible default
-(review-panel breadth, decided by its escalation triggers).
-
 An argument that is not a known change name is **reported**, not silently ignored — a silently
 ignored word is indistinguishable from a flag that stopped working.
 
@@ -325,10 +308,6 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 | `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
 | `/myflow-finish` | run 2 | **Commits and pushes the archive**; removes worktrees and branches |
 | `/myflow-status`, `/myflow-info` | — | None — read-only |
-
-**Why `/myflow-do` commits once a PR exists and not before.** A PR is a remote surface, so a
-staged-only fix would be invisible on it. Before that the operator reviews a staged diff in the
-IDE, and committing would take that away.
 
 **The planning paths** are the three that
 **Handoff output** (`pipeline.md`) names below. `/myflow-do` clears them from the index and only
@@ -525,17 +504,6 @@ Next:
 /myflow-do <name>
 ```
 
-**Why the `Jira` line is run-only.** It reports the transition *this run made*, and nothing on disk
-records one: the state file carries the bare `jiraIssue` key and no transition history at all. Nor
-can the value be re-derived by asking the tracker — `/myflow-status` is forbidden from calling Jira,
-its own guardrail being that the report is read-only and never transitions or queries an issue — and
-even a permitted read would not recover it, because a current status cannot separate `→ In Progress`
-from *already In Progress (no transition)* without the status as it stood before the run, which
-nothing records. Two of the line's three alternatives are therefore unreproducible, and the third,
-*none linked*, is not worth a line that would be wrong for every other change. The key itself is not
-lost with it: `/myflow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
-of its detail view, so what the omission drops is the transition, which is the run-only part.
-
 **Why the open-questions line is not run-only, and carries no marker.** It is derived from an
 artifact on disk — the entries under `## Open questions` in the change's design whose status is
 still `open` — exactly as the decisions count above it is, so `/myflow-status <name>` regenerates it
@@ -544,7 +512,7 @@ what makes that one run-only is that nothing on disk holds it, and that test is 
 value lives, not about how close it sits to a line that failed it. A count that has changed since
 `/myflow-start` printed it — a revision round answered a question and moved the entry to
 `answered by <decision-id>` — is this field working: the line reports what is open now, not what was
-open then. It reads `none` when nothing is open, by the missing-rather-than-dropped rule above. The
+open then. It reads `none` when nothing is open, by the missing-rather-than-dropped rule. The
 entry shape, the immutable ID and the never-delete rule the count reads through are stated once
 under **Open questions** (`skills/myflow-start/SKILL.md`) and are not repeated here.
 
@@ -607,28 +575,6 @@ Next:
 /myflow-finish <name>
 ```
 
-**`IN_PROGRESS` has two renderings, and one template could not have served both.** Run 1 ends at
-`IN_PROGRESS` but hands off a branch waiting on a merge rather than a diff waiting on review: a
-worktree path, a test-guide path and a staged-diff command are all wrong for it, and it prints none
-of them. Forcing both into one template would leave the rule at the top of this section
-unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
-
-**Why `Route` and `Outstanding` are run-only.** The landing answer is never remembered between runs,
-per **Run 1 — the branch is not merged** (`pipeline.md`) below, so no field records which route was
-taken: a recorded `prUrl` implies the pull-request route, and nothing separates the other two. The
-outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
-is the planning commit's message, which is where a later reader looks, and the state file does not
-carry it.
-
-**Why `Panel` is run-only.** It names the roster *that run selected* — which optional slots fired
-and which did not — and no field carries it. The only on-disk trace is the panel record
-`/myflow-do` writes under `.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
-removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
-there and sometimes not is not a source `/myflow-status` can regenerate from, and reporting it
-*missing* on every change whose worktree is gone would name a fault where there is none. The
-durable copy is the preserved record under `docs/superpowers/reviews/`, which run 1 writes into the
-repository — an operator who needs the roster after the fact reads that, not a regenerated block.
-
 **Which rendering `/myflow-status` regenerates.** **Merge status decides it whenever the merge
 status is known**, and the command already has that answer: it runs the merge-status test in its own
 step 2 to fill the next-command column. A branch proven to have reached the base branch **is**
@@ -654,26 +600,6 @@ merged, whatever the ancestor test then says. `scripts/check-finish-preflight.sh
 trap and guards it in exactly that order — its comment (b), on why the recorded-merge-base check
 must run before the ancestor test — and the reasoning is not re-derived here.
 
-**A proven *not merged* is that same pre-check read forward, which is why `prUrl` does not split
-it.** Reaching that row means the pre-check resolved the recorded merge base and found `HEAD` past
-it — the branch carries commits of its own — and `/myflow-do` puts a commit on a branch only when a
-`prUrl` is already recorded. So every route this pipeline has that leaves a commit there has been
-through run 1: *handle it manually* commits, pushes and leaves `prUrl` `null`; *merge and push*
-lands on the merged row above; and a `/myflow-do` fix commits only while a pull request is already
-open. Splitting the row on `prUrl` was what rendered a manually landed branch as *Implementation
-staged — review and test* — for work that is committed, pushed and already past the human gate —
-with the `Git` line's third variant telling the truth one line under a heading that did not. What
-the row cannot tell apart is a commit made by hand outside the pipeline, which now renders as
-integrated; both renderings end in `/myflow-finish <name>`, so that costs the fields shown and never
-the command named.
-
-**The pre-check paragraph above and the recorded-merge-base one below are the only statement of that
-ordering for a renderer.**
-`/myflow-status` performs the check and cites this section for why; it deliberately carries no copy
-of the argument, because two copies of one piece of reasoning are two things to keep in step and the
-next editor would have no way to tell which was authoritative. Change it here and the consumer
-follows.
-
 **The recorded merge base has three conditions, not two, and two of them are `inconclusive`.**
 Recorded and resolving is the ordinary case, and the pre-check above answers it. **Absent** is the
 plain unknown: the pre-check cannot be performed, so the ancestor test alone cannot be trusted.
@@ -687,36 +613,6 @@ change on the two `inconclusive` rows, where `prUrl` is the tiebreaker. That is 
 refusal-to-infer `check-finish-preflight.sh` makes twice over — when it is handed `-` for the
 recorded merge base, and when `rev-parse --verify` on a recorded one fails — and the pre-check is
 therefore *resolve, then compare*, never compare alone.
-
-**Using the weaker signal where the stronger one is in hand is what made one invocation contradict
-itself.** A change stopped at a run-2 cleanup leftover is merged and stays at `IN_PROGRESS`, so the
-table reported *branch merged → it will archive* from the ancestor test while the block, keyed on
-`prUrl` alone, printed *waiting on the merge* — two answers from one command, one of them false.
-The two splits still do not compete: the table splits on merge status to say which `/myflow-finish`
-run comes next, this splits on it to say which wait the operator is in, and both end in
-`/myflow-finish <name>`.
-
-**The `prUrl` test is one-way, and the gap is named rather than papered over — it now applies only
-to the inconclusive rows above.** `prUrl` is `null` until a pull request is opened, and only the
-pull-request route ever writes it — see
-**State file** (`skills/myflow-contracts/state-file.md`). *Merge and push* and *handle it manually*
-both complete run 1 and leave it `null`, and self-heal may clear one that was real. So a non-null
-`prUrl` proves run 1 happened; a `null` one proves nothing, and where merge status cannot be
-determined — no remote, no network, an unresolvable base ref — the report shows the `/myflow-do`
-rendering for a branch that may already be integrated.
-
-**What a wrong choice costs is bounded, which is why the imperfect test is accepted rather than
-replaced.** Both renderings end in the same last line, `/myflow-finish <name>`, so the test can
-never send the operator to the wrong command — only show them the wrong fields. And what it shows is
-regenerated from the state as it now stands, so a worktree still present is still named and a
-removed one reads *missing*.
-
-**No field is added to close it.** **Finish contract** (`pipeline.md`) below already refuses one:
-the branch's merge status is the only source of truth for whether the branch has been integrated,
-and a field could disagree with it. That is the same reason merge status governs the table above —
-the rule was already stated here, and the defect was reading `prUrl` in front of it rather than
-behind it. The preflight verdict cannot stand in either — a pushed but unmerged branch returns
-`RUN1` both before run 1 and after it, so it does not answer this question.
 
 **`FINISHED`** has **no regenerated block**: the state is terminal and finished changes are omitted
 from the report, so there is nothing left waiting on the operator to hand off. `/myflow-finish`
@@ -763,12 +659,6 @@ as an oversight to correct:
   `/color` are `type: "local"` or `"local-jsx"` — so the tool route is closed; and
 - no writable `/dev/tty` is available to a command — so writing the terminal escape sequence
   directly is closed too.
-
-**Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
-against them** — for the reason **Progress visibility** (`pipeline.md`) above gives, which answers
-the identical question for the task list and is not restated here. What every harness can do is
-**print two lines of text**, which is why printing is the rule and the measurement above is only the
-reason invoking is not. So:
 
 - **Where a harness offers a reachable way to set the tab's name and colour from inside a run**, the
   command may use it, and then prints nothing — the lines exist to be pasted, and there is nothing
@@ -829,14 +719,14 @@ worktree at all — an unreadable tree is never a licence to proceed.
 3. **The worktree's cleanliness.** Merged by ancestry with uncommitted entries → `REFUSE`.
    Merged, distinct from the recorded merge base, and clean → `RUN2`.
 
+**Never substitute a commit count.** `git rev-list --count <base>..HEAD` is zero both for a branch
+with no commits and for a branch whose commits have joined the base branch, so it cannot separate the
+dangerous state from the correct terminal one, and using it would refuse every legitimate archive.
+
 **Signal 1 precedes signal 2, and that ordering is the point.** A branch with no commits of its own
 is an ancestor of every branch, so the ancestor test alone reports *merged* on a branch whose work is
 staged and never committed — after which run 2 archives the change and `--force`-removes the worktree
 holding all of it.
-
-**Never substitute a commit count.** `git rev-list --count <base>..HEAD` is zero both for a branch
-with no commits and for a branch whose commits have joined the base branch, so it cannot separate the
-dangerous state from the correct terminal one, and using it would refuse every legitimate archive.
 
 On a `REFUSE`, stop before touching anything, report `HEAD`, the base branch and the uncommitted
 count, and ask the operator explicitly. On a multi-repo change, run the script once per `worktrees`
@@ -893,17 +783,12 @@ durable record to be. A failed filing is never silently upgraded to **Stop**, an
 unmentioned.
 
 **Three more outcomes of that course behave the same way**, and all three belong to
-**Follow-up issues** (`skills/myflow-contracts/jira-integration.md`) rather than here: the search
+**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) rather than here: the search
 that finds a candidate asks the operator to confirm the join before writing to it, a declined
 confirmation files a new follow-up instead, and a search that *fails* files nothing and says so. Each
 is one line and none of them stops the run or changes the answer already given. That file is
 canonical for all of it — including the ordering of a join's three writes and what a partial one
 reports — and none of it is restated here.
-
-**The gate precedes the question, and that ordering is the point.** An operator asked how to land a
-branch, and only then told it carries unfinished work, has already answered a question about a
-branch they believed was complete — and the cheapest of the three courses to take by mistake is the
-one that integrates.
 
 **What the operator integrated over is recorded where a transcript is not**: the outstanding list
 goes into the message of the commit that carries the planning artifacts, and into run 1's handoff.
@@ -931,13 +816,6 @@ step may have been the operator's own `git add`. The second `add` carries no pat
 picks the three paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
 failure rule and the symlink case — is the chain **Git boundaries** (`pipeline.md`) gives, and is
 not written out a second time here.
-
-**Implementation first is the order, not an accident of it.** The newest commit is the one a forge
-shows first, and that should be the code; and the second commit's message is where the outstanding
-list from the gate above is written down.
-
-**That script has three outcomes, and they are not interchangeable.** This is where they are
-defined; the two call sites point here rather than each describing them.
 
 | Outcome | What it means | What you do |
 |---------|---------------|-------------|
@@ -1032,43 +910,6 @@ the one irreversible step.
    nothing else, deterministically and without ever being recorded, per
    **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — so run 2 re-derives it
    and arrives at the id `/myflow-do` used, in a session that shared nothing with it.
-
-   **The removal goes after the worktree half, and the order is load-bearing.** Worktree cleanup's
-   check 5 runs the project's `## stop` command, and it is the **only** place run 2 stops the stack —
-   which run 2 nearly always has to do, because `/myflow-do` hands off a manual test guide and the
-   operator runs the applications against it, so a stack still up when run 2 starts is the common
-   case rather than a rare one. Dropping a database the project's own stack still holds open is a
-   removal that fails on the ordinary path, so the removal waits until that stack is down.
-   Nothing pulls the other way: these resources live in the project's shared data services rather
-   than in the worktree, so taking the worktree down neither removes them nor puts them out of reach,
-   and `remove` runs from the main checkout — stated with the command table, in
-   **Project configuration** (`skills/myflow-contracts/project-configuration.md`) — so no worktree
-   removal can destroy the directory it runs from. What has always constrained this step still does:
-   the removal stays ahead of step 6, because a verification that runs before the thing it verifies
-   can only ever fail.
-
-   **Interleaving the removal into the worktree half was considered and rejected.** Slotting it
-   between that half's checks and its destructive commands would put the stack down first just as
-   well, but it would bind this step's order to another section's internal check numbering, and it
-   would run a once-per-change removal inside a per-worktree loop — two couplings bought for a
-   property the placement above already has.
-
-   **The cost of this order is that a worktree half which stops early takes the removal with it.**
-   Any failed check leaves every worktree alone — **Worktree cleanup** (`pipeline.md`) below — and
-   the removal behind it does not run, so a run blocked by something unrelated to the workspace, an
-   uncommitted file in a worktree say, has its database and bucket named as leftovers at step 6 as
-   well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has
-   already stopped and already needs the operator, it adds lines to a report rather than a failure,
-   and run 2 is re-entrant, so the pass after the blocker is cleared does both halves. The check most
-   likely to fail is check 5 — a stack that will not stop — and that is exactly the condition under
-   which the removal would have failed anyway, which is also why it is not attempted regardless:
-   running with the stack down is the guarantee this order buys, and removing after a failed check
-   would spend it. The order this replaces put its cost on the ordinary path instead.
-
-   **Both halves share one numbered step deliberately.** They are one act — undoing what this
-   change's run created — with an order between them that has to hold, and giving the removal a
-   number of its own would renumber steps 6, 7 and 8, which are cited *by number* from
-   `openspec/specs/` and from `skills/myflow-finish/SKILL.md`.
 
    **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
    half skipped rather than failed** — a step whose artifact is already absent is a success, which is
@@ -1333,30 +1174,6 @@ same reason, which
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) states as a property
 of the `cache index` resource word.
 
-**What that leaves behind is bounded, and where it stops being acceptable is named rather than
-glossed.** What stays in the index is sessions and cache entries, which are disposable by
-construction — the accepted cost under
-**The cache index** (`skills/myflow-contracts/workspace-isolation.md`) is precisely that nothing
-which must survive a restart may be kept there, so leaving them costs a login and never data. The
-cost that is *not* free is slot exhaustion: a cache offers sixteen indices, one of which is the
-empty-id default, so a probe that reads a non-empty index as taken finds fewer free slots as
-finished changes accumulate, and a workspace that can claim none falls back to sharing — the failure
-this contract exists to remove. The remedy is the operator flushing the cache, and it is safe for
-exactly the reason the leftovers are: nothing durable is in there. A project may ship its own
-command to list or flush its stale indices; that is the project's tooling, and this row does not
-claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
-
-**Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
-ends at run 2 is checked back by `scripts/check-cleanup-complete.sh`, whose header explains which
-rows that leaves it reading and why; step 6 of
-**Run 2 — the branch is merged** (`pipeline.md`) above is where its verdict is acted on.
-
-**That derivation is declared, not left implicit.** The guard carries one marker line per row of
-this table saying whether it checks that row or deliberately does not, with the reason; its harness
-reads this table and those markers and fails when the two disagree in either direction. So a row
-added here goes nowhere until someone records a decision about it — which is what stops a future
-artifact from being confirmed clean by a guard that never looked for it.
-
 ## State file
 
 The contract governing where a change's state file lives, its full JSON shape, monotonic state
@@ -1396,12 +1213,6 @@ cites this section for the `models` field rather than defining the roles a secon
 **Which file to change first.** The normative requirements behind this section belong to the
 OpenSpec capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`openspec/specs/myflow-model-policy/spec.md`) anchors the defaults below. That capability is the requirement; this section is the **operational form the commands read**, and the two-layer split is the same one **Planning effort** (`skills/myflow-contracts/state-file.md`) already uses. Change the capability first and bring this section with it: a section that contradicts the requirement is this file's defect, not the spec's. A live spec is also behind by construction while a change is open — its delta lands in `openspec/specs/` only at finish run 2 — which is the second reason runtime reads this section rather than that file.
 
-That citation is a **checked** one, not a courtesy: the guard associates a bold token with the path
-beside it and matches it against the target's headings, and an OpenSpec `### Requirement: …` heading
-is a heading like any other, so naming the requirement in full is what makes
-`scripts/check-references.sh` fire when it moves. A bare backticked path with no bold token beside
-it is **not** checked and rots silently — which is what this bullet's predecessor did.
-
 `/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
 and design benefit most from stronger reasoning. Every other `/myflow-*` command should run on
 **Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on the
@@ -1416,10 +1227,6 @@ the cheapest tier where the plan already contains the code to write. That guidan
 this pipeline. The saving it offers is false here: an implementation defect is not avoided by the
 review panel, it is *found* by the panel, at the cost of a fix wave and a re-run of every slot.
 Buying a cheaper implementer with a more expensive review is the wrong trade.
-
-The two rules point in opposite directions on purpose. A reviewer's job is to be many independent
-readings of a finished diff, so its cost must not scale with the operator's session model. An
-implementer's job is to get the diff right the first time, where capability compounds.
 
 **Two further instructions in that same upstream skill are also overridden, and are named here
 rather than left to be discovered.** subagent-driven-development says to dispatch the *final

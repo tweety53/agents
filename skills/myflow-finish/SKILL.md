@@ -104,7 +104,7 @@ filing a new one otherwise. The course is labelled for both outcomes because joi
 usual one, and an option promising to *file* a task while normally joining an existing issue
 describes the wrong write to the operator being asked. What that follow-up is titled, the search,
 the confirmation, what a failed search does, and how it is labelled are all
-**Follow-up issues** (`skills/myflow-contracts/jira-integration.md`), and none of it is restated
+**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`), and none of it is restated
 here; **a filing that fails is one skipped-with-reason line and the run still continues**, per
 **Never blocking** (`skills/myflow-contracts/jira-integration.md`) — the outstanding list still
 reaches the planning commit and the handoff, so the durable record does not depend on the tracker.

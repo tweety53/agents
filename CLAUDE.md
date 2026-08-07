@@ -60,7 +60,7 @@ All skills require the `openspec` CLI to be installed.
 | `skills/myflow-finish/` | `/myflow-finish` | **Run 1** integrates the branch (PR by default, merge, or manual). **Run 2**, once merged, archives the change and removes what the pipeline created |
 | `skills/myflow-status/` | `/myflow-status` | Read-only state report for open changes |
 | `skills/myflow-info/` | `/myflow-info` | Read-only — reads `skills/myflow-contracts/pipeline.md` and explains the pipeline |
-| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for any `/myflow-*` command) plus the state file, self-heal, project configuration, Jira, plan-provenance and build-green contracts, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need |
+| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for any `/myflow-*` command) plus the state file, self-heal, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/myflow-finish` run 1 files or joins a follow-up, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's reasoning for whoever edits it and is not loaded by a run |
 | `skills/openspec-explore/` | `/opsx:explore` | Thinking-partner mode — explore ideas, investigate, no implementation, no state |
 
 ### /myflow commands summary
