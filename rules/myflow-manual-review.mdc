@@ -31,7 +31,9 @@ pipeline itself. The pipeline is one file, loaded on demand:
 **States** and **State transitions** (`skills/myflow-contracts/pipeline.md`) — **load that file
 first**, before any other step of any `/myflow-*` command. It is canonical for the state
 definitions, the command→state transition table, the wrong-state handoff, git boundaries, the
-handoff output shape, and the finish contract.
+handoff output shape. The finish contract itself lives in
+`skills/myflow-contracts/finish-contract.md`, which is canonical for it and is loaded by
+`/myflow-finish` alone.
 
 Never act on a remembered version of any of that. A command that skips the load is running on a
 stale copy of the state machine — the failure this split exists to prevent.
@@ -51,6 +53,7 @@ first time a contract is added, nothing checks it against the table, and that is
 | **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
 | **The build-green tag** (`skills/myflow-contracts/build-green.md`) | writing or checking a task's build tag |
 | **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
+| **Finish contract** (`skills/myflow-contracts/finish-contract.md`) | `/myflow-finish`'s two-run procedure — the preflight signals, both runs, base-branch resolution and worktree cleanup |
 
 **A `/myflow-*` run never loads a rationale appendix.** `pipeline-rationale.md` and
 `jira-integration-rationale.md` hold the reasoning behind the two largest contracts — why an

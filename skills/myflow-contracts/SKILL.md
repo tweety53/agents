@@ -20,7 +20,8 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 
 | File | Load it when you need to |
 |------|--------------------------|
-| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, git boundaries, the handoff output shape, IntelliJ commands, and the finish contract (the two runs, and the worktree-removal checks) |
+| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, git boundaries, the handoff output shape, IntelliJ commands, preserving the session records, and resolving a change's worktrees |
+| [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
 | [state-self-heal.md](state-self-heal.md) | Validate a state file against on-disk artifacts, or handle a missing/contradicted one |
 | [project-configuration.md](project-configuration.md) | Resolve `.myflow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
@@ -59,6 +60,12 @@ An appendix carries the **same heading tree as its core**, in the same order, so
 reasoning is found under the heading it belongs to, and a section that is wholly normative leaves
 its appendix heading present with no body — present rather than absent, so it is visible that the
 section was examined rather than skipped.
+
+**The same split applies one level up.** `skills/myflow-do/`, `skills/myflow-start/` and
+`skills/myflow-finish/` each carry a `SKILL-rationale.md` that a `/myflow-*` run never loads — the
+reasoning behind that skill's `SKILL.md`, kept beside it. **A skill's appendix lives beside its own
+`SKILL.md`, not under `skills/myflow-contracts/`** — this directory indexes only the contracts' own
+appendices, so it never appears in the table above or anywhere in this directory's listing.
 
 ## Keeping this index honest
 

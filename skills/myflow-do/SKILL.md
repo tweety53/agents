@@ -30,6 +30,9 @@ here: an entry moves to in-progress when its implementer is dispatched, and to c
 task passes **both** its spec and quality review — the same moment its `tasks.md` checkbox is
 allowed to be ticked, so the progress view and the file never disagree.
 
+The reasoning behind this file lives in `skills/myflow-do/SKILL-rationale.md`; **a
+`/myflow-*` run never loads it.**
+
 ## State gate
 
 Accepts **`STARTED`** (first run) or **`IN_PROGRESS`** (fix run).
@@ -103,10 +106,6 @@ not only in `/myflow-start`:
 >   change's own artifacts; nothing new is created, and the plan stays one file
 > - **Create a linked nested `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that
 >   adds scope the parent change does not describe
-
-Appending is recommended because most fixes are corrections within the change's existing scope, and
-a sub-change per fix round buys a directory tree the operator has to read back. A nested sub-change
-is never archived alone — it goes with its parent.
 
 If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
 **Description sync** in Jira integration (`skills/myflow-contracts/jira-integration.md`). Never
@@ -245,8 +244,6 @@ distinct ways across three review passes before it was replaced.
   with no total line is outstanding however clean it reads: zero findings is not something to infer
   from silence. A panel that raised nothing says `findings-total: 0` and carries no markers.
 
-Free prose is not a record of a finding's state: a state that cannot be counted cannot be enforced.
-
 **The table carries no status column, on purpose.** A finding's state is written once, on its
 marker line. A status cell beside the marker is a second surface that can silently disagree with the
 line that governs: the machine's direction is protected — a marker reading `open` blocks whatever a
@@ -337,10 +334,6 @@ came from. A change that touched every part of exercise CRUD lists create, updat
 delete; not one entry per plan task that produced them. Carry **no** per-step command transcripts,
 **no** expected-output blocks, and **no** explanation of why a check exists.
 
-A guide written per plan task grows with the implementation rather than with the behaviour, which is
-what made earlier guides long without making them more thorough: several entries could exercise one
-behaviour while another went unlisted.
-
 Above the checklist, write a **short preamble stating how to run whatever is in scope**. Nothing
 else belongs in it.
 
@@ -419,17 +412,6 @@ guard exiting 2, and is reported rather than passed over.
 | 1 | one or more rows are malformed; each is named on stdout with the rule it broke | this is the dropped-row case below — relay the guard's lines verbatim and stop |
 | 2 | it could not answer — a `.myflow/project.md` that is not a regular file, cannot be read, or a scan of it that failed | stop, for the same reason: an unvalidated declaration is not a validated one |
 
-**This is the only place a project's declaration is validated, and that is why it happens here.**
-The rules are mechanical, so re-deriving them by reading rows is the failure the guard exists to
-remove; and the guard ships in the agents repository while the projects it judges do not, so a lint
-list reaches one repository and this command reaches all of them. `/myflow-finish` does not repeat
-it: run 2 reads the `survivors` row alone, and every input it cannot resolve is already a reported
-skip under **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`). Adding a
-blocking validation there would strand an already-merged change over text nothing in that session
-can correct — the trade
-**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`) rejects when it weighs a
-change stranded short of its terminal state against stale storage.
-
 **When the script cannot be located** — a harness whose repository does not carry it, or a skill
 directory copied rather than linked, so the two steps above resolve to something that is not the
 agents repository — apply the same rules by hand from **Project configuration**
@@ -497,15 +479,6 @@ git -C <worktree> status
 git -C <worktree> diff --cached --stat
 ```
 
-**The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
-stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and is not re-derived
-here. What is specific to this command is *whose* staging it retracts (an implementer subagent's own
-`git add`, or a worktree resumed with a dirty index) and why `git reset -- <paths>` is the tool:
-it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
-the way `git rm --cached` would, and succeeds when a path is absent — which `docs/superpowers/` is
-on every run that has not preserved records yet, and where `git restore --staged` would refuse the
-whole command and unstage nothing.
-
 > **Those three paths are never staged.** The exclusion is what keeps them out of the diff, rather
 > than a filter applied when the diff is displayed: a filtered display leaves them in the staging
 > area, where the IDE's staged-changes pane and `git status` show them again. The list is fixed —
@@ -528,7 +501,8 @@ round raised after a PR is open refresh the preserved records rather than leave 
 The script overwrites in place; it never creates a second dated copy. A source that does not exist is
 reported and skipped; **a non-zero exit means a copy was attempted and refused or failed** — report
 it with the script's own stderr message and continue committing the fix. The outcome table under
-**Finish contract** (`skills/myflow-contracts/pipeline.md`) is canonical for all three outcomes.
+**Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all
+three outcomes.
 
 **Both commits are guarded exactly as run 1's are** — the chain, the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under
@@ -547,14 +521,6 @@ The one field where *verbatim* is not a byte copy is the planning effort: a file
 under the retired key is carried forward as the **mapped level under `planningEffort`**, per that
 same carry-forward rule, which is canonical and is not restated here. What matters at this call site
 is that reading only `planningEffort` and writing what it found would erase the recorded level.
-
-The block below is **not** a second definition of the handoff. It is this command's rendering of the
-`IN_PROGRESS`-after-`/myflow-do` template, which is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
-labels, the field set and their order. What this block adds is the enumeration of the literal
-alternatives `/myflow-do` writes. **Change the template first and bring this block with it** — a
-field added here and not there is drift the moment `/myflow-status <name>` regenerates the same
-state.
 
 ```
 ## Implementation staged — review and test

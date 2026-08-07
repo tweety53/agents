@@ -270,9 +270,9 @@ cannot write one correctly without being told which directory that is.
   the repository it was handed, and it is handed the main checkout: by the time the guard asks, the
   change's apply worktree has already been removed.
 - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
-  step, per **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`), so the apply
-  worktree is by then not a directory anything could run from — and two commands out of one table,
-  called by one run of one command, must not disagree about where they run.
+  step, per **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), so the
+  apply worktree is by then not a directory anything could run from — and two commands out of one
+  table, called by one run of one command, must not disagree about where they run.
 - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
   applications does, and that is the worktree whose applications need the resources — the same
   first-start-in-a-worktree fact the row in
@@ -316,11 +316,12 @@ guard reading them cannot ask a follow-up question:
   sections can name two different commands against two different services, so resolving silently
   would run one the author may not have meant and then report the row verified on its answer.
 - **No answer within the bound** — the command is given **60 seconds**, the same bound the project's
-  stop command gets under **Worktree cleanup** (`skills/myflow-contracts/pipeline.md`), and is
-  terminated if it exceeds it. A terminated command has said nothing about survivors, so this joins
-  the skip above, **reported as a timeout rather than as an exit code** — the number a killed process
-  carries describes the guard's own signal, not the project's answer, and an operator has to be able
-  to tell *your command is broken* from *your command is slow*. Anything it printed before being
+  stop command gets under
+  **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`), and is terminated if it
+  exceeds it. A terminated command has said nothing about survivors, so this joins the skip above,
+  **reported as a timeout rather than as an exit code** — the number a killed process carries
+  describes the guard's own signal, not the project's answer, and an operator has to be able to
+  tell *your command is broken* from *your command is slow*. Anything it printed before being
   terminated is discarded: a partial listing is not a report.
 
   **The bound and its outcome are stated here because a `survivors` command is written against

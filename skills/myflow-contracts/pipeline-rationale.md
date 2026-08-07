@@ -89,8 +89,9 @@ of them. Forcing both into one template would leave the rule at the top of this 
 unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
 
 **Why `Route` and `Outstanding` are run-only.** The landing answer is never remembered between runs,
-per **Run 1 — the branch is not merged** (`pipeline.md`), so no field records which route was
-taken: a recorded `prUrl` implies the pull-request route, and nothing separates the other two. The
+per **Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`), so no
+field records which route was taken: a recorded `prUrl` implies the pull-request route, and
+nothing separates the other two. The
 outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
 is the planning commit's message, which is where a later reader looks, and the state file does not
 carry it.
@@ -147,7 +148,8 @@ never send the operator to the wrong command — only show them the wrong fields
 regenerated from the state as it now stands, so a worktree still present is still named and a
 removed one reads *missing*.
 
-**No field is added to close it.** **Finish contract** (`pipeline.md`) already refuses one:
+**No field is added to close it.**
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`) already refuses one:
 the branch's merge status is the only source of truth for whether the branch has been integrated,
 and a field could disagree with it. That is the same reason merge status governs the table —
 the rule was already stated here, and the defect was reading `prUrl` in front of it rather than
@@ -203,8 +205,9 @@ defined; the two call sites point here rather than each describing them.
    property the placement above already has.
 
    **The cost of this order is that a worktree half which stops early takes the removal with it.**
-   Any failed check leaves every worktree alone — **Worktree cleanup** (`pipeline.md`) — and
-   the removal behind it does not run, so a run blocked by something unrelated to the workspace, an
+   Any failed check leaves every worktree alone —
+   **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`) — and the removal behind it
+   does not run, so a run blocked by something unrelated to the workspace, an
    uncommitted file in a worktree say, has its database and bucket named as leftovers at step 6 as
    well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has
    already stopped and already needs the operator, it adds lines to a report rather than a failure,
@@ -239,7 +242,8 @@ claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
 ends at run 2 is checked back by `scripts/check-cleanup-complete.sh`, whose header explains which
 rows that leaves it reading and why; step 6 of
-**Run 2 — the branch is merged** (`pipeline.md`) is where its verdict is acted on.
+**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`) is where its
+verdict is acted on.
 
 **That derivation is declared, not left implicit.** The guard carries one marker line per row of
 this table saying whether it checks that row or deliberately does not, with the reason; its harness

@@ -62,10 +62,10 @@ bases, which is neither a clean carry-forward nor a loss; that is the next rule 
 
 **`worktrees` is the one field a rebuild recovers rather than nulls, because git already knows it.**
 Scan the repository the command is running in for the worktrees on branch `openspec/<name>` with the
-`git worktree list --porcelain` snippet under
-**Worktree cleanup** (`skills/myflow-contracts/pipeline.md`) — the same mechanism `/myflow-finish`
-already uses when the map is absent — and write one key per path found. An emptied map is not a
-neutral loss: `/myflow-finish`'s preflight and its unfinished-work gate are both defined as *once
+`git worktree list --porcelain` snippet under **Resolving a change's worktrees**
+(`skills/myflow-contracts/pipeline.md`) — the same mechanism `/myflow-finish` already uses when the
+map is absent — and write one key per path found. An emptied map is not a neutral loss:
+`/myflow-finish`'s preflight and its unfinished-work gate are both defined as *once
 per recorded worktree*, so a map rebuilt to `{}` makes both **pass vacuously, having examined zero
 worktrees**, for a change that may still hold an unmerged worktree with uncommitted work in it. A
 key recovered from git is a fact, not an inference, so recovering it breaks no rule this contract

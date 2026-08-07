@@ -27,6 +27,9 @@ and keep each entry's status current as the run proceeds, per
 **Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
 this command registers and is the one to read.
 
+The reasoning behind this file lives in `skills/myflow-start/SKILL-rationale.md`; **a
+`/myflow-*` run never loads it.**
+
 ## State gate
 
 Accepts **no change** (creates one) or **`STARTED`** (revises the existing proposal). Ends at
@@ -153,17 +156,6 @@ conflicting design.
 
 ### Convergence
 
-superpowers:brainstorming's own flow is linear — explore, ask clarifying questions, propose
-approaches, present the design, get approval — and its only loop routes a **correction** back to the
-design. Nothing in it routes a **question** back to the questions, so a question raised *by* an
-answer has nowhere to land. This section is where it lands.
-
-What counts as a planning-stage exchange, the convergence test itself, and why it is one test rather
-than a rule per gate are structure, stated once under **Pipeline flow**
-(`skills/myflow-contracts/pipeline.md`) — specifically its brainstorm expansion — and not restated
-here. What is genuinely tuned for this command follows: the two prompts, the threshold, the
-no-hard-cap rule, and why their opposite recommendations are not to be harmonised.
-
 **Recording a question never satisfies the test when the command records it pre-emptively** — to
 dodge asking a question the operator has not seen; a question recorded that way is still held. **A
 question the operator has explicitly deferred is different**: once recorded under
@@ -248,12 +240,8 @@ not harmonise them.** The confirm recommends *moving on* precisely because it is
 this command holds an unanswered question. The offer recommends *another round* for the mirror
 reason: it is reachable only while this command genuinely holds one. That is the same shape as the
 **Stop** recommendation at the unfinished-work gate of `/myflow-finish` run 1, whose reasoning is
-stated under **Finish contract** (`skills/myflow-contracts/pipeline.md`) and is not re-argued here.
-
-**Every planning effort level runs this loop.** A level changes how many questions one round groups
-— one at a time at `detailed`, batched at `low` — and never whether another round opens. A level
-able to end the loop early would be a way to skip the gate rather than a way to size the thinking
-inside it. The levels are **Planning effort** (`skills/myflow-contracts/state-file.md`).
+stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not
+re-argued here.
 
 ## C. Create the change and its artifacts
 
@@ -328,15 +316,6 @@ of reusing it; the entries do not merge. A round that answers the question sets 
 **Never delete or rewrite an entry once recorded** — what was left open, and which decision closed
 it, is the point.
 
-**This cross-reference is instruction-only, and no guard checks it.**
-`scripts/check-references.sh` verifies a bold token beside a backticked path against a heading in
-another *file*; it has no notion of an `answered by <decision-id>` link between two sections of the
-same `design.md`, nor of the uniqueness rule just stated. A decision ID that is never created, a
-status left at `open` after its question was actually answered, or an ID reused across the two
-sections all pass every guard this repository runs — the same limit
-**Plan provenance** (`skills/myflow-contracts/plan-provenance.md`)'s "What the guard does not do"
-names for a provenance tag: the tool confirms a claim is stated, never that it is true.
-
 What this section holds is what the `STARTED` handoff counts. That line is defined once under
 **The block each state renders** (`skills/myflow-contracts/pipeline.md`), which also states why it
 is regenerable rather than run-only.
@@ -409,14 +388,6 @@ when this run added scope the issue does not already describe.
 
 Stage the planning artifacts. The state file lives outside the repo — never `git add` it.
 
-The block below is **not** a second definition of the handoff. It is this command's rendering of the
-`STARTED` template, which is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
-labels, the field set and their order. What this block adds is the enumeration of the literal
-alternatives `/myflow-start` writes for each placeholder that file describes. **Change the template
-first and bring this block with it** — a field added here and not there is drift the moment
-`/myflow-status <name>` regenerates the same state.
-
 ```
 ## Proposal ready — review required
 
@@ -440,13 +411,6 @@ Next:
 
 The IntelliJ path is the **main checkout** — no worktree exists at this state. Resolve it via
 `--git-common-dir`.
-
-**`missing` is a real alternative on the artifact line, not a defensive one.** This command's
-guardrails forbid finishing without publishing, so its own runs print a URL; the alternative is
-carried because `/myflow-status <name>` renders this same block from a state file whose
-`artifactUrl` may be `null` — a file self-heal rebuilt from artifacts loses it, and self-heal names
-it among the unrecovered fields when it does. Omitting the alternative here would narrow the
-template and teach the next reader to drop the case the missing-rather-than-dropped rule requires.
 
 The pre-edit description line is present only on a run that wrote the description, and reproduces
 that text without summarising or reflowing it — the transcript is then the recovery path, since

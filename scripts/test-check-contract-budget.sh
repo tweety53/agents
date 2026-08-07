@@ -134,6 +134,79 @@ else
   failures=$((failures + 1))
 fi
 
+# --- Widened scope: skills/*/SKILL.md and skills/*/SKILL-rationale.md ------
+#
+# These three cases exercise the glob widening from task 5.1. Each fixture
+# still needs a real, in-budget skills/myflow-contracts/*.md file so the
+# contracts-directory requirement is satisfied — the point of these cases is
+# the skills/ glob, not the contracts one.
+#
+# The paths and sizes below are deliberately real repository skill paths, sized
+# relative to their REAL production budgets in the guard's own budgets() table
+# — the same coupling the pre-existing "build-green.md" cases already rely on.
+
+# A skills/<x>/SKILL.md that exceeds its declared budget. skills/myflow-status
+# only has a SKILL.md, no rationale sibling, which keeps this fixture simple.
+mkdir -p "$FIX/skill-over/skills/myflow-contracts" "$FIX/skill-over/skills/myflow-status"
+printf 'x\n' > "$FIX/skill-over/skills/myflow-contracts/build-green.md"
+head -c 50000 /dev/zero | tr '\0' 'x' > "$FIX/skill-over/skills/myflow-status/SKILL.md"
+expect 'a skills/<x>/SKILL.md over budget fails' 1 "$FIX/skill-over"
+
+# A skills/<x>/SKILL.md under a skill name that has no row in budgets() at all.
+mkdir -p "$FIX/skill-undeclared/skills/myflow-contracts" \
+  "$FIX/skill-undeclared/skills/mystery-skill"
+printf 'x\n' > "$FIX/skill-undeclared/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/skill-undeclared/skills/mystery-skill/SKILL.md"
+expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared"
+
+# Two skills whose SKILL.md files carry different budgets in the real table —
+# skills/myflow-info/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
+# much larger one). skills/myflow-do/SKILL.md is sized to 20000 bytes: above
+# myflow-info's real budget, but below myflow-do's real budget. If the table
+# were still keyed on the bare basename "SKILL.md" — the collision this task
+# fixes — every skills/*/SKILL.md would be checked against one shared row, and
+# a 20000-byte file would fail against the small budget that basename
+# collision would hand it. Keyed on the path relative to the repository root,
+# each file is checked against its own row and both pass.
+mkdir -p "$FIX/skill-distinct/skills/myflow-contracts" \
+  "$FIX/skill-distinct/skills/myflow-info" "$FIX/skill-distinct/skills/myflow-do"
+printf 'x\n' > "$FIX/skill-distinct/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/skill-distinct/skills/myflow-info/SKILL.md"
+head -c 20000 /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
+expect 'two skills with different budgets are each checked against their own row' \
+  0 "$FIX/skill-distinct"
+
+# A SKILL-rationale.md over budget. Without this the rationale half of the widened
+# scope has no coverage at all: mutating that glob to a typo left all other cases
+# green while every SKILL-rationale.md in the repo silently stopped being guarded —
+# exactly the "escapes the ratchet silently" failure this guard exists to prevent.
+mkdir -p "$FIX/rationale/skills/myflow-do" "$FIX/rationale/skills/myflow-contracts"
+printf 'x\n' > "$FIX/rationale/skills/myflow-contracts/build-green.md"
+head -c 9000 /dev/zero | tr '\0' 'x' > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
+expect 'a SKILL-rationale.md over budget fails' 1 "$FIX/rationale"
+
+# A SKILL-rationale.md with no budget row — the undeclared case for the same glob.
+mkdir -p "$FIX/rationale-new/skills/brand-new" "$FIX/rationale-new/skills/myflow-contracts"
+printf 'x\n' > "$FIX/rationale-new/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/rationale-new/skills/brand-new/SKILL-rationale.md"
+expect 'a SKILL-rationale.md with no budget row fails' 1 "$FIX/rationale-new"
+
+# skills/myflow-contracts/SKILL.md is matched by BOTH globs — the required contracts
+# loop and the skills/*/SKILL.md loop. The prefix skip is what stops it being counted
+# twice. Deleting that skip leaves every other case green while the verdict's count
+# silently inflates, so this case asserts the COUNT, not just the exit code.
+mkdir -p "$FIX/nodouble/skills/myflow-contracts"
+printf 'x\n' > "$FIX/nodouble/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/nodouble/skills/myflow-contracts/SKILL.md"
+expect 'a contracts-dir SKILL.md passes' 0 "$FIX/nodouble"
+out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/nodouble" "$GUARD")"
+if printf '%s' "$out" | grep -q '^BUDGET-OK: 2 contract file(s) within budget$'; then
+  printf 'ok   a contracts-dir SKILL.md is counted once, not twice\n'
+else
+  printf 'FAIL double-count: %s\n' "$out"
+  failures=$((failures + 1))
+fi
+
 if [ "$failures" -ne 0 ]; then
   printf '%d failure(s)\n' "$failures"
   exit 1
