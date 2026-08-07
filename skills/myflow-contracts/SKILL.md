@@ -1,6 +1,6 @@
 ---
 name: myflow-contracts
-description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, state self-heal, project configuration, and Jira integration. Load the one file you need; each is canonical for its own contract. Referenced by the stubs in rules/myflow-manual-review.mdc.
+description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, state self-heal, project configuration, Jira integration, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract. Referenced by the stubs in rules/myflow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -27,6 +27,7 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
+| [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins — and a skill should **point at** these files rather than restate them, because a second

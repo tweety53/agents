@@ -46,6 +46,7 @@ scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
 scripts/test-uncommitted-review-package.sh
 scripts/test-check-task-build-green.sh
+scripts/test-check-workspace-isolation.sh
 ```
 
 ## lint
@@ -55,12 +56,31 @@ scripts/check-vocabulary.sh
 scripts/check-references.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
+scripts/check-workspace-isolation.sh
 ```
 
 **There is no auto-fix command in this repository.** The Lint Fix Priority rule's "run the
-auto-fix command first" step is therefore inapplicable here — not skipped. All three guards report
-`file:line` and are fixed by editing the offending line, never by weakening the guard or adding a
-suppression marker to silence a real hit.
+auto-fix command first" step is therefore inapplicable here — not skipped. Every guard in the list
+above reports `file:line` and is fixed by editing the offending line, never by weakening the guard
+or adding a suppression marker to silence a real hit. The list is cited by count nowhere in this
+file, deliberately: a written count went stale the first time a guard was added to it, and the same
+sentence would go stale again on the next.
+
+**`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
+not.** It takes a project root, defaults to this repository when given none, and answers a question
+about the text of `.myflow/project.md` — so it runs against a bare tree like every other guard here.
+`check-cleanup-complete.sh` reads the same section and is excluded below for the opposite reason: it
+needs a change in flight.
+
+**Its place in this list is a self-check on this repository, not how it covers the projects myflow
+is installed into** — and conflating the two made a permanently vacuous lint step read as
+enforcement. This repository declares no `## workspace isolation` section, so the run here passes
+silently and has done since the guard was added; a green lint run therefore says nothing whatever
+about any project's declaration. What covers those is `/myflow-do`, which runs this guard against
+each apply worktree before it resolves the section, per section 7 of `skills/myflow-do/SKILL.md` —
+so a declaration is validated where it is read, in whichever repository holds it. The lint entry
+stays because this repository's own configuration is one more configuration worth checking, and
+because it keeps the guard runnable from a bare tree.
 
 **`check-finish-preflight.sh`, `preserve-session-records.sh`, `check-unfinished-work.sh` and
 `check-cleanup-complete.sh` are deliberately not lint steps.** All four are `/myflow-finish` helpers
@@ -70,7 +90,10 @@ lint step that cannot run against a bare tree would fail on every unrelated invo
 omission is a decision, not an oversight. They are covered instead by their harnesses under
 `## test`.
 
-**All three guards are currently expected to exit 0.** `check-plan-provenance.sh` reports
+**Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
+`ISOLATION-OK` and the fact that this repository declares no section; its own header carries its
+full exit-code contract: 0 every project checked is well formed, 1 violations found, 2 it cannot
+answer at all. `check-plan-provenance.sh` reports
 "all provenance stated" — see the script's own header for the full exit-code contract: 0
 clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
 content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint

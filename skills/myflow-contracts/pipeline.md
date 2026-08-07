@@ -75,7 +75,7 @@ verdict picks which one this invocation performs, and the run is never a command
 | Command | Stages, in order | Gate after it |
 |---------|------------------|---------------|
 | `/myflow-start` | resolve the change → ask the planning effort and the three model choices *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
-| `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → write the manual test guide → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps against the guide |
+| `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → write the manual test guide → validate the project's `## workspace isolation` section, then export what it declares → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps against the guide |
 | `/myflow-finish` | the preflight verdict ▸, taken once per recorded worktree, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` → self-review ▸ | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
 | `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
 | `/myflow-info` | read-only — no stages, no state write; reads this file and explains the pipeline | — |
@@ -222,7 +222,10 @@ leftover repeats the verification and nothing else.
 The removals are verified rather than assumed. `scripts/check-cleanup-complete.sh` runs once per
 repository, **after** all of them: `COMPLETE:` allows the `FINISHED` write, `LEFTOVER:` names what
 remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no verdict line is
-treated exactly as `LEFTOVER` — an unverified cleanup is not a verified one.
+treated exactly as `LEFTOVER` — an unverified cleanup is not a verified one. A `COMPLETE:` line may
+carry a `SKIPPED:` clause naming a row that was not verified, and that clause is relayed rather than
+dropped — the rule is stated once in step 6 of
+**Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`) below.
 
 What is removed, when, and on what condition is
 **Temporary artifacts registry** (`pipeline.md`) below — the one place a cleanup rule is stated. The
@@ -1019,8 +1022,61 @@ the one irreversible step.
    in the normal case: the change branch was already merged, which step 1 proved. When finish is
    invoked with a non-base branch checked out, it commits there, merges into the base branch, and
    pushes that. A finished change never leaves the archive move uncommitted in the working tree.
-4. **Clean up the worktrees, the local branch and the remote branch** — see
-   **Worktree cleanup** (`pipeline.md`) below.
+4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
+   database and bucket** — the worktree half being **Worktree cleanup** (`pipeline.md`) below.
+
+   The removal runs the project's `remove` command, read from the command table
+   **Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for,
+   with the workspace id substituted into its text by the mechanism that same file defines. **Run 2
+   is not handed that id and does not need to be**: it is derived from the change name and from
+   nothing else, deterministically and without ever being recorded, per
+   **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — so run 2 re-derives it
+   and arrives at the id `/myflow-do` used, in a session that shared nothing with it.
+
+   **The removal goes after the worktree half, and the order is load-bearing.** Worktree cleanup's
+   check 5 runs the project's `## stop` command, and it is the **only** place run 2 stops the stack —
+   which run 2 nearly always has to do, because `/myflow-do` hands off a manual test guide and the
+   operator runs the applications against it, so a stack still up when run 2 starts is the common
+   case rather than a rare one. Dropping a database the project's own stack still holds open is a
+   removal that fails on the ordinary path, so the removal waits until that stack is down.
+   Nothing pulls the other way: these resources live in the project's shared data services rather
+   than in the worktree, so taking the worktree down neither removes them nor puts them out of reach,
+   and `remove` runs from the main checkout — stated with the command table, in
+   **Project configuration** (`skills/myflow-contracts/project-configuration.md`) — so no worktree
+   removal can destroy the directory it runs from. What has always constrained this step still does:
+   the removal stays ahead of step 6, because a verification that runs before the thing it verifies
+   can only ever fail.
+
+   **Interleaving the removal into the worktree half was considered and rejected.** Slotting it
+   between that half's checks and its destructive commands would put the stack down first just as
+   well, but it would bind this step's order to another section's internal check numbering, and it
+   would run a once-per-change removal inside a per-worktree loop — two couplings bought for a
+   property the placement above already has.
+
+   **The cost of this order is that a worktree half which stops early takes the removal with it.**
+   Any failed check leaves every worktree alone — **Worktree cleanup** (`pipeline.md`) below — and
+   the removal behind it does not run, so a run blocked by something unrelated to the workspace, an
+   uncommitted file in a worktree say, has its database and bucket named as leftovers at step 6 as
+   well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has
+   already stopped and already needs the operator, it adds lines to a report rather than a failure,
+   and run 2 is re-entrant, so the pass after the blocker is cleared does both halves. The check most
+   likely to fail is check 5 — a stack that will not stop — and that is exactly the condition under
+   which the removal would have failed anyway, which is also why it is not attempted regardless:
+   running with the stack down is the guarantee this order buys, and removing after a failed check
+   would spend it. The order this replaces put its cost on the ordinary path instead.
+
+   **Both halves share one numbered step deliberately.** They are one act — undoing what this
+   change's run created — with an order between them that has to hold, and giving the removal a
+   number of its own would renumber steps 6, 7 and 8, which are cited *by number* from
+   `openspec/specs/` and from `skills/myflow-finish/SKILL.md`.
+
+   **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
+   half skipped rather than failed** — a step whose artifact is already absent is a success, which is
+   the same re-entrancy rule every other removal in run 2 follows.
+
+   **A failed removal does not stop run 2 here; it is reported, and step 6 decides the verdict** —
+   from the project's survivor report and never from this command's exit code, per
+   **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
 5. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`pipeline.md`) gives. That section carries the condition and
    the reason for it; this step does not repeat either.
@@ -1030,8 +1086,20 @@ the one irreversible step.
 
    | Verdict | What run 2 does |
    |---------|-----------------|
-   | `COMPLETE:` | report the cleanup as verified, and go on to step 7 |
+   | `COMPLETE:` | report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 7 |
    | `LEFTOVER:` | name what remains, **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
+
+   **A `SKIPPED:` clause on a `COMPLETE:` line is relayed, never dropped, and the two rows are
+   symmetric for that reason.** The guard appends its notes to the verdict after ` — `, and a
+   `SKIPPED:` note there says a registry row was *not* verified — reached, for instance, as
+   `COMPLETE: <repo> — … — SKIPPED: the workspace survivor verification — '<cmd>' exited 7, so the
+   service could not be reached`. A run that reported only "cleanup verified" would have told the
+   operator the opposite of what the guard said, while following this table to the letter. **A skip
+   is never a pass**: `scripts/check-cleanup-complete.sh`'s own header is canonical for why, and it
+   is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
+   reason it could not be verified are both inside it. The relay does **not** block step 7; why an
+   unreachable service must not strand an already-merged change is stated once under
+   **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
 
    A non-zero exit with **no verdict line** is the third outcome and not a verdict: report it, leave
    the affected `worktrees` entries in the state file, and treat it exactly as `LEFTOVER` — an
@@ -1211,6 +1279,8 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
 | Change directory | `/myflow-start` | `openspec/changes/<name>/` | moved to the archive, never deleted |
+| Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
+| Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
@@ -1230,6 +1300,51 @@ URL, and the preserved copy its row requires lives under `docs/superpowers/artif
 state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that
 URL would leave it advertised and unrepublishable. No preserved copy → leave the file and say so.
 The deletion is disclosed the same way the worktree removal is.
+
+**The workspace row belongs only to a project that declares isolation, and for every other project
+it is a row about nothing — which is why it names no database, no bucket and no service.** A project
+declares the commands that create these resources, that remove them, and that report which of them
+survived; the section holding those declarations is the one
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for.
+Which resources there are, and how each derived value is derived, is stated under
+**What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
+
+**This is the one row whose removal is verified by asking rather than by looking**, and the reason
+is that "ran the removal" is not "verified gone": a removal that reported success against a stale
+connection leaves this row's promise broken with nothing having failed. So a survivor is established
+from the project's own survivor report, never inferred from the removal's exit code — stated once
+under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`), with the report's
+output and exit-code contract under
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`). A report that could
+not reach its service is skipped rather than failed, so this is the one row a stopped service leaves
+unverified without stranding an already-merged change; that asymmetry is likewise
+**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+
+**Nothing removes the claimed cache index, and nothing in this pipeline can — which is why the row
+says so instead of naming a remover it does not have.** The rule one paragraph above is that an
+artifact no row accounts for is a defect in the registry; the row exists for that reason, and an
+honest `Removed by` cell is the whole of what it buys. The index is the one workspace value that is
+**not** a function of the change name — it is claimed by probing, for the reasons under
+**The cache index** (`skills/myflow-contracts/workspace-isolation.md`) — and it is not written into
+the state file either. So by the time run 2 runs, nothing on the machine can say which index this
+change held: there is no derivation to repeat and no record to read, and a run that swept an index
+it guessed would flush another workspace's. The project's `remove` command does not touch it for the
+same reason, which
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`) states as a property
+of the `cache index` resource word.
+
+**What that leaves behind is bounded, and where it stops being acceptable is named rather than
+glossed.** What stays in the index is sessions and cache entries, which are disposable by
+construction — the accepted cost under
+**The cache index** (`skills/myflow-contracts/workspace-isolation.md`) is precisely that nothing
+which must survive a restart may be kept there, so leaving them costs a login and never data. The
+cost that is *not* free is slot exhaustion: a cache offers sixteen indices, one of which is the
+empty-id default, so a probe that reads a non-empty index as taken finds fewer free slots as
+finished changes accumulate, and a workspace that can claim none falls back to sharing — the failure
+this contract exists to remove. The remedy is the operator flushing the cache, and it is safe for
+exactly the reason the leftovers are: nothing durable is in there. A project may ship its own
+command to list or flush its stale indices; that is the project's tooling, and this row does not
+claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
 ends at run 2 is checked back by `scripts/check-cleanup-complete.sh`, whose header explains which

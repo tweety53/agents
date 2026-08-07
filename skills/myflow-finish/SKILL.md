@@ -294,15 +294,32 @@ In outline, and stopping at the first step that fails:
    `## REMOVED` by deleting it, `## RENAMED` in place preserving the body. Then move the change to
    `openspec/changes/archive/<YYYY-MM-DD>-<name>/`, taking any nested `<name>-fix-N` with it.
 3. **Commit and push the archive** on the base branch in the main checkout.
-4. **Remove the worktrees, the local branch and the remote branch.** Every rule they carry — the
-   four gating checks, the ignored-file disclosure, the removal sequence, and the remote deletion
-   with its already-gone case — is canonical in
-   **Worktree cleanup** (`skills/myflow-contracts/pipeline.md`) and is not restated here.
+4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
+   database and bucket.** The workspace half runs the project's `remove` command, read from the
+   command table **Project configuration** (`skills/myflow-contracts/project-configuration.md`)
+   defines and run from the **main checkout**, which that same table states, with the workspace id
+   substituted into its text. **Nothing hands this run that id** — it is
+   re-derived here from the change name, which is the only thing it ever comes from, per
+   **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`). A project declaring no
+   `## workspace isolation` section, or no `remove` command in it, has this half **skipped, not
+   failed**. A removal that fails is **the one exception to the stop-at-the-first-failure rule
+   above**: report it and carry on to step 6, which decides the verdict from the project's survivor
+   report and never from this command's exit code, per
+   **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`). A worktree half that
+   stops on a failed check takes the removal with it, and why the removal follows that half at all —
+   the stack is down only once its check 5 has run — is
+   **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`);
+   every rule the worktree half carries — the gating checks, the ignored-file disclosure, the
+   removal sequence, and the remote deletion with its already-gone case — is canonical in
+   **Worktree cleanup** (`skills/myflow-contracts/pipeline.md`). Neither is restated here.
 5. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) gives.
 6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
-   per repository, after every removal above. `COMPLETE:` → report the cleanup as verified and go
-   on to step 7. `LEFTOVER:` → name what remains and **stop without writing `FINISHED`**, leaving
+   per repository, after every removal above. `COMPLETE:` → report the cleanup as verified, **relay
+   every clause the line carries after ` — ` word for word**, and go on to step 7 — a `SKIPPED:`
+   clause there says a registry row was not verified, so reporting only "cleanup verified" tells the
+   operator the opposite of what the guard said, and a skip is never a pass. `LEFTOVER:` → name what
+   remains and **stop without writing `FINISHED`**, leaving
    the change at `IN_PROGRESS`. **No verdict line at all, and a non-zero exit** → report it, leave
    the affected `worktrees` entries in the state file, and treat it as `LEFTOVER`; the exit code is
    checked as well as the line, because a caller that greps for `COMPLETE` in empty output finds

@@ -343,6 +343,47 @@ for badname in ../escape a/b /abs '*' 'a*b' 'a?b' '[0-9]' 'a b' 'a;b' '$(id)' '-
     || fail "change name '$badname' wrote files: $(find "$WT/docs" -type f)"
 done
 
+# 4d-i2. The allowlist answers the same under every locale, which is a property
+# separate from what it answers. Protection 1 spelled its bracket expressions
+# with RANGES, and a bracket range is a COLLATING range: measured on bash 3.2
+# (Darwin 25.5.0), every name below was refused under `LC_ALL=C` and ADMITTED
+# under `en_US.UTF-8` by that spelling — so the accepted input set of a
+# containment gate moved with the operator's environment, and an admitted name
+# then reached `find -name` and a constructed path with nothing else in the way.
+# The characters are enumerated now, and a literal list has no endpoints for a
+# collation order to reorder.
+#
+# THE PROBES ARE FOUR DIFFERENT HAZARDS PLUS THE ONE THE OTHER SUITES USE, not
+# five spellings of one: a Latin letter with a diacritic, a ligature, a Roman
+# numeral, a fullwidth capital, and `İstanbul-test`. A locale this machine lacks
+# is skipped rather than forced — `LC_ALL` naming a missing locale silently falls
+# back to C, and the loop would then pass by not running, which is the vacuous
+# green this suite is written against.
+PSR_LOCALES=(C)
+for psr_loc in en_US.UTF-8 tr_TR.UTF-8; do
+  if [ "$(LC_ALL="$psr_loc" locale charmap 2>/dev/null)" = "UTF-8" ]; then
+    PSR_LOCALES+=("$psr_loc")
+  else
+    printf 'skip: the allowlist under LC_ALL=%s (this machine has no such locale)\n' "$psr_loc"
+  fi
+done
+for psr_name in "écho" "ﬀoo" "ⅰx" "Ａbc" "İstanbul-test"; do
+  for psr_loc in "${PSR_LOCALES[@]}"; do
+    new_tree
+    set +e
+    # The assignment is a PREFIX on an external command, which is the one form
+    # of it that cannot leak into the cases after this loop.
+    OUT="$(LC_ALL="$psr_loc" LANG="$psr_loc" "$SCRIPT" "$WT" "$psr_name" "$STATE_DIR" 2>&1)"
+    RC=$?
+    set -e
+    [ "$RC" -eq 2 ] && pass "change name '$psr_name' exits 2 under LC_ALL=$psr_loc" \
+      || fail "change name '$psr_name' under LC_ALL=$psr_loc: expected exit 2, rc=$RC out=$OUT"
+    [ -z "$(find "$WT/docs" -type f 2>/dev/null)" ] \
+      && pass "change name '$psr_name' wrote nothing under LC_ALL=$psr_loc" \
+      || fail "change name '$psr_name' under LC_ALL=$psr_loc wrote files: $(find "$WT/docs" -type f)"
+  done
+done
+
 # 4d-ii. The consequence the allowlist exists to prevent: a glob metacharacter
 # in the change name defeats the digit-anchored existing-file search and lets
 # one invocation adopt — and overwrite — a DIFFERENT change's preserved record.

@@ -78,6 +78,19 @@ file's `worktrees` map, which is the authoritative list of affected worktrees.
 
 On a fix run, resume the existing worktree. **Never create a second one.**
 
+**Then compute this worktree's workspace id from the change name.** The derivation is stated once
+under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), which is canonical
+for it — do not restate it here, and do not re-derive it by hand. Compute it once per run, on a fix
+run exactly as on the first: the derivation is deterministic, so a later run reproduces the same id
+rather than reading one back, which is why nothing about it is written to the state file. Two later
+steps consume that one value — section 6 writes the guide's URLs from it, and section 7 resolves the
+project's declared isolation rows against it — so an id derived twice in one run is two chances to
+disagree.
+
+The main checkout has no id, and a project that declares no isolation at all is that same case
+wherever it runs: every value resolves to the project's declared default, and neither is reported as
+a misconfiguration. See **The empty id** (`skills/myflow-contracts/workspace-isolation.md`).
+
 ## 3. Documenting a fix, before implementing it
 
 On a fix run, record what changed **before** writing code, so the proposal never goes stale. Ask
@@ -333,7 +346,29 @@ else belongs in it.
 
 - **Every path is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path (`../<other-app>`), and never a main-checkout path while a
-  worktree holds the work.
+  worktree holds the work. **Every URL is the one this worktree resolved**, never the project's
+  declared base. A worktree's applications bind their own ports, so the documented URL an operator
+  opens out of habit reaches whichever workspace holds the default port — a different change's
+  application, answering plausibly and about the wrong work. **Resolve each URL from this
+  worktree's workspace id, the way section 2 computed it** — every derived value is a function of
+  that id, so the guide is written from the id and the project's own declaration rather than from a
+  variable some later step exports. The project's `## workspace isolation` rows name the variable
+  each URL is carried by and what it becomes in a workspace, per
+  **Project configuration** (`skills/myflow-contracts/project-configuration.md`); what a workspace
+  id moves at all is listed under
+  **What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
+
+  A project that declares no isolation resolves nothing, so the guide names that project's declared
+  URLs unchanged and nothing about an existing guide's shape changes.
+
+  **One guide can carry both**, because a project declares only the ports it can actually move: per
+  **Project configuration** (`skills/myflow-contracts/project-configuration.md`), an application
+  whose port is fixed outside that project's own repository keeps its default, and so does every
+  URL built from that port. Name such a URL with a short note on the same line — the project's
+  default, shared, and holdable by one workspace at a time — and leave the worktree's own URLs
+  plain. Write that note **only** in a guide that also carries a resolved URL: where the run
+  resolved nothing there is no exception to point at, which is what leaves a no-isolation guide
+  exactly as it is today.
 - Apps in scope come from `## apps` in the project's `.myflow/project.md`, or from auto-detection
   when that file or key is absent — see
   **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
@@ -362,6 +397,89 @@ both, so altering either would break a guard while appearing only to shorten a d
 what a line *says* is the whole of this change; the markers it is written with are not part of it.
 
 ## 7. Verify, stage, and hand off
+
+**First, validate the section — with the guard, not by eye.** Run
+
+```bash
+<agents repo>/scripts/check-workspace-isolation.sh <worktree>
+```
+
+once per worktree in the state file's `worktrees` map, **before** resolving a single row and before
+anything else below this line. `<agents repo>` is the same root a bare `.mdc` `## standards` entry
+resolves against, and the two steps that find it — from a global install and from a project-local
+one alike — are stated once under
+**Where the agents repository is** (`skills/myflow-contracts/project-configuration.md`)
+and are not repeated here. **Resolve it before you run anything, and check the script is actually
+there**: not finding it is the absent-script case below, which is a different outcome from the
+guard exiting 2, and is reported rather than passed over.
+
+| Exit | What it means | What this command does |
+|------|---------------|------------------------|
+| 0 | every row is well formed, **or the project declares no section at all** | resolve and export, below |
+| 1 | one or more rows are malformed; each is named on stdout with the rule it broke | this is the dropped-row case below — relay the guard's lines verbatim and stop |
+| 2 | it could not answer — a `.myflow/project.md` that is not a regular file, cannot be read, or a scan of it that failed | stop, for the same reason: an unvalidated declaration is not a validated one |
+
+**This is the only place a project's declaration is validated, and that is why it happens here.**
+The rules are mechanical, so re-deriving them by reading rows is the failure the guard exists to
+remove; and the guard ships in the agents repository while the projects it judges do not, so a lint
+list reaches one repository and this command reaches all of them. `/myflow-finish` does not repeat
+it: run 2 reads the `survivors` row alone, and every input it cannot resolve is already a reported
+skip under **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`). Adding a
+blocking validation there would strand an already-merged change over text nothing in that session
+can correct — the trade
+**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`) rejects when it weighs a
+change stranded short of its terminal state against stale storage.
+
+**When the script cannot be located** — a harness whose repository does not carry it, or a skill
+directory copied rather than linked, so the two steps above resolve to something that is not the
+agents repository — apply the same rules by hand from **Project configuration**
+(`skills/myflow-contracts/project-configuration.md`), which is canonical for them, and say in the
+handoff that the validation was performed manually **and why the script was not run**. The two
+reasons are one case, deliberately: both end with nothing having run the guard, and a session that
+recognised only "the repository does not carry it" would answer a failed resolution by doing
+nothing at all and saying nothing about it. It is never skipped for want of the script, and "the
+declaration was validated" is never reported for a run in which nothing validated it.
+
+**Then export the variables the project's `## workspace isolation` section declares**, resolved
+against the workspace id section 2 computed. How each row resolves — the four `In a workspace`
+forms, the `<id>`, `<id_underscored>` and `<value:VARIABLE>` tokens, the validation every row
+passes, and the single pass that makes declaration order free — is stated once under
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`) and is not re-derived
+here. What belongs to this command is when the resolution happens and what follows from it:
+
+- **When.** Once, before the `## lint` command and before the `## test` command below — never
+  between them, and never per task. Both then run in an environment that already carries every
+  declared variable, and every process either one starts inherits the same values. **The test
+  command itself is unchanged**: this step changes what the tests run against, never how they are
+  invoked or which they are.
+- **Every declared row, not a subset.** A value this run resolved and did not export is a value
+  nothing reads, so the workspace is isolated on paper while the applications and their checks still
+  reach the project's shared resource — the same silent wrong answer as having derived nothing.
+- **The cache index is claimed here, not looked up.** A `cache index` row resolves by probing the
+  cache and claiming a free index, so this step is the moment the claim happens, per
+  **The cache index** (`skills/myflow-contracts/workspace-isolation.md`). Claim once and export that
+  one value; probing again later would hand two processes of one run two different indices.
+- **A dropped row stops this run.** A row failing validation is reported by name and dropped, and in
+  an apply worktree the run then refuses rather than falling back to the shared default — see
+  **Project configuration** (`skills/myflow-contracts/project-configuration.md`). The guard above is
+  what names it: its exit 1 *is* this case, and its stdout already carries the row, the cell and the
+  rule, so relay those lines rather than restating them. Report the row,
+  the cell that failed and the shared value being declined; export neither that value nor an unset
+  variable; and stop **before** `## lint` and `## test`, without writing the state file. Correcting
+  the row in the project's `.myflow/project.md` and re-running this command is the whole remedy — a
+  dropped row moves no state.
+- **A project declaring no such section exports nothing** and behaves exactly as it does today. That
+  is the ordinary case for a repository with no runnable application, and this repository is one; it
+  is never reported as a misconfiguration.
+
+**This step does not call the project's `create` command, and that is a decision rather than a
+gap.** `create` is called by whatever starts the project's applications, per
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`), and this command
+starts none of them — it exports, lints, tests, and hands off. The applications are started at the
+review gate by the operator, through the project's own `## run` commands, which is where the
+creation and its one-time notice belong. Creating a workspace database and bucket for a run that
+only ever linted would leave behind resources nobody asked for and only `/myflow-finish` run 2
+removes.
 
 Run the project's `## lint` and `## test` commands from `.myflow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification

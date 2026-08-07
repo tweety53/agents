@@ -129,8 +129,19 @@ fi
 # It also closes the symlink question at these paths: `-f` and `-d` follow
 # symlinks, so a name that cannot leave the change's own directory is what makes
 # the paths this guard reads the ones it was asked about.
+#
+# THE ALLOWED CHARACTERS ARE ENUMERATED RATHER THAN WRITTEN AS RANGES, and here
+# that is belt AND braces rather than the fix: `export LC_ALL=C` above already
+# makes this copy byte-wise, for the reasons stated there. The enumeration is
+# what the other two copies need — one of them runs a project-supplied command
+# and so cannot export a locale at all — and this copy takes it so the rule stays
+# identical character for character across the three, which is the property both
+# harnesses assert and the only thing keeping them from drifting.
+# preserve-session-records.sh's Protection 1 is canonical for the measurement and
+# the reasoning. The accepted set is unchanged.
 case "$NAME" in
-  [!A-Za-z0-9]* | *[!A-Za-z0-9._-]*)
+  [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
+  | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
     echo "check-unfinished-work: change name '$NAME' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'" >&2
     exit 2
     ;;

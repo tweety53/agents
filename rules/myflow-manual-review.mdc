@@ -36,7 +36,7 @@ handoff output shape, and the finish contract.
 Never act on a remembered version of any of that. A command that skips the load is running on a
 stale copy of the state machine — the failure this split exists to prevent.
 
-Five narrower contracts sit beside it; load the one a step actually needs, not the directory:
+Seven narrower contracts sit beside it; load the one a step actually needs, not the directory:
 
 | Contract | Load it before |
 |----------|----------------|
@@ -45,6 +45,8 @@ Five narrower contracts sit beside it; load the one a step actually needs, not t
 | **Project configuration** (`skills/myflow-contracts/project-configuration.md`) | resolving `.myflow/project.md` |
 | **Jira integration** (`skills/myflow-contracts/jira-integration.md`) | any Jira-related step |
 | **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
+| **The build-green tag** (`skills/myflow-contracts/build-green.md`) | writing or checking a task's build tag |
+| **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
 
 These files are installed alongside the skills in every harness — `~/.claude/skills/`,
 `~/.cursor/skills/` and `~/.codex/skills/` — so the paths above resolve wherever this rule is read.
