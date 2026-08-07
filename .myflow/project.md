@@ -47,6 +47,7 @@ scripts/test-gather-self-review-context.sh
 scripts/test-uncommitted-review-package.sh
 scripts/test-check-task-build-green.sh
 scripts/test-check-workspace-isolation.sh
+scripts/test-check-contract-budget.sh
 ```
 
 ## lint
@@ -57,6 +58,7 @@ scripts/check-references.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
 scripts/check-workspace-isolation.sh
+scripts/check-contract-budget.sh
 ```
 
 **There is no auto-fix command in this repository.** The Lint Fix Priority rule's "run the
@@ -65,6 +67,14 @@ above reports `file:line` and is fixed by editing the offending line, never by w
 or adding a suppression marker to silence a real hit. The list is cited by count nowhere in this
 file, deliberately: a written count went stale the first time a guard was added to it, and the same
 sentence would go stale again on the next.
+
+**`check-contract-budget.sh` is a ratchet, not a target.** It fails when a file under
+`skills/myflow-contracts/` outgrows the budget declared for it in the guard's own `budgets()` table,
+or carries no budget at all. Each budget was set to the size the file had when the core/rationale
+split landed, plus 25% — so ordinary edits pass and a real section addition trips it, forcing a
+deliberate edit to the table rather than a silent regrowth of a file every `/myflow-*` command
+loads. Raising a budget is the correct response to a genuine addition; narrowing the guard's scope
+or deleting a row is not.
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
