@@ -1,0 +1,835 @@
+<title>KAN-82 — Cut myflow per-command token overhead</title>
+<style>
+  :root {
+    --ground:      #f6f7f6;
+    --panel:       #ffffff;
+    --panel-sunk:  #eceeed;
+    --ink:         #141a1d;
+    --ink-soft:    #4d5a60;
+    --ink-faint:   #7d8a90;
+    --rule:        #d6dbd9;
+    --rule-strong: #b6bebb;
+    --accent:      #0b6f78;
+    --accent-soft: #d9eaea;
+    --cost:        #a34c26;
+    --cost-soft:   #f2e2d8;
+    --keep:        #3d6b4a;
+
+    --display: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0e1214;
+      --panel:       #161c1f;
+      --panel-sunk:  #11171a;
+      --ink:         #e6ecea;
+      --ink-soft:    #a3b0b3;
+      --ink-faint:   #748387;
+      --rule:        #26302f;
+      --rule-strong: #3a4644;
+      --accent:      #4fb3ba;
+      --accent-soft: #143436;
+      --cost:        #d98b62;
+      --cost-soft:   #33211a;
+      --keep:        #7db78e;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0e1214;
+    --panel:       #161c1f;
+    --panel-sunk:  #11171a;
+    --ink:         #e6ecea;
+    --ink-soft:    #a3b0b3;
+    --ink-faint:   #748387;
+    --rule:        #26302f;
+    --rule-strong: #3a4644;
+    --accent:      #4fb3ba;
+    --accent-soft: #143436;
+    --cost:        #d98b62;
+    --cost-soft:   #33211a;
+    --keep:        #7db78e;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16.5px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--measure); margin: 0 auto; }
+  .wide { max-width: 940px; margin: 0 auto; }
+
+  /* ---- masthead ---- */
+
+  header.masthead {
+    padding: 4.5rem 0 2.25rem;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+    margin-bottom: 1.4rem;
+  }
+  .eyebrow .live { color: var(--accent); }
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(2.1rem, 5.4vw, 3.05rem);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+  .standfirst {
+    font-size: 1.12rem;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  /* ---- structure ---- */
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.62rem;
+    letter-spacing: -0.012em;
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 3.6rem 0 0.35rem;
+  }
+  h2 + .sectionnote {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 1.5rem;
+  }
+  h3 {
+    font-family: var(--body);
+    font-weight: 650;
+    font-size: 1.02rem;
+    letter-spacing: 0.002em;
+    margin: 2.1rem 0 0.5rem;
+  }
+  p { margin: 0 0 1.05rem; }
+  ul { margin: 0 0 1.15rem; padding-left: 1.15rem; }
+  li { margin-bottom: 0.45rem; }
+  strong { font-weight: 640; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.855em;
+    background: var(--panel-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.08em 0.32em;
+    word-break: break-word;
+  }
+  a { color: var(--accent); }
+
+  /* ---- the ledger ---- */
+
+  .ledger {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.6rem 1.5rem 1.35rem;
+    margin: 0 0 1.4rem;
+  }
+  .ledger-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.7rem;
+    margin-bottom: 1.15rem;
+  }
+  .bar-row { margin-bottom: 1.05rem; }
+  .bar-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    margin-bottom: 0.32rem;
+  }
+  .bar-label .path { color: var(--ink); word-break: break-all; }
+  .bar-label .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar {
+    height: 16px;
+    background: var(--panel-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+  }
+  .seg { height: 100%; }
+  .seg.keeps  { background: var(--accent); }
+  .seg.certain { background: var(--cost); }
+  .seg.maybe {
+    background: repeating-linear-gradient(
+      135deg, var(--cost-soft) 0 5px, transparent 5px 10px);
+    border-left: 1px solid var(--rule-strong);
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.4rem;
+    font-size: 0.79rem;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+    padding-top: 0.9rem;
+    margin-top: 0.3rem;
+  }
+  .legend span { display: flex; align-items: center; gap: 0.42rem; }
+  .swatch { width: 13px; height: 13px; border-radius: 2px; border: 1px solid var(--rule-strong); flex: none; }
+  .swatch.keeps { background: var(--accent); }
+  .swatch.certain { background: var(--cost); }
+  .swatch.maybe { background: repeating-linear-gradient(135deg, var(--cost-soft) 0 5px, transparent 5px 10px); }
+
+  .caption {
+    font-size: 0.83rem;
+    color: var(--ink-faint);
+    margin: 0 0 2.4rem;
+  }
+
+  /* ---- callout ---- */
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 1rem 1.15rem;
+    border-radius: 0 4px 4px 0;
+    margin: 0 0 1.4rem;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .tag {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+
+  /* ---- tables ---- */
+
+  .scroller { overflow-x: auto; margin: 0 0 1.5rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+    min-width: 480px;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.62rem 0.85rem 0.62rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--rule-strong);
+    white-space: nowrap;
+  }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td code { background: none; border: none; padding: 0; }
+
+  /* ---- file tree ---- */
+
+  .tree {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    line-height: 1.85;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.25rem 1.35rem;
+    margin: 0 0 1.4rem;
+    overflow-x: auto;
+  }
+  .tree .dim { color: var(--ink-faint); }
+  .tree .new { color: var(--accent); }
+  .tree .who { color: var(--ink-faint); }
+
+  /* ---- decisions ---- */
+
+  .decision {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.2rem;
+    margin-bottom: 1.6rem;
+  }
+  .decision:first-of-type { border-top: 1px solid var(--rule-strong); }
+  .decision h3 { margin-top: 0; }
+  .decision .id {
+    font-family: var(--mono);
+    font-size: 0.71rem;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 0.55rem;
+  }
+  .decision .id .state {
+    color: var(--keep);
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+  }
+  .decision dl { margin: 0; }
+  .decision dt {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.2rem;
+  }
+  .decision dd { margin: 0 0 0.85rem; }
+  .decision dd:last-child { margin-bottom: 0; }
+
+  .empty-note {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--ink-faint);
+    background: var(--panel-sunk);
+    border: 1px dashed var(--rule-strong);
+    border-radius: 4px;
+    padding: 0.9rem 1.1rem;
+    margin: 0 0 1.4rem;
+  }
+
+  /* ---- task groups ---- */
+
+  .group {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.15rem 1.3rem;
+    margin-bottom: 0.85rem;
+  }
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+  .group-n {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    flex: none;
+  }
+  .group-title { font-weight: 640; font-size: 1rem; }
+  .group p { margin: 0 0 0.5rem; font-size: 0.93rem; color: var(--ink-soft); }
+  .group p:last-child { margin-bottom: 0; }
+  .group ul { margin-bottom: 0; font-size: 0.93rem; color: var(--ink-soft); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    margin-top: 4rem;
+    padding-top: 1.4rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; padding: 0 1rem 4rem; }
+    header.masthead { padding-top: 3rem; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>KAN-82</span>
+      <span>openspec change</span>
+      <span class="live">state · STARTED</span>
+      <span>2026-08-07</span>
+    </div>
+    <h1>Cut myflow per-command token overhead</h1>
+    <p class="standfirst">
+      Every <code>/myflow-*</code> command reads its contract files before it does any work. Two of
+      those files have grown big enough that the read dominates the run. Split each into the rules a
+      command obeys and the reasoning an editor needs — and ratchet the result so it cannot grow back.
+    </p>
+  </header>
+</div>
+
+<div class="wide">
+  <div class="ledger">
+    <div class="ledger-head">
+      <span>what a <code style="background:none;border:none;padding:0">/myflow-start</code> run loads today</span>
+      <span>bytes</span>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-label"><span class="path">skills/myflow-contracts/pipeline.md</span><span class="n">103,326</span></div>
+      <div class="bar" style="width:100%" role="img" aria-label="pipeline.md, 103,326 bytes: 21 percent structural and certain to stay, 79 percent prose of which an unknown share is rationale that can move">
+        <div class="seg keeps" style="width:21.0%"></div>
+        <div class="seg maybe" style="width:79.0%"></div>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-label"><span class="path">skills/myflow-contracts/jira-integration.md</span><span class="n">52,783</span></div>
+      <div class="bar" style="width:51.1%" role="img" aria-label="jira-integration.md, 52,783 bytes: 3 percent structural, 30 percent prose, and 67 percent the Follow-up issues section which moves out whole">
+        <div class="seg keeps" style="width:3.3%"></div>
+        <div class="seg maybe" style="width:29.5%"></div>
+        <div class="seg certain" style="width:67.2%"></div>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-label"><span class="path">skills/myflow-contracts/state-file.md</span><span class="n">15,951</span></div>
+      <div class="bar" style="width:15.4%" role="img" aria-label="state-file.md, 15,951 bytes: not touched by this change">
+        <div class="seg keeps" style="width:100%"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i class="swatch keeps"></i> stays in the core</span>
+      <span><i class="swatch certain"></i> certain to move — a whole section, one command needs it</span>
+      <span><i class="swatch maybe"></i> prose: an unknown share of it is rationale</span>
+    </div>
+  </div>
+  <p class="caption">
+    Bars are to scale against each other. Measured at <code>adedf66</code> with
+    <code>wc -c skills/myflow-contracts/*.md</code>. The hatched band is prose, which is an
+    <em>upper bound</em> on what can move, not a forecast — plenty of prose states rules and stays.
+  </p>
+</div>
+
+<div class="wrap">
+
+  <h2>Why</h2>
+  <p class="sectionnote">the problem</p>
+
+  <p>
+    The content isn't the problem. The <em>audience mix</em> is. Each contract file interleaves rules
+    an agent must obey mid-run with the reasoning behind those rules, which serves whoever edits the
+    contract. The agent pays for both on every run; the editor needs both once, rarely.
+  </p>
+  <p>
+    <code>pipeline.md</code> is read by <strong>every</strong> command.
+    <code>jira-integration.md</code> is read by three of them. A <code>/myflow-start</code> run pays
+    both, plus <code>state-file.md</code>, before it asks its first question.
+  </p>
+
+  <div class="callout">
+    <span class="tag">The constraint that shapes everything</span>
+    <p>
+      A split must not produce two independently authored statements of one rule. That is what makes
+      this a <strong>partition</strong> rather than a rewrite: every sentence lands in exactly one
+      file, byte for byte. Nothing is authored, so nothing can drift.
+    </p>
+  </div>
+
+  <h2>What changes</h2>
+  <p class="sectionnote">five files where there were two</p>
+
+  <p>One test decides where every passage goes, applied to paragraphs and tables, never to clauses:</p>
+
+  <div class="callout">
+    <p>
+      A passage is <strong>core</strong> if removing it would change what an agent does.<br>
+      A passage is <strong>rationale</strong> if removing it changes no agent behaviour.
+    </p>
+  </div>
+
+  <p>
+    So tables, ordered steps, handoff templates, runnable code and every prohibition stay in the core.
+    Justifications of an ordering, rejected alternatives, history, measurements and commentary about
+    the document itself go to the appendix. The test is <strong>behavioural, not typographic</strong>
+    — <code>pipeline.md</code>'s "Never substitute a commit count" is a prose paragraph and it is core.
+  </p>
+</div>
+
+<div class="wide">
+  <div class="tree">
+skills/myflow-contracts/
+  <span class="dim">├─</span> pipeline.md                    <span class="who">core      → every command</span>
+  <span class="dim">├─</span> <span class="new">pipeline-rationale.md</span>          <span class="who">appendix  → editors only</span>
+  <span class="dim">├─</span> jira-integration.md            <span class="who">core      → start, do, finish</span>
+  <span class="dim">├─</span> <span class="new">jira-integration-rationale.md</span>  <span class="who">appendix  → editors only</span>
+  <span class="dim">└─</span> <span class="new">jira-followups.md</span>              <span class="who">whole     → finish run 1 only</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <p>
+    <code>jira-followups.md</code> keeps its rules <em>and</em> its reasoning together, because only
+    one command loads it. Moving it out at all is the largest single lever here and needs no
+    partition judgment: it is a contiguous 457-line block, 67% of its file, that
+    <code>/myflow-start</code> and <code>/myflow-do</code> stop paying for entirely.
+  </p>
+
+  <h3>Appendices mirror their core's heading tree</h3>
+  <p>
+    Same <code>##</code> headings, same order. A citation then resolves against whichever file its
+    path names, and an editor reads the two side by side. A section that is wholly normative leaves
+    its appendix heading <strong>present with no body</strong> — missing rather than dropped, so it is
+    visible that the section was examined rather than skipped.
+  </p>
+
+  <h3>A byte budget, so the cores cannot grow back</h3>
+  <p>
+    New <code>scripts/check-contract-budget.sh</code>, carrying a path-to-max-bytes table covering
+    <strong>every</strong> <code>skills/myflow-contracts/*.md</code>. A file in that directory with no
+    budget row is itself a failure, so a contract added later cannot slip past the ratchet.
+  </p>
+  <p>
+    Each budget is the size the split <em>actually achieves</em>, plus 25% — never a target declared
+    up front. A target-first budget would create pressure to push normative text into an appendix to
+    make a number, which is the one way this change could do harm rather than merely disappoint.
+  </p>
+
+  <h3>And a rule nothing enforces</h3>
+  <p>
+    A <code>/myflow-*</code> run never loads an appendix. Stated in <code>SKILL.md</code>, in each
+    core's header and in the always-on rule; deliberately unguarded, the same treatment this corpus
+    gives its other judgment rules.
+  </p>
+
+  <h2>What is out of scope</h2>
+  <p class="sectionnote">named, not silently dropped</p>
+  <p>
+    The issue's third cut — pruning the harness system prompt — is an operator action against an
+    installed environment (uninstalling unused plugins), not a change to this repository. It is worth
+    doing and belongs on its own issue.
+  </p>
+  <p>
+    <code>project-configuration.md</code> (45,236 bytes), <code>workspace-isolation.md</code> and
+    <code>plan-provenance.md</code> are not split. They are ratcheted where they stand by the new
+    guard, and a later split of any of them is a budget edit plus the same partition work.
+  </p>
+  <p>
+    And <strong>no rule changes</strong>. Nothing is added, removed or reworded. Every
+    <code>/myflow-*</code> command behaves identically before and after.
+  </p>
+
+  <h2>Delta specs</h2>
+  <p class="sectionnote">two capabilities</p>
+
+  <h3>New — <code>myflow-contract-economy</code></h3>
+</div>
+
+<div class="wide">
+  <div class="scroller">
+    <table>
+      <thead><tr><th style="width:44%">Requirement</th><th>What it pins down</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>A contract file separates its normative core from its rationale</td>
+          <td>The core/rationale test, that it is behavioural rather than typographic, and the
+              <code>&lt;name&gt;-rationale.md</code> path derivation.</td>
+        </tr>
+        <tr>
+          <td>The split is a verbatim partition, with citation repointing as its only edit</td>
+          <td>Every sentence byte-identical; a repointed path is the one permitted change; a reworded
+              line is a defect.</td>
+        </tr>
+        <tr>
+          <td>An appendix mirrors its core's heading tree</td>
+          <td>Identical heading sequences; a wholly normative section keeps an empty appendix heading.</td>
+        </tr>
+        <tr>
+          <td>A <code>/myflow-*</code> run never loads a rationale appendix</td>
+          <td>Stated in <code>SKILL.md</code>; no skill names a <code>-rationale.md</code> in a load
+              instruction. Deliberately unenforced.</td>
+        </tr>
+        <tr>
+          <td>A section reachable from only one command lives in its own file</td>
+          <td>Follow-up issues moves whole, rules and reasoning together, and is not split further.</td>
+        </tr>
+        <tr>
+          <td>A byte budget ratchets every contract file</td>
+          <td>Coverage of the whole directory, bytes not lines, the table inside the script,
+              achieved+25%, self-scoped, exit 0/1/2, and a lint entry.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="wrap">
+  <h3>Modified — <code>myflow-contract-distribution</code></h3>
+  <p>
+    Its requirement enumerates the contracts directory as holding <em>exactly six</em> files. That is
+    already wrong on this tree — <code>build-green.md</code>, <code>plan-provenance.md</code> and
+    <code>workspace-isolation.md</code> all exist and none is listed. The enumeration is replaced by a
+    two-directional agreement rule: every file present is named in the index, and every file the index
+    names is present. An enumeration that went stale through three changes is not repaired by a fourth
+    enumeration.
+  </p>
+  <p>
+    Its installer requirement gains the scenario that files added to the directory ship to all three
+    harnesses with no installer edit — verified against the source:
+    <code>install_skills</code> (<code>setup.sh:188</code>) symlinks whole skill <em>directories</em>.
+  </p>
+
+  <h2>Decisions</h2>
+  <p class="sectionnote">nine, each with what it ruled out</p>
+</div>
+
+<div class="wide">
+  <div class="decision">
+    <h3>Scope is the two contract splits; the system-prompt cut is not in it</h3>
+    <span class="id">scope-contract-splits-only · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>Split <code>pipeline.md</code> and <code>jira-integration.md</code> only — pruning the
+        harness system prompt is an operator action against an installed environment and needs its
+        own issue.</dd>
+      <dt>Considered</dt>
+      <dd>All three cuts with an in-repo stand-in for the third — the real lever is uninstalling
+        plugins, which no repo change reaches. <code>pipeline.md</code> alone — the follow-ups move is
+        a pure move with a large payoff and no new mechanics. Every contract file at once — a much
+        larger partition surface for files two commands load rather than five.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>The rationale goes to a sibling appendix, one per contract</h3>
+    <span class="id">sibling-appendix-per-contract · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd><code>&lt;name&gt;-rationale.md</code> beside each core, cited by section name so
+        <code>check-references.sh</code> verifies the link.</dd>
+      <dt>Considered</dt>
+      <dd>One shared <code>rationale.md</code> — an editor of one contract would load the reasoning of
+        all of them, the same audience mismatch one level up. A runtime-stop marker inside one file —
+        a <code>Read</code> still pulls the whole thing, so it saves nothing that matters. Deleting
+        the rationale — several sections of this corpus exist precisely because an editor re-derived a
+        decision wrongly, and git history is not where an editor looks.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>The core is a strict partition of today's text, not a rewrite</h3>
+    <span class="id">strict-verbatim-partition · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>Every sentence lands in exactly one file, verbatim; the only permitted edit is repointing a
+        citation whose target moved.</dd>
+      <dt>Considered</dt>
+      <dd>Partition then tighten the core for flow — the diff stops being a pure move and every
+        reworded line becomes something the panel must check by hand. Rewrite the core as a fresh
+        summary — exactly the two-statements-of-one-rule failure the issue forbids.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3><code>jira-integration.md</code> splits on both axes, into three files</h3>
+    <span class="id">jira-three-file-split · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>Core, rationale appendix, and <code>jira-followups.md</code> carrying its rules and
+        reasoning inline.</dd>
+      <dt>Considered</dt>
+      <dd>Core/appendix only — Follow-up issues' normative half would stay in the core and
+        <code>/myflow-start</code> would keep paying for it. By-command only — leaves the largest
+        remaining file unpartitioned. A fourth <code>jira-followups-rationale.md</code> — the only
+        command that would benefit is the only command that loads the file at all, and it would
+        separate this corpus's most adversarial reasoning from the rules it justifies.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>The appendix mirrors the core's heading tree</h3>
+    <span class="id">appendix-mirrors-headings · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>Same headings, same order; a wholly normative section leaves an empty appendix heading.</dd>
+      <dt>Considered</dt>
+      <dd>Free-form headings grouped by topic — a citation must then name the right heading and the
+        two structures drift. One flat list keyed by core heading — long headings with no nesting, in
+        files that nest three deep today.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>Budgets are measured in bytes and declared inside the guard</h3>
+    <span class="id">budget-bytes-in-guard · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>A path-to-max-bytes table inside the script. Deterministic, no tokenizer dependency, and
+        raising a budget is a visible diff in the guard.</dd>
+      <dt>Considered</dt>
+      <dd>Lines — a long-line file cheats it. A budget in each file's own header — the file can then
+        raise its own limit. A budget in <code>.myflow/project.md</code> — that file configures a
+        consuming project, and this is a rule about this repository's own sources.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>Each budget is the achieved size plus 25%</h3>
+    <span class="id">budget-achieved-plus-25 · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>Split first, then set each budget from the resulting byte count plus 25%. The guard can
+        never fail the split itself.</dd>
+      <dt>Considered</dt>
+      <dd>A target declared up front — creates pressure to push normative text into an appendix to
+        make a number. Achieved size with no headroom — forces a guard edit for every ordinary
+        sentence added.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>The no-appendix-at-runtime rule is stated, not enforced</h3>
+    <span class="id">runtime-rule-unenforced · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>State it in three places; enforce nothing.</dd>
+      <dt>Considered</dt>
+      <dd>A guard failing when a skill names a <code>-rationale.md</code> in a load instruction —
+        machinery around a rule no observed failure has broken, in a repository that already carries
+        eight guards.</dd>
+    </dl>
+  </div>
+
+  <div class="decision">
+    <h3>The budget guard covers every contract file, not only the split ones</h3>
+    <span class="id">budget-covers-all-contracts · <span class="state">active</span></span>
+    <dl>
+      <dt>Chosen</dt>
+      <dd>Every file in the directory gets a budget, and a file with no entry is itself a failure.</dd>
+      <dt>Considered</dt>
+      <dd>Only the files this change splits — <code>project-configuration.md</code> at 45,236 bytes is
+        the next file to have this problem and would grow unwatched. Also budgeting every
+        <code>SKILL.md</code> in the repository — widens this change's surface; those are ratchetable
+        later by adding rows.</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>Open questions</h2>
+  <p class="sectionnote">what this plan knowingly leaves unanswered</p>
+  <div class="empty-note">
+    None. Every question raised across four planning rounds was answered before the design gate.
+  </div>
+
+  <h2>The plan</h2>
+  <p class="sectionnote">six tasks, ordered so each is verifiable when it lands</p>
+</div>
+
+<div class="wide">
+  <div class="group">
+    <div class="group-head"><span class="group-n">1.1</span><span class="group-title">Move the follow-up contract into its own file</span></div>
+    <p>A pure move of a contiguous 457-line block, plus the citations pointing into it. No partition
+      judgment needed, and it proves the citation-repointing loop before anything harder.</p>
+    <p><strong>Verified by:</strong> a line-multiset diff against <code>HEAD</code> showing no line
+      disappeared, <code>check-references.sh</code> green, and a mutation test proving the guard
+      actually looked.</p>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><span class="group-n">2.1</span><span class="group-title">Partition <code>jira-integration.md</code></span></div>
+    <p>The smaller partition first, so the mechanics and the line-multiset check are proved on it. The
+      task carries six worked examples from the real file so the core/rationale boundary is not left
+      to taste.</p>
+    <p><strong>Verified by:</strong> line-multiset diff, an <em>empty</em> heading-sequence diff
+      between core and appendix, and the mutation test.</p>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><span class="group-n">3.1</span><span class="group-title">Partition <code>pipeline.md</code></span></div>
+    <p>The same operation on a file three times the size, cited by 132 backticked references across
+      the corpus — and one that cites <em>itself</em> throughout, so a self-citation whose target moved
+      repoints while one whose target stayed does not.</p>
+    <p><strong>Also verified:</strong> that <code>/myflow-info</code> is still satisfiable — the state
+      diagram and all eight level-2 expansions must be in the core, since that command reads the file
+      live and may not answer from memory.</p>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><span class="group-n">4.1</span><span class="group-title">Update the index, the rule layer and the entry-point files</span></div>
+    <p><code>SKILL.md</code>, <code>rules/myflow-manual-review.mdc</code>, <code>CLAUDE.md</code> and
+      <code>AGENTS.md</code> — and the three files already missing from the index get rows too.</p>
+    <p><strong>Verified by:</strong> an empty diff between the directory listing and the index, and a
+      grep proving no skill names an appendix in a load instruction.</p>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><span class="group-n">5.1</span><span class="group-title">Write the budget guard and its harness</span></div>
+    <p>Last, because its numbers are what the four tasks before it produced. The task carries the full
+      guard and the full harness, plus the six budgets computable today from files this change does not
+      touch.</p>
+    <p><strong>Verified by:</strong> the harness's five cases, a real over-budget mutation on the live
+      tree, and a run from <code>/tmp</code> proving the guard is self-scoped rather than silently
+      scanning nothing.</p>
+  </div>
+
+  <div class="group">
+    <div class="group-head"><span class="group-n">6.1</span><span class="group-title">Whole-repository verification</span></div>
+    <p>All five lint guards, all twelve test harnesses, a sandboxed <code>setup.sh global</code>
+      proving the new files reach all three harnesses with <code>git diff setup.sh</code> printing
+      nothing — and a final pass confirming every difference from the originals is a moved line or a
+      repointed path.</p>
+    <p>It also records the actual saving, and reports the real figure rather than a target.</p>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>The risk, stated plainly</h2>
+  <p class="sectionnote">what could make this a smaller win</p>
+  <p>
+    The achieved size is not known until the partition runs. The issue targets <code>pipeline.md</code>
+    at roughly 8k tokens down from 34k; the measured 78% prose fraction makes that plausible but is an
+    upper bound, since normative prose stays in the core. If the partition lands the core at 40,000
+    bytes rather than 24,000, that is the result and the budget records it.
+  </p>
+  <p>
+    Setting budgets from achieved size rather than from a target is precisely what makes that outcome
+    a smaller win rather than a failed change — and what keeps anyone from moving a rule into an
+    appendix to hit a number.
+  </p>
+
+  <footer>
+    <span>KAN-82</span>
+    <span>kan-82-cut-myflow-per-command-token-overhead</span>
+    <span>planning effort · default</span>
+    <span>implementation · Sonnet</span>
+    <span>panel · Sonnet</span>
+    <span>panel fixes · Sonnet</span>
+  </footer>
+</div>
