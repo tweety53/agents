@@ -75,8 +75,36 @@ fi
 # created or any source is read. Change names are a lowercased Jira key plus a
 # kebab-case slug, or the slug alone (skills/myflow-contracts/jira-integration.md
 # defines the shape), so the allowlist costs nothing a real name needs.
+#
+# THE ALLOWED CHARACTERS ARE ENUMERATED RATHER THAN WRITTEN AS RANGES, and that
+# is the whole of this gate's locale independence. `A-Z` inside a bracket
+# expression is a COLLATING range, not a byte range, so what it admits is
+# whatever the ambient locale's collation puts between the two endpoints.
+# Measured on bash 3.2 (Darwin 25.5.0) with this file's previous
+# `[!A-Za-z0-9]* | *[!A-Za-z0-9._-]*`: under `LC_ALL=C` and `ru_RU.UTF-8` the
+# names `écho`, `İstanbul`, `ﬀoo`, `ⅰx`, `Ａbc` and `ⅹ` were all refused; under
+# `en_US.UTF-8`, `de_DE.UTF-8` and `tr_TR.UTF-8` every one of them was ADMITTED.
+# A containment gate whose accepted set changes with the operator's environment
+# is not a containment gate, and this one is the only thing standing between a
+# pull-request-editable change name and a `find -name` pattern and a constructed
+# path below.
+#
+# A LITERAL LIST HAS NO ENDPOINTS, so there is nothing for a collation order to
+# reorder: membership is membership in every locale. That is why the fix is not
+# `export LC_ALL=C`, which check-unfinished-work.sh does carry for reasons of its
+# own — pinning the whole script's locale would reach every other locale-aware
+# thing it does, and in check-cleanup-complete.sh it would be EXPORTED into the
+# project's own `survivors` command, changing the locale a project's tooling runs
+# under. The enumeration touches nothing outside these two patterns and needs no
+# environment at all, so one written form is correct in all three guards. The
+# accepted set is unchanged from what the range form accepted under `LC_ALL=C`,
+# which is the set every harness already asserts.
+#
+# The `-` stays LAST in the second pattern, where a bracket expression reads it
+# as a literal rather than as the start of a range.
 case "$NAME" in
-  [!A-Za-z0-9]* | *[!A-Za-z0-9._-]*)
+  [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
+  | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
     echo "preserve-session-records: change name '$NAME' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'" >&2
     exit 2
     ;;

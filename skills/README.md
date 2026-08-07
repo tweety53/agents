@@ -82,8 +82,9 @@ skills/
 ```
 
 `myflow-contracts/` holds `pipeline.md` (the state machine — load it first for any `/myflow-*`
-command), plus `state-file.md`, `state-self-heal.md`, `project-configuration.md` and
-`jira-integration.md`. Load the one file a step needs, not the directory.
+command), plus `state-file.md`, `state-self-heal.md`, `project-configuration.md`,
+`jira-integration.md`, `plan-provenance.md`, `build-green.md` and `workspace-isolation.md`. Load the
+one file a step needs, not the directory.
 
 ## What runs when
 
