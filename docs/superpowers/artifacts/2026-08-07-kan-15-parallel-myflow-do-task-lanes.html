@@ -1,0 +1,494 @@
+<title>KAN-15 — A database, cache index, bucket and ports per workspace</title>
+
+<style>
+  :root {
+    --ground:#f4f7f8; --surface:#fff; --surface-sunk:#eaf0f2;
+    --ink:#0e1a1f; --ink-soft:#40575f; --ink-faint:#6d8189;
+    --rule:#d3dfe3; --rule-strong:#b4c6cc;
+    --accent:#0f6f7e; --accent-soft:#cfe6ea;
+    --amber:#8a6008; --amber-soft:#f6e9cd;
+    --rose:#97303f; --rose-soft:#f6dbdf;
+    --good:#2f6b3f;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --step--1: clamp(0.76rem,0.74rem + 0.1vw,0.82rem);
+    --step-0: clamp(0.95rem,0.92rem + 0.15vw,1.02rem);
+    --step-1: clamp(1.1rem,1.04rem + 0.3vw,1.26rem);
+    --step-2: clamp(1.35rem,1.22rem + 0.6vw,1.7rem);
+    --step-3: clamp(1.7rem,1.45rem + 1.2vw,2.5rem);
+    --rail:3px;
+  }
+  @media (prefers-color-scheme: dark){:root{
+    --ground:#0b1317;--surface:#101c21;--surface-sunk:#16252b;
+    --ink:#e2edf0;--ink-soft:#a3b8bf;--ink-faint:#7b929a;
+    --rule:#23383f;--rule-strong:#35525b;
+    --accent:#5fc6d6;--accent-soft:#1c3f47;
+    --amber:#e0b25c;--amber-soft:#3a2f16;
+    --rose:#e8909d;--rose-soft:#3d1f25;--good:#7cc08d;}}
+  :root[data-theme="dark"]{
+    --ground:#0b1317;--surface:#101c21;--surface-sunk:#16252b;
+    --ink:#e2edf0;--ink-soft:#a3b8bf;--ink-faint:#7b929a;
+    --rule:#23383f;--rule-strong:#35525b;
+    --accent:#5fc6d6;--accent-soft:#1c3f47;
+    --amber:#e0b25c;--amber-soft:#3a2f16;
+    --rose:#e8909d;--rose-soft:#3d1f25;--good:#7cc08d;}
+  :root[data-theme="light"]{
+    --ground:#f4f7f8;--surface:#fff;--surface-sunk:#eaf0f2;
+    --ink:#0e1a1f;--ink-soft:#40575f;--ink-faint:#6d8189;
+    --rule:#d3dfe3;--rule-strong:#b4c6cc;
+    --accent:#0f6f7e;--accent-soft:#cfe6ea;
+    --amber:#8a6008;--amber-soft:#f6e9cd;
+    --rose:#97303f;--rose-soft:#f6dbdf;--good:#2f6b3f;}
+
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);
+    font-size:var(--step-0);line-height:1.62;-webkit-font-smoothing:antialiased;}
+  .page{max-width:60rem;margin:0 auto;
+    padding:clamp(1.5rem,4vw,4rem) clamp(1rem,4vw,2.5rem) 6rem;
+    display:flex;flex-direction:column;gap:clamp(2.5rem,5vw,4rem);}
+
+  .masthead{display:flex;flex-direction:column;gap:1.1rem;}
+  .eyebrow{font-family:var(--mono);font-size:var(--step--1);letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;}
+  .eyebrow b{color:var(--accent);font-weight:600;}
+  h1{font-family:var(--mono);font-size:var(--step-3);font-weight:700;letter-spacing:-.035em;
+    line-height:1.05;text-wrap:balance;margin:0;}
+  .standfirst{font-size:var(--step-1);color:var(--ink-soft);max-width:46ch;text-wrap:pretty;}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;padding-top:.6rem;border-top:1px solid var(--rule);}
+  .chip{font-family:var(--mono);font-size:var(--step--1);padding:.22rem .6rem;
+    border:1px solid var(--rule-strong);border-radius:2px;color:var(--ink-soft);white-space:nowrap;}
+  .chip.on{border-color:var(--accent);color:var(--accent);}
+
+  .notice{background:var(--amber-soft);border-left:var(--rail) solid var(--amber);
+    padding:.85rem 1.1rem;display:flex;flex-direction:column;gap:.4rem;}
+  .notice b{font-family:var(--mono);color:var(--amber);font-size:var(--step--1);
+    letter-spacing:.08em;text-transform:uppercase;}
+
+  section{display:flex;flex-direction:column;gap:1.1rem;
+    padding-left:clamp(.9rem,2.5vw,1.6rem);border-left:var(--rail) solid var(--rule);}
+  section.lane-accent{border-left-color:var(--accent);}
+  h2{font-family:var(--mono);font-size:var(--step-2);font-weight:700;letter-spacing:-.02em;
+    margin:0;text-wrap:balance;}
+  h3{font-family:var(--mono);font-size:var(--step-1);font-weight:600;margin:0;}
+  section > p, li{max-width:66ch;}
+  p{margin:0;} p + p{margin-top:.7rem;}
+  code{font-family:var(--mono);font-size:.9em;background:var(--surface-sunk);
+    padding:.08em .32em;border-radius:2px;}
+  ul{margin:0;padding-left:1.15rem;display:flex;flex-direction:column;gap:.45rem;}
+  a{color:var(--accent);} a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+
+  .table-wrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface);}
+  table{border-collapse:collapse;width:100%;font-size:var(--step--1);}
+  th,td{text-align:left;padding:.55rem .9rem;border-bottom:1px solid var(--rule);vertical-align:top;}
+  thead th{font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-faint);font-weight:500;white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  td.mono{font-family:var(--mono);}
+  td.good{color:var(--good);font-family:var(--mono);}
+  td.warn{color:var(--amber);font-family:var(--mono);}
+
+  .decisions{display:flex;flex-direction:column;gap:.75rem;}
+  details.decision{background:var(--surface);border:1px solid var(--rule);
+    border-left:var(--rail) solid var(--accent);}
+  details.decision.gone{border-left-color:var(--rule-strong);opacity:.92;}
+  details.decision summary{cursor:pointer;padding:.75rem 1rem;display:flex;flex-wrap:wrap;
+    align-items:baseline;gap:.5rem .8rem;list-style:none;}
+  details.decision summary::-webkit-details-marker{display:none;}
+  .d-title{font-weight:600;flex:1 1 18rem;}
+  .d-id{font-family:var(--mono);font-size:var(--step--1);color:var(--ink-faint);}
+  .d-body{padding:0 1rem 1rem;display:flex;flex-direction:column;gap:.7rem;
+    border-top:1px solid var(--rule);padding-top:.85rem;}
+  .verdict{display:flex;gap:.6rem;align-items:baseline;}
+  .tag{font-family:var(--mono);font-size:var(--step--1);letter-spacing:.06em;
+    text-transform:uppercase;padding:.1rem .45rem;border-radius:2px;white-space:nowrap;}
+  .tag.chosen{background:var(--accent-soft);color:var(--accent);}
+  .tag.rejected{background:var(--rose-soft);color:var(--rose);}
+  .tag.superseded{background:var(--surface-sunk);color:var(--ink-faint);}
+  .tag.cost{background:var(--amber-soft);color:var(--amber);}
+  .alts{display:flex;flex-direction:column;gap:.55rem;}
+  .alt{display:flex;gap:.6rem;align-items:baseline;color:var(--ink-soft);}
+
+  .cap-name{font-family:var(--mono);font-size:var(--step--1);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--accent);}
+  .reqs{list-style:none;padding:0;gap:.4rem;}
+  .reqs li{padding-left:1.5rem;position:relative;color:var(--ink-soft);}
+  .reqs li::before{content:"";position:absolute;left:0;top:.65em;width:.7rem;height:1px;
+    background:var(--rule-strong);}
+
+  .groups{display:flex;flex-direction:column;gap:1rem;}
+  .group{background:var(--surface);border:1px solid var(--rule);padding:.9rem 1.1rem;
+    display:flex;flex-direction:column;gap:.5rem;}
+  .group-head{display:flex;flex-wrap:wrap;gap:.5rem .9rem;align-items:baseline;}
+  .group-num{font-family:var(--mono);font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .group-title{font-weight:600;flex:1 1 14rem;}
+  .repo{font-family:var(--mono);font-size:var(--step--1);color:var(--ink-faint);}
+  .tasks{list-style:none;padding:0;gap:.3rem;font-size:var(--step--1);}
+  .tasks li{display:flex;gap:.6rem;color:var(--ink-soft);}
+  .tasks .tid{font-family:var(--mono);color:var(--ink-faint);font-variant-numeric:tabular-nums;}
+  .build{font-family:var(--mono);font-size:.85em;color:var(--good);white-space:nowrap;}
+
+  .none{background:var(--surface);border:1px solid var(--rule);
+    border-left:var(--rail) solid var(--good);padding:.9rem 1.1rem;color:var(--ink-soft);}
+  .none strong{font-family:var(--mono);color:var(--good);}
+
+  footer{font-family:var(--mono);font-size:var(--step--1);color:var(--ink-faint);
+    border-top:1px solid var(--rule);padding-top:1rem;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span><b>KAN-15</b></span>
+      <span>kan-15-parallel-myflow-do-task-lanes</span>
+      <span>state · STARTED</span>
+      <span>revised 2026-08-06</span>
+    </div>
+    <h1>A database per workspace</h1>
+    <p class="standfirst">
+      One change's migrations land under another change's tests, and the failure looks like a real
+      test result.
+    </p>
+    <div class="meta">
+      <span class="chip on">planning effort · default</span>
+      <span class="chip">implementer · Opus</span>
+      <span class="chip">panel · Sonnet</span>
+      <span class="chip">panel fixes · Opus</span>
+      <span class="chip">2 repositories</span>
+      <span class="chip">not breaking</span>
+      <span class="chip">11 tasks</span>
+      <span class="chip">docker-compose.yml untouched</span>
+    </div>
+  </header>
+
+  <div class="notice">
+    <b>Fourth revision — three designs were rejected before this one</b>
+    <p>
+      <strong>In-run lanes</strong> split one plan into concurrent task groups joined by patch.
+      <strong>Lanes as branches</strong> gave each its own PR — until a lane with its own branch,
+      worktree, panel, gate and finish run turned out to be a change.
+      <strong>The dev stack in containers</strong> reached four dev Dockerfiles, a compose profile,
+      bind mounts and two run modes. Each is preserved in <code>design.md</code> as superseded
+      decisions rather than deleted.
+    </p>
+    <p>
+      This one is what remains once the actual problem is named: not the stack, the
+      <em>database</em>. The change name still says "lanes" and is kept deliberately — this
+      artifact's source path derives from it, and a revision must republish to the same URL.
+    </p>
+  </div>
+
+  <section class="lane-accent">
+    <h2>Why</h2>
+    <p>
+      Two apply worktrees share one Postgres database. One change's Flyway migrations alter the
+      schema the other is testing against — <em>"when db schema is different between them it can
+      produce false positive testing results"</em>, as KAN-15 puts it.
+    </p>
+    <p>
+      Two adjacent resources fail the same way once changes genuinely run at once: <strong>Redis</strong>
+      holds sessions and cache in one index, and <strong>MinIO</strong> has a single bucket. And the
+      apps bind fixed ports, so a second <code>devStart</code> cannot start at all — which is what
+      makes concurrency impossible today whatever the database is called.
+    </p>
+  </section>
+
+  <section>
+    <h2>What is namespaced, and what is left alone</h2>
+    <p>
+      The data services stay <strong>shared containers on their current ports</strong>. What gets a
+      per-workspace name is the logical resource inside each one.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Resource</th><th>Main checkout</th><th>A worktree</th></tr></thead>
+        <tbody>
+          <tr><td>Postgres database</td><td class="mono">gymie</td><td class="good">gymie_kan_15_55a6</td></tr>
+          <tr><td>MinIO bucket</td><td class="mono">gymie-media</td><td class="good">gymie-media-kan-15-55a6</td></tr>
+          <tr><td>Redis index</td><td class="mono">0</td><td class="good">probed, lowest free</td></tr>
+          <tr><td>App ports</td><td class="mono">8080 / 8081 / 3000 / 3001</td><td class="good">offset block</td></tr>
+          <tr><td>Service containers</td><td class="mono">shared</td><td class="mono">shared — unchanged</td></tr>
+          <tr><td>Data ports (5432, 6379, …)</td><td class="mono">unchanged</td><td class="mono">unchanged</td></tr>
+          <tr><td>Mailpit</td><td class="mono">one inbox</td><td class="warn">shared — deliberate</td></tr>
+          <tr><td>Test suite</td><td class="mono">Testcontainers</td><td class="mono">Testcontainers — untouched</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong><code>docker-compose.yml</code> is not edited at all.</strong> Every earlier revision of
+      this design parameterized it; none needed to. Duplicating whole services per workspace solves a
+      problem that lives one level down, inside one of them.
+    </p>
+
+    <h3>The cache index is the one value that is probed, not derived</h3>
+    <p>
+      Everything else comes from the workspace id's digest. Redis cannot: it offers <strong>16</strong>
+      indices, so a digest modulo 16 collides at roughly <strong>6%</strong> for two concurrent
+      workspaces — silently sharing sessions and cache, which is the exact failure class this change
+      removes. <code>devStart</code> claims the lowest free index instead and records it for the run.
+      The cost is that the index is not stable across restarts, which does not matter for sessions and
+      cache.
+    </p>
+
+    <h3>Isolation is automatic, not opt-in</h3>
+    <p>
+      A worktree is isolated without being asked; the main checkout always gets the defaults. Nothing
+      is behind a flag, because forgetting a flag would silently reproduce the original bug. An
+      operator who deliberately wants the shared database passes the <code>-PpgDb</code> that already
+      exists.
+    </p>
+  </section>
+
+  <section>
+    <h2>The five facts this rests on</h2>
+    <ul>
+      <li><code>application.yml</code> <strong>already</strong> has <code>${DB_URL:jdbc:postgresql://localhost:5432/gymie}</code> — but <code>application-local.yml</code> hardcodes the same URL with no placeholder, and <code>local</code> is the profile development runs. <strong>That one line is the pivot of the whole gymie change.</strong></li>
+      <li><code>dbReset</code> already takes <code>-PpgDb</code>, already runs <code>DROP DATABASE IF EXISTS … WITH (FORCE)</code> then <code>CREATE DATABASE "$pgDb"</code>, correctly quoted. The per-database machinery exists; it is only ever pointed at one name.</li>
+      <li>The gateway has no datasource — only the backend touches Postgres, which halves the surface.</li>
+      <li><code>dbSeed</code> starts <code>:app:bootRun --spring.profiles.active=local</code>, so it inherits exactly that hardcoded URL.</li>
+      <li>The integration tests use Testcontainers, so the test database is already ephemeral. The suite is untouched.</li>
+    </ul>
+  </section>
+
+  <section class="lane-accent">
+    <h2>Decisions</h2>
+    <p>Eighteen active, twenty-one superseded and kept — the history of three rejected designs.</p>
+
+    <div class="decisions">
+
+      <details class="decision" open>
+        <summary><span class="d-title">The applications stay host processes</span>
+          <span class="d-id">apps-stay-host-processes</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>Isolate them by offsetting ports rather than moving them into containers. The
+            problem is a shared database; a containerized dev stack is far larger than that
+            justifies.</span></div>
+          <div class="alts"><div class="alt"><span class="tag rejected">no</span>
+            <span><strong>The dev stack in containers.</strong> Would have removed the fork-orphan
+            class outright — a genuine benefit — at the cost of rewriting the daily loop for four
+            applications across three repositories.</span></div></div>
+        </div>
+      </details>
+
+      <details class="decision" open>
+        <summary><span class="d-title">docker-compose.yml is not touched at all</span>
+          <span class="d-id">compose-untouched</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>The data services stay shared containers on their current ports and names.</span></div>
+          <div class="alts"><div class="alt"><span class="tag rejected">no</span>
+            <span><strong>Parameterizing the project name, container names and ports</strong> — which
+            every earlier revision did. It duplicates whole services to solve a problem one level
+            down.</span></div></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">Isolate the logical resource, not the service</span>
+          <span class="d-id">isolate-logical-resources-not-services</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>One database, index and bucket per workspace inside the shared services. No extra
+            containers, ports or memory.</span></div>
+          <div class="alts"><div class="alt"><span class="tag rejected">no</span>
+            <span><strong>A full service stack per workspace.</strong> Isolates more thoroughly, at
+            several times the resource cost.</span></div></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">Isolation is automatic in an apply worktree</span>
+          <span class="d-id">isolation-is-automatic-in-a-worktree</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>Nothing is opt-in, because forgetting a flag reproduces the original bug
+            silently.</span></div>
+          <div class="alts">
+            <div class="alt"><span class="tag rejected">no</span><span><strong>Explicit request only.</strong> Forgetting reproduces the bug with no warning.</span></div>
+            <div class="alt"><span class="tag rejected">no</span><span><strong>Automatic with an opt-out flag.</strong> Rejected only as unnecessary surface — <code>-PpgDb</code> already exists.</span></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="decision" open>
+        <summary><span class="d-title">The cache index is probed, not derived</span>
+          <span class="d-id">redis-index-probed-not-derived</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>Sixteen indices means a derived value is wrong one time in sixteen, silently.
+            Probe and claim the lowest free one.</span></div>
+          <div class="alts">
+            <div class="alt"><span class="tag rejected">no</span><span><strong>Derive from the digest.</strong> Consistent with everything else, and ~6% collision.</span></div>
+            <div class="alt"><span class="tag rejected">no</span><span><strong>Derive and refuse on collision.</strong> Never silently wrong, but blocks a legitimate second workspace outright.</span></div>
+          </div>
+          <div class="verdict"><span class="tag cost">cost</span>
+            <span>Two <code>devStart</code>s launched in the same second could race for an index. No
+            lock is proposed — more machinery than the failure justifies.</span></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">A new workspace database starts empty</span>
+          <span class="d-id">database-empty-then-migrate</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>Flyway migrates it and <code>dbSeed</code> seeds it — the same path a fresh machine
+            takes, so a workspace database is never subtly different from a clean one.</span></div>
+          <div class="alts"><div class="alt"><span class="tag rejected">no</span>
+            <span><strong><code>CREATE DATABASE … TEMPLATE gymie</code>.</strong> Instant, but Postgres
+            refuses it while any session is connected to the source, and it copies a migration state
+            that may not match the branch.</span></div></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">Underscored database name, bucket takes the id verbatim</span>
+          <span class="d-id">database-name-underscored</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span><code>dbReset</code> already quotes, so dashes would work — but an unquoted call
+            site added later would break, and underscores cost nothing.</span></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">Database tasks default to the workspace's own database</span>
+          <span class="d-id">db-tasks-default-to-workspace</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>Safer as well as consistent: <code>dbReset -Pforce</code> from a worktree destroys
+            that change's data, not the shared database.</span></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">A failed removal at finish is skipped, not failed</span>
+          <span class="d-id">failed-drop-is-skipped-not-failed</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag chosen">chosen</span>
+            <span>A stopped Postgres means nothing to drop right now; the run continues to
+            <code>FINISHED</code>. Matches the existing stop check.</span></div>
+          <div class="alts"><div class="alt"><span class="tag rejected">no</span>
+            <span><strong>Treat it as a leftover.</strong> More consistent with every other cleanup
+            row — and it would block finishing a merged change over a stopped container.</span></div></div>
+        </div>
+      </details>
+
+      <details class="decision">
+        <summary><span class="d-title">Mailpit stays shared</span>
+          <span class="d-id">mailpit-stays-shared</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag cost">limitation</span>
+            <span>One inbox, no natural namespace. Two changes' emails interleave — confusing when
+            testing email flows concurrently, not corrupting. Stated rather than solved.</span></div>
+        </div>
+      </details>
+
+      <details class="decision gone">
+        <summary><span class="d-title">Twenty-one superseded decisions</span>
+          <span class="d-id">kept, never deleted</span></summary>
+        <div class="d-body">
+          <div class="verdict"><span class="tag superseded">superseded</span>
+            <span>Recorded in full in <code>design.md</code> with their alternatives and reasoning —
+            the history of three rejected designs.</span></div>
+          <ul>
+            <li>Eight lane decisions — scratch worktrees, the patch join, the lane queue, the cap of four, separate branches with a PR each</li>
+            <li>Nine container decisions — dev Dockerfiles, the compose profile, bind mounts and volume-backed build state, two run modes, the KMP spike, the shared Gradle cache</li>
+            <li><code>every-apply-worktree-isolated</code> and <code>stack-started-by-the-run</code>, superseded twice over</li>
+            <li><code>stack-on-demand</code> and <code>ports-offset-then-discovery</code> from the lane era</li>
+          </ul>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Delta spec</h2>
+    <p>One new capability. No existing capability's requirements change.</p>
+    <div>
+      <div class="cap-name">myflow-workspace-isolation</div>
+      <ul class="reqs">
+        <li>A workspace id is derived from the change name</li>
+        <li>An apply worktree is isolated automatically</li>
+        <li>The id derives the database, object store and ports</li>
+        <li>The cache index is claimed by probing, not derived</li>
+        <li>A workspace's database and bucket are created on demand and start empty</li>
+        <li>Database maintenance tasks target the workspace's own database</li>
+        <li>Application URLs follow the workspace's ports</li>
+        <li>The test suite is unchanged</li>
+        <li>A workspace's database and bucket are removed at finish, and a missing service is skipped</li>
+        <li>Projects declare their isolation through an optional configuration section</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="lane-accent">
+    <h2>The plan</h2>
+    <p>Eleven tasks across four groups. Every task leaves both repositories green.</p>
+
+    <div class="groups">
+
+      <div class="group">
+        <div class="group-head"><span class="group-num">1</span>
+          <span class="group-title">The workspace isolation contract</span>
+          <span class="repo">agents</span></div>
+        <ul class="tasks">
+          <li><span class="tid">1.1</span><span>Reduce <code>workspace-isolation.md</code> to this design — keep the id derivation, delete every container-era section</span><span class="build">green</span></li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <div class="group-head"><span class="group-num">2</span>
+          <span class="group-title">The agents-side consumers</span>
+          <span class="repo">agents</span></div>
+        <ul class="tasks">
+          <li><span class="tid">2.1</span><span>The <code>## workspace isolation</code> project configuration key</span><span class="build">green</span></li>
+          <li><span class="tid">2.2</span><span><code>/myflow-do</code> computes and exports the id</span><span class="build">green</span></li>
+          <li><span class="tid">2.3</span><span>The manual test guide names the worktree's own URLs</span><span class="build">green</span></li>
+          <li><span class="tid">2.4</span><span>The cleanup registry row and its guard marker — one task, because the harness fails when they disagree</span><span class="build">green</span></li>
+          <li><span class="tid">2.5</span><span>Contract index rows across four entry points</span><span class="build">green</span></li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <div class="group-head"><span class="group-num">3</span>
+          <span class="group-title">The gymie repository</span>
+          <span class="repo">gymie</span></div>
+        <ul class="tasks">
+          <li><span class="tid">3.1</span><span>Make <code>application-local.yml</code>'s datasource, Redis index and port overridable — the pivot of the whole gymie change</span><span class="build">green</span></li>
+          <li><span class="tid">3.2</span><span>Derive database, bucket and port block; probe Redis; create on demand; delete nothing from the orphan handling</span><span class="build">green</span></li>
+          <li><span class="tid">3.3</span><span>Point the generated <code>.env</code> and the database tasks at the workspace</span><span class="build">green</span></li>
+          <li><span class="tid">3.4</span><span>Declare gymie's workspace isolation; document the mailpit limitation</span><span class="build">green</span></li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <div class="group-head"><span class="group-num">4</span>
+          <span class="group-title">Cross-file verification</span>
+          <span class="repo">both</span></div>
+        <ul class="tasks">
+          <li><span class="tid">4.1</span><span>Every guard and harness; two stacks serving at once with no new containers; <code>docker-compose.yml</code> proved to have no diff at all; a sandboxed installer run</span><span class="build">green</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Open questions</h2>
+    <p class="none">
+      <strong>None.</strong> Every question raised across four brainstorming sessions was put to you
+      and answered before the design was written — six question rounds in this revision alone.
+    </p>
+  </section>
+
+  <footer>
+    <span>KAN-15</span>
+    <span>kan-15-parallel-myflow-do-task-lanes</span>
+    <span>proposal artifact · revised in place, same URL</span>
+    <span>next · /myflow-do</span>
+  </footer>
+
+</div>
