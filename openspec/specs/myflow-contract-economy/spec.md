@@ -8,9 +8,19 @@ the two, the edits a move may make, and the byte budget that keeps the cores fro
 ## Requirements
 ### Requirement: A contract file separates its normative core from its rationale
 
-A contract file under `skills/myflow-contracts/` that carries both rules and the reasoning behind
-them SHALL be split into two files: a **core** at the original path, and a **rationale appendix**
-at the same path with a `-rationale` suffix before the extension.
+A file the pipeline loads on a run — a contract under `skills/myflow-contracts/`, or a
+`SKILL.md` a `/myflow-*` command reads — that carries both rules and the reasoning behind them SHALL
+be split into two files: a **core** at the original path, and a **rationale appendix** beside it,
+named by appending `-rationale` before the extension.
+
+**The rule is about what a run loads, not about which directory the file sits in.** A
+`SKILL.md` is read in full on every invocation of its command exactly as a contract is, carries the
+same rule-plus-justification prose, and costs the same per run. A rule scoped to one directory would
+have left the largest single per-command file — `skills/myflow-do/SKILL.md` — outside it for no
+reason other than where it lives.
+
+An appendix beside a `SKILL.md` does not change how skills resolve: the harness loads `SKILL.md` and
+nothing else, and a skill directory may already hold other files.
 
 One test decides which file a passage belongs in, applied to sentence groups — a paragraph, a
 bullet, a table — and never to clauses inside a sentence:
@@ -23,25 +33,30 @@ agent runs, and every prohibition. Rationale holds justification of an ordering,
 considered and rejected, history such as "this reverses an earlier decision", measurements, and
 meta-commentary about the document itself.
 
-**The test is behavioural, not typographic.** A prose paragraph stating a rule is core: the two
-files in this change measure 78% and 90% prose, and much of that prose is normative.
+**The test is behavioural, not typographic.** A prose paragraph stating a rule is core.
 
 #### Scenario: A rule stated in prose stays in the core
 
-- **WHEN** a contract paragraph states a prohibition in prose rather than in a table
+- **WHEN** a paragraph states a prohibition in prose rather than in a table
 - **THEN** that paragraph is in the core file
 - **AND** it is not moved to the appendix on the grounds of being prose
 
 #### Scenario: A justification moves to the appendix
 
-- **WHEN** a contract paragraph explains why one step is ordered before another, and removing it
-  would leave the ordering itself still stated
+- **WHEN** a paragraph explains why one step is ordered before another, and removing it would leave
+  the ordering itself still stated
 - **THEN** that paragraph is in the appendix
 
 #### Scenario: The appendix path is derived from the core path
 
 - **WHEN** `skills/myflow-contracts/<name>.md` is split
 - **THEN** its appendix is at `skills/myflow-contracts/<name>-rationale.md`
+
+#### Scenario: A skill file splits the same way
+
+- **WHEN** `skills/<skill>/SKILL.md` is split
+- **THEN** its appendix is at `skills/<skill>/SKILL-rationale.md`
+- **AND** the harness still loads `SKILL.md` alone
 
 ### Requirement: The split is a verbatim partition, with citation repointing as its only edit
 
@@ -67,6 +82,18 @@ core passage names a term, a count, or a fact that only a moved passage defines,
 SHALL stay in the core: an appendix is never loaded at runtime, so a core reader would otherwise meet
 an undefined term. This applies symmetrically — a passage that refers to its neighbour by position
 stays with that neighbour.
+
+**One consequence of the citation edit is stated rather than left to be discovered: where
+repointing changes the length of the bold token, the paragraph containing it MAY be re-wrapped.**
+The corpus is hard-wrapped, so a longer token would otherwise leave an over-long line. The re-wrap
+is confined to the paragraph holding the repointed citation, and its lines are accounted for in the
+line-multiset check exactly as the repointed line itself is — a `<`/`>` pair whose two sides differ
+only by wrapping.
+
+**This is not a licence to re-wrap anything else.** The lines around a *moved* passage are never
+re-wrapped; that rule is what the paragraph-granularity requirement rests on, and this does not
+touch it. What is permitted here is only the reflow the citation edit itself forces on the paragraph
+it edits.
 
 #### Scenario: A stale position word is deleted rather than reworded
 
@@ -148,8 +175,9 @@ read core and appendix side by side.
 
 ### Requirement: A `/myflow-*` run never loads a rationale appendix
 
-A rationale appendix exists for whoever edits a contract. No `/myflow-*` command SHALL load one as
-part of a run, and no skill SHALL instruct an agent to load one.
+A rationale appendix exists for whoever edits the file it belongs to. No `/myflow-*` command SHALL
+load one as part of a run, and no skill SHALL instruct an agent to load one. This covers a contract's
+appendix and a skill's appendix alike.
 
 This rule is **stated and deliberately not enforced**, the same treatment this corpus gives its
 other judgment rules. A naming-convention guard was considered and rejected as machinery around a
@@ -165,6 +193,11 @@ rule no observed failure has broken.
 
 - **WHEN** the `/myflow-*` skill files are searched for a `-rationale.md` path in a load instruction
 - **THEN** none is found
+
+#### Scenario: A skill does not load its own appendix
+
+- **WHEN** `skills/<skill>/SKILL.md` is read
+- **THEN** it does not instruct the run to read `SKILL-rationale.md`
 
 ### Requirement: A section reachable from only one command lives in its own file
 
@@ -195,37 +228,46 @@ that loads it, while costing that command an extra file.
 - **WHEN** `/myflow-start` runs
 - **THEN** it loads `jira-integration.md` and not `jira-followups.md`
 
-### Requirement: A byte budget ratchets every contract file
+### Requirement: A byte budget ratchets every file the pipeline loads per run
 
-`scripts/check-contract-budget.sh` SHALL fail when a file under `skills/myflow-contracts/` exceeds
-its declared budget.
+`scripts/check-contract-budget.sh` SHALL fail when a file it covers exceeds its declared budget.
 
-- It SHALL cover **every** `*.md` in that directory, cores, appendices and `SKILL.md` alike. A file
-  present in the directory with no budget entry SHALL be a failure, so a contract added later
-  cannot silently escape the ratchet.
+- It SHALL cover **every** `*.md` under `skills/myflow-contracts/` — cores, appendices and
+  `SKILL.md` alike — **and every `skills/*/SKILL.md` together with its `SKILL-rationale.md`
+  sibling**. A covered file with no budget entry SHALL be a failure, so a file added later cannot
+  silently escape the ratchet.
 - Budgets SHALL be declared as a path-to-maximum-bytes table **inside the script**. One place to
   read; raising a budget is then a visible diff in the guard rather than an edit to the file being
   ratcheted.
 - It SHALL measure **bytes**, not lines and not tokens — deterministic, and dependent on no
   tokenizer.
-- Each budget SHALL be the size the file actually has when this change lands, **plus 25%**. The
-  guard is a ratchet against regrowth and SHALL NOT be a target the split itself can fail against;
+- Each budget SHALL be the size the file actually has when the change declaring it lands, **plus
+  25%**. The guard is a ratchet against regrowth and SHALL NOT be a target a split can fail against;
   a target-first budget creates pressure to push normative text into an appendix to make a number.
+- **The table SHALL be regenerated once, as the last action of a change that alters any covered
+  file.** A table computed while later edits are still landing goes stale silently, and it did so
+  three times in one change before this rule was written.
 - It SHALL be argument-free and self-scoped from its own location, like `check-references.sh` and
   `check-vocabulary.sh`, with an opt-in environment override for its own test harness alone.
+- It SHALL refuse a covered path that is a symlink rather than following it, before reading it.
 - Its exit codes SHALL be `0` every file within budget, `1` a file over budget or missing an entry,
   `2` the guard cannot answer at all.
 
 #### Scenario: A file over its budget fails the guard
 
-- **WHEN** a file under `skills/myflow-contracts/` exceeds its declared budget
+- **WHEN** a covered file exceeds its declared budget
 - **THEN** the guard prints the path, the budget and the actual size
 - **AND** it exits 1
 
-#### Scenario: A new contract file with no budget fails the guard
+#### Scenario: A new file with no budget fails the guard
 
-- **WHEN** a `.md` file is added to `skills/myflow-contracts/` with no entry in the budget table
+- **WHEN** a `.md` file is added to a covered location with no entry in the budget table
 - **THEN** the guard exits 1 naming that file
+
+#### Scenario: A skill file is covered
+
+- **WHEN** `skills/myflow-do/SKILL.md` grows past its declared budget
+- **THEN** the guard exits 1 naming it
 
 #### Scenario: The guard runs from any working directory
 
@@ -238,3 +280,31 @@ its declared budget.
 - **WHEN** `.myflow/project.md`'s `## lint` section is read
 - **THEN** `scripts/check-contract-budget.sh` is listed
 - **AND** `scripts/test-check-contract-budget.sh` is listed under `## test`
+
+### Requirement: A passage another command depends on is hoisted before a single-command move
+
+Before a section is moved out on the grounds that one command needs it, every citation **into** that
+section SHALL be resolved, and any passage a **different** command genuinely depends on SHALL be
+hoisted into the core first.
+
+A citation is a real dependency when the citing file is loaded by a command that would not load the
+destination. A citation whose only role is to point at reasoning is not.
+
+**A guard cannot answer this question.** `scripts/check-references.sh` resolves a citation whenever a
+heading of that name exists in the named file, and the heading-mirroring rule guarantees one does —
+so the guard is green whether or not the citation still reaches its substance. The resolution is
+therefore made by reading each citation, and the change that moves a section SHALL name them
+individually rather than asserting that the guard passed.
+
+#### Scenario: A passage two loaded contracts cite is not moved out
+
+- **WHEN** a section is a candidate for a single-command file
+- **AND** a contract loaded by a different command cites into that section
+- **THEN** the cited passage stays in the core
+
+#### Scenario: Each citation into a moved section is checked by reading
+
+- **WHEN** a section is moved to a single-command file
+- **THEN** every citation into it is examined individually
+- **AND** a green `check-references.sh` is not offered as evidence that they still resolve to their
+  substance
