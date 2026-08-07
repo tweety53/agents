@@ -1,6 +1,6 @@
 ---
 name: myflow-info
-description: Explain the myflow pipeline — the three states, the three commands, and the finish contract — by reading skills/myflow-contracts/pipeline.md. Read-only reference. Use for /myflow-info.
+description: Explain the myflow pipeline — the three states, the three commands, and the shape of the finish stages — by reading skills/myflow-contracts/pipeline.md. Read-only reference. Use for /myflow-info.
 allowed-tools: Bash(cat:*), Read
 license: MIT
 compatibility: Requires skills/myflow-contracts/pipeline.md.
@@ -31,8 +31,19 @@ cat ~/.claude/skills/myflow-contracts/pipeline.md 2>/dev/null \
 answer reflects the installed contract rather than a remembered one. If none of those paths
 resolve, say so and stop — a confidently remembered pipeline is the failure this command prevents.
 
-For a question about the state file's shape, the self-heal rules, project configuration, or Jira,
-read the matching contract file beside it rather than paraphrasing.
+**What this command no longer recites, and where it went.** `pipeline.md` still answers *what the
+two runs are and which stages each has* — the level-1 stage table and the level-2 expansions of every
+finish stage stayed in the core for exactly that reason. The **procedures** — the three preflight
+signals, the unfinished-work courses, the landing routes, run 2's numbered steps and the
+worktree-cleanup checks — moved to `skills/myflow-contracts/finish-contract.md`, which only
+`/myflow-finish` loads.
+
+**This command does not read that file**, and that is deliberate: it is the one read-only command in
+the pipeline, and making it pay the full finish load would undo the split for the command that
+benefits least. Name the file as where the detail lives, and stop there.
+
+For a question about the state file's shape, the self-heal rules, project configuration, Jira, or
+follow-up issues, read the matching contract file beside it rather than paraphrasing.
 
 ## What to say
 

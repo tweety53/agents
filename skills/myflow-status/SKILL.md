@@ -84,7 +84,7 @@ its comment (b) are what `pipeline.md` cites in turn.
 **A multi-repo change has one merge status per worktree, and the change's is the weakest of them.**
 `worktrees` may carry more than one key, so item 4 is answered once per key and the answers must
 then be combined. Combine them exactly as
-**Finish contract** (`skills/myflow-contracts/pipeline.md`) already combines the preflight's
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`) already combines the preflight's
 verdicts — run 2 proceeds only when **every** recorded worktree says so — which here means: the
 change reads **merged** only when every worktree is proven merged; any worktree proven **not
 merged** makes the change not merged; otherwise, with at least one inconclusive and none proven not

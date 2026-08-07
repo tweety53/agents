@@ -32,6 +32,9 @@ here: run 1 and run 2 have different step lists, so the entries registered are t
 in hand. A run that registered run 1's steps and then archived would show the operator a list that
 never matched the work.
 
+The reasoning behind this file lives in `skills/myflow-finish/SKILL-rationale.md`; **a
+`/myflow-*` run never loads it.**
+
 ## State gate
 
 Accepts **`IN_PROGRESS`**. Run 1 ends at `IN_PROGRESS`; run 2 ends at `FINISHED`.
@@ -51,7 +54,7 @@ Which run happens is decided by one thing: whether the change's branch has alrea
 base branch. No field records "integration started" — a field could disagree with git.
 
 Run `scripts/check-finish-preflight.sh` once per worktree recorded in the state file's `worktrees`
-map, per **Finish contract** (`skills/myflow-contracts/pipeline.md`), and act on the verdict:
+map, per **Finish contract** (`skills/myflow-contracts/finish-contract.md`), and act on the verdict:
 
 - **`RUN1`** → run 1 (integrate)
 - **`RUN2`** from every worktree → run 2 (archive and clean up)
@@ -62,11 +65,8 @@ map, per **Finish contract** (`skills/myflow-contracts/pipeline.md`), and act on
   line as either run — a caller that greps for `RUN2` in empty output finds nothing, which is why
   the exit code has to be checked as well as the line.
 
-A PR a human merged on the forge, a colleague's merge, and run 1's own merge are indistinguishable
-here, and that is correct — all three mean the same thing.
-
 **The base branch is resolved, never assumed, and never derived from the current branch.** Follow
-the resolution in **Finish contract** (`skills/myflow-contracts/pipeline.md`); if it does not
+the resolution in **Finish contract** (`skills/myflow-contracts/finish-contract.md`); if it does not
 resolve to a branch distinct from the one checked out, **stop and ask**. This skill runs inside the
 apply worktree, where `HEAD` is the
 change's own branch — so any resolution that consults `HEAD`'s upstream would compare the branch
@@ -81,7 +81,7 @@ against itself and report every pushed branch as merged.
 Run `scripts/check-unfinished-work.sh <worktree> <name>` once per worktree in the state file's
 `worktrees` map, **before the landing question and before any git action**. What each verdict means,
 and what each course below does, is canonical under
-**Finish contract** (`skills/myflow-contracts/pipeline.md`); this section is how it is executed.
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`); this section is how it is executed.
 
 - **`CLEAR:` from every worktree** → continue to **1.1** with no extra prompt.
 - **`OUTSTANDING:`** → show the breakdown the script printed, and offer exactly three courses:
@@ -109,13 +109,7 @@ here; **a filing that fails is one skipped-with-reason line and the run still co
 **Never blocking** (`skills/myflow-contracts/jira-integration.md`) — the outstanding list still
 reaches the planning commit and the handoff, so the durable record does not depend on the tracker.
 Why **Stop** is the marked recommendation is stated under
-**Finish contract** (`skills/myflow-contracts/pipeline.md`) and is not re-argued here.
-
-The signals that make a change outstanding are the script's own and are not restated here — a second
-list of them would drift from the one that is actually run.
-
-Asking the landing question first and only then reporting unfinished work would make the operator
-choose a route for a branch they have not yet been told is incomplete.
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not re-argued here.
 
 ## 1.1 Ask how the branch should land, before any git action
 
@@ -145,8 +139,8 @@ planning commit, beside the plan they describe — rather than lost with the wor
 A source that does not exist is reported and skipped — never a failure, and never a reason
 to stop the integration. **A non-zero exit means a copy was attempted and refused or failed:** report
 it with the script's own stderr message and continue the integration, per the outcome table under
-**Finish contract** in `skills/myflow-contracts/pipeline.md`, which is canonical for all three
-outcomes. Say in the handoff which records were preserved and which were not.
+**Preserving the session records** in `skills/myflow-contracts/pipeline.md`, which is canonical
+for all three outcomes. Say in the handoff which records were preserved and which were not.
 
 Then stage and commit twice, in this order, rather than assuming everything is already staged: the
 operator may have edited the worktree at the human gate without staging.
@@ -176,20 +170,11 @@ operator chose to integrate over at **1.0** — the git history is then the dura
 transcript is not. Say in the handoff when a commit was skipped as empty; a silently missing commit
 looks like a lost one.
 
-**The `reset` is what makes the split hold; the exclusion alone only assumes it** — the reason is
-stated under **Git boundaries** (`skills/myflow-contracts/pipeline.md`), which `/myflow-do` follows
-too. What is specific to this gate is *whose* staging it retracts: the operator may have run their
-own `git add -A` while reviewing, and the excluding `add` cannot take those paths back out.
-
-`scripts/preserve-session-records.sh` still runs **before** the first `add`, unchanged:
-`docs/superpowers/` is one of the excluded paths, so its files are picked up by the second staging
-pass. The second `add` carries no pathspec, which is what makes it pick them up.
-
 The state file is **not** committed — it lives outside the repo.
 
 ## 1.3 Take the chosen route
 
-Per **Finish contract** (`skills/myflow-contracts/pipeline.md`) → run 1. Push with `-u` so the
+Per **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 1. Push with `-u` so the
 branch has an upstream; the unpushed-commits check in run 2 treats a missing upstream as unknown
 and refuses to clean up without one.
 
@@ -213,7 +198,7 @@ what to do next.
 ## 1.4 No verification gate
 
 **Run no tests, no linters, and no spec-coverage check** — see
-**Finish contract** (`skills/myflow-contracts/pipeline.md`). Correctness was established during
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`). Correctness was established during
 `/myflow-do` and by the human gate.
 
 ## 1.5 State and handoff
@@ -226,15 +211,6 @@ pull request, merge and push, or manual. Per
 **Transitions** (`skills/myflow-contracts/jira-integration.md`): after the state write, never
 before, never blocking. A run that stopped on a failed push does **not** transition; the branch
 never left the operator's hands.
-
-The block below is **not** a second definition of the handoff. It is this run's rendering of the
-`IN_PROGRESS`-after-run-1 template, which is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
-labels, the field set and their order. What this block adds is the enumeration of the literal
-alternatives run 1 writes — the three `PR:` cases below are that enumeration of the template's
-placeholder, one per landing route. **Change the template first and bring this block with it** — a
-field added here and not there is drift the moment `/myflow-status <name>` regenerates the same
-state.
 
 ```
 ## Branch integrated — waiting on the merge | merged and waiting on run 2
@@ -269,19 +245,12 @@ failure — take the answer from the merge-status test in
 the same test `/myflow-status` uses to regenerate this block for a change whose branch has since
 been merged, a run stopped at a run-2 cleanup leftover most often.
 
-**Outstanding is the same list the planning commit carries**, and it is stated in both places
-because either alone is a record the next reader may never reach: a commit message nobody reads
-back, or a handoff that scrolls out of a session nobody kept.
-
-The last line is this same command, because that is what the operator runs once the branch is
-merged.
-
 ---
 
 # Run 2 — archive and clean up
 
-Follow **Finish contract** (`skills/myflow-contracts/pipeline.md`) → run 2 for the full procedure.
-In outline, and stopping at the first step that fails:
+Follow **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 2 for the full
+procedure. In outline, and stopping at the first step that fails:
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`, which
    must stay reachable on its own as the only evidence on a non-GitHub forge. Fetch first so the
@@ -308,10 +277,10 @@ In outline, and stopping at the first step that fails:
    **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`). A worktree half that
    stops on a failed check takes the removal with it, and why the removal follows that half at all —
    the stack is down only once its check 5 has run — is
-   **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`);
+   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`);
    every rule the worktree half carries — the gating checks, the ignored-file disclosure, the
    removal sequence, and the remote deletion with its already-gone case — is canonical in
-   **Worktree cleanup** (`skills/myflow-contracts/pipeline.md`). Neither is restated here.
+   **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`). Neither is restated here.
 5. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) gives.
 6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
@@ -324,7 +293,7 @@ In outline, and stopping at the first step that fails:
    the affected `worktrees` entries in the state file, and treat it as `LEFTOVER`; the exit code is
    checked as well as the line, because a caller that greps for `COMPLETE` in empty output finds
    nothing. Why a leftover blocks the write, and why run 2 is safe to re-enter afterwards, is
-   canonical under **Finish contract** (`skills/myflow-contracts/pipeline.md`).
+   canonical under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
    whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`
    and `prUrl` forward — the planning effort as the **mapped level under `planningEffort`** when the
@@ -387,13 +356,6 @@ transitions nothing — the change is not done.
                && git -C <main-checkout> push; }; }
    ```
 
-   The inner `{ commit && push; }` grouping matters: without it, `&&`/`||` at equal precedence
-   parse left-to-right as `(diff --quiet || commit) && push`, which runs `push` unconditionally
-   once the outer group is entered — even when nothing was staged or committed. Grouping `commit`
-   and `push` together means `push` only runs on the branch where `commit` actually ran, matching
-   the skip-if-empty shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already
-   documents for the worktree commits above.
-
    A commit that FAILS (hook rejection, push rejected) is reported with git's own output. The change
    stays `FINISHED` regardless — a report that failed to commit is a self-review failure to report
    in the handoff, never a reason to reopen the change.
@@ -453,8 +415,8 @@ Next:
 - **Never** merge the change branch in run 2; run 2's step 1, "Verify the merge", already proved it.
 - **Never** state a cleanup rule here. Which artifact is removed, when, and on what condition is
   **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`); how it is removed is
-  **Worktree cleanup** (`skills/myflow-contracts/pipeline.md`). A second copy is the one that goes
-  stale, and a stale copy of a removal rule deletes the wrong thing.
+  **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`). A second copy is the one
+  that goes stale, and a stale copy of a removal rule deletes the wrong thing.
 - **Never** report a cleanup as done without the verdict that says so, and **never write `FINISHED`
   over a leftover or an unverified cleanup** — `FINISHED` is terminal, so the console line would be
   the only record of it, which is exactly the transcript-only record this pipeline refuses.

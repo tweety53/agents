@@ -326,8 +326,8 @@ join outcome and this contract adds none, and run 2's only Jira write is the **D
 under **Transitions** (`jira-integration.md`), which reports that transition and nothing about
 a follow-up. Re-emitting the `⚠` is not what closes a partial join past that point — finding the
 issue is, and two records outlive the window. The outstanding items are in the planning commit's
-message, per **Run 1 — the branch is not merged** (`skills/myflow-contracts/pipeline.md`), which is
-the durable copy this pipeline requires and owes nothing to the tracker. The appended
+message, per **Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`),
+which is the durable copy this pipeline requires and owes nothing to the tracker. The appended
 `## From <KEY>` section carries this change's key, so a description search finds the issue by key
 even though what failed was the retitle or the label union — the two writes that would have made it
 findable by title and by label instead. The `⚠` line itself lives in the handoff of the run that
@@ -393,7 +393,7 @@ description, and this contract cannot detect that — closing it needs provenanc
 offer, and inventing a marker this pipeline signs would be a trust model neither the tools nor this
 contract has. The residue is bounded by where the durable record actually lives: the outstanding
 list reaches the planning commit's message and the handoff on every route, per
-**Run 1 — the branch is not merged** (`skills/myflow-contracts/pipeline.md`), so what a forged
+**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`), so what a forged
 section can cost is the tracker copy of work that is recorded in git either way — never the record
 itself.
 
