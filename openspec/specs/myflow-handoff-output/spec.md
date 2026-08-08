@@ -109,8 +109,12 @@ implementation diff it is mixed into.
 ### Requirement: The handoff block is defined once and rendered by two commands
 
 The shape of the handoff block for each state SHALL be defined in exactly one place —
-`skills/myflow-contracts/pipeline.md` — as a per-state template. Both the command that ends in a
-state and `/myflow-status <name>` SHALL render the operator's handoff from that template.
+`skills/myflow-contracts/handoff-blocks.md` — as a per-state template. Both the command that ends in
+a state and `/myflow-status <name>` SHALL render the operator's handoff from that template.
+
+**Only `/myflow-status` loads that file.** A producing command needs the one block it prints and
+carries it in its own skill, citing the definition; the full set is needed only by the command that
+may render any of them.
 
 `/myflow-status <name>` SHALL regenerate the block from the state file and the artifacts on disk. It
 SHALL NOT read back a stored copy of the text a previous run emitted, and no command SHALL store one.
@@ -118,10 +122,27 @@ SHALL NOT read back a stored copy of the text a previous run emitted, and no com
 **Each producing skill SHALL cite that definition at the block it carries.** A block sitting in a
 skill with no citation is a second, independently authored definition however faithfully it matches
 today, because nothing tells the next editor of the skill that the template exists. A skill's block
-SHALL carry the same labels, the same fields and the same order as the template; it MAY enumerate,
-in place of a placeholder, the literal alternatives its own command writes, and that enumeration
-SHALL stay within the value space the placeholder describes. A skill listing fewer cases than the
-template describes narrows the contract and is a defect in the skill.
+SHALL carry the same **folded lines**, the same fields within each folded line and the same order as
+the template; it MAY enumerate, in place of a placeholder, the literal alternatives its own command
+writes, and that enumeration SHALL stay within the value space the placeholder describes. A skill
+listing fewer cases than the template describes narrows the contract and is a defect in the skill.
+
+**Related fields SHALL be folded onto one line, and no field SHALL be dropped.** A folded line
+carries several values under one label, separated by ` · `. Folding is a layout rule and never a
+content rule: a value the block carried before the fold is carried after it, and the
+missing-rather-than-dropped rule below applies to each value within a folded line exactly as it
+applied to each value on its own line.
+
+**A folded line SHALL group values of one kind — on-disk or run-only — and never both.** The
+run-only rule is what makes this load-bearing: `/myflow-status` omits a run-only field and renders an
+on-disk one, so a line mixing the two could be neither omitted nor rendered without misreporting
+something. The `Jira` line and the pre-edit Jira description are therefore each their own line,
+never folded into the on-disk `Recorded` line beside them.
+
+**The pre-edit Jira description SHALL never be folded and never be dropped.** `editJiraIssue`
+replaces the whole description field and there is no local backup, so the handoff transcript is the
+recovery path; it is printed verbatim in a fenced block, on any run that wrote a description, and on
+no other.
 
 A stored copy would reproduce the original exactly and then go wrong silently the moment anything it
 names moves — a worktree removed, an artifact republished, a PR opened. A regenerated block has no
@@ -132,8 +153,8 @@ The regenerated block SHALL carry, for the change's current state:
 
 | State | Contents |
 |-------|----------|
-| `STARTED` | the change name, the artifact URL, the count of decisions recorded, **the count of open questions**, the planning-effort line, the three model choices, the main-checkout IntelliJ command, and `/myflow-do <name>` as the last line |
-| `IN_PROGRESS`, run 1 not yet done | the change name, the task progress, the git state, the worktree path, the test guide's path, the review command matching the git state, the worktree IntelliJ command, and `/myflow-finish <name>` as the last line |
+| `STARTED` | the change name, the artifact URL, one folded line carrying the count of decisions recorded, **the count of open questions**, the planning effort and the three model choices, the main-checkout IntelliJ command, and `/myflow-do <name>` as the last line |
+| `IN_PROGRESS`, run 1 not yet done | the change name, one folded line carrying the task progress and the git state, the worktree path, the test guide's path, the review command matching the git state, the worktree IntelliJ command, and `/myflow-finish <name>` as the last line |
 | `IN_PROGRESS`, run 1 done | the change name, the pull request URL, and `/myflow-finish <name>` as the last line |
 | `FINISHED` | nothing — `FINISHED` changes are omitted from this report, as they already are |
 
@@ -147,23 +168,23 @@ open, by the same missing-rather-than-dropped rule the other fields follow.
 run-only ones** — the panel roster and the pre-edit Jira description on the `IN_PROGRESS` review
 rendering, the Jira line and the pre-edit description on `STARTED`, and the landing route and
 outstanding list on the run-1 rendering. The command that ends in the state prints those too;
-`/myflow-status` omits them,
-per the run-only rule above. The block's **heading** is the one line the rows do not itemise,
-because it is not a field: which heading the `IN_PROGRESS` renderings carry is the selection rule
-stated below, not a value read from anywhere. Every other field is listed, the change name
-included — a field a row omits reads as one the block need not carry, which is how a constant that
-every rendering does carry came to be absent from all three rows. The table is otherwise kept in
-step with the per-state templates it summarises: the templates are the definition, and a field added
-to one is added to the other in the same change. Reading this table as the field list to trim a
-template down to inverts that relationship and reopens the drift this requirement exists to close.
+`/myflow-status` omits them, per the run-only rule above. The block's **heading** is the one line the
+rows do not itemise, because it is not a field: which heading the `IN_PROGRESS` renderings carry is
+the selection rule stated below, not a value read from anywhere. Every other field is listed, the
+change name included — a field a row omits reads as one the block need not carry, which is how a
+constant that every rendering does carry came to be absent from all three rows. The table is
+otherwise kept in step with the per-state templates it summarises: the templates are the definition,
+and a field added to one is added to the other in the same change. Reading this table as the field
+list to trim a template down to inverts that relationship and reopens the drift this requirement
+exists to close.
 
 `IN_PROGRESS` covers two different waits — a diff waiting on review, and a branch already handed off
 and waiting on a merge. **The branch's merge status decides which rendering applies whenever that
 status is known**, a merged branch being integrated by definition; `prUrl` is the discriminator only
 where the merge status is inconclusive. The selection rule, and what the remaining one-way `prUrl`
 limitation costs, are stated in
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and SHALL NOT be restated
-here, so there is only one place to correct when they change.
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) and SHALL NOT be
+restated here, so there is only one place to correct when they change.
 
 #### Scenario: Re-running status reproduces the handoff
 
@@ -213,95 +234,25 @@ here, so there is only one place to correct when they change.
 - **AND** the regenerated block is the one for a diff waiting on review, not the one saying the
   branch was merged and is waiting on run 2
 
-#### Scenario: An unresolvable recorded merge base is inconclusive, not merged
+#### Scenario: A producing command carries only its own block
 
-- **WHEN** the merge base recorded for a worktree no longer resolves there
-- **THEN** the merge status reads *inconclusive* and no ancestor test decides it
-- **AND** the branch is not reported as merged
+- **WHEN** `/myflow-start` runs
+- **THEN** it renders the `STARTED` block from the copy in its own skill, citing the definition
+- **AND** it does not load `handoff-blocks.md`
 
-#### Scenario: Two worktrees that disagree do not yield one worktree's answer
+#### Scenario: Folding drops no value
 
-- **WHEN** a change records two worktrees and one is proven merged while the other is not
-- **THEN** the change's merge status reads *not merged*
-- **AND** the detail view names which worktree gave which answer
+- **WHEN** a `STARTED` block is rendered for a change recording a planning effort and three models
+- **THEN** the effort and all three models appear on the folded `Recorded` line
+- **AND** a value the state file does not carry is reported as missing within that line rather than
+  omitted from it
 
-#### Scenario: A committed branch is not sent a staged-diff command
+#### Scenario: A folded line does not mix on-disk and run-only values
 
-- **WHEN** the regenerated block is the one for a diff waiting on review, and the change's work is
-  already committed and pushed
-- **THEN** the git line names that state
-- **AND** the review command it prints is one that shows the committed range, not one that prints
-  nothing
-
-#### Scenario: A skill's block cites the template
-
-- **WHEN** a contributor reads the handoff block in `skills/myflow-do/SKILL.md`
-- **THEN** it names the per-state template as the definition
-- **AND** the labels and fields it carries are the template's
-
-#### Scenario: A run-only value is omitted rather than named missing
-
-- **WHEN** a regenerated block would carry a value only the run that emitted it could know — such as
-  the landing route, the outstanding list run 1 integrated over, or the panel roster that run
-  selected
-- **THEN** the block omits that line
-- **AND** it does not report the value as missing
-
-#### Scenario: The Jira transition is not regenerated
-
-- **WHEN** `/myflow-status <name>` regenerates the `STARTED` block for a change linked to an issue
-- **THEN** it omits the Jira line rather than reporting it missing or naming a transition
-- **AND** it makes no Jira call to recover one, the state file recording the issue key and no
-  transition history
-
-#### Scenario: The panel roster is not regenerated from a record that may not exist
-
-- **WHEN** `/myflow-status <name>` regenerates the review rendering for a change whose worktree has
-  been removed
-- **THEN** it omits the panel line rather than reporting it missing
-- **AND** it does not depend on the panel record, which is gitignored and may legitimately be absent
-
-#### Scenario: Nothing is stored to go stale
-
-- **WHEN** a change's worktree has been removed since the run that emitted the original handoff
-- **THEN** the regenerated block reflects the state as it now stands
-- **AND** no stored copy of the earlier text is printed
-
-#### Scenario: A missing value is named
-
-- **WHEN** a change at `STARTED` has no recorded artifact URL
-- **THEN** the block reports the artifact URL as missing
-- **AND** the line is not silently dropped
-
-#### Scenario: The table form is unchanged
-
-- **WHEN** `/myflow-status` runs with no change name
-- **THEN** it prints the table
-- **AND** it does not regenerate a handoff block for each change
-
-#### Scenario: Regeneration performs no action
-
-- **WHEN** the regenerated block names a command to run
-- **THEN** `/myflow-status` prints it
-- **AND** does not execute it, stage anything, or write any state
-
-#### Scenario: The STARTED block reports open questions
-
-- **WHEN** `/myflow-start` ends a run whose `design.md` records two questions still at `open`
-- **THEN** its handoff carries an open-questions line reading `2`, immediately after the decisions
-  count
-
-#### Scenario: A change with nothing open reports none
-
-- **WHEN** the `## Open questions` section is empty
-- **THEN** the open-questions line reads `none` rather than being omitted
-
-#### Scenario: The count is regenerated rather than remembered
-
-- **WHEN** `/myflow-status <name>` regenerates the `STARTED` block for a change whose open questions
-  were answered by a later revision round
-- **THEN** the count reflects the entries still at `open` in `design.md` as it now stands, not the
-  count the original run printed
+- **WHEN** `/myflow-status <name>` regenerates a `STARTED` block
+- **THEN** it renders the folded `Recorded` line in full
+- **AND** it omits the `Jira` line and the pre-edit description line entirely, rather than rendering
+  a partial folded line
 
 ### Requirement: Every pipeline command prints the tab commands at the start of its run
 
@@ -325,7 +276,7 @@ treat the printing as an oversight to correct:
 - writing a terminal escape sequence directly is not available either, the harness providing no
   writable `/dev/tty` to a command.
 
-`/myflow-status` and `/myflow-info` SHALL NOT print them. A read-only report does not own the tab.
+`/myflow-status` SHALL NOT print them. A read-only report does not own the tab.
 
 #### Scenario: A run opens with the two commands
 
@@ -340,7 +291,69 @@ treat the printing as an oversight to correct:
   writable `/dev/tty` is available
 - **AND** the answer does not depend on the session transcript in which it was discovered
 
-#### Scenario: Read-only commands do not print them
+#### Scenario: The read-only command does not print them
 
-- **WHEN** `/myflow-status` or `/myflow-info` runs
+- **WHEN** `/myflow-status` runs
 - **THEN** no `/rename` or `/color` line is printed
+
+### Requirement: The status table reads the state file and local git, never the network
+
+`/myflow-status` with no argument SHALL render its table from each change's state file plus local
+git, and SHALL make no network call. The `gh pr list` probe SHALL NOT be performed.
+
+The table SHALL carry exactly these columns, in this order:
+
+| Column | Source |
+|--------|--------|
+| Change | the change name |
+| Jira | `jiraIssue`, verbatim, or `—` |
+| State | `state` |
+| PR | the number parsed from the recorded `prUrl`, or `—` when it is `null` |
+| Next | the next command, from the state and the merge status |
+| Updated | `updatedAt` and `updatedBy` |
+
+**The worktree path SHALL NOT be a column.** It is the widest value in the row and its branch
+component is always `openspec/<change>`, so the column restated the change name at the cost of
+wrapping every row. The absolute path SHALL still appear in the detail view rendered when a change
+name is given, where the absolute-path requirement binds it.
+
+**The `PR` column SHALL NOT report whether a pull request is open, merged or closed.** That answer
+requires the network call this requirement removes, and reporting a state the command did not
+observe is worse than reporting none. A change recording a `prUrl` SHALL show its number; the detail
+view SHALL say where to look for its state.
+
+**Merge status SHALL be retained**, because it is local git and it is what splits the `IN_PROGRESS`
+row's next-command answer between integrating and archiving. Its three ordered steps, the rule that
+an unresolved recorded merge base makes the answer inconclusive, and the multi-repo combination rule
+are unchanged.
+
+**`/myflow-status` SHALL perform no state-file write of any kind.** It reports what the file says. A
+file that is missing or unparseable SHALL be named in the command's own output and skipped, never
+rebuilt from inference.
+
+#### Scenario: A status run makes no network call
+
+- **WHEN** `/myflow-status` runs with no argument for a change recording a `prUrl`
+- **THEN** no `gh` invocation and no other network call is made
+- **AND** the PR column shows the recorded pull request's number
+
+#### Scenario: The table has no worktree column
+
+- **WHEN** `/myflow-status` renders its table
+- **THEN** the row carries Change, Jira, State, PR, Next and Updated, and no worktree or branch column
+
+#### Scenario: The detail view still gives the absolute worktree path
+
+- **WHEN** `/myflow-status <name>` runs for a change with a recorded worktree
+- **THEN** the detail view prints that worktree's absolute path
+
+#### Scenario: An unreadable state file is named rather than rebuilt
+
+- **WHEN** a file in the state directory cannot be parsed
+- **THEN** the command names that file in its output and omits the change from the table
+- **AND** it writes nothing to that file
+
+#### Scenario: Merge status still splits the next command
+
+- **WHEN** `/myflow-status` renders a row for a change at `IN_PROGRESS` whose branch is proven merged
+- **THEN** the Next column says the next `/myflow-finish` will archive

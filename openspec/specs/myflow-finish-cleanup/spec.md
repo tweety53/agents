@@ -193,74 +193,50 @@ A finished change SHALL NOT leave the archive move uncommitted in the working tr
 ### Requirement: Run 2 removes the change's worktrees and branches
 
 After the archive is committed and pushed, `/myflow-finish` SHALL remove every worktree belonging
-to the change. The set SHALL be the keys of the state file's `worktrees` map; when that is absent,
-it SHALL be found by scanning `git worktree list` in each affected repository for branch
+to the change. The set SHALL be the keys of the state file's `worktrees` map; when that is **absent
+or empty**, it SHALL be found by scanning `git worktree list` in each affected repository for branch
 `openspec/<name>`.
 
-A worktree path SHALL NEVER be guessed or assumed from a conventional layout, because layout
-differs per repository.
+**An empty map SHALL be treated exactly as an absent one, and never as "there are no worktrees".**
+`/myflow-finish`'s preflight verdict and its unfinished-work gate are each defined as *once per
+worktree in the resolved set*, per **Resolving a change's worktrees**
+(`skills/myflow-contracts/pipeline.md`) — never a raw read of the map, because a map carrying zero
+keys would otherwise make both pass having examined nothing — `RUN2` from
+every worktree and `CLEAR` from every worktree are each vacuously true of the empty set — and run 2
+would then archive a change that may still hold an unmerged worktree. State self-heal previously
+rebuilt those keys and is removed by this change, so nothing repopulates the map any more.
 
-For each worktree, all of the following SHALL be checked before anything is removed:
+**A resolved set that is still empty SHALL stop the run rather than pass it.** Where the map is
+absent or empty *and* the scan finds no worktree on the change's branch in any affected repository,
+that is a state the pipeline cannot explain and SHALL be reported to the operator, never treated as
+a completed removal.
 
-- no uncommitted tracked changes
-- no untracked files that git does not already ignore
-- no commits that exist only in this worktree (already being merged into the base branch
-  satisfies this; otherwise an upstream must prove they are pushed)
-- the project's local stack is stopped
+Each removal SHALL be *remove-or-move if present*, so a step whose artifact is already gone is a
+success rather than an error, and run 2 stays re-entrant.
 
-plus a **disclosure**, which does not gate removal: the ignored files `--force` will destroy are
-listed, and the operator confirms. `--force` destroys every ignored file, and "ignored" is not
-"disposable" — no check prevents that, so it is surfaced instead.
+#### Scenario: The recorded map drives the removal
 
-Only when every gating check passes, and the operator has confirmed any disclosed ignored files,
-SHALL it run `git worktree remove --force`, then `git branch -d`, then `git worktree prune`.
+- **WHEN** run 2 removes worktrees for a change whose state file records two worktree paths
+- **THEN** both are removed, and no repository is scanned to find them
 
-`git branch -d` SHALL never be `-D`: it must be free to refuse an unmerged branch.
+#### Scenario: An empty map falls through to the scan
 
-The change's **remote** branch SHALL be deleted as well, without a further prompt. Run 2 has already
-proved the branch is an ancestor of the base branch, so its commits are in the base branch and
-nothing can be lost. A remote branch that is already absent — deleted by the forge on merge — SHALL
-be treated as success. The remote deletion SHALL be reported either way.
+- **WHEN** run 2 runs for a change whose state file records `worktrees: {}` while a worktree on its
+  branch still exists
+- **THEN** the worktree is found by scanning `git worktree list` for `openspec/<name>`
+- **AND** it is not treated as a change with no worktrees
 
-#### Scenario: A clean worktree is removed
+#### Scenario: Neither gate passes on an empty set
 
-- **WHEN** every gating check passes for a worktree
-- **THEN** the worktree is removed, its branch is deleted with `git branch -d`, and
-  `git worktree prune` runs
+- **WHEN** the preflight verdict or the unfinished-work gate runs for a change whose `worktrees` map
+  is empty
+- **THEN** the set is resolved by the scan before either is answered
+- **AND** neither reports success on the strength of having examined no worktree
 
-#### Scenario: A failed check leaves everything alone
+#### Scenario: An unexplainable empty result stops the run
 
-- **WHEN** any one of the gating checks fails for any worktree
-- **THEN** no worktree is removed and no branch is deleted, and the reason is reported
-
-#### Scenario: An already-removed worktree is not an error
-
-- **WHEN** a worktree recorded in the state file no longer exists
-- **THEN** that is treated as success and the run continues
-
-#### Scenario: Ignored files are disclosed, not silently destroyed
-
-- **WHEN** a worktree contains ignored files alongside a clean tracked tree
-- **THEN** every gating check passes, the ignored files are listed to the operator, and removal
-  proceeds only on explicit confirmation — because `--force` destroys them and no check prevents it
-
-#### Scenario: A merged branch with no upstream can still be cleaned up
-
-- **WHEN** the branch was squash-merged and its remote tracking ref was pruned, so `@{upstream}`
-  no longer resolves
-- **THEN** the commits-exist-elsewhere check passes on the strength of the branch already being an
-  ancestor of the base branch, and cleanup is not locked out
-
-#### Scenario: The remote branch is deleted too
-
-- **WHEN** run 2 completes its local cleanup for a change whose branch was pushed
-- **THEN** the remote branch is deleted and the deletion is reported
-
-#### Scenario: An already-deleted remote branch is not an error
-
-- **WHEN** the forge deleted the head branch on merge
-- **THEN** the absent remote branch is treated as success and reported as already gone
-
+- **WHEN** the map is empty and the scan finds no worktree on the change's branch anywhere
+- **THEN** the run reports that to the operator rather than recording the removal as complete
 ### Requirement: The stack-stopped check reads a project-supplied command
 
 `.myflow/project.md` SHALL support an optional `## stop` section naming the command that stops the

@@ -18,8 +18,8 @@ The steps registered SHALL be:
 | `/myflow-do` | each item in `tasks.md`, in plan order |
 | `/myflow-finish` | each step of the run it is performing |
 
-`/myflow-status` and `/myflow-info` are read-only and SHALL register nothing. Registering steps for
-a report would put entries on the operator's task list for work nobody is doing.
+`/myflow-status` is read-only and SHALL register nothing. Registering steps for a report would put
+entries on the operator's task list for work nobody is doing.
 
 An entry SHALL move to in-progress when its step begins and to completed when that step finishes, so
 the count line distinguishes done, in progress and open at every point in the run.
@@ -40,7 +40,6 @@ the count line distinguishes done, in progress and open at every point in the ru
 
 - **WHEN** `/myflow-status` runs
 - **THEN** no task entries are created or updated
-
 ### Requirement: The progress view is a view, never a record
 
 The harness's task list SHALL NOT be read back by any command, guard or contract as evidence of what

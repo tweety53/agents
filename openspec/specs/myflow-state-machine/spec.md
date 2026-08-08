@@ -109,10 +109,9 @@ levels and the default.
 
 `planningEffort` and `models` SHALL each read as "not recorded" when absent, rather than making the
 file unparseable. This extends the exception the effort field already carried, and for the same
-reason: routing every file written before a field existed through self-heal announces unrecovered
-fields and rewrites from artifact inference, which is a loud correction for a value nobody had the
-opportunity to set. The exception covers a key that is **absent**, which is a different thing from a
-key that is present and null.
+reason: a file written before a field existed would otherwise be reported as unparseable and its
+change skipped, which is a loud failure for a value nobody had the opportunity to set. The exception
+covers a key that is **absent**, which is a different thing from a key that is present and null.
 
 A file carrying the retired `effort` key SHALL be read as recording the equivalent level rather than
 as unparseable, and SHALL be rewritten under `planningEffort` on the next write it receives. Where
@@ -120,13 +119,11 @@ both keys are present, `planningEffort` SHALL win; a value outside the mapped th
 "not recorded" and SHALL NOT make the file unparseable. The mapping is
 `openspec/specs/myflow-planning-effort/spec.md`'s, and is not restated here.
 
-**A self-heal rebuild SHALL recover the `worktrees` keys rather than emptying the map.** When the
-prior file cannot be read, the paths SHALL be recovered by scanning each affected repository for the
-worktrees on the change's branch, and each recovered entry SHALL carry `null` for the merge base,
-which the scan cannot produce. An emptied map is not a neutral loss: `/myflow-finish`'s preflight and
-its unfinished-work gate are both defined as once per recorded worktree, so an empty map makes both
-pass having examined none — for a change that may still hold an unmerged worktree. The rebuild SHALL
-name `worktrees` in the correction announcement as recovered without merge bases.
+**A state file that is missing or unparseable SHALL be reported and skipped, never rebuilt from
+inference.** No command infers a state file's contents, so an unreadable file names itself in the
+reading command's own output and its change is omitted from that command's report. The `worktrees`
+map is therefore never reconstructed by scanning, and a change whose state file cannot be read is
+visible as unreadable rather than silently replaced by a guess.
 
 The file SHALL continue to live outside the repository at
 `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`, resolved via `--git-common-dir`,
@@ -144,14 +141,11 @@ and SHALL never be staged, committed or archived.
 - **THEN** `worktrees` has one absolute-path key per repository, and `/myflow-finish` cleans up
   every key
 
-#### Scenario: A rebuild recovers the worktree paths
+#### Scenario: An unreadable state file is named rather than rebuilt
 
-- **WHEN** self-heal rebuilds a state file it could not read, for a change that still holds a
-  worktree on its branch
-- **THEN** the rewritten `worktrees` map carries that worktree's absolute path with a `null` merge
-  base, rather than being emptied
-- **AND** the correction announcement names `worktrees` as recovered without merge bases
-- **AND** the next `/myflow-finish` refuses on that worktree rather than passing with none examined
+- **WHEN** a command reads a state file that is missing or unparseable
+- **THEN** it names that file in its own output and omits the change from its report
+- **AND** it writes nothing to that file and reconstructs no `worktrees` map
 
 #### Scenario: No field records testing
 
@@ -162,51 +156,33 @@ and SHALL never be staged, committed or archived.
 
 - **WHEN** a command reads a state file carrying neither `planningEffort` nor `models`
 - **THEN** the file parses normally with both read as not recorded
-- **AND** no self-heal correction is announced on that account
+- **AND** the file is not reported as unparseable on that account
 
 #### Scenario: The retired key does not make the file unparseable
 
 - **WHEN** a command reads a state file carrying `effort`
 - **THEN** the file parses and the level is read as the equivalent under the current key
 - **AND** the next write carries `planningEffort` and no `effort` key
-- **AND** no correction is announced on that account
+- **AND** the file is not reported as unparseable on that account
 
-### Requirement: State writes are monotonic with one exception
+### Requirement: State writes are monotonic
 
-No command SHALL write a state earlier than the one it read, except that a change whose state file
-records a `prUrl` MAY have that `prUrl` cleared when the PR's non-existence is **conclusively**
-established by a usable PR CLI for the host answering that no PR exists.
+No command SHALL write a state earlier than the one it read. There is no exception.
 
-An inconclusive probe — no PR CLI, no network, no remote — SHALL be treated as unknown and SHALL
-clear nothing.
+`prUrl` SHALL NOT be cleared by any command. The one carve-out this rule previously carried allowed
+`/myflow-status` to clear a recorded `prUrl` when a PR CLI conclusively answered that no pull request
+existed for the branch; that command no longer makes any network call, so the evidence the carve-out
+required can no longer be gathered, and a rule whose precondition can never be met is removed rather
+than left to read as live guidance.
 
-#### Scenario: A closed-unmerged PR does not strand a change
+#### Scenario: A recorded PR URL is never cleared
 
-- **WHEN** `gh` reports no PR exists for the branch of a change whose state file records a `prUrl`
-- **THEN** `prUrl` is cleared, the state remains `IN_PROGRESS`, and the correction is announced
+- **WHEN** any command reads a state file recording a `prUrl`
+- **THEN** it carries that value forward verbatim
+- **AND** no command clears it, whatever the pull request's actual state
 
-#### Scenario: A missing PR CLI is not a contradiction
+#### Scenario: An earlier state is never written
 
-- **WHEN** PR state cannot be determined
-- **THEN** `prUrl` is left as recorded and nothing is cleared
+- **WHEN** a command that accepts `IN_PROGRESS` completes for a change at `IN_PROGRESS`
+- **THEN** it writes `IN_PROGRESS` back, and never `STARTED`
 
-### Requirement: Self-heal validates state against artifacts
-
-Artifacts SHALL remain the source of truth and the state file a cache. Every command SHALL read
-the file, validate it against on-disk artifacts, and on a missing, unparseable or contradicted
-file SHALL rewrite it with the inferred truth and announce the correction as
-`⚠ state corrected: <old> → <new> (reason)`.
-
-Artifacts SHALL be read from the apply worktree whenever one exists, and from the main checkout
-only when none does.
-
-#### Scenario: A state claim contradicted by a worktree is corrected
-
-- **WHEN** the file says `STARTED` but a worktree for branch `openspec/<name>` exists
-- **THEN** the state is corrected to `IN_PROGRESS` and the correction is announced
-
-#### Scenario: A state file predating this model is rewritten, not migrated
-
-- **WHEN** a state file carries a `stage` field instead of a `state` field
-- **THEN** it is treated as unparseable and rewritten from artifacts, with no mapping table from
-  the retired vocabulary

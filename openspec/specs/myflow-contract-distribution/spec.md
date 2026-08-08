@@ -19,9 +19,15 @@ every file `SKILL.md` names is present.
 `pipeline.md` SHALL be canonical for the three states, the command→state transition table and git
 boundaries. **The finish contract SHALL live in `finish-contract.md`**, which is canonical for it:
 the preflight signals, both runs' procedures, base-branch resolution and worktree cleanup are
-reachable only from `/myflow-finish`, and `pipeline.md` is read by every command. `pipeline.md`
-SHALL retain the pipeline's stage table and every level-2 expansion, including those of the finish
-stages, so `/myflow-info` can still describe both runs from the core alone.
+reachable only from `/myflow-finish`, and `pipeline.md` is read by every command.
+
+**The per-state handoff block templates SHALL live in `handoff-blocks.md`**, which is canonical for
+them: only `/myflow-status` needs the full set, every producing command carrying just the one block
+it prints, and `pipeline.md` is read by every command.
+
+**`state-self-heal.md` SHALL NOT exist.** State self-heal is removed from the pipeline, and a
+contract file that no command loads and whose mechanism nothing performs is not kept against a
+future that may never arrive.
 
 A contract carrying both rules and the reasoning behind them SHALL be split into a core and a
 rationale appendix, per
@@ -45,6 +51,12 @@ directory a catch-all whose index and budget guard then have to police files tha
 - **THEN** `finish-contract.md` is named
 - **AND** it is stated to be loaded by `/myflow-finish` and no other command
 
+#### Scenario: The handoff blocks are indexed and attributed to one command
+
+- **WHEN** the index is read
+- **THEN** `handoff-blocks.md` is named
+- **AND** it is stated to be loaded by `/myflow-status` and no other command
+
 #### Scenario: A consumer needing one contract loads only that contract
 
 - **WHEN** a skill needs the state-file shape and nothing else
@@ -62,6 +74,17 @@ directory a catch-all whose index and budget guard then have to police files tha
 - **WHEN** `/myflow-start` or `/myflow-do` runs
 - **THEN** it loads `pipeline.md`
 - **AND** it does not load `finish-contract.md`
+
+#### Scenario: A producing command does not load the handoff blocks
+
+- **WHEN** `/myflow-start`, `/myflow-do` or `/myflow-finish` runs
+- **THEN** it does not load `handoff-blocks.md`
+
+#### Scenario: The self-heal contract is gone
+
+- **WHEN** `skills/myflow-contracts/` is listed
+- **THEN** no `state-self-heal.md` exists
+- **AND** no file in the repository cites it
 
 #### Scenario: A skill's appendix is not filed under the contracts skill
 
@@ -115,7 +138,8 @@ canonical. The stub SHALL NOT claim authority over text it no longer contains.
 
 `myflow-contracts` SHALL appear in the skill index of `CLAUDE.md`, `AGENTS.md`, and
 `README.md`, described as the on-demand contract definitions. The retired
-`myflow-state-advance` skill SHALL NOT appear alongside it in any of those indexes.
+`myflow-state-advance` skill SHALL NOT appear alongside it in any of those indexes, and neither
+SHALL the removed `myflow-info` skill.
 
 #### Scenario: The skill index names the contracts skill
 
@@ -125,8 +149,8 @@ canonical. The stub SHALL NOT claim authority over text it no longer contains.
 #### Scenario: The index names the surviving skills only
 
 - **WHEN** the skill index in `CLAUDE.md`, `AGENTS.md` or `README.md` is read
-- **THEN** `myflow-contracts` is listed and `myflow-state-advance` is absent
-
+- **THEN** `myflow-contracts` is listed
+- **AND** `myflow-state-advance` and `myflow-info` are both absent
 ### Requirement: A contract referenced from a subagent prompt resolves by absolute path
 
 Where a skill instructs a subagent to read a contract file, it SHALL give the **absolute**
@@ -181,8 +205,11 @@ narrower contracts.
 
 The pipeline itself — the state definitions, the command→state transition table, the mismatch
 handoff, git boundaries per state, and the finish contract — SHALL NOT appear in that file, nor
-SHALL the four contract sections (State file, State self-heal, Project configuration, Jira
-integration).
+SHALL the three contract sections (State file, Project configuration, Jira integration).
+
+**There are three rather than four because state self-heal is removed from the pipeline.** The
+mechanism had one performer, `/myflow-status`, which no longer validates a state file against
+artifacts, so neither the contract nor a pointer to it survives anywhere — including here.
 
 The rule's frontmatter `description` SHALL name the three states, not the retired twelve stages.
 
@@ -197,7 +224,12 @@ The rule's frontmatter `description` SHALL name the three states, not the retire
 
 - **WHEN** `rules/myflow-manual-review.mdc` is read after this change
 - **THEN** the three-state diagram is present, the instruction to load `pipeline.md` first is
-  present, and each of the four narrower contracts is named with its exact path
+  present, and each of the three narrower contracts is named with its exact path
+
+#### Scenario: The removed contract is not pointed at
+
+- **WHEN** `rules/myflow-manual-review.mdc` is read after this change
+- **THEN** it names no state self-heal contract and carries no row for one
 
 #### Scenario: The frontmatter names the current vocabulary
 
@@ -207,9 +239,14 @@ The rule's frontmatter `description` SHALL name the three states, not the retire
 
 ### Requirement: The pipeline diagram and its stage table live in `pipeline.md`, and nowhere else
 
-`skills/myflow-contracts/pipeline.md` SHALL carry the pipeline's state diagram and, beneath it, a
-two-level stage table. No other file in this repository SHALL carry a second copy of either.
-`README.md` SHALL point at `pipeline.md` rather than reproduce them.
+`README.md` SHALL carry the pipeline's state diagram and, beneath it, a two-level stage table, as
+prose written for a human reader rather than for a command. `skills/myflow-contracts/pipeline.md`
+SHALL NOT carry either, and no other file in this repository SHALL carry a second copy of either.
+
+**The move is what makes the stage tables free.** No `/myflow-*` command reads `README.md`, so the
+diagram and both levels cost nothing per run. They previously sat in `pipeline.md` so that
+`/myflow-info` could present them at invocation time; that command no longer exists, and the tables
+therefore have no runtime consumer at all.
 
 **Level 1** SHALL be one row per command, listing its stages in order with the human gates marked,
 and SHALL mark which stages carry a level-2 expansion. **Level 2** SHALL expand the stages that
@@ -235,27 +272,27 @@ stops the run. Thresholds are the tuned values that move independently: the chan
 select a conditional slot, the per-slot trigger lists, and the conditions that force a full re-run.
 
 An expansion SHALL NOT reproduce a table another file owns. A copied threshold is a copy that goes
-wrong silently, which is the same failure that justifies the README carrying no diagram; accepting
-it one level down would make the rule inconsistent with itself.
+wrong silently, and accepting it one level down would make the rule inconsistent with itself.
 
 Every citation SHALL use the named-section form `scripts/check-references.sh` verifies, so a cited
 section that is renamed or removed fails the guard rather than rotting.
 
-Placing the diagram here is what lets `/myflow-info` show it: that command reads `pipeline.md` at
-invocation time and is forbidden from answering from memory, so a diagram held only in `README.md`
-is one it can never present.
+**These passages are rewritten for a human reader rather than moved verbatim, and that is
+deliberate.** They leave the loaded corpus entirely for a document no command reads, which
+**A mixed passage MAY be handled by rule extraction** (`myflow-contract-economy`) places outside the
+verbatim-partition rule rather than in exception to it. Each rewritten passage SHALL still carry a
+per-move ledger row naming `README.md` as its destination.
 
-#### Scenario: The contract file carries both levels
+#### Scenario: The README carries both levels
 
-- **WHEN** `pipeline.md` is read
+- **WHEN** `README.md` is read
 - **THEN** it carries the state diagram, a level-1 row per command, and a level-2 expansion for each
   of the eight stages named above
 
-#### Scenario: The README carries no copy
+#### Scenario: The contract file carries no copy
 
-- **WHEN** `README.md` is read
-- **THEN** it points at `pipeline.md` for the diagram and the stage table
-- **AND** it contains neither
+- **WHEN** `skills/myflow-contracts/pipeline.md` is read
+- **THEN** it contains neither the state diagram nor either level of the stage table
 
 #### Scenario: A tuned threshold is cited, not copied
 
@@ -268,7 +305,8 @@ is one it can never present.
 - **WHEN** a section a level-2 expansion cites is renamed
 - **THEN** `scripts/check-references.sh` reports the citation as unresolved
 
-#### Scenario: The pipeline reference command can show the diagram
+#### Scenario: No command loads the stage tables
 
-- **WHEN** `/myflow-info` is asked how the pipeline works
-- **THEN** the diagram it presents comes from the `pipeline.md` it read during that invocation
+- **WHEN** any `/myflow-*` command runs
+- **THEN** it loads no file carrying the state diagram or either level of the stage table
+

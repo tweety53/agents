@@ -99,9 +99,8 @@ A state file that **does not carry the key at all** SHALL be read as "not record
 treated as unparseable. This is an explicit exception to the closed-schema rule, which otherwise makes
 both a missing documented field and an undocumented key unparseable.
 
-Without that exception every state file written before this field existed would be routed through
-self-heal, which announces unrecovered fields and rewrites from artifact inference — a loud correction
-for a value nobody had the opportunity to set.
+Without that exception every state file written before this field existed would be reported as
+unparseable and its change skipped — a loud failure for a value nobody had the opportunity to set.
 
 A state file carrying the retired `effort` key SHALL be read as recording the equivalent level —
 `medium` as `default`, `high` as `detailed`, `low` as `low` — and SHALL NOT be treated as
@@ -114,9 +113,9 @@ recorded a real level as having recorded none, which is the one outcome the exce
 prevent. Where a file carries **both** keys, `planningEffort` SHALL win.
 
 A value under the retired key **outside those three** SHALL be read as *not recorded*, and SHALL NOT
-make the file unparseable. Declaring such a file unparseable would promise an announcement no
-command emits — `/myflow-do` and `/myflow-finish` invoke self-heal nowhere, and `/myflow-status`
-reads the file through a literal `jq` projection that ignores keys it does not name — whereas *not
+make the file unparseable. Declaring such a file unparseable would promise a correction no command
+performs — nothing in the pipeline rebuilds a state file from inference, and `/myflow-status` reads
+the file through a literal `jq` projection that ignores keys it does not name — whereas *not
 recorded* needs no detection to be true and discards only a value that already mapped to no level.
 `planningEffort` SHALL remain exempt from being named among the unrecovered fields so the
 announcement's shape is unchanged.
@@ -128,7 +127,7 @@ from it beyond `/myflow-start`'s own reasoning depth.
 
 - **WHEN** a command reads a state file written before this field existed
 - **THEN** the file parses normally with the level read as not recorded
-- **AND** no self-heal correction is announced on that account
+- **AND** the file is not reported as unparseable on that account
 
 #### Scenario: The retired key is read as its equivalent level
 

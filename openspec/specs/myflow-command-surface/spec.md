@@ -3,31 +3,10 @@
 ## Purpose
 TBD - created by archiving change kan-8-myflow-updates. Update Purpose after archive.
 ## Requirements
-### Requirement: The command surface is three pipeline commands plus two read-only ones
-
-myflow SHALL expose exactly `/myflow-start`, `/myflow-do` and `/myflow-finish` as pipeline
-commands, plus `/myflow-status` and `/myflow-info` as read-only ones.
-
-Every command SHALL exist in both `commands/` and `commands-claude/` with the same name and a
-description that agrees with the skill it points at.
-
-#### Scenario: The retired commands are absent from both trees
-
-- **WHEN** `commands/` and `commands-claude/` are listed
-- **THEN** no file exists for `/myflow-full`, `/myflow-fast-path`, `/myflow-manual-test`,
-  `/myflow-review`, `/myflow-start-fix`, `/myflow-start-done`, `/myflow-do-fix`,
-  `/myflow-do-manual-review`, `/myflow-do-done`, `/myflow-do-fix-manual-review`,
-  `/myflow-do-fix-done`, `/myflow-manual-test-done` or `/myflow-review-done`
-
-#### Scenario: A command and its skill agree
-
-- **WHEN** a command file states which states it accepts
-- **THEN** the skill it delegates to states the same set
-
 ### Requirement: Each command declares the states it accepts
 
 The accepted states SHALL be: `/myflow-start` — none or `STARTED`; `/myflow-do` — `STARTED` or
-`IN_PROGRESS`; `/myflow-finish` — `IN_PROGRESS`; `/myflow-status` and `/myflow-info` — any.
+`IN_PROGRESS`; `/myflow-finish` — `IN_PROGRESS`; `/myflow-status` — any.
 
 On a mismatch a command SHALL stop, report the actual state, the states it expects and the command
 to run instead, and SHALL ask for an explicit override whose default and recommended answer is to
@@ -185,4 +164,34 @@ NOT be silently dropped without being named.
 - **WHEN** a file in the project's state directory cannot be parsed
 - **THEN** it is skipped from the union and named in the report, rather than causing that change to
   be invisible with no explanation
+
+### Requirement: The command surface is three pipeline commands plus one read-only one
+
+myflow SHALL expose exactly `/myflow-start`, `/myflow-do` and `/myflow-finish` as pipeline
+commands, plus `/myflow-status` as the only read-only one.
+
+`/myflow-info` SHALL NOT exist. Its sole job was to read `skills/myflow-contracts/pipeline.md` at
+invocation time and explain the pipeline from it; that explanation now lives in `README.md`, where a
+human reads it directly and no command pays for it.
+
+Every command SHALL exist in both `commands/` and `commands-claude/` with the same name and a
+description that agrees with the skill it points at.
+
+#### Scenario: The retired commands are absent from both trees
+
+- **WHEN** `commands/` and `commands-claude/` are listed
+- **THEN** no file exists for `/myflow-info`, `/myflow-full`, `/myflow-fast-path`,
+  `/myflow-manual-test`, `/myflow-review`, `/myflow-start-fix`, `/myflow-start-done`,
+  `/myflow-do-fix`, `/myflow-do-manual-review`, `/myflow-do-done`, `/myflow-do-fix-manual-review`,
+  `/myflow-do-fix-done`, `/myflow-manual-test-done` or `/myflow-review-done`
+
+#### Scenario: A command and its skill agree
+
+- **WHEN** a command file states which states it accepts
+- **THEN** the skill it delegates to states the same set
+
+#### Scenario: The info skill is gone with its commands
+
+- **WHEN** `skills/` is listed
+- **THEN** no `myflow-info` directory exists
 
