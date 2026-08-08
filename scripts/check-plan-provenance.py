@@ -583,12 +583,19 @@ _ESCAPED_DELIMITER_RE = re.compile(
 # cannot introduce a fifth if it does not scan), and it answers for every
 # delimiter class at once because it never looks at delimiters.
 #
-# The cost was measured before it was chosen, over all 110 markdown files in
-# this repository: 38 numeric claims are exempted, and exactly 2 sit on a line
-# containing `<`. One of those is the manual-test guide's own fixture line for
-# the behaviour being replaced; the other already carries a provenance tag, so
-# it reports nothing. Inside the guard's actual scan scope
-# (`openspec/changes/*/{tasks,design,proposal}.md`) the loss is zero.
+# The cost was measured before it was chosen, and re-derived here against the
+# current tree (`git ls-files '*.md' | wc -l` reports 216 files) by re-running
+# the escape and class-wide vetoes exactly as shipped with the angle-bracket
+# veto left out: 37 numeric claims are exempted, and 9 sit on a line
+# containing `<`. Every one of those 9 is either a worked demonstration of
+# this very veto — quoted on purpose in `plan-provenance.md`'s own prose
+# (`skills/myflow-contracts/plan-provenance.md`), in the live delta spec
+# (`openspec/specs/myflow-plan-provenance/spec.md`), in an archived copy of
+# that spec, or in an archived design document that walked through the same
+# veto — or a claim already carrying a provenance tag on the same line, so
+# none of the 9 reports anything. Inside the guard's actual scan scope
+# (`openspec/changes/*/{tasks,design,proposal}.md`) the loss is zero, since
+# archived and preserved copies fall outside it.
 _ANGLE_BRACKET = "<"
 
 

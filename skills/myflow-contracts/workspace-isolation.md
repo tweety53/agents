@@ -168,7 +168,7 @@ the id derives** (`skills/myflow-contracts/workspace-isolation-rationale.md`) fo
 block is worse than either alternative. A workspace's ports are therefore always either wholly its
 deterministic block or wholly discovered.
 
-**The ports actually bound are written into the change's manual test guide.** The guide names the
+**The ports actually bound are printed in the `/myflow-do` handoff.** The handoff names the
 URLs of the worktree that resolved them, never the project's declared defaults. See **What the id
 derives** (`skills/myflow-contracts/workspace-isolation-rationale.md`) for the cost this mitigates
 and the failure it prevents.

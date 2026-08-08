@@ -1,0 +1,662 @@
+<title>KAN-107 — Remove the manual test guide and its gate</title>
+<style>
+  :root {
+    --ground: #f5f6f8;
+    --panel: #ffffff;
+    --ink: #15181d;
+    --muted: #5d6472;
+    --faint: #878e9c;
+    --rule: #dee2e9;
+    --rule-strong: #c3cad5;
+    --gone: #9c3b38;
+    --gone-soft: #f3e6e5;
+    --stays: #2c6d69;
+    --stays-soft: #e3efee;
+    --code-bg: #f0f2f5;
+
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131519;
+      --panel: #191c22;
+      --ink: #e5e8ee;
+      --muted: #99a1b0;
+      --faint: #737b8a;
+      --rule: #2a2f38;
+      --rule-strong: #3c434f;
+      --gone: #e0918c;
+      --gone-soft: #2c1e1e;
+      --stays: #6ec2b9;
+      --stays-soft: #17282a;
+      --code-bg: #1f232a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #131519;
+    --panel: #191c22;
+    --ink: #e5e8ee;
+    --muted: #99a1b0;
+    --faint: #737b8a;
+    --rule: #2a2f38;
+    --rule-strong: #3c434f;
+    --gone: #e0918c;
+    --gone-soft: #2c1e1e;
+    --stays: #6ec2b9;
+    --stays-soft: #17282a;
+    --code-bg: #1f232a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.5rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 47rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding-top: 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .ticket {
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.1rem;
+  }
+
+  .ticket b { color: var(--muted); font-weight: 600; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.1rem, 5.5vw, 3.1rem);
+    line-height: 1.08;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 .struck {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    text-decoration-color: var(--gone);
+    text-underline-offset: 0.1em;
+  }
+
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--muted);
+    margin: 0;
+    max-width: 38rem;
+    text-wrap: pretty;
+  }
+
+  /* ---------- sections ---------- */
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  h2 {
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--faint);
+    margin: 0;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  h3 {
+    font-family: var(--serif);
+    font-size: 1.18rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  p { margin: 0; text-wrap: pretty; }
+
+  ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.4rem; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 0.1em 0.34em;
+    border-radius: 3px;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.55;
+    background: var(--code-bg);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0.9rem 1rem;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* ---------- the two-column ledger ---------- */
+
+  .ledger {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  @media (max-width: 44rem) {
+    .ledger { grid-template-columns: 1fr; }
+  }
+
+  .col {
+    background: var(--panel);
+    padding: 1.15rem 1.25rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .col-head {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .col.gone .col-head { color: var(--gone); }
+  .col.stays .col-head { color: var(--stays); }
+
+  .col ul { padding-left: 0; list-style: none; gap: 0.55rem; }
+
+  .col li {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    padding-left: 1.1rem;
+    position: relative;
+    color: var(--muted);
+  }
+
+  .col li::before {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+  }
+
+  .col.gone li::before { content: "−"; color: var(--gone); }
+  .col.stays li::before { content: "+"; color: var(--stays); }
+
+  .col li b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- decisions ---------- */
+
+  .decisions {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+  }
+
+  .decision {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--rule-strong);
+  }
+
+  .decision .did {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--faint);
+    letter-spacing: 0.01em;
+  }
+
+  .decision p { font-size: 0.97rem; }
+
+  .ruled-out {
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-top: 0.15rem;
+  }
+
+  .ruled-out span { display: block; }
+
+  .ruled-out em {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .ruled-out span::before {
+    content: "ruled out ";
+    color: var(--gone);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---------- capability table ---------- */
+
+  .tablewrap { overflow-x: auto; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 0.87rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.6rem 0.9rem 0.6rem 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  th {
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 700;
+    border-bottom-color: var(--rule-strong);
+  }
+
+  td:first-child { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; padding-right: 1.4rem; }
+
+  td.op { white-space: nowrap; }
+
+  .op-tag {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 0.16rem 0.45rem;
+    border-radius: 3px;
+  }
+
+  .op-removed { color: var(--gone); background: var(--gone-soft); }
+  .op-modified { color: var(--muted); background: var(--code-bg); }
+  .op-added { color: var(--stays); background: var(--stays-soft); }
+
+  /* ---------- tasks ---------- */
+
+  ol.tasks {
+    list-style: none;
+    counter-reset: t;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  ol.tasks li {
+    counter-increment: t;
+    display: grid;
+    grid-template-columns: 2.3rem 1fr;
+    gap: 0.9rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+
+  ol.tasks li::before {
+    content: counter(t, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .task-body { display: flex; flex-direction: column; gap: 0.25rem; }
+  .task-title { font-size: 1rem; font-weight: 600; }
+  .task-note { font-family: var(--sans); font-size: 0.84rem; color: var(--muted); line-height: 1.5; }
+
+  /* ---------- notes ---------- */
+
+  .note {
+    font-family: var(--sans);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0.9rem 1.05rem;
+  }
+
+  .note b { color: var(--ink); }
+
+  footer {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--faint);
+    border-top: 1px solid var(--rule);
+    padding-top: 1.1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+  }
+
+  a { color: var(--stays); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible { outline: 2px solid var(--stays); outline-offset: 2px; border-radius: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="ticket">
+      <span><b>KAN-107</b></span>
+      <span>kan-107-remove-manual-test-guide-and-gate</span>
+      <span>state <b>STARTED</b></span>
+      <span>effort <b>default</b></span>
+    </div>
+    <h1>Remove the <span class="struck">manual test guide</span> and its gate</h1>
+    <p class="standfirst">
+      <code>/myflow-do</code> stops writing <code>docs/manual-test/&lt;name&gt;.md</code>. The
+      handoff prints the commands for running what is in scope instead. The operator still reviews
+      the diff and still runs the apps — what goes away is the file, its checkboxes, and the two
+      guard signals read back from them.
+    </p>
+  </header>
+
+  <section>
+    <h2>Why</h2>
+    <p>
+      The guide costs a generation step on every run and a refresh on every fix round, and it
+      produces a second completion record beside <code>tasks.md</code> that
+      <code>check-unfinished-work.sh</code> must then police — two of its four signals exist only to
+      read a file the pipeline itself wrote.
+    </p>
+    <p>
+      What an operator actually needs at <code>IN_PROGRESS</code> is the preamble: the commands to
+      run whatever is in scope, with absolute paths and this worktree's resolved URLs. That part
+      survives, printed rather than written down.
+    </p>
+  </section>
+
+  <section>
+    <h2>What changes</h2>
+    <div class="ledger">
+      <div class="col gone">
+        <div class="col-head">Deleted</div>
+        <ul>
+          <li><b>The <code>myflow-manual-test-guide</code> capability</b> — all three requirements</li>
+          <li><b><code>docs/manual-test/</code></b> — the directory and its fourteen committed guides</li>
+          <li><b>Two guard signals</b> — the missing-guide check and the <code>## Known incomplete</code> scan in <code>check-unfinished-work.sh</code></li>
+          <li><b>One planning path</b> — the staging exclusion list drops from three to two</li>
+          <li><b>The status bullet</b> — the guide's path and box count in <code>/myflow-status</code></li>
+        </ul>
+      </div>
+      <div class="col stays">
+        <div class="col-head">Replaced by</div>
+        <ul>
+          <li><b>A <code>Run it:</code> section</b> in the <code>IN_PROGRESS</code> handoff template</li>
+          <li><b><code>/myflow-do</code> section 6</b>, retitled <i>Resolve the run instructions</i> — writes no file</li>
+          <li><b>One requirement</b> in <code>myflow-handoff-output</code>, absorbing the no-runnable-app case</li>
+          <li><b>A renamed plan commit</b> — <code>chore(&lt;name&gt;): plan and session records</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">
+      <b>The gate itself is unchanged.</b> <code>IN_PROGRESS</code> still means the staged diff
+      awaits review <i>and</i> the run. No state is added or removed, and nothing records whether
+      the operator ran anything — as before.
+    </div>
+  </section>
+
+  <section>
+    <h2>The handoff, after</h2>
+    <pre><code>Worktree:   &lt;absolute worktree path&gt;
+
+Run it:
+  &lt;command&gt;          # &lt;app or check name&gt;
+  &lt;command&gt;
+
+Review the diff, then run it:
+  &lt;the review command that matches the git state on the Staged line&gt;
+  open -na "IntelliJ IDEA" --args "&lt;absolute worktree path&gt;"</code></pre>
+    <p style="font-size:0.95rem;color:var(--muted);">
+      Every path absolute; every URL the one this worktree resolved from its workspace id, never the
+      project's declared base. A repository with no runnable application — this one — lists its
+      guard and test commands instead.
+    </p>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+    <div class="decisions">
+
+      <div class="decision">
+        <h3>The human gate keeps both halves</h3>
+        <div class="did">gate-keeps-both-halves · active</div>
+        <p><code>IN_PROGRESS</code> continues to mean “review the staged diff and run the apps.” Only the generated artifact and its checkboxes disappear.</p>
+        <div class="ruled-out">
+          <span><em>Diff review only</em> — running the apps catches what a diff cannot; dropping it narrows the pipeline's only behavioural check.</span>
+          <span><em>No gate at all</em> — a state-machine change, not an artifact removal, leaving nothing before the irreversible step.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3>Run instructions are printed, not written to a file</h3>
+        <div class="did">run-instructions-in-handoff · active</div>
+        <p>The handoff carries the commands directly. Nothing on disk, nothing committed, nothing read back.</p>
+        <div class="ruled-out">
+          <span><em>A file with no checkboxes</em> — keeps the file, the path and the staging exclusion; the removal would be cosmetic.</span>
+          <span><em>Cite <code>.myflow/project.md</code> and stop</em> — loses per-worktree URL resolution, sending the operator to a port this worktree does not bind.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3>The template lives in <code>handoff-blocks.md</code></h3>
+        <div class="did">template-in-handoff-blocks · active</div>
+        <p>One definition, two renderers: <code>/myflow-do</code> carries the block it prints, <code>/myflow-status</code> regenerates from the same template.</p>
+        <div class="ruled-out">
+          <span><em>Each command composes its own</em> — cheaper diff, but the two drift; that is the failure the file was split out to prevent.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3>Both guide signals are deleted from the guard</h3>
+        <div class="did">delete-guide-signals · active</div>
+        <p><code>check-unfinished-work.sh</code> keeps two signals: unticked plan boxes (including <code>&lt;name&gt;-fix-N</code> sub-changes) and open panel findings. Exit codes unchanged.</p>
+        <div class="ruled-out">
+          <span><em>Relocate <code>## Known incomplete</code> onto <code>tasks.md</code></em> — rework for a section the plan's own unticked boxes already express.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3><code>docs/manual-test/</code> is deleted outright</h3>
+        <div class="did">delete-guide-directory · active</div>
+        <p>The directory and its fourteen guides go. Git history retains them.</p>
+        <div class="ruled-out">
+          <span><em>Keep them as history</em> — leaves a directory nothing produces and nothing reads.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3>The planning-path list drops to two</h3>
+        <div class="did">two-planning-paths · active</div>
+        <p>The paths <code>/myflow-do</code> never stages become <code>openspec/</code> and <code>docs/superpowers/</code>.</p>
+        <div class="ruled-out">
+          <span><em>Keep the three-path list</em> — an exclusion for a path that cannot exist is a contract stating something untrue.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3>The capability is removed; one requirement moves</h3>
+        <div class="did">remove-capability-move-requirement · active</div>
+        <p>The capability is deleted in full. One new requirement lands in <code>myflow-handoff-output</code>, which already owns handoff shape and the absolute-path rule.</p>
+        <div class="ruled-out">
+          <span><em>Repurpose it in place</em> — keeps a capability name that no longer describes what it governs.</span>
+          <span><em>Remove it and add nothing</em> — the run instructions would be governed by a skill file alone.</span>
+        </div>
+      </div>
+
+      <div class="decision">
+        <h3>The plan commit is renamed, and the grep matches both wordings</h3>
+        <div class="did">rename-plan-commit · active</div>
+        <p><code>gather-self-review-context.sh</code> matches <code>plan(, test guide and| and) session records</code> at both of its sites, so changes already in history keep resolving.</p>
+        <div class="ruled-out">
+          <span><em>Keep the old subject</em> — names an artifact that no longer exists.</span>
+          <span><em>New wording only</em> — every older change stops resolving its plan commit, and <code>IMPL_SHA</code> then picks that commit up as the implementation commit. A wrong answer, not a missing one.</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Open questions</h2>
+    <p style="color:var(--muted);">None. Every question raised during brainstorming was answered before the plan was written.</p>
+  </section>
+
+  <section>
+    <h2>Delta specs</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Capability</th><th>Operation</th><th>What moves</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>myflow-manual-test-guide</td>
+            <td class="op"><span class="op-tag op-removed">Removed</span></td>
+            <td>All three requirements, each with its reason and its migration.</td>
+          </tr>
+          <tr>
+            <td>myflow-handoff-output</td>
+            <td class="op"><span class="op-tag op-added">Added</span> <span class="op-tag op-modified">Modified</span></td>
+            <td>New: <i>The <code>IN_PROGRESS</code> handoff carries run instructions</i>. Modified: four requirements lose their guide references, and the excluded-path list drops to two.</td>
+          </tr>
+          <tr>
+            <td>myflow-state-machine</td>
+            <td class="op"><span class="op-tag op-modified">Modified</span></td>
+            <td><code>/myflow-do</code> produces the staged diff and the run instructions; <code>IN_PROGRESS</code>'s meaning is restated without the guide.</td>
+          </tr>
+          <tr>
+            <td>myflow-finish-cleanup</td>
+            <td class="op"><span class="op-tag op-modified">Modified</span></td>
+            <td>The unfinished-work signal list goes from four to two, with the guide scenarios replaced by plan ones.</td>
+          </tr>
+          <tr>
+            <td>myflow-command-surface</td>
+            <td class="op"><span class="op-tag op-modified">Modified</span></td>
+            <td>The staging scenario names two paths; the guide-generation scenario becomes run-instruction resolution.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Plan</h2>
+    <ol class="tasks">
+      <li>
+        <div class="task-body">
+          <div class="task-title">Drop the guide signals from the unfinished-work guard</div>
+          <div class="task-note">Harness first: delete every guide fixture, add a case proving an absent directory is not a signal, watch it fail, then strip the guard. <code>count_unticked</code> and <code>unreadable</code> stay — the plan signal uses both.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Match both plan-commit wordings in the self-review context script</div>
+          <div class="task-note">A new-subject fixture beside the two existing old-subject ones, then one ERE alternation at each of the two grep sites.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Drop <code>docs/manual-test/</code> from the staging exclusions</div>
+          <div class="task-note">The harness, then the git chain in all three contract files — which is where the commit subject is renamed too.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Replace <code>/myflow-do</code> section 6 with run-instruction resolution</div>
+          <div class="task-note">Retitled, writing no file, keeping the absolute-path and workspace-URL rules verbatim in substance. Budget ratchet checked in the same task.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Put the run instructions into the handoff template</div>
+          <div class="task-note">The <code>Run it:</code> section is on-disk, not run-only, so <code>/myflow-status</code> regenerates exactly what <code>/myflow-do</code> printed.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Delete the directory and sweep the remaining contract prose</div>
+          <div class="task-note">Ten files, two stale script comments, one fixture path. Preserved records under <code>docs/superpowers/</code> are historical and are not rewritten.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Update the documentation digests and command files</div>
+          <div class="task-note">Six digest sites plus both <code>myflow-do</code> command files. The copies stay deliberately non-identical — the facts are fixed, the wording is not.</div>
+        </div>
+      </li>
+      <li>
+        <div class="task-body">
+          <div class="task-title">Full verification pass</div>
+          <div class="task-note">Twelve harnesses, six lint guards, a sandboxed installer run, and <code>openspec validate --strict</code>. Every hit fixed by editing the line — never a suppression, never a narrowed guard.</div>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <footer>
+    <span>Models — implementation <b>Sonnet</b> · review panel <b>Sonnet</b> · panel fixes <b>Sonnet</b></span>
+    <span>Next: <code>/myflow-do kan-107-remove-manual-test-guide-and-gate</code></span>
+  </footer>
+
+</div>

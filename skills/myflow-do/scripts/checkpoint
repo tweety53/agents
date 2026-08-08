@@ -21,8 +21,8 @@
 # Staging is scoped exactly like uncommitted-review-package's own `git add`:
 # repo-root-anchored (via `-C "$toplevel"`, not cwd-relative `-- .`, so a
 # checkpoint taken from a subdirectory still covers the whole repo) and
-# excluding the three NO-COMMITS planning paths (openspec/, docs/manual-test/,
-# docs/superpowers/) that this pipeline never stages via a bare `git add -A`.
+# excluding the two NO-COMMITS planning paths (openspec/, docs/superpowers/)
+# that this pipeline never stages via a bare `git add -A`.
 #
 # `git stash create` prints its sha without touching HEAD or the working
 # tree, and without adding an entry to `git stash list`. On a clean tree it
@@ -42,7 +42,7 @@ if [ $# -ne 0 ]; then
 fi
 
 toplevel=$(git rev-parse --show-toplevel)
-git -C "$toplevel" add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/'
+git -C "$toplevel" add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/'
 
 ref=$(git stash create)
 if [ -z "$ref" ]; then

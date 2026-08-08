@@ -108,7 +108,7 @@ run_guard "$FIXTURE"
 
 # 7. A path that does not resolve to a file is skipped, not failed.
 new_fixture
-printf 'see **Whatever** in `docs/manual-test/<name>.md`\n' \
+printf 'see **Whatever** in `openspec/changes/<name>/tasks.md`\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unresolvable path skipped" || fail "unresolvable path: out=$OUT"

@@ -75,7 +75,7 @@ of its detail view, so what the omission drops is the transition, which is the r
 
 **`IN_PROGRESS` has two renderings, and one template could not have served both.** Run 1 ends at
 `IN_PROGRESS` but hands off a branch waiting on a merge rather than a diff waiting on review: a
-worktree path, a test-guide path and a staged-diff command are all wrong for it, and it prints none
+worktree path, run instructions and a staged-diff command are all wrong for it, and it prints none
 of them. Forcing both into one template would leave the rule at the top of this section
 unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
 

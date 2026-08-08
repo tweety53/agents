@@ -635,6 +635,30 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# SECTION: F9 — a "plan and session records" substring in an IMPLEMENTATION
+# commit's subject (not the real plan commit) must not exclude it from
+# IMPL_SHA candidacy. IMPL_SHA's exclusion grep must be anchored the same way
+# the archive branch above already is (`^[0-9a-f]+ chore\(${NAME_RE}\): `),
+# not a bare unanchored substring match against the whole "%H %s" line.
+# ===========================================================================
+
+new_repo
+(
+  cd "$REPO" \
+    && git commit -q --allow-empty -m "feat(demo): document plan and session records for onboarding PLAN-PHRASE-SUBSTRING-MARKER" \
+    && git commit -q --allow-empty -m "chore(demo): plan and session records" \
+    && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change PLAN-PHRASE-ARCHIVE-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "plan-phrase substring in impl subject: exits 0" \
+  || fail "plan-phrase substring in impl subject: rc=$RC out=$OUT"
+case "$OUT" in
+  *PLAN-PHRASE-SUBSTRING-MARKER*) \
+    pass "plan-phrase substring in impl subject: impl commit still resolved as IMPL_SHA" ;;
+  *) fail "plan-phrase substring in impl subject: impl commit wrongly excluded from IMPL_SHA: $OUT" ;;
+esac
+
+# ===========================================================================
 # SECTION: F23 — TRUSTED_REPO_ROOT must resolve to the MAIN checkout even
 # when this script's own process cwd is a worktree, not the main checkout.
 # `git rev-parse --show-toplevel` would return the worktree's own root here;
@@ -733,6 +757,45 @@ esac
 case "$OUT" in
   *F25-SYMLINK-TARGET-FILE*) fail "F25 leaf symlink to a file: target file content leaked into bundle: $OUT" ;;
   *) pass "F25 leaf symlink to a file: target file content not in bundle" ;;
+esac
+
+# ===========================================================================
+# SECTION: New plan-commit subject wording ("plan and session records",
+# without "test guide") must resolve as PLAN_SHA and must NOT be picked up
+# by IMPL_SHA. The old subject ("plan, test guide and session records") is
+# kept as its own fixture elsewhere in this file (add_commits, and the F8
+# section above) as the back-compat proof; this section is the new-wording
+# counterpart, proving both subjects resolve correctly side by side.
+# ===========================================================================
+
+new_repo
+(
+  cd "$REPO" \
+    && git commit -q --allow-empty -m "feat(demo): NEW-WORDING-IMPLEMENTATION-COMMIT-BODY" \
+    && git commit -q --allow-empty -m "chore(demo): plan and session records NEW-WORDING-PLAN-COMMIT-BODY" \
+    && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change NEW-WORDING-ARCHIVE-COMMIT-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "new-wording plan commit: exits 0" \
+  || fail "new-wording plan commit: rc=$RC out=$OUT"
+case "$OUT" in
+  *NEW-WORDING-PLAN-COMMIT-BODY*) \
+    pass "new-wording plan commit: plan commit content is present in the bundle" ;;
+  *) fail "new-wording plan commit: plan commit content missing from the bundle: $OUT" ;;
+esac
+# The specific failure this section exists to catch (not just "PLAN_SHA was
+# found"): if IMPL_SHA's exclusion grep is not widened to match the new
+# wording too, IMPL_SHA's head-1-of-most-recent-first selection picks the
+# plan commit itself — it is more recent than the true implementation
+# commit and, unexcluded, outranks it. The true implementation commit is
+# then never reached at all. So the decisive check is that the
+# implementation commit's own body marker made it into the bundle —
+# proving IMPL_SHA resolved to the real implementation commit, not to the
+# plan commit a second time.
+case "$OUT" in
+  *NEW-WORDING-IMPLEMENTATION-COMMIT-BODY*) \
+    pass "new-wording plan commit: implementation commit resolved as IMPL_SHA (not shadowed by the plan commit)" ;;
+  *) fail "new-wording plan commit: implementation commit not resolved as IMPL_SHA — the plan commit likely shadowed it: $OUT" ;;
 esac
 
 # ===========================================================================

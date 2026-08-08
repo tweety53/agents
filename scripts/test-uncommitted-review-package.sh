@@ -326,15 +326,14 @@ else
 fi
 
 # 4.11 checkpoint never stages the NO-COMMITS planning paths (Finding 2):
-# openspec/, docs/manual-test/, docs/superpowers/ must never enter the index
+# openspec/, docs/superpowers/ must never enter the index
 # via checkpoint's staging step, even though everything else in the repo —
 # including a brand-new untracked file in an unrelated subdirectory, and even
 # when checkpoint is invoked from a cwd other than the repo root — must.
 repo="$(new_repo)"
 SANDBOXES+=("$repo")
-mkdir -p "$repo/openspec/changes/x" "$repo/docs/manual-test" "$repo/docs/superpowers" "$repo/src/sub"
+mkdir -p "$repo/openspec/changes/x" "$repo/docs/superpowers" "$repo/src/sub"
 printf 'openspec change\n' > "$repo/openspec/changes/x/tasks.md"
-printf 'manual test notes\n' > "$repo/docs/manual-test/notes.md"
 printf 'superpowers spec\n' > "$repo/docs/superpowers/spec.md"
 printf 'impl change\n' > "$repo/src/sub/impl.txt"
 (cd "$repo/src/sub" && "$CHECKPOINT" >/dev/null)
@@ -343,11 +342,6 @@ if printf '%s\n' "$staged" | grep -q '^openspec/'; then
   fail "checkpoint staged openspec/ despite NO-COMMITS: $staged"
 else
   pass "checkpoint did not stage openspec/"
-fi
-if printf '%s\n' "$staged" | grep -q '^docs/manual-test/'; then
-  fail "checkpoint staged docs/manual-test/ despite NO-COMMITS: $staged"
-else
-  pass "checkpoint did not stage docs/manual-test/"
 fi
 if printf '%s\n' "$staged" | grep -q '^docs/superpowers/'; then
   fail "checkpoint staged docs/superpowers/ despite NO-COMMITS: $staged"
@@ -367,13 +361,12 @@ fi
 # anchoring still works when called from src/sub rather than the repo root).
 repo="$(new_repo)"
 SANDBOXES+=("$repo")
-mkdir -p "$repo/openspec/changes/x" "$repo/docs/manual-test" "$repo/docs/superpowers" "$repo/src/sub"
+mkdir -p "$repo/openspec/changes/x" "$repo/docs/superpowers" "$repo/src/sub"
 printf 'tracked\n' > "$repo/src/sub/base.txt"
 git -C "$repo" add src/sub/base.txt
 git -C "$repo" commit -q -m "add base"
 base="$(cd "$repo" && "$CHECKPOINT")"
 printf 'openspec change\n' > "$repo/openspec/changes/x/tasks.md"
-printf 'manual test notes\n' > "$repo/docs/manual-test/notes.md"
 printf 'superpowers spec\n' > "$repo/docs/superpowers/spec.md"
 printf 'IMPL_MARKER\n' > "$repo/src/sub/new-impl.txt"
 plan="$repo/plan.md"
@@ -393,11 +386,6 @@ else
   else
     pass "the written package does not include openspec/"
   fi
-  if grep -q "docs/manual-test" "$pkg_out"; then
-    fail "planning-path exclusion: package includes docs/manual-test/ despite NO-COMMITS"
-  else
-    pass "the written package does not include docs/manual-test/"
-  fi
   if grep -q "docs/superpowers" "$pkg_out"; then
     fail "planning-path exclusion: package includes docs/superpowers/ despite NO-COMMITS"
   else
@@ -405,7 +393,7 @@ else
   fi
 fi
 staged="$(git -C "$repo" diff --cached --name-only)"
-if printf '%s\n' "$staged" | grep -qE '^(openspec/|docs/manual-test/|docs/superpowers/)'; then
+if printf '%s\n' "$staged" | grep -qE '^(openspec/|docs/superpowers/)'; then
   fail "planning-path exclusion: uncommitted-review-package staged an excluded path: $staged"
 else
   pass "uncommitted-review-package's own staging step did not touch the excluded paths"

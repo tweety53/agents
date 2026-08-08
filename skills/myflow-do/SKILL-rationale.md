@@ -18,9 +18,9 @@ under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), w
 for it — do not restate it here, and do not re-derive it by hand. Compute it once per run, on a fix
 run exactly as on the first: the derivation is deterministic, so a later run reproduces the same id
 rather than reading one back, which is why nothing about it is written to the state file. Two later
-steps consume that one value — section 6 writes the guide's URLs from it, and section 7 resolves the
-project's declared isolation rows against it — so an id derived twice in one run is two chances to
-disagree.
+steps consume that one value — section 6 resolves the run instructions' URLs from it, and section 7
+resolves the project's declared isolation rows against it — so an id derived twice in one run is two
+chances to disagree.
 
 ## 3. Documenting a fix, before implementing it
 
@@ -74,18 +74,20 @@ few costs a defect.
 
 ### Panel re-runs
 
-## 6. Write the manual test guide
+## 6. Resolve the run instructions
 
-In the same run, write or refresh `docs/manual-test/<name>.md`. This is why reviewing and testing
-are one gate: both surfaces are produced together and can never drift apart.
+In the same run, resolve the run instructions for the handoff. This is why reviewing and testing
+are one gate: the diff and the way to run the change are produced together and can never drift
+apart.
 
-A guide written per plan task grows with the implementation rather than with the behaviour, which is
-what made earlier guides long without making them more thorough: several entries could exercise one
-behaviour while another went unlisted.
+Nothing reads the run instructions back — no later command, no guard, no fix round consults a
+recorded copy of them — so writing them to a file would be a record with no consumer. Printing them
+into the handoff instead means they are only ever as stale as the run that just produced them, and
+there is no second copy to fall out of sync with the worktree it describes.
 
-A worktree's applications bind their own ports, so the documented URL an operator
-  opens out of habit reaches whichever workspace holds the default port — a different change's
-  application, answering plausibly and about the wrong work.
+A worktree's applications bind their own ports, so a URL taken from the project's declared base
+instead of this worktree's resolved one reaches whichever workspace holds the default port — a
+different change's application, answering plausibly and about the wrong work.
 
 ## 7. Verify, stage, and hand off
 
@@ -116,7 +118,7 @@ Creating a workspace database and bucket for a run that
 only ever linted would leave behind resources nobody asked for and only `/myflow-finish` run 2
 removes.
 
-Why the three planning paths are left unstaged rather than filtered out of a display:
+Why the two planning paths are left unstaged rather than filtered out of a display:
 
 The exclusion is what keeps them out of the diff, rather
 > than a filter applied when the diff is displayed: a filtered display leaves them in the staging

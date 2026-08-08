@@ -109,7 +109,7 @@ archived.
 
 | Change | Jira | State | PR | Next | Updated |
 |--------|------|-------|----|------|---------|
-| kan-8-myflow-updates | KAN-8 | IN_PROGRESS | #42 | review the diff + run the guide, then `/myflow-finish` | 2h ago (/myflow-do) |
+| kan-8-myflow-updates | KAN-8 | IN_PROGRESS | #42 | review the diff + run the apps, then `/myflow-finish` | 2h ago (/myflow-do) |
 | active-workout-session-editing | — | STARTED | — | read the artifact, then `/myflow-do` | 19h ago (/myflow-start) |
 ```
 
@@ -155,7 +155,7 @@ Next-command mapping:
 | State | Next |
 |-------|------|
 | `STARTED` | read the artifact, then `/myflow-do <name>` (or re-run `/myflow-start` to revise) |
-| `IN_PROGRESS`, branch not merged | review the diff + run the guide, then `/myflow-finish <name>` (or re-run `/myflow-do` to fix) |
+| `IN_PROGRESS`, branch not merged | review the diff + run the apps, then `/myflow-finish <name>` (or re-run `/myflow-do` to fix) |
 | `IN_PROGRESS`, branch merged | `/myflow-finish <name>` — it will archive |
 | `FINISHED` | — |
 
@@ -173,7 +173,6 @@ Add below the table:
 - Linked Jira issue key, or "none linked"
 - Task progress (`N/M` checked from `tasks.md`)
 - Nested `<name>-fix-N` sub-changes, if any
-- The manual test guide's **absolute** path + checked/total box count
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that
 - Whether the branch has reached the base branch — i.e. which `/myflow-finish` run comes next. For a
@@ -217,6 +216,13 @@ one.
   **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`). Do not restate that
   reasoning here, and do not present the test as conclusive.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
+- **The `Run it:` section is resolved, never copied from a stored run.** Follow **6. Resolve the
+  run instructions** (`skills/myflow-do/SKILL.md`) — canonical for how those lines are produced —
+  and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the state file
+  and the project's own `.myflow/project.md` — never the project's declared base — not from any text
+  `/myflow-do` printed earlier. Do not restate the resolution *procedure* here — the steps that
+  compute each app root, start command and URL; a second copy of those steps is the failure this
+  repository's contracts are built to avoid, and naming the invariant above is not one.
 
 With no change name there is no block at all: the no-argument report stays the table above,
 unchanged.

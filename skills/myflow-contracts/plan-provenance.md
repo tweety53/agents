@@ -277,13 +277,13 @@ for m in CLAIM_RE.finditer(line):
 ```
 
 Twelve lines in this repository lose an enclosure that way. Eleven are counter-examples written down
-on purpose — the shapes this document, its manual-test guide and the change's delta spec quote in
-order to explain each veto — which is what it means for a counter-example to be one: it demonstrates
-the shape its veto exists to catch, so being withdrawn is the demonstration working.
+on purpose — the shapes this document and the change's delta spec quote in order to explain each
+veto — which is what it means for a counter-example to be one: it demonstrates the shape its veto
+exists to catch, so being withdrawn is the demonstration working.
 
 | Line | Veto | What it is |
 |------|------|-----------|
-| this file, the manual-test guide and the delta spec | class-wide, escape, angle-bracket | the shapes each veto exists to catch, quoted on purpose (eleven lines) |
+| this file (five lines), the live delta spec (`openspec/specs/myflow-plan-provenance/spec.md`, two lines), an archived copy of that spec (two lines), an archived design document (one line), or an SDD ledger (one line) | class-wide, escape, angle-bracket | the shapes each veto exists to catch, quoted on purpose (eleven lines) |
 | `openspec/changes/archive/2026-07-29-kan-14-plan-provenance/tasks.md`, a table row whose trailing `<!-- measured: … -->` comment quotes `"197 tests"` | angle-bracket | a genuine quotation, withdrawn because its line carries a `<` |
 
 The last is the honest cost of the angle-bracket veto. Its quote characters pair perfectly; what
@@ -291,10 +291,12 @@ withdraws the exemption is the `<` that opens the comment they sit in. It lives 
 change, which the guard does not scan, so no scanned file loses an exemption today.
 
 The same measurement taken the other way round — how much the coarse rule costs over what a full
-CommonMark reader would exempt — is two claims across all 110 Markdown files here: this repository
-almost never quotes a number on a line that also carries a `<`. "Almost never" is a measurement, not
-a guarantee. If you are the first to hit one, reword the line; do not reach for a suppression marker,
-and do not weaken the guard.
+CommonMark reader would exempt — needs a genuine §6.6 raw-HTML boundary detector to answer, which
+this repository does not have and could not pin (the same reason `check-plan-provenance.py`'s
+`CLAIM_RE` comment gives for staying regex-based rather than reaching for a real parser). No number
+is stated here for that reason: the cost is real — a line that merely mentions a `<` unrelated to
+any actual delimiter loses its exemption regardless — but it is rare, and rewording the line is the
+fix whenever you hit one. Do not reach for a suppression marker, and do not weaken the guard.
 ## What the guard does not do
 
 The guard checks that provenance is **stated**: every code block carries `verified:` or

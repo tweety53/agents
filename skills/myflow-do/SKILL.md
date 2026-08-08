@@ -1,12 +1,13 @@
 ---
 name: myflow-do
-description: Implement an OpenSpec change with Superpowers TDD and a multi-agent review panel, emit the manual test guide, and stage everything for one human gate. Re-run to apply a fix. Use for /myflow-do.
+description: Implement an OpenSpec change with Superpowers TDD and a multi-agent review panel, print the run instructions in the handoff, and stage everything for one human gate. Re-run to apply a fix. Use for /myflow-do.
 allowed-tools: Bash(openspec:*)
 license: MIT
 ---
 
-Implement an OpenSpec change, write its manual test guide, and stage both for the human gate at
-`IN_PROGRESS`. **No commits** — unless a PR already exists, which is the one exception below.
+Implement an OpenSpec change, stage the implementation, and print the run instructions in the
+handoff for the human gate at `IN_PROGRESS`: the operator reviews the staged diff and runs the
+apps. **No commits** — unless a PR already exists, which is the one exception below.
 
 **Announce at start:** "Using myflow-do for change `<name>`."
 
@@ -127,8 +128,8 @@ Invoke **superpowers:subagent-driven-development**, treating each remaining chec
 coupled group) as one task. Every implementer dispatch **must** carry all four of:
 
 > **MYFLOW — NO COMMITS:** Do **not** run `git commit`, `git push`, merge, or open a PR. Leave all
-> changes uncommitted in the worktree. You **may** `git add` your own work, but never `openspec/`,
-> `docs/manual-test/` or `docs/superpowers/` — `/myflow-finish` stages and commits those. The parent
+> changes uncommitted in the worktree. You **may** `git add` your own work, but never `openspec/`
+> or `docs/superpowers/` — `/myflow-finish` stages and commits those. The parent
 > records `TASK_BASE=$(skills/myflow-do/scripts/checkpoint)` before dispatch; your diff for review is
 > `skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$TASK_BASE"`.
 
@@ -322,72 +323,44 @@ Only that answer writes `withdrawn`, and only with the reason the operator gives
 the run may write it: the guard reads a `withdrawn` marker with nothing after the status as
 outstanding, so a withdrawal with no stated reason does not clear the gate it appears to.
 
-## 6. Write the manual test guide
+## 6. Resolve the run instructions
 
-In the same run, write or refresh `docs/manual-test/<name>.md`. See
-**6. Write the manual test guide** (`skills/myflow-do/SKILL-rationale.md`) for why.
+In the same run, resolve the run instructions for the handoff's `Run it:` section. It writes no
+file. See **6. Resolve the run instructions** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
-**The guide is a behaviour checklist at capability scope.** One tickable line per user-visible
-behaviour, grouped by capability, scoped to the change's **blast radius** rather than to its plan
-tasks. Phrase each line as the check to perform, in the register an operator would use — say
-`check exercise update — the "key" field saves` — and never as a restatement of the requirement it
-came from. A change that touched every part of exercise CRUD lists create, update, filter, sort and
-delete; not one entry per plan task that produced them. Carry **no** per-step command transcripts,
-**no** expected-output blocks, and **no** explanation of why a check exists.
+Resolve:
 
-Above the checklist, write a **short preamble stating how to run whatever is in scope**. Nothing
-else belongs in it.
-
-- **Every path is absolute**, resolved from `git worktree list` or the state file's `worktrees`
+- **Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path (`../<other-app>`), and never a main-checkout path while a
-  worktree holds the work. **Every URL is the one this worktree resolved**, never the project's
-  declared base. See **6. Write the manual test guide** (`skills/myflow-do/SKILL-rationale.md`) for
-  why. **Resolve each URL from this
-  worktree's workspace id, the way section 2 computed it** — every derived value is a function of
-  that id, so the guide is written from the id and the project's own declaration rather than from a
-  variable some later step exports. The project's `## workspace isolation` rows name the variable
-  each URL is carried by and what it becomes in a workspace, per
-  **Project configuration** (`skills/myflow-contracts/project-configuration.md`); what a workspace
-  id moves at all is listed under
+  worktree holds the work.
+- **Every start command comes from `.myflow/project.md`'s `## run`**, with every path in it made
+  absolute.
+- **Every URL is the one this worktree resolved**, never the project's declared base. **Resolve
+  each URL from this worktree's workspace id, the way section 2 computed it** — every derived value
+  is a function of that id, so the run instructions are resolved from the id and the project's own
+  declaration rather than from a variable some later step exports. The project's
+  `## workspace isolation` rows name the variable each URL is carried by and what it becomes in a
+  workspace, per **Project configuration** (`skills/myflow-contracts/project-configuration.md`);
+  what a workspace id moves at all is listed under
   **What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
 
-  A project that declares no isolation resolves nothing, so the guide names that project's declared
-  URLs unchanged and nothing about an existing guide's shape changes.
+  A project that declares no isolation resolves nothing, so the handoff names that project's
+  declared URLs unchanged.
 
-  **One guide can carry both**, because a project declares only the ports it can actually move: per
-  **Project configuration** (`skills/myflow-contracts/project-configuration.md`), an application
-  whose port is fixed outside that project's own repository keeps its default, and so does every
+  An application whose port is fixed outside that project's own repository keeps its default, per
+  **Project configuration** (`skills/myflow-contracts/project-configuration.md`), and so does every
   URL built from that port. Name such a URL with a short note on the same line — the project's
   default, shared, and holdable by one workspace at a time — and leave the worktree's own URLs
-  plain. Write that note **only** in a guide that also carries a resolved URL: where the run
-  resolved nothing there is no exception to point at, which is what leaves a no-isolation guide
-  exactly as it is today.
+  plain.
 - Apps in scope come from `## apps` in the project's `.myflow/project.md`, or from auto-detection
   when that file or key is absent — see
   **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
-- **Where the project declares no runnable application**, state each check as the command to run,
-  one line each, tickable in the same way, and do not give the guide an application shape the
-  project does not have. This repository is that case: it is the source of the myflow skills,
-  commands and rules, and "running the apps" here means running its guard scripts, its assertion
-  harnesses and a sandboxed installer pass. An application-shaped guide written for it would name
-  an app, a port and a URL that do not exist.
-- On a fix run, **refresh** the guide: preserve already-ticked boxes, and re-open only what the fix
-  invalidated.
-- There is no skip prompt and no `SKIPPED` marking. The guide is there to use or ignore; nothing
-  records whether it was used.
-- **Always write a `## Known incomplete` section.** Either the single word `None.` or a bullet per
-  item the run knows is unfinished — a defect instrumented but not fixed, a case deliberately left
-  for later, a box that cannot be ticked yet. Refresh it on every fix run.
-
-  Finish runs in a different session and has no memory of this one, so anything not written here
-  is invisible at the integration gate. `scripts/check-unfinished-work.sh` reads this section, and
-  treats its **absence** as outstanding rather than as clear.
-
-**The register above is prose; two shapes in this guide are machine-read, and neither changes.**
-The checks stay an unordered list written with the `- [ ]` and `- [x]` markers, and the
-`## Known incomplete` section stays exactly as described. `scripts/check-unfinished-work.sh` parses
-both, so altering either would break a guard while appearing only to shorten a document. Shortening
-what a line *says* is the whole of this change; the markers it is written with are not part of it.
+- **Where the project declares no runnable application**, resolve the `## lint` and `## test`
+  commands instead, with every path in them made absolute, and do not give the handoff an
+  application shape the project does not have. This repository is that case: it is the source of
+  the myflow skills, commands and rules, and "running it" here means running its guard scripts, its
+  assertion harnesses and a sandboxed installer pass. An application-shaped `Run it:` section
+  written for it would name an app, a port and a URL that do not exist.
 
 ## 7. Verify, stage, and hand off
 
@@ -478,13 +451,13 @@ Confirm every intended checkbox is `[x]`, and that no commits were made:
 In **every** affected worktree:
 
 ```bash
-git -C <worktree> reset -q -- openspec/ docs/manual-test/ docs/superpowers/
-git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/'
+git -C <worktree> reset -q -- openspec/ docs/superpowers/
+git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/'
 git -C <worktree> status
 git -C <worktree> diff --cached --stat
 ```
 
-> **Those three paths are never staged.** See **7. Verify, stage, and hand off**
+> **Those two paths are never staged.** See **7. Verify, stage, and hand off**
 > (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 `git add -A` respects `.gitignore`; never force-add.
@@ -495,7 +468,7 @@ work staged. Otherwise never commit. That path makes **two** commits, implementa
 pushed to an open PR keeps its code commit free of planning artifacts. On that path only — and in
 this order — run `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; commit what
 the staging above left in the index, which is the implementation alone; then `git add -A` **again**,
-which is what picks up the three excluded paths; then commit those as the second commit, and push
+which is what picks up the two excluded paths; then commit those as the second commit, and push
 both. The staging above excluded `docs/superpowers/`, where the script writes, so without that
 second `add` neither commit would carry the preserved records. That ordering is what makes a fix
 round raised after a PR is open refresh the preserved records rather than leave them a round stale.
@@ -533,9 +506,12 @@ is that reading only `planningEffort` and writing what it found would erase the 
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
 Worktree:   <absolute worktree path>
-Test guide: <absolute path to docs/manual-test/<name>.md>
 
-Review the diff, then run the apps against the guide:
+Run it:
+  <command>          # <app or check name>
+  <command>
+
+Review the diff, then run it:
   git -C <absolute worktree path> diff --cached          # when staged and uncommitted
   git -C <absolute worktree path> diff <merge base>..HEAD  # when committed and pushed
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
