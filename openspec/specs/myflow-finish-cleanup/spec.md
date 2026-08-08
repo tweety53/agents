@@ -237,6 +237,7 @@ success rather than an error, and run 2 stays re-entrant.
 
 - **WHEN** the map is empty and the scan finds no worktree on the change's branch anywhere
 - **THEN** the run reports that to the operator rather than recording the removal as complete
+
 ### Requirement: The stack-stopped check reads a project-supplied command
 
 `.myflow/project.md` SHALL support an optional `## stop` section naming the command that stops the
@@ -375,21 +376,18 @@ Before it asks how the branch should land, and before any git action, `/myflow-f
 determine whether the change carries unfinished work, by running a script rather than by asserting
 it in prose. The script SHALL be run once per worktree recorded in the state file's `worktrees` map.
 
-Four signals SHALL count as unfinished:
+Two signals SHALL count as unfinished:
 
-- unticked checklist boxes in `docs/manual-test/<name>.md`
 - unchecked items in `openspec/changes/<name>/tasks.md` and in any nested `<name>-fix-N` sub-change
 - findings whose recorded status is open in `.superpowers/sdd/final-review-panel.md`
-- a non-empty `## Known incomplete` section in the manual test guide
 
 The script SHALL print exactly one verdict line — `CLEAR` when no signal fires, or `OUTSTANDING`
 with a per-signal breakdown — and SHALL exit non-zero **with no verdict line** when it cannot read
 the worktree. A run that receives no verdict line SHALL stop and ask the operator; it SHALL NOT read
 missing output as either verdict, and SHALL check the exit code as well as the line.
 
-A file it cannot find, and a manual test guide with no `## Known incomplete` section, SHALL count as
-outstanding rather than as clear. Treating silence as clearance is the failure this requirement
-exists to prevent.
+A file it cannot find SHALL count as outstanding rather than as clear. Treating silence as clearance
+is the failure this requirement exists to prevent.
 
 On `OUTSTANDING` the run SHALL show the breakdown and offer the operator exactly three courses:
 continue and integrate anyway; stop so the work can be finished; or file a tracker issue carrying
@@ -398,9 +396,9 @@ pipeline creates.
 
 Choosing to stop SHALL leave the change at `IN_PROGRESS` with no git action performed.
 
-#### Scenario: An unticked guide stops the run before it asks how to land
+#### Scenario: An unticked plan stops the run before it asks how to land
 
-- **WHEN** run 1 begins for a change whose manual test guide has unticked boxes
+- **WHEN** run 1 begins for a change whose `tasks.md` has unticked boxes
 - **THEN** the breakdown is shown and the three courses are offered before the landing question is
   asked, and before any git command runs
 
@@ -414,10 +412,9 @@ Choosing to stop SHALL leave the change at `IN_PROGRESS` with no git action perf
 - **WHEN** the script exits non-zero without printing a verdict line
 - **THEN** the run stops and asks the operator, and integrates nothing
 
-#### Scenario: A missing Known incomplete section counts as outstanding
+#### Scenario: A missing plan counts as outstanding
 
-- **WHEN** the manual test guide predates this requirement and carries no `## Known incomplete`
-  section
+- **WHEN** the change's `openspec/changes/<name>/tasks.md` cannot be found
 - **THEN** that signal counts as outstanding and the operator is prompted once
 
 #### Scenario: Filing a task records the outstanding work and continues
@@ -510,7 +507,6 @@ each be a failure.
 - **WHEN** the registry gains a row whose lifetime ends at run 2 and the verification accounts for
   it nowhere
 - **THEN** that is a failure to be corrected, rather than a row silently left unverified
-
 
 ### Requirement: Run 2 invokes self-review after writing FINISHED
 

@@ -3,6 +3,7 @@
 ## Purpose
 TBD - created by archiving change kan-8-myflow-updates. Update Purpose after archive.
 ## Requirements
+
 ### Requirement: Every handoff ends with the next command as its last line
 
 Every `/myflow-*` command SHALL end its output with the next command to run, on its own line,
@@ -35,10 +36,10 @@ A handoff SHALL contain what actually happened in one to three lines, the absolu
 anything the operator needs to open, and the next command. It SHALL NOT restate the plan,
 enumerate completed internal steps, or repeat content available at a path it just gave.
 
-#### Scenario: A guide is linked, never pasted
+#### Scenario: A plan is linked, never pasted
 
-- **WHEN** `/myflow-do` writes a manual test guide
-- **THEN** the reply contains the guide's absolute path and not its body
+- **WHEN** `/myflow-do` completes for a change whose plan the operator may want to reread
+- **THEN** the reply contains the plan's absolute path and not its body
 
 #### Scenario: A diff is described, never dumped
 
@@ -48,16 +49,16 @@ enumerate completed internal steps, or repeat content available at a path it jus
 
 ### Requirement: Every path in every output is absolute
 
-Every path a `/myflow-*` command prints — in handoffs, in generated manual test guides, in
-IntelliJ open commands, and in run instructions — SHALL be absolute.
+Every path a `/myflow-*` command prints — in handoffs, in IntelliJ open commands, and in run
+instructions — SHALL be absolute.
 
 A relative path, a sibling-relative path such as `../<other-app>`, or a main-checkout path used
 while an apply worktree holds the work SHALL NOT be emitted. App roots SHALL be resolved from
 `git worktree list` or the state file's `worktrees` keys.
 
-#### Scenario: A generated guide is runnable from anywhere
+#### Scenario: Printed run instructions are runnable from anywhere
 
-- **WHEN** a manual test guide gives a command to start an app
+- **WHEN** a handoff's run instructions give a command to start an app
 - **THEN** every path in that command is absolute and points at the apply worktree for that app
 
 #### Scenario: The IntelliJ command is absolute
@@ -67,8 +68,8 @@ while an apply worktree holds the work SHALL NOT be emitted. App roots SHALL be 
 
 ### Requirement: The review diff excludes planning artifacts
 
-The diff a command presents for review at `IN_PROGRESS` SHALL exclude paths under `openspec/`,
-`docs/manual-test/` and `docs/superpowers/`.
+The diff a command presents for review at `IN_PROGRESS` SHALL exclude paths under `openspec/` and
+`docs/superpowers/`.
 
 The exclusion SHALL be achieved by **not staging** those paths, not by filtering them out of a
 display command. A filtered display leaves the artifacts in the staging area, where every other view
@@ -88,8 +89,8 @@ implementation diff it is mixed into.
 #### Scenario: Planning artifacts are absent from the review diff
 
 - **WHEN** `/myflow-do` hands off at `IN_PROGRESS` and gives commands to inspect the staged diff
-- **THEN** `proposal.md`, `tasks.md`, the delta specs, the manual test guide and the preserved
-  session records do not appear
+- **THEN** `proposal.md`, `tasks.md`, the delta specs and the preserved session records do not
+  appear
 
 #### Scenario: Planning artifacts are absent from the staging area, not merely from one command
 
@@ -154,7 +155,7 @@ The regenerated block SHALL carry, for the change's current state:
 | State | Contents |
 |-------|----------|
 | `STARTED` | the change name, the artifact URL, one folded line carrying the count of decisions recorded, **the count of open questions**, the planning effort and the three model choices, the main-checkout IntelliJ command, and `/myflow-do <name>` as the last line |
-| `IN_PROGRESS`, run 1 not yet done | the change name, one folded line carrying the task progress and the git state, the worktree path, the test guide's path, the review command matching the git state, the worktree IntelliJ command, and `/myflow-finish <name>` as the last line |
+| `IN_PROGRESS`, run 1 not yet done | the change name, one folded line carrying the task progress and the git state, the worktree path, the run instructions, the review command matching the git state, the worktree IntelliJ command, and `/myflow-finish <name>` as the last line |
 | `IN_PROGRESS`, run 1 done | the change name, the pull request URL, and `/myflow-finish <name>` as the last line |
 | `FINISHED` | nothing — `FINISHED` changes are omitted from this report, as they already are |
 
@@ -191,7 +192,7 @@ restated here, so there is only one place to correct when they change.
 - **WHEN** `/myflow-status <name>` runs for a change at `IN_PROGRESS` whose work is staged and
   uncommitted, so `HEAD` is still the merge base recorded for its worktree, and which records no
   `prUrl`
-- **THEN** it prints the worktree path, the guide path and the staged-diff command
+- **THEN** it prints the worktree path, the run instructions and the staged-diff command
 - **AND** its last line is `/myflow-finish <name>`
 
 #### Scenario: A change waiting on a merge regenerates the shorter block
@@ -199,7 +200,7 @@ restated here, so there is only one place to correct when they change.
 - **WHEN** `/myflow-status <name>` runs for a change at `IN_PROGRESS` whose branch is not merged and
   which records a `prUrl`
 - **THEN** it prints the pull request URL
-- **AND** it does not print the worktree path, the guide path or the staged-diff command
+- **AND** it does not print the worktree path, the run instructions or the staged-diff command
 - **AND** its last line is `/myflow-finish <name>`
 
 #### Scenario: A manually landed branch is not shown as a diff waiting on review
@@ -357,3 +358,47 @@ rebuilt from inference.
 
 - **WHEN** `/myflow-status` renders a row for a change at `IN_PROGRESS` whose branch is proven merged
 - **THEN** the Next column says the next `/myflow-finish` will archive
+
+### Requirement: The `IN_PROGRESS` handoff carries run instructions
+
+`/myflow-do`'s handoff SHALL carry the instructions for running whatever the change put in scope,
+printed in the handoff itself. No file SHALL be written for them and none SHALL be committed.
+
+The instructions SHALL name, for each thing in scope, the command that starts or exercises it. Every
+path in them SHALL be absolute, resolved from `git worktree list` or the state file's `worktrees`
+keys. Every URL SHALL be the one this worktree resolved from its workspace id, never the project's
+declared base; a project declaring no workspace isolation resolves nothing and its declared URLs are
+printed unchanged.
+
+The commands SHALL come from the project's own `.myflow/project.md` — its `## run` section where the
+project has a runnable application, and its `## lint` and `## test` sections where it has none. The
+instructions SHALL NOT be given an application-shaped structure a project does not have.
+
+The instructions SHALL carry no checkboxes, no completion state and no record of what the operator
+did. Nothing in the pipeline SHALL read them back: they are an instruction to the operator, not a
+record, and no guard SHALL derive a signal from them.
+
+#### Scenario: The handoff prints the commands rather than a path to them
+
+- **WHEN** `/myflow-do` hands off at `IN_PROGRESS`
+- **THEN** the block carries the commands to run what is in scope
+- **AND** no file was written for them and none was staged
+
+#### Scenario: A worktree's own URL is printed, not the project's declared one
+
+- **WHEN** the change's worktree resolved a workspace id that moved an application's port
+- **THEN** the printed URL is the one this worktree resolved
+- **AND** it is not the base URL declared in `.myflow/project.md`
+
+#### Scenario: A repository with no runnable application lists its checks
+
+- **WHEN** the handoff is rendered for a repository whose `.myflow/project.md` declares no runnable
+  application
+- **THEN** the instructions are that project's guard and test commands, one per line, with absolute
+  paths
+- **AND** they describe no application, port or URL that does not exist
+
+#### Scenario: Nothing reads the instructions back
+
+- **WHEN** `/myflow-finish` runs its unfinished-work check for the change
+- **THEN** no signal is derived from the run instructions, because they were never written down

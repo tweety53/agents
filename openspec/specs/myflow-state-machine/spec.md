@@ -3,6 +3,7 @@
 ## Purpose
 TBD - created by archiving change kan-8-myflow-updates. Update Purpose after archive.
 ## Requirements
+
 ### Requirement: The pipeline has exactly three states
 
 myflow SHALL track a change in exactly one of three states: `STARTED`, `IN_PROGRESS`, `FINISHED`.
@@ -10,7 +11,7 @@ Each pipeline command SHALL end in the state named after it, so the state names 
 names are the same vocabulary.
 
 The human gate SHALL be a property of the state rather than a separate stage: `STARTED` means the
-proposal awaits reading, `IN_PROGRESS` means the staged diff and the test guide await the human,
+proposal awaits reading, `IN_PROGRESS` means the staged diff awaits the human's review and the run,
 `FINISHED` is terminal.
 
 #### Scenario: Each command lands in its own state
@@ -27,23 +28,26 @@ proposal awaits reading, `IN_PROGRESS` means the staged diff and the test guide 
 
 ### Requirement: Reviewing and testing are one gate
 
-`/myflow-do` SHALL produce **both** the staged implementation diff **and** the manual test guide
-at `docs/manual-test/<name>.md` in the same run, so that the human reviews the diff and runs the
-apps at a single stop.
+`/myflow-do` SHALL produce **both** the staged implementation diff **and** the run instructions in
+its handoff, in the same run, so that the human reviews the diff and runs the apps at a single stop.
 
-No separate command SHALL exist for generating the test guide, and no state SHALL exist between
+The run instructions SHALL be printed rather than written to a file, per **The `IN_PROGRESS` handoff
+carries run instructions** in `myflow-handoff-output`. No artifact SHALL record what the human ran
+or whether they ran it.
+
+No separate command SHALL exist for producing either surface, and no state SHALL exist between
 implementation and finishing.
 
 #### Scenario: One run produces both review surfaces
 
 - **WHEN** `/myflow-do` completes
-- **THEN** the worktree contains a staged diff and a staged manual test guide, and the handoff
-  names the absolute path of each
+- **THEN** the worktree contains a staged diff, and the handoff names the worktree's absolute path
+  and carries the run instructions
 
 #### Scenario: A fix refreshes both
 
 - **WHEN** `/myflow-do` is re-run as a fix at `IN_PROGRESS`
-- **THEN** the guide is refreshed alongside the code, preserving already-ticked boxes, so the two
+- **THEN** the handoff's run instructions are resolved afresh alongside the code, so the two
   surfaces never drift apart
 
 ### Requirement: Every command is re-entrant
@@ -149,7 +153,7 @@ and SHALL never be staged, committed or archived.
 
 #### Scenario: No field records testing
 
-- **WHEN** the state file is read after `/myflow-do` has produced a test guide
+- **WHEN** the state file is read after `/myflow-do` has handed off at `IN_PROGRESS`
 - **THEN** there is no `tested` field, because no command observes whether the human ran the apps
 
 #### Scenario: An absent optional field is legal
@@ -185,4 +189,3 @@ than left to read as live guidance.
 
 - **WHEN** a command that accepts `IN_PROGRESS` completes for a change at `IN_PROGRESS`
 - **THEN** it writes `IN_PROGRESS` back, and never `STARTED`
-

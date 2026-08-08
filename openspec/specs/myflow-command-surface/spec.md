@@ -3,6 +3,7 @@
 ## Purpose
 TBD - created by archiving change kan-8-myflow-updates. Update Purpose after archive.
 ## Requirements
+
 ### Requirement: Each command declares the states it accepts
 
 The accepted states SHALL be: `/myflow-start` — none or `STARTED`; `/myflow-do` — `STARTED` or
@@ -54,7 +55,7 @@ PR keeps its code commits free of planning artifacts.
 #### Scenario: Staging holds implementation only
 
 - **WHEN** `/myflow-do` stages at the end of any run
-- **THEN** no path under `openspec/`, `docs/manual-test/` or `docs/superpowers/` is staged
+- **THEN** no path under `openspec/` or `docs/superpowers/` is staged
 
 #### Scenario: Finish commits both, in order
 
@@ -110,11 +111,11 @@ skill **before** the removed skill is deleted.
 - **THEN** the artifact-creation steps it previously delegated to `openspec-propose` are present
   in `skills/myflow-start/`
 
-#### Scenario: Do carries the test guide generation
+#### Scenario: Do carries the run-instruction resolution
 
 - **WHEN** `/myflow-do` runs after the restructure
-- **THEN** the guide-writing steps previously in `openspec-manual-test-superpowers` are present in
-  `skills/myflow-do/`, and that skill no longer exists
+- **THEN** the step that resolves the run instructions is present in `skills/myflow-do/`, and
+  `openspec-manual-test-superpowers` no longer exists
 
 ### Requirement: The opsx commands that duplicate pipeline steps are removed
 
@@ -194,4 +195,3 @@ description that agrees with the skill it points at.
 
 - **WHEN** `skills/` is listed
 - **THEN** no `myflow-info` directory exists
-
