@@ -9,7 +9,7 @@ description: Status — where every open change actually is (read-only)
 
 Use the **myflow-status** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
-Follow that skill exactly. Accepts **any** state and never blocks. **Read-only** — it never commits, never advances a state, and never creates a worktree. Its one write is state self-heal: correcting a stale cache to match the artifacts already on disk.
+Follow that skill exactly. Accepts **any** state and never blocks. **Read-only** — it never commits, never advances a state, never creates a worktree, and never writes the state file.
 
 Reports each open change's state, PR, absolute worktree path, last update, and the next command — including which `/myflow-finish` run comes next, since that depends on whether the branch is merged.
 

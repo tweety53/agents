@@ -43,8 +43,10 @@ staged and never committed — after which run 2 archives the change and `--forc
 holding all of it.
 
 On a `REFUSE`, stop before touching anything, report `HEAD`, the base branch and the uncommitted
-count, and ask the operator explicitly. On a multi-repo change, run the script once per `worktrees`
-key and proceed to run 2 only when **every** worktree returns `RUN2`.
+count, and ask the operator explicitly. On a multi-repo change, run the script once per worktree in
+the set found by **Resolving a change's worktrees** below, and proceed to run 2 only when **every**
+worktree returns `RUN2`. A resolved set that comes back empty is not "every worktree" — it stops the
+run exactly as **Resolving a change's worktrees** requires, never a vacuous `RUN2`.
 
 **When the script is absent** — a harness whose repository does not carry it — perform the same three
 signals by hand in the same order and say in the handoff that the check was run manually. The check is
@@ -57,7 +59,10 @@ script — but signals 1 and 3 still run, and still run in this order.
 **Check for unfinished work first — before the landing question and before any git action.**
 `scripts/check-unfinished-work.sh <worktree> <change-name>` prints one verdict line and exits 0
 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the worktree.
-Run it once per worktree recorded in the state file's `worktrees` map.
+Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
+read of the state file's `worktrees` map, for the same reason the preflight verdict above does not
+read it raw. A resolved set that comes back empty stops the run rather than passing as `CLEAR` from
+every worktree.
 
 | Verdict | Meaning |
 |---------|---------|
@@ -260,21 +265,69 @@ the one irreversible step.
    (`skills/myflow-contracts/finish-contract.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
 8. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
-   the change off `FINISHED`. The stage itself is
-   **Self-review — `/myflow-finish` run 2** (`skills/myflow-contracts/pipeline.md`).
+   the change off `FINISHED`. It is skippable per run, with running it the default. It gathers its
+   input by invoking `scripts/gather-self-review-context.sh` rather than having the reasoning pass
+   re-read files inline, runs **one** combined reasoning pass covering all four angles — problems
+   and fixes, cost, what went well, and automation candidates — together with the operator's 1-5
+   rating, never as four separate dispatches, and offers a per-finding Jira filing ask before
+   committing its report to `docs/self-review/<name>-self-review.md`. **This procedure is
+   canonical here.** Step 8 of `skills/myflow-finish/SKILL.md`'s own run 2 carries only what is
+   specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
+   and the report-commit shell. It is not a second statement of this rule.
+
+   **Which file to change first.** The normative requirement is
+   **Requirement: Self-review runs only after FINISHED is written**
+   (`openspec/specs/myflow-self-review/spec.md`), read alongside the sibling requirements in that
+   same file for context gathering, the combined pass, the per-finding filing ask, the rating and
+   the report path. That file is the requirement to change first when the procedure changes — it is
+   not the runtime source of the procedure, which is stated above.
 
 **The Jira `Done` transition fires before step 8, not after it.** Per **Jira integration**
 (`skills/myflow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
 archive move and the state write — that transition has already happened by the time step 8 begins,
 so self-review has nothing to delay: there is no Jira write left in run 2 for it to sit in front of.
 
+### Resolving a change's worktrees
+
+The scan that finds the worktrees carrying a change's branch. This is `/myflow-finish`'s own
+application of the rule stated once under **Resolving a change's worktrees**
+(`skills/myflow-contracts/pipeline.md`) — that a step needing "the worktrees" resolves the set
+rather than reading the state file's `worktrees` map directly, and that a resolved set which comes
+back empty is never a vacuous pass. That rule and the commands it binds are not restated here; what
+follows is specific to `/myflow-finish`: the preflight verdict, the unfinished-work gate, and run
+2's removal all resolve the set through this same procedure.
+
+The set of worktrees is the **keys of the state file's `worktrees` map**. When that is absent or
+empty, scan each affected repository:
+
+```bash
+git -C "$REPO" worktree list --porcelain \
+  | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/openspec/<name>") print w}'
+```
+
+**Never guess a path.** Worktree layout differs per repository — this repo keeps its worktrees in a
+sibling directory, not `.worktrees/`.
+
+**Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
+worktree on the change's branch in any affected repository.** Per **Resolving a change's worktrees**
+(`skills/myflow-contracts/pipeline.md`), that is a state the pipeline cannot explain: stop and
+report it to the operator, exactly as a `REFUSE`
+verdict would, rather than letting a zero-iteration loop read as "every worktree returned `RUN2`" or
+"`CLEAR` from every worktree." This applies wherever this procedure is used — the preflight verdict,
+the unfinished-work gate and run 2's removal alike.
+
+**The path is taken with `substr`, never `$2`.** `worktree list --porcelain` emits it raw, so a
+field reference truncates any path containing a space at the first one: fed
+`worktree /tmp/my worktree/x` it yields `/tmp/my`, and the run then `--force`-removes a path that is
+not the worktree, or fails having named the wrong one. `10` is one past the length of the literal
+`worktree ` prefix. The branch on the next line is a ref name and cannot contain a space, so `$2` is
+right for it. `scripts/check-cleanup-complete.sh` parses the same stream the same way — the guard
+and the snippet it verifies must not disagree, or the wrong one gets copied next.
+
 ### Worktree cleanup
 
 Which worktrees those are, and the `git worktree list --porcelain` scan that finds them when
-the state file's map is absent, are **Resolving a change's worktrees**
-(`skills/myflow-contracts/pipeline.md`) — hoisted into the core because
-`skills/myflow-contracts/state-self-heal.md` uses the same scan to rebuild that map, and no
-command that self-heals a state file loads this file.
+the state file's map is absent or empty, are **Resolving a change's worktrees** above.
 
 For each worktree, run **all four** checks before removing anything:
 

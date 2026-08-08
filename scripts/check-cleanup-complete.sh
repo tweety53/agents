@@ -300,7 +300,7 @@ note() { NOTE="${NOTE:+$NOTE; }$1"; }
 
 # Row one — the worktree, found by BRANCH rather than by path, exactly as the
 # Worktree cleanup contract finds worktrees when the state file's map is
-# absent: a path is never guessed from a conventional layout.
+# absent or empty: a path is never guessed from a conventional layout.
 #
 # A command substitution, never a scratch file: a verifier that writes into the
 # tree it is verifying can leave behind exactly the class of leftover it exists

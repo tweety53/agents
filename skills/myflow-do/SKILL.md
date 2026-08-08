@@ -76,19 +76,29 @@ Extract the **Global constraints** verbatim from the delta specs and `design.md`
 ## 2. Isolate the workspace (first run only)
 
 Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
-default branch without explicit consent. Record each worktree's merge base — it goes into the state
-file's `worktrees` map, which is the authoritative list of affected worktrees.
+default branch without explicit consent. Record each worktree's merge base and absolute path as
+soon as the worktree exists, in this run's own working notes — not in the state file, whose
+`worktrees` map is written only at the end of section 7. That merge base and path are what section
+7's workspace-isolation guard needs, and this run knows them from here on regardless of what the
+on-disk state file currently says. At the section 7 write, that same map becomes the state file's
+`worktrees` map, which is the authoritative recorded list of affected worktrees.
 
 On a fix run, resume the existing worktree. **Never create a second one.**
+
+**This run's resolved worktree set — the set section 7's guard iterates — is the worktree just
+created or resumed above, plus any additional worktree this change affects.** Per **Resolving a
+change's worktrees** (`skills/myflow-contracts/pipeline.md`), how a command resolves the set beyond
+reading the state file's map is that command's own; this is `/myflow-do`'s. It is non-empty by
+construction on every ordinary run, first or fix alike — the worktree is known the moment it is
+created or resumed above, well before section 7 runs and well before the state file's `worktrees`
+map is next written. Section 7's empty-set stop is for the genuinely anomalous case where this step
+produced no worktree at all, never the ordinary shape of a first run.
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
 under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), which is canonical
 for it — do not restate it here, and do not re-derive it by hand. Compute it once per run, on a fix
-run exactly as on the first: the derivation is deterministic, so a later run reproduces the same id
-rather than reading one back, which is why nothing about it is written to the state file. Two later
-steps consume that one value — section 6 writes the guide's URLs from it, and section 7 resolves the
-project's declared isolation rows against it — so an id derived twice in one run is two chances to
-disagree.
+run exactly as on the first. See **2. Isolate the workspace (first run only)**
+(`skills/myflow-do/SKILL-rationale.md`) for why.
 
 The main checkout has no id, and a project that declares no isolation at all is that same case
 wherever it runs: every value resolves to the project's declared default, and neither is reported as
@@ -159,9 +169,8 @@ Never merge two slots into one prompt.
 
 **Every slot the panel spawns directly runs on the model the state file records under
 `models.reviewPanel`, defaulting to Sonnet** when that field is absent or null. There is no
-parent-model inheritance and no economy tier — the panel's cost must not depend on which model the
-operator happens to be running, and a recorded value is a deliberate decision for one change rather
-than an inheritance path.
+parent-model inheritance and no economy tier. See **5. The review panel**
+(`skills/myflow-do/SKILL-rationale.md`) for why.
 
 | # | Slot | Required? | Model | How to spawn |
 |---|------|-----------|-------|--------------|
@@ -182,10 +191,9 @@ its standards files: architecture and layer purity, new suppressions, weakened l
 
 **Resolve `[PRINCIPLES_PATH]` before dispatching any principles slot.** It is the **absolute** path
 of `engineering-principles.md` in the directory you are reading this file from — under a global
-install, `~/.claude/skills/myflow-do/engineering-principles.md`. The subagent's working directory is
-the project worktree, which has no `skills/` tree, so a repo-relative path opens nothing and the
-reviewer runs with no principle list. Confirm the file exists before spawning; if it does not,
-stop and report rather than dispatching a blind reviewer.
+install, `~/.claude/skills/myflow-do/engineering-principles.md`. Confirm the file exists before
+spawning; if it does not, stop and report rather than dispatching a blind reviewer. See
+**5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why it must be absolute.
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in the
 project's `.myflow/project.md`. Entries are **not** paths to use as-is: each resolves through the
@@ -216,11 +224,8 @@ finding-status: F1 fixed
 ```
 
 `scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
-its header, not its column order, not its cell boundaries, not where it starts or stops. So an
-unescaped `|` inside a cell is just text, a reordered header changes nothing, and a row that lost a
-boundary pipe still counts. That is the point of the split — the previous shape asked a hand-rolled
-table parser to recover one fact from a grammar defined in prose, and it failed **open** six
-distinct ways across three review passes before it was replaced.
+its header, not its column order, not its cell boundaries, not where it starts or stops. See
+**5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **The rules the guard does enforce, each of which reports outstanding when broken:**
 
@@ -234,21 +239,17 @@ distinct ways across three review passes before it was replaced.
   about it.
 - The table's `F<n>` identifiers and the marker block's must name the **same** findings. A row with
   no marker and a marker with no row are each reported.
-- Each `F<n>` names **one** finding. A reused identifier is reported on each side separately, so two
-  distinct findings labelled `F1` in both the table and the marker block cannot cancel out — that
-  shape hid an open Critical, with the word `open` never appearing in a marker at all.
-- The marker lines sit on **consecutive lines**, one unbroken block. This is what stops a marker
-  quoted elsewhere — inside a fenced example, say — standing in for a marker that was never written,
-  which is the one route that still under-counted when the redesign was attacked.
+- Each `F<n>` names **one** finding. A reused identifier is reported on each side separately. See
+  **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
+- The marker lines sit on **consecutive lines**, one unbroken block. See **5. The review panel**
+  (`skills/myflow-do/SKILL-rationale.md`) for why.
 - `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A record
   with no total line is outstanding however clean it reads: zero findings is not something to infer
   from silence. A panel that raised nothing says `findings-total: 0` and carries no markers.
 
 **The table carries no status column, on purpose.** A finding's state is written once, on its
-marker line. A status cell beside the marker is a second surface that can silently disagree with the
-line that governs: the machine's direction is protected — a marker reading `open` blocks whatever a
-cell says — but nothing protects a reader who sees `fixed` in the table and believes it. State the
-fact once. To read a finding's state, look up its `F<n>` in the marker block.
+marker line. To read a finding's state, look up its `F<n>` in the marker block. See
+**5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **A `withdrawn` marker's reason is checked for being there at all.** A withdrawal is the operator's
 decision at the panel's handback, not a status a run may write for itself: a fix subagent rewriting
@@ -269,8 +270,8 @@ included and which were excluded and why.
 | 5 — Lens B (simplicity & state) | **>~200** changed lines, or **≥3** new classes/modules | — |
 | 5 — Lens C (robustness & ops) | error handling, retries, schedulers, external integrations, config/env, migrations | — |
 
-**Borderline → ask**, with **include** as the default. A reviewer too many costs tokens; one too
-few costs a defect.
+**Borderline → ask**, with **include** as the default. See **Optional slot selection**
+(`skills/myflow-do/SKILL-rationale.md`) for why.
 
 A documentation-, prompt-, or test-only diff with no trigger runs the three required slots alone.
 That is a correct outcome, not a skipped review — say so explicitly.
@@ -323,8 +324,8 @@ outstanding, so a withdrawal with no stated reason does not clear the gate it ap
 
 ## 6. Write the manual test guide
 
-In the same run, write or refresh `docs/manual-test/<name>.md`. This is why reviewing and testing
-are one gate: both surfaces are produced together and can never drift apart.
+In the same run, write or refresh `docs/manual-test/<name>.md`. See
+**6. Write the manual test guide** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **The guide is a behaviour checklist at capability scope.** One tickable line per user-visible
 behaviour, grouped by capability, scoped to the change's **blast radius** rather than to its plan
@@ -340,9 +341,8 @@ else belongs in it.
 - **Every path is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path (`../<other-app>`), and never a main-checkout path while a
   worktree holds the work. **Every URL is the one this worktree resolved**, never the project's
-  declared base. A worktree's applications bind their own ports, so the documented URL an operator
-  opens out of habit reaches whichever workspace holds the default port — a different change's
-  application, answering plausibly and about the wrong work. **Resolve each URL from this
+  declared base. See **6. Write the manual test guide** (`skills/myflow-do/SKILL-rationale.md`) for
+  why. **Resolve each URL from this
   worktree's workspace id, the way section 2 computed it** — every derived value is a function of
   that id, so the guide is written from the id and the project's own declaration rather than from a
   variable some later step exports. The project's `## workspace isolation` rows name the variable
@@ -397,7 +397,15 @@ what a line *says* is the whole of this change; the markers it is written with a
 <agents repo>/scripts/check-workspace-isolation.sh <worktree>
 ```
 
-once per worktree in the state file's `worktrees` map, **before** resolving a single row and before
+once per worktree in this run's resolved set — per section 2, the worktree this run created or
+resumed, plus any additional worktree this change affects — never a raw read of the state file's
+`worktrees` map, which a `{}` or absent map would make this check pass having examined nothing (and
+is exactly what the map reads as on every first run, before this run's own section-7 write). Per
+**Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`), a resolved set that
+comes back empty stops rather than passes: report it and do not proceed to validate a worktree the
+state file cannot name. Because section 2 already made the set non-empty by construction, that stop
+fires here only in the genuinely anomalous case where section 2 produced no worktree at all — not
+on the ordinary shape of a first run. Run this **before** resolving a single row and before
 anything else below this line. `<agents repo>` is the same root a bare `.mdc` `## standards` entry
 resolves against, and the two steps that find it — from a global install and from a project-local
 one alike — are stated once under
@@ -416,10 +424,9 @@ guard exiting 2, and is reported rather than passed over.
 directory copied rather than linked, so the two steps above resolve to something that is not the
 agents repository — apply the same rules by hand from **Project configuration**
 (`skills/myflow-contracts/project-configuration.md`), which is canonical for them, and say in the
-handoff that the validation was performed manually **and why the script was not run**. The two
-reasons are one case, deliberately: both end with nothing having run the guard, and a session that
-recognised only "the repository does not carry it" would answer a failed resolution by doing
-nothing at all and saying nothing about it. It is never skipped for want of the script, and "the
+handoff that the validation was performed manually **and why the script was not run**. See
+**7. Verify, stage, and hand off** (`skills/myflow-do/SKILL-rationale.md`) for why the two reasons
+are treated as one case. It is never skipped for want of the script, and "the
 declaration was validated" is never reported for a run in which nothing validated it.
 
 **Then export the variables the project's `## workspace isolation` section declares**, resolved
@@ -434,9 +441,8 @@ here. What belongs to this command is when the resolution happens and what follo
   declared variable, and every process either one starts inherits the same values. **The test
   command itself is unchanged**: this step changes what the tests run against, never how they are
   invoked or which they are.
-- **Every declared row, not a subset.** A value this run resolved and did not export is a value
-  nothing reads, so the workspace is isolated on paper while the applications and their checks still
-  reach the project's shared resource — the same silent wrong answer as having derived nothing.
+- **Every declared row, not a subset.** See **7. Verify, stage, and hand off**
+  (`skills/myflow-do/SKILL-rationale.md`) for why.
 - **The cache index is claimed here, not looked up.** A `cache index` row resolves by probing the
   cache and claiming a free index, so this step is the moment the claim happens, per
   **The cache index** (`skills/myflow-contracts/workspace-isolation.md`). Claim once and export that
@@ -459,9 +465,8 @@ gap.** `create` is called by whatever starts the project's applications, per
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`), and this command
 starts none of them — it exports, lints, tests, and hands off. The applications are started at the
 review gate by the operator, through the project's own `## run` commands, which is where the
-creation and its one-time notice belong. Creating a workspace database and bucket for a run that
-only ever linted would leave behind resources nobody asked for and only `/myflow-finish` run 2
-removes.
+creation and its one-time notice belong. See **7. Verify, stage, and hand off**
+(`skills/myflow-do/SKILL-rationale.md`) for why.
 
 Run the project's `## lint` and `## test` commands from `.myflow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
@@ -479,11 +484,8 @@ git -C <worktree> status
 git -C <worktree> diff --cached --stat
 ```
 
-> **Those three paths are never staged.** The exclusion is what keeps them out of the diff, rather
-> than a filter applied when the diff is displayed: a filtered display leaves them in the staging
-> area, where the IDE's staged-changes pane and `git status` show them again. The list is fixed —
-> the pipeline chooses these paths itself, so no project can differ. `/myflow-finish` stages and
-> commits them separately, so nothing is lost by leaving them unstaged here.
+> **Those three paths are never staged.** See **7. Verify, stage, and hand off**
+> (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 `git add -A` respects `.gitignore`; never force-add.
 
@@ -527,8 +529,7 @@ is that reading only `planningEffort` and writing what it found would erase the 
 
 **Change:** <name>
 **Panel:** clean — required: primary + Bugbot + Principles; optional: <selected, or "none — no triggers fired">
-**Progress:** N/N tasks
-**Git:** staged and uncommitted | committed as two commits and pushed to the PR branch
+**Staged:** N/N tasks · staged and uncommitted | committed as two commits and pushed to the PR branch
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
 Worktree:   <absolute worktree path>
@@ -545,12 +546,13 @@ Next:
 /myflow-finish <name>
 ```
 
-**Print one review command, the one that matches the `Git` line** — the two are shown together above
-only because this block serves both of this command's cases. `--cached` on a committed branch exits
-0 printing nothing, which reads as *there is nothing to review*; the merge base comes from this
-worktree's entry in the state file's `worktrees` map. The template's third `Git` option — committed
-and pushed with no PR — is one `/myflow-do` never emits and `/myflow-status` does; the pairing is
-canonical under **The block each state renders** (`skills/myflow-contracts/pipeline.md`).
+**Print one review command, the one that matches the git state on the `Staged` line** — the two are
+shown together above only because this block serves both of this command's cases. `--cached` on a
+committed branch exits 0 printing nothing, which reads as *there is nothing to review*; the merge
+base comes from this worktree's entry in the state file's `worktrees` map. The template's third git
+state — committed and pushed with no PR — is one `/myflow-do` never emits and `/myflow-status` does;
+the pairing is canonical under **The block each state renders**
+(`skills/myflow-contracts/handoff-blocks.md`).
 
 The pre-edit description line is present only on a fix run that synced the description in section
 **3**, and reproduces that text without summarising or reflowing it — the transcript is then the

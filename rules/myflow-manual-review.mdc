@@ -46,7 +46,6 @@ first time a contract is added, nothing checks it against the table, and that is
 | Contract | Load it before |
 |----------|----------------|
 | **State file** (`skills/myflow-contracts/state-file.md`) | reading or writing a change's state file |
-| **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) | validating or correcting a state file |
 | **Project configuration** (`skills/myflow-contracts/project-configuration.md`) | resolving `.myflow/project.md` |
 | **Jira integration** (`skills/myflow-contracts/jira-integration.md`) | any Jira-related step |
 | **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/myflow-finish` run 1 only |

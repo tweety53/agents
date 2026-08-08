@@ -41,7 +41,7 @@ pass. The second `add` carries no pathspec, which is what makes it pick them up.
 
 The block below is **not** a second definition of the handoff. It is this run's rendering of the
 `IN_PROGRESS`-after-run-1 template, which is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) and is canonical for the
 labels, the field set and their order. What this block adds is the enumeration of the literal
 alternatives run 1 writes — the three `PR:` cases below are that enumeration of the template's
 placeholder, one per landing route. **Change the template first and bring this block with it** — a

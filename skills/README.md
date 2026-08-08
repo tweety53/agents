@@ -6,8 +6,8 @@ archives.
 
 The three commands, the state each ends in, and the gate that follows it are under
 **States** (`myflow-contracts/pipeline.md`); the state diagram and the per-command stage table are
-under **Pipeline flow** (`myflow-contracts/pipeline.md`). This file copies none of them — it is read
-on demand, beside the contract it would be copying, exactly as `README.md` is. What does carry the
+under **How the pipeline works** (`README.md`). This file copies none of them — it is read
+on demand, beside the document it would be copying, exactly as `README.md` is. What does carry the
 three-line digest is the layer that is loaded into a session before anything reads the pipeline: the
 always-on rule, and a project's own `CLAUDE.md` / `AGENTS.md`.
 
@@ -61,11 +61,10 @@ See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 | *(gate)* | you | Review the staged diff **and** run the apps against the guide |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run, asking how to land it (PR by default, merge, or manual); on its second, once merged, archives the change and removes what the pipeline created. |
 | `/myflow-status [name]` | `myflow-status` | Read-only report of where every open change is |
-| `/myflow-info` | `myflow-info` | Read-only explanation, read from the installed contract |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
-**Level 1 — the stages of each command** (`myflow-contracts/pipeline.md`) and are deliberately not
+**Level 1 — the stages of each command** (`README.md`) and are deliberately not
 repeated here.
 
 ## Skills
@@ -76,13 +75,12 @@ skills/
 ├── myflow-do/         ← /myflow-do  (carries the review-panel prompts + engineering-principles.md)
 ├── myflow-finish/     ← /myflow-finish
 ├── myflow-status/     ← /myflow-status (read-only)
-├── myflow-info/       ← /myflow-info   (read-only)
 ├── myflow-contracts/  ← on-demand contracts; `pipeline.md` is canonical for the state machine
 └── openspec-explore/  ← /opsx:explore
 ```
 
 `myflow-contracts/` holds `pipeline.md` (the state machine — load it first for any `/myflow-*`
-command), plus `state-file.md`, `state-self-heal.md`, `project-configuration.md`,
+command), plus `state-file.md`, `project-configuration.md`,
 `jira-integration.md`, `plan-provenance.md`, `build-green.md` and `workspace-isolation.md`. Load the
 one file a step needs, not the directory.
 

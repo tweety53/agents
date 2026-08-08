@@ -40,6 +40,12 @@ Every command resolves the path this way, so the same change maps to the same fi
 }
 ```
 
+**A state file is unparseable when it is not valid JSON, omits a documented field other than
+`planningEffort` or `models`, or carries an undocumented one.** An unparseable file is reported and
+skipped, never rebuilt from inference — no command infers a state file's contents. JSON that parses
+but is missing one or more of the fields this contract requires is unparseable in full on that
+account alone, not partially recovered.
+
 - `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
   `STARTED`, `IN_PROGRESS`, `FINISHED`.
 - `branch` — the change's branch, `openspec/<name>`; `null` before one exists.
@@ -49,13 +55,12 @@ Every command resolves the path this way, so the same change maps to the same fi
   actually succeeded, so a worktree that could not be removed stays listed and remains findable.
   See **Multi-repo shape** below.
 
-  **A `null` value is legal and means *no merge base recorded* for that path.** It arises when
-  self-heal rebuilds the map from `git worktree list`, which reports paths and branches but no merge
-  base — see **State self-heal** (`skills/myflow-contracts/state-self-heal.md`). Every rule this
-  contract and the pipeline already state for a **missing** recorded merge base applies to a `null`
-  one unchanged: the preflight is handed `-` and refuses, the merge status is `inconclusive`, and
-  the review command falls back to the staged diff. A `null` value is therefore never a licence to
-  infer a merge base — it is the refusal to.
+  **A `null` value is legal and means *no merge base recorded* for that path** — it can occur in a
+  hand-edited or out-of-band-modified file. Every rule this contract and the pipeline already state
+  for a **missing** recorded merge base applies to a `null` one unchanged: the preflight is handed
+  `-` and refuses, the merge status is `inconclusive`, and the review command falls back to the
+  staged diff. A `null` value is therefore never a licence to infer a merge base — it is the refusal
+  to.
 - `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
 - `planningEffort` — the level chosen for this change's planning, or `null` when none was chosen.
@@ -74,13 +79,11 @@ Every command resolves the path this way, so the same change maps to the same fi
   was *chosen* — the SDD ledger remains the only record of what a dispatch actually ran on.
 
   **A state file that omits `planningEffort` or `models` entirely is valid**, and each absent key
-  is read as *not recorded*. This is a deliberate exception to the closed-schema rule in
-  **State self-heal** (`skills/myflow-contracts/state-self-heal.md`), which otherwise makes a file
-  unparseable both for missing a documented field and for carrying an undocumented one. Without
-  the exception every
-  file written before these fields existed would be routed through self-heal, which announces
-  unrecovered fields and rewrites from artifact inference — a loud correction for a value nobody
-  had the chance to set. The carve-out is stated rather than inferred, and it covers a key that is
+  is read as *not recorded*. This is a deliberate exception to the closed-schema rule stated above,
+  which otherwise makes a file unparseable both for missing a documented field and for carrying an
+  undocumented one. Without the exception, every file written before these fields existed would be
+  unparseable and so reported and skipped — a spurious report against a value nobody had the chance
+  to set. The carve-out is stated rather than inferred, and it covers a key that is
   **absent**: `artifactUrl`, `jiraIssue` and `prUrl` are all *present and nullable*, which is a
   different thing from *absent*.
 
@@ -112,21 +115,13 @@ Every command resolves the path this way, so the same change maps to the same fi
   answer for a value with no defined target.
 
   **Reading an unmapped value as *unparseable* was specified first and withdrawn, and the reason is
-  recorded here — once, for both contracts — so it is not reinstated.** *Unparseable* is only worth
-  saying if something detects the key and routes the file to self-heal, and nothing does:
-  `/myflow-do`'s and `/myflow-finish`'s own skills mention self-heal nowhere, and `/myflow-status`
-  reads the file through a literal `jq`
+  recorded here so it is not reinstated.** *Unparseable* is only worth saying if some command detects
+  the key and treats the file specially on account of it, and none does: no command infers or
+  rebuilds a state file's contents, and `/myflow-status` reads the file through a literal `jq`
   projection that silently ignores every key it does not name. A rule whose only effect is an
   announcement no command emits is worse than no rule, because it reads as a guarantee. *Not
   recorded* needs no detection to be true, loses nothing the mapping had not already discarded, and
   is what the commands actually do.
-
-  **This paragraph is the only statement of that reasoning.**
-  **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) applies the rule and cites this
-  one rather than re-arguing it: what decides the question is what the *commands* do with the file,
-  which is this contract's subject, and the two independently authored copies this replaces had
-  already drifted — one said those commands never *invoke* self-heal, this one that they never
-  *mention* it, which is the stronger claim and the one that is true of their skills.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
   that a fix must be committed and pushed rather than merely staged.
@@ -149,10 +144,12 @@ two repos records both:
 }
 ```
 
-The **key set of `worktrees` is the authoritative list of affected worktrees** — it is what
-`/myflow-finish` cleans up, and what resolves an app's root when a handoff needs an absolute
-path. The scalar `branch` names the shared branch only. Never infer a worktree path from a
-conventional layout; layout differs per repository.
+The **key set of `worktrees` is the authoritative recorded list of affected worktrees** — it is
+what `/myflow-finish` cleans up, and what resolves an app's root when a handoff needs an absolute
+path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
+first, per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`), rather than
+looping over this map directly. The scalar `branch` names the shared branch only. Never infer a
+worktree path from a conventional layout; layout differs per repository.
 
 Read it with:
 
@@ -163,8 +160,8 @@ jq -r '.state' "$STATE_FILE" 2>/dev/null || echo "MISSING"
 Write it by rendering the full object above — always write every field, never a partial merge. Never `git add` it, never include it in a commit, and never move it into `openspec/changes/archive/`.
 
 **Five fields from the twelve-stage predecessor are retired and never appear in a state file this
-contract produces.** A file still carrying one is unparseable under
-**State self-heal** (`skills/myflow-contracts/state-self-heal.md`):
+contract produces.** A file still carrying one is unparseable under the closed-schema rule stated
+above:
 
 - the field that recorded where a dynamic-target write originated — meaningless once targets
   stopped being dynamic.
@@ -181,10 +178,7 @@ contract produces.** A file still carrying one is unparseable under
   honestly (see "This file records no human confirmation" above), so the field recorded a claim
   nobody could verify.
 
-**State writes are monotonic.** No command may write a `state` earlier than the one it found. The
-single carve-out is described under
-**State self-heal** (`skills/myflow-contracts/state-self-heal.md`) and clears `prUrl` rather than
-moving the state.
+**State writes are monotonic.** No command may write a `state` earlier than the one it found.
 
 Because writes render the whole object, every command must first **read the existing file and
 carry forward** every field it does not itself own — `artifactUrl`, `jiraIssue`, `prUrl` and

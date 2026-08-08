@@ -1,6 +1,6 @@
 ---
 name: myflow-contracts
-description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, state self-heal, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/myflow-manual-review.mdc.
+description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/myflow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -20,10 +20,10 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 
 | File | Load it when you need to |
 |------|--------------------------|
-| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, git boundaries, the handoff output shape, IntelliJ commands, preserving the session records, and resolving a change's worktrees |
-| [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
+| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, git boundaries, the handoff output shape, IntelliJ commands, and preserving the session records |
+| [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution, resolving a change's worktrees, and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
+| [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/myflow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
-| [state-self-heal.md](state-self-heal.md) | Validate a state file against on-disk artifacts, or handle a missing/contradicted one |
 | [project-configuration.md](project-configuration.md) | Resolve `.myflow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/myflow-finish` run 1 and no other command** |
@@ -45,7 +45,10 @@ nothing checks it:
 | Appendix | Holds the reasoning behind |
 |----------|----------------------------|
 | [pipeline-rationale.md](pipeline-rationale.md) | [pipeline.md](pipeline.md) |
+| [handoff-blocks-rationale.md](handoff-blocks-rationale.md) | [handoff-blocks.md](handoff-blocks.md) |
 | [jira-integration-rationale.md](jira-integration-rationale.md) | [jira-integration.md](jira-integration.md) |
+| [project-configuration-rationale.md](project-configuration-rationale.md) | [project-configuration.md](project-configuration.md) |
+| [workspace-isolation-rationale.md](workspace-isolation-rationale.md) | [workspace-isolation.md](workspace-isolation.md) |
 
 **A `/myflow-*` run never loads an appendix.** They exist for whoever *edits* a contract — the
 justification of an ordering, the alternatives that were rejected, the history, and the measurements

@@ -11,6 +11,17 @@ This file is the reasoning behind `skills/myflow-do/SKILL.md`.
 
 ## 2. Isolate the workspace (first run only)
 
+Why the workspace id is computed fresh in this step, rather than carried over from an earlier one:
+
+**Then compute this worktree's workspace id from the change name.** The derivation is stated once
+under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), which is canonical
+for it — do not restate it here, and do not re-derive it by hand. Compute it once per run, on a fix
+run exactly as on the first: the derivation is deterministic, so a later run reproduces the same id
+rather than reading one back, which is why nothing about it is written to the state file. Two later
+steps consume that one value — section 6 writes the guide's URLs from it, and section 7 resolves the
+project's declared isolation rows against it — so an id derived twice in one run is two chances to
+disagree.
+
 ## 3. Documenting a fix, before implementing it
 
 Appending is recommended because most fixes are corrections within the change's existing scope, and
@@ -23,15 +34,58 @@ is never archived alone — it goes with its parent.
 
 Free prose is not a record of a finding's state: a state that cannot be counted cannot be enforced.
 
+Why panel dispatches never inherit a model from the parent session:
+
+There is no
+parent-model inheritance and no economy tier — the panel's cost must not depend on which model the
+operator happens to be running, and a recorded value is a deliberate decision for one change rather
+than an inheritance path.
+
+Why a reviewer given a repo-relative path can end up with no principle list at all:
+
+The subagent's working directory is
+the project worktree, which has no `skills/` tree, so a repo-relative path opens nothing and the
+reviewer runs with no principle list.
+
+`scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
+its header, not its column order, not its cell boundaries, not where it starts or stops. So an
+unescaped `|` inside a cell is just text, a reordered header changes nothing, and a row that lost a
+boundary pipe still counts. That is the point of the split — the previous shape asked a hand-rolled
+table parser to recover one fact from a grammar defined in prose, and it failed **open** six
+distinct ways across three review passes before it was replaced.
+
+- Each `F<n>` names **one** finding. A reused identifier is reported on each side separately, so two
+  distinct findings labelled `F1` in both the table and the marker block cannot cancel out — that
+  shape hid an open Critical, with the word `open` never appearing in a marker at all.
+- The marker lines sit on **consecutive lines**, one unbroken block. This is what stops a marker
+  quoted elsewhere — inside a fenced example, say — standing in for a marker that was never written,
+  which is the one route that still under-counted when the redesign was attacked.
+
+**The table carries no status column, on purpose.** A finding's state is written once, on its
+marker line. A status cell beside the marker is a second surface that can silently disagree with the
+line that governs: the machine's direction is protected — a marker reading `open` blocks whatever a
+cell says — but nothing protects a reader who sees `fixed` in the table and believes it. State the
+fact once. To read a finding's state, look up its `F<n>` in the marker block.
+
 ### Optional slot selection
+
+**Borderline → ask**, with **include** as the default. A reviewer too many costs tokens; one too
+few costs a defect.
 
 ### Panel re-runs
 
 ## 6. Write the manual test guide
 
+In the same run, write or refresh `docs/manual-test/<name>.md`. This is why reviewing and testing
+are one gate: both surfaces are produced together and can never drift apart.
+
 A guide written per plan task grows with the implementation rather than with the behaviour, which is
 what made earlier guides long without making them more thorough: several entries could exercise one
 behaviour while another went unlisted.
+
+A worktree's applications bind their own ports, so the documented URL an operator
+  opens out of habit reaches whichever workspace holds the default port — a different change's
+  application, answering plausibly and about the wrong work.
 
 ## 7. Verify, stage, and hand off
 
@@ -46,6 +100,30 @@ can correct — the trade
 **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`) rejects when it weighs
 a change stranded short of its terminal state against stale storage.
 
+Two distinct triggers land in the same outcome, and here is why that is deliberate rather than an
+oversight:
+
+The two
+reasons are one case, deliberately: both end with nothing having run the guard, and a session that
+recognised only "the repository does not carry it" would answer a failed resolution by doing
+nothing at all and saying nothing about it.
+
+- **Every declared row, not a subset.** A value this run resolved and did not export is a value
+  nothing reads, so the workspace is isolated on paper while the applications and their checks still
+  reach the project's shared resource — the same silent wrong answer as having derived nothing.
+
+Creating a workspace database and bucket for a run that
+only ever linted would leave behind resources nobody asked for and only `/myflow-finish` run 2
+removes.
+
+Why the three planning paths are left unstaged rather than filtered out of a display:
+
+The exclusion is what keeps them out of the diff, rather
+> than a filter applied when the diff is displayed: a filtered display leaves them in the staging
+> area, where the IDE's staged-changes pane and `git status` show them again. The list is fixed —
+> the pipeline chooses these paths itself, so no project can differ. `/myflow-finish` stages and
+> commits them separately, so nothing is lost by leaving them unstaged here.
+
 **The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
 stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and is not re-derived
 here. What is specific to this command is *whose* staging it retracts (an implementer subagent's own
@@ -57,7 +135,7 @@ whole command and unstage nothing.
 
 The block below is **not** a second definition of the handoff. It is this command's rendering of the
 `IN_PROGRESS`-after-`/myflow-do` template, which is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) and is canonical for the
 labels, the field set and their order. What this block adds is the enumeration of the literal
 alternatives `/myflow-do` writes. **Change the template first and bring this block with it** — a
 field added here and not there is drift the moment `/myflow-status <name>` regenerates the same

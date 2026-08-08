@@ -5,46 +5,6 @@ This file is the reasoning behind `skills/myflow-contracts/pipeline.md`.
 
 ## States
 
-## Pipeline flow
-
-The diagram and the stage table are the only copy in this repository. Every command summary
-elsewhere — the `/myflow-*` tables in `README.md`, `skills/README.md`, `CLAUDE.md` and `AGENTS.md` —
-says what each command is *for* and cites the level-1 table for the stages, rather than carrying a
-second ordered list of them; no skill carries one either. All four used to, and the copies had
-already drifted: not one of their `/myflow-do` rows named the state gate or the fix-documentation
-stage, so an agent working from an entry-point file alone would have skipped both. That is the whole
-argument for keeping the stages in one place, and it is why a summary elsewhere may name a command's
-purpose but never its order. Placing them here is what lets
-`/myflow-info` show them: that command reads this file at invocation time and is forbidden from
-answering from memory, so a diagram held only in `README.md` is one it can never present.
-
-### Level 1 — the stages of each command
-
-### Level 2 — the stages that hide substructure
-
-Each expansion states the **structure** — the shape that changes only when the pipeline changes —
-and cites the file that owns the tuned values. A threshold copied here is a copy that goes wrong
-silently, which is the same reason the README carries no diagram; accepting it one level down would
-make the rule contradict itself.
-
-#### Brainstorm — `/myflow-start`
-
-#### Writing-plans — `/myflow-start`
-
-#### SDD + TDD per task — `/myflow-do`
-
-#### The review panel — `/myflow-do`
-
-#### The preflight verdict — `/myflow-finish`
-
-#### The unfinished-work gate — `/myflow-finish` run 1
-
-#### The landing routes — `/myflow-finish` run 1
-
-#### Cleanup — `/myflow-finish` run 2
-
-#### Self-review — `/myflow-finish` run 2
-
 ## Command surface
 
 Behaviour a flag used to select is now either asked at invocation (the integration choice in
@@ -65,98 +25,82 @@ Behaviour a flag used to select is now either asked at invocation (the integrati
 staged-only fix would be invisible on it. Before that the operator reviews a staged diff in the
 IDE, and committing would take that away.
 
+**Both commits are guarded, and an empty one is skipped rather than failed.** `git commit` exits
+non-zero when nothing is staged, so an unguarded two-commit sequence dead-ends on three ordinary
+cases: a fix touching only the three planning paths leaves the implementation commit empty — which
+is exactly what run 1's unfinished-work **Stop** course invites — a fix touching only implementation
+leaves the planning commit empty, and a re-run after a rejected push finds both commits already
+made. Each commit is therefore preceded by a staged-changes test, and the whole sequence is one
+`&&` chain:
+
+**A skipped commit is reported, and a FAILED commit stops the sequence.** Those are different
+outcomes: "nothing to commit" is normal and costs one line in the handoff, while a commit a hook
+rejects is a git failure and gets the standard treatment — report git's own output and stop. The
+chain is what enforces the second, and it is a chain rather than `set -e` deliberately: bash before
+4.0 ignores `set -e` inside a subshell whose parent has errexit off, and this block runs through an
+agent's shell whose state it does not control. Run it as one command. Without that, a first commit
+a hook rejects falls through to the unconstrained second `add`, and the sole resulting commit —
+titled `chore(...)` — carries the implementation, silently breaking the very split this section
+exists to enforce.
+
+## Preserving the session records
+
+**A non-zero exit is never silent and never a stop.** Those two rules pull in opposite directions
+and both hold: a preservation step able to abandon an integration whose work is already committed
+would be a worse failure than the missing record, *and* a refused write that passed unmentioned
+would leave the operator believing a record exists when none does. So it is reported and the run
+continues — and the handoff says which records were preserved and which were not. The remaining
+sources are still attempted after any one failure, so a single bad path costs one record, not three.
+
+**That ordering is deliberate, and deliberately differs from `/myflow-do`'s.** Here the preservation
+call comes *before* any staging, because all three routes commit: the second, unconstrained `add`
+covers the preserved files wherever in the run they were written, and placing the call first keeps it
+out of the route branches, where it could be forgotten on one of them. `/myflow-do` runs the same
+script *after* its unconditional staging and stages a second time, because it stages on every run
+and commits only when a `prUrl` is already recorded; hoisting the call there would create
+`docs/superpowers/` files on every ordinary staged-only run.
+**Do not harmonise the two orderings for symmetry** — the asymmetry is what keeps preserved records
+out of the staged-only path.
+
 ## Progress visibility
+
+**No third checkbox marker is added to `tasks.md`** to carry an in-progress state. A marker written
+at dispatch and resolved at completion would survive a crashed run as a permanently in-progress
+task, in a file two guards parse. The in-progress count comes from the harness's task list alone,
+which no run persists.
+
+**Stated against the mechanism, never against one harness's tool.** myflow runs in Claude Code,
+Cursor and Codex, and a rule written against one harness's API is unimplementable in the other two.
+Where a harness offers no task-list mechanism, the command prints the equivalent block in its output
+instead: a count line naming how many steps are done, in progress and open, followed by one line per
+step marked done or not done. The rule is satisfied by whichever mechanism the harness provides, and
+no harness has to gain a task tool to satisfy it.
 
 ## Handoff output
 
-### The block each state renders
+- **The next command is the last line** — bare, copy-pasteable, with no prose after it. An agent
+  cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
+  input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-**Why the `Jira` line is run-only.** It reports the transition *this run made*, and nothing on disk
-records one: the state file carries the bare `jiraIssue` key and no transition history at all. Nor
-can the value be re-derived by asking the tracker — `/myflow-status` is forbidden from calling Jira,
-its own guardrail being that the report is read-only and never transitions or queries an issue — and
-even a permitted read would not recover it, because a current status cannot separate `→ In Progress`
-from *already In Progress (no transition)* without the status as it stood before the run, which
-nothing records. Two of the line's three alternatives are therefore unreproducible, and the third,
-*none linked*, is not worth a line that would be wrong for every other change. The key itself is not
-lost with it: `/myflow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
-of its detail view, so what the omission drops is the transition, which is the run-only part.
-
-**`IN_PROGRESS` has two renderings, and one template could not have served both.** Run 1 ends at
-`IN_PROGRESS` but hands off a branch waiting on a merge rather than a diff waiting on review: a
-worktree path, a test-guide path and a staged-diff command are all wrong for it, and it prints none
-of them. Forcing both into one template would leave the rule at the top of this section
-unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
-
-**Why `Route` and `Outstanding` are run-only.** The landing answer is never remembered between runs,
-per **Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`), so no
-field records which route was taken: a recorded `prUrl` implies the pull-request route, and
-nothing separates the other two. The
-outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
-is the planning commit's message, which is where a later reader looks, and the state file does not
-carry it.
-
-**Why `Panel` is run-only.** It names the roster *that run selected* — which optional slots fired
-and which did not — and no field carries it. The only on-disk trace is the panel record
-`/myflow-do` writes under `.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
-removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
-there and sometimes not is not a source `/myflow-status` can regenerate from, and reporting it
-*missing* on every change whose worktree is gone would name a fault where there is none. The
-durable copy is the preserved record under `docs/superpowers/reviews/`, which run 1 writes into the
-repository — an operator who needs the roster after the fact reads that, not a regenerated block.
-
-**A proven *not merged* is that same pre-check read forward, which is why `prUrl` does not split
-it.** Reaching that row means the pre-check resolved the recorded merge base and found `HEAD` past
-it — the branch carries commits of its own — and `/myflow-do` puts a commit on a branch only when a
-`prUrl` is already recorded. So every route this pipeline has that leaves a commit there has been
-through run 1: *handle it manually* commits, pushes and leaves `prUrl` `null`; *merge and push*
-lands on the merged row; and a `/myflow-do` fix commits only while a pull request is already
-open. Splitting the row on `prUrl` was what rendered a manually landed branch as *Implementation
-staged — review and test* — for work that is committed, pushed and already past the human gate —
-with the `Git` line's third variant telling the truth one line under a heading that did not. What
-the row cannot tell apart is a commit made by hand outside the pipeline, which now renders as
-integrated; both renderings end in `/myflow-finish <name>`, so that costs the fields shown and never
-the command named.
-
-**The pre-check paragraph and the recorded-merge-base one are the only statement of that
-ordering for a renderer.**
-`/myflow-status` performs the check and cites this section for why; it deliberately carries no copy
-of the argument, because two copies of one piece of reasoning are two things to keep in step and the
-next editor would have no way to tell which was authoritative. Change it here and the consumer
-follows.
-
-**Using the weaker signal where the stronger one is in hand is what made one invocation contradict
-itself.** A change stopped at a run-2 cleanup leftover is merged and stays at `IN_PROGRESS`, so the
-table reported *branch merged → it will archive* from the ancestor test while the block, keyed on
-`prUrl` alone, printed *waiting on the merge* — two answers from one command, one of them false.
-The two splits still do not compete: the table splits on merge status to say which `/myflow-finish`
-run comes next, this splits on it to say which wait the operator is in, and both end in
-`/myflow-finish <name>`.
-
-**The `prUrl` test is one-way, and the gap is named rather than papered over — it now applies only
-to the inconclusive rows.** `prUrl` is `null` until a pull request is opened, and only the
-pull-request route ever writes it — see
-**State file** (`skills/myflow-contracts/state-file.md`). *Merge and push* and *handle it manually*
-both complete run 1 and leave it `null`, and self-heal may clear one that was real. So a non-null
-`prUrl` proves run 1 happened; a `null` one proves nothing, and where merge status cannot be
-determined — no remote, no network, an unresolvable base ref — the report shows the `/myflow-do`
-rendering for a branch that may already be integrated.
-
-**What a wrong choice costs is bounded, which is why the imperfect test is accepted rather than
-replaced.** Both renderings end in the same last line, `/myflow-finish <name>`, so the test can
-never send the operator to the wrong command — only show them the wrong fields. And what it shows is
-regenerated from the state as it now stands, so a worktree still present is still named and a
-removed one reads *missing*.
-
-**No field is added to close it.**
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`) already refuses one:
-the branch's merge status is the only source of truth for whether the branch has been integrated,
-and a field could disagree with it. That is the same reason merge status governs the table —
-the rule was already stated here, and the defect was reading `prUrl` in front of it rather than
-behind it. The preflight verdict cannot stand in either — a pushed but unmerged branch returns
-`RUN1` both before run 1 and after it, so it does not answer this question.
+- **`/myflow-do` never stages `openspec/`, `docs/manual-test/` or `docs/superpowers/` before
+  finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
+  implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
+  display command, is what makes them absent from *every* view of the staging area — a filtered
+  display leaves them in the index, where `git status`, a graphical client and the IDE's
+  staged-changes pane show them again. The list is fixed here rather than configured per project; the
+  pipeline chooses these paths
+  itself, so no project can differ. `/myflow-finish` run 1 stages them and commits them separately
+  from the implementation, so nothing is lost.
 
 ### The tab commands, printed at the start of a run
+
+They sit at the **start** of the run rather than in the block because labelling a tab is
+useful before a long run rather than after it; the rules govern what a command prints when it
+*ends*, and these lines are not part of a handoff. The colour is one fixed value for every command
+and every change — `cyan`, chosen over `red`, `yellow` and `orange` because those already read as
+error and warning states in this pipeline's output — and it signifies only that a pipeline command
+owns the tab. `/myflow-status` prints neither line: a read-only report does not
+own the tab.
 
 **Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
 against them** — for the reason **Progress visibility** (`pipeline.md`) gives, which answers
@@ -226,6 +170,41 @@ defined; the two call sites point here rather than each describing them.
 
 ## Temporary artifacts registry
 
+**This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
+points here rather than restating it, in this file and in every skill. **Worktree cleanup**
+(`skills/myflow-contracts/finish-contract.md`) is the *procedure* for the rows removed there and
+not a second statement of the rule: the table says what is removed and when, that section says how
+— and a stale second copy of a rule governing `git worktree remove --force` is a copy that deletes
+the wrong thing.
+
+**An artifact no row accounts for is a defect in the registry**, corrected by adding the row. It is
+never left unaccounted for on the grounds that something probably removes it — that assumption is
+exactly how the remote branch went unremoved until it was given a row here.
+
+**This is the one row whose removal is verified by asking rather than by looking**, and the reason
+is that "ran the removal" is not "verified gone": a removal that reported success against a stale
+connection leaves this row's promise broken with nothing having failed. So a survivor is established
+from the project's own survivor report, never inferred from the removal's exit code — stated once
+under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`), with the report's
+output and exit-code contract under
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`). A report that could
+not reach its service is skipped rather than failed, so this is the one row a stopped service leaves
+unverified without stranding an already-merged change; that asymmetry is likewise
+**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+
+**Nothing removes the claimed cache index, and nothing in this pipeline can — which is why the row
+says so instead of naming a remover it does not have.** The rule one paragraph above is that an
+artifact no row accounts for is a defect in the registry; the row exists for that reason, and an
+honest `Removed by` cell is the whole of what it buys. The index is the one workspace value that is
+**not** a function of the change name — it is claimed by probing, for the reasons under
+**The cache index** (`skills/myflow-contracts/workspace-isolation.md`) — and it is not written into
+the state file either. So by the time run 2 runs, nothing on the machine can say which index this
+change held: there is no derivation to repeat and no record to read, and a run that swept an index
+it guessed would flush another workspace's. The project's `remove` command does not touch it for the
+same reason, which
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`) states as a property
+of the `cache index` resource word.
+
 **What that leaves behind is bounded, and where it stops being acceptable is named rather than
 glossed.** What stays in the index is sessions and cache entries, which are disposable by
 construction — the accepted cost under
@@ -253,13 +232,21 @@ artifact from being confirmed clean by a guard that never looked for it.
 
 ## State file
 
-## State self-heal
-
 ## Project configuration
 
 ## Jira integration
 
 ## Model policy
+
+**This section is canonical for the model roles, their defaults and how an override applies.** One
+location, named here rather than left to be worked out: every `/myflow-*` command is required to
+load this file before acting, and none of them loads `openspec/specs/`, so the file runtime actually
+reads is the file the rule has to live in. **State file** (`skills/myflow-contracts/state-file.md`)
+cites this section for the `models` field rather than defining the roles a second time, and
+`CLAUDE.md` and `AGENTS.md` name this section for the same reason.
+
+**Which file to change first.** The normative requirements behind this section belong to the
+OpenSpec capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`openspec/specs/myflow-model-policy/spec.md`) anchors the defaults. That capability is the requirement; this section is the **operational form the commands read**, and the two-layer split is the same one **Planning effort** (`skills/myflow-contracts/state-file.md`) already uses. Change the capability first and bring this section with it: a section that contradicts the requirement is this file's defect, not the spec's. A live spec is also behind by construction while a change is open — its delta lands in `openspec/specs/` only at finish run 2 — which is the second reason runtime reads this section rather than that file.
 
 That citation is a **checked** one, not a courtesy: the guard associates a bold token with the path
 beside it and matches it against the target's headings, and an OpenSpec `### Requirement: …` heading
@@ -271,4 +258,50 @@ The two rules point in opposite directions on purpose. A reviewer's job is to be
 readings of a finished diff, so its cost must not scale with the operator's session model. An
 implementer's job is to get the diff right the first time, where capability compounds.
 
+**Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
+available model). This **explicitly overrides** superpowers:subagent-driven-development's model
+guidance — that skill says to pick "the least powerful model that can handle each role" and to use
+the cheapest tier where the plan already contains the code to write. That guidance does not govern
+this pipeline. The saving it offers is false here: an implementation defect is not avoided by the
+review panel, it is *found* by the panel, at the cost of a fix wave and a re-run of every slot.
+Buying a cheaper implementer with a more expensive review is the wrong trade.
+
+**Two further instructions in that same upstream skill are also overridden, and are named here
+rather than left to be discovered.** subagent-driven-development says to dispatch the *final
+review* on the most capable model: myflow does not — it fixes every panel slot at the panel's
+model, Sonnet by default, for the reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
+and extra-principle-lens slots), which buys more independent readings rather than one stronger one.
+It also says to *escalate the model in fix rounds 4-5*: myflow cannot, because its implementers
+already sit at the ceiling from round 1. Fix rounds escalate the same way — more lenses, not a
+bigger model — and round 5 hands back to the operator rather than pretending an escalation is
+available.
+
+**The panel-fix default is the strongest available model, and deliberately not Sonnet.** The role
+names the agent that *applies* a fix, which is an implementer — so the implementer rule above
+already governs it. Fix rounds escalate the panel's breadth rather than its model precisely because
+implementers sit at the ceiling from round 1, and a fix-wave default of Sonnet would contradict both
+of those rules at once.
+
+**Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
+A model policy that nothing records is a policy nothing can verify — and the absence of that record
+is precisely how this rule came to be missing in the first place.
+
+**This record outlives the change.** The ledger is authored under `.superpowers/`, which is
+gitignored, in a worktree `/myflow-finish` run 2 removes — but run 1 preserves it into the
+repository first, under `docs/superpowers/ledgers/`, so it serves the operator and the panel
+*during* the change and stays answerable afterwards. An after-the-fact audit of which model
+implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
+The preservation duty itself is stated once, under
+**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`); this section
+depends on it rather than restating it.
+
+Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
+persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly
+as written and no step fills it in on the way into the repository.
+
 ## Change name resolution (all `/myflow-*` commands)
+
+This is why the second source matters: `openspec list --json` only
+sees change directories present in the *current* git checkout, so a change staged in a worktree —
+`openspec/changes/<name>/` created there but never committed to the main checkout — is invisible to
+it alone, even while it sits at a human gate with a fully staged diff.

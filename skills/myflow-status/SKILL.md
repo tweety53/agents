@@ -1,7 +1,7 @@
 ---
 name: myflow-status
-description: Show every open myflow change with its pipeline state, PR, next command, worktree, and last update. Read-only. Use for /myflow-status.
-allowed-tools: Bash(openspec:*), Bash(git:*), Bash(jq:*), Bash(gh:*)
+description: Show every open myflow change with its pipeline state, PR, next command, and last update. Read-only. Use for /myflow-status.
+allowed-tools: Bash(openspec:*), Bash(git:*), Bash(jq:*)
 license: MIT
 compatibility: Requires openspec CLI and jq.
 metadata:
@@ -9,15 +9,14 @@ metadata:
   version: "2.0"
 ---
 
-Report the pipeline state of every open (non-archived) OpenSpec change. **Read-only** — never commits, never runs git write operations, never advances a state. The one exception is state self-heal (see below), which corrects a stale cache to match the artifacts already on disk.
+Report the pipeline state of every open (non-archived) OpenSpec change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes the state file.
 
 **Announce at start:** "Using myflow-status."
 
-Follow all three contracts:
+Follow both contracts:
 
 - **States** (`skills/myflow-contracts/pipeline.md`)
 - **State file** (`skills/myflow-contracts/state-file.md`)
-- **State self-heal** (`skills/myflow-contracts/state-self-heal.md`)
 
 ## Workflow
 
@@ -55,37 +54,38 @@ Reading `.planningEffort` alone would report a file that recorded a real level a
 none, which is the one outcome the retired-key exception exists to prevent. The value that comes
 back is the raw one; mapping it to a level is section 3's job, below.
 
-Then validate against artifacts per **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) — including its "read artifacts from the apply worktree when one exists" rule. Resolve the worktree **first**, then root every subsequent artifact check there:
+**Merge status** decides whether the next `/myflow-finish` integrates or archives. It is answered
+once per worktree in the set resolved per **Resolving a change's worktrees**
+(`skills/myflow-contracts/pipeline.md`) — never a raw read of the state file's `worktrees` map,
+which a `{}` or absent map would make a loop over its keys report on nothing. Per that same
+section, a resolved set that comes back empty is never a vacuous pass: say so in this change's
+detail view — **merge status: unknown, no worktree recorded** — rather than silently omitting the
+row. Each worktree in the resolved set is answered in **three steps, in this order**:
 
-1. worktree resolution — take the `worktrees` keys, or find the apply worktree for branch `openspec/<name>` in `git worktree list`; if found, treat its path as the artifact root for the rest of this step, otherwise use the main checkout
-2. `tasks.md` (at the resolved root) — count `- [x]` vs `- [ ]` items
-3. `docs/manual-test/<name>.md` (at the resolved root) — exists? any unchecked boxes?
-4. merge status — decides whether the next `/myflow-finish` integrates or archives. It is answered
-   **once per `worktrees` key**, in **three steps, in this order**:
-   1. **Resolve the merge base recorded for that worktree** in the state file's `worktrees` map.
-      **No recorded merge base**, and equally **one that is recorded but does not resolve in that
-      worktree** — `git rev-parse --verify --end-of-options "<recorded>^{commit}"` fails, because
-      history was rewritten, the clone is shallow, or the object was pruned — makes the merge status
-      **inconclusive**. Do not infer one, and do not run either test below.
-   2. **`HEAD` against that resolved merge base.** Equal → the branch has **no commits of its own**,
-      so it is **not merged**, and no ancestor test is run.
-   3. otherwise `git merge-base --is-ancestor <branch> origin/<base>`; a git failure or an
-      unresolvable base ref is **inconclusive**, never "not merged"
-5. PR — `gh pr list --head <branch> --state all --json number,state,url`, **only when `gh` is installed and the remote is a GitHub host**. Otherwise (Bitbucket, no `gh`, no network, branch never pushed) PR state is **unknown** — report it as unknown and treat it as inconclusive, never as "no PR exists".
+1. **Resolve the merge base recorded for that worktree** in the state file's `worktrees` map.
+   **No recorded merge base**, and equally **one that is recorded but does not resolve in that
+   worktree** — `git rev-parse --verify --end-of-options "<recorded>^{commit}"` fails, because
+   history was rewritten, the clone is shallow, or the object was pruned — makes the merge status
+   **inconclusive**. Do not infer one, and do not run either test below.
+2. **`HEAD` against that resolved merge base.** Equal → the branch has **no commits of its own**,
+   so it is **not merged**, and no ancestor test is run.
+3. otherwise `git merge-base --is-ancestor <branch> origin/<base>`; a git failure or an
+   unresolvable base ref is **inconclusive**, never "not merged"
 
 **Steps 1 and 2 are not optional, and neither may be skipped because the ancestor test looks
 decisive.** Why an unresolved or unequal-to-`HEAD` merge base has to be settled *before*
 `git merge-base --is-ancestor` runs, and what answering them the other way round reports, is stated
-once under **The block each state renders** (`skills/myflow-contracts/pipeline.md`), beside the
+once under **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`), beside the
 selection table this answer feeds. Read it there — it is not re-derived here, and it is not
 re-derived from `scripts/check-finish-preflight.sh` either: that script's resolve-first guard and
 its comment (b) are what `pipeline.md` cites in turn.
 
 **A multi-repo change has one merge status per worktree, and the change's is the weakest of them.**
-`worktrees` may carry more than one key, so item 4 is answered once per key and the answers must
-then be combined. Combine them exactly as
+The resolved set may carry more than one worktree, so the merge-status check is answered once per
+worktree in it and the answers must then be combined. Combine them exactly as
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`) already combines the preflight's
-verdicts — run 2 proceeds only when **every** recorded worktree says so — which here means: the
+verdicts — run 2 proceeds only when **every** worktree in the resolved set says so — which here
+means: the
 change reads **merged** only when every worktree is proven merged; any worktree proven **not
 merged** makes the change not merged; otherwise, with at least one inconclusive and none proven not
 merged, the change is
@@ -94,24 +94,9 @@ disagree, say so in the detail view and name which is which: that disagreement i
 next `/myflow-finish` will stop on, and the operator should see it here rather than discover it
 there.
 
-If the file is missing, unparseable, or contradicted, infer the state from artifacts, **rewrite the state file** — carrying forward every field this command did not infer, per **State self-heal** (`skills/myflow-contracts/state-self-heal.md`) — and mark the row `⚠`.
-
-**Self-heal is monotonic, and writes almost nothing but `state`** (per **State file** in `skills/myflow-contracts/state-file.md`):
-
-- Infer and correct **`state` only**, and **never fabricate a `prUrl`** — never invent one from a
-  PR you happened to find, because a URL written from a guess is worse than a null.
-- The **one** field beyond `state` a rebuild fills is `worktrees`, and only its **keys**, and only
-  when the prior file could not be read at all — recovered from `git worktree list`, which reports a
-  fact rather than an inference. The rule, what it cannot recover, and what the announcement must
-  then say are **State self-heal** (`skills/myflow-contracts/state-self-heal.md`)'s. A file that read
-  successfully is untouched here: its `worktrees` is carried forward exactly as read.
-- **Do apply the one permitted correction** the contract defines: when this command's own
-  `gh pr list` probe (step 2, item 5) **conclusively** answers that no PR exists for the branch
-  while the state file records a `prUrl`, clear `prUrl` to `null` and mark the row `⚠`. This
-  command already gathers exactly that evidence for its own report, so it is the one place the
-  correction can be made without an extra probe. An inconclusive answer — no `gh`, non-GitHub
-  forge, no network — clears nothing.
-- **Never write a state earlier than the one recorded.** A check that cannot be performed is not a contradiction: an undeterminable PR state leaves `prUrl` exactly as recorded.
+**A state file that is missing or unparseable is named in this command's own output, and the change
+is omitted from the table.** This command writes nothing — never the state file, never anything
+else.
 
 ### 3. Render the table
 
@@ -122,17 +107,17 @@ archived.
 ```
 ## myflow status
 
-| Change | Jira | State | PR | Next | Worktree / branch | Updated |
-|--------|------|-------|----|------|-------------------|---------|
-| kan-8-myflow-updates | KAN-8 | IN_PROGRESS | #42 open | review the diff + run the guide, then `/myflow-finish` | `/abs/path/openspec-kan-8-myflow-updates` @ `openspec/kan-8-myflow-updates` | 2h ago (/myflow-do) |
-| active-workout-session-editing | — | STARTED | — | read the artifact, then `/myflow-do` | none | 19h ago (/myflow-start) |
-
-⚠ = state file was stale and has been corrected from artifacts.
+| Change | Jira | State | PR | Next | Updated |
+|--------|------|-------|----|------|---------|
+| kan-8-myflow-updates | KAN-8 | IN_PROGRESS | #42 | review the diff + run the guide, then `/myflow-finish` | 2h ago (/myflow-do) |
+| active-workout-session-editing | — | STARTED | — | read the artifact, then `/myflow-do` | 19h ago (/myflow-start) |
 ```
 
-Worktree paths are **absolute**, taken from the `worktrees` keys. The **PR** column shows the
-number and state when known, `—` when `prUrl` is null, and `?` when PR state could not be
-determined.
+The absolute worktree path is given in the detail view, taken from the `worktrees` keys.
+
+The **PR** column shows the number parsed from the recorded `prUrl`, or `—` when it is `null`. It
+never reports whether the pull request is open, merged or closed — that answer needs a network call
+this command no longer makes; the detail view says where to look instead.
 
 The **Jira** column shows `jiraIssue` verbatim, or `—` when the change has no linked issue. This
 is a **read-only** report: never call Jira, never transition an issue, never infer a key from the
@@ -155,22 +140,15 @@ never rewrites the file to migrate it. A raw `medium` printed as a level would n
 pipeline does not have.
 
 **A retired-key value outside those three maps to no level, and is surfaced as `not recorded —
-planned at default` rather than echoed.** It is not a `⚠` and does not make the file unparseable:
+planned at default` rather than echoed.** It does not make the file unparseable:
 the mapping's boundary is the level's, not the schema's, and what an unmapped value reads as is
 stated once under **Planning effort** in State file (`skills/myflow-contracts/state-file.md`), where
 the reason it is *not recorded* rather than *unparseable* is recorded too. This line reports the
 level, and there is none.
 
-An absent `planningEffort` is legal and is never a `⚠`:
-per **State file** (`skills/myflow-contracts/state-file.md`), a file that omits it reads as `null`,
-so it is neither a contradiction nor a field to infer. This report never writes `planningEffort`; it
-carries it forward untouched on a self-heal, like every other field it does not own.
-
 Surface `models` the same way, as one line covering its three roles — `implementation`,
 `reviewPanel` and `panelFix` — each the recorded model verbatim, or `not recorded` where none was
-chosen. The same rules hold: an absent `models` object is legal and is never a `⚠`, per
-**State file** (`skills/myflow-contracts/state-file.md`); and this report never writes the field,
-carrying it forward untouched on a self-heal.
+chosen.
 
 Next-command mapping:
 
@@ -183,7 +161,7 @@ Next-command mapping:
 
 The `IN_PROGRESS` row splits on merge status because `/myflow-finish` behaves differently either
 side of it: it integrates before the merge and archives after. Say which run the operator is
-about to get. **Merge status here is step 2 item 4's answer — all three of its steps, and combined
+about to get. **Merge status here is step 2's answer — all three of its steps, and combined
 across every worktree** — never a bare ancestor test. A branch with no commits of its own is *not
 merged*, and an inconclusive answer takes the not-merged row and says the check could not be
 completed.
@@ -196,33 +174,35 @@ Add below the table:
 - Task progress (`N/M` checked from `tasks.md`)
 - Nested `<name>-fix-N` sub-changes, if any
 - The manual test guide's **absolute** path + checked/total box count
-- PR number, state, and URL when one exists
+- PR number and URL when one exists — not whether it is open, merged or closed, which this report
+  does not track; check the forge for that
 - Whether the branch has reached the base branch — i.e. which `/myflow-finish` run comes next. For a
   change recording more than one worktree, give the combined answer **and** the per-worktree ones
   whenever they differ, naming each worktree by its absolute path
-- Every `⚠` correction made, with the reason
 
-Then regenerate the change's full handoff block for its current state and print it, rendered from
-the per-state template in **Handoff output** (`skills/myflow-contracts/pipeline.md`). Build it from
-the state file and the artifacts as they now stand; nothing is read back from a stored copy of an
-earlier run's text, because no command stores one.
+Then regenerate the change's full handoff block for its current state and print it. Load **Handoff
+blocks** (`skills/myflow-contracts/handoff-blocks.md`) here — it is canonical for the per-state
+templates, and this is the only step of any `/myflow-*` command that loads it — and render from the
+template that matches the current state. Build it from the state file and the artifacts as they now
+stand; nothing is read back from a stored copy of an earlier run's text, because no command stores
+one.
 
 - A value the state file does not carry is reported as **missing**, so a block whose artifact URL
   reads *missing* is distinguishable from one whose URL was never printed. A run-only value is the
   exception and is omitted instead:
-  **The block each state renders** (`skills/myflow-contracts/pipeline.md`) marks which fields those
+  **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) marks which fields those
   are, and this file does not list them again.
 - `IN_PROGRESS` renders two different blocks, and **the merge status this command already computed
   in step 2 chooses between them whenever it is conclusive** — a branch proven to have reached the
   base branch is integrated, so the branch-waiting-on-a-merge block is the right one for it, and its
   heading says the merge has happened. `prUrl` is consulted only where that probe was inconclusive.
   The selection table, and the reason the weaker signal must not run ahead of the stronger one, are
-  under **The block each state renders** (`skills/myflow-contracts/pipeline.md`); render from that
+  under **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`); render from that
   table rather than from a rule restated here.
-- **Use the answer you already have, and never re-derive it.** Step 2 item 4 already produced the
+- **Use the answer you already have, and never re-derive it.** Step 2 already produced the
   merge status — all three of its steps, combined across every worktree — for the next-command
   column, and re-deriving it here with a bare ancestor test would reintroduce the
-  no-commits-of-its-own false positive that item names.
+  no-commits-of-its-own false positive that check names.
   Reading `prUrl` in front of that answer is what let one invocation
   report *branch merged → it will archive* in the table and *waiting on the merge* in the block, for
   the same change, in the same run — a change stopped at a run-2 cleanup leftover is exactly that
@@ -234,7 +214,7 @@ earlier run's text, because no command stores one.
   about what to run next.
 - The `prUrl` test that remains is one-way — a `null` `prUrl` does not prove run 1 has not
   happened — and what that costs, plus why it is accepted rather than replaced, is stated under
-  **The block each state renders** (`skills/myflow-contracts/pipeline.md`). Do not restate that
+  **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`). Do not restate that
   reasoning here, and do not present the test as conclusive.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
 
@@ -244,13 +224,12 @@ unchanged.
 ## Guardrails
 
 - **Never** commit, stage, push, merge, or archive.
-- **Never** advance a state — only correct a stale cache to match artifacts.
-- **Never** rewind a state, and never fabricate a `prUrl`. Clearing a `prUrl` that a conclusive
-  probe disproved is the one permitted correction, per
-  **State self-heal** (`skills/myflow-contracts/state-self-heal.md`); everything else about the
-  file is read-only.
+- **Never** advance a state, rewind a state, or write the state file — this command is entirely
+  read-only.
+- **Never** fabricate a `prUrl`.
 - **Never** create a worktree or branch.
-- Report `gh` being unavailable, or a non-GitHub forge, as "PR state unknown" rather than guessing — and never clear `prUrl` on that unknown.
+- **Never** call `gh`, or any other network command, to determine PR state — the PR column reports
+  only the number parsed from the recorded `prUrl`.
 - Never guess a state when artifacts are ambiguous — show `?` and say which check was inconclusive.
 - **Never** act on a regenerated handoff block — it is output, not a plan. No command it names is
   executed, nothing is staged, and no state is written on account of it, however imperative its last
@@ -263,4 +242,3 @@ unchanged.
 |--------|-----|
 | Status of all open changes | `/myflow-status` |
 | Detail for one change | `/myflow-status <name>` |
-| Pipeline reference | `/myflow-info` |

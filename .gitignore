@@ -1,2 +1,5 @@
 .DS_Store
 .superpowers/
+
+# Serena MCP server workspace metadata — tool artifact, not project source
+.serena/

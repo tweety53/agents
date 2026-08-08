@@ -232,8 +232,8 @@ operator-initiated round is still a round, and exempting it would let repeated "
 answers at the confirm outrun the offer's own visibility.
 
 **There is no hard cap.** No round count ends the stage; the rule that only an explicit operator
-answer does is stated once under **Pipeline flow** (`skills/myflow-contracts/pipeline.md`) —
-specifically its brainstorm expansion — and not restated here.
+answer does is stated once under **Stage exit — never the command's own judgment**
+(`skills/myflow-contracts/pipeline.md`) and not restated here.
 
 **The two prompts recommend opposite courses, and each is honest because of its own trigger — do
 not harmonise them.** The confirm recommends *moving on* precisely because it is unreachable while
@@ -317,7 +317,7 @@ of reusing it; the entries do not merge. A round that answers the question sets 
 it, is the point.
 
 What this section holds is what the `STARTED` handoff counts. That line is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`), which also states why it
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`), which also states why it
 is regenerable rather than run-only.
 
 ## D. Basic Workflow #3 — Writing plans
@@ -393,12 +393,9 @@ Stage the planning artifacts. The state file lives outside the repo — never `g
 
 **Change:** <name>
 **Artifact:** <artifactUrl> | missing
-**Decisions recorded:** <N> | none
-**Open questions:** <N> | none
+**Recorded:** <N> decisions | none · <N> open questions | none · effort <level> | <level> (reused from the creating run) | not recorded — planned at default · models implementation <model | not recorded>, review panel <model | not recorded>, panel fixes <model | not recorded>
 **Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
-**Planning effort:** <level> | <level> (reused from the creating run) | not recorded — planned at default
-**Models:** implementation <model | not recorded>, review panel <model | not recorded>, panel fixes <model | not recorded>
 
 Open in IntelliJ:
 open -na "IntelliJ IDEA" --args "<absolute main checkout path>"
@@ -447,9 +444,10 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
   planning effort level may group questions into fewer rounds and batch related ones into one
   prompt; it may never turn a question into an assumption.
 - **Never** end the stage on this command's own judgment, and never leave brainstorming holding a
-  question the operator was never asked — the rule is stated once under **Pipeline flow**
-  (`skills/myflow-contracts/pipeline.md`), specifically its brainstorm expansion — its tuned exits are
-  **Convergence** in section **B**, and neither is restated here.
+  question the operator was never asked — the rule is stated once under
+  **Stage exit — never the command's own judgment**
+  (`skills/myflow-contracts/pipeline.md`); its tuned exits are **Convergence** in section **B**, and
+  neither is restated here.
 - **Never** let a planning effort level end the loop early. A level may group more questions into
   one round; it may never decide that no further round opens.
 - **Never** ask for an approval in open prose. Offer named options, mark the recommended one, and
