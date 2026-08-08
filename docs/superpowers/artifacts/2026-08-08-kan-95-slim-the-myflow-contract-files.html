@@ -1,0 +1,503 @@
+<title>KAN-95 — Slim the myflow contract files</title>
+<style>
+:root{
+  --paper:#f5f7f7;
+  --card:#ffffff;
+  --ink:#13181a;
+  --muted:#5c6a70;
+  --faint:#8a979c;
+  --accent:#0d6e70;
+  --accent-soft:#d8ecec;
+  --cut:#9d3f2c;
+  --cut-soft:#f2ddd7;
+  --rule:#d9dfdf;
+  --rule-soft:#e9eded;
+  --shadow:0 1px 2px rgba(19,24,26,.05), 0 8px 24px -16px rgba(19,24,26,.25);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1213;
+    --card:#161b1c;
+    --ink:#e6ebeb;
+    --muted:#95a3a8;
+    --faint:#6d7c81;
+    --accent:#4ccfcd;
+    --accent-soft:#123536;
+    --cut:#e0907a;
+    --cut-soft:#38221c;
+    --rule:#252c2e;
+    --rule-soft:#1d2324;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1213;
+  --card:#161b1c;
+  --ink:#e6ebeb;
+  --muted:#95a3a8;
+  --faint:#6d7c81;
+  --accent:#4ccfcd;
+  --accent-soft:#123536;
+  --cut:#e0907a;
+  --cut-soft:#38221c;
+  --rule:#252c2e;
+  --rule-soft:#1d2324;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:ui-serif,"Iowan Old Style",Charter,Georgia,serif;
+  font-size:17px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.mono,code,pre,th,.fig,.tag,.eyebrow,.rail b{
+  font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px 96px}
+
+/* ---------- masthead ---------- */
+header.mast{
+  padding:64px 0 40px;
+  border-bottom:2px solid var(--ink);
+  margin-bottom:0;
+}
+.eyebrow{
+  font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;margin:0 0 18px;
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+}
+.eyebrow span.sep{color:var(--faint)}
+h1{
+  font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  font-size:clamp(30px,5vw,50px);
+  line-height:1.05;letter-spacing:-.025em;font-weight:600;
+  margin:0 0 20px;text-wrap:balance;
+}
+.standfirst{
+  font-size:20px;line-height:1.5;color:var(--muted);
+  max-width:62ch;margin:0;
+}
+
+/* ---------- the measurement band ---------- */
+.band{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  gap:0;border-bottom:1px solid var(--rule);
+}
+.stat{padding:26px 22px 26px 0;border-right:1px solid var(--rule-soft)}
+.stat:last-child{border-right:0}
+.stat .fig{
+  font-size:27px;font-weight:600;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;display:block;line-height:1.15;
+}
+.stat .lbl{
+  display:block;margin-top:7px;font-size:12.5px;line-height:1.4;
+  color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+.stat.down .fig{color:var(--accent)}
+
+/* ---------- load chart ---------- */
+.chart{margin:0;padding:34px 0 8px;border-bottom:1px solid var(--rule)}
+.barrow{display:grid;grid-template-columns:120px 1fr 92px;gap:16px;align-items:center;margin-bottom:11px}
+.barrow .who{font-size:12.5px;color:var(--muted);font-family:ui-monospace,Menlo,monospace}
+.track{height:26px;background:var(--rule-soft);border-radius:2px;overflow:hidden;position:relative}
+.fill{height:100%;border-radius:2px}
+.fill.now{background:var(--ink);opacity:.82}
+.fill.after{background:var(--accent)}
+.barrow .amt{
+  font-family:ui-monospace,Menlo,monospace;font-size:13px;text-align:right;
+  font-variant-numeric:tabular-nums;
+}
+.chartnote{font-size:13.5px;color:var(--faint);margin:14px 0 0;max-width:70ch}
+
+/* ---------- parts, the numbered sequence ---------- */
+section{padding:48px 0;border-bottom:1px solid var(--rule)}
+h2{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--faint);font-weight:600;margin:0 0 26px;
+}
+h3{
+  font-size:23px;line-height:1.25;margin:0 0 12px;font-weight:600;
+  letter-spacing:-.012em;text-wrap:balance;
+}
+p{margin:0 0 16px;max-width:68ch}
+p:last-child{margin-bottom:0}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:2px}
+
+.part{display:grid;grid-template-columns:76px 1fr;gap:0 26px;padding:26px 0;border-top:1px solid var(--rule-soft)}
+.part:first-of-type{border-top:0;padding-top:0}
+.part .num{
+  font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:600;
+  color:var(--accent);padding-top:6px;letter-spacing:.04em;
+}
+.part .num em{display:block;font-style:normal;color:var(--faint);font-weight:400;margin-top:5px;font-size:11.5px;line-height:1.35}
+.part h3{font-size:19px;margin-bottom:8px}
+.part p{font-size:16px;color:var(--muted);margin-bottom:0}
+.part p strong{color:var(--ink);font-weight:600}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto;margin:0 0 8px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:460px}
+th{
+  text-align:left;font-size:11px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--faint);font-weight:600;padding:0 16px 9px 0;border-bottom:1px solid var(--rule);
+  white-space:nowrap;
+}
+td{padding:11px 16px 11px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;font-size:15px}
+td.n,th.n{text-align:right;font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;padding-right:0}
+td.p{font-family:ui-monospace,Menlo,monospace;font-size:13px;word-break:break-all}
+tr.total td{border-bottom:0;border-top:2px solid var(--ink);font-weight:600;padding-top:12px}
+td .drop{color:var(--accent);font-size:12.5px;display:block;margin-top:2px}
+
+/* ---------- decisions ---------- */
+.dec{padding:22px 0;border-top:1px solid var(--rule-soft)}
+.dec:first-of-type{border-top:0;padding-top:0}
+.dec h4{font-size:17px;margin:0 0 4px;font-weight:600;line-height:1.35;text-wrap:balance}
+.dec .id{
+  font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--faint);
+  display:block;margin-bottom:10px;letter-spacing:.02em;
+}
+.dec dl{margin:0;display:grid;grid-template-columns:88px 1fr;gap:7px 16px;font-size:15px}
+.dec dt{
+  font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--faint);padding-top:5px;
+}
+.dec dd{margin:0;color:var(--muted)}
+.dec dd.chosen{color:var(--ink)}
+.tag{
+  display:inline-block;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  padding:2px 7px;border-radius:2px;font-weight:600;vertical-align:1px;margin-left:8px;
+}
+.tag.sup{background:var(--cut-soft);color:var(--cut)}
+
+/* ---------- callouts ---------- */
+.note{
+  background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--accent);
+  padding:20px 24px;margin:0 0 20px;box-shadow:var(--shadow);border-radius:0 3px 3px 0;
+}
+.note.warn{border-left-color:var(--cut)}
+.note h4{
+  margin:0 0 8px;font-size:12px;letter-spacing:.11em;text-transform:uppercase;
+  font-family:ui-monospace,Menlo,monospace;color:var(--accent);font-weight:600;
+}
+.note.warn h4{color:var(--cut)}
+.note p{font-size:15.5px;margin-bottom:10px}
+.note p:last-child{margin-bottom:0}
+blockquote{
+  margin:0 0 16px;padding:0 0 0 20px;border-left:2px solid var(--rule);
+  color:var(--muted);font-style:italic;max-width:64ch;
+}
+
+/* ---------- task list ---------- */
+ol.tasks{list-style:none;margin:0;padding:0;counter-reset:t}
+ol.tasks li{
+  counter-increment:t;display:grid;grid-template-columns:44px 1fr;gap:20px;
+  padding:14px 0;border-top:1px solid var(--rule-soft);align-items:baseline;
+}
+ol.tasks li:first-child{border-top:0}
+ol.tasks li::before{
+  content:counter(t,decimal-leading-zero);
+  font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--faint);
+  font-variant-numeric:tabular-nums;
+}
+ol.tasks .t{font-size:16px}
+ol.tasks .t span{display:block;color:var(--muted);font-size:14px;margin-top:3px}
+code{
+  font-size:.88em;background:var(--rule-soft);padding:1px 5px;border-radius:2px;
+  word-break:break-word;
+}
+
+.empty{
+  color:var(--faint);font-style:italic;padding:16px 0;
+  border-top:1px solid var(--rule-soft);border-bottom:1px solid var(--rule-soft);
+}
+footer{padding:40px 0 0;color:var(--faint);font-size:13px;font-family:ui-monospace,Menlo,monospace}
+footer p{max-width:74ch;margin-bottom:6px}
+
+@media (max-width:640px){
+  body{font-size:16px}
+  .wrap{padding:0 20px 64px}
+  .part,ol.tasks li{grid-template-columns:1fr;gap:6px}
+  .part .num em{display:inline;margin-left:8px}
+  .dec dl{grid-template-columns:1fr;gap:2px 0}
+  .dec dt{padding-top:8px}
+  .barrow{grid-template-columns:1fr;gap:5px}
+  .barrow .amt{text-align:left}
+}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">
+    <a href="https://tweety53.atlassian.net/browse/KAN-95">KAN-95</a>
+    <span class="sep">/</span> Highest
+    <span class="sep">/</span> myflow-platform
+    <span class="sep">/</span> proposal
+  </p>
+  <h1>Slim the myflow contract files</h1>
+  <p class="standfirst">Every <code>/myflow-*</code> command reads its contracts in full before it acts, and that text is resent on every tool call for the whole run. This cuts what a run carries — and removes two things the pipeline was paying for and not using.</p>
+</header>
+
+<div class="band">
+  <div class="stat"><span class="fig">210,481</span><span class="lbl">bytes loaded per /myflow-do run, today</span></div>
+  <div class="stat down"><span class="fig">~128,500</span><span class="lbl">projected after this change</span></div>
+  <div class="stat"><span class="fig">5</span><span class="lbl">parts, in dependency order</span></div>
+  <div class="stat"><span class="fig">10</span><span class="lbl">tasks in the plan</span></div>
+</div>
+
+<div class="chart">
+  <div class="barrow">
+    <span class="who">now</span>
+    <div class="track"><div class="fill now" style="width:100%"></div></div>
+    <span class="amt">210,481 B</span>
+  </div>
+  <div class="barrow">
+    <span class="who">projected</span>
+    <div class="track"><div class="fill after" style="width:61%"></div></div>
+    <span class="amt">~128,500 B</span>
+  </div>
+  <p class="chartnote">The issue quotes ~244 KB. That figure is the <em>budget</em> column of <code>check-contract-budget.sh</code> — each budget is its file's size when its row landed, plus 25% — not measured size. This proposal is built against measured bytes, and the correction is stated here rather than left for a reader comparing the two.</p>
+</div>
+
+<section>
+  <h2>What a run actually carries</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>File</th><th class="n">Now</th><th class="n">Projected</th></tr></thead>
+    <tbody>
+      <tr><td class="p">skills/myflow-contracts/pipeline.md</td><td class="n">64,701</td><td class="n">~23,000</td></tr>
+      <tr><td class="p">skills/myflow-contracts/project-configuration.md</td><td class="n">45,274</td><td class="n">~28,000</td></tr>
+      <tr><td class="p">skills/myflow-do/SKILL.md</td><td class="n">37,885</td><td class="n">~26,000</td></tr>
+      <tr><td class="p">skills/myflow-contracts/workspace-isolation.md</td><td class="n">31,079</td><td class="n">~20,000</td></tr>
+      <tr><td class="p">skills/myflow-contracts/state-file.md</td><td class="n">15,951</td><td class="n">15,951</td></tr>
+      <tr><td class="p">skills/myflow-contracts/jira-integration.md</td><td class="n">15,591</td><td class="n">15,591</td></tr>
+      <tr class="total"><td>/myflow-do per run</td><td class="n">210,481</td><td class="n">~128,500</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="chartnote">Projected figures come from per-section byte tallies plus a judgment of which passages are evictable. They are recorded so the outcome can be compared against the expectation — <strong>not</strong> commitments. No file is given a numeric target.</p>
+</section>
+
+<section>
+  <h2>The five parts</h2>
+
+  <div class="part">
+    <div class="num">01<em>as filed</em></div>
+    <div>
+      <h3>Slim the four loaded contracts</h3>
+      <p>Evict inline rationale into appendices a run never loads, creating two that do not exist yet. Move the state block templates to <code>handoff-blocks.md</code>, whose only consumer is <code>/myflow-status</code>. Re-anchor the budget guard to what lands, plus 25%.</p>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="num">02<em>enables 01</em></div>
+    <div>
+      <h3>Remove <code>/myflow-info</code></h3>
+      <p>Its skill and both command files are deleted, and the state diagram and stage tables are rewritten for humans into the root <code>README.md</code>. <strong>Nothing loads them</strong> — which is why no replacement contract file is created. This is what makes deleting 13,769 bytes from <code>pipeline.md</code> correct rather than a relocation.</p>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="num">03</div>
+    <div>
+      <h3>Slim <code>/myflow-status</code></h3>
+      <p>Six columns instead of seven — the worktree column restated the change name and wrapped every row. The command reads the state file plus local git and <strong>never the network</strong>. Merge status stays, because it is local and it is what decides whether the next <code>/myflow-finish</code> integrates or archives.</p>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="num">04<em>follows 03</em></div>
+    <div>
+      <h3>Delete state self-heal</h3>
+      <p><code>/myflow-status</code> was the only command that performed it, and part 3 removes the artifact evidence it needed. Rather than leave a contract nothing performs, the mechanism is deleted and the <code>myflow-state-integrity</code> capability retired.</p>
+    </div>
+  </div>
+
+  <div class="part">
+    <div class="num">05<em>edits 01's file</em></div>
+    <div>
+      <h3>Compress the handoff blocks</h3>
+      <p>Related fields fold onto one line, in <code>handoff-blocks.md</code> and in each producing command's copy at once, so the two renderings never diverge. <strong>No field is dropped.</strong> The fold groups on-disk values onto one line and leaves run-only fields on their own — which is what lets <code>/myflow-status</code> keep omitting exactly what it omits today.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The rule this change had to widen</h2>
+  <p><code>myflow-contract-economy</code> already carries <strong>Requirement: The split is a verbatim partition, with citation repointing as its only edit</strong>:</p>
+  <blockquote>Every sentence of the original file SHALL land in exactly one of the two resulting files, byte-for-byte unchanged. No passage SHALL be summarised, reworded, merged, or authored afresh.</blockquote>
+  <p>Evicting a <em>mixed</em> passage — one carrying both a rule and the argument for it — authors a new sentence, which that requirement forbids. Found while writing the delta specs, not after implementing against a plan that contradicted them.</p>
+  <div class="note">
+    <h4>The carve-out</h4>
+    <p>The <strong>original moves to the appendix byte-for-byte unchanged</strong>, so every sentence of the original file still lands in exactly one file, unmodified — the existing SHALL stays true as written. The <strong>core gains a new sentence</strong> stating the rule, and the ledger <strong>quotes that sentence</strong> beside the passage it replaces, so the panel checks the two against each other rather than taking the extraction on trust.</p>
+    <p>Rejected: replacing byte-identity with the ledger corpus-wide. That trades a mechanical property for a reviewed one across every future split, including splits that need no such licence.</p>
+  </div>
+</section>
+
+<section>
+  <h2>How loss is verified</h2>
+  <p>Every task that moves, evicts or extracts prose emits a ledger before its diff reaches the review panel — one row per removed passage:</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Removed passage</th><th>Source heading</th><th>Destination</th><th>Pointer left</th></tr></thead>
+    <tbody>
+      <tr><td class="p">The path is taken with substr…</td><td class="p">Resolving a change's worktrees</td><td class="p">pipeline-rationale.md § same</td><td class="p">one sentence, cited</td></tr>
+      <tr><td class="p">Measured on a global install…</td><td class="p">Where the agents repository is</td><td class="p">— (rule extracted)</td><td class="p">quoted in the row</td></tr>
+      <tr><td class="p">The stage a level-2 expansion…</td><td class="p">Pipeline flow</td><td class="p">— (rewritten for README.md)</td><td class="p">none</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The panel checks the table against the diff <strong>in both directions</strong>: every deletion has a row, every row's destination exists. A missing row and a dangling destination are each a finding.</p>
+  <div class="note warn">
+    <h4>Why an artifact, and not a reviewer's attention</h4>
+    <p><code>check-references.sh</code> resolves a citation whenever a heading of that name exists — so a stub carrying a heading and a pointer resolves <em>identically</em> to a stub carrying a heading and nothing. That is <a href="https://tweety53.atlassian.net/browse/KAN-84">KAN-84</a>, and it stays open. The guard cannot see this change's own failure mode, and the proposal says so rather than implying otherwise.</p>
+    <p>A mechanical no-loss script was rejected: exact for a pure move, broken by the rewording the carve-out requires, with a similarity threshold nobody can tune honestly.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Decisions</h2>
+
+  <div class="dec">
+    <h4>The stage tables move to <code>README.md</code> rather than to a loaded contract file<span class="tag sup">superseded</span></h4>
+    <span class="id">stage-tables-to-readme → superseded by stage-tables-leave-the-corpus</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">A new <code>pipeline-stages.md</code> loaded by <code>/myflow-info</code> alone — removes 13,769 B from every other command while honouring KAN-87's decision that <code>/myflow-info</code> keeps the stage table.</dd>
+      <dt>Considered</dt><dd>Deleting outright, as the ticket words it — rejected because KAN-87 decided one change ago that <code>/myflow-info</code> keeps them. Leaving them in the core — rejected because the bytes then stay on every command for one command's benefit.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>The stage tables leave the loaded corpus entirely</h4>
+    <span class="id">stage-tables-leave-the-corpus</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen"><code>README.md</code>, rewritten for a human reader, with no <code>pipeline-stages.md</code> created — removing <code>/myflow-info</code> removed the only runtime consumer the tables had.</dd>
+      <dt>Considered</dt><dd>Keeping <code>pipeline-stages.md</code> as a loaded file with no consumer — a file the budget guard would police for nobody. Moving the tables verbatim — rejected because the audience changed from a command to a human.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>Lever 2 creates one file, not the three the ticket names</h4>
+    <span class="id">lever-two-creates-one-file</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen"><code>handoff-blocks.md</code> alone — its full set is needed only by <code>/myflow-status</code>, every producing command already carrying the single block it prints.</dd>
+      <dt>Considered</dt><dd><code>model-policy.md</code> — its consumers are the two <em>most expensive</em> runs, so splitting it relieves only the cheap commands. <code>artifacts-registry.md</code> — KAN-87 deliberately hoisted that section <em>into</em> the core; moving it out re-creates KAN-82's panel finding F1 by design.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>A mixed passage is handled by rule extraction, under a bounded carve-out</h4>
+    <span class="id">bounded-carve-out-for-mixed-passages</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">Original to the appendix byte-for-byte, one new core sentence, quoted in the ledger — the existing SHALL stays true as written.</dd>
+      <dt>Considered</dt><dd>Staying strictly verbatim — leaves most of the prose where it is, since most of it is mixed. Widening the requirement to permit rewriting — gives away the property that makes the capability checkable.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>Verification is a per-move ledger</h4>
+    <span class="id">per-move-ledger</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">Removed passage → destination or pointer, checked against the diff in both directions — an artifact rather than a reviewer's attention, and it survives rewording.</dd>
+      <dt>Considered</dt><dd>A mechanical no-loss script — breaks on rule extraction. Reading before-and-after with no artifact, KAN-87's method — no record of what was actually checked.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>No numeric target is set</h4>
+    <span class="id">no-numeric-target</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">Move what moves; re-anchor each budget to what lands, plus 25%.</dd>
+      <dt>Considered</dt><dd>The ticket's ~25,000 B target — derived from the budget rather than the actual, and precisely the pressure the guard's own header warns against: a target-first budget pushes normative text into an appendix to make a number.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4><code>/myflow-status</code> keeps local git and loses the network</h4>
+    <span class="id">status-keeps-local-git</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">State file plus local git, dropping <code>gh pr list</code> alone — merge status is local, and it is what splits the next-command answer between integrating and archiving.</dd>
+      <dt>Considered</dt><dd>State file only in the table — the Next column would stop distinguishing the two <code>/myflow-finish</code> runs. State file only everywhere — removes more than was asked.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>Self-heal is deleted rather than re-homed</h4>
+    <span class="id">self-heal-deleted</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">Delete <code>state-self-heal.md</code> and the <code>myflow-state-integrity</code> capability — a contract whose mechanism nothing performs is not kept against a future that may never arrive.</dd>
+      <dt>Considered</dt><dd>Moving it to <code>/myflow-finish</code>, where a contradicted state file does irreversible damage through a wrong preflight verdict — rejected after the cost was stated. Moving it to <code>/myflow-do</code> — 15,250 B onto the command this change exists to slim.</dd>
+    </dl>
+  </div>
+
+  <div class="dec">
+    <h4>All five parts ship as one change</h4>
+    <span class="id">five-parts-one-change</span>
+    <dl>
+      <dt>Chosen</dt><dd class="chosen">One proposal, one worktree, one review panel, one merge.</dd>
+      <dt>Considered</dt><dd>Splitting parts 3–5 into their own ticket — rejected after the concern was stated that a single panel would read a diff spanning contracts, commands, capabilities and output formats at once.</dd>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <h2>Open questions</h2>
+  <p class="empty">None. Every question raised during planning was answered.</p>
+</section>
+
+<section>
+  <h2>Capabilities</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Capability</th><th>Operation</th><th>What changes</th></tr></thead>
+    <tbody>
+      <tr><td class="p">myflow-contract-economy</td><td>modified</td><td>The verbatim-partition requirement gains the carve-out; a new requirement carries the per-move ledger.</td></tr>
+      <tr><td class="p">myflow-contract-distribution</td><td>modified</td><td>The diagram and stage tables move to <code>README.md</code>; the directory gains <code>handoff-blocks.md</code> and two appendices and loses <code>state-self-heal.md</code>.</td></tr>
+      <tr><td class="p">myflow-handoff-output</td><td>modified</td><td>The block definition moves file; the identical-label-set rule becomes an identical-folded-line-set rule; a new requirement governs the status table.</td></tr>
+      <tr><td class="p">myflow-command-surface</td><td>modified</td><td>Three pipeline commands plus <strong>one</strong> read-only one.</td></tr>
+      <tr><td class="p">myflow-progress-visibility</td><td>modified</td><td>Its read-only-commands-register-nothing rule names <code>/myflow-info</code>.</td></tr>
+      <tr><td class="p">myflow-state-integrity</td><td>removed</td><td>Both its requirements are self-heal requirements. Monotonic writes are unaffected — they live in <code>state-file.md</code>.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="chartnote"><code>myflow-state-machine</code> was expected to need a change and does not: it names no command in its transition table's prose.</p>
+</section>
+
+<section>
+  <h2>Plan</h2>
+  <ol class="tasks">
+    <li><div class="t">Remove <code>/myflow-info</code> and move the pipeline explanation to <code>README.md</code><span>Deletes the skill and both command files; strips 21 citations across <code>Pipeline flow</code> and <code>Level 1</code>.</span></div></li>
+    <li><div class="t">Move the handoff block templates to <code>handoff-blocks.md</code><span>Whole-section move under the two permitted edits; repoints 19 citing files.</span></div></li>
+    <li><div class="t">Compress the handoff blocks<span>Folds the templates and mirrors the fold into all three producing skills in the same task, so the renderings cannot diverge.</span></div></li>
+    <li><div class="t">Slim <code>/myflow-status</code> — columns and data sources<span>Drops the worktree column and the <code>gh pr list</code> probe; keeps merge status.</span></div></li>
+    <li><div class="t">Delete state self-heal<span>Re-homes the unparseable-file rule into <code>state-file.md</code> first, then deletes the contract and strips every citation.</span></div></li>
+    <li><div class="t">Evict rationale from <code>pipeline.md</code><span>Classify, move, extract, leave a pointer at every eviction. Emits the ledger.</span></div></li>
+    <li><div class="t">Evict rationale from <code>skills/myflow-do/SKILL.md</code><span>The review panel section alone is 11,697 B; its appendix exists and holds 3,327 B.</span></div></li>
+    <li><div class="t">Split <code>project-configuration.md</code> into a core and a new appendix<span><code>Where the agents repository is</code> is 23,911 B for a rule that is five lines.</span></div></li>
+    <li><div class="t">Split <code>workspace-isolation.md</code> into a core and a new appendix<span>Five sections; every derivation formula and the survivor-report contract stay core.</span></div></li>
+    <li><div class="t">Re-anchor every budget row and record the result<span>Each row set to size × 1.25, measured after Task 9 — never a number the file has not reached.</span></div></li>
+  </ol>
+</section>
+
+<section style="border-bottom:0">
+  <h2>What this costs</h2>
+  <div class="note warn">
+    <h4>Accepted knowingly</h4>
+    <p><strong>A stale state file is now never corrected, and never flagged.</strong> Nothing validates a state file against artifacts once self-heal is gone. Moving the mechanism to <code>/myflow-finish</code> was offered and declined.</p>
+    <p><strong><code>/myflow-status</code> can no longer say whether a pull request is open.</strong> That answer needs the network call part 3 removes, and reporting a state the command did not observe is worse than reporting none.</p>
+    <p><strong>Parts 2, 3 and 4 are behaviour changes</strong>, named as such rather than folded into the slimming claim. KAN-82 and KAN-87 could each claim "not a behaviour change" for their whole diff; this one cannot.</p>
+  </div>
+</section>
+
+<footer>
+  <p>planning effort: default · implementation: Sonnet · review panel: Sonnet · panel fixes: Sonnet</p>
+  <p>measured @ f763481 — wc -c, awk section tallies, grep -rl excluding .git and archive</p>
+</footer>
+
+</div>
