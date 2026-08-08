@@ -123,16 +123,16 @@ Only then ask, **before any git action**, how the branch should land:
 Then run to completion without asking again. The answer is never remembered between runs.
 
 All three routes first commit the work, in **two** commits and never one: the implementation, then
-`docs/manual-test/<name>.md`, the `openspec/` planning artifacts and the session records preserved
+the `openspec/` planning artifacts and the session records preserved
 under `docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact
 source). The records are copied out of the gitignored worktree before staging, by
 `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`.
 
-Those three planning paths are cleared from the index before the first `add` and excluded from it by
+Those two planning paths are cleared from the index before the first `add` and excluded from it by
 pathspec — the same clearing pass **Git boundaries** (`pipeline.md`) gives `/myflow-do`, and
 for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
-picks the three paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
+picks the two paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
 failure rule and the symlink case — is the chain **Git boundaries** (`pipeline.md`) gives, and is
 not written out a second time here.
 
@@ -305,8 +305,9 @@ git -C "$REPO" worktree list --porcelain \
   | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/openspec/<name>") print w}'
 ```
 
-**Never guess a path.** Worktree layout differs per repository — this repo keeps its worktrees in a
-sibling directory, not `.worktrees/`.
+**Never guess a path.** Worktree layout differs per repository — this repo keeps its worktrees under
+`.worktrees/` (git-ignored, per `superpowers:using-git-worktrees`), which is not where every
+repository this pipeline is installed into keeps them.
 
 **Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
 worktree on the change's branch in any affected repository.** Per **Resolving a change's worktrees**

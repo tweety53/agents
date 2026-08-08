@@ -137,7 +137,7 @@ the operator answers. Re-asking cold invites a duplicate PR.
 
 ## 1.2 Commit the staged work
 
-All three routes commit — implementation, `docs/manual-test/<name>.md`, the `openspec/` planning
+All three routes commit — implementation, the `openspec/` planning
 artifacts, and the session records preserved under `docs/superpowers/` — as **two** commits, never
 one. The planning artifacts were hidden from the review diff, not from the commit.
 
@@ -155,13 +155,13 @@ Then stage and commit twice, in this order, rather than assuming everything is a
 operator may have edited the worktree at the human gate without staging.
 
 ```bash
-git -C <worktree> reset -q -- openspec/ docs/manual-test/ docs/superpowers/ \
-  && git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/' \
+git -C <worktree> reset -q -- openspec/ docs/superpowers/ \
+  && git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/' \
   && { git -C <worktree> diff --cached --quiet \
        || git -C <worktree> commit -m "<type>(<name>): <what the implementation does>"; } \
   && git -C <worktree> add -A \
   && { git -C <worktree> diff --cached --quiet \
-       || git -C <worktree> commit -m "chore(<name>): plan, test guide and session records"; }
+       || git -C <worktree> commit -m "chore(<name>): plan and session records"; }
 ```
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the

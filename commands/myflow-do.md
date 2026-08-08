@@ -2,7 +2,7 @@
 name: /myflow-do
 id: myflow-do
 category: myflow
-description: Do — implement the plan with TDD and the review panel, and write the manual test guide
+description: Do — implement the plan with TDD and the review panel
 ---
 
 **Model:** keep this **session** on Sonnet (or your default). The **implementer subagents this command dispatches run on Opus** — or your harness's strongest model — named explicitly on each dispatch, never inherited; every review-panel slot stays on the panel's model, Sonnet by default. See "Model policy" in `skills/myflow-contracts/pipeline.md`, which is canonical. Cursor doesn't yet support a per-command model frontmatter field, so the session setting is a recommendation rather than an enforced switch — but the subagent models are set at dispatch time and apply in every harness.
@@ -11,7 +11,7 @@ Use the **myflow-do** skill — installed globally, so let your harness resolve 
 
 Follow that skill exactly. Accepts **`STARTED`** (first run — creates the worktree) or **`IN_PROGRESS`** (fix run — resumes the **existing** worktree). Ends at **`IN_PROGRESS`** from `STARTED`; from `IN_PROGRESS` it writes the state back **unchanged**, because a fix never moves the state.
 
-Produces **both** the staged diff **and** `docs/manual-test/<name>.md`, so reviewing the code and running the apps are one human gate.
+Produces **both** the staged diff **and** the run instructions, so reviewing the code and running the apps are one human gate.
 
 **No commits, push, merge, or PR** — with one exception: if the state file records a `prUrl`, a PR is already open and a staged-only fix would be invisible on it, so the fix is committed and pushed to that branch instead.
 
@@ -21,4 +21,4 @@ Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally,
 
 **Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
 
-**When done:** review the staged diff and run the apps against the guide. Re-run `/myflow-do <name>` to fix anything you find, then `/myflow-finish <name>`.
+**When done:** review the staged diff and run the apps. Re-run `/myflow-do <name>` to fix anything you find, then `/myflow-finish <name>`.

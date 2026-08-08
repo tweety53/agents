@@ -57,8 +57,8 @@ See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 |---------|-------|--------------|
 | `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | you | Read the proposal artifact |
-| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, leaving a manual test guide beside a staged diff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
-| *(gate)* | you | Review the staged diff **and** run the apps against the guide |
+| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, printing the run instructions in its handoff beside a staged diff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
+| *(gate)* | you | Review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run, asking how to land it (PR by default, merge, or manual); on its second, once merged, archives the change and removes what the pipeline created. |
 | `/myflow-status [name]` | `myflow-status` | Read-only report of where every open change is |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |

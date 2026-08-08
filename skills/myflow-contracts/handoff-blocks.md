@@ -105,9 +105,12 @@ rule the open-questions count reads through are stated once under **Open questio
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
 Worktree:   <absolute worktree path>
-Test guide: <absolute path to the guide, or "missing">
 
-Review the diff, then run the apps against the guide:
+Run it:
+  <command>          # <app or check name>
+  <command>
+
+Review the diff, then run it:
   <the review command that matches the git state on the Staged line — see below>
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 
@@ -119,6 +122,13 @@ Next:
 
 **`Panel` is `(run-only)`.** See **Why `Panel` is run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
+
+**`Run it:` is on-disk, not `(run-only)`.** The commands it lists are resolved from the worktree
+and the project's own configuration — not remembered from the run that printed them — so
+`/myflow-status <name>` regenerates the same lines `/myflow-do` printed rather than omitting the
+section. Both commands resolve those lines the same way: **6. Resolve the run instructions**
+(`skills/myflow-do/SKILL.md`) is canonical for the procedure, and `/myflow-status`'s detail-view
+step cites it rather than restating it.
 
 **The `Staged` line's git state has a third option, and the review command follows it.**
 `/myflow-do` itself only ever emits the first two — it stages, or it commits and pushes to a PR

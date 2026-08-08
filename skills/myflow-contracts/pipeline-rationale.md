@@ -27,7 +27,7 @@ IDE, and committing would take that away.
 
 **Both commits are guarded, and an empty one is skipped rather than failed.** `git commit` exits
 non-zero when nothing is staged, so an unguarded two-commit sequence dead-ends on three ordinary
-cases: a fix touching only the three planning paths leaves the implementation commit empty — which
+cases: a fix touching only the two planning paths leaves the implementation commit empty — which
 is exactly what run 1's unfinished-work **Stop** course invites — a fix touching only implementation
 leaves the planning commit empty, and a re-run after a rejected push finds both commits already
 made. Each commit is therefore preceded by a staged-changes test, and the whole sequence is one
@@ -82,7 +82,7 @@ no harness has to gain a task tool to satisfy it.
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-- **`/myflow-do` never stages `openspec/`, `docs/manual-test/` or `docs/superpowers/` before
+- **`/myflow-do` never stages `openspec/` or `docs/superpowers/` before
   finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
   implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
   display command, is what makes them absent from *every* view of the staging area — a filtered
@@ -130,9 +130,9 @@ defined; the two call sites point here rather than each describing them.
 
    **The removal goes after the worktree half, and the order is load-bearing.** Worktree cleanup's
    check 5 runs the project's `## stop` command, and it is the **only** place run 2 stops the stack —
-   which run 2 nearly always has to do, because `/myflow-do` hands off a manual test guide and the
-   operator runs the applications against it, so a stack still up when run 2 starts is the common
-   case rather than a rare one. Dropping a database the project's own stack still holds open is a
+   which run 2 nearly always has to do, because `/myflow-do`'s handoff prints the run instructions
+   and the operator runs the applications against them, so a stack still up when run 2 starts is the
+   common case rather than a rare one. Dropping a database the project's own stack still holds open is a
    removal that fails on the ordinary path, so the removal waits until that stack is down.
    Nothing pulls the other way: these resources live in the project's shared data services rather
    than in the worktree, so taking the worktree down neither removes them nor puts them out of reach,

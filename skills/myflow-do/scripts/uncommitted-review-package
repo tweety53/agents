@@ -23,8 +23,8 @@
 # exists to close. `-C <toplevel>` makes `.` mean the whole repo regardless of
 # invocation cwd.
 #
-# The staging pathspec also excludes the three NO-COMMITS planning paths
-# (openspec/, docs/manual-test/, docs/superpowers/) that this pipeline never
+# The staging pathspec also excludes the two NO-COMMITS planning paths
+# (openspec/, docs/superpowers/) that this pipeline never
 # stages via a bare `git add -A` — skills/myflow-do/SKILL.md's NO-COMMITS
 # block and Guardrails section forbid it, and staging them here would leak
 # uncommitted planning edits into a review package meant to cover
@@ -54,7 +54,7 @@ git rev-parse --verify --quiet "$base" >/dev/null || { echo "bad BASE: $base" >&
 # `-C <toplevel> add -A -- .` with exclusions, not a bare `git add -A` and not
 # a cwd-relative `-- .`.
 toplevel=$(git rev-parse --show-toplevel)
-git -C "$toplevel" add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/'
+git -C "$toplevel" add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/'
 
 if [ $# -eq 3 ]; then
   out=$3

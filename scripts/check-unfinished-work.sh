@@ -26,15 +26,12 @@
 # third vocabulary (RUN1/RUN2/REFUSE) differs for a further reason again: it
 # selects a procedure rather than reporting a state.
 #
-# A MISSING FILE COUNTS AS OUTSTANDING, NOT CLEAR. Treating an absent guide, an
-# absent plan, an absent panel record or an absent "## Known incomplete" section
-# as clearance is the failure this guard exists to prevent: a branch merged over
-# unfinished work because nothing was written down. The same reasoning covers a
-# "## Known incomplete" heading with nothing under it — the contract asks for
-# the word `None.` or a list of items, and a bare heading is neither, so it
-# clears nothing.
+# A MISSING FILE COUNTS AS OUTSTANDING, NOT CLEAR. Treating an absent plan or
+# an absent panel record as clearance is the failure this guard exists to
+# prevent: a branch merged over unfinished work because nothing was written
+# down.
 #
-# All four signals are counted independently and reported together on the one
+# Both signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.
 #
@@ -50,34 +47,6 @@
 # with `- [ ]` — errs toward OUTSTANDING, which prompts the operator rather than
 # clearing the gate silently.
 #
-# WHERE FENCE TRACKING IS PAID FOR, AND THE RULE THAT DECIDES IT. Exactly one
-# scan below tracks fences: the `## Known incomplete` section finder. The rule
-# is not "fences matter" but "fences are tracked wherever ignoring them fails
-# OPEN". A fenced example containing that heading and the word `None.` would
-# otherwise be read as the guide's own section and CLEAR the signal for a guide
-# that never wrote one — silent clearance, the failure this guard exists to
-# break. The checklist pattern above fails toward OUTSTANDING when a fenced
-# example is misread, so it does not pay for the tracking; signal three below
-# reads anchored marker lines and has no notion of a block at all.
-#
-# WHAT THE FENCE RULE ACTUALLY IS, stated because an earlier version of this
-# comment claimed the tracking closed the hole while the code implemented a
-# boolean toggle on "the line contains ``` or ~~~" — which closes it only for
-# examples whose markers happen to pair up. Two shapes got through: a closing
-# marker indented four spaces inside an unclosed fence, and a ```` fence
-# documenting a ``` one. Either desynchronises the toggle, after which every
-# line is read with the fence state inverted and the fenced example becomes the
-# guide's own section.
-#
-# The rule below is CommonMark's, and opening and closing are separate tests. An
-# opening marker is at most three spaces of indent then three or more of ` or ~;
-# a backtick opener may not carry a backtick in its info string. A CLOSING marker
-# must use the SAME character, be AT LEAST AS LONG as the opener, and carry
-# nothing but whitespace after it. An unclosed fence runs to end of file. What
-# this still does NOT model, deliberately: fences nested inside list items or
-# blockquotes, where the container's indentation shifts the limit. Both of those
-# fail toward OUTSTANDING here — the section is not seen — so they are the safe
-# direction, which is why they are not modelled.
 set -euo pipefail
 
 # NO ANSWER THIS GUARD GIVES MAY DEPEND ON THE CALLER'S LOCALE. Be precise about
@@ -87,7 +56,7 @@ set -euo pipefail
 # WHAT FIXED THE STATUS COMPARISON WAS THE REDESIGN, NOT THIS LINE. An earlier
 # version compared a status with awk's `==`, which goes through the locale's
 # collating sequence, so a zero-width character in it reported OUTSTANDING under
-# a UTF-8 locale and vanished under `LC_ALL=C`. Signal three no longer compares
+# a UTF-8 locale and vanished under `LC_ALL=C`. Signal two no longer compares
 # strings at all: it matches anchored patterns, and a pattern match is not
 # collation-sensitive in the way `==` is.
 #
@@ -113,8 +82,9 @@ fi
 # CONTAINMENT: the change name arrives from a pull-request-editable state file
 # and is concatenated into every path below. Without this check
 # `../../../planted/clear` makes the gate read a file outside the worktree
-# entirely and report CLEAR for a change that has no guide at all, and a glob
-# metacharacter reaches the `case` patterns and the `find` filter further down.
+# entirely and report CLEAR for a change that has no plan of its own, and a
+# glob metacharacter reaches the `case` patterns and the `find` filter further
+# down.
 #
 # The rule is preserve-session-records.sh's Protection 1, character for
 # character, and its comment there is canonical for why each hazard is in it —
@@ -152,7 +122,6 @@ if [ ! -d "$WORKTREE" ]; then
   exit 2
 fi
 
-GUIDE="$WORKTREE/docs/manual-test/$NAME.md"
 PANEL="$WORKTREE/.superpowers/sdd/final-review-panel.md"
 CHANGES="$WORKTREE/openspec/changes"
 PRIMARY_PLAN="$CHANGES/$NAME/tasks.md"
@@ -205,7 +174,7 @@ count_matching() {
 # ids_of <file> <ere> — the digits of every match of <ere>, one per line,
 # sorted, so two such lists can be compared for equality with `=`. Used to hold
 # the findings table's row identifiers against the marker block's; see signal
-# three. `grep -o` is fed the same exit-code discipline as count_matching.
+# two. `grep -o` is fed the same exit-code discipline as count_matching.
 ids_of() {
   local raw rc=0
   raw="$(grep -aoE "$2" "$1")" || rc=$?
@@ -244,95 +213,14 @@ line_numbers() {
 }
 
 # count_unticked <file> — unticked checklist items in a markdown file. The
-# pattern lives here alone: the guide and the plans are the same knowledge
-# about what an unticked box looks like, and two copies would drift.
+# pattern lives here alone: the primary plan and every fix sub-change's plan
+# are the same knowledge about what an unticked box looks like, and separate
+# copies would drift.
 count_unticked() {
   count_matching "$1" '^[[:space:]]*- \[ \]'
 }
 
-# Signals one and four — the manual test guide's boxes, and the work it already
-# knows is undone.
-if [ ! -f "$GUIDE" ]; then
-  add "no manual test guide at $GUIDE"
-else
-  BOXES="$(count_unticked "$GUIDE")" || unreadable "$GUIDE"
-  if [ "${BOXES:-0}" -gt 0 ]; then
-    add "$BOXES unticked box(es) in the manual test guide"
-  fi
-
-  # One pass answers all three questions about the section: is it there, does it
-  # hold anything, and is anything in it other than `None.`. The section runs to
-  # the next `## ` heading, so a later section's content is never read as
-  # incomplete work; blank lines are dropped as they are collected.
-  #
-  # Fence-aware, per the header's rule. Content inside a fence that is inside the
-  # section still counts as content — a fenced snippet under the heading is the
-  # author saying something — but neither the heading nor the section terminator
-  # is recognised inside one.
-  SECTION_STATE="$(awk '
-    # scan_fence(line) — 1 when <line> has the SHAPE of a fenced-code-block
-    # marker, with FCHAR/FLEN/FREST set to its character, its length and the rest
-    # of the line. CommonMark: at most three spaces of indent, then three or more
-    # of ` or ~. Only literal spaces are counted as indent, so a leading tab —
-    # four columns, past the limit — correctly reads as content, not a marker.
-    function scan_fence(line,   i, n, ch, cnt) {
-      i = 1; n = 0
-      while (substr(line, i, 1) == " ") { n++; i++ }
-      if (n > 3) return 0
-      ch = substr(line, i, 1)
-      if (ch != "`" && ch != "~") return 0
-      cnt = 0
-      while (substr(line, i, 1) == ch) { cnt++; i++ }
-      if (cnt < 3) return 0
-      FCHAR = ch; FLEN = cnt; FREST = substr(line, i)
-      return 1
-    }
-    {
-      # OPENING and CLOSING ARE DIFFERENT TESTS, which is the whole correction.
-      # A boolean toggle over "this line looks like a fence" desynchronises on
-      # the first marker that is not a real closer, and every line after it is
-      # then read with the state inverted — which is how a guide whose only
-      # `## Known incomplete` sits inside a fenced example reported CLEAR.
-      #
-      # A closer must use the SAME character, be AT LEAST AS LONG as the opener,
-      # and carry nothing but whitespace after it. An opening backtick fence may
-      # not carry a backtick in its info string; such a line opens nothing.
-      # An unclosed fence runs to end of file, as CommonMark says.
-      if (scan_fence($0)) {
-        if (!in_fence) {
-          if (FCHAR != "`" || index(FREST, "`") == 0) {
-            in_fence = 1; fence_char = FCHAR; fence_len = FLEN
-          }
-        } else if (FCHAR == fence_char && FLEN >= fence_len && FREST ~ /^[[:space:]]*$/) {
-          in_fence = 0
-        }
-      }
-      if (!in_fence) {
-        if ($0 ~ /^## Known incomplete/) { found = 1; in_section = 1; next }
-        if (in_section && $0 ~ /^## /) { in_section = 0 }
-      }
-      if (in_section && $0 ~ /[^[:space:]]/) {
-        lines++
-        if ($0 !~ /^[[:space:]]*None\.[[:space:]]*$/) { remainder++ }
-      }
-    }
-    END { printf "%d %d %d\n", found + 0, lines + 0, remainder + 0 }
-  ' "$GUIDE")" || unreadable "$GUIDE"
-  read -r KNOWN_FOUND KNOWN_LINES KNOWN_REMAINDER <<< "$SECTION_STATE"
-
-  if [ "$KNOWN_FOUND" -eq 0 ]; then
-    add "the manual test guide has no '## Known incomplete' section"
-  elif [ "$KNOWN_LINES" -eq 0 ]; then
-    add "the '## Known incomplete' section is empty — it must state None. or list what is undone"
-  elif [ "$KNOWN_REMAINDER" -gt 0 ]; then
-    # `None.` on its own line is the contract's way of saying "nothing".
-    # Anything surviving that filter is a signal, including `None.` written
-    # alongside items that contradict it.
-    add "the guide records work known to be incomplete"
-  fi
-fi
-
-# Signal two — the plan, including any fix sub-change.
+# Signal one — the plan, including any fix sub-change.
 #
 # THE PRIMARY PLAN IS TRACKED SEPARATELY FROM THE REST, because their absences
 # mean opposite things. `openspec/changes/<name>/tasks.md` is the change's plan
@@ -375,7 +263,7 @@ if [ "$PLAN_OPEN" -gt 0 ]; then
   add "$PLAN_OPEN unchecked plan item(s)"
 fi
 
-# Signal three — findings whose recorded status is not closed.
+# Signal two — findings whose recorded status is not closed.
 #
 # THIS SIGNAL DOES NOT PARSE THE FINDINGS TABLE, and the deletion is the point.
 # Three review passes hid an open Critical from a hand-rolled GFM table parser
@@ -506,7 +394,7 @@ else
 
   # THE MARKER LINES MUST BE ONE UNBROKEN BLOCK, and this rule is here because
   # attacking the redesign found the one route that still under-counted. A marker
-  # line quoted inside a fenced example is counted like any other — signal three
+  # line quoted inside a fenced example is counted like any other — signal two
   # has no notion of a block, which is the whole point — so a fenced
   # `finding-status: F2 fixed` sitting elsewhere in the record STOOD IN FOR F2's
   # real marker when that marker was never written: identifiers matched, the
@@ -566,7 +454,7 @@ else
 fi
 
 if [ -z "$REASONS" ]; then
-  echo "CLEAR: $WORKTREE — every checklist box is ticked, every plan item is checked, no finding is open, and nothing is recorded as incomplete"
+  echo "CLEAR: $WORKTREE — every plan item is checked and no finding is open"
 else
   echo "OUTSTANDING: $WORKTREE — $REASONS"
 fi

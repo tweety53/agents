@@ -28,14 +28,15 @@ A change is always in exactly one of three states, recorded in its state file.
 vocabulary are the same words.
 
 **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
-staged diff and a test guide are waiting for the human. Nothing records that the review or the
-testing happened; the operator running the next command is what carries the change forward. This
-is why no `*-done` command exists — there would be nothing for one to write.
+staged diff is waiting for the human to review, alongside the run instructions the handoff
+printed. Nothing records that the review or the testing happened; the operator running the next
+command is what carries the change forward. This is why no `*-done` command exists — there would
+be nothing for one to write.
 
 | State | Means | Waiting on |
 |-------|-------|-----------|
 | `STARTED` | The proposal exists and is published | you — read the artifact |
-| `IN_PROGRESS` | The implementation is staged and a test guide exists | you — review the diff, run the apps |
+| `IN_PROGRESS` | The implementation is staged and the handoff printed the run instructions | you — review the diff, run the apps |
 | `FINISHED` | Archived, pushed, worktrees removed | — |
 
 **Reviewing and testing are one gate.** `/myflow-do` produces both surfaces in the same run, so
@@ -127,7 +128,7 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 | `/myflow-finish` | run 2 | **Commits and pushes the archive**; removes worktrees and branches |
 | `/myflow-status` | — | None — read-only |
 
-**The planning paths** are the three that
+**The planning paths** are the two that
 **Handoff output** (`pipeline.md`) names below. `/myflow-do` clears them from the index and only
 then stages with them excluded by pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
@@ -142,21 +143,21 @@ command. See **Git boundaries** (`skills/myflow-contracts/pipeline-rationale.md`
 cases this guards against and why it is a chain rather than `set -e`.
 
 ```bash
-git -C <abs-worktree> reset -q -- openspec/ docs/manual-test/ docs/superpowers/ \
-  && git -C <abs-worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/manual-test/' ':(exclude)docs/superpowers/' \
+git -C <abs-worktree> reset -q -- openspec/ docs/superpowers/ \
+  && git -C <abs-worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/' \
   && { git -C <abs-worktree> diff --cached --quiet \
        || git -C <abs-worktree> commit -m "<type>(<name>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \
   && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "chore(<name>): plan, test guide and session records"; }
+       || git -C <abs-worktree> commit -m "chore(<name>): plan and session records"; }
 ```
 
 **A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report
 git's own output and stop.** See **Git boundaries** (`skills/myflow-contracts/pipeline-rationale.md`)
 for what an unguarded sequence would do instead.
 
-**A planning path that is a tracked symlink stops the run, and is never worked around.** When any of
-the three is a symlink, `git add -A -- . ':(exclude)docs/superpowers/'` exits 128 with
+**A planning path that is a tracked symlink stops the run, and is never worked around.** When either
+of the two is a symlink, `git add -A -- . ':(exclude)docs/superpowers/'` exits 128 with
 `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**. Report that message,
 name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bare `git add -A`,
 which puts the planning artifacts into the implementation commit — the one outcome this split
@@ -237,12 +238,11 @@ Next:
   clears what remains and runs it again.
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
-- **Link, never paste.** Manual test guides, diffs and plans are given as absolute paths.
-- **Every path is absolute** — in handoffs, in generated guides, in IntelliJ commands, in run
-  instructions. Never a relative path, never `../<other-app>`, and never a main-checkout path while
-  an apply worktree holds the work. Resolve app roots from `git worktree list` or the state file's
-  `worktrees` keys.
-- **`/myflow-do` never stages `openspec/`, `docs/manual-test/` or `docs/superpowers/` before
+- **Link, never paste.** Diffs and plans are given as absolute paths.
+- **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
+  relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
+  holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
+- **`/myflow-do` never stages `openspec/` or `docs/superpowers/` before
   finish**, and the list is fixed here rather than configured per project. `/myflow-finish` run 1
   stages them and commits them separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why leaving them unstaged
@@ -313,7 +313,7 @@ and reuses a running instance.
 | State | Path to open |
 |-------|--------------|
 | `STARTED` | main checkout (artifacts live there; no worktree exists yet) |
-| `IN_PROGRESS` | apply worktree root, plus the test guide's absolute path |
+| `IN_PROGRESS` | apply worktree root |
 
 Paths are absolute, resolved from `git worktree list`. Never emit a relative path.
 

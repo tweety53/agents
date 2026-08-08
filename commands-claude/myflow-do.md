@@ -1,13 +1,13 @@
 ---
 model: sonnet
-description: Do — implement the plan with TDD and the review panel, and write the manual test guide
+description: Do — implement the plan with TDD and the review panel
 ---
 
 Use the **myflow-do** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
 Follow that skill exactly. Accepts **`STARTED`** (first run — creates the worktree) or **`IN_PROGRESS`** (fix run — resumes the **existing** worktree). Ends at **`IN_PROGRESS`** from `STARTED`; from `IN_PROGRESS` it writes the state back **unchanged**, because a fix never moves the state.
 
-Produces **both** the staged diff **and** `docs/manual-test/<name>.md`, so reviewing the code and running the apps are one human gate.
+Produces **both** the staged diff **and** the run instructions, so reviewing the code and running the apps are one human gate.
 
 **No commits, push, merge, or PR** — with one exception: if the state file records a `prUrl`, a PR is already open and a staged-only fix would be invisible on it, so the fix is committed and pushed to that branch instead.
 
@@ -17,4 +17,4 @@ Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally,
 
 **Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
 
-**When done:** review the staged diff and run the apps against the guide. Re-run `/myflow-do <name>` to fix anything you find, then `/myflow-finish <name>`.
+**When done:** review the staged diff and run the apps. Re-run `/myflow-do <name>` to fix anything you find, then `/myflow-finish <name>`.

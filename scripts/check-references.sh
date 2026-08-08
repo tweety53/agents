@@ -411,7 +411,7 @@ check_file() {
         continue
       fi
       # A path that resolves to nothing is out of scope: templated paths like
-      # docs/manual-test/<name>.md are legitimate and must not fail the guard.
+      # openspec/changes/<name>/tasks.md are legitimate and must not fail the guard.
       [ -n "$resolved" ] || continue
 
       local heads matched token

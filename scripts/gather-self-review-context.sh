@@ -98,8 +98,10 @@
 #   2. docs/superpowers/reviews/<name>-panel.md
 #   3. <archived-change-path>/tasks.md
 #   4. git log --stat for the change's two finish-run-1 commits (the
-#      implementation commit and the "plan, test guide and session records"
-#      commit) plus the archive commit.
+#      implementation commit and the "plan and session records" commit) plus
+#      the archive commit. Both that current subject and the wording finish
+#      run 1 used before the rename ("plan, test guide and session records")
+#      are matched, so changes committed before the rename keep resolving.
 #
 # NOTE on sources 1 and 2: preserve-session-records.sh writes these under
 # docs/superpowers/{ledgers,reviews}/ with a LEADING DATE, e.g.
@@ -424,10 +426,10 @@ if [ "$ARCHIVED_PATH_INVALID" -eq 0 ]; then
   fi
 fi
 
-# The three commits: the implementation commit and the "plan, test guide and
-# session records" commit (finish run 1's own two-commit chain, per Git
-# boundaries in skills/myflow-contracts/pipeline.md), plus the archive
-# commit. Resolved by walking git log for the most recent commit matching
+# The three commits: the implementation commit and the "plan and session
+# records" commit (finish run 1's own two-commit chain, per Git boundaries
+# in skills/myflow-contracts/pipeline.md), plus the archive commit.
+# Resolved by walking git log for the most recent commit matching
 # each subject shape, never by a fixed commit count back from HEAD, so this
 # still finds the right commits regardless of how much history has landed
 # since. Grep is anchored on the subject line; NAME's only regex metacharacter
@@ -443,17 +445,31 @@ if [ -n "$REPO_ROOT" ]; then
   NAME_RE="$(printf '%s' "$NAME" | sed 's/\./\\./g')"
   ARCHIVE_SHA="$(git -C "$REPO_ROOT" log -E --grep="^chore\(${NAME_RE}\): .*archive" \
     --max-count=1 --format='%H' 2>/dev/null || true)"
+  # The alternation matches both the current subject ("plan and session
+  # records") and the subject finish run 1 used before it was renamed
+  # ("plan, test guide and session records"), so changes committed under
+  # either wording keep resolving. Do not drop the old branch: doing so
+  # would leave a pre-rename change's plan commit unmatched here while
+  # IMPL_SHA's own exclusion below (which must stay in sync with this
+  # grep) still needs it — see that comment for the resulting failure mode.
   PLAN_SHA="$(git -C "$REPO_ROOT" log -E \
-    --grep="^chore\(${NAME_RE}\): plan, test guide and session records" \
+    --grep="^chore\(${NAME_RE}\): plan(, test guide and| and) session records" \
     --max-count=1 --format='%H' 2>/dev/null || true)"
   # Excluded only when the SUBJECT matches the same dedicated archive-commit
   # shape ARCHIVE_SHA itself searches for above — never a bare substring
   # check for "archive" — so a genuine implementation commit that happens to
   # mention "archive" (e.g. "feat(name): archive stale records") is not
   # wrongly excluded from IMPL_SHA candidacy.
+  # This exclusion must stay in sync with PLAN_SHA's --grep above, alternation
+  # for alternation: the plan commit is always the most recent chore(...) commit
+  # ahead of the implementation commit, so if a wording matches PLAN_SHA but is
+  # missing here, this exclusion fails to filter it out, `head -1` picks the
+  # plan commit itself (it outranks the true implementation commit by recency),
+  # and IMPL_SHA resolves to the plan commit too — a wrong answer, not a
+  # missing one, since the implementation commit is then never reached at all.
   IMPL_SHA="$(git -C "$REPO_ROOT" log -E --grep="^(feat|fix|chore)\(${NAME_RE}\): " \
     --max-count=5 --format='%H %s' 2>/dev/null \
-    | grep -Ev "plan, test guide and session records|^[0-9a-f]+ chore\(${NAME_RE}\): .*archive" \
+    | grep -Ev "^[0-9a-f]+ chore\(${NAME_RE}\): plan(, test guide and| and) session records|^[0-9a-f]+ chore\(${NAME_RE}\): .*archive" \
     | head -1 | cut -d' ' -f1 || true)"
 
   for sha in "$IMPL_SHA" "$PLAN_SHA" "$ARCHIVE_SHA"; do

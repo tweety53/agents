@@ -14,7 +14,7 @@
 # WHY SOME CASES ASSERT ON THE REASON TEXT. The requirement asks for a
 # per-signal BREAKDOWN, not merely the word OUTSTANDING. A prefix assertion
 # alone cannot tell "this signal fired" from "some signal fired", so a guard
-# that collapsed all four signals into one generic sentence would pass every
+# that collapsed both signals into one generic sentence would pass every
 # prefix case while leaving the operator nothing to act on. The needles below
 # are therefore short and behavioural — evidence that the named signal reached
 # the breakdown, not a transcript of its prose.
@@ -26,7 +26,7 @@
 # reordered column, a row missing its leading pipe that ended table tracking and
 # hid every row below it, and a row both detached and malformed that each half
 # of the parser left to the other — plus a table inside a blockquote and a
-# collation-dependent status comparison. Signal three was then redesigned so
+# collation-dependent status comparison. Signal two was then redesigned so
 # that none of those questions is asked at all: the panel writes an anchored
 # marker line per finding and the guard counts markers. Each case below re-runs
 # one demonstration against the new format, so the suite still fails if the
@@ -134,21 +134,11 @@ assert_reason() {
 }
 
 # new_fixture -> sets WT to a worktree holding a fully finished change named
-# "demo": every guide box ticked, every plan item checked, no open finding,
-# and a `## Known incomplete` section that says None.
+# "demo": every plan item checked, no open finding.
 new_fixture() {
   WT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
   SANDBOXES+=("$WT")
-  mkdir -p "$WT/docs/manual-test" "$WT/openspec/changes/demo" "$WT/.superpowers/sdd"
-  cat > "$WT/docs/manual-test/demo.md" <<'GUIDE'
-# Manual test — demo
-
-- [x] the app starts
-
-## Known incomplete
-
-None.
-GUIDE
+  mkdir -p "$WT/openspec/changes/demo" "$WT/.superpowers/sdd"
   printf -- '- [x] 1.1 done\n' > "$WT/openspec/changes/demo/tasks.md"
   write_panel 1 fixed
 }
@@ -199,14 +189,21 @@ write_panel 3 fixed "withdrawn retracted, the guard already covers it" fixed
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "fixed and withdrawn findings are closed, not open"
 
-# 2. Signal one — the guide's checklist.
+# 2. docs/manual-test/ is not a signal at all, even when a leftover guide is
+#    still sitting in the worktree at the moment the guard runs. The earlier
+#    version of this case created the directory and then `rm -rf`'d it before
+#    calling the guard, so the tree the guard actually saw was identical to
+#    case 1's and the assertion proved nothing about the directory at all.
+#    This plants the guide and leaves it in place, so the guard's silence on
+#    it is observed directly rather than inferred from an already-erased
+#    tree.
 new_fixture
-printf -- '- [ ] the app starts\n\n## Known incomplete\n\nNone.\n' > "$WT/docs/manual-test/demo.md"
+mkdir -p "$WT/docs/manual-test"
+printf -- 'a leftover guide\n' > "$WT/docs/manual-test/guide.md"
 run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "an unticked guide box is OUTSTANDING"
-assert_reason "unticked" "an unticked guide box names its signal"
+assert_verdict "CLEAR:" "a leftover docs/manual-test/ present at invocation time is not a signal"
 
-# 3. Signal two — the plan.
+# 3. Signal one — the plan.
 new_fixture
 printf -- '- [ ] 1.1 not done\n' > "$WT/openspec/changes/demo/tasks.md"
 run_guard "$WT" demo
@@ -276,9 +273,9 @@ run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "no openspec tree at all is OUTSTANDING, not CLEAR"
 assert_reason "no plan at" "a missing openspec tree names the plan signal"
 
-# 4. Signal three — findings whose recorded status is not closed.
+# 4. Signal two — findings whose recorded status is not closed.
 #
-# READ THE GUARD'S HEADER FIRST. Signal three does not parse the human findings
+# READ THE GUARD'S HEADER FIRST. Signal two does not parse the human findings
 # table any more. The panel writes one anchored `finding-status: F<n> <status>`
 # marker line per finding plus one `findings-total:` checksum, and the guard
 # counts those. So the cases below come in three kinds:
@@ -731,212 +728,59 @@ run_guard "$WT" demo
 assert_verdict "CLEAR:" "the record's other tables are not read as findings"
 
 
-# 5. Signal four — work the run already knows is undone.
+# 5. Both surviving signals firing at once must be counted independently and
+#    reported together on the one line — the guard's own header says so, and
+#    this is the direct demonstration: an unchecked plan item and an open
+#    finding, both named in the single OUTSTANDING line.
 new_fixture
-printf '# Manual test — demo\n\n- [x] ok\n\n## Known incomplete\n\n- the fix is not written\n' \
-  > "$WT/docs/manual-test/demo.md"
+printf -- '- [ ] 1.1 not done\n' > "$WT/openspec/changes/demo/tasks.md"
+write_panel 1 open
 run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "a non-empty Known incomplete section is OUTSTANDING"
-assert_reason "known to be incomplete" "a non-empty Known incomplete section names its signal"
+assert_verdict "OUTSTANDING:" "both signals firing at once is OUTSTANDING"
+assert_reason "unchecked plan item" "the combined line names the plan signal"
+assert_reason "1 open finding(s)" "the combined line also names the findings signal"
 
-# 5b. The section ends at the next heading. Content belonging to a LATER
-#     section must not be read as incomplete work, or every guide with a
-#     section after this one reports outstanding forever.
-new_fixture
-printf '# Manual test — demo\n\n## Known incomplete\n\nNone.\n\n## Notes\n\n- something else entirely\n' \
-  > "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-assert_verdict "CLEAR:" "a later section is not read as incomplete work"
+# 5b. A file that EXISTS but cannot be READ is neither signal — it is an honest
+#     unknown, and the guard refuses rather than guessing. Demonstrated against
+#     the primary plan, read through count_unticked -> count_matching and
+#     nothing else: chmod 000 makes `grep` fail with rc > 1, which unreadable()
+#     and count_matching's `rc > 1` discipline turn into a refusal (exit 2,
+#     nothing on stdout, the reason named on stderr) rather than a silent "zero
+#     matches" that would read as clean. Targeting tasks.md rather than the
+#     panel record keeps this case specific to count_matching's own discipline:
+#     the panel record is also re-read by ids_of, whose separate `rc > 1` guard
+#     would mask a swallowed count_matching failure. Skipped when running as
+#     root, where chmod 000 does not block reads.
+if [ "$(id -u)" -ne 0 ]; then
+  new_fixture
+  chmod 000 "$WT/openspec/changes/demo/tasks.md"
+  run_guard "$WT" demo
+  chmod 644 "$WT/openspec/changes/demo/tasks.md"
+  [ "$RC" -ne 0 ] && pass "an unreadable tasks.md exits non-zero" \
+    || fail "unreadable tasks.md: expected a non-zero exit, got rc=$RC out=$OUT"
+  [ -z "$OUT" ] && pass "an unreadable tasks.md emits no verdict line" \
+    || fail "unreadable tasks.md: emitted a verdict line: $OUT"
+  case "$ERR" in
+    *"check-unfinished-work: cannot read"*) \
+      pass "an unreadable tasks.md names the failure on stderr" ;;
+    *) fail "unreadable tasks.md: no named message on stderr: $ERR" ;;
+  esac
+fi
 
 # 6. A missing file is outstanding, never clear. This is the failure the whole
 #    requirement exists to prevent: silence is not clearance.
-new_fixture
-rm "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "a missing guide is OUTSTANDING, not CLEAR"
-assert_reason "no manual test guide" "a missing guide names its signal"
-
 new_fixture
 rm "$WT/.superpowers/sdd/final-review-panel.md"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a missing panel record is OUTSTANDING, not CLEAR"
 assert_reason "no review panel record" "a missing panel record names its signal"
 
-# 7. A guide predating the requirement carries no section at all.
-new_fixture
-printf '# Manual test — demo\n\n- [x] ok\n' > "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "a missing Known incomplete section is OUTSTANDING"
-assert_reason "'## Known incomplete' section" "a missing section names its signal"
-
-# 7b. A heading with nothing under it says nothing, so it clears nothing. The
-#     contract asks for the word `None.` or a list of items; a bare heading is
-#     neither, and reading it as clearance would let one empty heading buy a
-#     silent pass through the gate.
-new_fixture
-printf '# Manual test — demo\n\n- [x] ok\n\n## Known incomplete\n\n' > "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "an empty Known incomplete section is OUTSTANDING"
-
-# 8. Several signals at once are reported together, on the one line the
-#    contract allows, so the operator sees the whole picture in one prompt.
-new_fixture
-printf -- '- [ ] the app starts\n' > "$WT/docs/manual-test/demo.md"
-printf -- '- [ ] 1.1 not done\n' > "$WT/openspec/changes/demo/tasks.md"
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "several signals still produce exactly one line"
-assert_reason "unticked" "the combined breakdown names the guide's boxes"
-assert_reason "unchecked plan item" "the combined breakdown names the plan"
-
-# 8b. A guide that only QUOTES the section, inside a fence, has not written one.
-#     This is the one place where ignoring fences fails toward CLEAR rather than
-#     toward OUTSTANDING — a fenced example carrying the heading and the word
-#     `None.` would otherwise clear the signal for a guide that never wrote the
-#     section — which is why this scan tracks fences and the checklist scan
-#     deliberately does not.
-new_fixture
-printf '# Manual test — demo\n\n- [x] ok\n\nWrite it like this:\n\n```\n## Known incomplete\n\nNone.\n```\n' \
-  > "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "a fenced example of the section is not the section"
-assert_reason "'## Known incomplete' section" "a fenced example names the missing-section signal"
-
-# 8c. A fenced block INSIDE a real section is content, not a delimiter. The
-#     author put it there to say something, and a scan that dropped fenced lines
-#     wholesale would read the section as empty and report the wrong signal.
-new_fixture
-printf '# Manual test — demo\n\n- [x] ok\n\n## Known incomplete\n\n```\nthe retry path is instrumented but not fixed\n```\n' \
-  > "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "a fenced item inside the section is still recorded work"
-assert_reason "known to be incomplete" "a fenced item inside the section names its signal"
-
-# 8c-i. A fence is CLOSED by a marker of the same character, at least as long as
-#     the opening one, indented by at most three spaces — CommonMark's rule, not a
-#     boolean toggle on "the line contains three backticks". A toggle desynchronises
-#     on the first marker that is not a real closer, and every line after it is read
-#     with the fence state inverted, so a guide whose ONLY `## Known incomplete` sits
-#     inside a fenced example reports CLEAR. Reproduction one: a closing marker
-#     indented four spaces, which CommonMark makes ordinary content.
-new_fixture
-cat > "$WT/docs/manual-test/demo.md" <<'GUIDE'
-# Manual test — demo
-
-- [x] ok
-
-Write the section like this:
-
-```
-    ```
-## Known incomplete
-
-None.
-
-## Notes
-
-anything at all
-```
-GUIDE
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "an over-indented closing marker does not close a fence"
-assert_reason "'## Known incomplete' section" "an over-indented marker names the missing-section signal"
-
-# 8c-ii. Reproduction two: a ```` fence whose CONTENT documents a ``` fence. Three
-#     backticks cannot close a four-backtick fence, so the whole example is one
-#     block; a toggle reads the inner marker as a close and everything below it as
-#     the guide's own text.
-new_fixture
-cat > "$WT/docs/manual-test/demo.md" <<'GUIDE'
-# Manual test — demo
-
-- [x] ok
-
-Write the section like this:
-
-````
-```
-## Known incomplete
-
-None.
-
-## Notes
-
-anything at all
-```
-````
-GUIDE
-run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "a shorter marker does not close a longer fence"
-assert_reason "'## Known incomplete' section" "a shorter marker names the missing-section signal"
-
-# 8c-iii. The other direction, so the fix cannot be "never close a fence": a `~~~`
-#     fence is closed by `~~~`, a longer marker closes a shorter one, and a closing
-#     marker indented up to three spaces is still a closer. Each of these guides
-#     DOES carry a real section, and each must reach CLEAR.
-new_fixture
-cat > "$WT/docs/manual-test/demo.md" <<'GUIDE'
-# Manual test — demo
-
-- [x] ok
-
-~~~
-## Known incomplete is only quoted here
-~~~
-
-```
-still quoted
-   ````
-
-## Known incomplete
-
-None.
-GUIDE
-run_guard "$WT" demo
-assert_verdict "CLEAR:" "tilde fences, longer closers and a 3-space indent all close"
-
-# 8c-iv. A backtick fence's info string may not itself contain a backtick, so
-#     ```` ```a`b ```` opens nothing and the lines after it are ordinary markdown.
-#     Without the rule the guide's real section is swallowed as fenced content and
-#     the guard reports the wrong signal.
-new_fixture
-cat > "$WT/docs/manual-test/demo.md" <<'GUIDE'
-# Manual test — demo
-
-- [x] ok
-
-```not`a`fence
-
-## Known incomplete
-
-None.
-GUIDE
-run_guard "$WT" demo
-assert_verdict "CLEAR:" "a backtick info string containing a backtick opens no fence"
-
-# 8d. A file that exists but cannot be read is an honest unknown, not zero
-#     unticked boxes. `grep -c` exits 1 on "no match" and >= 2 on a real error;
-#     a blanket `|| true` collapses the two and answers "fully ticked" — failing
-#     toward the reassuring verdict, which is the one direction this guard may
-#     never fail in.
-new_fixture
-chmod 000 "$WT/docs/manual-test/demo.md"
-run_guard "$WT" demo
-[ "$RC" -ne 0 ] && pass "an unreadable guide exits non-zero" \
-  || fail "unreadable guide: expected a non-zero exit, got rc=$RC out=$OUT"
-[ -z "$OUT" ] && pass "an unreadable guide writes nothing to stdout" \
-  || fail "unreadable guide: emitted a verdict line: $OUT"
-case "$ERR" in
-  *"check-unfinished-work: cannot read"*) pass "an unreadable guide names the failure on stderr" ;;
-  *) fail "unreadable guide: no named message on stderr: $ERR" ;;
-esac
-chmod 644 "$WT/docs/manual-test/demo.md"
-
 # 8e. The change name is PR-controlled — it reaches here from a state file
 #     anyone able to open a pull request can edit — and it is concatenated into
 #     every path above. The allowlist is preserve-session-records.sh's
 #     Protection 1, and these cases are the same shapes that script's own
 #     harness rejects, asserted here so the two copies cannot drift apart in
-#     silence. Without it `../../../planted/clear` reads a guide outside the
+#     silence. Without it `../../../planted/clear` reads a plan outside the
 #     worktree entirely and reports CLEAR for a change that has none.
 for bad_name in "../../../planted/clear" "demo*" "demo/../demo" ".hidden" "demo?x"; do
   new_fixture
@@ -970,13 +814,39 @@ done
 
 # 8f. Traversal, demonstrated end to end rather than asserted from the message.
 #     A planted "finished change" outside the worktree must not be readable
-#     through the name, whatever the guard's error text says.
+#     through the name, whatever the guard's error text says. The allowlist at
+#     check-unfinished-work.sh:112-118 rejects any name containing "/", so it
+#     is the WHOLE containment mechanism: no name that passes it can traverse
+#     at all. That means the name here must be BOTH relative (an absolute
+#     "$PLANTED/..." name fails for the wrong reason — the allowlist rejects
+#     it on "/" the same as anything else, so a case built that way proves
+#     nothing about traversal specifically) and shaped to genuinely resolve
+#     onto the planted tree once concatenated, so that containment failing
+#     here would produce a real CLEAR rather than a path-concatenation
+#     OUTSTANDING. NAME is therefore relative: $WT and $PLANTED are both
+#     mktemp -d siblings directly under the same TMPDIR, so
+#     "../../../$(basename "$PLANTED")/openspec/changes/clear", concatenated
+#     onto "$WT/openspec/changes/" by the guard, lands exactly on
+#     "$PLANTED/openspec/changes/clear" — a change with a fully-ticked
+#     tasks.md. The panel record is read from $WT's own fixture (already
+#     CLEAR via new_fixture's write_panel), never from $PLANTED: PANEL is
+#     built from $WORKTREE alone and never from $NAME, so a second panel
+#     record planted under $PLANTED would be unreachable by construction and
+#     is not planted here.
+#
+#     Proved by mutation, not merely asserted: temporarily deleting the
+#     allowlist `case` block at check-unfinished-work.sh:112-118 and
+#     re-running this suite turns this case's verdict from a name-shape
+#     rejection into an actual "CLEAR: ..." read from outside the worktree —
+#     confirming the allowlist is what stops it, not the path shape.
 new_fixture
 PLANTED="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-planted.XXXXXX")"
 SANDBOXES+=("$PLANTED")
-mkdir -p "$PLANTED/docs/manual-test" "$PLANTED/openspec/changes/clear" "$PLANTED/.superpowers/sdd"
-printf '# ok\n\n## Known incomplete\n\nNone.\n' > "$PLANTED/docs/manual-test/clear.md"
-run_guard "$WT" "$PLANTED/docs/manual-test/clear"
+mkdir -p "$PLANTED/openspec/changes/clear"
+printf -- '- [x] 1.1 done\n' > "$PLANTED/openspec/changes/clear/tasks.md"
+run_guard "$WT" "../../../$(basename "$PLANTED")/openspec/changes/clear"
+[ "$RC" -eq 2 ] && pass "a traversal-shaped name is rejected by the allowlist before any path is built" \
+  || fail "traversal: expected exit 2 from the allowlist, got rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "a traversal-shaped name reads nothing outside the worktree" \
   || fail "traversal: the guard produced a verdict from outside the worktree: $OUT"
 

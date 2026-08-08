@@ -3,3 +3,6 @@
 
 # Serena MCP server workspace metadata — tool artifact, not project source
 .serena/
+
+# myflow apply worktrees — created by /myflow-do, removed by /myflow-finish run 2
+.worktrees/

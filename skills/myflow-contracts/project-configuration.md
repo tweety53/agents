@@ -194,7 +194,7 @@ first.
 workspace value is a function of the workspace id, so it can be resolved the moment the id is known.
 A `cache index` row's is not: it is **claimed by probing**, which happens once, at the point a run
 exports the declared variables. Anything that needs a workspace value **before** that — a run
-writing the change's manual test guide, most of all — can resolve every other row and could not
+resolving the run instructions, most of all — can resolve every other row and could not
 resolve this one, so a `url` row built on it would be resolvable in one place in a run and not in
 another. Excluding it keeps every `url` row resolvable wherever any workspace value is, which is
 worth more than the one composed value it costs: a project that needs the claimed index inside a
