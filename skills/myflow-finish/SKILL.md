@@ -45,7 +45,7 @@ At `STARTED` there is nothing to integrate — emit the wrong-state handoff and 
 ## Deciding which run this is
 
 **`pipeline.md`'s Finish contract is canonical for every procedure below.** Load it and follow it
-there — the base-branch resolution, the four preflight checks, the removal sequence and their
+there — the base-branch resolution, the preflight checks, the removal sequence and their
 rationales live in that one file. This skill carries only what is specific to *executing* it, and
 deliberately does not restate it: a second copy of a procedure that deletes worktrees is a second
 copy that can drift.
@@ -53,12 +53,16 @@ copy that can drift.
 Which run happens is decided by one thing: whether the change's branch has already reached the
 base branch. No field records "integration started" — a field could disagree with git.
 
-Run `scripts/check-finish-preflight.sh` once per worktree recorded in the state file's `worktrees`
-map, per **Finish contract** (`skills/myflow-contracts/finish-contract.md`), and act on the verdict:
+Run `scripts/check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
+worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read of the state file's
+`worktrees` map, which a `{}` map would make pass having checked nothing — and act on the verdict:
 
 - **`RUN1`** → run 1 (integrate)
 - **`RUN2`** from every worktree → run 2 (archive and clean up)
 - **`REFUSE`** → stop, report what the script reported, and ask the operator before anything else
+- **A resolved set that comes back empty** → stop and ask the operator, exactly as `REFUSE`, per
+  **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`); it is never
+  read as "every worktree returned `RUN2`"
 - **No verdict line at all, and exit 2** → the script could not read the tree, which is a fourth
   outcome and not a verdict. Treat it exactly as `REFUSE`: stop, report the message it printed on
   stderr, and ask the operator. Never re-run it hoping for a verdict, and never read the missing
@@ -78,12 +82,17 @@ against itself and report every pushed branch as merged.
 
 ## 1.0 Check for unfinished work
 
-Run `scripts/check-unfinished-work.sh <worktree> <name>` once per worktree in the state file's
-`worktrees` map, **before the landing question and before any git action**. What each verdict means,
-and what each course below does, is canonical under
+Run `scripts/check-unfinished-work.sh <worktree> <name>` once per worktree in the set found by
+**Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read
+of the state file's `worktrees` map, for the same reason **Deciding which run this is** above does
+not read it raw — **before the landing question and before any git action**. What each verdict
+means, and what each course below does, is canonical under
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`); this section is how it is executed.
 
 - **`CLEAR:` from every worktree** → continue to **1.1** with no extra prompt.
+- **A resolved set that comes back empty** → stop and ask the operator, per **Resolving a change's
+  worktrees** (`skills/myflow-contracts/finish-contract.md`); it is never read as "`CLEAR` from every
+  worktree."
 - **`OUTSTANDING:`** → show the breakdown the script printed, and offer exactly three courses:
 
   > **This change carries unfinished work — how should run 1 proceed?**
@@ -241,7 +250,7 @@ merge* would be contradicting the `Route:` line directly beneath the heading, wh
 and pushed*. On the other two routes nothing this run did put the branch onto the base branch, so the
 merge is genuinely still ahead. Where the route is not certain — a run resumed after a partial
 failure — take the answer from the merge-status test in
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) rather than assuming; it is
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) rather than assuming; it is
 the same test `/myflow-status` uses to regenerate this block for a change whose branch has since
 been merged, a run stopped at a run-2 cleanup leftover most often.
 
@@ -306,9 +315,15 @@ procedure. In outline, and stopping at the first step that fails:
 **Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 6
 transitions nothing — the change is not done.
 
-8. **Run self-review.** Point at **Self-review — /myflow-finish run 2**
-   (`skills/myflow-contracts/pipeline.md`) as canonical for the procedure. What is specific to
-   *executing* it here: the script invocation `scripts/gather-self-review-context.sh
+8. **Run self-review.** The procedure — skippable per run with running it the default, gathering
+   input via a script rather than an inline re-read, one combined reasoning pass across all four
+   angles plus the rating, the per-finding filing ask, and the report path — is canonical under
+   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
+   requirement to change first when that procedure changes is
+   **Requirement: Self-review runs only after FINISHED is written**
+   (`openspec/specs/myflow-self-review/spec.md`) — a citation `finish-contract.md` already carries,
+   not restated here. What is specific to *executing* it here: the script invocation
+   `scripts/gather-self-review-context.sh
    <archived-change-path> <name> <state-dir>`, resolving `<archived-change-path>` as
    `openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
    already used when it moved the change there.

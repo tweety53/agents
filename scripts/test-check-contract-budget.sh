@@ -160,18 +160,18 @@ printf 'x\n' > "$FIX/skill-undeclared/skills/mystery-skill/SKILL.md"
 expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared"
 
 # Two skills whose SKILL.md files carry different budgets in the real table —
-# skills/myflow-info/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
+# skills/openspec-explore/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
 # much larger one). skills/myflow-do/SKILL.md is sized to 20000 bytes: above
-# myflow-info's real budget, but below myflow-do's real budget. If the table
+# openspec-explore's real budget, but below myflow-do's real budget. If the table
 # were still keyed on the bare basename "SKILL.md" — the collision this task
 # fixes — every skills/*/SKILL.md would be checked against one shared row, and
 # a 20000-byte file would fail against the small budget that basename
 # collision would hand it. Keyed on the path relative to the repository root,
 # each file is checked against its own row and both pass.
 mkdir -p "$FIX/skill-distinct/skills/myflow-contracts" \
-  "$FIX/skill-distinct/skills/myflow-info" "$FIX/skill-distinct/skills/myflow-do"
+  "$FIX/skill-distinct/skills/openspec-explore" "$FIX/skill-distinct/skills/myflow-do"
 printf 'x\n' > "$FIX/skill-distinct/skills/myflow-contracts/build-green.md"
-printf 'x\n' > "$FIX/skill-distinct/skills/myflow-info/SKILL.md"
+printf 'x\n' > "$FIX/skill-distinct/skills/openspec-explore/SKILL.md"
 head -c 20000 /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
 expect 'two skills with different budgets are each checked against their own row' \
   0 "$FIX/skill-distinct"
@@ -182,7 +182,7 @@ expect 'two skills with different budgets are each checked against their own row
 # exactly the "escapes the ratchet silently" failure this guard exists to prevent.
 mkdir -p "$FIX/rationale/skills/myflow-do" "$FIX/rationale/skills/myflow-contracts"
 printf 'x\n' > "$FIX/rationale/skills/myflow-contracts/build-green.md"
-head -c 9000 /dev/zero | tr '\0' 'x' > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
+head -c 20000 /dev/zero | tr '\0' 'x' > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
 expect 'a SKILL-rationale.md over budget fails' 1 "$FIX/rationale"
 
 # A SKILL-rationale.md with no budget row — the undeclared case for the same glob.

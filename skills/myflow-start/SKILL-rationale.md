@@ -21,8 +21,8 @@ design. Nothing in it routes a **question** back to the questions, so a question
 answer has nowhere to land. This section is where it lands.
 
 What counts as a planning-stage exchange, the convergence test itself, and why it is one test rather
-than a rule per gate are structure, stated once under **Pipeline flow**
-(`skills/myflow-contracts/pipeline.md`) — specifically its brainstorm expansion — and not restated
+than a rule per gate are structure, stated once under **Stage exit — never the command's own
+judgment** (`skills/myflow-contracts/pipeline.md`) and not restated
 here. What is genuinely tuned for this command follows: the two prompts, the threshold, the
 no-hard-cap rule, and why their opposite recommendations are not to be harmonised.
 
@@ -54,7 +54,7 @@ names for a provenance tag: the tool confirms a claim is stated, never that it i
 
 The block below is **not** a second definition of the handoff. It is this command's rendering of the
 `STARTED` template, which is defined once under
-**The block each state renders** (`skills/myflow-contracts/pipeline.md`) and is canonical for the
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) and is canonical for the
 labels, the field set and their order. What this block adds is the enumeration of the literal
 alternatives `/myflow-start` writes for each placeholder that file describes. **Change the template
 first and bring this block with it** — a field added here and not there is drift the moment
@@ -63,8 +63,8 @@ first and bring this block with it** — a field added here and not there is dri
 **`missing` is a real alternative on the artifact line, not a defensive one.** This command's
 guardrails forbid finishing without publishing, so its own runs print a URL; the alternative is
 carried because `/myflow-status <name>` renders this same block from a state file whose
-`artifactUrl` may be `null` — a file self-heal rebuilt from artifacts loses it, and self-heal names
-it among the unrecovered fields when it does. Omitting the alternative here would narrow the
+`artifactUrl` may legitimately be `null` — the field is nullable, and a hand-edited or otherwise
+incompletely-written file can carry it that way. Omitting the alternative here would narrow the
 template and teach the next reader to drop the case the missing-rather-than-dropped rule requires.
 
 ## Guardrails

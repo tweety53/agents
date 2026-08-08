@@ -34,7 +34,6 @@ agents-data/
     ├── myflow-do/                     ← /myflow-do; carries the review-panel prompts + engineering-principles.md
     ├── myflow-finish/                 ← /myflow-finish (integrate, then archive + clean up)
     ├── myflow-status/                 ← read-only state report for open changes
-    ├── myflow-info/                   ← reads pipeline.md and explains the pipeline
     ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
     └── openspec-explore/              ← /opsx:explore — thinking-partner mode, touches no state
 ```
@@ -50,7 +49,7 @@ loads for the harness instead of merely being referenced. The tree above is an i
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
 **Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, plus the read-only
-`/myflow-status` and `/myflow-info`, and `/opsx:explore` for thinking-partner mode.
+`/myflow-status`, and `/opsx:explore` for thinking-partner mode.
 
 **myflow pipeline — three states, three commands.**
 
@@ -64,7 +63,187 @@ push, or leave it to you), and again once the branch is merged, to sync delta sp
 commit and push the archive, and remove the worktrees. It runs **no** tests, linters or coverage
 check — that happened during `/myflow-do`.
 
-See **Pipeline flow** (`skills/myflow-contracts/pipeline.md`) for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
+See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
+
+---
+
+## How the pipeline works
+
+```mermaid
+stateDiagram-v2
+    [*] --> STARTED: /myflow-start
+    STARTED --> STARTED: /myflow-start (revise the proposal)
+    STARTED --> IN_PROGRESS: /myflow-do
+    IN_PROGRESS --> IN_PROGRESS: /myflow-do (fix — never moves the state)
+    IN_PROGRESS --> IN_PROGRESS: /myflow-finish (run 1 — integrate)
+    IN_PROGRESS --> FINISHED: /myflow-finish (run 2 — after the merge)
+    FINISHED --> [*]
+```
+
+### Level 1 — the stages of each command
+
+One row per command — the four this pipeline has, three of them pipeline commands and one
+read-only, exactly as **Command surface** (`skills/myflow-contracts/pipeline.md`) names them. A
+stage marked ▸ hides substructure and is expanded at level 2 below. The gate column is the human
+gate that *follows* the run — a property of the state the command ends in, never a stage of its
+own.
+
+`/myflow-finish` is one command with two runs, so its row carries both, labelled: the preflight
+verdict picks which one a given invocation performs, and the run is never a command of its own.
+
+| Command | Stages, in order | Gate after it |
+|---------|------------------|---------------|
+| `/myflow-start` | resolve the change → ask the planning effort and the three model choices *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
+| `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → write the manual test guide → validate the project's `## workspace isolation` section, then export what it declares → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps against the guide |
+| `/myflow-finish` | the preflight verdict ▸, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` → self-review | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
+| `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
+
+`/myflow-finish` run 2's sequence ends with `self-review`, carrying no ▸: its procedure is not
+expanded at level 2 below because it is canonical under **Run 2 — the branch is merged**
+(`skills/myflow-contracts/finish-contract.md`), step 8. The requirement to change first when that
+procedure changes is
+**Requirement: Self-review runs only after FINISHED is written**
+(`openspec/specs/myflow-self-review/spec.md`).
+
+### Level 2 — the stages that hide substructure
+
+Each expansion below states the **structure** — the shape that changes only when the pipeline
+changes — and cites the file that owns any tuned threshold rather than restating it: a threshold
+copied here is a copy that can go wrong silently the next time the owning file changes.
+
+#### Brainstorm — `/myflow-start`
+
+superpowers:brainstorming runs its checklist in full and ends with the operator approving the
+design, which is a hard gate: nothing is created under `openspec/changes/` until that approval
+lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
+change's OpenSpec design artifact — adapted, never duplicated into a conflicting second design.
+
+The stage iterates rather than passing once. After every planning-stage exchange — a round of
+clarifying questions, the approval of a design section, the operator's review of the written spec —
+one convergence test asks whether the command now holds a question its inputs do not answer, and
+while it does, another round opens or is offered. The stage closes only the way any pipeline stage
+does — **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`) —
+and is not restated here.
+
+The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
+both honest are **Convergence** (`skills/myflow-start/SKILL.md`), and are not restated here.
+
+The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
+gate itself. The three levels and which of them is the default are owned by **Planning effort**
+(`skills/myflow-contracts/state-file.md`) and are not restated here.
+
+#### Writing-plans — `/myflow-start`
+
+superpowers:writing-plans enriches `tasks.md` from a checkbox scaffold into a plan whose every item
+carries exact paths, verification commands and no placeholders — the unit `/myflow-do` dispatches
+one implementer against. Its self-review — spec coverage, placeholder scan, type consistency — runs
+before the stage finishes.
+
+Every fenced block and every numeric claim in a planning artifact carries a provenance tag,
+`verified:<how>` or `unverified:`, which `scripts/check-plan-provenance.sh` makes mechanical rather
+than a habit. An unverifiable snippet is tagged and **kept**: a plan without the snippet is worse
+than a plan carrying a labelled guess.
+
+A revision round re-enters at this stage and republishes the proposal artifact to the **same** URL
+rather than minting a second one.
+
+#### SDD + TDD per task — `/myflow-do`
+
+One implementer dispatch per checkbox in `tasks.md`, or per tightly coupled group, in plan order.
+Every dispatch carries the same four required blocks — the no-commits boundary,
+superpowers:test-driven-development as a required sub-skill, `engineering-principles.md` as required
+reading, and the plan-provenance rule above — and names its model explicitly rather than inheriting
+the parent's.
+
+The task's diff is written to a file and the reviewer is given that path, never a commit range,
+because nothing is committed at this stage. A checkbox is marked `[x]` only after its task passes
+spec **and** quality review; a blocked task pauses and reports rather than guessing.
+
+Which model a dispatch runs on, and the rule that every dispatch records it, are **Model policy**
+(`skills/myflow-contracts/pipeline.md`).
+
+#### The review panel — `/myflow-do`
+
+Three required slots and four conditional ones. Primary, Bugbot and Principles run on every change;
+Security, Adversarial and the two extra principle lenses — B for simplicity and state, C for
+robustness and ops — are selected from what the diff touches. Each selected slot is a **separate**
+subagent with its own prompt, in every affected worktree; two slots are never merged into one.
+
+Every slot runs on the panel's model — Sonnet by default — except the two dispatched by
+`subagent_type`. Bugbot and Security Review carry their own agent definitions and take no model
+override. There is no parent-model inheritance and no economy tier: the panel's cost does not
+depend on the model the operator happens to be running.
+
+No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
+critical one does. Re-runs are targeted by default and escalate to the full roster automatically,
+without asking; escalation widens the panel's **breadth** — more lenses — and never its model. When
+a finding survives its last fix round the run hands back to the operator, one finding at a time,
+with named options.
+
+The tuned values are cited rather than copied: which diff sizes and which touched areas select a
+conditional slot is **Optional slot selection** in `skills/myflow-do/SKILL.md`; the conditions that
+force a full re-run in place of a targeted one are **Panel re-runs** in the same file.
+
+#### The preflight verdict — `/myflow-finish`
+
+`scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
+taken once per worktree in the resolved set — never a raw read of the state file's `worktrees` map,
+per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`). It prints exactly
+one verdict line and exits 0 whenever it reached a verdict; a missing verdict line is not a verdict,
+and neither is a worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` stops the
+run and asks the operator rather than guessing. Run 2 proceeds only when every worktree in the
+resolved set returns `RUN2` — and a resolved set that comes back empty is never read as that,
+per the same section.
+
+The three signals and why their order is load-bearing are **Finish contract**
+(`skills/myflow-contracts/finish-contract.md`).
+
+#### The unfinished-work gate — `/myflow-finish` run 1
+
+Runs **before** the landing question and before any git action, once per worktree in the resolved
+set — see **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`).
+`scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
+prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
+**Stop** marked as the recommendation. There is no fourth course, and none that hands back to
+`/myflow-do` inline.
+
+The ordering is the point: an operator asked how to land a branch, and only then told it carries
+unfinished work, has already answered a question about a branch they believed was complete. What
+was integrated over is written into the planning commit's message and into the handoff, so the
+record outlives the session.
+
+Each course and what run 1 then does are **Run 1 — the branch is not merged**
+(`skills/myflow-contracts/finish-contract.md`).
+
+#### The landing routes — `/myflow-finish` run 1
+
+The operator is asked once, before any git action, how the branch should land: open a pull request
+*(default)*, merge and push, or handle it manually. The run then completes without asking again,
+and the answer is never remembered between runs.
+
+All three routes do the same two things first, in this order: preserve the session records out of
+the gitignored worktree into the repository, then commit in **two** commits — implementation first,
+planning artifacts second. The linked issue moves to In Review on every route, including the manual
+one.
+
+The route table is **Run 1 — the branch is not merged**
+(`skills/myflow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
+**Git boundaries** (`skills/myflow-contracts/pipeline.md`).
+
+#### Cleanup — `/myflow-finish` run 2
+
+Every removal is *remove-or-move if present*, which is what makes run 2 re-entrant: a step whose
+artifact is already gone is a success rather than an error, so a re-run after the operator clears a
+leftover repeats the verification and nothing else.
+
+The removals are verified rather than assumed. `scripts/check-cleanup-complete.sh` runs once per
+repository, **after** all of them: `COMPLETE:` allows the `FINISHED` write, `LEFTOVER:` names what
+remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no verdict line is
+treated exactly as `LEFTOVER`.
+
+What is removed, when, and on what condition is **Temporary artifacts registry**
+(`skills/myflow-contracts/pipeline.md`) — the one place a cleanup rule is stated. The procedure for
+the rows it removes is **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
 
 ---
 
@@ -333,13 +512,12 @@ degraded but the OpenSpec-specific steps still work.
 | *(gate)* | You | Review the staged diff **and** run the apps against the guide |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
 | `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |
-| `/myflow-info` | `myflow-info` | Read-only — reads `pipeline.md` and explains the pipeline |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
 
 Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
 each — are stated once under
-**Level 1 — the stages of each command** (`skills/myflow-contracts/pipeline.md`) and are deliberately
-not repeated here, for the same reason this file links to the state diagram rather than carrying one.
+**Level 1 — the stages of each command** (`README.md`) above and are deliberately not repeated
+here — one ordered list rather than two competing ones in the same file.
 
 The branch's merge status alone decides which `/myflow-finish` run happens, so a PR you merged on
 the forge and a merge it performed itself are indistinguishable to it — which is correct.

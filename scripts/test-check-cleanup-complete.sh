@@ -315,7 +315,7 @@ run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a fully cleaned repository is COMPLETE"
 
 # 2. Registry row — the worktree. Found by branch, exactly as the contract says
-#    worktrees are found when the state file's map is absent.
+#    worktrees are found when the state file's map is absent or empty.
 new_fixture
 add_worktree openspec/demo
 run_guard "$REPO" demo "$STATE"
