@@ -122,6 +122,14 @@ Only then ask, **before any git action**, how the branch should land:
 
 Then run to completion without asking again. The answer is never remembered between runs.
 
+**Before any route commits, reshape the branch.** Run
+`git -C <abs-worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
+merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
+**Resolving a change's worktrees** and the finish-preflight verdict above both reference. This
+collapses every per-task and fixup commit `/myflow-do` made on the branch back into the working
+tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
+that chain then commits from this reshaped state exactly as it always has.
+
 All three routes first commit the work, in **two** commits and never one: the implementation, then
 the `openspec/` planning artifacts and the session records preserved
 under `docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact

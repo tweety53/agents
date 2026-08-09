@@ -121,8 +121,8 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 | Command | Condition | Allowed git actions |
 |---------|-----------|---------------------|
 | `/myflow-start` | — | **None — stages planning artifacts and never commits** |
-| `/myflow-do` | from `STARTED` | Create branch/worktree + **`git add` excluding the planning paths** — no commits, push, merge, or PR |
-| `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **`git add` excluding the planning paths** — no commits |
+| `/myflow-do` | from `STARTED` | Create branch/worktree + **commits each task** (fixups fold in) — no push, merge, or PR |
+| `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way — no push, merge, or PR |
 | `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
 | `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
 | `/myflow-finish` | run 2 | **Commits and pushes the archive**; removes worktrees and branches |
