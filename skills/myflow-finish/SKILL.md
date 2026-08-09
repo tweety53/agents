@@ -304,9 +304,9 @@ procedure. In outline, and stopping at the first step that fails:
    nothing. Why a leftover blocks the write, and why run 2 is safe to re-enter afterwards, is
    canonical under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
-   whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`
-   and `prUrl` forward — the planning effort as the **mapped level under `planningEffort`** when the
-   file recorded it under the retired key, per the carry-forward rule in
+   whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`,
+   `reviewPanelRoster` and `prUrl` forward — the planning effort as the **mapped level under
+   `planningEffort`** when the file recorded it under the retired key, per the carry-forward rule in
    **State file** (`skills/myflow-contracts/state-file.md`), which is canonical and is not restated
    here. This is the terminal write, so a field dropped here is dropped for good. The state file
    stays at its user-scoped path as the terminal record — it is **never** moved into the archive.

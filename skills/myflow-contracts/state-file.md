@@ -34,6 +34,7 @@ Every command resolves the path this way, so the same change maps to the same fi
     "reviewPanel": null,
     "panelFix": null
   },
+  "reviewPanelRoster": null,
   "prUrl": null,
   "updatedAt": "2026-07-28T10:00:00Z",
   "updatedBy": "/myflow-do"
@@ -41,7 +42,7 @@ Every command resolves the path this way, so the same change maps to the same fi
 ```
 
 **A state file is unparseable when it is not valid JSON, omits a documented field other than
-`planningEffort` or `models`, or carries an undocumented one.** An unparseable file is reported and
+`planningEffort`, `models` or `reviewPanelRoster`, or carries an undocumented one.** An unparseable file is reported and
 skipped, never rebuilt from inference — no command infers a state file's contents. JSON that parses
 but is missing one or more of the fields this contract requires is unparseable in full on that
 account alone, not partially recovered.
@@ -78,14 +79,16 @@ account alone, not partially recovered.
   copy here is what this repository's reference guard exists to prevent. These fields record what
   was *chosen* — the SDD ledger remains the only record of what a dispatch actually ran on.
 
-  **A state file that omits `planningEffort` or `models` entirely is valid**, and each absent key
-  is read as *not recorded*. This is a deliberate exception to the closed-schema rule stated above,
-  which otherwise makes a file unparseable both for missing a documented field and for carrying an
-  undocumented one. Without the exception, every file written before these fields existed would be
-  unparseable and so reported and skipped — a spurious report against a value nobody had the chance
-  to set. The carve-out is stated rather than inferred, and it covers a key that is
+  **A state file that omits `planningEffort`, `models` or `reviewPanelRoster` entirely is valid**,
+  and each absent key is read as *not recorded*. This is a deliberate exception to the closed-schema
+  rule stated above, which otherwise makes a file unparseable both for missing a documented field and
+  for carrying an undocumented one. Without the exception, every file written before these fields
+  existed would be unparseable and so reported and skipped — a spurious report against a value nobody
+  had the chance to set. The carve-out is stated rather than inferred, and it covers a key that is
   **absent**: `artifactUrl`, `jiraIssue` and `prUrl` are all *present and nullable*, which is a
-  different thing from *absent*.
+  different thing from *absent*. For `reviewPanelRoster`, *not recorded* resolves to the default
+  preset rather than leaving the panel unconfigured, so a command never has to ask which roster to
+  use at panel time.
 
   **A file carrying the retired `effort` key is read as recording the equivalent level** — `medium`
   as `default`, `high` as `detailed`, `low` as `low` — and is rewritten under `planningEffort` on
@@ -122,6 +125,13 @@ account alone, not partially recovered.
   announcement no command emits is worse than no rule, because it reads as a guarantee. *Not
   recorded* needs no detection to be true, loses nothing the mapping had not already discarded, and
   is what the commands actually do.
+- `reviewPanelRoster` — carries the review panel roster preset chosen for the change, one of
+  `light`, `standard` or `full`. Written only by `/myflow-start`, on the run that **creates** the
+  change; every other command **carries it forward verbatim**. Its live consumer is `/myflow-do`,
+  which selects the panel's required slots and the per-task review's shape from it.
+  `skills/myflow-do/SKILL.md` is canonical for what each preset means, and this file does not
+  restate it. The field is top-level rather than nested under `models` because a roster is not a
+  model.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
   that a fix must be committed and pushed rather than merely staged.
@@ -181,11 +191,12 @@ above:
 **State writes are monotonic.** No command may write a `state` earlier than the one it found.
 
 Because writes render the whole object, every command must first **read the existing file and
-carry forward** every field it does not itself own — `artifactUrl`, `jiraIssue`, `prUrl` and
-`worktrees` among them. Re-emit each as read (`null` only if it was already `null`). Dropping one
-erases it permanently: the published proposal link, the link to the Jira issue, the PR (which also
-silently downgrades the next fix from commit-and-push to staged-only), or the authoritative list of
-worktrees for a multi-repo change.
+carry forward** every field it does not itself own — `artifactUrl`, `jiraIssue`, `prUrl`,
+`reviewPanelRoster` and `worktrees` among them. Re-emit each as read (`null` only if it was already
+`null`). For `reviewPanelRoster` there is no mapping to perform, so re-emit as read is the whole
+rule. Dropping one erases it permanently: the published proposal link, the link to the Jira issue,
+the PR (which also silently downgrades the next fix from commit-and-push to staged-only), the
+chosen review panel roster preset, or the authoritative list of worktrees for a multi-repo change.
 
 **Carrying the planning effort forward is what performs the rewrite**, and it is the one field where
 *verbatim* needs saying precisely. A file read through the retired-key fallback above is carried

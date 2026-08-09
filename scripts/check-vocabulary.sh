@@ -213,6 +213,35 @@ collect_hits() {
 #     already excludes it structurally (the `-` before `code-review` fails `[^-]`), so no  # vocab-guard:allow
 #     whole-line filter is needed — one that dropped the line would also hide a genuine retired
 #     token sitting on the same line.
+#   - `code-review` — a real harness-provided review skill (`skills/myflow-do/SKILL.md` section 5  # vocab-guard:allow
+#     invokes it for the `light` roster's third panel slot); never rename it. It is, byte for
+#     byte, the same string as the myflow command retired in the twelve-stage collapse, so the
+#     guard cannot tell "the skill" from "the old command" by the string alone — only by how each
+#     is written. Every legitimate reference to the skill in this repository's prose writes it as
+#     its own token in backticks immediately followed by the word `skill` — "the harness's  # vocab-guard:allow
+#     `code-review` skill", "the harness offers no `code-review` skill" — never any other way.
+#     A first attempt at this exception widened the pattern's prefix class from `[^-]` to  # vocab-guard:allow
+#     `` [^-`] ``, excluding a backtick the same way `requesting-code-review` above excludes a
+#     hyphen. That was wrong and was reverted: a prefix exclusion cannot tell "the skill" from
+#     "the old command" either — it blinds the guard to BOTH, including the backtick-fenced
+#     spelling this repository actually uses for the retired command everywhere else (e.g. "Run
+#     the `code-review` command to advance the stage." exited 0 under that pattern — measured, not  # vocab-guard:allow
+#     hypothetical). So the prefix class here is `(^|[^-])`, identical to  # vocab-guard:allow
+#     `requesting-code-review`'s, and admits nothing by prefix that the guard did not already
+#     admit before either exception existed.
+#     The exemption is instead scoped to the exact shape above, per OCCURRENCE rather than per
+#     line — a whole-line filter would hide a genuine retired token sitting on the same line as a
+#     legitimate skill mention, which is exactly what this header's own opening paragraph on
+#     `checkpoint` warns against. Concretely: every substring of a candidate hit's content
+#     matching a backtick, `code-review`, a backtick, whitespace, and the word `skill` is removed,  # vocab-guard:allow
+#     and the pattern is re-applied to what remains. If nothing left still matches, the line was
+#     drift-free and is dropped. If a `code-review` token remains — bare, or backtick-fenced but  # vocab-guard:allow
+#     followed by anything other than `skill` — the hit still stands, on the SAME line that also
+#     carried the exempt mention.
+#     What this still cannot catch: the retired command written as its own token in backticks
+#     immediately followed by the word `skill` — that one shape is genuinely indistinguishable  # vocab-guard:allow
+#     from the real skill mention it exists to admit, and passes clean. Every other spelling,
+#     including a backtick-fenced one followed by any word other than `skill`, is still caught.
 #   - Any line carrying the marker `vocab-guard:allow` — see above.
 check_retired_stage_vocabulary() {
   # Retired by the twelve-stage → three-state rename (KAN-8): the twelve stage values, the
@@ -304,6 +333,32 @@ check_retired_stage_vocabulary() {
     collect_hits "$tree" -E "$pattern"
     [[ -z "$HITS_OUT" ]] || hits+="$HITS_OUT"$'\n'
   done
+
+  # Drop the `code-review` exception's exempt occurrences (see "Legitimate exceptions" above)  # vocab-guard:allow
+  # from each candidate hit before deciding whether the line is real drift. Done here, once, on
+  # the assembled "path:line:content" hits — not baked into $pattern itself — because the
+  # exemption is per-occurrence, not per-line: for each hit, every substring of its content
+  # matching a backtick, `code-review`, a backtick, whitespace, and the word `skill` is removed,  # vocab-guard:allow
+  # and the pattern is re-applied to what remains. A hit that still matches after that removal
+  # carries a genuine retired token — bare, or backtick-fenced but followed by something other  # vocab-guard:allow
+  # than `skill` — and stands unchanged (the ORIGINAL content is reported, not the stripped
+  # version, so the printed hit still shows the real line). A hit that matches nothing after the
+  # removal was drift-free and is dropped.
+  if [[ -n "$hits" ]]; then
+    local filtered_hits="" hit_line content stripped rc
+    while IFS= read -r hit_line; do
+      [[ -n "$hit_line" ]] || continue
+      # "path:line:content" — strip the shortest "anything:digits:" prefix to isolate content.
+      # Repo paths never contain a colon, so this split is unambiguous.
+      content="${hit_line#*:*:}"
+      stripped="$(printf '%s' "$content" | sed -E 's/`code-review`[[:space:]]+skill([^A-Za-z]|$)/\1/g')"   # vocab-guard:allow
+      printf '%s' "$stripped" | grep -qE "$pattern"
+      rc=$?
+      (( rc < 2 )) || die "grep exited $rc while re-testing a hit after stripping exempt \`code-review\` occurrences — refusing to report a clean run"   # vocab-guard:allow
+      (( rc != 0 )) || filtered_hits+="$hit_line"$'\n'
+    done <<<"$hits"
+    hits="$filtered_hits"
+  fi
 
   if [[ -n "$hits" ]]; then
     printf '\n⚠ Retired myflow state vocabulary found:\n%s\n' "$hits" >&2

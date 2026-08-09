@@ -48,6 +48,7 @@ scripts/test-uncommitted-review-package.sh
 scripts/test-check-task-build-green.sh
 scripts/test-check-workspace-isolation.sh
 scripts/test-check-contract-budget.sh
+scripts/test-check-vocabulary.sh
 ```
 
 ## lint

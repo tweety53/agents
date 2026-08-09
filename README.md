@@ -93,7 +93,7 @@ verdict picks which one a given invocation performs, and the run is never a comm
 
 | Command | Stages, in order | Gate after it |
 |---------|------------------|---------------|
-| `/myflow-start` | resolve the change → ask the planning effort and the three model choices *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
+| `/myflow-start` | resolve the change → ask the planning effort, the three model choices and the review panel roster *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
 | `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → resolve the run instructions → validate the project's `## workspace isolation` section, then export what it declares → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps |
 | `/myflow-finish` | the preflight verdict ▸, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` → self-review | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
 | `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
@@ -164,10 +164,14 @@ Which model a dispatch runs on, and the rule that every dispatch records it, are
 
 #### The review panel — `/myflow-do`
 
-Three required slots and four conditional ones. Primary, Bugbot and Principles run on every change;
-Security, Adversarial and the two extra principle lenses — B for simplicity and state, C for
-robustness and ops — are selected from what the diff touches. Each selected slot is a **separate**
-subagent with its own prompt, in every affected worktree; two slots are never merged into one.
+A change records one of three review panel rosters — `light` *(default)*, `standard` or `full` — and
+every preset dispatches exactly three required slots, whichever is recorded; `full` reproduces the
+roster in force before presets existed. What each preset means, and the roster table itself, are
+canonical under **5. The review panel** (`skills/myflow-do/SKILL.md`) and are not restated here. Four
+further slots stay conditional under every preset — Security, Adversarial and the two extra principle
+lenses, B for simplicity and state, C for robustness and ops — selected from what the diff touches. Each
+selected slot is a **separate** subagent with its own prompt, in every affected worktree; two slots are
+never merged into one.
 
 Every slot runs on the panel's model — Sonnet by default — except the two dispatched by
 `subagent_type`. Bugbot and Security Review carry their own agent definitions and take no model
@@ -508,7 +512,7 @@ degraded but the OpenSpec-specific steps still work.
 |---------|-------|-------------|
 | `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design-approval gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | You | Read the proposal artifact |
-| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel** (primary + Bugbot + Principles required; Security, Adversarial and extra lenses conditional), which hands off only at **zero open findings at any severity**, and stages the diff — `git add` excluding the planning paths — with the run instructions carried in the handoff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. Commits only when a PR is already open. |
+| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots, with Security, Adversarial and extra lenses staying conditional under every preset — which hands off only at **zero open findings at any severity**, and stages the diff — `git add` excluding the planning paths — with the run instructions carried in the handoff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. Commits only when a PR is already open. |
 | *(gate)* | You | Review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
 | `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |

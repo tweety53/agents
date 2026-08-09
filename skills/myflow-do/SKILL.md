@@ -156,13 +156,40 @@ default to Sonnet — the two rules differ on purpose.
 Per-task review without commits: the parent runs
 `skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$TASK_BASE"` and gives the
 reviewer the printed path, never a commit range. Ledger line: `Task N: complete (uncommitted, review
-clean, model: <model>)` — **record the model on every dispatch**, implementer and reviewer alike, so
-the policy is auditable after the fact. Mark a checkbox `[x]` only after its task passes spec **and**
+clean, model: <model>, review: <combined|spec+quality>)` — **record the model and the per-task
+review shape on every dispatch**, implementer and reviewer alike, so both the model and the shape
+choice are auditable after the fact. Mark a checkbox `[x]` only after its task passes spec **and**
 quality review.
+
+**The per-task review's shape depends on `reviewPanelRoster`.** Under `light` and `standard`, a
+**single** combined reviewer per task covers spec compliance and code quality together, dispatched
+on `models.reviewPanel`. Under `full`, the spec-compliance and code-quality reviewers both run,
+which is today's behaviour. See the roster table in section 5 for what each preset means; this
+section does not restate it.
 
 On BLOCKED: pause and report. Never guess.
 
 ## 5. The review panel
+
+**Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
+the field is absent or null. It names the preset in force for this run, per
+**State file** (`skills/myflow-contracts/state-file.md`), which is canonical for the field's shape,
+its values and the absent-key rule.
+
+| Preset | Required slots |
+|--------|----------------|
+| `light` *(default)* | Primary · Principles · Code review (low) |
+| `standard` | Primary · Principles · Bugbot |
+| `full` | Primary · Bugbot · Principles |
+
+Every preset dispatches exactly three required slots, and no preset reduces that number. `full`
+reproduces the roster in force before this table existed.
+
+**No preset moves the handoff bar.** A preset selects how much reading the panel does and nothing
+else: handoff still requires zero open findings at any severity under every preset, a minor finding
+still blocks exactly as a critical one does, and the escalation ladder, fix-round rules, panel
+record format, marker-line rules and operator handback are all unchanged. A preset able to lower the
+handoff bar would not be sizing the reading — it would be a way to skip review.
 
 Write `.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and unstaged), then
 dispatch **separate** review subagents — one per selected slot, in **every** affected worktree.
@@ -176,15 +203,49 @@ parent-model inheritance and no economy tier. See **5. The review panel**
 | # | Slot | Required? | Model | How to spawn |
 |---|------|-----------|-------|--------------|
 | 0 | **Primary** — plan alignment + code quality | **always** | `models.reviewPanel` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
-| 1 | **Bugbot** — defect hunt | **always** | its own | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>` |
+| 1 | **Bugbot** — defect hunt | `standard`, `full` | its own | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, + the mutation-testing brief below |
 | 2 | **Principles** | **always** | `models.reviewPanel` | general-purpose + [principles-reviewer-prompt.md](principles-reviewer-prompt.md), `[LENS]` = **Merged** |
-| 3 | **Security** | conditional | its own | `subagent_type: security-review`, same shape as Bugbot |
-| 4 | **Adversarial** | conditional | `models.reviewPanel` | general-purpose + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) |
-| 5+ | **Principles lens B / lens C** | conditional | `models.reviewPanel` | same template, `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops** |
+| 3 | **Code review (low)** | `light` | `models.reviewPanel` | general-purpose + the harness's `code-review` skill at effort `low`, against `final-review.diff` |
+| 4 | **Security** | conditional | its own | `subagent_type: security-review`, same shape as Bugbot |
+| 5 | **Adversarial** | conditional | `models.reviewPanel` | general-purpose + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) |
+| 6+ | **Principles lens B / lens C** | conditional | `models.reviewPanel` | same template, `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops** |
 
-Slots 1 and 3 are dispatched by `subagent_type` and carry their own agent definitions — pass them
+Slots 1 and 4 are dispatched by `subagent_type` and carry their own agent definitions — pass them
 **no** model override, whatever `models.reviewPanel` records, and record `unknown (agent-defined)`
-for them in the ledger. Every other slot names its model explicitly.
+for them in the ledger. Every other slot, slot 3 included, names its model explicitly.
+
+### Code review (low)
+
+Slot 3, the `light` preset's third required slot, is a `general-purpose` subagent on
+`models.reviewPanel`, told to invoke the harness's `code-review` skill at effort `low` against
+`.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
+surface the parent does not read, tell the subagent to return its findings **in its report back**
+rather than leaving them wherever the skill itself displays them. Its findings take ordinary
+`F<n>` rows and marker lines, exactly like every other slot's. Because the dispatcher names the
+model explicitly, the ledger records that real model for this slot and never `unknown
+(agent-defined)` — that value is reserved for slots dispatched by `subagent_type`.
+
+**Where the harness offers no `code-review` skill**, the slot becomes a `general-purpose` reviewer
+on `models.reviewPanel`, briefed to report high-confidence defects only, and the panel record names
+the substitution. The slot is never dropped on that account, and the panel never falls back to two
+required slots: an unavailable harness feature is not a way to weaken review.
+
+### Bugbot's mutation-testing brief
+
+Wherever the panel dispatches Bugbot, its dispatch prompt carries a mutation-testing brief: for
+each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a boundary, remove
+a branch — and establish whether an existing test fails. A mutation no test catches is a
+**surviving mutant**. This is reasoned mutation testing performed by the reviewer: no
+mutation-testing framework is added, adopted or executed, and no mutation score is computed.
+
+A surviving mutant is an ordinary finding — an `F<n>` row and a marker line — and blocks the handoff
+under the existing zero-open-findings bar until a test is added or the operator withdraws it with a
+reason. It is not an advisory note outside the findings table.
+
+The brief applies wherever Bugbot is dispatched, and nowhere else: no other slot acquires it, and
+this brief adds no slot to any preset. See the roster table above for which presets dispatch Bugbot.
+Bugbot is still dispatched by `subagent_type` with no model override, and its ledger entry still
+reads `unknown (agent-defined)` — carrying the brief on the prompt changes neither.
 
 Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
@@ -266,13 +327,38 @@ included and which were excluded and why.
 
 | Slot | Include when the diff touches | Ask when |
 |------|-------------------------------|----------|
-| 3 — Security | auth/authz, tokens, crypto, secrets or config, query construction, path or file handling, deserialization, CORS/HTTP edge, new dependencies | a config or dependency file changed, but only comments or a version bump |
-| 4 — Adversarial | migrations, concurrency/scheduling, behavior changes to code with existing tests, any test modified or deleted, or **>~300** changed lines | **150–300** changed lines with no other trigger |
-| 5 — Lens B (simplicity & state) | **>~200** changed lines, or **≥3** new classes/modules | — |
-| 5 — Lens C (robustness & ops) | error handling, retries, schedulers, external integrations, config/env, migrations | — |
+| 4 — Security | auth/authz, tokens, crypto, secrets or config, query construction, path or file handling, deserialization, CORS/HTTP edge, new dependencies | a config or dependency file changed, but only comments or a version bump |
+| 5 — Adversarial | migrations, concurrency/scheduling, behavior changes to code with existing tests, any test modified or deleted, or **>~300** changed lines | **150–300** changed lines with no other trigger |
+| 6 — Lens B (simplicity & state) | **>~200** changed lines, or **≥3** new classes/modules | — |
+| 6 — Lens C (robustness & ops) | error handling, retries, schedulers, external integrations, config/env, migrations | — |
 
 **Borderline → ask**, with **include** as the default. See **Optional slot selection**
 (`skills/myflow-do/SKILL-rationale.md`) for why.
+
+The triggers above fire the same way under every preset — nothing about evaluating the table
+changes. What happens once a trigger fires depends on `reviewPanelRoster`:
+
+**Under `full`**, a fired trigger auto-includes its slot, which is today's behaviour, and the
+table's borderline *ask* rows keep their current behaviour there.
+
+**Under `light` and `standard`**, every slot whose trigger fired goes into **one** multi-select
+prompt instead of being auto-included or asked about individually:
+
+> **These triggers fired on this diff. Which slots should the panel include?**
+> - **Security** — <the trigger that fired>
+> - **Adversarial** — <the trigger that fired>
+> - **Lens B — simplicity & state** — <the trigger that fired>
+> - **Lens C — robustness & ops** — <the trigger that fired>
+>
+> Including all of them is the recommended answer.
+
+Only slots whose triggers actually fired appear in the prompt, and the prompt is not shown at all
+when nothing fired.
+
+Record which optional slots were included and which were excluded and why, under every preset. A
+slot the operator declined is recorded as **declined**, distinctly from a slot whose trigger never
+fired — the two are different facts about the same diff, and a reader of the panel record must be
+able to tell them apart.
 
 A documentation-, prompt-, or test-only diff with no trigger runs the three required slots alone.
 That is a correct outcome, not a skipped review — say so explicitly.
@@ -488,9 +574,10 @@ Neither is an error, and neither is silent — say in the handoff which commit w
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
-`artifactUrl`, `jiraIssue`, `planningEffort`, `models` and `prUrl` forward verbatim, per the
-carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`), which is canonical
-for what a write must re-emit. The state file lives outside the repo — never `git add` it.
+`artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `prUrl` and `reviewPanelRoster` forward
+verbatim, per the carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`),
+which is canonical for what a write must re-emit. The state file lives outside the repo — never
+`git add` it.
 
 The one field where *verbatim* is not a byte copy is the planning effort: a file that recorded it
 under the retired key is carried forward as the **mapped level under `planningEffort`**, per that
@@ -501,7 +588,7 @@ is that reading only `planningEffort` and writing what it found would erase the 
 ## Implementation staged — review and test
 
 **Change:** <name>
-**Panel:** clean — required: primary + Bugbot + Principles; optional: <selected, or "none — no triggers fired">
+**Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots, per the table under **5. The review panel**>; optional: <selected, or "none — no triggers fired">
 **Staged:** N/N tasks · staged and uncommitted | committed as two commits and pushed to the PR branch
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 

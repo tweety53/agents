@@ -41,7 +41,7 @@ MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
 PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
 STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
 
-jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, (.planningEffort // .effort), (.models // {} | tojson), .updatedAt, .updatedBy, (.worktrees // {} | keys[])' \
+jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, (.planningEffort // .effort), (.models // {} | tojson), (.reviewPanelRoster // null), .updatedAt, .updatedBy, (.worktrees // {} | keys[])' \
   "$STATE_FILE" 2>/dev/null
 ```
 
@@ -149,6 +149,13 @@ level, and there is none.
 Surface `models` the same way, as one line covering its three roles — `implementation`,
 `reviewPanel` and `panelFix` — each the recorded model verbatim, or `not recorded` where none was
 chosen.
+
+Surface `reviewPanelRoster` the same way: the recorded preset verbatim when there is one, and,
+when step 2's read yielded `null`, `not recorded — using the default`, that default being `light`
+per `skills/myflow-start/SKILL.md`'s roster prompt, where it is the recommended option; what each
+preset means is canonical in `skills/myflow-do/SKILL.md`, and this line does not restate it. A
+not-recorded roster is not a warning: it is the default, and this line reports it as a normal
+state, not as something missing.
 
 Next-command mapping:
 
