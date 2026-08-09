@@ -1,0 +1,531 @@
+<title>myflow-fast — proposal</title>
+<style>
+  :root {
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --ink: #131820;
+    --ink-muted: #566072;
+    --ink-faint: #8993a3;
+    --border: #dde3ea;
+    --border-strong: #c3cbd6;
+    --accent: #0a7ea6;
+    --accent-ink: #06485e;
+    --accent-soft: #e2f2f7;
+    --green: #157a4a;
+    --green-soft: #e2f5ea;
+    --amber: #9a5b0a;
+    --amber-soft: #fbf0dd;
+    --shadow: 0 1px 2px rgba(20, 24, 32, 0.04), 0 8px 24px -12px rgba(20, 24, 32, 0.12);
+    --font-sans: ui-sans-serif, "Segoe UI", "IBM Plex Sans", -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "IBM Plex Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c0f13;
+      --surface: #12161c;
+      --surface-raised: #171c23;
+      --ink: #e7ebf1;
+      --ink-muted: #9aa5b5;
+      --ink-faint: #6b7688;
+      --border: #232a34;
+      --border-strong: #313a47;
+      --accent: #35c1e8;
+      --accent-ink: #bdeefb;
+      --accent-soft: rgba(53, 193, 232, 0.12);
+      --green: #4cc384;
+      --green-soft: rgba(76, 195, 132, 0.12);
+      --amber: #e0a53f;
+      --amber-soft: rgba(224, 165, 63, 0.12);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0c0f13;
+    --surface: #12161c;
+    --surface-raised: #171c23;
+    --ink: #e7ebf1;
+    --ink-muted: #9aa5b5;
+    --ink-faint: #6b7688;
+    --border: #232a34;
+    --border-strong: #313a47;
+    --accent: #35c1e8;
+    --accent-ink: #bdeefb;
+    --accent-soft: rgba(53, 193, 232, 0.12);
+    --green: #4cc384;
+    --green-soft: rgba(76, 195, 132, 0.12);
+    --amber: #e0a53f;
+    --amber-soft: rgba(224, 165, 63, 0.12);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 5rem;
+  }
+
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.25rem;
+  }
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+  h1 {
+    font-size: clamp(1.65rem, 1.1rem + 2vw, 2.15rem);
+    line-height: 1.15;
+    margin: 0;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    text-align: right;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    padding: 0.2em 0.65em;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--border-strong);
+    color: var(--ink-muted);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+  .badge.state { color: var(--accent-ink); background: var(--accent-soft); border-color: transparent; }
+
+  section { margin-bottom: 2.75rem; }
+  h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    margin: 0 0 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  h2 .num {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.05em 0.4em;
+  }
+  p { margin: 0 0 0.9rem; color: var(--ink); max-width: 68ch; }
+  p.lead { color: var(--ink-muted); font-size: 1rem; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+  code {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+  }
+
+  /* stage flow */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin: 1.1rem 0 0.6rem;
+  }
+  .stage {
+    flex: 1 1 150px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 0.95rem;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .stage .tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .stage .name { font-weight: 650; font-size: 0.92rem; }
+  .stage .sub { color: var(--ink-muted); font-size: 0.8rem; margin-top: 0.2rem; }
+  .stage.gate { background: var(--amber-soft); border-color: transparent; }
+  .stage.gate .tag { color: var(--amber); }
+  .stage.end { background: var(--green-soft); border-color: transparent; }
+  .stage.end .tag { color: var(--green); }
+  .arrow {
+    align-self: center;
+    color: var(--ink-faint);
+    font-family: var(--font-mono);
+    flex: 0 0 auto;
+    padding: 0 0.1rem;
+  }
+  .flow-note {
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    margin-top: 0.5rem;
+  }
+
+  /* route branch */
+  .routes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.7rem;
+    margin: 1rem 0;
+  }
+  .route {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+  }
+  .route .rt-name { font-weight: 650; font-size: 0.9rem; margin-bottom: 0.3rem; }
+  .route .rt-name .dot { display: inline-block; width: 0.5em; height: 0.5em; border-radius: 50%; margin-right: 0.5em; }
+  .route.auto .dot { background: var(--green); }
+  .route.stop .dot { background: var(--amber); }
+  .route p { font-size: 0.82rem; color: var(--ink-muted); margin: 0; max-width: none; }
+
+  ul.plain { list-style: none; margin: 0; padding: 0; }
+  ul.plain li {
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 0.9rem;
+  }
+  ul.plain li:last-child { border-bottom: none; }
+  ul.plain li .k { color: var(--ink-faint); font-family: var(--font-mono); font-size: 0.75rem; flex: 0 0 auto; padding-top: 0.15em; min-width: 6.5em; }
+  ul.plain li .v { flex: 1; }
+
+  .decision {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 0.7rem;
+    background: var(--surface);
+  }
+  .decision summary {
+    cursor: pointer;
+    font-weight: 650;
+    font-size: 0.92rem;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .decision summary::-webkit-details-marker { display: none; }
+  .decision summary::after {
+    content: "+";
+    font-family: var(--font-mono);
+    color: var(--ink-faint);
+    font-size: 1rem;
+    flex: 0 0 auto;
+  }
+  .decision[open] summary::after { content: "–"; }
+  .decision .body { margin-top: 0.7rem; font-size: 0.88rem; color: var(--ink-muted); }
+  .decision .body b { color: var(--ink); font-weight: 650; }
+  .decision .id { font-family: var(--font-mono); font-size: 0.7rem; color: var(--ink-faint); }
+
+  .filegrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 0.6rem;
+  }
+  .filecard {
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    padding: 0.7rem 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+  }
+  .filecard b { color: var(--ink); font-weight: 600; display: block; margin-bottom: 0.15rem; font-family: var(--font-sans); font-size: 0.85rem; }
+
+  table.tasks {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+  }
+  table.tasks th, table.tasks td {
+    text-align: left;
+    padding: 0.55rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  table.tasks th {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  table.tasks td.n { font-family: var(--font-mono); color: var(--ink-faint); width: 2.2em; }
+  table.tasks td.steps { font-variant-numeric: tabular-nums; color: var(--ink-muted); text-align: right; font-family: var(--font-mono); }
+
+  .progressbar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+    margin: 0.9rem 0 0.4rem;
+  }
+  .progressbar > span { display: block; height: 100%; width: 0%; background: var(--accent); }
+
+  footer.foot {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 560px) {
+    .flow { flex-direction: column; }
+    .arrow { display: none; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="top">
+    <div>
+      <span class="kicker">myflow proposal · kan-111-myflow-fast</span>
+      <h1>One command from idea to merged branch, minus the parts only a human can do</h1>
+    </div>
+    <div class="meta">
+      <span class="badge state">state: STARTED</span>
+      <span class="badge">KAN-111 · In Progress</span>
+      <span class="badge">effort: default</span>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="num">01</span>Why</h2>
+    <p class="lead">
+      The myflow pipeline already removes most of the ceremony around shipping a change, but three
+      separate commands still stand between an idea and a merged branch, and two of the seams
+      between them carry no human decision at all. <code>/myflow-fast</code> collapses those seams
+      into one command, so the only manual work left is what only a person can do: answering
+      brainstorming's design questions, reading the diff, running the app, and choosing how the
+      branch lands.
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span>What one invocation does</h2>
+    <p>
+      The first call runs brainstorming exactly as <code>/myflow-start</code> does today — full
+      interactive dialogue, nothing auto-answered — then continues, in the same run, straight into
+      implementation and the review panel. No command is typed in between.
+    </p>
+    <div class="flow">
+      <div class="stage">
+        <span class="tag">Interactive</span>
+        <span class="name">Brainstorm</span>
+        <span class="sub">design questions, one at a time</span>
+      </div>
+      <span class="arrow">──▸</span>
+      <div class="stage">
+        <span class="tag">Unattended</span>
+        <span class="name">Implement + review</span>
+        <span class="sub">SDD·TDD, light panel</span>
+      </div>
+      <span class="arrow">──▸</span>
+      <div class="stage gate">
+        <span class="tag">You</span>
+        <span class="name">Review diff · run app</span>
+        <span class="sub">the one gate that stays</span>
+      </div>
+      <span class="arrow">──▸</span>
+      <div class="stage">
+        <span class="tag">You choose</span>
+        <span class="name">PR · merge+push · manual</span>
+        <span class="sub">bare re-invocation</span>
+      </div>
+      <span class="arrow">──▸</span>
+      <div class="stage end">
+        <span class="tag">Auto where possible</span>
+        <span class="name">FINISHED</span>
+        <span class="sub">archived, cleaned up</span>
+      </div>
+    </div>
+    <p class="flow-note">Re-invoking with text at <code>IN_PROGRESS</code> is read as fix instructions instead of a route choice — see below.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span>What happens at the landing question</h2>
+    <p>Once you review the diff and call <code>/myflow-fast</code> bare, it asks how to land the branch. What happens next depends on the route:</p>
+    <div class="routes">
+      <div class="route auto">
+        <div class="rt-name"><span class="dot"></span>merge + push</div>
+        <p>Nothing external blocks it, so the same invocation merges, pushes, archives, and cleans up — ends at <code>FINISHED</code> with no further command.</p>
+      </div>
+      <div class="route stop">
+        <div class="rt-name"><span class="dot"></span>open PR</div>
+        <p>Needs a human merge on the forge. Opens the PR, prints the URL, stops. A bare call after merge runs the archive.</p>
+      </div>
+      <div class="route stop">
+        <div class="rt-name"><span class="dot"></span>manual</div>
+        <p>You integrate yourself. Hands off exactly as <code>/myflow-finish</code> does today; a bare call once merged runs the archive.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span>Recorded on the creating run</h2>
+    <ul class="plain">
+      <li><span class="k">jira</span><span class="v">KAN-111 → In Progress</span></li>
+      <li><span class="k">models</span><span class="v">implementation <code>sonnet</code> · review panel <code>sonnet</code> · panel fixes <code>sonnet</code> — recommended defaults, all overridable at the same question <code>/myflow-start</code> already asks</span></li>
+      <li><span class="k">panel roster</span><span class="v"><code>light</code> — matches the project-wide default</span></li>
+      <li><span class="k">artifact</span><span class="v">none published by <code>/myflow-fast</code> itself — the operator is present for the brainstorming dialogue that produces the design (this page is published because <em>this</em> change was built the normal way, via <code>/myflow-start</code>)</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span>Decisions</h2>
+
+    <details class="decision" open>
+      <summary>Chain start + do in one invocation <span class="id">chain-start-and-do-in-one-call</span></summary>
+      <div class="body">
+        <b>Chosen —</b> no human gate sits between brainstorming converging and implementation starting today, so nothing is lost by not stopping there.
+        <br><b>Considered —</b> stopping at <code>STARTED</code> and requiring a second bare call — reintroduces exactly the friction this change removes, for a boundary nothing was ever gating.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>Fix vs. integrate by argument presence <span class="id">arg-present-means-fix</span></summary>
+      <div class="body">
+        <b>Chosen —</b> an argument at <code>IN_PROGRESS</code> means fix instructions; bare means proceed to the integrate question. No extra confirmation prompt.
+        <br><b>Considered —</b> always asking "fix or integrate?" explicitly — unambiguous, but a manual step on every re-invocation.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>Merge+push auto-archives <span class="id">merge-push-auto-archives</span></summary>
+      <div class="body">
+        <b>Chosen —</b> nothing external blocks it once chosen, so run 1 and run 2 happen in the same invocation.
+        <br><b>Considered —</b> stopping after merge+push like a normal run 1 — mirrors the existing contract, but gates a step nothing was actually gating.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>PR route stops and hands off <span class="id">pr-route-stops</span></summary>
+      <div class="body">
+        <b>Chosen —</b> a PR needs an external human merge, so nothing can auto-continue past it.
+        <br><b>Considered —</b> polling until merged — ties up a long-running session or needs a background job for an event this pipeline has no mechanism to observe.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>Model defaults: Sonnet everywhere <span class="id">sonnet-everywhere</span></summary>
+      <div class="body">
+        <b>Chosen —</b> implementation, review panel and panel fixes all default to Sonnet, trading the normal pipeline's Opus-for-implementer default for lower cost and latency.
+        <br><b>Considered —</b> keeping Opus/Sonnet/Opus — rejected since reaching for the fast path already signals a speed preference.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>Panel roster defaults to light <span class="id">light-roster-default</span></summary>
+      <div class="body">
+        <b>Chosen —</b> matches the project-wide default already set by KAN-110.
+        <br><b>Considered —</b> <code>standard</code> — broader coverage, slower fix cycles; kept for later if a specific change warrants it.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>No proposal artifact <span class="id">no-proposal-artifact</span></summary>
+      <div class="body">
+        <b>Chosen —</b> the operator who answers brainstorming's questions is present in the same session that produces the design, so a published summary of that same conversation adds no information.
+        <br><b>Considered —</b> publishing anyway for parity — pure overhead for a command whose purpose is cutting steps that carry no new information.
+      </div>
+    </details>
+
+    <details class="decision">
+      <summary>A driver, not a fourth state <span class="id">driver-not-new-state</span></summary>
+      <div class="body">
+        <b>Chosen —</b> <code>/myflow-fast</code> reads and writes the exact same three-state machine and state-file shape as every other command — no new field, no new state.
+        <br><b>Considered —</b> a parallel lightweight state machine — rejected so every existing tool (<code>/myflow-status</code>, Jira integration, the finish contract) already understands a change this command touched.
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2><span class="num">06</span>Open questions</h2>
+    <p style="color:var(--ink-faint); font-style:italic;">None — every question raised during planning was answered.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">07</span>Capabilities touched</h2>
+    <div class="filegrid">
+      <div class="filecard"><b>myflow-fast-command <span style="color:var(--green); font-family:var(--font-sans); font-weight:600;">· new</span></b>accepted states · chaining across gateless transitions · fix/integrate disambiguation · recorded defaults</div>
+      <div class="filecard"><b>myflow-command-surface <span style="color:var(--accent-ink); font-family:var(--font-sans); font-weight:600;">· modified</span></b>command surface grows to four pipeline commands + one read-only; state table gains a row</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">08</span>Implementation plan</h2>
+    <p>Seven tasks, cited against the existing skills rather than duplicating their content — no state, field, or git-boundary change anywhere in the plan.</p>
+    <div class="progressbar"><span style="width:0%"></span></div>
+    <table class="tasks">
+      <thead><tr><th>#</th><th>Task</th><th>Steps</th></tr></thead>
+      <tbody>
+        <tr><td class="n">1</td><td>The <code>myflow-fast</code> skill — brainstorming into implementation</td><td class="steps">10</td></tr>
+        <tr><td class="n">2</td><td>The command files (Claude + Cursor/Codex trees)</td><td class="steps">3</td></tr>
+        <tr><td class="n">3</td><td><code>pipeline.md</code> — command surface and state transitions</td><td class="steps">4</td></tr>
+        <tr><td class="n">4</td><td><code>state-file.md</code> — confirm no edit needed</td><td class="steps">2</td></tr>
+        <tr><td class="n">5</td><td>Documentation digests — <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>README.md</code></td><td class="steps">8</td></tr>
+        <tr><td class="n">6</td><td>Budget row for the new skill file</td><td class="steps">3</td></tr>
+        <tr><td class="n">7</td><td>Full guard and test sweep</td><td class="steps">5</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="foot">
+    <span>docs/superpowers/specs/2026-08-09-kan-111-myflow-fast-design.md</span>
+    <span>openspec/changes/kan-111-myflow-fast/</span>
+  </footer>
+
+</div>
