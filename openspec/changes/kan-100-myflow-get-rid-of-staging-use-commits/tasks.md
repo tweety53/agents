@@ -5,38 +5,39 @@
 
 ### 1.1 Delete `skills/myflow-do/scripts/checkpoint` and `skills/myflow-do/scripts/uncommitted-review-package`
 
-- [ ] Delete `skills/myflow-do/scripts/checkpoint`, `skills/myflow-do/scripts/uncommitted-review-package`,
+- [x] Delete `skills/myflow-do/scripts/checkpoint`, `skills/myflow-do/scripts/uncommitted-review-package`,
   and `scripts/test-uncommitted-review-package.sh`.
-- [ ] Confirm no other file still shells out to them:
+- [x] Confirm no other file still shells out to them:
   `grep -rn "scripts/checkpoint\|uncommitted-review-package" skills/ scripts/ .myflow/ | grep -v openspec/changes/archive`
   returns nothing once tasks 2–6 below are also done — this task only removes the scripts and their
   test harness, so a hit here now is expected until later tasks land.
-- [ ] Verify: `test ! -e skills/myflow-do/scripts/checkpoint && test ! -e skills/myflow-do/scripts/uncommitted-review-package && test ! -e scripts/test-uncommitted-review-package.sh`
+- [x] Verify: `test ! -e skills/myflow-do/scripts/checkpoint && test ! -e skills/myflow-do/scripts/uncommitted-review-package && test ! -e scripts/test-uncommitted-review-package.sh`
 
 **Build:** green
 
 ### 1.2 Remove the retired test entry from `.myflow/project.md`'s `## test` list
 
-- [ ] Drop the `scripts/test-uncommitted-review-package.sh` line from `.myflow/project.md`'s
+- [x] Drop the `scripts/test-uncommitted-review-package.sh` line from `.myflow/project.md`'s
   `## test` section.
-- [ ] Verify: `grep -c "test-uncommitted-review-package" .myflow/project.md` prints `0`
+- [x] Verify: `grep -c "test-uncommitted-review-package" .myflow/project.md` prints `0`
 
 This task is `Build: red` on its own because task 3.3 adds the new guard's test line to the same
 list in the same edit pass — done together to avoid two separate edits to one file.
 
-**Build:** red — merges with Task 3.3
+**Build:** red
+**Squash-with:** Task 3.3
 
 ## 2. Commit-per-task mechanism in `/myflow-do`
 
 ### 2.1 Replace the `NO-COMMITS` dispatch clause with `COMMIT-PER-TASK` in `skills/myflow-do/SKILL.md` section 4
 
-- [ ] Replace the `NO-COMMITS` block (the implementer dispatch clause requiring all four
+- [x] Replace the `NO-COMMITS` block (the implementer dispatch clause requiring all four
   sub-blocks) with a `COMMIT-PER-TASK` block per `myflow-task-commits`'s requirement **Each task
   commits after finishing, before review**: implementer commits `task(<n>): <subject>` with a
   `Task-Id: <n>` trailer immediately after RED-GREEN-REFACTOR completes, before dispatch to review.
-- [ ] Remove the `TASK_BASE=$(skills/myflow-do/scripts/checkpoint)` / `uncommitted-review-package`
+- [x] Remove the `TASK_BASE=$(skills/myflow-do/scripts/checkpoint)` / `uncommitted-review-package`
   sentence from that block.
-- [ ] Verify: `grep -n "COMMIT-PER-TASK\|NO-COMMITS" skills/myflow-do/SKILL.md` shows
+- [x] Verify: `grep -n "COMMIT-PER-TASK\|NO-COMMITS" skills/myflow-do/SKILL.md` shows
   `COMMIT-PER-TASK` present and `NO-COMMITS` absent from the dispatch clause (a mention inside a
   changelog-style note is acceptable; the operative block is not).
 
@@ -44,65 +45,66 @@ list in the same edit pass — done together to avoid two separate edits to one 
 
 ### 2.2 Change per-task and fix-round review to read a commit-range diff
 
-- [ ] In `skills/myflow-do/SKILL.md` section 4 and section 5 ("Panel re-runs"), replace every
+- [x] In `skills/myflow-do/SKILL.md` section 4 and section 5 ("Panel re-runs"), replace every
   reference to `uncommitted-review-package`/`checkpoint`-based review packages with
   `git diff <task-base>..<task-sha>` (or the fixup-folded equivalent) as the diff the reviewer
   reads, per `myflow-task-commits`'s requirement **Review reads a real commit diff, not a
   checkpoint snapshot**.
-- [ ] Verify: `grep -n "checkpoint\|uncommitted-review-package" skills/myflow-do/SKILL.md` returns
+- [x] Verify: `grep -n "checkpoint\|uncommitted-review-package" skills/myflow-do/SKILL.md` returns
   nothing.
 
 **Build:** green
 
 ### 2.3 Add the fixup-and-autosquash procedure for fix rounds
 
-- [ ] In `skills/myflow-do/SKILL.md` section 5 ("Panel re-runs"), state that a fix-round change
+- [x] In `skills/myflow-do/SKILL.md` section 5 ("Panel re-runs"), state that a fix-round change
   commits as `git commit --fixup=<task-sha>` and is folded in with `git rebase --autosquash`
   immediately, before the next review pass reads the diff — per `myflow-task-commits`'s requirement
   **A fix-round change commits as a fixup and is autosquashed immediately**.
-- [ ] Verify: `grep -n -- "--fixup\|--autosquash" skills/myflow-do/SKILL.md` shows both present in
+- [x] Verify: `grep -n -- "--fixup\|--autosquash" skills/myflow-do/SKILL.md` shows both present in
   section 5.
 
 **Build:** green
 
 ### 2.4 Add the red-task-folds-into-green-partner procedure
 
-- [ ] In `skills/myflow-do/SKILL.md` section 4, state that a `Build: red` task's commit folds into
+- [x] In `skills/myflow-do/SKILL.md` section 4, state that a `Build: red` task's commit folds into
   its `Squash-with:` partner's commit via the same fixup mechanism, per `myflow-task-commits`'s
   requirement **A red task's commit folds into its green partner**.
-- [ ] Verify: `grep -n "Squash-with" skills/myflow-do/SKILL.md` shows it referenced in section 4.
+- [x] Verify: `grep -n "Squash-with" skills/myflow-do/SKILL.md` shows it referenced in section 4.
 
 This is `Build: red` because it reads the `Squash-with:` field task 4.1 introduces in
 `build-green.md` — done together so the field name is defined and consumed in one pass.
 
-**Build:** red — merges with Task 4.1
+**Build:** red
+**Squash-with:** Task 4.1
 
 ### 2.5 Rewrite the Git boundaries table in `skills/myflow-contracts/pipeline.md`
 
-- [ ] Update the `/myflow-do` rows: from `STARTED` it now creates the branch/worktree and
+- [x] Update the `/myflow-do` rows: from `STARTED` it now creates the branch/worktree and
   **commits each task + fixups** (no longer "git add excluding planning paths, no commits"); from
   `IN_PROGRESS` with no `prUrl` it resumes and **commits fixups**; the `prUrl` row is unchanged
   (still commits twice and pushes at the end).
-- [ ] Update the guarded-commit bash snippet's surrounding prose if it now describes a mid-run
+- [x] Update the guarded-commit bash snippet's surrounding prose if it now describes a mid-run
   per-task commit rather than only the two staging-time commits — the snippet itself
   (implementation commit, then planning commit) still describes `/myflow-finish`'s two commits and
   does not change.
-- [ ] Verify: `grep -n "no commits\|No commits\|excluding the planning paths — no commits" skills/myflow-contracts/pipeline.md`
+- [x] Verify: `grep -n "no commits\|No commits\|excluding the planning paths — no commits" skills/myflow-contracts/pipeline.md`
   no longer describes `/myflow-do`'s `STARTED`/`IN_PROGRESS`-no-`prUrl` rows as commit-free.
 
 **Build:** green
 
 ### 2.6 Update `skills/myflow-do/SKILL.md`'s Guardrails and handoff template
 
-- [ ] Remove the guardrail "Never commit, push, merge, or open a PR — except the `prUrl` exception
+- [x] Remove the guardrail "Never commit, push, merge, or open a PR — except the `prUrl` exception
   above" and replace it with one distinguishing task/fixup commits (now expected) from
   push/merge/PR (still forbidden on every run).
-- [ ] Update the handoff's `Staged:` line — it currently reads `N/N tasks · staged and uncommitted
+- [x] Update the handoff's `Staged:` line — it currently reads `N/N tasks · staged and uncommitted
   | committed as two commits and pushed to the PR branch`; add the ordinary (non-`prUrl`) case,
   which is now `N/N tasks committed on branch` rather than `staged and uncommitted`.
-- [ ] Update the "Review the diff" git commands in the same block to read the branch's own commit
+- [x] Update the "Review the diff" git commands in the same block to read the branch's own commit
   range instead of `--cached`.
-- [ ] Verify: `grep -n "staged and uncommitted" skills/myflow-do/SKILL.md` returns nothing; the
+- [x] Verify: `grep -n "staged and uncommitted" skills/myflow-do/SKILL.md` returns nothing; the
   ordinary case's wording names commits, not staging.
 
 **Build:** green
@@ -111,27 +113,27 @@ This is `Build: red` because it reads the `Squash-with:` field task 4.1 introduc
 
 ### 3.1 Add the `Files:`/`Tests:`/`Regression:`/`Baseline:`/`Commit:` tag family to `/myflow-start`'s writing-plans stage
 
-- [ ] In `skills/myflow-start/SKILL.md` section **D. Basic Workflow #3 — Writing plans**, add the
+- [x] In `skills/myflow-start/SKILL.md` section **D. Basic Workflow #3 — Writing plans**, add the
   requirement that every task written during writing-plans carries `**Files:**`, `**Tests:**`,
   `**Regression:**`, `**Baseline:**`, and `**Commit:**` tags (plus `**Squash-with:**` for
   `Build: red` tasks, added in task 4.1), per `myflow-task-commit-fields`'s requirement **Every
   task declares mechanically-checkable fields**.
-- [ ] Verify: `grep -n "Files:\|Tests:\|Regression:\|Baseline:\|Commit:" skills/myflow-start/SKILL.md`
+- [x] Verify: `grep -n "Files:\|Tests:\|Regression:\|Baseline:\|Commit:" skills/myflow-start/SKILL.md`
   shows all five named in section D.
 
 **Build:** green
 
 ### 3.2 Write `scripts/check-task-commit-fields.py`
 
-- [ ] Model it on `scripts/check-task-build-green.py` (parses a single `tasks.md`, one class per
+- [x] Model it on `scripts/check-task-build-green.py` (parses a single `tasks.md`, one class per
   violation). This script additionally takes a worktree path, a task id, and the task's commit sha
   (and its parent), and checks the three mechanically-verifiable-without-running-tests fields —
   `Files:`, `Tests:`, `Commit:` — per `myflow-task-commit-fields`'s requirement **A runtime guard
   checks each field against the real commit**.
-- [ ] `Regression:` and `Baseline:` are implemented as separate functions in the same module (task
+- [x] `Regression:` and `Baseline:` are implemented as separate functions in the same module (task
   3.4) since they need the project's `## test` command, not just git — stub them so the module
   imports cleanly, without wiring them into the CLI entry point yet.
-- [ ] Verify: `python3 -c "import ast; ast.parse(open('scripts/check-task-commit-fields.py').read())"`
+- [x] Verify: `python3 -c "import ast; ast.parse(open('scripts/check-task-commit-fields.py').read())"`
   exits 0.
 
 This task is `Build: red` because it has no test harness to run against until task 3.3 exists — the
@@ -147,67 +149,74 @@ undeclared-file commit pass silently, which this case catches by asserting a non
 **Baseline:** not applicable — this task has no runnable harness of its own; task 3.3's harness
 covers both, per the merge pairing above.
 **Commit:** `feat(kan-100-myflow-get-rid-of-staging-use-commits): add the task-commit-fields guard`
-**Build:** red — merges with Task 3.3
+**Build:** red
+**Squash-with:** Task 3.3
 
 ### 3.3 Write `scripts/check-task-commit-fields.sh` wrapper and `scripts/test-check-task-commit-fields.sh`
 
-- [ ] Write the wrapper following `scripts/check-task-build-green.sh`'s shape (resolves which
+- [x] Write the wrapper following `scripts/check-task-build-green.sh`'s shape (resolves which
   `tasks.md`/worktree to check, execs the Python script).
-- [ ] Write the test harness following `scripts/test-check-task-build-green.sh`'s shape: a
+- [x] Write the test harness following `scripts/test-check-task-build-green.sh`'s shape: a
   throwaway git repo per case, asserting exit codes and messages for each scenario in
   `myflow-task-commit-fields`'s spec (undeclared file, missing test, subject mismatch, clean pass —
   `Regression:`/`Baseline:` skip-not-verified cases are added in task 3.4).
-- [ ] Add `scripts/test-check-task-commit-fields.sh` to `.myflow/project.md`'s `## test` list, and
+- [x] Add `scripts/test-check-task-commit-fields.sh` to `.myflow/project.md`'s `## test` list, and
   remove `scripts/test-uncommitted-review-package.sh` from the same list — task 1.2 depends on this
   edit landing together with it.
-- [ ] Verify: `bash scripts/test-check-task-commit-fields.sh` exits 0.
+- [x] Verify: `bash scripts/test-check-task-commit-fields.sh` exits 0.
 
 **Build:** green
 **Files:** `scripts/check-task-commit-fields.sh`, `scripts/test-check-task-commit-fields.sh`, `.myflow/project.md`
-**Tests:** the 7 cases listed in task 3.2, run for the first time against the wrapper this task adds
+**Tests:** the 7 cases listed in task 3.2 (Case 1-7), run for the first time against the wrapper
+this task adds; plus three cases verifying the `Tests:` field's prose-parsing grammar that this
+task's guard implementation depends on and that task 3.2 does not name individually: Case 8: a
+`Tests:` field written as free prose naming `Case N:` labels passes when both labels appear in the
+diff; Case 9: the same prose shape fails, naming the specific missing case, when one label is
+absent from the diff; Case 10: a `Tests:` field with neither `Case N:` labels nor backtick-quoted
+identifiers declares no checkable tests at all and never false-fails
 **Regression:** Case 2 (undeclared file fails): if the wrapper mis-resolves which `tasks.md`/worktree
 to check, this case fails against the wrong fixture instead of the intended one.
-**Baseline:** before=0 after=7 cases in `scripts/test-check-task-commit-fields.sh` (new harness; no
+**Baseline:** before=0 after=10 cases in `scripts/test-check-task-commit-fields.sh` (new harness; no
 prior tests for this script)
 <!-- measured: bash scripts/test-check-task-commit-fields.sh @ branch openspec/kan-100-myflow-get-rid-of-staging-use-commits -->
 **Commit:** `test(kan-100-myflow-get-rid-of-staging-use-commits): add the task-commit-fields harness`
 
 ### 3.4 Implement `Regression:` and `Baseline:` checks with skip-not-verified fallback
 
-- [ ] Implement `Regression:` per `myflow-task-commit-fields`'s requirement **Regression and
+- [x] Implement `Regression:` per `myflow-task-commit-fields`'s requirement **Regression and
   Baseline checks skip, rather than fail, when unsupported**: revert the task commit, run the named
   test via the project's `## test` command, confirm it fails, un-revert.
-- [ ] Implement `Baseline:`: run `## test` at the parent commit and at the task commit, compare
+- [x] Implement `Baseline:`: run `## test` at the parent commit and at the task commit, compare
   counts to the declared `before=<N> after=<N>`.
-- [ ] Implement the skip-not-verified fallback for both: report skipped, not failed, when `## test`
+- [x] Implement the skip-not-verified fallback for both: report skipped, not failed, when `## test`
   can't target a named test or doesn't report a parseable count.
-- [ ] Wire both into the script's CLI entry point (stubbed in task 3.2).
-- [ ] Verify: `bash scripts/test-check-task-commit-fields.sh` (re-run; now covers all cases) exits 0.
+- [x] Wire both into the script's CLI entry point (stubbed in task 3.2).
+- [x] Verify: `bash scripts/test-check-task-commit-fields.sh` (re-run; now covers all cases) exits 0.
 
 **Build:** green
 **Files:** `scripts/check-task-commit-fields.py`, `scripts/test-check-task-commit-fields.sh`
-**Tests:** Case 8: regression check passes (revert makes named test fail, un-revert restores it);
-Case 9: regression check skips when the project's `## test` command can't target a named test;
-Case 10: baseline check passes (parent/task counts match declared `before=<N> after=<N>`); Case 11:
+**Tests:** Case 11: regression check passes (revert makes named test fail, un-revert restores it);
+Case 12: regression check skips when the project's `## test` command can't target a named test;
+Case 13: baseline check passes (parent/task counts match declared `before=<N> after=<N>`); Case 14:
 baseline check skips when the count is unparseable
-**Regression:** Case 9 (regression skip): reverting the skip-fallback logic makes an unsupported
+**Regression:** Case 12 (regression skip): reverting the skip-fallback logic makes an unsupported
 project's run fail instead of skip, which this case catches.
-**Baseline:** before=7 after=11 cases in `scripts/test-check-task-commit-fields.sh`
-<!-- measured: bash scripts/test-check-task-commit-fields.sh @ branch openspec/kan-100-myflow-get-rid-of-staging-use-commits (before, from task 3.3) -->
-<!-- predicted: bash scripts/test-check-task-commit-fields.sh after this task -->
+**Baseline:** before=10 after=14 cases in `scripts/test-check-task-commit-fields.sh`
+<!-- measured: bash scripts/test-check-task-commit-fields.sh @ branch openspec/kan-100-myflow-get-rid-of-staging-use-commits (before, from task 3.3, 10 cases) -->
+<!-- predicted: bash scripts/test-check-task-commit-fields.sh after this task (14 cases) -->
 **Commit:** `feat(kan-100-myflow-get-rid-of-staging-use-commits): add Regression/Baseline checks with skip fallback`
 
 ### 3.5 Wire the guard into `/myflow-do` section 4, right after each task's commit
 
-- [ ] In `skills/myflow-do/SKILL.md` section 4, add: immediately after the implementer's
+- [x] In `skills/myflow-do/SKILL.md` section 4, add: immediately after the implementer's
   `task(<n>):` commit and before dispatch to review, run
   `scripts/check-task-commit-fields.sh <worktree> <task-id>` (or the equivalent when the script is
   absent — apply `myflow-task-commit-fields`'s rules by hand, per this repo's own established
   pattern for an absent guard script).
-- [ ] State that a guard failure sends the task back to the same implementer, per
+- [x] State that a guard failure sends the task back to the same implementer, per
   `myflow-task-commit-fields`'s requirement **A runtime guard checks each field against the real
   commit** — it is not a review finding and does not consume a review round.
-- [ ] Verify: `grep -n "check-task-commit-fields" skills/myflow-do/SKILL.md` shows it invoked in
+- [x] Verify: `grep -n "check-task-commit-fields" skills/myflow-do/SKILL.md` shows it invoked in
   section 4, before the review-dispatch step.
 
 **Build:** green
@@ -216,27 +225,28 @@ project's run fail instead of skip, which this case catches.
 
 ### 4.1 Update `skills/myflow-contracts/build-green.md`'s tag syntax and guard description
 
-- [ ] Change `**Build:** red — merges with Task <N>` to bare `**Build:** red`, with the partner now
+- [x] Change `**Build:** red — merges with Task <N>` to bare `**Build:** red`, with the partner now
   named by `**Squash-with:** Task <N>` (defined in `myflow-task-commit-fields`).
-- [ ] Update the guard's scope section: it now reads the partner from `Squash-with:` rather than
+- [x] Update the guard's scope section: it now reads the partner from `Squash-with:` rather than
   parsing it out of the `Build:` tag text.
-- [ ] Verify: `grep -n "merges with Task" skills/myflow-contracts/build-green.md` returns nothing;
+- [x] Verify: `grep -n "merges with Task" skills/myflow-contracts/build-green.md` returns nothing;
   `grep -n "Squash-with" skills/myflow-contracts/build-green.md` shows it present.
 
 **Build:** green
 
 ### 4.2 Update `scripts/check-task-build-green.py` to parse `Squash-with:` instead of the inline red-tag suffix
 
-- [ ] Change the parser to read the red-task partner from a task's `**Squash-with:**` field instead
+- [x] Change the parser to read the red-task partner from a task's `**Squash-with:**` field instead
   of from the `Build:` tag's own inline suffix.
-- [ ] Fail with a named violation when a `Build: red` task carries no `Squash-with:` field.
-- [ ] Verify: `python3 -c "import ast; ast.parse(open('scripts/check-task-build-green.py').read())"`
+- [x] Fail with a named violation when a `Build: red` task carries no `Squash-with:` field.
+- [x] Verify: `python3 -c "import ast; ast.parse(open('scripts/check-task-build-green.py').read())"`
   exits 0.
 
 `Build: red` on its own because it and task 4.3 (updating the test fixtures) touch the same
 partner-parsing logic and must land together for the test suite to pass at either commit alone.
 
-**Build:** red — merges with Task 4.3
+**Build:** red
+**Squash-with:** Task 4.3
 **Files:** `scripts/check-task-build-green.py`
 **Tests:** Case 15: red task reads its partner from `Squash-with:`; Case 16: `Build: red` with no
 `Squash-with:` field fails; Case 17: `Squash-with:` partner must itself be tagged `green`
@@ -251,9 +261,9 @@ violation shape); this case catches the exit-code and message change.
 
 ### 4.3 Update `scripts/test-check-task-build-green.sh` fixtures to the new syntax
 
-- [ ] Replace every fixture's `**Build:** red — merges with Task <N>` with bare `**Build:** red`
+- [x] Replace every fixture's `**Build:** red — merges with Task <N>` with bare `**Build:** red`
   plus a separate `**Squash-with:** Task <N>` line, matching task 4.1's new syntax.
-- [ ] Verify: `bash scripts/test-check-task-build-green.sh` exits 0.
+- [x] Verify: `bash scripts/test-check-task-build-green.sh` exits 0.
 
 **Build:** green
 
@@ -261,23 +271,23 @@ violation shape); this case catches the exit-code and message change.
 
 ### 5.1 Add the squash-to-merge-base step to `skills/myflow-contracts/finish-contract.md`'s run 1 procedure
 
-- [ ] Before the existing two-commit sequence in run 1, add:
+- [x] Before the existing two-commit sequence in run 1, add:
   `git -C <abs-worktree> reset --soft <recorded-merge-base>`, collapsing every per-task and fixup
   commit `/myflow-do` made back into the working tree.
-- [ ] Confirm everything after that step is unchanged, per `myflow-finish-cleanup`'s modified
+- [x] Confirm everything after that step is unchanged, per `myflow-finish-cleanup`'s modified
   requirement **Run 1 asks how to land the branch, before doing anything**.
-- [ ] Verify: `grep -n -- "--soft" skills/myflow-contracts/finish-contract.md` shows the reset step
+- [x] Verify: `grep -n -- "--soft" skills/myflow-contracts/finish-contract.md` shows the reset step
   present, ordered before the guarded-commits bash chain.
 
 **Build:** green
 
 ### 5.2 Check `skills/myflow-finish/SKILL.md` for a restated copy of run 1's step sequence and update it
 
-- [ ] Confirm `skills/myflow-finish/SKILL.md`'s own "Run 1 — integrate" section cites
+- [x] Confirm `skills/myflow-finish/SKILL.md`'s own "Run 1 — integrate" section cites
   `finish-contract.md` rather than restating its steps, per this repo's own citation convention.
-- [ ] If it does restate the commit sequence, add the reshape step there too so the two files do
+- [x] If it does restate the commit sequence, add the reshape step there too so the two files do
   not disagree.
-- [ ] Verify: `grep -n "reset --soft\|Run 1" skills/myflow-finish/SKILL.md` — either the step is
+- [x] Verify: `grep -n "reset --soft\|Run 1" skills/myflow-finish/SKILL.md` — either the step is
   cited via the contract file (no restatement to update) or the restated sequence now includes it.
 
 **Build:** green
@@ -286,30 +296,41 @@ violation shape); this case catches the exit-code and message change.
 
 ### 6.1 Update `check-contract-budget.sh`'s budget table for every file grown in this change
 
-- [ ] Run `scripts/check-contract-budget.sh` after all edits in sections 1–5 land.
-- [ ] For each file it flags — `skills/myflow-contracts/pipeline.md`,
+- [x] Run `scripts/check-contract-budget.sh` after all edits in sections 1–5 land.
+- [x] For each file it flags — `skills/myflow-contracts/pipeline.md`,
   `skills/myflow-contracts/build-green.md`, `skills/myflow-contracts/finish-contract.md`,
   `skills/myflow-do/SKILL.md`, `skills/myflow-start/SKILL.md` are the candidates — raise that
   file's budget row to its new size plus 25%, per this repo's own rule that a budget hit means a
   deliberate table edit, never a narrowed guard.
-- [ ] Verify: `bash scripts/check-contract-budget.sh` exits 0.
+- [x] Verify: `bash scripts/check-contract-budget.sh` exits 0.
 
 **Build:** green
 
 ### 6.2 Add the new guard to `.myflow/project.md`'s `## lint` list
 
-- [ ] Add `scripts/check-task-commit-fields.sh` to the `## lint` list, alongside
-  `scripts/check-task-build-green.sh`.
-- [ ] Verify: `grep -n "check-task-commit-fields.sh" .myflow/project.md` shows it present in the
-  `## lint` section.
+- [x] Superseded during implementation: `scripts/check-task-commit-fields.sh` was NOT added to the
+  `## lint` list. Unlike `scripts/check-task-build-green.sh`, it needs `<worktree> <task-id>
+  <commit-sha>` arguments and cannot run against a bare tree, so it cannot be a bare `## lint`
+  entry — it matches this repository's own documented exception for parametrized guards
+  (`check-finish-preflight.sh`, `preserve-session-records.sh`, `check-unfinished-work.sh` and
+  `check-cleanup-complete.sh` in `.myflow/project.md`'s "deliberately not lint steps" note). This
+  is a corrected design decision made mid-run, not an oversight; `.myflow/project.md` was correctly
+  left unchanged.
+- [x] The guard is instead covered under `## test` via `scripts/test-check-task-commit-fields.sh`,
+  added by task 3.3.
+- [x] Verify: `grep -n "scripts/test-check-task-commit-fields.sh" .myflow/project.md` shows it
+  present in the `## test` section; `grep -n "deliberately not lint steps" .myflow/project.md`
+  shows the general documented exception for parametrized guards is still present and unchanged —
+  `check-task-commit-fields.sh` is not named there since the note predates this change and this
+  task does not amend it.
 
 **Build:** green
 
 ### 6.3 Run `scripts/check-references.sh` and `scripts/check-vocabulary.sh` and fix any hit
 
-- [ ] Run both guards and fix any hit — a named-section reference that no longer exists, or
+- [x] Run both guards and fix any hit — a named-section reference that no longer exists, or
   vocabulary drift the edits above introduced.
-- [ ] Verify: `bash scripts/check-references.sh && bash scripts/check-vocabulary.sh` both exit 0.
+- [x] Verify: `bash scripts/check-references.sh && bash scripts/check-vocabulary.sh` both exit 0.
 
 **Build:** green
 
@@ -317,9 +338,9 @@ violation shape); this case catches the exit-code and message change.
 
 ### 7.1 Run the complete `## test` and `## lint` command lists from `.myflow/project.md`
 
-- [ ] Run every command listed under `## test` and `## lint` in `.myflow/project.md`, confirming
+- [x] Run every command listed under `## test` and `## lint` in `.myflow/project.md`, confirming
   every guard and test harness — old and new — passes together, including the retired script's
   absence and the new guard's presence.
-- [ ] Verify: every command listed under `## test` and `## lint` in `.myflow/project.md` exits 0.
+- [x] Verify: every command listed under `## test` and `## lint` in `.myflow/project.md` exits 0.
 
 **Build:** green

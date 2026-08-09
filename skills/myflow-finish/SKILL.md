@@ -137,6 +137,14 @@ the operator answers. Re-asking cold invites a duplicate PR.
 
 ## 1.2 Commit the staged work
 
+**Before any route commits, reshape the branch.** Run
+`git -C <worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
+merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
+**Resolving a change's worktrees** and the finish-preflight verdict above both reference. This
+collapses every per-task and fixup commit `/myflow-do` made on the branch back into the working
+tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
+that chain then commits from this reshaped state exactly as it always has.
+
 All three routes commit — implementation, the `openspec/` planning
 artifacts, and the session records preserved under `docs/superpowers/` — as **two** commits, never
 one. The planning artifacts were hidden from the review diff, not from the commit.

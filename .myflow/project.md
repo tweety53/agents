@@ -44,8 +44,8 @@ scripts/test-preserve-session-records.sh
 scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
-scripts/test-uncommitted-review-package.sh
 scripts/test-check-task-build-green.sh
+scripts/test-check-task-commit-fields.sh
 scripts/test-check-workspace-isolation.sh
 scripts/test-check-contract-budget.sh
 scripts/test-check-vocabulary.sh

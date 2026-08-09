@@ -72,16 +72,17 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 3: a task tagged red with no "merges with Task ..." clause -> exit 1.
-# The clause is present syntactically ("merges with Task") but names zero
-# ids, which is what makes this the "no partner named" violation rather than
-# the "missing tag" one (a bare "**Build:** red" with no clause at all does
-# not match the tag grammar and falls to case 2's violation instead).
+# Case 3: a task tagged red with a **Squash-with:** field present but naming
+# zero ids -> exit 1. The field is present syntactically ("Squash-with:
+# Task") but names zero ids, which is what makes this the "no partner named"
+# violation rather than the "no Squash-with: field" one (a red task with no
+# Squash-with: line at all is a separate violation, case 16).
 # ===========================================================================
 new_fixture
 {
   printf '### 3.1 Red with no partner\n\n'
-  printf '**Build:** red — merges with Task ,\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task ,\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 3: red with no partner fails" || fail "case 3: rc=$RC out=$OUT"
@@ -91,12 +92,13 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 4: red — merges with Task 9.9, where no task 9.9 exists -> exit 1.
+# Case 4: Squash-with: Task 9.9, where no task 9.9 exists -> exit 1.
 # ===========================================================================
 new_fixture
 {
   printf '### 4.1 Red with nonexistent partner\n\n'
-  printf '**Build:** red — merges with Task 9.9\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 9.9\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 4: nonexistent partner fails" || fail "case 4: rc=$RC out=$OUT"
@@ -106,16 +108,18 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 5: red — merges with Task 2, where task 2 is itself tagged red ->
-# exit 1, reported against the FIRST task (the one carrying the offending
-# tag), not the partner.
+# Case 5: Squash-with: Task 2, where task 2 is itself tagged red -> exit 1,
+# reported against the FIRST task (the one carrying the offending field),
+# not the partner.
 # ===========================================================================
 new_fixture
 {
   printf '### 1 First task\n\n'
-  printf '**Build:** red — merges with Task 2\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 2\n\n'
   printf '### 2 Second task\n\n'
-  printf '**Build:** red — merges with Task 1\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 1\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 5: partner itself red fails" || fail "case 5: rc=$RC out=$OUT"
@@ -125,12 +129,13 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 6: red — merges with Task 2, where task 2 is tagged green -> exit 0.
+# Case 6: Squash-with: Task 2, where task 2 is tagged green -> exit 0.
 # ===========================================================================
 new_fixture
 {
   printf '### 1 First task\n\n'
-  printf '**Build:** red — merges with Task 2\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 2\n\n'
   printf '### 2 Second task\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
@@ -177,10 +182,10 @@ esac
 
 # ===========================================================================
 # Case 9: a tagged real task whose body ALSO contains a fenced example
-# heading + tag (```markdown ### 9.9 Example / **Build:** red — merges with
-# Task 9.9```) must report clean -- the fenced heading must not spawn a
-# phantom task, and must not swallow or corrupt the real task's own tag
-# (F2, false positive / body corruption).
+# heading + tag (```markdown ### 9.9 Example / **Build:** red / **Squash-
+# with:** Task 9.9```) must report clean -- the fenced heading must not
+# spawn a phantom task, and must not swallow or corrupt the real task's own
+# tag (F2, false positive / body corruption).
 # ===========================================================================
 new_fixture
 {
@@ -188,7 +193,8 @@ new_fixture
   printf 'Example of the wrong way:\n\n'
   printf '```markdown\n'
   printf '### 9.9 Example\n'
-  printf '**Build:** red — merges with Task 9.9\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 9.9\n'
   printf '```\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
@@ -233,16 +239,18 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 12: a partner id named twice in one clause ("merges with Task 12.2,
-# 12.2") must produce exactly ONE violation line for that pair, not one per
-# occurrence (F10).
+# Case 12: a partner id named twice in one Squash-with: field
+# ("Squash-with: Task 12.2, 12.2") must produce exactly ONE violation line
+# for that pair, not one per occurrence (F10).
 # ===========================================================================
 new_fixture
 {
   printf '### 12.1 First\n\n'
-  printf '**Build:** red — merges with Task 12.2, 12.2\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 12.2, 12.2\n\n'
   printf '### 12.2 Second\n\n'
-  printf '**Build:** red — merges with Task 12.1\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 12.1\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 12: duplicate partner id fails" || fail "case 12: rc=$RC out=$OUT"
@@ -302,6 +310,62 @@ esac
 case "$OUT" in
   *"archive/"*) fail "case 14: archived tasks.md must be excluded from the scan, out=$OUT" ;;
   *) pass "case 14: archived tasks.md excluded from the scan" ;;
+esac
+
+# ===========================================================================
+# Case 15: a red task's partner is read from a separate **Squash-with:**
+# field, not from any inline suffix on the **Build:** line -> exit 0 when
+# the named partner is green.
+# ===========================================================================
+new_fixture
+{
+  printf '### 15.1 Red task\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 15.2\n\n'
+  printf '### 15.2 Green partner\n\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 15: partner read from Squash-with: passes" || fail "case 15: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 15: no output" || fail "case 15: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 16: a task tagged **Build:** red with no **Squash-with:** field at
+# all -> exit 1, with a message distinct from the "no merge partner named"
+# violation (case 3), since it is checking for the absence of an entire
+# field rather than an empty one.
+# ===========================================================================
+new_fixture
+{
+  printf '### 16.1 Red with no Squash-with field\n\n'
+  printf '**Build:** red\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 16: red with no Squash-with: field fails" || fail "case 16: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 16.1 is red with no **Squash-with:** field"*) pass "case 16: names the missing-field violation" ;;
+  *) fail "case 16: expected missing-Squash-with-field message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 17: a **Squash-with:** partner must itself be tagged green -> a
+# partner tagged red fails (mirrors case 5, restated here under the Tests:
+# field's own case numbering).
+# ===========================================================================
+new_fixture
+{
+  printf '### 17.1 First task\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 17.2\n\n'
+  printf '### 17.2 Second task\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 17.1\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 17: Squash-with: partner must be green fails" || fail "case 17: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 17.1 merges with Task 17.2, which is itself red"*) pass "case 17: reported against task 17.1" ;;
+  *) fail "case 17: expected message reported against task 17.1, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then

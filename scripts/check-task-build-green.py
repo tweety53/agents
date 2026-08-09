@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """check-task-build-green.py — fail when a tasks.md's dotted-id tasks carry
-no **Build:** tag, or a `red` tag whose `merges with Task …` clause names no
-partner, an absent partner, or a partner that is itself `red`.
+no **Build:** tag, or a `red` tag whose task has no **Squash-with:** field,
+an empty one, one naming an absent partner, or one naming a partner that is
+itself `red`.
 
 Rule (canonical definition: skills/myflow-contracts/build-green.md — do not
 restate it here; a second copy is a Single Source of Truth violation, the
@@ -17,17 +18,19 @@ Exit codes:
   0  clean — every task in the file carries a resolvable **Build:** tag
      (including a file with zero tasks).
   1  violations found — one or more of: a duplicate task id, a task with no
-     tag, a `red` tag naming no partner, a named partner that does not exist
-     in this file, or a named partner that is itself `red`. Printed one per
-     line as `file:line: message`.
+     tag, a `red` task with no **Squash-with:** field at all, a
+     **Squash-with:** field naming zero ids, a named partner that does not
+     exist in this file, or a named partner that is itself `red`. Printed
+     one per line as `file:line: message`.
   2  invocation error — wrong argument count, or the file cannot be read.
 
 Fenced code blocks (a line matching `^ {0,3}(`{3,}|~{3,})`, toggling fence
-state each time it is seen) are opaque to this parser: a `### ...` heading or
-`**Build:** ...` line inside a fence opens no task, closes no task's body,
-and is never read as a real tag — it is documentation/example text, not
-structure. This keeps a `tasks.md` free to show worked examples of the tag
-grammar without those examples being mistaken for real tasks.
+state each time it is seen) are opaque to this parser: a `### ...` heading, a
+`**Build:** ...` line, or a `**Squash-with:** ...` line inside a fence opens
+no task, closes no task's body, and is never read as a real tag or field —
+it is documentation/example text, not structure. This keeps a `tasks.md`
+free to show worked examples of the tag grammar without those examples
+being mistaken for real tasks.
 
 Parsing model
 -------------
@@ -36,32 +39,37 @@ A task begins at a line (outside any fence) matching
 `^### (DOTTED_ID)(?:\\s|$)`, where `DOTTED_ID` is `\\d+(?:\\.\\d+)*` — a
 level-3 heading whose text starts with a dotted id, optionally followed by
 more heading text, or by nothing at all (the id runs to end of line). That
-id is the task's identity for every violation message and every `merges
-with Task <id>` reference. Two or more tasks sharing the same id is itself a
-violation (see list item 0 below); lookups against that id resolve against
-whichever task was parsed first.
+id is the task's identity for every violation message and every
+`Squash-with: Task <id>` reference. Two or more tasks sharing the same id is
+itself a violation (see list item 0 below); lookups against that id resolve
+against whichever task was parsed first.
 
 A task's BODY runs from its heading line to the next line (outside any
 fence) matching `^#{2,3}(?:\\s|$)` (a level-2 or level-3 heading, whether or
 not the level-3 one is itself a task heading) or end of file. Within that
 body, the FIRST line (also outside any fence) matching
 
-    ^\\*\\*Build:\\*\\*\\s+(green|red\\s+—\\s+merges with Task ([\\d.,\\s]+))\\s*$
+    ^\\*\\*Build:\\*\\*\\s+(green|red)\\s*$
 
-(note: `—` is an em-dash, U+2014, not a hyphen) is the task's tag. A body
-with no such line has no tag at all — this includes a line that merely looks
-like an attempt at one (`**Build:** yellow`), which is deliberately treated
-the same as no tag rather than as a separate parse-error class: the fixed
-vocabulary is `green` or `red — merges with Task …`, and anything else is
-simply absent, reported the same way an entirely missing line is.
+is the task's tag. A body with no such line has no tag at all — this
+includes a line that merely looks like an attempt at one (`**Build:**
+yellow`), which is deliberately treated the same as no tag rather than as a
+separate parse-error class: the fixed vocabulary is `green` or `red`, and
+anything else is simply absent, reported the same way an entirely missing
+line is. `Build:` no longer carries any inline suffix — a `red` task's
+partner is read from a separate field.
 
-Note the tag grammar's own boundary: `red` alone, with no `— merges with
-Task …` clause at all, does not match this regex and is therefore "no tag"
-(the missing-tag violation), not the red-without-partner violation below.
-The red-without-partner violation fires only when the clause is present
-syntactically (`merges with Task` appears) but the digit-id group it
-requires (`[\\d.,\\s]+`, one or more characters) captures no digits at all —
-e.g. trailing punctuation or whitespace with nothing else after `Task `.
+Independently, within that same body, the FIRST line (also outside any
+fence) matching
+
+    ^\\*\\*Squash-with:\\*\\*\\s+Task\\s+([\\d.,\\s]+)\\s*$
+
+is the task's Squash-with field. Its capture group is the raw digit/dot/
+comma/whitespace run after "Task ", from which every dotted-id token is
+extracted the same way `Build:`'s old inline clause used to. A body with no
+such line has no Squash-with field at all — a distinct condition, checked
+only for `red` tasks, from a Squash-with field that is present but names
+zero ids.
 
 Validation, run over every task in document order:
 
@@ -69,26 +77,30 @@ Validation, run over every task in document order:
      `<file>:<this heading's line>: task <id> is defined more than once
      (first at line <first heading's line>)`, reported for every occurrence
      after the first.
-  1. Missing tag → `<file>:<heading line>: task <id> has no **Build:** tag`
-  2. `red` with a clause naming zero ids →
-     `<file>:<tag line>: task <id> is red with no merge partner named`
-  3. A named partner id that is not any task's id in this file →
-     `<file>:<tag line>: task <id> merges with Task <partner>, which does
-     not exist in this plan`
-  4. A named partner that exists and is itself tagged `red` →
-     `<file>:<tag line>: task <id> merges with Task <partner>, which is
-     itself red` — reported once, from the task carrying the offending tag,
-     never requiring the mutual reference to also be checked from the
-     partner's own tag.
-  5. A `red` task whose partner exists and is `green` is not a violation,
+  1. Missing **Build:** tag → `<file>:<heading line>: task <id> has no
+     **Build:** tag`
+  2. `red` with no **Squash-with:** field at all →
+     `<file>:<tag line>: task <id> is red with no **Squash-with:** field`
+  3. `red` with a **Squash-with:** field naming zero ids →
+     `<file>:<squash-with line>: task <id> is red with no merge partner
+     named`
+  4. A named partner id that is not any task's id in this file →
+     `<file>:<squash-with line>: task <id> merges with Task <partner>,
+     which does not exist in this plan`
+  5. A named partner that exists and is itself tagged `red` →
+     `<file>:<squash-with line>: task <id> merges with Task <partner>,
+     which is itself red` — reported once, from the task carrying the
+     offending Squash-with field, never requiring the mutual reference to
+     also be checked from the partner's own field.
+  6. A `red` task whose partner exists and is `green` is not a violation,
      and neither is a `red` task with no incoming reference from anything
      else in the file — "unreferenced" is not itself a violation shape this
      guard checks for.
 
-A partner id named more than once in the same clause (`merges with Task
-2.1, 2.1`) is validated once, not once per occurrence — the partner list is
-de-duplicated, order preserving, before validation, so a repeated id never
-produces duplicate violation lines for the same pair.
+A partner id named more than once in the same **Squash-with:** field
+(`Squash-with: Task 2.1, 2.1`) is validated once, not once per occurrence —
+the partner list is de-duplicated, order preserving, before validation, so a
+repeated id never produces duplicate violation lines for the same pair.
 
 Standard library only (see check-plan-provenance.py's module docstring for
 why this repository restricts itself to that: no markdown/CommonMark
@@ -114,8 +126,9 @@ TASK_HEADING_RE = re.compile(rf"^### ({DOTTED_ID})(?:\s|$)")
 
 # FENCE_RE — a fenced code block delimiter: three or more backticks or
 # tildes, optionally preceded by up to 3 columns of leading whitespace (per
-# CommonMark). Matching this line toggles fence state; a task heading or
-# **Build:** tag line inside a fence is example text, not real structure.
+# CommonMark). Matching this line toggles fence state; a task heading,
+# **Build:** tag line, or **Squash-with:** field line inside a fence is
+# example text, not real structure.
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 # BODY_BOUNDARY_RE — closes the current task's body: any level-2 or level-3
@@ -123,17 +136,21 @@ FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 # heading (a "### Notes" aside inside a task's own body still ends it).
 BODY_BOUNDARY_RE = re.compile(r"^#{2,3}(?:\s|$)")
 
-# BUILD_TAG_RE — the tag vocabulary. `—` is U+2014 (em-dash), not `-`.
+# BUILD_TAG_RE — the tag vocabulary: a bare `green` or `red`, with no inline
+# suffix. Group "kind" is "green" or "red".
+BUILD_TAG_RE = re.compile(r"^\*\*Build:\*\*\s+(?P<kind>green|red)\s*$")
+
+# SQUASH_WITH_RE — the merge-partner field, separate from the Build tag.
 # Group "partners" captures the raw digit/dot/comma/whitespace run after
-# "Task " for the red form; it is `None` for the green form.
-BUILD_TAG_RE = re.compile(
-    r"^\*\*Build:\*\*\s+(?:(?P<green>green)"
-    r"|red\s+—\s+merges with Task (?P<partners>[\d.,\s]+))\s*$"
+# "Task ".
+SQUASH_WITH_RE = re.compile(
+    r"^\*\*Squash-with:\*\*\s+Task\s+(?P<partners>[\d.,\s]+)\s*$"
 )
 
-# PARTNER_ID_RE — extracts every dotted-id token out of a partners clause,
-# so "9.9", "2.1, 3.4" and "2.1 3.4" (comma- or whitespace-separated) all
-# resolve the same way without this guard hand-rolling a splitter.
+# PARTNER_ID_RE — extracts every dotted-id token out of a Squash-with
+# field's partners clause, so "9.9", "2.1, 3.4" and "2.1 3.4" (comma- or
+# whitespace-separated) all resolve the same way without this guard
+# hand-rolling a splitter.
 PARTNER_ID_RE = re.compile(DOTTED_ID)
 
 
@@ -145,12 +162,14 @@ class Task:
     heading_line: int
     tag_kind: Optional[str] = None  # "green", "red", or None (no tag)
     tag_line: Optional[int] = None
+    squash_line: Optional[int] = None  # None: no **Squash-with:** field
     partners: List[str] = field(default_factory=list)
 
 
 def parse_tasks(lines: List[str]) -> List[Task]:
     """Split `lines` (1-indexed by position, 0-indexed in the list) into
-    tasks, then resolve each task's **Build:** tag from its own body.
+    tasks, then resolve each task's **Build:** tag and **Squash-with:**
+    field from its own body.
     """
     tasks: List[Task] = []
     current: Optional[Task] = None
@@ -166,18 +185,20 @@ def parse_tasks(lines: List[str]) -> List[Task]:
                 continue
             if in_fence:
                 continue
-            m = BUILD_TAG_RE.match(body_line)
-            if m is None:
-                continue
             lineno = body_start + offset + 1
-            if m.group("green"):
-                current.tag_kind = "green"
-                current.tag_line = lineno
-            else:
-                current.tag_kind = "red"
-                current.tag_line = lineno
-                current.partners = PARTNER_ID_RE.findall(m.group("partners"))
-            break
+            if current.tag_kind is None:
+                m = BUILD_TAG_RE.match(body_line)
+                if m is not None:
+                    current.tag_kind = m.group("kind")
+                    current.tag_line = lineno
+                    continue
+            if current.squash_line is None:
+                m = SQUASH_WITH_RE.match(body_line)
+                if m is not None:
+                    current.squash_line = lineno
+                    current.partners = PARTNER_ID_RE.findall(
+                        m.group("partners")
+                    )
 
     in_fence = False
     for index, line in enumerate(lines):
@@ -228,10 +249,16 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
             continue
         if task.tag_kind != "red":
             continue
-        if not task.partners:
+        if task.squash_line is None:
             violations.append(
                 f"{relfile}:{task.tag_line}: task {task.id} is red with no "
-                "merge partner named"
+                "**Squash-with:** field"
+            )
+            continue
+        if not task.partners:
+            violations.append(
+                f"{relfile}:{task.squash_line}: task {task.id} is red with "
+                "no merge partner named"
             )
             continue
         seen_partners: List[str] = []
@@ -242,12 +269,12 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
             partner_task = by_id.get(partner)
             if partner_task is None:
                 violations.append(
-                    f"{relfile}:{task.tag_line}: task {task.id} merges "
+                    f"{relfile}:{task.squash_line}: task {task.id} merges "
                     f"with Task {partner}, which does not exist in this plan"
                 )
             elif partner_task.tag_kind == "red":
                 violations.append(
-                    f"{relfile}:{task.tag_line}: task {task.id} merges "
+                    f"{relfile}:{task.squash_line}: task {task.id} merges "
                     f"with Task {partner}, which is itself red"
                 )
 

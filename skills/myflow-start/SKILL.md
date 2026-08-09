@@ -346,6 +346,22 @@ While enriching `tasks.md`, tag every fenced block and every numeric claim per
 While enriching `tasks.md`, also tag every task with `**Build:**` per **The build-green tag**
 (`skills/myflow-contracts/build-green.md`).
 
+While enriching `tasks.md`, also tag every task with the mechanically-checkable field family per
+`myflow-task-commit-fields`'s requirement **Every task declares mechanically-checkable fields** —
+checked by a runtime guard during `/myflow-do`:
+
+- `**Files:**` — the paths this task's commit will touch, with an optional
+  `**Allowed-collateral:**` glob for paths a legitimate sweep may also touch without being a
+  declared file.
+- `**Tests:**` — the names of the tests this task adds.
+- `**Regression:**` — per declared test, what fails if this task's commit is reverted.
+- `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`.
+- `**Commit:**` — the commit subject line this task's implementer must use.
+
+A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
+its commit folds into. `tasks.md` in this change's own `openspec/changes/` directory demonstrates
+the real syntax for all of these fields.
+
 Add this header to `tasks.md`:
 
 ```markdown

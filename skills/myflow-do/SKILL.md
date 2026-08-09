@@ -1,13 +1,14 @@
 ---
 name: myflow-do
-description: Implement an OpenSpec change with Superpowers TDD and a multi-agent review panel, print the run instructions in the handoff, and stage everything for one human gate. Re-run to apply a fix. Use for /myflow-do.
+description: Implement an OpenSpec change with Superpowers TDD and a multi-agent review panel, committing each task as it completes and printing the run instructions in the handoff for one human gate. Re-run to apply a fix. Use for /myflow-do.
 allowed-tools: Bash(openspec:*)
 license: MIT
 ---
 
-Implement an OpenSpec change, stage the implementation, and print the run instructions in the
-handoff for the human gate at `IN_PROGRESS`: the operator reviews the staged diff and runs the
-apps. **No commits** — unless a PR already exists, which is the one exception below.
+Implement an OpenSpec change, committing each task as it completes, and print the run instructions
+in the handoff for the human gate at `IN_PROGRESS`: the operator reviews the diff and runs the
+apps. **Never pushes, merges, or opens a PR** — unless a PR already exists, which is the one
+exception below.
 
 **Announce at start:** "Using myflow-do for change `<name>`."
 
@@ -127,11 +128,20 @@ transition the issue here.
 Invoke **superpowers:subagent-driven-development**, treating each remaining checkbox (or a tightly
 coupled group) as one task. Every implementer dispatch **must** carry all four of:
 
-> **MYFLOW — NO COMMITS:** Do **not** run `git commit`, `git push`, merge, or open a PR. Leave all
-> changes uncommitted in the worktree. You **may** `git add` your own work, but never `openspec/`
-> or `docs/superpowers/` — `/myflow-finish` stages and commits those. The parent
-> records `TASK_BASE=$(skills/myflow-do/scripts/checkpoint)` before dispatch; your diff for review is
-> `skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$TASK_BASE"`.
+> **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
+> RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
+> your work with `git commit`, subject line `task(<n>): <subject>` where `<n>` is this task's
+> dotted id from its `tasks.md` heading and `<subject>` is a short description, and a `Task-Id: <n>`
+> trailer. You **may** `git add`/`git commit` your own work, but never `openspec/` or
+> `docs/superpowers/` — `/myflow-finish` stages and commits those.
+
+**A `Build: red` task's commit folds into its green partner.** A task tagged `Build: red` also
+carries `**Squash-with:** Task <N>`, naming the green partner whose commit it folds into. Once that
+partner task has its own commit, fold the red task's commit into it using the same
+fixup-and-autosquash mechanism used for fix rounds (see "Panel re-runs" below): `git commit
+--fixup=<partner-task-sha>` followed by `git rebase --autosquash`, where `<partner-task-sha>` is the
+green partner's own commit — the one named by the red task's `Squash-with:` field. This satisfies
+`myflow-task-commits`'s requirement that a red task's commit folds into its green partner's commit.
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
@@ -153,13 +163,39 @@ guidance; see **Model policy** in `skills/myflow-contracts/pipeline.md` for why,
 choice and a session instruction relate, and for the operator-override rule. The panel's slots
 default to Sonnet — the two rules differ on purpose.
 
-Per-task review without commits: the parent runs
-`skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$TASK_BASE"` and gives the
-reviewer the printed path, never a commit range. Ledger line: `Task N: complete (uncommitted, review
-clean, model: <model>, review: <combined|spec+quality>)` — **record the model and the per-task
-review shape on every dispatch**, implementer and reviewer alike, so both the model and the shape
-choice are auditable after the fact. Mark a checkbox `[x]` only after its task passes spec **and**
-quality review.
+**Guard the commit before dispatching review.** As soon as the implementer reports the task's
+commit sha back, and **before** the parent dispatches that task for review, the parent runs
+
+```bash
+scripts/check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
+```
+
+naming the worktree path, this task's dotted id from its `tasks.md` heading, the commit sha the
+implementer just made, and the commit the task started from. A nonzero exit is a guard failure,
+not a review finding — per `myflow-task-commit-fields`'s requirement **A runtime guard checks each
+field against the real commit** — so it does **not** consume one of the review loop's fix-round
+slots. The parent sends the task back to the **same implementer** (never a fresh one, never the
+reviewer) to correct the mismatched field or the commit, then re-runs the guard before proceeding.
+Only a clean exit clears the task for the dispatch described below.
+
+**When the script cannot be located** — the same two cases as `check-workspace-isolation.sh` in
+section 7: a harness whose repository does not carry it, or a skill directory copied rather than
+linked — apply `myflow-task-commit-fields`'s rules by hand: check the commit's `Files:` against
+`git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the commit's diff, and its
+`Commit:` against the commit's actual subject line. The check is never skipped for want of the
+script, and a mismatch found by hand sends the task back to the same implementer exactly as a
+guard failure would.
+
+**Per-task review:** the parent gives the reviewer the commit-range diff
+`git diff <task-base>..<task-sha>`, where `<task-base>` is the commit the task started from and
+`<task-sha>` is the task's own commit — a real commit diff, never a snapshot of the uncommitted
+working tree. If a fix round folds a fixup into that commit, via `git commit --fixup=<task-sha>`
+followed by `git rebase --autosquash` (see "Panel re-runs" below), the
+range still resolves as `<task-base>..<task-sha>`, now pointing at the rewritten, fixup-folded
+commit. Ledger line: `Task N: complete (commit <sha7>, review clean, model: <model>, review:
+<combined|spec+quality>)` — **record the model and the per-task review shape on every dispatch**,
+implementer and reviewer alike, so both the model and the shape choice are auditable after the
+fact. Mark a checkbox `[x]` only after its task passes spec **and** quality review.
 
 **The per-task review's shape depends on `reviewPanelRoster`.** Under `light` and `standard`, a
 **single** combined reviewer per task covers spec compliance and code quality together, dispatched
@@ -366,9 +402,19 @@ That is a correct outcome, not a skipped review — say so explicitly.
 ### Panel re-runs
 
 **Pass 1 always runs the full roster selected for this change.** Only re-runs after a fix are
-scoped. Record `FIX_BASE=$(skills/myflow-do/scripts/checkpoint)` before each fix, then
-`skills/myflow-do/scripts/uncommitted-review-package <plan-file> "$FIX_BASE"
-.superpowers/sdd/fix-round-N.diff`.
+scoped. Record `FIX_BASE=<task-sha>` — the task's commit as it stood before this fix round — then,
+once the fix is folded into that commit via `git commit --fixup=<task-sha>` and
+`git rebase --autosquash`, write `.superpowers/sdd/fix-round-N.diff` from
+`git diff "$FIX_BASE"..<task-sha>`, where `<task-sha>` now names the rewritten, fixup-folded
+commit.
+
+When a review finding requires a code change to a task that is already committed, commit the fix
+as `git commit --fixup=<task-sha>`, where `<task-sha>` is the **original** task commit — the one
+created when the task was first implemented, not the sha from a previous fixup-and-autosquash
+round — so that every fixup round for a given task targets the same original commit. Immediately
+run `git rebase --autosquash` to fold the fixup into that commit, before the next review pass reads
+the diff. This keeps the working tree at one commit per task throughout the panel's re-runs, never
+a trailing separate fixup commit.
 
 | Mode | Who re-runs | Diff they get |
 |------|-------------|---------------|
@@ -531,33 +577,36 @@ Run the project's `## lint` and `## test` commands from `.myflow/project.md` (au
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
 gate — so a non-zero exit blocks this handoff.
 
-Confirm every intended checkbox is `[x]`, and that no commits were made:
-`git log <merge-base>..HEAD` must be empty, unless a PR already exists (below).
+Confirm every intended checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit
+per completed task, per section 4's commit-per-task model, with every fix-round and red-task-partner
+fixup already folded in via `git rebase --autosquash` — no stray `fixup!` commit should remain
+unsquashed on the branch, unless a PR already exists (below), in which case the section's one
+additional commit also sits on top.
 
 In **every** affected worktree:
 
 ```bash
-git -C <worktree> reset -q -- openspec/ docs/superpowers/
-git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/'
 git -C <worktree> status
-git -C <worktree> diff --cached --stat
+git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **Those two paths are never staged.** See **7. Verify, stage, and hand off**
-> (`skills/myflow-do/SKILL-rationale.md`) for why.
+> **`openspec/` and `docs/superpowers/` are never part of a task commit.** Section 4's
+> COMMIT-PER-TASK clause already excludes both paths from every task and fixup commit; this step
+> only confirms nothing slipped in, it does not stage anything itself. See **7. Verify, stage, and
+> hand off** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
-`git add -A` respects `.gitignore`; never force-add.
-
-**The one commit exception.** If the state file records a `prUrl`, a PR is already open and a
-staged-only fix would be invisible on it — commit and push to the PR branch instead of leaving the
-work staged. Otherwise never commit. That path makes **two** commits, implementation first, so a fix
-pushed to an open PR keeps its code commit free of planning artifacts. On that path only — and in
-this order — run `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; commit what
-the staging above left in the index, which is the implementation alone; then `git add -A` **again**,
-which is what picks up the two excluded paths; then commit those as the second commit, and push
-both. The staging above excluded `docs/superpowers/`, where the script writes, so without that
-second `add` neither commit would carry the preserved records. That ordering is what makes a fix
-round raised after a PR is open refresh the preserved records rather than leave them a round stale.
+**The one push exception.** Every task and fixup commit already sits on the branch, unpushed, per
+section 4 and section 5 — that part is unconditional. If the state file records a `prUrl`, a PR is
+already open, so this run also commits `openspec/` and `docs/superpowers/` — the only paths a task
+or fixup commit never touches — and pushes everything to the PR branch; otherwise this step commits
+and pushes nothing. That path makes **one more** commit on top of the task/fixup commits already on
+the branch, keeping the code history free of planning artifacts. On that path only — and in this
+order — run `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; then `git add -A`,
+which picks up only `openspec/` and `docs/superpowers/` since everything else is already committed;
+then commit those as the one additional commit; then push the branch, which carries that commit
+along with every task and fixup commit accumulated since the PR was opened. That ordering is what
+makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
+round stale.
 
 The script overwrites in place; it never creates a second dated copy. A source that does not exist is
 reported and skipped; **a non-zero exit means a copy was attempted and refused or failed** — report
@@ -565,12 +614,12 @@ it with the script's own stderr message and continue committing the fix. The out
 **Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all
 three outcomes.
 
-**Both commits are guarded exactly as run 1's are** — the chain, the skipped-empty rule, the
-stop-on-failure rule and the symlinked-planning-path case are all under
+**This additional commit is guarded exactly as run 1's are** — the chain, the skipped-empty rule,
+the stop-on-failure rule and the symlinked-planning-path case are all under
 **Git boundaries** (`skills/myflow-contracts/pipeline.md`), which this path follows rather than
-restates. The empty cases are ordinary here: a fix round that touched only `openspec/` and the test
-guide has nothing for the first commit, and one that touched only code has nothing for the second.
-Neither is an error, and neither is silent — say in the handoff which commit was skipped.
+restates. The empty case is ordinary here: a fix round that touched neither `openspec/` nor the test
+guide has nothing to add — that is not an error, and it is not silent — say in the handoff that no
+planning-artifacts commit was made.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
@@ -585,11 +634,11 @@ same carry-forward rule, which is canonical and is not restated here. What matte
 is that reading only `planningEffort` and writing what it found would erase the recorded level.
 
 ```
-## Implementation staged — review and test
+## Implementation committed — review and test
 
 **Change:** <name>
 **Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots, per the table under **5. The review panel**>; optional: <selected, or "none — no triggers fired">
-**Staged:** N/N tasks · staged and uncommitted | committed as two commits and pushed to the PR branch
+**Staged:** N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
 Worktree:   <absolute worktree path>
@@ -599,8 +648,7 @@ Run it:
   <command>
 
 Review the diff, then run it:
-  git -C <absolute worktree path> diff --cached          # when staged and uncommitted
-  git -C <absolute worktree path> diff <merge base>..HEAD  # when committed and pushed
+  git -C <absolute worktree path> diff <merge base>..HEAD
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 
 Re-run this command to fix anything you find.
@@ -609,12 +657,12 @@ Next:
 /myflow-finish <name>
 ```
 
-**Print one review command, the one that matches the git state on the `Staged` line** — the two are
-shown together above only because this block serves both of this command's cases. `--cached` on a
-committed branch exits 0 printing nothing, which reads as *there is nothing to review*; the merge
-base comes from this worktree's entry in the state file's `worktrees` map. The template's third git
-state — committed and pushed with no PR — is one `/myflow-do` never emits and `/myflow-status` does;
-the pairing is canonical under **The block each state renders**
+**One review command covers both of this command's cases** — committed on branch with no PR yet,
+and committed and pushed to an open PR — because both leave the branch fully committed, so the same
+commit-range diff reads either one; there is no `--cached` case left under commit-per-task. The
+merge base comes from this worktree's entry in the state file's `worktrees` map. The template's
+third git state — committed and pushed with no PR — is one `/myflow-do` never emits and
+`/myflow-status` does; the pairing is canonical under **The block each state renders**
 (`skills/myflow-contracts/handoff-blocks.md`).
 
 The pre-edit description line is present only on a fix run that synced the description in section
@@ -624,12 +672,12 @@ printing an empty one. See **Description sync** (`skills/myflow-contracts/jira-i
 
 ## Guardrails
 
-- **Never commit, push, merge, or open a PR** — except the `prUrl` exception above.
+- **Commit per task and per fixup, as section 4 and section 5 require** — never `openspec/` or
+  `docs/superpowers/` in a task or fixup commit. **Never push, merge, or open a PR** — except the
+  `prUrl` exception above.
 - **Never** run `finishing-a-development-branch`.
 - **Never** create a second worktree for the same change.
 - **Never** advance the state from `IN_PROGRESS`; write back what you read.
-- **Always stage with the exclusion pathspec above** in every affected worktree before handing off —
-  never a bare `git add -A`.
 - **Never skip** a required panel slot, and never collapse two slots into one prompt.
 - **Never dispatch an implementer without the provenance clause.**
 - **Never** pass a model override to Bugbot or Security Review; **always** name the panel's model
