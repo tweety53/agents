@@ -90,10 +90,10 @@ running.
 brainstorming, so the board is correct while planning runs. A failure is one skipped-with-reason
 line and planning continues; nothing about this call may delay or alter the proposal.
 
-## Ask the planning effort and the models — creating runs only
+## Ask the planning effort, the models, and the review panel roster — creating runs only
 
 **Ask once, on the run that creates the change**, and never again for it. "Creates" means the state
-file does not exist — not a guess about the operator or the conversation. All four questions below
+file does not exist — not a guess about the operator or the conversation. All five questions below
 share that rule.
 
 Use **AskUserQuestion**, the same mechanism `/myflow-finish` uses for its integration choice.
@@ -130,10 +130,23 @@ choice relates to a session instruction are defined under
 **Model policy** (`skills/myflow-contracts/pipeline.md`) — that section is the one to read; do not
 restate it here.
 
+Then ask a **fourth question**, for the review panel roster:
+
+> **Which review panel roster should this change use?**
+> - **`light`** *(default, recommended)* — primary, principles, and a low-effort Claude reviewer
+> - **`standard`** — primary, principles and Bugbot
+> - **`full`** — the roster in force before presets existed, with conditional slots auto-included
+
+Record the answer for the state write in section F, as `reviewPanelRoster`. What each preset means —
+which slots each one dispatches, and how the optional, trigger-fired slots are handled under each —
+is defined under **5. The review panel** (`skills/myflow-do/SKILL.md`); that section carries the
+roster table and is the one to read, and is not restated here.
+
 **Revising an existing proposal** (the change is already at `STARTED`): do not ask, for any of the
-four. Read `planningEffort` and `models` from the state file, state which level and which models are
-being reused, and proceed at them. A file that records no level is planned at `default`, and that is
-said in the handoff too.
+five. Read `planningEffort`, `models` and `reviewPanelRoster` from the state file, state which level,
+which models and which roster are being reused, and proceed at them. A file that records no level is
+planned at `default`, and a file that records no roster is planned at the `light` preset, and both
+are said in the handoff too.
 
 Read the level through the retired-key fallback, not from `planningEffort` alone — a file that
 recorded a level under the old key would otherwise be reused at `default` rather than at the level
@@ -376,6 +389,7 @@ Write the state file per **State file** (`skills/myflow-contracts/state-file.md`
     "reviewPanel": "<model, or null>",
     "panelFix": "<model, or null>"
   },
+  "reviewPanelRoster": "<light|standard|full, or null>",
   "prUrl": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/myflow-start"
@@ -393,7 +407,7 @@ Stage the planning artifacts. The state file lives outside the repo — never `g
 
 **Change:** <name>
 **Artifact:** <artifactUrl> | missing
-**Recorded:** <N> decisions | none · <N> open questions | none · effort <level> | <level> (reused from the creating run) | not recorded — planned at default · models implementation <model | not recorded>, review panel <model | not recorded>, panel fixes <model | not recorded>
+**Recorded:** <N> decisions | none · <N> open questions | none · effort <level> | <level> (reused from the creating run) | not recorded — planned at default · models implementation <model | not recorded>, review panel <model | not recorded>, panel fixes <model | not recorded> · roster <preset> | <preset> (reused from the creating run) | not recorded — planned at the `light` preset
 **Jira:** <KEY> → In Progress | <KEY> already In Progress (no transition) | none linked | ⚠ Jira: skipped — <reason>
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
@@ -426,8 +440,12 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
 - **Never** delete a superseded decision; mark it superseded.
 - **Never** ask for a planning effort level on a revision round — read the recorded one and say so.
 - **Never** ask for a model choice on a revision round — read the recorded ones and say so.
+- **Never** ask for a review panel roster on a revision round — read the recorded one and say so.
 - **Never** let a planning effort level skip brainstorming, the design approval gate, writing-plans,
   or leave `tasks.md` a scaffold. It sizes the thinking inside the gates, never the gates.
+- **Never** let a review panel roster skip brainstorming, the design approval gate, writing-plans, or
+  leave `tasks.md` a scaffold, and never let a roster move the handoff bar in `/myflow-do` — every
+  preset still hands off only at zero open findings at any severity.
 - **Never** write code, create a worktree, or create a branch.
 - **Never** commit anything. Stage the planning artifacts and leave the commit to `/myflow-finish`,
   per **Git boundaries** (`skills/myflow-contracts/pipeline.md`).

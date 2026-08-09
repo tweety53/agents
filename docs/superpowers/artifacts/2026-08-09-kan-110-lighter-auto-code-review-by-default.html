@@ -1,0 +1,565 @@
+<title>Lighter auto code review by default — KAN-110</title>
+<style>
+  :root {
+    --ground: #f6f7f8;
+    --surface: #ffffff;
+    --surface-sunk: #eef0f2;
+    --ink: #16191c;
+    --ink-soft: #4a5158;
+    --ink-faint: #7b838b;
+    --rule: #d9dde1;
+    --rule-soft: #e7eaed;
+    --accent: #1f6f6b;
+    --accent-soft: #e2efee;
+    --amber: #96660f;
+    --amber-soft: #f6eeda;
+    --w1: #7fb3ae;
+    --w2: #3f8b86;
+    --w3: #1a5450;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101315;
+      --surface: #181c1f;
+      --surface-sunk: #1f2428;
+      --ink: #e8ecee;
+      --ink-soft: #a8b1b7;
+      --ink-faint: #79838a;
+      --rule: #2c3338;
+      --rule-soft: #23282c;
+      --accent: #6fc3b8;
+      --accent-soft: #16302e;
+      --amber: #d9a441;
+      --amber-soft: #302713;
+      --w1: #3d605e;
+      --w2: #5a978f;
+      --w3: #8fd6cb;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101315;
+    --surface: #181c1f;
+    --surface-sunk: #1f2428;
+    --ink: #e8ecee;
+    --ink-soft: #a8b1b7;
+    --ink-faint: #79838a;
+    --rule: #2c3338;
+    --rule-soft: #23282c;
+    --accent: #6fc3b8;
+    --accent-soft: #16302e;
+    --amber: #d9a441;
+    --amber-soft: #302713;
+    --w1: #3d605e;
+    --w2: #5a978f;
+    --w3: #8fd6cb;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+  }
+  .wrap { max-width: 43rem; margin: 0 auto; }
+  .wide { max-width: 52rem; margin: 0 auto; }
+
+  h1, h2, h3, .eyebrow, .chip, th, .slot, .meta {
+    font-family: var(--sans);
+  }
+
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 3.5rem 0 1.5rem;
+    margin-bottom: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .eyebrow {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--accent);
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .eyebrow .sep { color: var(--rule); }
+  .eyebrow .key { color: var(--ink-faint); }
+  h1 {
+    font-size: clamp(2rem, 5.5vw, 3rem);
+    line-height: 1.04;
+    letter-spacing: -0.032em;
+    font-weight: 780;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.12rem;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+  .meta {
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  section { margin: 0 0 3.25rem; }
+  h2 {
+    font-size: 0.76rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    font-weight: 680;
+    color: var(--ink-faint);
+    margin: 0 0 1.1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 {
+    font-size: 1.06rem;
+    font-weight: 660;
+    letter-spacing: -0.012em;
+    margin: 2rem 0 0.5rem;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  p { margin: 0 0 1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  strong { font-weight: 620; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--surface-sunk);
+    padding: 0.1em 0.34em;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+  a { color: var(--accent); }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* Weight bands — the three presets, heaviest ink = heaviest panel */
+  .bands { display: flex; flex-direction: column; gap: 0.6rem; margin: 1.5rem 0; }
+  .band {
+    display: grid;
+    grid-template-columns: 10rem 1fr;
+    gap: 0.25rem 1.5rem;
+    align-items: start;
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-left: 5px solid var(--bandink);
+    padding: 1rem 1.25rem;
+  }
+  .band.b1 { --bandink: var(--w1); }
+  .band.b2 { --bandink: var(--w2); }
+  .band.b3 { --bandink: var(--w3); }
+  .band .name {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--bandink);
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .band .tag {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+    font-weight: 650;
+  }
+  .band .slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
+  .slot {
+    font-size: 0.78rem;
+    font-weight: 550;
+    border: 1px solid var(--rule);
+    background: var(--surface-sunk);
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .slot.new { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .band .cond {
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+    grid-column: 2;
+  }
+  .band .cond .ask { color: var(--amber); font-weight: 600; font-family: var(--sans); }
+  @media (max-width: 34rem) {
+    .band { grid-template-columns: 1fr; }
+    .band .cond { grid-column: 1; }
+  }
+
+  .scroller { overflow-x: auto; margin: 1.5rem 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 0.87rem;
+    min-width: 30rem;
+  }
+  th {
+    text-align: left;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 650;
+    border-bottom: 1px solid var(--ink);
+    padding: 0 0.9rem 0.5rem 0;
+  }
+  td {
+    padding: 0.6rem 0.9rem 0.6rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-soft);
+  }
+  td:first-child { color: var(--ink); font-weight: 550; }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 0.9rem 1.1rem;
+    margin: 1.5rem 0;
+    font-size: 0.95rem;
+  }
+  .callout.warn { border-left-color: var(--amber); background: var(--amber-soft); }
+  .callout p { margin-bottom: 0.5rem; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  dl.decisions { margin: 0; display: flex; flex-direction: column; gap: 1.5rem; }
+  dl.decisions > div {
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 1rem;
+  }
+  dl.decisions dt {
+    font-family: var(--sans);
+    font-weight: 640;
+    font-size: 1rem;
+    letter-spacing: -0.008em;
+    margin-bottom: 0.15rem;
+  }
+  dl.decisions .id {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    display: block;
+    font-weight: 400;
+    letter-spacing: 0;
+    margin-bottom: 0.5rem;
+  }
+  dl.decisions dd { margin: 0 0 0.55rem; font-size: 0.95rem; }
+  dl.decisions dd:last-child { margin-bottom: 0; }
+  dl.decisions dd .lab {
+    font-family: var(--sans);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--accent);
+    margin-right: 0.5rem;
+  }
+  dl.decisions dd.alt .lab { color: var(--ink-faint); }
+  dl.decisions dd.alt { color: var(--ink-soft); }
+
+  ol.ledger { list-style: none; counter-reset: t; margin: 1.5rem 0 0; padding: 0; display: flex; flex-direction: column; }
+  ol.ledger li {
+    counter-increment: t;
+    display: grid;
+    grid-template-columns: 2.4rem 1fr auto;
+    gap: 0 1rem;
+    align-items: baseline;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: 0.95rem;
+  }
+  ol.ledger li::before {
+    content: counter(t);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  ol.ledger .build {
+    font-family: var(--sans);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--accent);
+  }
+  @media (max-width: 34rem) {
+    ol.ledger li { grid-template-columns: 2rem 1fr; }
+    ol.ledger .build { grid-column: 2; }
+  }
+
+  .empty {
+    font-style: italic;
+    color: var(--ink-faint);
+    border: 1px dashed var(--rule);
+    padding: 0.9rem 1.1rem;
+    font-size: 0.95rem;
+  }
+
+  footer {
+    border-top: 2px solid var(--ink);
+    margin-top: 4rem;
+    padding-top: 1.25rem;
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">
+      <span>myflow proposal</span><span class="sep">/</span><span class="key">KAN-110</span>
+    </div>
+    <h1>Lighter auto code review by default</h1>
+    <p class="standfirst">The review panel runs at one fixed weight for every change. Make the weight a recorded, per-change choice — and make the cheap one the default.</p>
+    <div class="meta">
+      <span>State · STARTED</span>
+      <span>Planning effort · default</span>
+      <span>Models · Sonnet throughout</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Why</h2>
+    <p>Every <code>/myflow-do</code> run dispatches the same required panel — Primary, Bugbot and Principles — plus whichever conditional slots the trigger table auto-includes, and runs <em>two</em> reviewers on every single task. Nothing about that roster varies with the change.</p>
+    <p>So a documentation-only diff pays what a migration touching auth pays, and Bugbot, the most expensive of the three, is mandatory on both. Three things already vary per change and are recorded in its state file: the planning effort and the three model roles. The roster is the obvious fourth, and it is the one that governs most of the cost.</p>
+  </section>
+
+  <section class="wide">
+    <h2>The three rosters</h2>
+    <div class="bands">
+      <div class="band b1">
+        <div class="name"><code>light</code><span class="tag">default</span></div>
+        <div>
+          <div class="slots">
+            <span class="slot">Primary</span>
+            <span class="slot">Principles</span>
+            <span class="slot new">Code review (low)</span>
+          </div>
+        </div>
+        <div class="cond">Conditional slots: <span class="ask">one prompt</span>, include-all recommended</div>
+      </div>
+      <div class="band b2">
+        <div class="name"><code>standard</code></div>
+        <div>
+          <div class="slots">
+            <span class="slot">Primary</span>
+            <span class="slot">Principles</span>
+            <span class="slot">Bugbot</span>
+          </div>
+        </div>
+        <div class="cond">Conditional slots: <span class="ask">one prompt</span>, include-all recommended</div>
+      </div>
+      <div class="band b3">
+        <div class="name"><code>full</code></div>
+        <div>
+          <div class="slots">
+            <span class="slot">Primary</span>
+            <span class="slot">Bugbot</span>
+            <span class="slot">Principles</span>
+          </div>
+        </div>
+        <div class="cond">Conditional slots: auto-included on trigger — today's behaviour, unchanged</div>
+      </div>
+    </div>
+    <p>Every preset dispatches exactly three required slots. No preset reduces that number, and <code>full</code> reproduces the panel exactly as it runs today — which makes the whole feature opt-out rather than a rewrite.</p>
+  </section>
+
+  <section>
+    <h2>What changes</h2>
+
+    <h3>A recorded field</h3>
+    <p><code>reviewPanelRoster</code> joins <code>planningEffort</code> as a top-level state-file string. <code>/myflow-start</code> asks for it once, on the run that <em>creates</em> the change, as a fourth question beside the effort level and the three model roles. A revision round states the recorded value and does not ask. Every other command carries it forward verbatim.</p>
+    <p>An <strong>absent</strong> key reads as <code>light</code> — the same absent-key exception <code>planningEffort</code> and <code>models</code> already carry. No existing state file becomes unparseable, and no migration pass runs.</p>
+
+    <h3>The light preset's third slot</h3>
+    <p>Slot 1 under <code>light</code> is a <code>general-purpose</code> subagent on the panel model, told to invoke the harness's <code>code-review</code> skill at effort <code>low</code> against the panel diff and return its findings in its report. Its model is known, so the ledger records it rather than <code>unknown (agent-defined)</code>. Its findings take ordinary rows and marker lines; the panel record's format is untouched.</p>
+    <p>Where a harness has no <code>code-review</code> skill, the slot becomes a <code>general-purpose</code> reviewer briefed for high-confidence defects only, and the panel record names the substitution. It is never dropped — a missing harness feature is not a way to run a two-slot panel.</p>
+
+    <h3>Conditional slots are offered, not assumed</h3>
+    <p>Under <code>light</code> and <code>standard</code>, the trigger table is evaluated unchanged; what changes is what happens next. Every slot whose trigger fired goes into <strong>one</strong> multi-select prompt naming the slot and the trigger that fired it, with include-all recommended. A slot the operator declines is recorded as declined — distinct from one whose trigger never fired.</p>
+
+    <h3>Per-task review collapses</h3>
+    <p>Per-task review is where most reviewer dispatches happen, so the preset governs it too. Under <code>light</code> and <code>standard</code> the spec-compliance and code-quality pair becomes one combined reviewer per task. Under <code>full</code> both still run. The ledger records which shape ran.</p>
+
+    <h3>Bugbot reads for surviving mutants</h3>
+    <p>Wherever Bugbot is dispatched, its brief now includes reasoned mutation testing: for each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a boundary — and establish whether an existing test fails. No framework is added and no score is computed.</p>
+    <p>A mutation no test catches is a <strong>surviving mutant</strong>, raised as an ordinary finding. It blocks the handoff until a test is added or the operator withdraws it with a reason. Bugbot appears in <code>standard</code> and <code>full</code>, so the <code>light</code> default gets no mutation reading — consistent with it being the cheap option.</p>
+
+    <div class="callout">
+      <p><strong>The handoff bar does not move.</strong> Zero open findings at any severity, under every preset. A minor finding blocks exactly as a critical one does, and the escalation ladder, fix rounds, record format and operator handback are all unchanged.</p>
+      <p>A preset sizes how much reading the panel does. It is not a way to skip review — which is why the invariant is written into the delta spec rather than left implied.</p>
+    </div>
+  </section>
+
+  <section class="wide">
+    <h2>Where each fact lives</h2>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Fact</th><th>Canonical file</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Field shape, values, absent-key rule, carry-forward</td><td><code>skills/myflow-contracts/state-file.md</code></td></tr>
+          <tr><td>What each preset means — roster, ask mode, per-task shape</td><td><code>skills/myflow-do/SKILL.md</code> §5</td></tr>
+          <tr><td>The creating-run question and its recommendation</td><td><code>skills/myflow-start/SKILL.md</code></td></tr>
+          <tr><td>Model roles and their defaults</td><td><code>skills/myflow-contracts/pipeline.md</code> — <em>untouched</em></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><code>pipeline.md</code>'s Model policy is deliberately not edited. A roster is not a model; the panel's model stays <code>models.reviewPanel</code>, chosen independently.</p>
+  </section>
+
+  <section class="wide">
+    <h2>Delta specs</h2>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>Capability</th><th>Operation</th><th>What it carries</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>myflow-review-panel-roster</code></td>
+            <td>new</td>
+            <td>The recorded preset, each preset's roster, the <code>code-review</code> slot and its fallback, the ask mode, the per-task collapse, and the rule that no preset moves the handoff bar</td>
+          </tr>
+          <tr>
+            <td><code>myflow-state-machine</code></td>
+            <td>modified</td>
+            <td>The field list gains <code>reviewPanelRoster</code>; the absent-key exception extends to it, resolving to the default rather than leaving the panel unconfigured</td>
+          </tr>
+          <tr>
+            <td><code>myflow-review-panel-economics</code></td>
+            <td>added</td>
+            <td>Bugbot's mutation-testing brief, and a surviving mutant as an ordinary finding under the existing bar</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+    <dl class="decisions">
+      <div>
+        <dt>Where the preset is chosen<span class="id">preset-chosen-at-start</span></dt>
+        <dd><span class="lab">Chosen</span>Asked once by <code>/myflow-start</code> on the creating run and recorded — matching how the effort level and model roles are already chosen.</dd>
+        <dd class="alt"><span class="lab">Considered</span>Asked at <code>/myflow-do</code> each run — a fix round could silently run a different roster than the first pass. A project-level default — cannot tell a documentation change from a migration in the same repository.</dd>
+      </div>
+      <div>
+        <dt>Conditional slots under the lighter presets<span class="id">conditionals-ask-not-auto</span></dt>
+        <dd><span class="lab">Chosen</span>Downgrade the trigger table from auto-include to one multi-select prompt. The trigger still fires and the operator still sees it.</dd>
+        <dd class="alt"><span class="lab">Considered</span>Leaving auto-include — the cheap preset would not be reliably cheap. Cutting the conditionals entirely — a migration would get no extra lens, with nothing saying a trigger had fired.</dd>
+      </div>
+      <div>
+        <dt>What <code>full</code> means<span class="id">full-is-today</span></dt>
+        <dd><span class="lab">Chosen</span>Today's behaviour exactly. The no-change option, which makes the feature opt-out.</dd>
+        <dd class="alt"><span class="lab">Considered</span>Every slot always, ignoring triggers — heavier than the panel has ever run. Every slot plus the low-effort reviewer — a seventh reading with no stated reason to exist.</dd>
+      </div>
+      <div>
+        <dt>Scope of the preset<span class="id">preset-covers-per-task-review</span></dt>
+        <dd><span class="lab">Chosen</span>It governs the per-task review as well as the final panel, because that is where most dispatches happen.</dd>
+        <dd class="alt"><span class="lab">Considered</span>Final panel only — simpler, but barely lighter on a change with many tasks.</dd>
+      </div>
+      <div>
+        <dt>The low-effort reviewer<span class="id">low-reviewer-is-code-review-skill</span></dt>
+        <dd><span class="lab">Chosen</span>The harness's <code>code-review</code> skill at effort <code>low</code>. Its low levels are defined as fewer, high-confidence findings — exactly what a light panel wants.</dd>
+        <dd class="alt"><span class="lab">Considered</span>The <code>cavecrew-reviewer</code> agent — output is deliberately compressed, and a committed record should read as ordinary prose. A narrowed Superpowers reviewer — the same reviewer slot 0 runs, so the panel would carry two readings from one reviewer.</dd>
+      </div>
+      <div>
+        <dt>Behaviour when <code>code-review</code> is unavailable<span class="id">code-review-fallback</span></dt>
+        <dd><span class="lab">Chosen</span>Substitute a <code>general-purpose</code> reviewer and name the substitution in the record.</dd>
+        <dd class="alt"><span class="lab">Considered</span>Dropping the slot — a silent two-slot panel. Falling back to Bugbot — silently converts the operator's choice into a more expensive preset.</dd>
+      </div>
+      <div>
+        <dt>An unrecorded preset<span class="id">absent-reads-as-light</span></dt>
+        <dd><span class="lab">Chosen</span>Absent reads as <code>light</code>, matching the exception the other optional fields carry.</dd>
+        <dd class="alt"><span class="lab">Considered</span>Absent reads as <code>full</code> — every change created before the field existed would be the expensive case forever, and the default would be a value nothing ever writes.</dd>
+      </div>
+      <div>
+        <dt>Field name and preset names<span class="id">field-and-preset-names</span></dt>
+        <dd><span class="lab">Chosen</span><code>reviewPanelRoster</code>, valued <code>light</code> / <code>standard</code> / <code>full</code>. Roster and model stay separate words.</dd>
+        <dd class="alt"><span class="lab">Considered</span><code>panelPreset</code> — reads as a bundle of model and roster. <code>models.reviewPanelRoster</code> — blurs what that object holds. <code>low</code>/<code>default</code>/<code>full</code> — would name a preset <code>default</code> that is not the default.</dd>
+      </div>
+      <div>
+        <dt>Mutation testing rides on Bugbot's brief<span class="id">mutation-testing-in-bugbot-brief</span></dt>
+        <dd><span class="lab">Chosen</span>Reasoned mutation testing in the dispatch prompt, with a survivor as an ordinary blocking finding. Bugbot's agent definition is not editable from here, so the prompt is the only lever.</dd>
+        <dd class="alt"><span class="lab">Considered</span>A real framework — this repository is Bash, Python and Markdown with none declared. Carrying the brief on the light preset too — the most expensive reading in the cheapest preset. A separate Mutation slot — the slot that already hunts defects is the natural home. An advisory note — a second class of finding nothing enforces.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Open questions</h2>
+    <p class="empty">None. Every question raised across five planning rounds was answered.</p>
+  </section>
+
+  <section>
+    <h2>Risks</h2>
+    <div class="callout warn">
+      <p><strong>A lighter default finds fewer defects.</strong> The required count stays at three under every preset, conditional triggers still fire and are surfaced rather than dropped, and the zero-open-findings bar is unchanged. <code>standard</code> and <code>full</code> are one recorded value away.</p>
+    </div>
+    <p><strong>The <code>code-review</code> skill is harness-provided</strong> and may vanish or be renamed — the stated fallback substitutes and names the substitution, so the panel never silently shrinks.</p>
+    <p><strong>Reasoned mutation testing has no ground truth</strong> and can produce false survivors — a survivor is an ordinary finding, so the existing handback and withdrawal-with-reason path resolves a disputed one exactly as it resolves any other.</p>
+    <p><strong>An extra prompt per run</strong> under the lighter presets — it fires only when a trigger actually fired, which the trigger table already keeps rare.</p>
+  </section>
+
+  <section class="wide">
+    <h2>The plan</h2>
+    <p>Ten tasks, in dependency order. Every one leaves a green build, because no script logic changes — the guards are the verification.</p>
+    <ol class="ledger">
+      <li><span>The <code>reviewPanelRoster</code> field in the state-file contract</span><span class="build">green</span></li>
+      <li><span>The roster table and the <code>Code review (low)</code> slot</span><span class="build">green</span></li>
+      <li><span>The ask mode for conditional slots</span><span class="build">green</span></li>
+      <li><span>Bugbot's mutation-testing brief</span><span class="build">green</span></li>
+      <li><span>The per-task review shape and the state write</span><span class="build">green</span></li>
+      <li><span>The creating-run question in <code>/myflow-start</code></span><span class="build">green</span></li>
+      <li><span>Reporting the roster in <code>/myflow-status</code></span><span class="build">green</span></li>
+      <li><span>Carrying the roster forward in <code>/myflow-finish</code></span><span class="build">green</span></li>
+      <li><span>The command trees and the documentation digests</span><span class="build">green</span></li>
+      <li><span>Full guard and test sweep</span><span class="build">green</span></li>
+    </ol>
+  </section>
+
+  <footer>
+    <span>KAN-110</span>
+    <span>kan-110-lighter-auto-code-review-by-default</span>
+    <span>Next · /myflow-do</span>
+  </footer>
+</div>

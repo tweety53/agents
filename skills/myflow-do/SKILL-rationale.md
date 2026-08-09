@@ -67,6 +67,31 @@ line that governs: the machine's direction is protected — a marker reading `op
 cell says — but nothing protects a reader who sees `fixed` in the table and believes it. State the
 fact once. To read a finding's state, look up its `F<n>` in the marker block.
 
+### Code review (low)
+
+Why the light preset's third slot is the harness's `code-review` skill rather than a narrowed
+Superpowers reviewer: a narrowed Superpowers reviewer is the same reviewer slot 0 already runs, so
+the panel would carry two readings from one reviewer rather than a genuinely different check. The
+harness's `code-review` skill is a distinct lens the panel does not otherwise get, which is what a
+lighter roster is trading Bugbot's defect hunt for.
+
+Why an unavailable skill substitutes rather than drops: dropping the slot would make a missing
+harness feature a silent way to weaken review — the panel's required-slot count would depend on
+what the operator's harness happens to ship, rather than on the roster the operator chose. Falling
+back to Bugbot instead of a substitute reviewer would silently convert the operator's `light` choice
+into `standard`, which is not what the operator recorded.
+
+### Bugbot's mutation-testing brief
+
+Why the brief rides on the dispatch prompt rather than on Bugbot's own definition: Bugbot carries
+its own agent definition, which the dispatcher does not edit, so the prompt is the only lever this
+command has over what Bugbot is told to do.
+
+Why a surviving mutant is an ordinary finding rather than an advisory note: an advisory class would
+be a second kind of finding that nothing enforces, sitting beside a bar — zero open findings at any
+severity — that enforces every other one. A finding class the guard does not check is a finding
+class an operator can silently ignore.
+
 ### Optional slot selection
 
 **Borderline → ask**, with **include** as the default. A reviewer too many costs tokens; one too
