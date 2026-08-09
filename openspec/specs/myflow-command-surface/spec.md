@@ -3,11 +3,11 @@
 ## Purpose
 TBD - created by archiving change kan-8-myflow-updates. Update Purpose after archive.
 ## Requirements
-
 ### Requirement: Each command declares the states it accepts
 
 The accepted states SHALL be: `/myflow-start` — none or `STARTED`; `/myflow-do` — `STARTED` or
-`IN_PROGRESS`; `/myflow-finish` — `IN_PROGRESS`; `/myflow-status` — any.
+`IN_PROGRESS`; `/myflow-finish` — `IN_PROGRESS`; `/myflow-fast` — none or `IN_PROGRESS`;
+`/myflow-status` — any.
 
 On a mismatch a command SHALL stop, report the actual state, the states it expects and the command
 to run instead, and SHALL ask for an explicit override whose default and recommended answer is to
@@ -23,6 +23,11 @@ run the suggested command instead.
 - **WHEN** the operator is asked to override a state mismatch
 - **THEN** the default answer is to run the suggested command instead, and only an explicit choice
   to override proceeds
+
+#### Scenario: A mismatched fast invocation does not advance the state
+
+- **WHEN** `/myflow-fast` is invoked for a change at `STARTED`
+- **THEN** it reports the mismatch, suggests `/myflow-do`, and writes no state
 
 ### Requirement: Git actions are bounded by state
 
@@ -166,10 +171,11 @@ NOT be silently dropped without being named.
 - **THEN** it is skipped from the union and named in the report, rather than causing that change to
   be invisible with no explanation
 
-### Requirement: The command surface is three pipeline commands plus one read-only one
+### Requirement: The command surface is three pipeline commands, one composite command, plus one read-only one
 
-myflow SHALL expose exactly `/myflow-start`, `/myflow-do` and `/myflow-finish` as pipeline
-commands, plus `/myflow-status` as the only read-only one.
+myflow SHALL expose `/myflow-start`, `/myflow-do` and `/myflow-finish` as pipeline commands,
+`/myflow-fast` as the composite command that chains their stage content across state transitions
+that carry no human gate, and `/myflow-status` as the only read-only command.
 
 `/myflow-info` SHALL NOT exist. Its sole job was to read `skills/myflow-contracts/pipeline.md` at
 invocation time and explain the pipeline from it; that explanation now lives in `README.md`, where a
@@ -195,3 +201,10 @@ description that agrees with the skill it points at.
 
 - **WHEN** `skills/` is listed
 - **THEN** no `myflow-info` directory exists
+
+#### Scenario: `/myflow-fast` exists in both command trees
+
+- **WHEN** `commands/` and `commands-claude/` are listed
+- **THEN** a `myflow-fast` file exists in both, and its description agrees with
+  `skills/myflow-fast/SKILL.md`
+

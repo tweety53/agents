@@ -1,3 +1,8 @@
+## RENAMED Requirements
+
+- FROM: `### Requirement: The command surface is three pipeline commands plus one read-only one`
+- TO: `### Requirement: The command surface is three pipeline commands, one composite command, plus one read-only one`
+
 ## MODIFIED Requirements
 
 ### Requirement: Each command declares the states it accepts
