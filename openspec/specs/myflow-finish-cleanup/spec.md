@@ -48,8 +48,12 @@ land a branch and only then told that the branch carries unfinished work.
 Having asked once, the run SHALL proceed to completion without a further interruption. The answer
 SHALL never be remembered between runs and never inferred from anything else.
 
-Both routes that commit SHALL produce **two** commits: the implementation first, then the change's
-planning artifacts and session records. Neither route SHALL mix the two.
+Before committing anything, every route SHALL first reshape the branch: `git reset --soft` to the
+recorded merge base, collapsing every per-task and fixup commit `/myflow-do` made back into the
+working tree. Both routes that commit SHALL then produce **two** commits from that reshaped state:
+the implementation first, then the change's planning artifacts and session records. Neither route
+SHALL mix the two, and neither SHALL leave any of `/myflow-do`'s per-task commits on the final
+branch.
 
 #### Scenario: The default opens a PR and stops
 
@@ -83,6 +87,14 @@ planning artifacts and session records. Neither route SHALL mix the two.
 - **WHEN** any committing route runs
 - **THEN** one commit carries the implementation and a second carries the planning artifacts and
   preserved session records
+
+#### Scenario: Per-task commits are reshaped away before committing
+
+- **WHEN** `/myflow-do` left the branch carrying multiple per-task and fixup commits
+- **THEN** run 1's `git reset --soft` to the recorded merge base collapses them into the working
+  tree before the implementation commit is made
+- **AND** the final branch carries no trace of the individual task commits — only the two commits
+  this requirement produces
 
 ### Requirement: No verification gate runs before integration
 
