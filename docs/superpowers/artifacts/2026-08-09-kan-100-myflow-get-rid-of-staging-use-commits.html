@@ -1,0 +1,533 @@
+<title>KAN-100 — get rid of staging, use commits</title>
+<style>
+:root{
+  --bg:#f2f4f2;
+  --surface:#ffffff;
+  --surface-2:#e9ece9;
+  --border:#d3d8d3;
+  --text:#14181a;
+  --muted:#57625c;
+  --accent:#1f7a4d;
+  --accent-ink:#0e3f28;
+  --accent-bg:#e4f3ea;
+  --amber:#8a5a12;
+  --amber-bg:#faf1e2;
+  --danger:#a3311f;
+  --danger-bg:#f8e9e6;
+  --code-bg:#eef1ee;
+  --shadow:0 1px 2px rgba(20,24,26,.06),0 8px 24px rgba(20,24,26,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10140f;
+    --surface:#171d18;
+    --surface-2:#1e2620;
+    --border:#2c362e;
+    --text:#e7ece7;
+    --muted:#9aa89e;
+    --accent:#4fd18b;
+    --accent-ink:#bdf2d4;
+    --accent-bg:#173829;
+    --amber:#e0ac5c;
+    --amber-bg:#3a2c14;
+    --danger:#e88b7a;
+    --danger-bg:#3a1f19;
+    --code-bg:#1c2320;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10140f;
+  --surface:#171d18;
+  --surface-2:#1e2620;
+  --border:#2c362e;
+  --text:#e7ece7;
+  --muted:#9aa89e;
+  --accent:#4fd18b;
+  --accent-ink:#bdf2d4;
+  --accent-bg:#173829;
+  --amber:#e0ac5c;
+  --amber-bg:#3a2c14;
+  --danger:#e88b7a;
+  --danger-bg:#3a1f19;
+  --code-bg:#1c2320;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  line-height:1.6;
+  font-size:16px;
+}
+::selection{background:var(--accent-bg);color:var(--accent-ink)}
+
+a{color:var(--accent)}
+code,.mono{
+  font-family:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+  font-variant-numeric:tabular-nums;
+}
+
+.wrap{max-width:780px;margin:0 auto;padding:0 24px 96px}
+
+/* header */
+header.top{
+  border-bottom:1px solid var(--border);
+  padding:40px 0 28px;
+  margin-bottom:36px;
+}
+.eyebrow{
+  font-family:ui-monospace,"SF Mono","Cascadia Mono",monospace;
+  font-size:12.5px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--muted);
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.eyebrow a{color:var(--muted);text-decoration-color:var(--border)}
+h1{
+  font-size:clamp(28px,4vw,38px);
+  line-height:1.15;
+  letter-spacing:-.01em;
+  margin:12px 0 10px;
+  text-wrap:balance;
+  font-weight:700;
+}
+.sub{color:var(--muted);font-size:16px;max-width:60ch}
+
+.pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.pill{
+  font-family:ui-monospace,"SF Mono","Cascadia Mono",monospace;
+  font-size:12px;
+  padding:4px 10px;
+  border-radius:99px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--muted);
+  white-space:nowrap;
+}
+.pill b{color:var(--text);font-weight:600}
+.pill.accent{background:var(--accent-bg);border-color:transparent;color:var(--accent-ink)}
+
+/* nav */
+nav.toc{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+  font-size:13.5px;
+  padding:14px 0;
+  margin-bottom:40px;
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:0;
+  background:var(--bg);
+  z-index:5;
+}
+nav.toc a{color:var(--muted);text-decoration:none}
+nav.toc a:hover{color:var(--accent)}
+
+section{margin-bottom:56px}
+h2{
+  font-size:22px;
+  letter-spacing:-.01em;
+  margin:0 0 16px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+  text-wrap:balance;
+}
+h3{font-size:16.5px;margin:26px 0 10px}
+p{margin:0 0 14px;max-width:68ch}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin-bottom:6px;max-width:64ch}
+
+/* why / changes */
+.lede{font-size:17.5px;color:var(--text)}
+
+.changelist{list-style:none;margin:0;padding:0}
+.changelist li{
+  padding:10px 0 10px 22px;
+  border-bottom:1px dashed var(--border);
+  position:relative;
+  max-width:68ch;
+}
+.changelist li:last-child{border-bottom:none}
+.changelist li::before{
+  content:"→";
+  position:absolute;left:0;top:10px;
+  color:var(--accent);
+  font-family:ui-monospace,monospace;
+}
+.breaking{
+  display:inline-block;
+  font-family:ui-monospace,monospace;
+  font-size:11px;
+  letter-spacing:.04em;
+  color:var(--danger);
+  background:var(--danger-bg);
+  border-radius:4px;
+  padding:1px 6px;
+  margin-left:6px;
+  vertical-align:2px;
+}
+
+/* capability table */
+.captable{width:100%;border-collapse:collapse;font-size:14.5px;margin:8px 0 4px}
+.captable th,.captable td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.captable th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em}
+.captable td.name{font-family:ui-monospace,monospace;font-size:13px;white-space:nowrap}
+.tag{font-family:ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:4px;letter-spacing:.02em}
+.tag.new{background:var(--accent-bg);color:var(--accent-ink)}
+.tag.mod{background:var(--amber-bg);color:var(--amber)}
+.tag.rem{background:var(--danger-bg);color:var(--danger)}
+.tblwrap{overflow-x:auto}
+
+/* decisions / questions */
+.card{
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface);
+  box-shadow:var(--shadow);
+  padding:18px 20px;
+  margin-bottom:14px;
+}
+.card h4{margin:0 0 8px;font-size:15.5px}
+.card .meta{
+  font-family:ui-monospace,monospace;
+  font-size:11.5px;
+  color:var(--muted);
+  margin-bottom:10px;
+  display:flex;gap:12px;flex-wrap:wrap;
+}
+.card .meta code{background:var(--code-bg);padding:1px 6px;border-radius:4px}
+.card .row{margin:6px 0;font-size:14.5px}
+.card .row b{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;display:block;margin-bottom:2px}
+.empty-note{color:var(--muted);font-style:italic;font-size:14.5px}
+
+/* risks */
+.risk{display:flex;gap:10px;align-items:baseline;margin-bottom:10px;max-width:68ch}
+.risk .rlabel{font-family:ui-monospace,monospace;font-size:11px;color:var(--danger);background:var(--danger-bg);border-radius:4px;padding:2px 7px;white-space:nowrap}
+.risk .mlabel{font-family:ui-monospace,monospace;font-size:11px;color:var(--accent-ink);background:var(--accent-bg);border-radius:4px;padding:2px 7px;white-space:nowrap}
+
+/* tasks */
+.taskgroup{margin-bottom:22px}
+.taskgroup h3{
+  font-family:ui-monospace,monospace;
+  font-size:13px;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  margin:0 0 10px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.taskgroup h3::before{content:"";flex:0 0 16px;height:1px;background:var(--border)}
+.tasklist{list-style:none;margin:0;padding:0;font-size:14.5px}
+.tasklist li{
+  display:flex;
+  gap:10px;
+  padding:6px 0;
+  border-bottom:1px solid var(--border);
+}
+.tasklist li:last-child{border-bottom:none}
+.tasklist .box{
+  flex:0 0 16px;height:16px;margin-top:2px;
+  border:1.5px solid var(--border);
+  border-radius:4px;
+}
+.tasklist .id{font-family:ui-monospace,monospace;color:var(--muted);flex:0 0 auto}
+.tasklist .desc{max-width:60ch}
+
+footer{
+  margin-top:64px;
+  padding-top:20px;
+  border-top:1px solid var(--border);
+  color:var(--muted);
+  font-size:12.5px;
+  font-family:ui-monospace,monospace;
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+@media (prefers-reduced-motion:no-preference){
+  section{animation:fade .5s ease both}
+}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">
+    <span>myflow proposal</span>·
+    <a href="https://tweety53.atlassian.net/browse/KAN-100">KAN-100</a>·
+    <span>opened 2026-08-09</span>
+  </div>
+  <h1>Get rid of staging — use commits</h1>
+  <p class="sub">Per-task commits replace the uncommitted-diff review model in <code>/myflow-do</code>,
+  and six new mechanically-checked task fields catch what self-reports used to miss.</p>
+  <div class="pillrow">
+    <span class="pill accent"><b>state</b> STARTED</span>
+    <span class="pill">effort: <b>default</b></span>
+    <span class="pill">implementation: <b>Sonnet</b></span>
+    <span class="pill">review panel: <b>Sonnet</b></span>
+    <span class="pill">panel fix: <b>Sonnet</b></span>
+    <span class="pill">roster: <b>light</b></span>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#why">Why</a>
+  <a href="#changes">What changes</a>
+  <a href="#design">Design</a>
+  <a href="#decisions">Decisions</a>
+  <a href="#questions">Open questions</a>
+  <a href="#capabilities">Capabilities</a>
+  <a href="#tasks">Tasks</a>
+</nav>
+
+<section id="why">
+  <h2>Why</h2>
+  <p class="lede"><code>/myflow-do</code> implements every task uncommitted, reviews it via a
+  checkpoint/diff snapshot, and leaves everything staged for the human gate. Nothing mechanically
+  checks a task's claims — which files it touched, whether declared tests exist, what regresses on
+  revert, the real baseline test count — against anything real. KAN-71 surfaced concrete cases where
+  the self-report was wrong and nothing caught it before review:</p>
+  <ul>
+    <li>"a task declaring 3 files touched 11"</li>
+    <li>"a task claiming 4 new tests wrote zero"</li>
+    <li>three defects shipped behind green suites</li>
+    <li>"a reported test count off by 600"</li>
+  </ul>
+  <p>Real per-task commits give guards something to check <em>against</em>.</p>
+</section>
+
+<section id="changes">
+  <h2>What changes</h2>
+  <ul class="changelist">
+    <li><code>/myflow-do</code> implementers commit each task
+      (<code>task(&lt;n&gt;): &lt;subject&gt;</code> + <code>Task-Id:</code> trailer) right after
+      finishing it, before review. <code>NO-COMMITS</code> is replaced by
+      <code>COMMIT-PER-TASK</code>.</li>
+    <li>Review reads a real commit diff instead of a checkpoint snapshot.
+      <code>checkpoint</code> and <code>uncommitted-review-package</code> are retired.</li>
+    <li>Fix-round changes commit as <code>git commit --fixup=&lt;task-sha&gt;</code> and are
+      autosquashed into the task commit immediately, before re-review.</li>
+    <li>Six new per-task tags — <code>Files:</code>, <code>Tests:</code>, <code>Regression:</code>,
+      <code>Baseline:</code>, <code>Squash-with:</code>, <code>Commit:</code> — written at plan
+      time and checked by a new runtime guard against the real commit.</li>
+    <li><code>Squash-with:</code> replaces <code>Build: red</code>'s inline
+      <code>— merges with Task &lt;N&gt;</code> text.<span class="breaking">BREAKING</span></li>
+    <li><code>/myflow-finish</code> run 1 gains one step before its existing two-commit sequence:
+      <code>git reset --soft &lt;merge-base&gt;</code>, collapsing every task/fixup commit. The
+      branch still ends with exactly two commits.</li>
+  </ul>
+</section>
+
+<section id="design">
+  <h2>Design</h2>
+
+  <h3>Goals</h3>
+  <ul>
+    <li>Give each task a real commit, so review and new guards check something real instead of a
+      snapshot.</li>
+    <li>Add per-task fields a runtime guard checks against the actual commit, immediately after it's
+      made.</li>
+    <li>Keep the final branch shape <code>/myflow-finish</code> produces unchanged — two commits,
+      same as today.</li>
+  </ul>
+
+  <h3>Non-goals</h3>
+  <ul>
+    <li>Bisectable per-task history on the merged branch — per-task commits exist for review and
+      checking during <code>/myflow-do</code>, not for the merged history.</li>
+    <li>Any change to the review panel's slot roster, model policy, or escalation ladder.</li>
+    <li>Any change to <code>/myflow-finish</code> run 2 (archive/cleanup).</li>
+  </ul>
+
+  <h3>Risks / trade-offs</h3>
+  <div class="risk"><span class="rlabel">RISK</span><span><code>Baseline:</code> runs the project's
+    full test command twice per task <span class="mlabel">MITIGATION</span> accepted cost of the
+    check the ticket asks for; skip-not-verified fallback already covers unsupported tooling.</span></div>
+  <div class="risk"><span class="rlabel">RISK</span><span><code>git rebase --autosquash</code> could
+    conflict with a downstream fixup <span class="mlabel">MITIGATION</span> tasks dispatch serially,
+    so a task's fixups always fold before the next task starts.</span></div>
+  <div class="risk"><span class="rlabel">RISK</span><span>retiring checkpoint scripts breaks any
+    in-flight <code>/myflow-do</code> run <span class="mlabel">MITIGATION</span> no
+    cross-version guarantee exists; finish under the old skill or re-plan.</span></div>
+</section>
+
+<section id="decisions">
+  <h2>Decisions</h2>
+
+  <div class="card">
+    <h4>Squash everything at finish, not bisectable-per-task history</h4>
+    <div class="meta"><code>squash-everything-at-finish</code><span>status: active</span></div>
+    <div class="row"><b>Chosen</b>finish collapses every task/fixup commit into one implementation
+      commit — final history unchanged from today's shape.</div>
+    <div class="row"><b>Considered</b>bisectable per-task history, which the ticket's own rationale
+      for <code>Squash-with:</code> suggests. Rejected — confirmed twice with the operator, who saw
+      the tension and chose the single-commit shape regardless.</div>
+  </div>
+
+  <div class="card">
+    <h4>Fix rounds commit as <code>git commit --fixup</code>, autosquashed immediately</h4>
+    <div class="meta"><code>fixup-autosquash</code><span>status: active</span></div>
+    <div class="row"><b>Chosen</b>every fix-round commit targets its task via <code>--fixup</code>
+      and folds in immediately, so review always reads one commit per task.</div>
+    <div class="row"><b>Considered</b>leaving fix commits unfolded. Rejected — the ticket names
+      <code>--fixup</code> as <code>Task-Id:</code>'s reason for existing, and unfolded fixups would
+      spread the guard's checks across multiple commits per task.</div>
+  </div>
+
+  <div class="card">
+    <h4>A runtime guard, not a plan-time-only guard</h4>
+    <div class="meta"><code>runtime-mechanical-guard</code><span>status: active</span></div>
+    <div class="row"><b>Chosen</b>the new field guard runs during <code>/myflow-do</code>, against
+      the real commit, right after each task is committed.</div>
+    <div class="row"><b>Considered</b>a plan-time-only check, like <code>plan-provenance</code> and
+      <code>build-green</code>. Rejected — the point of these fields is catching a mismatch between
+      claim and commit, which a plan-time check can't see.</div>
+  </div>
+
+  <div class="card">
+    <h4><code>Squash-with:</code> replaces <code>Build: red</code>'s inline partner text</h4>
+    <div class="meta"><code>squash-with-replaces-red-suffix</code><span>status: active</span></div>
+    <div class="row"><b>Chosen</b><code>Build: red</code> becomes bare;
+      <code>Squash-with: Task &lt;N&gt;</code> names the partner and doubles as the fixup target.</div>
+    <div class="row"><b>Considered</b>keeping the partner inline and adding fields alongside it.
+      Rejected — the ticket says the field replaces the prose, and one field serving both the guard
+      and the fixup step is simpler than two.</div>
+  </div>
+
+  <div class="card">
+    <h4>Regression and Baseline degrade to skipped, not failed, when unsupported</h4>
+    <div class="meta"><code>regression-baseline-skip-fallback</code><span>status: active</span></div>
+    <div class="row"><b>Chosen</b>skip-not-verified when the project's test command can't target a
+      named test or report a parseable count.</div>
+    <div class="row"><b>Considered</b>failing the run outright. Rejected — this pipeline already
+      trades this way elsewhere (workspace-isolation survivor reports skip rather than fail).</div>
+  </div>
+
+  <div class="card">
+    <h4>One change, not split into commit-model and mechanical-fields</h4>
+    <div class="meta"><code>one-change-not-split</code><span>status: active</span></div>
+    <div class="row"><b>Chosen</b>both halves ship together.</div>
+    <div class="row"><b>Considered</b>shipping commit-per-task first, mechanical fields as a
+      follow-up. The operator chose to do both together.</div>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>Open questions</h2>
+  <p class="empty-note">None — every question raised during brainstorming converged to a decision
+  above.</p>
+</section>
+
+<section id="capabilities">
+  <h2>Capabilities</h2>
+  <div class="tblwrap">
+  <table class="captable">
+    <thead><tr><th>Capability</th><th>Change</th><th>What it covers</th></tr></thead>
+    <tbody>
+      <tr><td class="name">myflow-task-commits</td><td><span class="tag new">added</span></td>
+        <td>Per-task commit format, fixup-and-autosquash for fix rounds and red partners, review
+        reading a real commit diff.</td></tr>
+      <tr><td class="name">myflow-task-commit-fields</td><td><span class="tag new">added</span></td>
+        <td>The six mechanical tags, written at plan time, checked by a runtime guard against the
+        real commit.</td></tr>
+      <tr><td class="name">myflow-uncommitted-review-package</td><td><span class="tag rem">removed</span></td>
+        <td>The checkpoint/diff-snapshot mechanism, retired in full — superseded by
+        myflow-task-commits.</td></tr>
+      <tr><td class="name">myflow-build-green</td><td><span class="tag mod">modified</span></td>
+        <td>Red tag's inline partner text replaced by <code>Squash-with:</code>.</td></tr>
+      <tr><td class="name">myflow-finish-cleanup</td><td><span class="tag mod">modified</span></td>
+        <td>Run 1 gains a squash-to-merge-base step before its two-commit sequence.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section id="tasks">
+  <h2>Tasks</h2>
+
+  <div class="taskgroup">
+    <h3>1 · Retire the checkpoint mechanism</h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">1.1</span><span class="desc">Delete <code>checkpoint</code> and <code>uncommitted-review-package</code></span></li>
+      <li><span class="box"></span><span class="id">1.2</span><span class="desc">Remove the retired test entry from <code>.myflow/project.md</code></span></li>
+    </ul>
+  </div>
+
+  <div class="taskgroup">
+    <h3>2 · Commit-per-task mechanism</h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">2.1</span><span class="desc">Replace <code>NO-COMMITS</code> with <code>COMMIT-PER-TASK</code></span></li>
+      <li><span class="box"></span><span class="id">2.2</span><span class="desc">Change review to read a commit-range diff</span></li>
+      <li><span class="box"></span><span class="id">2.3</span><span class="desc">Add the fixup-and-autosquash procedure</span></li>
+      <li><span class="box"></span><span class="id">2.4</span><span class="desc">Add the red-task-folds-into-green-partner procedure</span></li>
+      <li><span class="box"></span><span class="id">2.5</span><span class="desc">Rewrite the Git boundaries table</span></li>
+      <li><span class="box"></span><span class="id">2.6</span><span class="desc">Update guardrails and the handoff template</span></li>
+    </ul>
+  </div>
+
+  <div class="taskgroup">
+    <h3>3 · Mechanically-checked per-task fields</h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">3.1</span><span class="desc">Add the tag family to writing-plans</span></li>
+      <li><span class="box"></span><span class="id">3.2</span><span class="desc">Write <code>check-task-commit-fields.py</code></span></li>
+      <li><span class="box"></span><span class="id">3.3</span><span class="desc">Write the wrapper and test harness</span></li>
+      <li><span class="box"></span><span class="id">3.4</span><span class="desc">Implement Regression/Baseline with skip fallback</span></li>
+      <li><span class="box"></span><span class="id">3.5</span><span class="desc">Wire the guard into <code>/myflow-do</code> section 4</span></li>
+    </ul>
+  </div>
+
+  <div class="taskgroup">
+    <h3>4 · <code>Build: red</code> migrates to <code>Squash-with:</code></h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">4.1</span><span class="desc">Update build-green.md's tag syntax</span></li>
+      <li><span class="box"></span><span class="id">4.2</span><span class="desc">Update the guard's parser</span></li>
+      <li><span class="box"></span><span class="id">4.3</span><span class="desc">Update the guard's test fixtures</span></li>
+    </ul>
+  </div>
+
+  <div class="taskgroup">
+    <h3>5 · Finish reshapes the branch</h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">5.1</span><span class="desc">Add the squash-to-merge-base step to finish-contract.md</span></li>
+      <li><span class="box"></span><span class="id">5.2</span><span class="desc">Check myflow-finish/SKILL.md for a restated step sequence</span></li>
+    </ul>
+  </div>
+
+  <div class="taskgroup">
+    <h3>6 · Contract housekeeping</h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">6.1</span><span class="desc">Update contract-budget rows for grown files</span></li>
+      <li><span class="box"></span><span class="id">6.2</span><span class="desc">Add the new guard to <code>## lint</code></span></li>
+      <li><span class="box"></span><span class="id">6.3</span><span class="desc">Run references/vocabulary guards</span></li>
+    </ul>
+  </div>
+
+  <div class="taskgroup">
+    <h3>7 · Full verification pass</h3>
+    <ul class="tasklist">
+      <li><span class="box"></span><span class="id">7.1</span><span class="desc">Run the complete <code>## test</code> and <code>## lint</code> lists</span></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <span>jira: KAN-100 → In Progress</span>
+  <span>design: docs/superpowers/specs/2026-08-09-kan-100-…-design.md</span>
+  <span>change: openspec/changes/kan-100-myflow-get-rid-of-staging-use-commits/</span>
+</footer>
+
+</div>
