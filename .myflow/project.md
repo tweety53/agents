@@ -40,6 +40,8 @@ scripts/test-setup.sh
 scripts/test-check-references.sh
 scripts/test-check-plan-provenance.sh
 scripts/test-check-finish-preflight.sh
+scripts/test-commit-split.sh
+scripts/test-prepare-workspace.sh
 scripts/test-preserve-session-records.sh
 scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh

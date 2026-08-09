@@ -3,7 +3,15 @@
 This file is the reasoning behind `skills/myflow-contracts/pipeline.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
+The finish contract lives in `skills/myflow-contracts/finish-contract.md`, which is canonical for it.
+
 ## States
+
+## Stage exit — never the command's own judgment
+
+The tuned threshold, the two prompts, and why their opposite recommendations are not to be
+harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`) — and are
+not restated here.
 
 ## Command surface
 
@@ -78,6 +86,12 @@ no harness has to gain a task tool to satisfy it.
 
 ## Handoff output
 
+### The block each state renders
+
+The block a state hands off is defined in **The block each state renders**
+(`skills/myflow-contracts/handoff-blocks.md`), which is canonical for the three per-state templates,
+the run-only rule and the rendering-selection table.
+
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. An agent
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
@@ -107,6 +121,15 @@ against them** — for the reason **Progress visibility** (`pipeline.md`) gives,
 the identical question for the task list and is not restated here. What every harness can do is
 **print two lines of text**, which is why printing is the rule and the measurement is only the
 reason invoking is not. So:
+
+Both commands are real, and both routes to calling them are closed. That was established by measurement,
+and it is recorded here so the next reader neither repeats the investigation nor treats the printing
+as an oversight to correct:
+
+- the harness's `SlashCommand` tool exposes only commands of `type: "prompt"`, while `/rename` and
+  `/color` are `type: "local"` or `"local-jsx"` — so the tool route is closed; and
+- no writable `/dev/tty` is available to a command — so writing the terminal escape sequence
+  directly is closed too.
 
 ## IntelliJ commands
 
@@ -168,6 +191,11 @@ defined; the two call sites point here rather than each describing them.
 
 ### Worktree cleanup
 
+## Resolving a change's worktrees
+
+**Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`) is canonical for
+`/myflow-finish`'s own scan-and-resolve procedure and is the fullest example of applying this rule.
+
 ## Temporary artifacts registry
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
@@ -218,6 +246,12 @@ exactly the reason the leftovers are: nothing durable is in there. A project may
 command to list or flush its stale indices; that is the project's tooling, and this row does not
 claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 
+**The workspace row belongs only to a project that declares isolation, and for every other project
+it is a row about nothing — which is why it names no database, no bucket and no service.** A project
+declares the commands that create these resources, that remove them, and that report which of them
+survived; the section holding those declarations is the one
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for.
+
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
 ends at run 2 is checked back by `scripts/check-cleanup-complete.sh`, whose header explains which
 rows that leaves it reading and why; step 6 of
@@ -230,6 +264,10 @@ reads this table and those markers and fails when the two disagree in either dir
 added here goes nowhere until someone records a decision about it — which is what stops a future
 artifact from being confirmed clean by a guard that never looked for it.
 
+The terminal
+state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that
+URL would leave it advertised and unrepublishable.
+
 ## State file
 
 ## Project configuration
@@ -237,6 +275,9 @@ artifact from being confirmed clean by a guard that never looked for it.
 ## Jira integration
 
 ## Model policy
+
+The field shape, and the rule that an absent key reads as *not recorded*, belong to
+**State file** (`skills/myflow-contracts/state-file.md`) and are not restated here.
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/myflow-*` command is required to

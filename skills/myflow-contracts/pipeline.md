@@ -1,8 +1,7 @@
 # myflow pipeline
 
 The three-state pipeline itself: state definitions, the command→state transition table, git
-boundaries and the handoff shape. The finish contract lives in
-`skills/myflow-contracts/finish-contract.md`, which is canonical for it.
+boundaries and the handoff shape. See **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 **Load this file when running any `/myflow-*` command.** It is split out of
 `rules/myflow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
@@ -13,6 +12,9 @@ file wins.
 
 The reasoning behind this file lives in `skills/myflow-contracts/pipeline-rationale.md`;
 **a `/myflow-*` run never loads it.**
+
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
 
 ## States
 
@@ -54,9 +56,7 @@ records the confirm itself as an open question and ends the stage there, since n
 could ever arrive through it. An operator who is present but silent is not that exception and still
 gets another round.
 
-The tuned threshold, the two prompts, and why their opposite recommendations are not to be
-harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`) — and are
-not restated here.
+See **Convergence** (`skills/myflow-start/SKILL.md`).
 
 ## Command surface
 
@@ -260,8 +260,7 @@ Next:
 ### The block each state renders
 
 The block a state hands off is defined in **The block each state renders**
-(`skills/myflow-contracts/handoff-blocks.md`), which is canonical for the three per-state templates,
-the run-only rule and the rendering-selection table. `/myflow-status` loads it; a producing command
+(`skills/myflow-contracts/handoff-blocks.md`). `/myflow-status` loads it; a producing command
 carries only the block it prints.
 
 ### The tab commands, printed at the start of a run
@@ -280,20 +279,14 @@ line and before any work, two commands for the operator to paste:
 commands, printed at the start of a run** (`skills/myflow-contracts/pipeline-rationale.md`) for why
 cyan was chosen and why the lines are printed at the start rather than the end.
 
-**They are printed rather than invoked because neither is reachable from inside a run.** Both
-commands are real, and both routes to calling them are closed. That was established by measurement,
-and it is recorded here so the next reader neither repeats the investigation nor treats the printing
-as an oversight to correct:
-
-- the harness's `SlashCommand` tool exposes only commands of `type: "prompt"`, while `/rename` and
-  `/color` are `type: "local"` or `"local-jsx"` — so the tool route is closed; and
-- no writable `/dev/tty` is available to a command — so writing the terminal escape sequence
-  directly is closed too.
+**They are printed rather than invoked because neither is reachable from inside a run.** See **The
+tab commands, printed at the start of a run**
+(`skills/myflow-contracts/pipeline-rationale.md`) for the measurement behind it.
 
 - **Where a harness offers a reachable way to set the tab's name and colour from inside a run**, the
   command may use it, and then prints nothing — the lines exist to be pasted, and there is nothing
   to paste once the thing is done.
-- **Where it does not** — Claude Code today, for the two reasons measured above, and any harness
+- **Where it does not** — Claude Code today, for the two reasons measured, and any harness
   with no tab concept at all — the command prints the two lines. In a harness with no such commands
   they are inert text the operator ignores, which costs two lines and leaves nothing broken.
 
@@ -346,8 +339,7 @@ gate, `/myflow-status`'s merge-status report, and `/myflow-finish`'s preflight v
 unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
 than restating it. How a command resolves the set beyond reading the state file's map — whether it
 falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;
-**Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`) is canonical for
-`/myflow-finish`'s own scan-and-resolve procedure and is the fullest example of applying this rule.
+see **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`).
 
 ## Temporary artifacts registry
 
@@ -383,16 +375,16 @@ established this.
 
 **Where the proposal artifact source comes from, and why its row is conditional.** `/myflow-start`
 writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish to the same
-URL, and the preserved copy its row requires lives under `docs/superpowers/artifacts/`. The terminal
-state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that
-URL would leave it advertised and unrepublishable. No preserved copy → leave the file and say so.
-The deletion is disclosed the same way the worktree removal is.
+URL, and the preserved copy its row requires lives under `docs/superpowers/artifacts/`. No preserved
+copy → leave the file and say so. The deletion is disclosed the same way the worktree removal is.
+See **Temporary artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for why the
+row is conditional.
 
 **The workspace row belongs only to a project that declares isolation, and for every other project
 it is a row about nothing — which is why it names no database, no bucket and no service.** A project
 declares the commands that create these resources, that remove them, and that report which of them
-survived; the section holding those declarations is the one
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for.
+survived, in
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`).
 Which resources there are, and how each derived value is derived, is stated under
 **What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
 
@@ -433,9 +425,7 @@ Jira-related step.
 
 ## Model policy
 
-**This section is canonical for the model roles, their defaults and how an override applies** — the
-one file every `/myflow-*` command loads for them. See **Model policy**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why this is the one place the rule lives.
+See **Model policy** (`skills/myflow-contracts/pipeline-rationale.md`).
 
 **Change the capability first and bring this section with it: a section that contradicts the
 OpenSpec requirement is this file's defect, not the spec's.** See **Model policy**
@@ -477,8 +467,7 @@ again, and every other command carries them forward verbatim, as it does the lin
 | Every review-panel slot that takes a model override | `reviewPanel` | Sonnet |
 | The subagents that repair panel findings | `panelFix` | Opus, or the harness's strongest available model |
 
-The field shape, and the rule that an absent key reads as *not recorded*, belong to
-**State file** (`skills/myflow-contracts/state-file.md`) and are not restated here.
+See **State file** (`skills/myflow-contracts/state-file.md`).
 
 **The panel-fix default is the strongest available model, and deliberately not Sonnet** — the role
 applies fixes, which is implementer work, so the implementer rule above governs it too. See **Model

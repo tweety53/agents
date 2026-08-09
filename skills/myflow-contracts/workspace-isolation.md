@@ -15,6 +15,9 @@ bucket inside the shared object store. See **The workspace id**
 (`skills/myflow-contracts/workspace-isolation-rationale.md`) for why duplicating whole services per
 workspace was not the design taken instead.
 
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
+
 ## The workspace id
 
 **An apply worktree has a workspace id; the main checkout has none.** The id is derived from the
@@ -237,8 +240,8 @@ restart may be kept there.
 **This pipeline releases nothing at finish, and the claimed index has a registry row saying so.**
 See **The cache index** (`skills/myflow-contracts/workspace-isolation-rationale.md`) for why run 2
 cannot know which index to sweep. What that leaves behind and why it is acceptable are stated once
-under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`), which is canonical
-for every artifact's lifetime. **A project whose claim is visible can do better than the pipeline
+under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`).
+**A project whose claim is visible can do better than the pipeline
 can**, and the ceiling above is the reason to: releasing the claim in its own `remove` command,
 reporting a claim that outlived cleanup through `survivors`, and listing every claim on the machine
 without needing an id — which is what an abandoned change does not leave behind. None of that is
@@ -258,8 +261,7 @@ value — so the id-less case is not a branch anybody maintains but the absence 
 all. A project with no isolation section in its configuration behaves exactly as it does today
 **everywhere, including in apply worktrees**, and that is not reported as a misconfiguration: for a
 repository with no runnable application it is the correct state. Every key in a project's
-configuration is optional; see **Project configuration** (`skills/myflow-contracts/project-configuration.md`),
-which is canonical for that file and for the rules an isolation row resolves under.
+configuration is optional; see **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
 
 **Isolation in an apply worktree is automatic, never opt-in.** A worktree that declares isolation
 receives its own database, cache index, bucket and port block without anybody asking for them, and
