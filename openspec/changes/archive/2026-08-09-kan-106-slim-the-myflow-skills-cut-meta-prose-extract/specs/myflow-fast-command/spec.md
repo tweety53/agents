@@ -61,3 +61,10 @@ still override a named field, recorded with the dispatch exactly as any other op
   fields before or during the run
 - **THEN** that field is recorded with the operator's value instead of the recommended default, and
   the override is recorded with its dispatch
+
+#### Scenario: Defaults are recommended, not forced
+
+- **WHEN** `/myflow-fast` records the four defaults on a creating run
+- **THEN** each recorded value is the recommended default only, never a value the operator is
+  prevented from overriding — the absence of a question does not make a default mandatory, per the
+  override scenario above
