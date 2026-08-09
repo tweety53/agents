@@ -20,8 +20,7 @@ records why they are printed rather than invoked; do not restate its reasoning h
 /color cyan
 ```
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, git
-boundaries, the finish contract, and the handoff output shape.
+**Load `skills/myflow-contracts/pipeline.md` first.**
 
 **Then register this run's steps** with the harness's task-list mechanism and keep each entry's
 status current as the run proceeds, per
@@ -35,6 +34,9 @@ never matched the work.
 The reasoning behind this file lives in `skills/myflow-finish/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
 
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
+
 ## State gate
 
 Accepts **`IN_PROGRESS`**. Run 1 ends at `IN_PROGRESS`; run 2 ends at `FINISHED`.
@@ -46,9 +48,7 @@ At `STARTED` there is nothing to integrate — emit the wrong-state handoff and 
 
 **`pipeline.md`'s Finish contract is canonical for every procedure below.** Load it and follow it
 there — the base-branch resolution, the preflight checks, the removal sequence and their
-rationales live in that one file. This skill carries only what is specific to *executing* it, and
-deliberately does not restate it: a second copy of a procedure that deletes worktrees is a second
-copy that can drift.
+rationales live in that one file. This skill carries only what is specific to *executing* it.
 
 Which run happens is decided by one thing: whether the change's branch has already reached the
 base branch. No field records "integration started" — a field could disagree with git.
@@ -61,8 +61,7 @@ worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read 
 - **`RUN2`** from every worktree → run 2 (archive and clean up)
 - **`REFUSE`** → stop, report what the script reported, and ask the operator before anything else
 - **A resolved set that comes back empty** → stop and ask the operator, exactly as `REFUSE`, per
-  **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`); it is never
-  read as "every worktree returned `RUN2`"
+  **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`)
 - **No verdict line at all, and exit 2** → the script could not read the tree, which is a fourth
   outcome and not a verdict. Treat it exactly as `REFUSE`: stop, report the message it printed on
   stderr, and ask the operator. Never re-run it hoping for a verdict, and never read the missing
@@ -85,15 +84,14 @@ against itself and report every pushed branch as merged.
 Run `scripts/check-unfinished-work.sh <worktree> <name>` once per worktree in the set found by
 **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read
 of the state file's `worktrees` map, for the same reason **Deciding which run this is** above does
-not read it raw — **before the landing question and before any git action**. What each verdict
-means, and what each course below does, is canonical under
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`); this section is how it is executed.
+not read it raw — **before the landing question and before any git action**. See
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 - **`CLEAR:` from every worktree** → continue to **1.1** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator, per **Resolving a change's
-  worktrees** (`skills/myflow-contracts/finish-contract.md`); it is never read as "`CLEAR` from every
-  worktree."
-- **`OUTSTANDING:`** → show the breakdown the script printed, and offer exactly three courses:
+  worktrees** (`skills/myflow-contracts/finish-contract.md`)
+- **`OUTSTANDING:`** → show the breakdown the script printed, and offer exactly three courses —
+  shape per Operator prompts (`skills/myflow-contracts/operator-prompts.md`):
 
   > **This change carries unfinished work — how should run 1 proceed?**
   > - **Stop — I'll finish it first** *(recommended)*
@@ -109,10 +107,10 @@ means, and what each course below does, is canonical under
 **Continue** carries the outstanding list into **1.2**'s planning commit and into **1.5**'s handoff.
 **File or join a Jira follow-up** puts the outstanding items on a **follow-up** issue and then
 continues — joining an open one when the search finds a candidate and the operator confirms it, and
-filing a new one otherwise. The course is labelled for both outcomes because joining is now the
-usual one, and an option promising to *file* a task while normally joining an existing issue
-describes the wrong write to the operator being asked. What that follow-up is titled, the search,
-the confirmation, what a failed search does, and how it is labelled are all
+filing a new one otherwise. See **1.0 Check for unfinished work**
+(`skills/myflow-finish/SKILL-rationale.md`) for why the course is labelled this way. What that
+follow-up is titled, the search, the confirmation, what a failed search does, and how it is
+labelled are all
 **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`), and none of it is restated
 here; **a filing that fails is one skipped-with-reason line and the run still continues**, per
 **Never blocking** (`skills/myflow-contracts/jira-integration.md`) — the outstanding list still
@@ -133,7 +131,8 @@ runs, and never infer it from anything else.
 **Report an existing PR before asking.** Run 1 is re-entered whenever the branch is not merged, so
 a previous attempt may already have opened one. If a PR exists for this branch — from `prUrl`, or
 from a PR CLI when one is usable — say so, including whether it is open or closed-unmerged, before
-the operator answers. Re-asking cold invites a duplicate PR.
+the operator answers. See **1.1 Ask how the branch should land, before any git action**
+(`skills/myflow-finish/SKILL-rationale.md`) for why.
 
 ## 1.2 Commit the staged work
 
@@ -147,7 +146,7 @@ that chain then commits from this reshaped state exactly as it always has.
 
 All three routes commit — implementation, the `openspec/` planning
 artifacts, and the session records preserved under `docs/superpowers/` — as **two** commits, never
-one. The planning artifacts were hidden from the review diff, not from the commit.
+one.
 
 **Preserve the session records first.** Run
 `scripts/preserve-session-records.sh <worktree> <name> <state-dir>` before staging, so the SDD ledger,
@@ -156,36 +155,38 @@ planning commit, beside the plan they describe — rather than lost with the wor
 A source that does not exist is reported and skipped — never a failure, and never a reason
 to stop the integration. **A non-zero exit means a copy was attempted and refused or failed:** report
 it with the script's own stderr message and continue the integration, per the outcome table under
-**Preserving the session records** in `skills/myflow-contracts/pipeline.md`, which is canonical
-for all three outcomes. Say in the handoff which records were preserved and which were not.
+**Preserving the session records** in `skills/myflow-contracts/pipeline.md`. Say in the handoff
+which records were preserved and which were not.
 
 Then stage and commit twice, in this order, rather than assuming everything is already staged: the
 operator may have edited the worktree at the human gate without staging.
 
 ```bash
-git -C <worktree> reset -q -- openspec/ docs/superpowers/ \
-  && git -C <worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/' \
-  && { git -C <worktree> diff --cached --quiet \
-       || git -C <worktree> commit -m "<type>(<name>): <what the implementation does>"; } \
-  && git -C <worktree> add -A \
-  && { git -C <worktree> diff --cached --quiet \
-       || git -C <worktree> commit -m "chore(<name>): plan and session records"; }
+scripts/commit-split.sh <worktree> <name> \
+  "<type>(<name>): <what the implementation does>" \
+  "chore(<name>): plan and session records"
 ```
+
+`<type>` and `<what the implementation does>` are derived from the reshaped diff — this run's own
+read of what the branch changed — since the `reset --soft` above collapsed every task and fixup
+commit back into the working tree, so there is no per-task subject left to reuse. The planning
+message is fixed text; only `<name>` varies.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all stated under
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`) and are not re-argued here. In short:
+**Git boundaries** (`skills/myflow-contracts/pipeline.md`) and are not re-argued here — this call
+implements that chain rather than restating it. In short:
 an empty commit is **skipped, not an error** — a fix that touched only the planning paths, a fix
 that touched only implementation, and a re-run after a rejected push all reach this block with one
 side or both already satisfied — while a commit that FAILS stops the chain and is reported with
 git's own output, so a rejected first commit can never fall through into a single commit carrying
 everything.
 
-**Implementation first, planning artifacts second.** The newest commit on a branch is the one a
-forge shows first, and that should be the code. The second commit's message lists anything the
+**Implementation first, planning artifacts second.** The second commit's message lists anything the
 operator chose to integrate over at **1.0** — the git history is then the durable record that the
 transcript is not. Say in the handoff when a commit was skipped as empty; a silently missing commit
-looks like a lost one.
+looks like a lost one. See **1.2 Commit the staged work**
+(`skills/myflow-finish/SKILL-rationale.md`) for why.
 
 The state file is **not** committed — it lives outside the repo.
 
@@ -252,15 +253,12 @@ general:
 | **merge and push** | *merged and waiting on run 2* — 1.3 merged it into the base branch itself |
 | manual | *waiting on the merge* — the operator has the branch and has not merged it yet |
 
-The merge-and-push route is why this is a choice at all. It merges into the base branch inside
-**1.3**, before this block prints, so a run that took it and then told the operator to *wait on the
-merge* would be contradicting the `Route:` line directly beneath the heading, which reads *merged
-and pushed*. On the other two routes nothing this run did put the branch onto the base branch, so the
-merge is genuinely still ahead. Where the route is not certain — a run resumed after a partial
+Where the route is not certain — a run resumed after a partial
 failure — take the answer from the merge-status test in
 **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) rather than assuming; it is
 the same test `/myflow-status` uses to regenerate this block for a change whose branch has since
-been merged, a run stopped at a run-2 cleanup leftover most often.
+been merged, a run stopped at a run-2 cleanup leftover most often. See **1.5 State and handoff**
+(`skills/myflow-finish/SKILL-rationale.md`) for why the heading depends on the route taken.
 
 ---
 
@@ -295,9 +293,7 @@ procedure. In outline, and stopping at the first step that fails:
    stops on a failed check takes the removal with it, and why the removal follows that half at all —
    the stack is down only once its check 5 has run — is
    **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`);
-   every rule the worktree half carries — the gating checks, the ignored-file disclosure, the
-   removal sequence, and the remote deletion with its already-gone case — is canonical in
-   **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`). Neither is restated here.
+   see **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
 5. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) gives.
 6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
@@ -313,11 +309,10 @@ procedure. In outline, and stopping at the first step that fails:
    canonical under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
    whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`,
-   `reviewPanelRoster` and `prUrl` forward — the planning effort as the **mapped level under
-   `planningEffort`** when the file recorded it under the retired key, per the carry-forward rule in
-   **State file** (`skills/myflow-contracts/state-file.md`), which is canonical and is not restated
-   here. This is the terminal write, so a field dropped here is dropped for good. The state file
-   stays at its user-scoped path as the terminal record — it is **never** moved into the archive.
+   `reviewPanelRoster` and `prUrl` forward — read the planning effort through the retired-key
+   fallback, per **State file** (`skills/myflow-contracts/state-file.md`). This is the terminal
+   write, so a field dropped here is dropped for good. The state file stays at its user-scoped path
+   as the terminal record — it is **never** moved into the archive.
 
 **Transition the issue to Done** after the state write, per
 **Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 6
@@ -325,33 +320,35 @@ transitions nothing — the change is not done.
 
 8. **Run self-review.** The procedure — skippable per run with running it the default, gathering
    input via a script rather than an inline re-read, one combined reasoning pass across all four
-   angles plus the rating, the per-finding filing ask, and the report path — is canonical under
+   angles plus the rating, the per-finding filing ask, and the report path — see
    **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
    requirement to change first when that procedure changes is
    **Requirement: Self-review runs only after FINISHED is written**
-   (`openspec/specs/myflow-self-review/spec.md`) — a citation `finish-contract.md` already carries,
-   not restated here. What is specific to *executing* it here: the script invocation
-   `scripts/gather-self-review-context.sh
+   (`openspec/specs/myflow-self-review/spec.md`). What is specific to *executing* it here: the
+   script invocation `scripts/gather-self-review-context.sh
    <archived-change-path> <name> <state-dir>`, resolving `<archived-change-path>` as
    `openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
    already used when it moved the change there.
 
-   The skip prompt fires first, and reads:
+   The skip prompt fires first, and reads — shape per Operator prompts
+   (`skills/myflow-contracts/operator-prompts.md`):
 
    > **Run self-review for this change?**
    > - **Yes — run it** *(default, recommended)*
    > - **No — skip**
 
-   An explicit **No** stops step 8 here; the handoff's `Self-review` line reads `skipped`. Silence
-   or a session that cannot ask runs self-review, exactly as an explicit **Yes** would.
+   An explicit **No** stops step 8 here; the handoff's `Self-review` line reads `skipped`. A
+   session with no interactive channel to present this prompt at all is a distinct case from
+   silence — silence still gets the prompt and defaults per Operator prompts
+   (`skills/myflow-contracts/operator-prompts.md`), but a session that cannot ask still runs
+   self-review, exactly as an explicit **Yes** would.
 
    The reasoning step that follows is **one combined pass** — never four separate dispatches —
    answering all four angles (problems and the pipeline change that would avoid them; token/time
    cost and what would reduce it without quality loss; what went well and how to reproduce it; what
    could be automated or moved to a script) plus the rating request, fed the script's bundle and the
-   live session's own context. A self-review mechanism that itself burned disproportionate tokens on
-   four separate dispatches would be its own finding under the cost angle — the one-pass shape is
-   how this step avoids becoming that finding.
+   live session's own context. See **Run 2 — archive and clean up**
+   (`skills/myflow-finish/SKILL-rationale.md`) for why this runs as one combined pass.
 
    For each finding that names a concrete pipeline or script change, ask once, per finding:
 
@@ -361,7 +358,7 @@ transitions nothing — the change is not done.
 
    A bare observation with no concrete change implied gets no filing ask. Labelling a filed issue
    and handling a filing failure follow **Labels on issues the pipeline creates** and **Never
-   blocking** (`skills/myflow-contracts/jira-integration.md`) verbatim — not restated here.
+   blocking** (`skills/myflow-contracts/jira-integration.md`) verbatim.
 
    Then ask the operator to rate the run:
 

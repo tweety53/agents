@@ -3,6 +3,9 @@
 This file is the reasoning behind `skills/myflow-do/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
+**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
+command→state transition table, git boundaries, and the handoff output shape.
+
 ## State gate
 
 ## Superpowers Basic Workflow
@@ -32,6 +35,10 @@ is never archived alone — it goes with its parent.
 
 ## 5. The review panel
 
+It names the preset in force for this run, per
+**State file** (`skills/myflow-contracts/state-file.md`), which is canonical for the field's shape,
+its values and the absent-key rule.
+
 Free prose is not a record of a finding's state: a state that cannot be counted cannot be enforced.
 
 Why panel dispatches never inherit a model from the parent session:
@@ -54,12 +61,20 @@ boundary pipe still counts. That is the point of the split — the previous shap
 table parser to recover one fact from a grammar defined in prose, and it failed **open** six
 distinct ways across three review passes before it was replaced.
 
+- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte. `Open`,
+  `WITHDRAWN`, `open (needs discussion)`, an empty value and a value carrying an invisible character
+  are none of the three, and none of them reads as closed.
+- `withdrawn` **carries its reason on the same line** — the reason is part of the state, not a note
+  about it.
 - Each `F<n>` names **one** finding. A reused identifier is reported on each side separately, so two
   distinct findings labelled `F1` in both the table and the marker block cannot cancel out — that
   shape hid an open Critical, with the word `open` never appearing in a marker at all.
 - The marker lines sit on **consecutive lines**, one unbroken block. This is what stops a marker
   quoted elsewhere — inside a fenced example, say — standing in for a marker that was never written,
   which is the one route that still under-counted when the redesign was attacked.
+- `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A record
+  with no total line is outstanding however clean it reads: zero findings is not something to infer
+  from silence. A panel that raised nothing says `findings-total: 0` and carries no markers.
 
 **The table carries no status column, on purpose.** A finding's state is written once, on its
 marker line. A status cell beside the marker is a second surface that can silently disagree with the
@@ -160,6 +175,30 @@ the way `git rm --cached` would, and succeeds when a path is absent — which `d
 on every run that has not preserved records yet, and where `git restore --staged` would refuse the
 whole command and unstage nothing.
 
+**When the script cannot be located** — a harness whose repository does not carry it, or a skill
+directory copied rather than linked, so the two steps above resolve to something that is not the
+agents repository — apply the same rules by hand from **Project configuration**
+(`skills/myflow-contracts/project-configuration.md`), which is canonical for them, and say in the
+handoff that the validation was performed manually **and why the script was not run**. See
+**7. Verify, stage, and hand off** (`skills/myflow-do/SKILL-rationale.md`) for why the two reasons
+are treated as one case. It is never skipped for want of the script, and "the
+declaration was validated" is never reported for a run in which nothing validated it.
+
+The outcome table under
+**Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all
+three outcomes.
+
+Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `prUrl` and `reviewPanelRoster` forward
+verbatim, per the carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`),
+which is canonical for what a write must re-emit.
+
+That same carry-forward rule, which is canonical and is not restated here, is what governs the
+planning-effort field's mapped-level carry-forward.
+
+The template's third git state — committed and pushed with no PR — is one `/myflow-do` never emits
+and `/myflow-status` does; the pairing is canonical under **The block each state renders**
+(`skills/myflow-contracts/handoff-blocks.md`).
+
 The block below is **not** a second definition of the handoff. It is this command's rendering of the
 `IN_PROGRESS`-after-`/myflow-do` template, which is defined once under
 **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) and is canonical for the
@@ -167,5 +206,9 @@ labels, the field set and their order. What this block adds is the enumeration o
 alternatives `/myflow-do` writes. **Change the template first and bring this block with it** — a
 field added here and not there is drift the moment `/myflow-status <name>` regenerates the same
 state.
+
+That ordering is what
+makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
+round stale.
 
 ## Guardrails

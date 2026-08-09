@@ -7,6 +7,9 @@ prints in its own skill and cites this file as the definition.
 
 This file is **canonical** for everything in it.
 
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
+
 ## Handoff blocks
 
 ### The block each state renders
@@ -126,9 +129,8 @@ Next:
 **`Run it:` is on-disk, not `(run-only)`.** The commands it lists are resolved from the worktree
 and the project's own configuration — not remembered from the run that printed them — so
 `/myflow-status <name>` regenerates the same lines `/myflow-do` printed rather than omitting the
-section. Both commands resolve those lines the same way: **6. Resolve the run instructions**
-(`skills/myflow-do/SKILL.md`) is canonical for the procedure, and `/myflow-status`'s detail-view
-step cites it rather than restating it.
+section. Both commands resolve those lines the same way — see **6. Resolve the run instructions**
+(`skills/myflow-do/SKILL.md`).
 
 **The `Staged` line's git state has a third option, and the review command follows it.**
 `/myflow-do` itself only ever emits the first two — it stages, or it commits and pushes to a PR

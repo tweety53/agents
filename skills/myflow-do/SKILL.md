@@ -21,8 +21,7 @@ records why they are printed rather than invoked; do not restate its reasoning h
 /color cyan
 ```
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, git boundaries, and the handoff output shape.
+**Load `skills/myflow-contracts/pipeline.md` first.**
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per
@@ -34,6 +33,9 @@ allowed to be ticked, so the progress view and the file never disagree.
 
 The reasoning behind this file lives in `skills/myflow-do/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
+
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
@@ -97,8 +99,8 @@ map is next written. Section 7's empty-set stop is for the genuinely anomalous c
 produced no worktree at all, never the ordinary shape of a first run.
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
-under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), which is canonical
-for it — do not restate it here, and do not re-derive it by hand. Compute it once per run, on a fix
+under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — do not re-derive it
+by hand. Compute it once per run, on a fix
 run exactly as on the first. See **2. Isolate the workspace (first run only)**
 (`skills/myflow-do/SKILL-rationale.md`) for why.
 
@@ -111,7 +113,8 @@ a misconfiguration. See **The empty id** (`skills/myflow-contracts/workspace-iso
 On a fix run, record what changed **before** writing code, so the proposal never goes stale. Ask
 which of exactly two, with named options rather than open prose — this is a choice between courses
 of action, which the planning-gate capability governs wherever a `/myflow-*` command asks for one,
-not only in `/myflow-start`:
+not only in `/myflow-start` — shape per Operator prompts
+(`skills/myflow-contracts/operator-prompts.md`):
 
 > **This fix has to be recorded before it is written — where should it go?**
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — the fix is recorded in the
@@ -214,8 +217,7 @@ On BLOCKED: pause and report. Never guess.
 
 **Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
 the field is absent or null. It names the preset in force for this run, per
-**State file** (`skills/myflow-contracts/state-file.md`), which is canonical for the field's shape,
-its values and the absent-key rule.
+**State file** (`skills/myflow-contracts/state-file.md`).
 
 | Preset | Required slots |
 |--------|----------------|
@@ -326,29 +328,28 @@ findings-total: 1
 finding-status: F1 fixed
 ```
 
+Do not quote the marker format inside the record itself — a validly-formatted marker written as an
+example inside prose or a fenced block reads the same as a real one.
+
 `scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
 its header, not its column order, not its cell boundaries, not where it starts or stops. See
 **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
-**The rules the guard does enforce, each of which reports outstanding when broken:**
+**The rules the guard does enforce, each of which reports outstanding when broken.** Run the guard
+and read its own output for the reject reason on any given record — it already reports one in
+human-readable form; the list below is not repeated here as a parse grammar:
 
-- A marker line **begins its line** and reads `finding-status: F<n> <status>`. Indented, inside a
-  blockquote, or missing its `F<n>`, it is reported as a line naming `finding-status:` that is not
-  one — never silently skipped. Do not quote the marker format inside the record itself.
-- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte. `Open`,
-  `WITHDRAWN`, `open (needs discussion)`, an empty value and a value carrying an invisible character
-  are none of the three, and none of them reads as closed.
-- `withdrawn` **carries its reason on the same line** — the reason is part of the state, not a note
-  about it.
-- The table's `F<n>` identifiers and the marker block's must name the **same** findings. A row with
-  no marker and a marker with no row are each reported.
+- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte. See
+  **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
+- `withdrawn` **carries its reason on the same line**. See **5. The review panel**
+  (`skills/myflow-do/SKILL-rationale.md`) for why.
 - Each `F<n>` names **one** finding. A reused identifier is reported on each side separately. See
   **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 - The marker lines sit on **consecutive lines**, one unbroken block. See **5. The review panel**
   (`skills/myflow-do/SKILL-rationale.md`) for why.
-- `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A record
-  with no total line is outstanding however clean it reads: zero findings is not something to infer
-  from silence. A panel that raised nothing says `findings-total: 0` and carries no markers.
+- `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A panel that
+  raised nothing writes `findings-total: 0` and carries no markers. See **5. The review panel**
+  (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **The table carries no status column, on purpose.** A finding's state is written once, on its
 marker line. To read a finding's state, look up its `F<n>` in the marker block. See
@@ -449,7 +450,8 @@ the existing human gate, not a routine way to defer a finding.
 
 **The handback is an actual prompt, not a claim that one happened.** When a finding survives its
 last fix round, stop and put it to the operator, one finding at a time, with the finding's text, the
-fixer's reason for disputing it, and named options:
+fixer's reason for disputing it, and named options — shape per Operator prompts
+(`skills/myflow-contracts/operator-prompts.md`):
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
 > - **Take another round on it** *(default, recommended)*
@@ -501,74 +503,57 @@ Resolve:
 
 ## 7. Verify, stage, and hand off
 
-**First, validate the section — with the guard, not by eye.** Run
+**First, validate the section and export what it declares — with the script, not by eye.** Run
 
 ```bash
-<agents repo>/scripts/check-workspace-isolation.sh <worktree>
+<agents repo>/scripts/prepare-workspace.sh <worktree>
 ```
 
 once per worktree in this run's resolved set — per section 2, the worktree this run created or
 resumed, plus any additional worktree this change affects — never a raw read of the state file's
 `worktrees` map, which a `{}` or absent map would make this check pass having examined nothing (and
 is exactly what the map reads as on every first run, before this run's own section-7 write). Per
-**Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`), a resolved set that
-comes back empty stops rather than passes: report it and do not proceed to validate a worktree the
-state file cannot name. Because section 2 already made the set non-empty by construction, that stop
-fires here only in the genuinely anomalous case where section 2 produced no worktree at all — not
-on the ordinary shape of a first run. Run this **before** resolving a single row and before
-anything else below this line. `<agents repo>` is the same root a bare `.mdc` `## standards` entry
-resolves against, and the two steps that find it — from a global install and from a project-local
-one alike — are stated once under
+**Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`), report an empty resolved
+set and do not proceed to validate a worktree the state file cannot name. Because section 2 already
+made the set non-empty by construction, that stop fires here only in the genuinely anomalous case
+where section 2 produced no worktree at all — not on the ordinary shape of a first run. Run this
+**before anything else below this line.** `<agents repo>` is the same root a bare `.mdc` `##
+standards` entry resolves against, and the two steps that find it — from a global install and from a
+project-local one alike — are stated once under
 **Where the agents repository is** (`skills/myflow-contracts/project-configuration.md`)
 and are not repeated here. **Resolve it before you run anything, and check the script is actually
-there**: not finding it is the absent-script case below, which is a different outcome from the
-guard exiting 2, and is reported rather than passed over.
+there**: not finding it is the absent-script case below, and is reported rather than passed over.
 
-| Exit | What it means | What this command does |
-|------|---------------|------------------------|
-| 0 | every row is well formed, **or the project declares no section at all** | resolve and export, below |
-| 1 | one or more rows are malformed; each is named on stdout with the rule it broke | this is the dropped-row case below — relay the guard's lines verbatim and stop |
-| 2 | it could not answer — a `.myflow/project.md` that is not a regular file, cannot be read, or a scan of it that failed | stop, for the same reason: an unvalidated declaration is not a validated one |
+`prepare-workspace.sh` runs `check-workspace-isolation.sh` against the worktree first, then — only
+if that passes — derives and exports the variables the project's `## workspace isolation` section
+declares, resolved against the workspace id section 2 computed, and prints one `KEY=value` line per
+exported variable to stdout. Read its exit code for what happened, exactly as its own header states,
+and read those printed lines rather than re-deriving any of them: exit 0 means the printed lines are
+what to carry forward into `## lint` and `## test` below (an exit 0 with nothing printed means the
+project declares no `## workspace isolation` section, and behaves exactly as it does today). A
+non-zero exit is the dropped-row case (exit 1, relay the script's own lines verbatim and stop) or the
+cannot-answer case (exit 2, stop for the same reason: an unvalidated declaration is not a validated
+one) — in either case, stop **before** `## lint` and `## test`, without writing the state file.
+Correcting the row in the project's `.myflow/project.md` and re-running this command is the whole
+remedy — a dropped row moves no state.
 
-**When the script cannot be located** — a harness whose repository does not carry it, or a skill
-directory copied rather than linked, so the two steps above resolve to something that is not the
-agents repository — apply the same rules by hand from **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`), which is canonical for them, and say in the
-handoff that the validation was performed manually **and why the script was not run**. See
-**7. Verify, stage, and hand off** (`skills/myflow-do/SKILL-rationale.md`) for why the two reasons
-are treated as one case. It is never skipped for want of the script, and "the
-declaration was validated" is never reported for a run in which nothing validated it.
+**A declared `cache index` row is never among the printed `KEY=value` lines — the script reports it
+by name on stderr instead, and claiming it is this step's own job, not the script's.** Per **The
+cache index** (`skills/myflow-contracts/workspace-isolation.md`), the index is claimed by probing
+the project's own cache, never derived from the workspace id, so a script shipped into every project
+alike cannot carry the client that probing needs. On an exit-0 run whose stderr names a `cache index`
+row, probe the project's cache here, claim a free index atomically, and record that claim in the
+cache itself under an entry naming this workspace — exactly as **The cache index** requires — before
+carrying the exported lines forward into `## lint` and `## test` below. This is the moment the claim
+happens, per the registry's `Claimed cache index | /myflow-do, by probing, when it exports the
+workspace's variables` row (`skills/myflow-contracts/pipeline.md`).
 
-**Then export the variables the project's `## workspace isolation` section declares**, resolved
-against the workspace id section 2 computed. How each row resolves — the four `In a workspace`
-forms, the `<id>`, `<id_underscored>` and `<value:VARIABLE>` tokens, the validation every row
-passes, and the single pass that makes declaration order free — is stated once under
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`) and is not re-derived
-here. What belongs to this command is when the resolution happens and what follows from it:
-
-- **When.** Once, before the `## lint` command and before the `## test` command below — never
-  between them, and never per task. Both then run in an environment that already carries every
-  declared variable, and every process either one starts inherits the same values. **The test
-  command itself is unchanged**: this step changes what the tests run against, never how they are
-  invoked or which they are.
-- **Every declared row, not a subset.** See **7. Verify, stage, and hand off**
-  (`skills/myflow-do/SKILL-rationale.md`) for why.
-- **The cache index is claimed here, not looked up.** A `cache index` row resolves by probing the
-  cache and claiming a free index, so this step is the moment the claim happens, per
-  **The cache index** (`skills/myflow-contracts/workspace-isolation.md`). Claim once and export that
-  one value; probing again later would hand two processes of one run two different indices.
-- **A dropped row stops this run.** A row failing validation is reported by name and dropped, and in
-  an apply worktree the run then refuses rather than falling back to the shared default — see
-  **Project configuration** (`skills/myflow-contracts/project-configuration.md`). The guard above is
-  what names it: its exit 1 *is* this case, and its stdout already carries the row, the cell and the
-  rule, so relay those lines rather than restating them. Report the row,
-  the cell that failed and the shared value being declined; export neither that value nor an unset
-  variable; and stop **before** `## lint` and `## test`, without writing the state file. Correcting
-  the row in the project's `.myflow/project.md` and re-running this command is the whole remedy — a
-  dropped row moves no state.
-- **A project declaring no such section exports nothing** and behaves exactly as it does today. That
-  is the ordinary case for a repository with no runnable application, and this repository is one; it
-  is never reported as a misconfiguration.
+**When the script cannot be located**, apply the same rules by hand — do not restate them here — from
+**Project configuration** (`skills/myflow-contracts/project-configuration.md`) and
+**Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`), and say in the handoff
+that the validation and export were performed manually and why. See
+**7. Verify, stage, and hand off** (`skills/myflow-do/SKILL-rationale.md`) for the full procedure and
+why the script-absent case and the guard-exit-2 case are treated as one.
 
 **This step does not call the project's `create` command, and that is a decision rather than a
 gap.** `create` is called by whatever starts the project's applications, per
@@ -604,39 +589,38 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 section 4 and section 5 — that part is unconditional. If the state file records a `prUrl`, a PR is
 already open, so this run also commits `openspec/` and `docs/superpowers/` — the only paths a task
 or fixup commit never touches — and pushes everything to the PR branch; otherwise this step commits
-and pushes nothing. That path makes **one more** commit on top of the task/fixup commits already on
-the branch, keeping the code history free of planning artifacts. On that path only — and in this
-order — run `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; then `git add -A`,
-which picks up only `openspec/` and `docs/superpowers/` since everything else is already committed;
-then commit those as the one additional commit; then push the branch, which carries that commit
-along with every task and fixup commit accumulated since the PR was opened. That ordering is what
-makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
-round stale.
+and pushes nothing. On that path only — and in this order — run
+`scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; then
+`scripts/commit-split.sh <worktree> <name> "<impl-msg>" "chore(<name>): plan and session records"`;
+then push the branch, which carries whatever that call committed along with every task and fixup
+commit accumulated since the PR was opened. `<impl-msg>` covers the one case a task or fixup commit
+does not: working-tree edits the operator made at the human gate without staging them — normally
+none, in which case the script's own guard skips that commit, and only the planning commit lands.
+When there is something to describe, derive `<impl-msg>` the same way a fixup commit's subject is
+derived — `fix(<name>): <what changed since the last task commit>`. See **7. Verify, stage, and
+hand off** (`skills/myflow-do/SKILL-rationale.md`) for why that ordering matters.
 
-The script overwrites in place; it never creates a second dated copy. A source that does not exist is
-reported and skipped; **a non-zero exit means a copy was attempted and refused or failed** — report
-it with the script's own stderr message and continue committing the fix. The outcome table under
-**Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all
-three outcomes.
+The preservation script overwrites in place; it never creates a second dated copy. A source that does
+not exist is reported and skipped; **a non-zero exit means a copy was attempted and refused or
+failed** — report it with the script's own stderr message and continue committing the fix. See
+**Preserving the session records** (`skills/myflow-contracts/pipeline.md`).
 
-**This additional commit is guarded exactly as run 1's are** — the chain, the skipped-empty rule,
-the stop-on-failure rule and the symlinked-planning-path case are all under
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`), which this path follows rather than
+**`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
+stop-on-failure rule and the symlinked-planning-path case are all under
+**Git boundaries** (`skills/myflow-contracts/pipeline.md`), which this call implements rather than
 restates. The empty case is ordinary here: a fix round that touched neither `openspec/` nor the test
-guide has nothing to add — that is not an error, and it is not silent — say in the handoff that no
-planning-artifacts commit was made.
+guide has nothing to add — that is not an error, and it is not silent — say in the handoff which of
+the two commits, if either, was made.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
 `artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `prUrl` and `reviewPanelRoster` forward
-verbatim, per the carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`),
-which is canonical for what a write must re-emit. The state file lives outside the repo — never
+verbatim, per the carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`).
+The state file lives outside the repo — never
 `git add` it.
 
-The one field where *verbatim* is not a byte copy is the planning effort: a file that recorded it
-under the retired key is carried forward as the **mapped level under `planningEffort`**, per that
-same carry-forward rule, which is canonical and is not restated here. What matters at this call site
-is that reading only `planningEffort` and writing what it found would erase the recorded level.
+Read the planning effort through the retired-key fallback, not from `planningEffort` alone, per
+**State file** (`skills/myflow-contracts/state-file.md`).
 
 ```
 ## Implementation committed — review and test
@@ -667,7 +651,7 @@ and committed and pushed to an open PR — because both leave the branch fully c
 commit-range diff reads either one; there is no `--cached` case left under commit-per-task. The
 merge base comes from this worktree's entry in the state file's `worktrees` map. The template's
 third git state — committed and pushed with no PR — is one `/myflow-do` never emits and
-`/myflow-status` does; the pairing is canonical under **The block each state renders**
+`/myflow-status` does — see **The block each state renders**
 (`skills/myflow-contracts/handoff-blocks.md`).
 
 The pre-edit description line is present only on a fix run that synced the description in section

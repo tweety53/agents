@@ -3,6 +3,10 @@
 This file is the reasoning behind `skills/myflow-contracts/project-configuration.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
+Which resources there are, and how each derived value is derived, is stated once under
+**What the id derives** (`skills/myflow-contracts/workspace-isolation.md`), which is canonical for
+the derivation and is not restated here.
+
 ## Where the agents repository is
 
 ### The `.mdc` routing rule

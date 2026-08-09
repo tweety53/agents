@@ -22,14 +22,18 @@ records why they are printed rather than invoked; do not restate its reasoning h
 /color cyan
 ```
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, the wrong-state handoff, git boundaries, and the handoff output
-shape.
+**Load `skills/myflow-contracts/pipeline.md` first.**
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per
 **Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
 this command registers and is the one to read.
+
+The reasoning behind this file lives in `skills/myflow-fast/SKILL-rationale.md`; **a
+`/myflow-*` run never loads it.**
+
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
@@ -46,11 +50,16 @@ by citation rather than by re-deriving their content:
 
 - **A. Resolve the change** (`skills/myflow-start/SKILL.md`) — Jira resolution and naming
 - **Ask the planning effort, the models, and the review panel roster — creating runs only**
-  (`skills/myflow-start/SKILL.md`) — the same four questions, exactly as written, with the
-  recommended answer overridden on two of them per **Recorded defaults favor speed** below
-- **B. Basic Workflow #1 — Brainstorming** (`skills/myflow-start/SKILL.md`) — run in full, including
-  its design-approval gate; brainstorming stays fully interactive here, exactly as under
-  `/myflow-start`, with no auto-answering
+  (`skills/myflow-start/SKILL.md`) — this skill does **not** run that question round on a creating
+  run; it records the defaults directly instead, per **Recorded defaults favor speed** below.
+  Sections A, B, C and D listed here still run exactly as written
+- **B. Basic Workflow #1 — Brainstorming** (`skills/myflow-start/SKILL.md`) — the clarifying
+  questions and the design presentation stay fully interactive here, exactly as under
+  `/myflow-start`, with no auto-answering. The separate post-design "does this look right?" confirm
+  is **not** run here — once the design is presented, this skill proceeds directly into artifact
+  creation, unless the operator raises an objection during that presentation. This is a scoped
+  override of `superpowers:brainstorming`'s hard design-approval gate, `/myflow-fast` only;
+  `/myflow-start` still stops at that confirm, unaffected
 - **C. Create the change and its artifacts** (`skills/myflow-start/SKILL.md`)
 - **D. Basic Workflow #3 — Writing plans** (`skills/myflow-start/SKILL.md`)
 
@@ -68,8 +77,8 @@ exactly as `/myflow-do` runs it from `STARTED`:
 - **1. Load context and validate the plan** (`skills/myflow-do/SKILL.md`)
 - **2. Isolate the workspace (first run only)** (`skills/myflow-do/SKILL.md`)
 - **4. Execute (SDD + TDD)** (`skills/myflow-do/SKILL.md`)
-- **5. The review panel** (`skills/myflow-do/SKILL.md`) — dispatched at the roster recorded by the
-  question round cited above
+- **5. The review panel** (`skills/myflow-do/SKILL.md`) — dispatched at the roster recorded per
+  **Recorded defaults favor speed** below
 - **6. Resolve the run instructions** (`skills/myflow-do/SKILL.md`)
 - **7. Verify, stage, and hand off** (`skills/myflow-do/SKILL.md`)
 
@@ -114,16 +123,17 @@ branch is integrated, runs run 2 (archive).
 
 ## Recorded defaults favor speed
 
-The question round in **Ask the planning effort, the models, and the review panel roster — creating
-runs only** (`skills/myflow-start/SKILL.md`), cited above, asks the same four questions this skill
-runs, unchanged. Two of those four already default the way `/myflow-fast` wants and need no
-override: `models.reviewPanel` already recommends `sonnet`, and `reviewPanelRoster` already
-recommends `light`. The other two — `models.implementation` and `models.panelFix` — default to
-`opus` there, since `/myflow-start` optimizes for a stronger implementer and fixer; this skill
-overrides the recommended answer on those two questions only, to `sonnet`, favoring speed over the
-stronger default. In all four `AskUserQuestion` prompts the marked recommendation is never a forced
-value — an operator who answers differently has that answer recorded, exactly as under
-`/myflow-start`.
+On the run that creates a change, `/myflow-fast` does **not** ask the planning-effort, model, or
+review-panel-roster questions **Ask the planning effort, the models, and the review panel roster —
+creating runs only** (`skills/myflow-start/SKILL.md`) asks interactively. It records the
+recommended defaults directly, with no `AskUserQuestion` prompt: `planningEffort: default`,
+`models.implementation: sonnet`, `models.reviewPanel: sonnet`, `models.panelFix: sonnet`, and
+`reviewPanelRoster: light`.
+
+An explicit session instruction naming a different value for one of these fields still overrides
+that field — the recorded value is the operator's, not the default — with the override recorded
+alongside its dispatch exactly as **Model policy** (`skills/myflow-contracts/pipeline.md`) already
+permits for any operator override.
 
 ## State write and handoff
 
@@ -177,10 +187,13 @@ Carry forward, by citation, every guardrail already stated under **Guardrails**
 (`skills/myflow-finish/SKILL.md`) for the sections this skill cites above — they are not re-listed
 here. Add exactly the guardrails specific to this skill:
 
-- **Never** auto-answer a brainstorming question. The design-approval gate is interactive,
-  unchanged.
-- **Never** continue from brainstorming into implementation before the design is approved and the
-  OpenSpec artifacts exist.
+- **Never** auto-answer a brainstorming clarifying question. Clarifying questions and the design
+  presentation are interactive, unchanged.
+- **Never** ask the planning-effort, model, or review-panel-roster questions on a creating run —
+  record the defaults per **Recorded defaults favor speed** instead.
+- **Never** stop for a separate post-design "does this look right?" confirm — proceed directly into
+  artifact creation once the design is presented, unless the operator objects during that
+  presentation. This skip is scoped to `/myflow-fast`; `/myflow-start` still stops at that confirm.
 - **Never** continue past open PR or manual without stopping — only merge-and-push auto-continues to
   run 2.
 - **Never** treat a bare invocation at `IN_PROGRESS` as a fix, and never treat an invocation carrying

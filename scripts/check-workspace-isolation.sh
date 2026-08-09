@@ -104,6 +104,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# CHECK_WORKSPACE_ISOLATION_PRINT_ROWS — an internal, undocumented-to-operators
+# switch that prepare-workspace.sh sets when it invokes this guard, so it can
+# derive the workspace variables from the SAME parse this guard already did
+# rather than opening `.myflow/project.md` a second time and re-implementing
+# the cell splitter. Unset (the default), it changes nothing: the awk program
+# below never emits a `#ROW` line, so stdout is byte-for-byte what it always
+# was. Set, each validated resource row is appended to this project's report
+# as a `#ROW\t<resource>\t<variable>\t<default>\t<in a workspace>` line, after
+# the verdict line, and only for a project whose report reached its verdict —
+# a project this guard refused on (exit 2) never reaches the printf that emits
+# them. A caller that does not know this switch exists reads exactly the
+# output documented above; only prepare-workspace.sh reads the `#ROW` lines.
+PRINT_ROWS="${CHECK_WORKSPACE_ISOLATION_PRINT_ROWS:-0}"
+
 if [ "$#" -eq 0 ]; then
   set -- "$REPO_ROOT"
 fi
@@ -277,7 +291,7 @@ for ROOT in "$@"; do
   # introduced it — bash reports an unmatched quote at the END of the file — so
   # the next editor to write "the contract's" here will spend the debugging time
   # this sentence exists to save them. Write "the contract states" instead.
-  REPORT="$(awk -v cfg="$CFG" -v heading_re="$ISO_HEADING" '
+  REPORT="$(awk -v cfg="$CFG" -v heading_re="$ISO_HEADING" -v print_rows="$PRINT_ROWS" '
     # ---------------------------------------------------------------------
     # Cell splitting. A character walk, not a field split: a realistic cell
     # contains a `|` written `\|`, and a split on `|` would cut the row there
@@ -550,6 +564,16 @@ for ROOT in "$@"; do
     # One row of the resource table.
     # -----------------------------------------------------------------------
     function check_resource_row(lineno, cells,   res, who, var, def, ws, pos, tok, ref, tokbuf) {
+      # Emitted BEFORE any of the checks below run, and unconditionally for
+      # every row this function is called on — a row already known, from the
+      # n == want test in flush_block, to line up with the resource header.
+      # A row this function goes on to reject still gets its `#ROW` line:
+      # prepare-workspace.sh never reads it, because a rejected row means
+      # this guard exits non-zero and prepare-workspace.sh exits on that
+      # before it ever looks at a `#ROW` line.
+      if (print_rows) {
+        printf "#ROW\t%s\t%s\t%s\t%s\n", trimcell(cells[1]), trimcell(cells[2]), trimcell(cells[3]), trimcell(cells[4])
+      }
       who = rowname(cells)
 
       # The `Resource` word, folded for case and internal whitespace and for
@@ -734,7 +758,12 @@ for ROOT in "$@"; do
   esac
 
   SUMMARY="$(printf '%s\n' "$REPORT" | awk '/^#SUMMARY /{ print; exit }')"
-  FINDINGS="$(printf '%s\n' "$REPORT" | awk '!/^#SUMMARY /')"
+  # `#ROW` lines are neither a finding nor the summary — carved out here so
+  # they are never sanitized-and-printed as a violation and never counted
+  # toward N_FOUND below. They exist in $REPORT only when PRINT_ROWS is set,
+  # which no caller but prepare-workspace.sh sets.
+  FINDINGS="$(printf '%s\n' "$REPORT" | awk '!/^#SUMMARY / && !/^#ROW\t/')"
+  ROWS="$(printf '%s\n' "$REPORT" | awk '/^#ROW\t/')"
   N_RES="$(printf '%s' "$SUMMARY" | awk '{ print $2 + 0 }')"
   N_CMD="$(printf '%s' "$SUMMARY" | awk '{ print $3 + 0 }')"
 
@@ -750,6 +779,13 @@ for ROOT in "$@"; do
     printf 'ISOLATION-INVALID: %s — %s violation(s) in the `## workspace isolation` section\n' "$CFG" "$N_FOUND"
   else
     printf 'ISOLATION-OK: %s — %s resource row(s) and %s command row(s) validated\n' "$CFG" "$N_RES" "$N_CMD"
+  fi
+
+  # `#ROW` lines, if any, always come last — after the verdict line, so a
+  # caller not reading them (every caller but prepare-workspace.sh, and this
+  # branch is a no-op whenever PRINT_ROWS is unset) sees only the verdict.
+  if [ "$PRINT_ROWS" = "1" ] && [ -n "$ROWS" ]; then
+    printf '%s\n' "$ROWS"
   fi
 done
 

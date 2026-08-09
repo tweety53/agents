@@ -135,6 +135,10 @@ place: what the cache holds is sessions and cache entries, both disposable by co
 Run 2 has no derivation to repeat and no record to read, so it cannot know which index to sweep, and
 an index swept by guess is another workspace's.
 
+What that leaves behind and why it is acceptable are stated once
+under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`), which is canonical
+for every artifact's lifetime.
+
 ## The empty id
 
 Putting the isolation behind a request was considered and
@@ -152,6 +156,10 @@ checkout takes an id, the main one included — has no empty-id branch to get wr
 existing local setup exactly once: databases orphaned, saved connections pointing at nothing,
 bookmarks stale. That is a migration nobody asked for, in the one checkout an operator spends most
 of their time in.
+
+Every key in a project's configuration is optional; see **Project configuration**
+(`skills/myflow-contracts/project-configuration.md`), which is canonical for that file and for the
+rules an isolation row resolves under.
 
 ## Creation and cleanup
 

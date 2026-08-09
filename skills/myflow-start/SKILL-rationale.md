@@ -3,17 +3,39 @@
 This file is the reasoning behind `skills/myflow-start/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
+**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
+command→state transition table, the wrong-state handoff, and the handoff output shape.
+
 ## State gate
 
 ## Superpowers Basic Workflow (this stage)
 
 ## A. Resolve the change
 
-## Ask the planning effort and the models — creating runs only
+Follow **Resolution (how `jiraIssue` is decided)** in `skills/myflow-contracts/jira-integration.md`
+exactly; it is canonical and is not restated here.
+
+## Ask the planning effort, the models, and the review panel roster — creating runs only
+
+What each preset means — which slots each one dispatches, and how the optional, trigger-fired
+slots are handled under each — is defined under **5. The review panel**
+(`skills/myflow-do/SKILL.md`); that section carries the roster table and is the one to read, and is
+not restated here.
+
+The fallback, the mapping, the precedence when both keys are present, and what an unmapped value
+reads as are all **Planning effort** (`skills/myflow-contracts/state-file.md`)'s, and are not
+restated here.
 
 ## B. Basic Workflow #1 — Brainstorming
 
 ### Convergence
+
+**Why the convergence confirm's default deliberately breaks from the recommended option.**
+Recommending *move on* is honest only while an operator has actually said so; a silent or stalled
+operator has not said so, which is why the safe default for this one prompt is *another round*
+rather than the marked recommendation. The `⚠ another round — no explicit answer` marker exists so a
+reader of the handoff can tell an operator-requested round from one nothing could confirm — the two
+look identical in the transcript otherwise.
 
 superpowers:brainstorming's own flow is linear — explore, ask clarifying questions, propose
 approaches, present the design, get approval — and its only loop routes a **correction** back to the
@@ -26,10 +48,38 @@ judgment** (`skills/myflow-contracts/pipeline.md`) and not restated
 here. What is genuinely tuned for this command follows: the two prompts, the threshold, the
 no-hard-cap rule, and why their opposite recommendations are not to be harmonised.
 
+**There is no hard cap.** No round count ends the stage; the rule that only an explicit operator
+answer does is stated once under **Stage exit — never the command's own judgment**
+(`skills/myflow-contracts/pipeline.md`) and not restated here.
+
 **Every planning effort level runs this loop.** A level changes how many questions one round groups
 — one at a time at `detailed`, batched at `low` — and never whether another round opens. A level
 able to end the loop early would be a way to skip the gate rather than a way to size the thinking
 inside it. The levels are **Planning effort** (`skills/myflow-contracts/state-file.md`).
+
+**A session that cannot ask at all is a narrower, bounded exception, not a second version of "an
+operator who is present but silent."** The confirm fires only when the convergence test came back
+empty, so opening "another round" here has nothing to explore and, with no hard cap, only re-empties
+the test and re-fires the confirm — `empty test → confirm → no answer → another round → empty test →
+confirm`, without end. **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`)
+already names this exact failure mode for its own interactive ask — "a session that cannot ask at
+all" — and gives it a terminating outcome rather than a retry; cited rather than restated here.
+
+**`3` is a tuned value, and this file is the only place it
+is written** — the contract and the pipeline carry the shape of the bound, never the number, so it
+can move without amending either. **The threshold counts rounds, not questions**, so it lands at a
+different point in the conversation depending on planning effort: at `detailed`, where a round is
+one question, the offer can appear after as few as three questions; at `low`, where a round batches
+many, the same threshold takes much longer to reach, or is never reached at all. That coupling is
+accepted rather than compensated for — the threshold is stated once, in rounds, and each level's own
+grouping decides how much a round holds.
+
+The confirm recommends *moving on* precisely because it is unreachable while
+this command holds an unanswered question. The offer recommends *another round* for the mirror
+reason: it is reachable only while this command genuinely holds one. That is the same shape as the
+**Stop** recommendation at the unfinished-work gate of `/myflow-finish` run 1, whose reasoning is
+stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not
+re-argued here.
 
 ## C. Create the change and its artifacts
 

@@ -5,6 +5,12 @@ This file is the reasoning behind `skills/myflow-contracts/handoff-blocks.md`.
 
 ## Handoff blocks
 
+### The block each state renders
+
+Both commands resolve those lines the same way: **6. Resolve the run instructions**
+(`skills/myflow-do/SKILL.md`) is canonical for the procedure, and `/myflow-status`'s detail-view
+step cites it rather than restating it.
+
 ### Why regeneration beats storage
 
 The block a state hands off is defined **here and nowhere else**, as one template per rendering. Two

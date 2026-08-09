@@ -19,8 +19,7 @@ records why they are printed rather than invoked; do not restate its reasoning h
 /color cyan
 ```
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, the wrong-state handoff, and the handoff output shape.
+**Load `skills/myflow-contracts/pipeline.md` first.**
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per
@@ -29,6 +28,9 @@ this command registers and is the one to read.
 
 The reasoning behind this file lives in `skills/myflow-start/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
+
+Every citation below is canonical at its target. Never restate its content here and never act on
+a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
@@ -53,7 +55,7 @@ Steps **2, 4–6** run in `myflow-do`. Do not run them here.
 
 **Resolve the linked Jira issue first** — it decides the change name. Follow
 **Resolution (how `jiraIssue` is decided)** in `skills/myflow-contracts/jira-integration.md`
-exactly; it is canonical and is not restated here. This is the only command that resolves a key.
+exactly. This is the only command that resolves a key.
 
 Then the change name:
 
@@ -139,8 +141,7 @@ Then ask a **fourth question**, for the review panel roster:
 
 Record the answer for the state write in section F, as `reviewPanelRoster`. What each preset means —
 which slots each one dispatches, and how the optional, trigger-fired slots are handled under each —
-is defined under **5. The review panel** (`skills/myflow-do/SKILL.md`); that section carries the
-roster table and is the one to read, and is not restated here.
+is defined under **5. The review panel** (`skills/myflow-do/SKILL.md`).
 
 **Revising an existing proposal** (the change is already at `STARTED`): do not ask, for any of the
 five. Read `planningEffort`, `models` and `reviewPanelRoster` from the state file, state which level,
@@ -150,9 +151,8 @@ are said in the handoff too.
 
 Read the level through the retired-key fallback, not from `planningEffort` alone — a file that
 recorded a level under the old key would otherwise be reused at `default` rather than at the level
-the operator chose, and this run then writes that mistake back. The fallback, the mapping, the
-precedence when both keys are present, and what an unmapped value reads as are all
-**Planning effort** (`skills/myflow-contracts/state-file.md`)'s, and are not restated here.
+the operator chose, and this run then writes that mistake back. See
+**Planning effort** (`skills/myflow-contracts/state-file.md`).
 
 ## B. Basic Workflow #1 — Brainstorming
 
@@ -197,22 +197,17 @@ so the operator's answer rests on the same picture the command has. Then ask, wi
 End the stage only on an explicit choice of **move on**. An answer that names something opens
 another round, and the test applies to that round's answers exactly as to any other. **This is the
 one prompt in this file where the safe default and the recommended option differ, and deliberately
-so**: silence or a stalled prompt from an operator who is present is not "move on," and defaults to
-another round rather than to the recommended choice — recommending *move on* is honest only while an
-operator has actually said so. Print `⚠ another round — no explicit answer` when this default fires,
-so a reader can tell an operator-requested round from one nothing could confirm.
+so** — shape per Operator prompts (`skills/myflow-contracts/operator-prompts.md`): silence or a
+stalled prompt from an operator who is present is not "move on," and defaults to another round
+rather than to the recommended choice. Print `⚠ another round — no explicit answer` when this
+default fires.
 
-**A session that cannot ask at all is a narrower, bounded exception, not a second version of "an
-operator who is present but silent."** The confirm fires only when the convergence test came back
-empty, so opening "another round" here has nothing to explore and, with no hard cap, only re-empties
-the test and re-fires the confirm — `empty test → confirm → no answer → another round → empty test →
-confirm`, without end. **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`)
-already names this exact failure mode for its own interactive ask — "a session that cannot ask at
-all" — and gives it a terminating outcome rather than a retry; cited rather than restated here. When
+When
 no answer is possible at all — no channel to ask through, not silence from a reachable operator —
 record the confirm itself under `## Open questions` and end the stage, the same outcome declining the
 offer below produces, printing `⚠ open question recorded — no answer was possible` so a reader can
-tell the two apart.
+tell the two apart. See **Convergence** (`skills/myflow-start/SKILL-rationale.md`) for why this is a
+narrower, bounded exception rather than a second version of "an operator who is present but silent."
 
 **From the third round onward, do not open a round silently.** Show two lists — the full still-open
 backlog and, separately, what round `<n>` itself would ask — and offer the round as a named choice:
@@ -230,31 +225,19 @@ offer is reachable only while something is genuinely open. Print `⚠ another ro
 answer` when this default fires, for the same reason the confirm's marker does. Running one more
 round costs an exchange; silently skipping it is exactly what the soft bound exists to prevent.
 
-Rounds one and two open without asking. **`3` is a tuned value, and this file is the only place it
-is written** — the contract and the pipeline carry the shape of the bound, never the number, so it
-can move without amending either. **The threshold counts rounds, not questions**, so it lands at a
-different point in the conversation depending on planning effort: at `detailed`, where a round is
-one question, the offer can appear after as few as three questions; at `low`, where a round batches
-many, the same threshold takes much longer to reach, or is never reached at all. That coupling is
-accepted rather than compensated for — the threshold is stated once, in rounds, and each level's own
-grouping decides how much a round holds.
+Rounds one and two open without asking. See **Convergence** (`skills/myflow-start/SKILL-rationale.md`)
+for why `3` is the tuned value and why the threshold counts rounds rather than questions.
 
 A round the operator opens by answering **Another round — I have something** at the confirm counts
 toward this same 1-2-silent / 3-onward-offered sequence exactly as any other round — an
 operator-initiated round is still a round, and exempting it would let repeated "another round"
 answers at the confirm outrun the offer's own visibility.
 
-**There is no hard cap.** No round count ends the stage; the rule that only an explicit operator
-answer does is stated once under **Stage exit — never the command's own judgment**
-(`skills/myflow-contracts/pipeline.md`) and not restated here.
+**There is no hard cap.** No round count ends the stage — see **Stage exit — never the command's
+own judgment** (`skills/myflow-contracts/pipeline.md`).
 
 **The two prompts recommend opposite courses, and each is honest because of its own trigger — do
-not harmonise them.** The confirm recommends *moving on* precisely because it is unreachable while
-this command holds an unanswered question. The offer recommends *another round* for the mirror
-reason: it is reachable only while this command genuinely holds one. That is the same shape as the
-**Stop** recommendation at the unfinished-work gate of `/myflow-finish` run 1, whose reasoning is
-stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not
-re-argued here.
+not harmonise them.** See **Convergence** (`skills/myflow-start/SKILL-rationale.md`) for why.
 
 ## C. Create the change and its artifacts
 
