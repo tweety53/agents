@@ -60,8 +60,10 @@ not restated here.
 
 ## Command surface
 
-Three pipeline commands, plus one read-only one. **No command accepts a flag.** The only argument
-is the optional change name — see **Change name resolution**.
+Three pipeline commands, one composite command, plus one read-only one. `/myflow-fast` is the
+composite command — it chains the other three's stage content across state transitions that carry
+no human gate; see `skills/myflow-fast/SKILL.md` for what it does. **No command accepts a flag.**
+The only argument is the optional change name — see **Change name resolution**.
 
 An argument that is not a known change name is **reported**, not silently ignored — a silently
 ignored word is indistinguishable from a flag that stopped working.
@@ -73,6 +75,7 @@ ignored word is indistinguishable from a flag that stopped working.
 | `/myflow-start` | *(none — creates the change)* · `STARTED` | `STARTED` |
 | `/myflow-do` | `STARTED` · `IN_PROGRESS` | `IN_PROGRESS` from `STARTED`; **otherwise unchanged** |
 | `/myflow-finish` | `IN_PROGRESS` | `IN_PROGRESS` after run 1; `FINISHED` after run 2 |
+| `/myflow-fast` | *(none — creates the change)* · `IN_PROGRESS` | `IN_PROGRESS` from a creating or fix run; from a bare invocation at `IN_PROGRESS`, `IN_PROGRESS` or `FINISHED` depending on the route chosen |
 | `/myflow-status` | any — read-only, never block | unchanged |
 
 **This table is authoritative.** Every command file — in **both** command trees (`commands/` and
@@ -186,8 +189,8 @@ records out of the staged-only path.
 
 ## Progress visibility
 
-**Every pipeline command drives the harness's task-list mechanism.** `/myflow-start`, `/myflow-do`
-and `/myflow-finish` register their steps with it at the start of a run and keep each entry's status
+**Every pipeline command drives the harness's task-list mechanism.** `/myflow-start`, `/myflow-do`,
+`/myflow-finish` and `/myflow-fast` register their steps with it at the start of a run and keep each entry's status
 current — in progress when its step begins, completed when that step finishes — so the harness's
 live progress view, a count line and one line per task, renders throughout the run rather than
 arriving with the handoff. The count line then distinguishes done, in progress and open at every
@@ -198,6 +201,7 @@ point.
 | `/myflow-start` | its brainstorming checklist item and each artifact it produces |
 | `/myflow-do` | each item in `tasks.md`, in plan order |
 | `/myflow-finish` | each step of the run it is performing — run 1's steps or run 2's, never both |
+| `/myflow-fast` | whichever cited stage is running at the time, at that stage's own granularity — brainstorming checklist items on the brainstorm+create branch, `tasks.md` items on the implementation branch, a finish run's steps on the integrate branch |
 
 `/myflow-status` is read-only and **registers nothing**. Registering steps for a
 report would put entries on the operator's task list for work nobody is doing.

@@ -262,7 +262,38 @@ check_retired_stage_vocabulary() {
   # first written, which is why they arrive separately.
   # Bounded so `myflow-test-setup` (a sandbox prefix in test-setup.sh) and the separately
   # listed `myflow-review-done` / `myflow-fast-path` are not matched twice or spuriously.  # vocab-guard:allow
-  pattern+='|myflow-test([^-]|$)|myflow-review([^-]|$)|myflow-fast([^-]|$)'  # vocab-guard:allow
+  pattern+='|myflow-test([^-]|$)|myflow-review([^-]|$)'                     # vocab-guard:allow
+  # `myflow-fast` was ALSO retired by that same five-state collapse — but KAN-111
+  # (operator-approved 2026-08-09) ships a real, live command of the identical name: keep the
+  # new command's name, narrow this guard instead of renaming it.
+  #
+  # An excluded-character-class boundary was tried first, the same idiom the `code-review`  # vocab-guard:allow
+  # exception above already established for this script's plain ERE (`grep -E`, no lookaround):
+  # match `myflow-fast` as a bare word only when not immediately preceded by `/` (a path
+  # segment) or a backtick (an inline-code start), and not immediately followed by `/` or `.` (a
+  # path continuation) — `(^|[^/\`])myflow-fast([^-/.]|$)`. That correctly admits the new
+  # command's path and backtick-fenced spellings (`skills/myflow-fast/`,
+  # `commands/myflow-fast.md`, `` `myflow-fast` ``) and its own bare command mention
+  # `/myflow-fast` (excluded because the leading `/` is indistinguishable from a path segment).
+  # But it does NOT admit the new command's plain-word self-references, and this skill genuinely
+  # has them — `skills/myflow-fast/SKILL.md` itself, measured against this exact pattern, still
+  # trips on its own frontmatter (`name: myflow-fast`) and its own prose (`Using myflow-fast for
+  # change`, `myflow-fast does not publish one`), none of which is preceded by `/` or a backtick
+  # or followed by `/` or `.`. That is the identical shape the retired command's own bare
+  # mention had, so no boundary-class technique can admit one without admitting the other — the
+  # two are lexically the same string in the same context.
+  #
+  # So `myflow-fast` is handled the same way `checkpoint` and the `effort` VALUES above are:
+  # dropped from this mechanical list and swept by hand, because it now collides with ordinary,
+  # legitimate language the way they do, and the only way to silence that collision here is a
+  # `vocab-guard:allow` marker on a line that would be telling the truth about a live command,
+  # which teaches the guard to lie. `myflow-fast-path` remains listed on its own line above and  # vocab-guard:allow
+  # is unaffected — it was always a distinct, separately-spelled retired name, not a collision.
+  # What this drop costs, honestly: a bare, non-path, non-backtick reintroduction of the retired
+  # command (e.g. "run myflow-fast next" with no leading `/`) now passes this guard clean, same
+  # as a bare "checkpoint" or a bare "effort" value would. Per this script's own header, that was
+  # already true of any paraphrase — this just names one more shape the fixed-literal list can't
+  # safely cover once the literal itself is legitimate vocabulary.
   # Retired FIELD and GATE vocabulary. Omitting these is how a wholly stale file — the contracts
   # index, which still described stage boundaries and Gates B/C/D — passed a clean run.
   pattern+='|gates\.[a-zA-Z]|originStage|fastPath|REVIEWED_TREE|MERGE_BASE'   # vocab-guard:allow

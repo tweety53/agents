@@ -33,6 +33,7 @@ agents-data/
     ├── myflow-start/                  ← /myflow-start
     ├── myflow-do/                     ← /myflow-do; carries the review-panel prompts + engineering-principles.md
     ├── myflow-finish/                 ← /myflow-finish (integrate, then archive + clean up)
+    ├── myflow-fast/                   ← /myflow-fast (composite: brainstorm+implement, then integrate+archive, chained)
     ├── myflow-status/                 ← read-only state report for open changes
     ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
     └── openspec-explore/              ← /opsx:explore — thinking-partner mode, touches no state
@@ -48,8 +49,9 @@ that project named into a managed block in **that project's own `CLAUDE.md` and 
 loads for the harness instead of merely being referenced. The tree above is an illustrative
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
-**Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, plus the read-only
-`/myflow-status`, and `/opsx:explore` for thinking-partner mode.
+**Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, `/myflow-fast`
+(the composite that chains the other three), plus the read-only `/myflow-status`, and
+`/opsx:explore` for thinking-partner mode.
 
 **myflow pipeline — three states, three commands.**
 
@@ -77,13 +79,17 @@ stateDiagram-v2
     IN_PROGRESS --> IN_PROGRESS: /myflow-do (fix — never moves the state)
     IN_PROGRESS --> IN_PROGRESS: /myflow-finish (run 1 — integrate)
     IN_PROGRESS --> FINISHED: /myflow-finish (run 2 — after the merge)
+    [*] --> IN_PROGRESS: /myflow-fast (brainstorm + implement)
+    IN_PROGRESS --> IN_PROGRESS: /myflow-fast (fix — argument present)
+    IN_PROGRESS --> FINISHED: /myflow-fast (merge+push route)
     FINISHED --> [*]
 ```
 
 ### Level 1 — the stages of each command
 
-One row per command — the four this pipeline has, three of them pipeline commands and one
-read-only, exactly as **Command surface** (`skills/myflow-contracts/pipeline.md`) names them. A
+One row per command — the five this pipeline has, three of them pipeline commands, one composite
+command, and one read-only, exactly as **Command surface** (`skills/myflow-contracts/pipeline.md`)
+names them. A
 stage marked ▸ hides substructure and is expanded at level 2 below. The gate column is the human
 gate that *follows* the run — a property of the state the command ends in, never a stage of its
 own.
@@ -96,6 +102,7 @@ verdict picks which one a given invocation performs, and the run is never a comm
 | `/myflow-start` | resolve the change → ask the planning effort, the three model choices and the review panel roster *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
 | `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → resolve the run instructions → validate the project's `## workspace isolation` section, then export what it declares → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps |
 | `/myflow-finish` | the preflight verdict ▸, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → move the issue to In Review → write `IN_PROGRESS`; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` → self-review | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
+| `/myflow-fast` | state gate → *(creating run)* brainstorming chained straight into implementation and the review panel, no gate in between — the full sequence, by cited section, is **No state file — brainstorm into implementation** (`skills/myflow-fast/SKILL.md`); *(at `IN_PROGRESS`, argument present)* a fix, chained the same way — **At `IN_PROGRESS`** (`skills/myflow-fast/SKILL.md`); *(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`) | creating run or fix: you review the staged diff **and** run the apps; open PR or manual: you wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
 | `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
 
 `/myflow-finish` run 2's sequence ends with `self-review`, carrying no ▸: its procedure is not
@@ -515,6 +522,7 @@ degraded but the OpenSpec-specific steps still work.
 | `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots, with Security, Adversarial and extra lenses staying conditional under every preset — which hands off only at **zero open findings at any severity**, and stages the diff — `git add` excluding the planning paths — with the run instructions carried in the handoff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. Commits only when a PR is already open. |
 | *(gate)* | You | Review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
+| `/myflow-fast <name>` | `myflow-fast` | Composite command: chains `/myflow-start`'s brainstorming (fully interactive, unchanged) directly into `/myflow-do`'s implementation and review panel with no gate in between, and chains `/myflow-finish`'s run 1 into run 2 when the chosen landing route is merge and push. Accepts no state (creates the change) or `IN_PROGRESS` — an argument at `IN_PROGRESS` is fix instructions, a bare invocation asks how to land the branch. Publishes no proposal artifact. A creating or fix run ends at `IN_PROGRESS` — a fix leaves the state unchanged; a bare invocation ends at `IN_PROGRESS` or `FINISHED`, depending on the route chosen. Re-run to fix or to integrate. |
 | `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |
 | `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
 
