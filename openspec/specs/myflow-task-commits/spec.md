@@ -8,16 +8,33 @@ TBD - created by archiving change kan-100-myflow-get-rid-of-staging-use-commits.
 
 `/myflow-do` SHALL replace its `NO-COMMITS` implementer dispatch clause with a `COMMIT-PER-TASK`
 clause. After an implementer finishes a task (RED-GREEN-REFACTOR complete), it SHALL commit that
-task's work with a subject of the form `task(<n>): <short subject>` and a `Task-Id: <n>` trailer,
-where `<n>` is the task's dotted id from its `tasks.md` heading, **before** the task is dispatched
-for review.
+task's work with a **`Task-Id: <n>` trailer**, where `<n>` is the task's dotted id from its
+`tasks.md` heading, **before** the task is dispatched for review.
+
+**The trailer is what identifies the task; the subject follows the project's own commit
+convention.** Where that convention has a scope, the task's dotted id SHALL be the scope — so a
+project using Conventional Commits writes `fix(<n>): <short subject>` or `feat(<n>): <short
+subject>`, with the type chosen to describe the change. A project with no stated convention MAY use
+`task(<n>): <short subject>`.
+
+**No project's commit validation is ever weakened or bypassed to satisfy this requirement.** A
+repository that rejects a subject type is stating its convention, which this requirement defers to;
+`--no-verify` and edits to a project's commit-message validator are both forbidden. A fixed subject
+form was the original wording here and it collided with exactly such a validator — the trailer had
+always been the machine-readable half, so the subject is the half that gives way.
 
 #### Scenario: A finished task is committed before review
 
 - **WHEN** an implementer finishes a task's RED-GREEN-REFACTOR cycle
-- **THEN** it commits the task's changes with a `task(<n>): <subject>` subject and a `Task-Id: <n>`
-  trailer
+- **THEN** it commits the task's changes with a `Task-Id: <n>` trailer and a subject its project's
+  own convention accepts, scoped to `<n>` where that convention has a scope
 - **AND** only after that commit exists is the task dispatched for review
+
+#### Scenario: The project's convention rejects the subject
+
+- **WHEN** a project's commit-message validation rejects the subject an implementer first wrote
+- **THEN** the implementer writes a subject that convention accepts, keeping the `Task-Id: <n>`
+  trailer, and neither bypasses the validation nor edits the validator
 
 #### Scenario: No uncommitted work is left after a task
 

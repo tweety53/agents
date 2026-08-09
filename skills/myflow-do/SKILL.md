@@ -130,10 +130,15 @@ coupled group) as one task. Every implementer dispatch **must** carry all four o
 
 > **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
-> your work with `git commit`, subject line `task(<n>): <subject>` where `<n>` is this task's
-> dotted id from its `tasks.md` heading and `<subject>` is a short description, and a `Task-Id: <n>`
-> trailer. You **may** `git add`/`git commit` your own work, but never `openspec/` or
-> `docs/superpowers/` — `/myflow-finish` stages and commits those.
+> your work with `git commit`, carrying a `Task-Id: <n>` trailer where `<n>` is this task's dotted
+> id from its `tasks.md` heading. **The trailer identifies the task; the subject follows this
+> project's own commit convention** — where that convention has a scope, `<n>` is the scope, so a
+> Conventional Commits project writes `fix(<n>): <subject>` or `feat(<n>): <subject>` with the type
+> describing the change, and a project with no stated convention may write `task(<n>): <subject>`.
+> **Never weaken or bypass a project's commit validation to fit** — no `--no-verify`, and no edit to
+> its commit-message validator; a rejected subject means writing one the project accepts. You **may**
+> `git add`/`git commit` your own work, but never `openspec/` or `docs/superpowers/` —
+> `/myflow-finish` stages and commits those.
 
 **A `Build: red` task's commit folds into its green partner.** A task tagged `Build: red` also
 carries `**Squash-with:** Task <N>`, naming the green partner whose commit it folds into. Once that
