@@ -14,6 +14,14 @@ command→state transition table, git boundaries, and the handoff output shape.
 
 ## 2. Isolate the workspace (first run only)
 
+Why the merge base and path go into working notes rather than the state file at this point: they are
+what section 7's workspace-isolation guard needs, and this run knows them from here on regardless of
+what the on-disk state file says until section 7's own write.
+
+Why the resolved worktree set is non-empty by construction on every ordinary run, first or fix
+alike: the worktree is known the moment it is created or resumed above, well before section 7's
+empty-set stop could ever fire on the ordinary shape of a first run.
+
 Why the workspace id is computed fresh in this step, rather than carried over from an earlier one:
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
@@ -39,7 +47,17 @@ It names the preset in force for this run, per
 **State file** (`skills/myflow-contracts/state-file.md`), which is canonical for the field's shape,
 its values and the absent-key rule.
 
+Why no preset moves the handoff bar: a preset able to lower it would be a way to skip review, not a
+way to size the panel's reading.
+
+Why the containment rule on `[STANDARDS_PATHS]` is non-negotiable: it stands between an
+attacker-editable list in a tracked file (`.myflow/project.md`'s `## standards` entries) and an
+arbitrary file read landing in a committed review record.
+
 Free prose is not a record of a finding's state: a state that cannot be counted cannot be enforced.
+
+Why a `withdrawn` marker's reason is checked for being there at all: a fix subagent rewriting
+`open` to `withdrawn` would be closing its own gate.
 
 Why panel dispatches never inherit a model from the parent session:
 
@@ -114,6 +132,26 @@ few costs a defect.
 
 ### Panel re-runs
 
+Why the not-re-run scoping reaches conditional slots alone: a conditional slot's region is exactly
+its trigger's subject, while a required slot has no bounded region to check staleness against.
+
+Why checking the path alone was not enough: an argument such as `../../../etc/passwd` was free to
+escape the worktree while the path token itself stayed clean.
+
+Why an embedded newline needs no separate ban: the anchored `finding-reproducer:` marker line this
+guard reads is one line by construction, so it could never carry one.
+
+Why the 20-second bound is not `check-cleanup-complete.sh`'s 60-second `SURVIVORS_TIMEOUT`: a
+reproducer is one short-lived check under test, not a wait for a whole cleanup pass to finish. Why a
+killed reproducer's exit status is never read as pass or fail: this mirrors `run_survivors`'s own
+`WS_TIMED_OUT` flag, kept apart from the exit code so a killed process is never mistaken for an
+answer.
+
+Why the post-fix re-run needs the materiality condition on top of the symmetric exit-0 check: a
+symmetric re-run alone cannot tell "the production code changed" from "the reproducer's own target
+changed," and membership alone cannot tell a real fix from a comment or whitespace edit on a named
+path.
+
 ## 6. Resolve the run instructions
 
 In the same run, resolve the run instructions for the handoff. This is why reviewing and testing
@@ -138,17 +176,14 @@ list reaches one repository and this command reaches all of them. `/myflow-finis
 it: run 2 reads the `survivors` row alone, and every input it cannot resolve is already a reported
 skip under **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`). Adding a
 blocking validation there would strand an already-merged change over text nothing in that session
-can correct — the trade
-**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`) rejects when it weighs
-a change stranded short of its terminal state against stale storage.
+can correct — the trade that **Creation and cleanup**
+(`skills/myflow-contracts/workspace-isolation.md`) rejects when it weighs a change stranded short of
+its terminal state against stale storage.
 
-Two distinct triggers land in the same outcome, and here is why that is deliberate rather than an
-oversight:
-
-The two
-reasons are one case, deliberately: both end with nothing having run the guard, and a session that
-recognised only "the repository does not carry it" would answer a failed resolution by doing
-nothing at all and saying nothing about it.
+The script-absent case and the guard-exit-2 case are two distinct triggers that land in the same
+outcome, and here is why that is deliberate rather than an oversight: both end with nothing having
+run the guard, and a session that recognised only "the repository does not carry it" would answer a
+failed resolution by doing nothing at all and saying nothing about it.
 
 - **Every declared row, not a subset.** A value this run resolved and did not export is a value
   nothing reads, so the workspace is isolated on paper while the applications and their checks still
@@ -160,11 +195,11 @@ removes.
 
 Why the two planning paths are left unstaged rather than filtered out of a display:
 
-The exclusion is what keeps them out of the diff, rather
-> than a filter applied when the diff is displayed: a filtered display leaves them in the staging
-> area, where the IDE's staged-changes pane and `git status` show them again. The list is fixed —
-> the pipeline chooses these paths itself, so no project can differ. `/myflow-finish` stages and
-> commits them separately, so nothing is lost by leaving them unstaged here.
+The exclusion is what keeps them out of the diff, rather than a filter applied when the diff is
+displayed: a filtered display leaves them in the staging area, where the IDE's staged-changes pane
+and `git status` show them again. The list is fixed — the pipeline chooses these paths itself, so no
+project can differ. `/myflow-finish` stages and commits them separately, so nothing is lost by
+leaving them unstaged here.
 
 **The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
 stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and is not re-derived
@@ -174,15 +209,6 @@ it touches the index only, restores a tracked path to its `HEAD` entry instead o
 the way `git rm --cached` would, and succeeds when a path is absent — which `docs/superpowers/` is
 on every run that has not preserved records yet, and where `git restore --staged` would refuse the
 whole command and unstage nothing.
-
-**When the script cannot be located** — a harness whose repository does not carry it, or a skill
-directory copied rather than linked, so the two steps above resolve to something that is not the
-agents repository — apply the same rules by hand from **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`), which is canonical for them, and say in the
-handoff that the validation was performed manually **and why the script was not run**. See
-**7. Verify, stage, and hand off** (`skills/myflow-do/SKILL-rationale.md`) for why the two reasons
-are treated as one case. It is never skipped for want of the script, and "the
-declaration was validated" is never reported for a run in which nothing validated it.
 
 The outcome table under
 **Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all

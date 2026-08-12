@@ -24,12 +24,11 @@ records why they are printed rather than invoked; do not restate its reasoning h
 **Load `skills/myflow-contracts/pipeline.md` first.**
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
-and keep each entry's status current as the run proceeds, per
-**Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
-this command registers and is the one to read. What is specific to this command, and so stated
-here: an entry moves to in-progress when its implementer is dispatched, and to completed when that
-task passes **both** its spec and quality review — the same moment its `tasks.md` checkbox is
-allowed to be ticked, so the progress view and the file never disagree.
+and keep each entry's status current as the run proceeds, per **Progress visibility**
+(`skills/myflow-contracts/pipeline.md`), which names which steps this command registers. Specific to
+this command: an entry moves to in-progress when its implementer is dispatched, and to completed
+when that task passes **both** its spec and quality review — the same moment its `tasks.md` checkbox
+is allowed to be ticked, so the progress view and the file never disagree.
 
 The reasoning behind this file lives in `skills/myflow-do/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
@@ -80,29 +79,25 @@ Extract the **Global constraints** verbatim from the delta specs and `design.md`
 ## 2. Isolate the workspace (first run only)
 
 Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
-default branch without explicit consent. Record each worktree's merge base and absolute path as
-soon as the worktree exists, in this run's own working notes — not in the state file, whose
-`worktrees` map is written only at the end of section 7. That merge base and path are what section
-7's workspace-isolation guard needs, and this run knows them from here on regardless of what the
-on-disk state file currently says. At the section 7 write, that same map becomes the state file's
-`worktrees` map, which is the authoritative recorded list of affected worktrees.
+default branch without explicit consent. Record each worktree's merge base and absolute path in
+this run's own working notes as soon as the worktree exists — the state file's `worktrees` map is
+written only at the end of section 7. See **2. Isolate the workspace (first run only)**
+(`skills/myflow-do/SKILL-rationale.md`) for why the working notes come first.
 
 On a fix run, resume the existing worktree. **Never create a second one.**
 
 **This run's resolved worktree set — the set section 7's guard iterates — is the worktree just
 created or resumed above, plus any additional worktree this change affects.** Per **Resolving a
 change's worktrees** (`skills/myflow-contracts/pipeline.md`), how a command resolves the set beyond
-reading the state file's map is that command's own; this is `/myflow-do`'s. It is non-empty by
-construction on every ordinary run, first or fix alike — the worktree is known the moment it is
-created or resumed above, well before section 7 runs and well before the state file's `worktrees`
-map is next written. Section 7's empty-set stop is for the genuinely anomalous case where this step
-produced no worktree at all, never the ordinary shape of a first run.
+reading the state file's map is that command's own; this is `/myflow-do`'s, and it is non-empty by
+construction on every ordinary run — section 7's empty-set stop is for the genuinely anomalous case
+where this step produced no worktree at all. See **2. Isolate the workspace (first run only)**
+(`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
 under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — do not re-derive it
-by hand. Compute it once per run, on a fix
-run exactly as on the first. See **2. Isolate the workspace (first run only)**
-(`skills/myflow-do/SKILL-rationale.md`) for why.
+by hand. Compute it once per run, on a fix run exactly as on the first. See
+**2. Isolate the workspace (first run only)** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 The main checkout has no id, and a project that declares no isolation at all is that same case
 wherever it runs: every value resolves to the project's declared default, and neither is reported as
@@ -111,9 +106,7 @@ a misconfiguration. See **The empty id** (`skills/myflow-contracts/workspace-iso
 ## 3. Documenting a fix, before implementing it
 
 On a fix run, record what changed **before** writing code, so the proposal never goes stale. Ask
-which of exactly two, with named options rather than open prose — this is a choice between courses
-of action, which the planning-gate capability governs wherever a `/myflow-*` command asks for one,
-not only in `/myflow-start` — shape per Operator prompts
+which of exactly two, with named options rather than open prose — shape per Operator prompts
 (`skills/myflow-contracts/operator-prompts.md`):
 
 > **This fix has to be recorded before it is written — where should it go?**
@@ -133,9 +126,9 @@ parent waits for the previous implementer's commit sha for that worktree before 
 next implementer into it; dispatches into different worktrees remain free to run concurrently. This
 explicitly overrides `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks, alongside the model-policy
-override this section already carries against the same upstream skill. Two implementers sharing one
-build directory measured out to assertions left red at file seams, an agent idling on another's
-mid-edit compile, and corrupted test-result XML; see `design.md` for the full account.
+override this section already carries against the same upstream skill. See `design.md` for the
+concurrency failures — assertions left red at file seams, an agent idling on another's mid-edit
+compile, corrupted test-result XML — this rule closes.
 
 Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from
 
@@ -168,8 +161,7 @@ carries `**Squash-with:** Task <N>`, naming the green partner whose commit it fo
 partner task has its own commit, fold the red task's commit into it using the same
 fixup-and-autosquash mechanism used for fix rounds (see "Panel re-runs" below): `git commit
 --fixup=<partner-task-sha>` followed by `git rebase --autosquash`, where `<partner-task-sha>` is the
-green partner's own commit — the one named by the red task's `Squash-with:` field. This satisfies
-`myflow-task-commits`'s requirement that a red task's commit folds into its green partner's commit.
+green partner's own commit — the one named by the red task's `Squash-with:` field.
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
@@ -187,8 +179,7 @@ green partner's own commit — the one named by the red task's `Squash-with:` fi
 defaulting to Opus (or the harness's strongest available model) when that field is absent or null.
 Name it explicitly — never by omission, which silently inherits the parent's model. This
 **overrides** subagent-driven-development's "least powerful model that can handle each role"
-guidance; see **Model policy** in `skills/myflow-contracts/pipeline.md` for why, for how a recorded
-choice and a session instruction relate, and for the operator-override rule. The panel's slots
+guidance; see **Model policy** in `skills/myflow-contracts/pipeline.md` for why. The panel's slots
 default to Sonnet — the two rules differ on purpose.
 
 **Guard the commit before dispatching review.** As soon as the implementer reports the task's
@@ -211,8 +202,8 @@ section 7: a harness whose repository does not carry it, or a skill directory co
 linked — apply `myflow-task-commit-fields`'s rules by hand: check the commit's `Files:` against
 `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the commit's diff, and its
 `Commit:` against the commit's actual subject line. The check is never skipped for want of the
-script, and a mismatch found by hand sends the task back to the same implementer exactly as a
-guard failure would.
+script, and a mismatch found by hand sends the task back to the same implementer exactly as a guard
+failure would.
 
 **Per-task review:** the parent gives the reviewer the commit-range diff
 `git diff <task-base>..<task-sha>`, where `<task-base>` is the commit the task started from and
@@ -227,9 +218,8 @@ fact. Mark a checkbox `[x]` only after its task passes spec **and** quality revi
 
 **The per-task review's shape depends on `reviewPanelRoster`.** Under `light` and `standard`, a
 **single** combined reviewer per task covers spec compliance and code quality together, dispatched
-on `models.reviewPanel`. Under `full`, the spec-compliance and code-quality reviewers both run,
-which is today's behaviour. See the roster table in section 5 for what each preset means; this
-section does not restate it.
+on `models.reviewPanel`. Under `full`, the spec-compliance and code-quality reviewers both run. See
+the roster table in section 5 for what each preset means.
 
 On BLOCKED: pause and report. Never guess.
 
@@ -245,14 +235,13 @@ the field is absent or null. It names the preset in force for this run, per
 | `standard` | Primary · Principles · Bugbot |
 | `full` | Primary · Bugbot · Principles |
 
-Every preset dispatches exactly three required slots, and no preset reduces that number. `full`
-reproduces the roster in force before this table existed.
+Every preset dispatches exactly three required slots, and no preset reduces that number.
 
 **No preset moves the handoff bar.** A preset selects how much reading the panel does and nothing
 else: handoff still requires zero open findings at any severity under every preset, a minor finding
 still blocks exactly as a critical one does, and the escalation ladder, fix-round rules, panel
-record format, marker-line rules and operator handback are all unchanged. A preset able to lower the
-handoff bar would not be sizing the reading — it would be a way to skip review.
+record format, marker-line rules and operator handback are all unchanged. See **5. The review
+panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **Before writing `final-review.diff`**, run
 
@@ -298,16 +287,22 @@ Slots 1 and 4 are dispatched by `subagent_type` and carry their own agent defini
 **no** model override, whatever `models.reviewPanel` records, and record `unknown (agent-defined)`
 for them in the ledger. Every other slot, slot 3 included, names its model explicitly.
 
+**Every slot the panel dispatches must supply, per finding, a reproducer**: a runnable command that
+demonstrates the defect, or the literal exemption form `none — <reason>`. Carry this requirement on
+every slot's dispatch prompt. Slots dispatched by `subagent_type` (Bugbot, Security) receive it as
+prompt text, the same way Bugbot already receives the mutation-testing brief below — no agent
+definition is edited to carry it.
+
 ### Code review (low)
 
 Slot 3, the `light` preset's third required slot, is a `general-purpose` subagent on
 `models.reviewPanel`, told to invoke the harness's `code-review` skill at effort `low` against
 `.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
 surface the parent does not read, tell the subagent to return its findings **in its report back**
-rather than leaving them wherever the skill itself displays them. Its findings take ordinary
-`F<n>` rows and marker lines, exactly like every other slot's. Because the dispatcher names the
-model explicitly, the ledger records that real model for this slot and never `unknown
-(agent-defined)` — that value is reserved for slots dispatched by `subagent_type`.
+rather than leaving them wherever the skill itself displays them, as ordinary `F<n>` rows and marker
+lines like every other slot's. Because the dispatcher names the model explicitly, the ledger records
+that real model for this slot and never `unknown (agent-defined)`, which is reserved for slots
+dispatched by `subagent_type`.
 
 **Where the harness offers no `code-review` skill**, the slot becomes a `general-purpose` reviewer
 on `models.reviewPanel`, briefed to report high-confidence defects only, and the panel record names
@@ -326,10 +321,9 @@ A surviving mutant is an ordinary finding — an `F<n>` row and a marker line �
 under the existing zero-open-findings bar until a test is added or the operator withdraws it with a
 reason. It is not an advisory note outside the findings table.
 
-The brief applies wherever Bugbot is dispatched, and nowhere else: no other slot acquires it, and
-this brief adds no slot to any preset. See the roster table above for which presets dispatch Bugbot.
-Bugbot is still dispatched by `subagent_type` with no model override, and its ledger entry still
-reads `unknown (agent-defined)` — carrying the brief on the prompt changes neither.
+The brief applies wherever Bugbot is dispatched, and nowhere else — no other slot acquires it, and
+it adds no slot to any preset. Carrying it on the dispatch prompt changes neither Bugbot's
+`subagent_type` dispatch nor its `unknown (agent-defined)` ledger entry.
 
 Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
@@ -343,15 +337,14 @@ spawning; if it does not, stop and report rather than dispatching a blind review
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in the
 project's `.myflow/project.md`. Entries are **not** paths to use as-is: each resolves through the
-entry-form table and the containment rule in
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`), and an entry
-failing either is reported by name and dropped. Resolve that contract file by **absolute** path
-too, for the same reason as
-above; if it is not readable, **stop** — do not resolve entries without the containment rule, which
-is the only thing between an attacker-editable list in a tracked file and an arbitrary file read
-whose output lands in a committed review record. Pass an **empty** value when none resolve; that
-correctly empties the Hard Invariants section rather than substituting another project's standards.
-Record which standards files were passed, or that none resolved.
+entry-form table and the containment rule in **Project configuration**
+(`skills/myflow-contracts/project-configuration.md`), and an entry failing either is reported by
+name and dropped. Resolve that contract file by **absolute** path too; if it is not readable,
+**stop** — do not resolve entries without the containment rule. Pass an **empty** value when none
+resolve; that correctly empties the Hard Invariants section rather than substituting another
+project's standards. Record which standards files were passed, or that none resolved. See
+**5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why the containment rule is
+non-negotiable here.
 
 **No two principle reviewers may share a lens.**
 
@@ -372,6 +365,19 @@ finding-status: F1 fixed
 Do not quote the marker format inside the record itself — a validly-formatted marker written as an
 example inside prose or a fenced block reads the same as a real one.
 
+**The reproducer each finding's slot supplied gets a marker block of its own**, separate from the
+`finding-status:` block above — the two are kept apart because `scripts/check-unfinished-work.sh`
+requires the `finding-status:` lines to occupy one unbroken span, and interleaving the two blocks
+would break that. Write one `reproducers-total: <n>` count line and one `finding-reproducer: F<n>
+<command | none — reason>` line per finding:
+
+```
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
+```
+
+The same rule against quoting the format inside the record applies to this block as well.
+
 `scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
 its header, not its column order, not its cell boundaries, not where it starts or stops. See
 **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
@@ -380,28 +386,23 @@ its header, not its column order, not its cell boundaries, not where it starts o
 and read its own output for the reject reason on any given record — it already reports one in
 human-readable form; the list below is not repeated here as a parse grammar:
 
-- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte. See
-  **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
-- `withdrawn` **carries its reason on the same line**. See **5. The review panel**
-  (`skills/myflow-do/SKILL-rationale.md`) for why.
-- Each `F<n>` names **one** finding. A reused identifier is reported on each side separately. See
-  **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
-- The marker lines sit on **consecutive lines**, one unbroken block. See **5. The review panel**
-  (`skills/myflow-do/SKILL-rationale.md`) for why.
+- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte.
+- `withdrawn` **carries its reason on the same line**.
+- Each `F<n>` names **one** finding. A reused identifier is reported on each side separately.
+- The marker lines sit on **consecutive lines**, one unbroken block.
 - `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A panel that
-  raised nothing writes `findings-total: 0` and carries no markers. See **5. The review panel**
-  (`skills/myflow-do/SKILL-rationale.md`) for why.
+  raised nothing writes `findings-total: 0` and carries no markers.
 
 **The table carries no status column, on purpose.** A finding's state is written once, on its
-marker line. To read a finding's state, look up its `F<n>` in the marker block. See
-**5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
+marker line. To read a finding's state, look up its `F<n>` in the marker block.
 
 **A `withdrawn` marker's reason is checked for being there at all.** A withdrawal is the operator's
-decision at the panel's handback, not a status a run may write for itself: a fix subagent rewriting
-`open` to `withdrawn` would be closing its own gate, which is the one move this bar exists to
-prevent. Fix subagents write `fixed` when they fixed it, and leave `open` when they did not —
-including when they believe the finding is wrong, which belongs in the note and in the report back,
-never in the status.
+decision at the panel's handback, not a status a run may write for itself. Fix subagents write
+`fixed` when they fixed it, and leave `open` when they did not — including when they believe the
+finding is wrong, which belongs in the note and in the report back, never in the status.
+
+See **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why each of the rules above
+exists — the five marker-format rules, the missing status column, and the withdrawn-reason check.
 
 ### Optional slot selection
 
@@ -421,8 +422,8 @@ included and which were excluded and why.
 The triggers above fire the same way under every preset — nothing about evaluating the table
 changes. What happens once a trigger fires depends on `reviewPanelRoster`:
 
-**Under `full`**, a fired trigger auto-includes its slot, which is today's behaviour, and the
-table's borderline *ask* rows keep their current behaviour there.
+**Under `full`**, a fired trigger auto-includes its slot, and the table's borderline *ask* rows
+keep their behaviour there.
 
 **Under `light` and `standard`**, every slot whose trigger fired goes into **one** multi-select
 prompt instead of being auto-included or asked about individually:
@@ -440,8 +441,7 @@ when nothing fired.
 
 Record which optional slots were included and which were excluded and why, under every preset. A
 slot the operator declined is recorded as **declined**, distinctly from a slot whose trigger never
-fired — the two are different facts about the same diff, and a reader of the panel record must be
-able to tell them apart.
+fired.
 
 A documentation-, prompt-, or test-only diff with no trigger runs the three required slots alone.
 That is a correct outcome, not a skipped review — say so explicitly.
@@ -457,11 +457,10 @@ commit.
 
 When a review finding requires a code change to a task that is already committed, commit the fix
 as `git commit --fixup=<task-sha>`, where `<task-sha>` is the **original** task commit — the one
-created when the task was first implemented, not the sha from a previous fixup-and-autosquash
-round — so that every fixup round for a given task targets the same original commit. Immediately
-run `git rebase --autosquash` to fold the fixup into that commit, before the next review pass reads
-the diff. This keeps the working tree at one commit per task throughout the panel's re-runs, never
-a trailing separate fixup commit.
+created when the task was first implemented, never the sha from a previous fixup-and-autosquash
+round, so every fixup round for a given task targets the same commit. Immediately run
+`git rebase --autosquash` to fold the fixup into that commit, before the next review pass reads the
+diff — one commit per task throughout the panel's re-runs, never a trailing separate fixup commit.
 
 | Mode | Who re-runs | Diff they get |
 |------|-------------|---------------|
@@ -470,34 +469,131 @@ a trailing separate fixup commit.
 
 A conditional slot whose trigger did not fire is **not** re-run; its previous result stands, and the
 record states `not re-run — subject unchanged`, distinct from a slot whose trigger never fired at
-all and from a slot the operator declined. A result is stale when the diff it read has since changed
-in the region that slot reads; a conditional slot's region is exactly its trigger's subject, and a
-required slot has no bounded region — which is why this scoping reaches conditional slots alone. The
-**Targeted** row is unchanged. Not re-running a slot never closes, softens or expires a finding it
-has already raised — the zero-open-findings bar still governs every slot in the roster.
+all and from a slot the operator declined. The **Targeted** row is unchanged. Not re-running a slot
+never closes, softens or expires a finding it has already raised — the zero-open-findings bar still
+governs every slot in the roster. See **Panel re-runs** (`skills/myflow-do/SKILL-rationale.md`) for
+why this scoping reaches conditional slots alone.
 
 **Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
 outside the set named in the findings; the fix diff exceeds ~150 changed lines; the fix altered a
-delta spec, a migration, or a public contract; a targeted re-run surfaced a **new** Critical
-finding; or three or more fix rounds have already run.
+delta spec, a migration, or a guard's behaviour; a targeted re-run surfaced a **new** Critical
+finding; or three or more fix rounds have already run. A trigger that fires on every fix round of
+every change in a given repository selects nothing there, so where a trigger is found not to
+discriminate, the correct repair is to narrow the condition, not to remove the escalation.
 
 Targeting is a cost optimization, never a coverage waiver: a targeted re-run is never fewer than
 two agents, and handoff still requires **zero open findings at any severity** from every agent that
 has run, with the final pass showing a non-stale clean result for every slot in the roster.
 
-Union all **open** findings, dedupe by file:line + theme, and give **one** fix subagent the
-combined list. **Dispatch it on the model recorded under `models.panelFix`**, defaulting to Opus
+Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
+finding's own recorded location, taken verbatim from the findings table (the `Location` column),
+never re-derived from a diff hunk that may have moved since. *Theme* is the finding's one-sentence
+Note column, reduced to its own defect noun phrase: the shortest phrase in that sentence naming
+what is wrong (e.g. "no `--` before the record path", "leading-dash worktree path"), with severity
+words, slot names and prose padding stripped out — not the sentence itself, so a reviewer's
+rewording of the same sentence still reduces to the same phrase. Two reviewers describing the same
+defect at the same file:line, in different words, are the same identity; two different defects at
+the same file:line are not. This is the one place the identity is defined; every rule below that
+keys off it cites this paragraph rather than restating it.
+
+**Worked example, on a compound note.** F20's Note reads: "swapping the two `comm` directions
+mislabels every finding and still passes all 20 cases, because the assertions match on the
+identifier substring rather than the message." Its three clauses are the root defect, a symptom,
+and why testing missed it — only the first is the theme: "still passes all 20 cases" says the bug
+went undetected, not what it is, and "the assertions match on the identifier substring" is itself a
+separate later finding (F35) that folding in would wrongly merge into this one's identity. The
+theme is the root cause alone: **swapped `comm` directions**.
+
+**Before dispatching the fix subagent**, run
+
+```bash
+scripts/check-panel-reproducers.sh <worktree>
+```
+
+Exit 0 proceeds. Exit 1 covers two classes, handled differently. A **missing or malformed field** —
+no `finding-reproducer:` line for some `F<n>`, a bad `reproducers-total:` count — is a
+record-completeness defect, and the field is added before dispatch. A
+**rejected reproducer shape** — a command carrying a shell metacharacter, an absolute path, a `..`
+segment, a leading `-` on its path token, a URL, or a NUL byte — is a **refusal, not something to
+rewrite until the guard accepts it**: the line is recorded **unverifiable** and put to the operator,
+the same disposition `scripts/run-reproducer.sh` reaches for a refusal of its own below. It is
+**never silently rewritten to satisfy the guard** — the line may be exactly the injection the guard
+exists to catch, and rewriting it to pass defeats the check. Exit 2 stops the run: a record the
+guard could not read is not a record in which every finding declared a reproducer.
+
+**For each open finding whose record carries a runnable `finding-reproducer:` command** (not the
+`none — <reason>` exemption form), run
+
+```bash
+scripts/run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
+```
+
+which is what makes the constraints this section used to only describe in prose actually true
+rather than merely claimed: the direct exec with an argument vector, the resolved containment on
+every token, the bound, and the timed-out and surviving-process dispositions — its own header is
+canonical for all of it, including the session-kill mechanism it verified by running candidates on
+this platform rather than by citing a flag that turned out not to exist here (`ps -o sid=`). Read
+its exit code. **0** dispatches the finding — the reproducer demonstrated the defect as a direct
+exec, with no shell ever seeing the line. **1** bounces the finding once, back to the slot that
+raised it, carrying the reproducer's passing output, rather than dispatching it — the instruction
+built on a reproducer that exits 0 cannot be verified as a fix. **2** is a refusal: recorded
+**unverifiable** and put to the operator, never run, the same disposition as a rejected shape from
+`check-panel-reproducers.sh` above. **3** is a timeout or a detached survivor: recorded
+**unverifiable** and put to the operator — with a **surviving process's pid named** when the
+script's own output names one — and the worktree is re-checked (`git status`) before the run
+continues, and again when the operator resumes. **4** stops this finding's dispatch decision
+entirely, the same way an unreadable record does above. A finding recorded `none — <reason>` is
+dispatched without a run: the rule binds findings claiming a mechanical defect, and a principles,
+prose or naming finding has no runnable check to demand.
+
+If a bounced finding's replacement reproducer also exits 1, the run stops and puts that finding to
+the operator through the handback prompt below — take another round, withdraw it with a reason, or
+stop the run — rather than dispatching it silently.
+
+**Bounce accounting keys off defect identity, never off `F<n>`** — the same identity defined once
+above under **Union all open findings**, so a fresh identifier assigned to the same defect in a
+later pass does not reset its one-bounce budget to zero. Each bounce is recorded in the existing
+pass log entry this section already requires below, keyed by that identity, so a run resumed after
+an interruption sees the prior bounce and goes straight to the operator rather than bouncing again.
+
+Where a slot **dispatched by `subagent_type`** supplies nothing at all for a finding, record
+`none — not supplied by <slot>` and dispatch the finding unverified; this exemption is legal only
+for such a slot, since the pipeline does not control a third-party agent's definition. A
+**general-purpose** slot — one whose prompt this pipeline fully controls — that supplies nothing has
+not supplied a legal exemption: record that omission as its own open finding rather than as
+`none — not supplied by <slot>`, so the record distinguishes a genuine no-runnable-check exemption
+from a slot that was simply never asked to comply.
+
+**Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
+constraints and require it now to exit **0**. A reproducer that still exits non-zero means the fix
+did not fix it, and the finding is not closed on that pass — this also catches a reproducer that
+failed both before and after the fix for a reason unrelated to it, since it is the same command
+under the same constraints, not a fresh judgment call. **The flip alone does not close a
+finding — the fix's diff must also touch at least one path the finding named, with a non-comment,
+non-whitespace change in that hunk**, and preferably at the finding's own `file:line`. A fix whose
+diff, for a given finding, touches only the reproducer's own target, or touches a named path with
+no non-comment, non-whitespace change, is not a fix: the finding stays open and goes to the operator
+through the handback below, carrying that fact as the reason. See **Panel re-runs**
+(`skills/myflow-do/SKILL-rationale.md`) for why the re-run and the materiality condition are both
+needed.
+
+**A bounce is a guard-class failure, not a review finding** — the accounting section 4 already
+gives `check-task-commit-fields.sh`: no fix-round slot consumed, no round-count advance, and it
+never closes, softens or expires the finding.
+
+Give the surviving findings — every dispatched finding from the union above — to **one** fix
+subagent as the combined list. **Dispatch it on the model recorded under `models.panelFix`**, defaulting to Opus
 (or the harness's strongest available model) when that field is absent or null — deliberately not
 the panel's own default, for the reason stated under
 **Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in
-`.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, and the diff path they read.
+`.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, the diff path they read,
+and — when this pass bounced any finding — each bounced finding's defect identity (file:line plus
+theme, as defined above) together with the reproducer output it carried back to its raising slot.
+A pass that bounced nothing states that plainly rather than omitting the field.
 
-A minor finding blocks the handoff exactly as a critical one does. The escalation ladder is what
-makes that terminate: when fix rounds do not converge the run hands back to the operator, who
-resolves the disagreement — including by marking a finding `withdrawn` with a reason. That handback is
-the existing human gate, not a routine way to defer a finding.
-
-**The handback is an actual prompt, not a claim that one happened.** When a finding survives its
+A minor finding blocks the handoff exactly as a critical one does. When fix rounds do not converge,
+the run hands back to the operator, who resolves the disagreement — including by marking a finding
+`withdrawn` with a reason. **The handback is an actual prompt, not a claim that one happened.** When a finding survives its
 last fix round, stop and put it to the operator, one finding at a time, with the finding's text, the
 fixer's reason for disputing it, and named options — shape per Operator prompts
 (`skills/myflow-contracts/operator-prompts.md`):
@@ -524,13 +620,11 @@ Resolve:
 - **Every start command comes from `.myflow/project.md`'s `## run`**, with every path in it made
   absolute.
 - **Every URL is the one this worktree resolved**, never the project's declared base. **Resolve
-  each URL from this worktree's workspace id, the way section 2 computed it** — every derived value
-  is a function of that id, so the run instructions are resolved from the id and the project's own
-  declaration rather than from a variable some later step exports. The project's
+  each URL from this worktree's workspace id, the way section 2 computed it.** The project's
   `## workspace isolation` rows name the variable each URL is carried by and what it becomes in a
   workspace, per **Project configuration** (`skills/myflow-contracts/project-configuration.md`);
-  what a workspace id moves at all is listed under
-  **What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
+  what a workspace id moves at all is listed under **What the id derives**
+  (`skills/myflow-contracts/workspace-isolation.md`).
 
   A project that declares no isolation resolves nothing, so the handoff names that project's
   declared URLs unchanged.
@@ -545,10 +639,9 @@ Resolve:
   **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
 - **Where the project declares no runnable application**, resolve the `## lint` and `## test`
   commands instead, with every path in them made absolute, and do not give the handoff an
-  application shape the project does not have. This repository is that case: it is the source of
-  the myflow skills, commands and rules, and "running it" here means running its guard scripts, its
-  assertion harnesses and a sandboxed installer pass. An application-shaped `Run it:` section
-  written for it would name an app, a port and a URL that do not exist.
+  application shape the project does not have. This repository is that case: "running it" here
+  means running its guard scripts, assertion harnesses and a sandboxed installer pass, not an
+  app, port and URL that do not exist.
 
 ## 7. Verify, stage, and hand off
 
@@ -558,44 +651,39 @@ Resolve:
 <agents repo>/scripts/prepare-workspace.sh <worktree>
 ```
 
-once per worktree in this run's resolved set — per section 2, the worktree this run created or
-resumed, plus any additional worktree this change affects — never a raw read of the state file's
-`worktrees` map, which a `{}` or absent map would make this check pass having examined nothing (and
-is exactly what the map reads as on every first run, before this run's own section-7 write). Per
-**Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`), report an empty resolved
-set and do not proceed to validate a worktree the state file cannot name. Because section 2 already
-made the set non-empty by construction, that stop fires here only in the genuinely anomalous case
-where section 2 produced no worktree at all — not on the ordinary shape of a first run. Run this
-**before anything else below this line.** `<agents repo>` is the same root a bare `.mdc` `##
-standards` entry resolves against, and the two steps that find it — from a global install and from a
-project-local one alike — are stated once under
-**Where the agents repository is** (`skills/myflow-contracts/project-configuration.md`)
-and are not repeated here. **Resolve it before you run anything, and check the script is actually
-there**: not finding it is the absent-script case below, and is reported rather than passed over.
+once per worktree in this run's resolved set — the same set section 2 resolved, non-empty by
+construction — never a raw read of the state file's `worktrees` map, which reads as `{}` or absent
+on every first run, before this run's own section-7 write, and would make this check pass having
+examined nothing. Per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`),
+report an empty resolved set and do not proceed to validate a worktree the state file cannot name;
+see section 2 above for why that stop is the anomalous case. Run this **before anything else below
+this line.**
+`<agents repo>` resolves the same way a bare `.mdc` `## standards` entry does, from a global or a
+project-local install alike, stated once under **Where the agents repository is**
+(`skills/myflow-contracts/project-configuration.md`). Not finding the script there is the
+absent-script case below, and is reported rather than passed over.
 
 `prepare-workspace.sh` runs `check-workspace-isolation.sh` against the worktree first, then — only
 if that passes — derives and exports the variables the project's `## workspace isolation` section
 declares, resolved against the workspace id section 2 computed, and prints one `KEY=value` line per
-exported variable to stdout. Read its exit code for what happened, exactly as its own header states,
-and read those printed lines rather than re-deriving any of them: exit 0 means the printed lines are
-what to carry forward into `## lint` and `## test` below (an exit 0 with nothing printed means the
-project declares no `## workspace isolation` section, and behaves exactly as it does today). A
+exported variable to stdout. Read its exit code for what happened and read those printed lines
+rather than re-deriving any of them: exit 0 means the printed lines are what to carry forward into
+`## lint` and `## test` below (an exit 0 with nothing printed means the project declares no
+`## workspace isolation` section). A
 non-zero exit is the dropped-row case (exit 1, relay the script's own lines verbatim and stop) or the
-cannot-answer case (exit 2, stop for the same reason: an unvalidated declaration is not a validated
-one) — in either case, stop **before** `## lint` and `## test`, without writing the state file.
-Correcting the row in the project's `.myflow/project.md` and re-running this command is the whole
-remedy — a dropped row moves no state.
+cannot-answer case (exit 2, stop the same way) — in either case, stop **before** `## lint` and
+`## test`, without writing the state file. Correcting the row in the project's `.myflow/project.md`
+and re-running this command is the whole remedy.
 
 **A declared `cache index` row is never among the printed `KEY=value` lines — the script reports it
 by name on stderr instead, and claiming it is this step's own job, not the script's.** Per **The
 cache index** (`skills/myflow-contracts/workspace-isolation.md`), the index is claimed by probing
-the project's own cache, never derived from the workspace id, so a script shipped into every project
-alike cannot carry the client that probing needs. On an exit-0 run whose stderr names a `cache index`
-row, probe the project's cache here, claim a free index atomically, and record that claim in the
-cache itself under an entry naming this workspace — exactly as **The cache index** requires — before
-carrying the exported lines forward into `## lint` and `## test` below. This is the moment the claim
-happens, per the registry's `Claimed cache index | /myflow-do, by probing, when it exports the
-workspace's variables` row (`skills/myflow-contracts/pipeline.md`).
+the project's own cache, never derived from the workspace id. On an exit-0 run whose stderr names a
+`cache index` row, probe the project's cache here, claim a free index atomically, and record that claim in the
+cache itself under an entry naming this workspace — exactly as **The cache index** requires, and per
+the registry's `Claimed cache index | /myflow-do, by probing, when it exports the workspace's
+variables` row (`skills/myflow-contracts/pipeline.md`) — before carrying the exported lines forward
+into `## lint` and `## test` below.
 
 **When the script cannot be located**, apply the same rules by hand — do not restate them here — from
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) and
@@ -635,10 +723,10 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 > hand off** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **The one push exception.** Every task and fixup commit already sits on the branch, unpushed, per
-section 4 and section 5 — that part is unconditional. If the state file records a `prUrl`, a PR is
-already open, so this run also commits `openspec/` and `docs/superpowers/` — the only paths a task
-or fixup commit never touches — and pushes everything to the PR branch; otherwise this step commits
-and pushes nothing. On that path only — and in this order — run
+sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so this run also
+commits `openspec/` and `docs/superpowers/` — the only paths a task or fixup commit never touches —
+and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
+only — and in this order — run
 `scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; then
 `scripts/commit-split.sh <worktree> <name> "<impl-msg>" "chore(<name>): plan and session records"`;
 then push the branch, which carries whatever that call committed along with every task and fixup
@@ -655,11 +743,10 @@ failed** — report it with the script's own stderr message and continue committ
 **Preserving the session records** (`skills/myflow-contracts/pipeline.md`).
 
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
-stop-on-failure rule and the symlinked-planning-path case are all under
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`), which this call implements rather than
-restates. The empty case is ordinary here: a fix round that touched neither `openspec/` nor the test
-guide has nothing to add — that is not an error, and it is not silent — say in the handoff which of
-the two commits, if either, was made.
+stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
+(`skills/myflow-contracts/pipeline.md`), which this call implements rather than restates. The empty
+case is ordinary here — a fix round that touched neither `openspec/` nor the test guide has nothing
+to add — but say in the handoff which of the two commits, if either, was made.
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
@@ -696,17 +783,16 @@ Next:
 ```
 
 **One review command covers both of this command's cases** — committed on branch with no PR yet,
-and committed and pushed to an open PR — because both leave the branch fully committed, so the same
-commit-range diff reads either one; there is no `--cached` case left under commit-per-task. The
-merge base comes from this worktree's entry in the state file's `worktrees` map. The template's
-third git state — committed and pushed with no PR — is one `/myflow-do` never emits and
-`/myflow-status` does — see **The block each state renders**
+and committed and pushed to an open PR — both leave the branch fully committed, so the same
+commit-range diff reads either one. The merge base comes from this worktree's entry in the state
+file's `worktrees` map. The template's third git state — committed and pushed with no PR — is one
+`/myflow-do` never emits and `/myflow-status` does — see **The block each state renders**
 (`skills/myflow-contracts/handoff-blocks.md`).
 
 The pre-edit description line is present only on a fix run that synced the description in section
-**3**, and reproduces that text without summarising or reflowing it — the transcript is then the
-recovery path, since there is no local backup. A run that wrote nothing omits the line rather than
-printing an empty one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
+**3**, and reproduces that text without summarising or reflowing it. A run that wrote nothing omits
+the line rather than printing an empty one. See **Description sync**
+(`skills/myflow-contracts/jira-integration.md`).
 
 ## Guardrails
 

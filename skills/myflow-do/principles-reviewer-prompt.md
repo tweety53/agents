@@ -163,7 +163,10 @@ Subagent (generalPurpose):
     #### Minor (Nice to Have)
 
     For each issue: File:line, the principle name or the rule it violates (quote or
-    cite it), and the concrete fix.
+    cite it), the concrete fix, and a **reproducer** — a runnable command that
+    demonstrates the violation, or the literal form `none — <reason>` when no such
+    command exists. A command that merely passes against the diff is not a
+    reproducer.
 
     ### Assessment
     **Principles-compliant?** [Yes | No | With fixes]

@@ -53,7 +53,16 @@ scripts/test-check-contract-budget.sh
 scripts/test-check-vocabulary.sh
 scripts/test-check-panel-diff-size.sh
 scripts/test-plan-dispatch-bundles.sh
+scripts/test-check-panel-reproducers.sh
+scripts/test-run-reproducer.sh
 ```
+
+**Measured runtime: 118.63s for the commands above, against this harness's 120000ms default tool
+timeout.** Nothing in the list is broken — this is proximity to the timeout, not a failure — but a
+caller this close to the edge should raise the timeout or split the run across more than one
+invocation, rather than reading a timeout here as one of these commands failing. This note cites no
+count of the list on purpose: a written count goes stale the first time a command is added to it,
+and nothing here checks it against the list above.
 
 ## lint
 
@@ -105,9 +114,10 @@ that need a change in flight and a real worktree, a repository or a state direct
 arguments; they answer a question about one change, not about the state of the repository's text. A
 lint step that cannot run against a bare tree would fail on every unrelated invocation, so the
 omission is a decision, not an oversight. They are covered instead by their harnesses under
-`## test`. `check-panel-diff-size.sh` and `plan-dispatch-bundles.sh` are excluded for the same
-reason: they are `/myflow-do` helpers that likewise need a change in flight and a worktree passed
-in, so they are covered by their own harnesses under `## test` instead.
+`## test`. `check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
+`run-reproducer.sh` are excluded for the same reason: they are `/myflow-do` helpers that likewise
+need a change in flight and a worktree passed in, so they are covered by their own harnesses under
+`## test` instead.
 
 **Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
 `ISOLATION-OK` and the fact that this repository declares no section; its own header carries its

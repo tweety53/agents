@@ -6,3 +6,6 @@
 
 # myflow apply worktrees — created by /myflow-do, removed by /myflow-finish run 2
 .worktrees/
+
+# Python bytecode from the guard wrappers (check-plan-provenance.py, check-task-*.py)
+__pycache__/
