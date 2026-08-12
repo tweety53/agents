@@ -54,12 +54,13 @@ by citation rather than by re-deriving their content:
   run; it records the defaults directly instead, per **Recorded defaults favor speed** below.
   Sections A, B, C and D listed here still run exactly as written
 - **B. Basic Workflow #1 — Brainstorming** (`skills/myflow-start/SKILL.md`) — the clarifying
-  questions and the design presentation stay fully interactive here, exactly as under
-  `/myflow-start`, with no auto-answering. The separate post-design "does this look right?" confirm
-  is **not** run here — once the design is presented, this skill proceeds directly into artifact
-  creation, unless the operator raises an objection during that presentation. This is a scoped
-  override of `superpowers:brainstorming`'s hard design-approval gate, `/myflow-fast` only;
-  `/myflow-start` still stops at that confirm, unaffected
+  questions stay fully interactive here, exactly as under `/myflow-start`, with no auto-answering.
+  The design presentation does **not** end a section, or the whole design, with a "does this look
+  right?" question — present the section(s) and proceed directly, section to section and then into
+  artifact creation, unless the operator raises an objection during or after that presentation. This
+  is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/myflow-fast`
+  only; `/myflow-start` still asks after each section and at the separate post-design confirm,
+  unaffected
 - **C. Create the change and its artifacts** (`skills/myflow-start/SKILL.md`)
 - **D. Basic Workflow #3 — Writing plans** (`skills/myflow-start/SKILL.md`)
 
@@ -191,9 +192,10 @@ here. Add exactly the guardrails specific to this skill:
   presentation are interactive, unchanged.
 - **Never** ask the planning-effort, model, or review-panel-roster questions on a creating run —
   record the defaults per **Recorded defaults favor speed** instead.
-- **Never** stop for a separate post-design "does this look right?" confirm — proceed directly into
-  artifact creation once the design is presented, unless the operator objects during that
-  presentation. This skip is scoped to `/myflow-fast`; `/myflow-start` still stops at that confirm.
+- **Never** ask a "does this look right?" question after a design section or after the whole design
+  — present and proceed directly, section to section and then into artifact creation, unless the
+  operator objects during or after that presentation. This skip is scoped to `/myflow-fast`;
+  `/myflow-start` still asks after each section and at the separate post-design confirm.
 - **Never** continue past open PR or manual without stopping — only merge-and-push auto-continues to
   run 2.
 - **Never** treat a bare invocation at `IN_PROGRESS` as a fix, and never treat an invocation carrying
