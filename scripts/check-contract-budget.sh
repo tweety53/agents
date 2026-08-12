@@ -85,7 +85,7 @@ skills/myflow-contracts/state-file.md 19202
 skills/myflow-contracts/workspace-isolation-rationale.md 14318
 skills/myflow-contracts/workspace-isolation.md 31680
 skills/myflow-do/SKILL-rationale.md 15721
-skills/myflow-do/SKILL.md 54011
+skills/myflow-do/SKILL.md 58623
 skills/myflow-fast/SKILL-rationale.md 3490
 skills/myflow-fast/SKILL.md 14445
 skills/myflow-finish/SKILL-rationale.md 8100
