@@ -63,7 +63,10 @@ Subagent (generalPurpose):
     #### Important (Should Fix)
     #### Minor (Nice to Have)
 
-    For each issue: File:line, what's wrong, why it matters, how to fix.
+    For each issue: File:line, what's wrong, why it matters, how to fix, and a
+    **reproducer** — a runnable command that demonstrates the defect, or the
+    literal form `none — <reason>` when no such command exists. A command that
+    merely passes against the diff is not a reproducer.
 
     ### Assessment
     **Ready for the human gate?** [Yes | No | With fixes]
