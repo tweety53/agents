@@ -128,8 +128,28 @@ transition the issue here.
 
 ## 4. Execute (SDD + TDD)
 
-Invoke **superpowers:subagent-driven-development**, treating each remaining checkbox (or a tightly
-coupled group) as one task. Every implementer dispatch **must** carry all four of:
+**At most one implementer subagent may be in flight against a given worktree at any moment.** The
+parent waits for the previous implementer's commit sha for that worktree before dispatching the
+next implementer into it; dispatches into different worktrees remain free to run concurrently. This
+explicitly overrides `superpowers:subagent-driven-development`'s parallel dispatch guidance and
+`superpowers:dispatching-parallel-agents` for same-worktree tasks, alongside the model-policy
+override this section already carries against the same upstream skill. Two implementers sharing one
+build directory measured out to assertions left red at file seams, an agent idling on another's
+mid-edit compile, and corrupted test-result XML; see `design.md` for the full account.
+
+Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from
+
+```bash
+scripts/plan-dispatch-bundles.sh <changeRoot>/tasks.md
+```
+
+where `<changeRoot>` is section 1's `openspec status` output's `changeRoot` field, resolved inside
+this worktree. Exit 0 proceeds to dispatch. A non-zero exit is a plan defect, not a review finding:
+exit 1 names a task missing its `**Files:**` field, which `superpowers:writing-plans` repairs
+before any dispatch happens; exit 2 stops the run. Bundling does not change the commit-per-task
+model — an implementer handed a bundle still makes one commit per task, carrying that task's own
+`Task-Id:` trailer, and a `Build: red` task still folds into the commit its `**Squash-with:**`
+field names. Every implementer dispatch **must** carry all four of:
 
 > **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
@@ -233,6 +253,27 @@ else: handoff still requires zero open findings at any severity under every pres
 still blocks exactly as a critical one does, and the escalation ladder, fix-round rules, panel
 record format, marker-line rules and operator handback are all unchanged. A preset able to lower the
 handoff bar would not be sizing the reading — it would be a way to skip review.
+
+**Before writing `final-review.diff`**, run
+
+```bash
+scripts/check-panel-diff-size.sh <worktree> <merge-base>
+```
+
+Exit 0 proceeds. Exit 1 puts the choice to the operator, shaped per **Operator prompts**
+(`skills/myflow-contracts/operator-prompts.md`) — that section is canonical for the mechanics, not
+restated here:
+
+> **The panel diff measured `<count>`, over the `<cap>` cap. How should this proceed?**
+> - **Proceed with the panel anyway** *(default, recommended)*
+> - **Stop and split the change** — ends the run at `IN_PROGRESS` with the implementation committed
+>   on the branch
+
+Exit 2 stops the run: a size the guard could not measure is not a size under the cap.
+
+Record the measured count, the cap in force, and the operator's answer where one was given in
+`.superpowers/sdd/final-review-panel.md` on **every** run, including exit-0 runs. The cap moves
+nothing about the roster, the slots, the escalation ladder or the zero-open-findings bar.
 
 Write `.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and unstaged), then
 dispatch **separate** review subagents — one per selected slot, in **every** affected worktree.
@@ -425,7 +466,15 @@ a trailing separate fixup commit.
 | Mode | Who re-runs | Diff they get |
 |------|-------------|---------------|
 | **Targeted** (default) | Slot 0 (always, as integration check) + every agent that raised a finding | `fix-round-N.diff` |
-| **Full** (escalation) | Every slot in this run's roster | rewritten `final-review.diff` |
+| **Full** (escalation) | Every **required** slot; a **conditional** slot (Security, Adversarial, Lens B, Lens C) only when its own row in the optional-slot trigger table still fires against `fix-round-N.diff` | rewritten `final-review.diff` |
+
+A conditional slot whose trigger did not fire is **not** re-run; its previous result stands, and the
+record states `not re-run — subject unchanged`, distinct from a slot whose trigger never fired at
+all and from a slot the operator declined. A result is stale when the diff it read has since changed
+in the region that slot reads; a conditional slot's region is exactly its trigger's subject, and a
+required slot has no bounded region — which is why this scoping reaches conditional slots alone. The
+**Targeted** row is unchanged. Not re-running a slot never closes, softens or expires a finding it
+has already raised — the zero-open-findings bar still governs every slot in the roster.
 
 **Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
 outside the set named in the findings; the fix diff exceeds ~150 changed lines; the fix altered a

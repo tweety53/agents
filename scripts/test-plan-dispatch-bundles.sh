@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# Assertion harness for plan-dispatch-bundles.sh. Builds a fixture tasks.md
+# under a sandboxed TMPDIR for every case; never touches this repository's
+# own openspec/changes/ tree.
+#
+# Modeled on test-check-task-build-green.sh's fixture-driven pattern: a
+# fixture directory per case via new_fixture, the guard invoked through a
+# thin run_guard helper that captures RC/OUT, and every case ending with an
+# explicit pass/fail assertion.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GUARD="$SCRIPT_DIR/plan-dispatch-bundles.sh"
+FAILURES=0
+
+fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
+pass() { printf 'ok: %s\n' "$1"; }
+
+# run_guard <tasks.md-path> -> sets RC and OUT
+run_guard() {
+  set +e
+  OUT="$("$GUARD" "$1" 2>&1)"
+  RC=$?
+  set -e
+}
+
+# Every case leaves one fixture directory behind, removed on exit including
+# on a failed assertion. An indexed array, not a space-separated string:
+# mktemp paths under TMPDIR may contain spaces, and word-splitting a string
+# would leak a fixture whose path split and `rm -rf` the fragments. Mirrors
+# test-commit-split.sh's own REPOS array / trap cleanup EXIT pattern.
+FIXTURES=()
+cleanup() {
+  [ "${#FIXTURES[@]}" -eq 0 ] && return 0
+  for fixture in "${FIXTURES[@]}"; do
+    rm -rf "$fixture"
+  done
+}
+trap cleanup EXIT
+
+new_fixture() {
+  FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-dispatch-bundles-test.XXXXXX")"
+  FIXTURES+=("$FIXTURE")
+  TASKS_MD="$FIXTURE/tasks.md"
+}
+
+# ===========================================================================
+# Case 1: three unchecked tasks declaring disjoint paths produce three
+# bundles, one task per bundle, ordered by lowest task id.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Second task\n\n'
+  printf '**Files:**\n- Create: `b.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 3 Third task\n\n'
+  printf '**Files:**\n- Create: `c.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 1: disjoint tasks exit 0" || fail "case 1: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nbundle 2: 2\nbundle 3: 3'
+[ "$OUT" = "$EXPECTED" ] && pass "case 1: three separate bundles" || fail "case 1: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 2: two tasks sharing one declared path form one bundle.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First task\n\n'
+  printf '**Files:**\n- Modify: `shared.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Second task\n\n'
+  printf '**Files:**\n- Modify: `shared.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 2: shared path exits 0" || fail "case 2: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 1 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 2: one bundle for both tasks" || fail "case 2: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 3: transitivity — task 1 and task 2 share a path, task 2 and task 3
+# share a different path; all three land in one bundle.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First task\n\n'
+  printf '**Files:**\n- Create: `x.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Second task\n\n'
+  printf '**Files:**\n- Create: `x.txt`\n- Create: `y.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 3 Third task\n\n'
+  printf '**Files:**\n- Create: `y.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 3: transitive chain exits 0" || fail "case 3: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 1 2 3'
+[ "$OUT" = "$EXPECTED" ] && pass "case 3: transitive closure forms one bundle" || fail "case 3: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 4: a task whose steps are all [x] takes no part in any bundle, even
+# when it declares a path another unchecked task also declares.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 Done task\n\n'
+  printf '**Files:**\n- Modify: `shared.txt`\n\n'
+  printf -- '- [x] **Step 1: already done**\n\n'
+  printf '### 2 Open task\n\n'
+  printf '**Files:**\n- Modify: `shared.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 4: mixed checked/unchecked exits 0" || fail "case 4: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 4: checked task excluded entirely" || fail "case 4: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 5: an unchecked task with no **Files:** field at all exits 1 and
+# names that task.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Fieldless task\n\n'
+  printf 'No Files field here at all.\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 5: missing Files field exits 1" || fail "case 5: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 2"*"no **Files:** field"*) pass "case 5: names task 2" ;;
+  *) fail "case 5: expected message naming task 2, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 6: an **Allowed-collateral:** glob matching another task's declared
+# path does not join the two bundles.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf '**Allowed-collateral:** `shared.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Second task\n\n'
+  printf '**Files:**\n- Create: `shared.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 6: collateral glob exits 0" || fail "case 6: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nbundle 2: 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 6: collateral does not join bundles" || fail "case 6: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 7: an unreadable path exits 2.
+# ===========================================================================
+new_fixture
+run_guard "$FIXTURE/does-not-exist.md"
+[ "$RC" -eq 2 ] && pass "case 7: unreadable path exits 2" || fail "case 7: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 8: a bullet declaring two comma-separated backtick-quoted paths joins
+# a bundle with a task that declares only the second of those paths. Guards
+# against _extract_path grabbing only the first backtick token in a
+# multi-path bullet (BACKTICK_RE.search instead of .findall).
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First task\n\n'
+  printf '**Files:**\n- Modify: `a.txt`, `b.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Second task\n\n'
+  printf '**Files:**\n- Modify: `b.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 8: multi-path bullet exits 0" || fail "case 8: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 1 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 8: second declared path in a multi-path bullet still joins the bundle" || fail "case 8: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 9: dotted multi-component task ids sort numerically per component,
+# not lexically — "1.10" after "1.2", not before it.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1.2 Earlier subtask\n\n'
+  printf '**Files:**\n- Create: `x.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 1.10 Later subtask\n\n'
+  printf '**Files:**\n- Create: `y.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 9: dotted ids exit 0" || fail "case 9: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1.2\nbundle 2: 1.10'
+[ "$OUT" = "$EXPECTED" ] && pass "case 9: 1.10 sorts after 1.2 numerically" || fail "case 9: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 10: a checkbox line directly after a **Files:** bullet block, with no
+# blank line between them, must not be consumed as a bogus file-path entry.
+# Guards against BULLET_RE (a strict superset of CHECKBOX_RE) matching a
+# `- [ ]` line while `in_files` is still true. Task 1's only checkbox sits
+# immediately after its Files block; task 2's checkbox is separated by a
+# blank line. Both declare `a.txt`, so both must land in one bundle — if the
+# bug is present, task 1's checkbox is swallowed as a file entry, task 1
+# never registers as unchecked, and it silently drops out of the bundle.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 First\n\n'
+  printf '**Files:**\n- Modify: `a.txt`\n'
+  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf '### 2 Second\n\n'
+  printf '**Files:**\n- Modify: `a.txt`\n\n'
+  printf -- '- [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 10: adjacent checkbox after Files block exits 0" || fail "case 10: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 1 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 10: task 1 still registers unchecked and joins the bundle" || fail "case 10: expected [$EXPECTED], got [$OUT]"
+
+if [ "$FAILURES" -gt 0 ]; then
+  printf '%d failure(s)\n' "$FAILURES" >&2
+  exit 1
+fi
+printf 'all cases passed\n'

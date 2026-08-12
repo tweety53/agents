@@ -51,6 +51,8 @@ scripts/test-check-task-commit-fields.sh
 scripts/test-check-workspace-isolation.sh
 scripts/test-check-contract-budget.sh
 scripts/test-check-vocabulary.sh
+scripts/test-check-panel-diff-size.sh
+scripts/test-plan-dispatch-bundles.sh
 ```
 
 ## lint
@@ -103,7 +105,9 @@ that need a change in flight and a real worktree, a repository or a state direct
 arguments; they answer a question about one change, not about the state of the repository's text. A
 lint step that cannot run against a bare tree would fail on every unrelated invocation, so the
 omission is a decision, not an oversight. They are covered instead by their harnesses under
-`## test`.
+`## test`. `check-panel-diff-size.sh` and `plan-dispatch-bundles.sh` are excluded for the same
+reason: they are `/myflow-do` helpers that likewise need a change in flight and a worktree passed
+in, so they are covered by their own harnesses under `## test` instead.
 
 **Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
 `ISOLATION-OK` and the fact that this repository declares no section; its own header carries its
