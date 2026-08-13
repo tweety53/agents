@@ -501,7 +501,7 @@ to pass the same containment test** the `## standards` entry resolution already 
 relative path with no lexical `..` segment that escapes only through a symlink is still caught; an
 argument that fails containment (for example `../../../etc/passwd`) SHALL make the reproducer
 unverifiable exactly as a failing path does. A reproducer line carrying a shell metacharacter
-anywhere on it (`| ; & $ \` < > ( ) { } ~ * ? [ ] # \ ' " \`), a leading `-` on the path token
+anywhere on it (`` | ; & $ ` < > ( ) { } ~ * ? [ ] # \ ' " ``), a leading `-` on the path token
 specifically (not on every token — `script.sh --strict` SHALL NOT be rejected on that account), or a
 URL SHALL NOT be run. A reproducer that fails any of these checks SHALL be recorded as unverifiable
 and put to the operator, never run — the line naming it is subagent-authored text, and the reviewed
