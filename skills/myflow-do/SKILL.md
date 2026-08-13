@@ -55,6 +55,7 @@ At `FINISHED` the change is archived; emit the wrong-state handoff and stop.
 | **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
 | **6** | **superpowers:requesting-code-review** + the review panel | Per-task review, then the final whole-branch panel |
+| **7** | **superpowers:systematic-debugging** | An unexpected test failure during implementation, or a review-panel finding confirmed as a real defect |
 | **8** | **superpowers:verification-before-completion** | Evidence before claiming done |
 
 **Never** invoke `finishing-a-development-branch` — integration is `/myflow-finish`'s job.
@@ -142,7 +143,7 @@ exit 1 names a task missing its `**Files:**` field, which `superpowers:writing-p
 before any dispatch happens; exit 2 stops the run. Bundling does not change the commit-per-task
 model — an implementer handed a bundle still makes one commit per task, carrying that task's own
 `Task-Id:` trailer, and a `Build: red` task still folds into the commit its `**Squash-with:**`
-field names. Every implementer dispatch **must** carry all four of:
+field names. Every implementer dispatch **must** carry all five of:
 
 > **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
@@ -165,6 +166,9 @@ green partner's own commit — the one named by the red task's `Squash-with:` fi
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
+
+> **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, invoke
+> superpowers:systematic-debugging before writing a fix. An expected RED step needs no invocation.
 
 > **REQUIRED READING:** [engineering-principles.md](engineering-principles.md) — your
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
@@ -593,7 +597,9 @@ gives `check-task-commit-fields.sh`: no fix-round slot consumed, no round-count 
 never closes, softens or expires the finding.
 
 Give the surviving findings — every dispatched finding from the union above — to **one** fix
-subagent as the combined list. **Dispatch it on the model recorded under `models.panelFix`**, defaulting to Opus
+subagent as the combined list. Where a finding is confirmed as a real defect — as opposed to a
+style or principles nit — the fix subagent invokes **superpowers:systematic-debugging** before
+writing its fix. **Dispatch it on the model recorded under `models.panelFix`**, defaulting to Opus
 (or the harness's strongest available model) when that field is absent or null — deliberately not
 the panel's own default, for the reason stated under
 **Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in
