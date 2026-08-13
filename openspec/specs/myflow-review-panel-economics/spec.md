@@ -434,10 +434,10 @@ the integration check.
 asking and stating the reason in the panel record, when any of the following holds:
 
 - the fix touched a file outside the set named in the findings;
-- the fix diff exceeds approximately 150 changed lines;
 - the fix altered a delta spec, a migration, or a guard's behaviour;
 - a targeted re-run surfaced a **new** Critical finding;
-- three or more fix rounds have already run.
+- three or more fix rounds have already run;
+- the fix diff exceeds approximately 150 changed lines **and** the diff adds a new file.
 
 **Every trigger in that set SHALL discriminate between fixes in the repository it runs in.** A
 condition that fires on every fix round of every change in a given repository selects nothing there:
@@ -449,6 +449,23 @@ The clause naming `a guard's behaviour` SHALL replace the earlier clause naming 
 which did not discriminate in a repository whose product is contracts. The narrowed clause still fires
 on a fix that changes a script's exit codes or its output, which is a real coverage reason and is not
 implied by the delta-spec clause: a guard's behaviour can change with no spec edit at all.
+
+**The size clause SHALL be an amplifier and SHALL NOT be an independent trigger.** A diff's length
+carries no risk signal on its own — a mechanical rename is large and harmless, and a one-line change
+to a guard's exit code is small and dangerous — so size alone selects almost as indiscriminately as
+the vacuous clause that preceded this narrowing. Once the earlier clause was narrowed, size became
+the dominant path to a full re-run, which is the same defect in a second place, and the same repair
+applies: narrow the condition rather than remove the escalation.
+
+**The signal size is paired with SHALL be `adds a new file`, and SHALL NOT restate the other risk
+signals in this set.** Each of those — a delta spec, a migration, a guard's behaviour, a file outside
+the set named in the findings — already escalates on its own clause above, so a conjunction naming
+them reaches no case the ladder does not already reach and is dead text in a trigger list, which is
+the same defect as a trigger that fires on everything. `adds a new file` is the one signal with no
+clause of its own, and the gap it closes is real: a large body of brand-new, wholly unreviewed code
+in a file the findings themselves named, which no other clause sees. A trigger set SHALL be checked
+for this on every edit — a condition that can never fire independently is as much a defect as one
+that always fires.
 
 Escalation SHALL remain a coverage decision and never a waiver: a targeted re-run SHALL still dispatch
 no fewer than two slots, and handoff SHALL still require zero open findings at any severity from every
@@ -469,6 +486,26 @@ slot that has run.
 
 - **WHEN** a trigger is observed to fire on every fix round of every change in a repository
 - **THEN** the condition is narrowed, and the escalation itself is not removed
+
+#### Scenario: A large mechanical fix carrying no risk signal stays Targeted
+
+- **WHEN** a fix round's diff exceeds approximately 150 changed lines and adds no new file, and no
+  other trigger in the set has fired
+- **THEN** the re-run is Targeted, and the panel record states that no escalation trigger fired
+
+#### Scenario: A large fix adding a new file escalates
+
+- **WHEN** a fix round's diff exceeds approximately 150 changed lines and adds a new file, and no
+  other trigger has fired — the new file's path is one the findings named, so the outside-the-set
+  clause does not fire
+- **THEN** the re-run escalates to Full, and the panel record names both the size and the new file
+
+#### Scenario: A condition that can never fire independently is a defect in the trigger
+
+- **WHEN** a trigger's condition is found to be reachable only when some other trigger has already
+  fired
+- **THEN** the condition is narrowed to the case it alone reaches, or removed, rather than left in
+  the set as text that selects nothing
 
 #### Scenario: Targeting is never a coverage waiver
 
@@ -532,17 +569,31 @@ command line failed a containment or shape check and was never executed at all �
 was killed at the bound and SHALL be recorded **unverifiable** and put to the operator, never read as
 either a pass or a fail, since a timeout is not an exit; **4** means the run cannot answer at all and
 is handled like an unreadable record. A reproducer still running at the bound SHALL be killed. A
-reproducer whose process double-forks or detaches (e.g. via `setsid`) and escapes the process-group
-kill SHALL, before being recorded unverifiable, have the same SIGTERM-then-grace-then-SIGKILL
-sequence retried against it, found by `run-reproducer.sh`'s own measured mechanism rather than by a
-`ps` keyword this platform does not have (`ps -o sid=` does not exist here, and `ps -o sess=` was
-measured to report `0` for every process tried); a child still alive after that attempt SHALL be
+reproducer whose process double-forks or detaches SHALL, before being recorded unverifiable, have the
+same SIGTERM-then-grace-then-SIGKILL sequence retried against it, found by `run-reproducer.sh`'s own
+measured mechanism rather than by a `ps` keyword this platform does not have (`ps -o sid=` does not
+exist here, and `ps -o sess=` was measured to report `0` for every process tried); a child still
+alive after that attempt SHALL be
 named to the operator, by `run-reproducer.sh`'s own exit-3 report, as a **surviving process**, with
 its pid, so it can be found and killed manually, rather than merely recorded unverifiable. A
 reproducer killed at the bound, or one whose child survives that retry, may already have written to
 the worktree; the worktree SHALL be re-checked (`git status`) before the run continues, and, for a
 surviving process, SHALL be re-checked again when the operator resumes, since nothing between the
 pause and the resume observed what the child wrote.
+
+**`run-reproducer.sh` SHALL launch the reproducer in a process group of its own**, so that a
+descendant which re-parents away from it remains findable and killable by group membership rather
+than by parentage. Parentage is not a sufficient mechanism: a grandchild whose intermediate parent
+exits within milliseconds re-parents to the init process before the first poll, and no
+parentage-based lookup can see it afterwards. The group SHALL be established without a shell ever
+seeing the reproducer line — the argv vector SHALL pass through untouched — so the direct-exec
+guarantee above is preserved. Survivor detection SHALL consult the process group alongside the
+descendant walk, and cleanup SHALL signal the group before falling back to that walk. Where the
+mechanism that establishes the group is unavailable at run time, the run SHALL refuse — recorded
+**unverifiable** and put to the operator — and SHALL NOT fall back to an ungrouped exec, since an
+ungrouped exec is the exact condition in which the survivor goes unseen. A reproducer that leaves
+the group deliberately, by calling `setsid` itself, is a stated residual limit documented beside the
+implementation, and no clean result SHALL claim to have covered it.
 
 A finding whose reproducer passed SHALL be **bounced once** to the slot that raised it, carrying the
 reproducer's passing output. If that slot's second reproducer also passes, the run SHALL stop and put
@@ -556,6 +607,14 @@ passing re-run alone SHALL NOT close a finding: the fix's diff SHALL also touch 
 the finding named.** A fix whose diff, for a given finding, touches only the reproducer's own target
 and no path the finding named SHALL NOT be treated as a fix; the finding stays open and goes to the
 operator through the handback prompt, carrying that fact as the reason.
+
+**The disqualifying condition is "no path the finding named", and the two clauses SHALL be read
+together rather than the first alone.** Where the reproducer's target *is* a path the finding named
+— the ordinary shape for a finding about a guard script, whose reproducer is that script's own test
+harness or the script itself — the fix is material, and a reading that disqualifies it inverts the
+condition into one that fails the commonest correct case. Every restatement of this condition in a
+skill or contract SHALL carry both clauses; a restatement that carries only the first is a defect in
+the restatement, not a narrowing of the requirement.
 
 A finding recorded `none — <reason>` SHALL be dispatched without a run: the rule binds findings
 claiming a mechanical defect, and a principles, prose or naming finding has no runnable check to
@@ -650,12 +709,25 @@ own test harness.
 
 #### Scenario: A detached reproducer child that survives is named to the operator, not merely logged unverifiable
 
-- **WHEN** a reproducer double-forks or detaches a child (e.g. via `setsid`), and that process is not
-  confirmed gone once the SIGTERM-to-SIGKILL grace elapses
-- **THEN** the same SIGTERM-then-grace-then-SIGKILL sequence is retried against the child's session
-  id, and a child still alive after that attempt is named to the operator as a surviving process with
-  its pid rather than merely recorded unverifiable, and the worktree is re-checked (`git status`) both
-  now and again when the operator resumes
+- **WHEN** a reproducer double-forks or detaches a child, and that process is not confirmed gone once
+  the SIGTERM-to-SIGKILL grace elapses
+- **THEN** the same SIGTERM-then-grace-then-SIGKILL sequence is retried against the reproducer's
+  process group, and a child still alive after that attempt is named to the operator as a surviving
+  process with its pid rather than merely recorded unverifiable, and the worktree is re-checked
+  (`git status`) both now and again when the operator resumes
+
+#### Scenario: A fast double fork is detected rather than missed
+
+- **WHEN** a reproducer double-forks a grandchild whose intermediate parent exits before the first
+  poll, so the grandchild has already re-parented and no parentage-based lookup can find it
+- **THEN** the process-group lookup finds it anyway, and the finding is recorded unverifiable with the
+  surviving process named, rather than reported as "defect not demonstrated"
+
+#### Scenario: A reproducer that leaves the group itself is a stated limit, not a silent miss
+
+- **WHEN** a reproducer calls `setsid` itself and thereby leaves the process group it was launched in
+- **THEN** the limitation is documented beside the implementation, and no clean result claims to have
+  covered it
 
 #### Scenario: A fixed finding's reproducer must now pass
 
@@ -670,6 +742,14 @@ own test harness.
   diff touches only the reproducer's own target and no path the finding named
 - **THEN** the finding is not closed; it stays open and is put to the operator through the handback
   prompt, carrying that fact as the reason
+
+#### Scenario: A fix to a path that is both the finding's target and the reproducer's is material
+
+- **WHEN** a dispatched finding names a path, the finding's reproducer targets that same path — the
+  ordinary shape for a finding about a guard script — and the fix's diff makes a non-comment,
+  non-whitespace change to it
+- **THEN** the fix is material and the finding closes on the reproducer's flip, since the materiality
+  condition disqualifies only a diff that touches **no** path the finding named
 
 #### Scenario: A missing reproducer line fails the guard
 
@@ -729,3 +809,4 @@ requirement.
 
 - **WHEN** a finding is bounced and the run reaches its handoff check
 - **THEN** the finding is still open and the handoff is blocked
+
