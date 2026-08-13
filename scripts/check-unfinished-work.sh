@@ -71,6 +71,23 @@ set -euo pipefail
 # asserts the allowlist behaves identically under both locales.
 export LC_ALL=C
 
+# THE LIBRARY IS RESOLVED FROM ${BASH_SOURCE[0]}, not the caller's working
+# directory, so a guard invoked from anywhere finds it. Readability is
+# checked before the source, not left to `set -e` to catch a failed source —
+# mirroring check-panel-reproducers.sh's own reproducer-metachars.sh source,
+# for the same reason: a missing or unreadable library would otherwise fail
+# `source` itself, and `set -e` would abort at exit 1, the code this guard's
+# own contract uses for "outstanding work found" rather than exit 2,
+# "cannot answer at all".
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+LIB="$SCRIPT_DIR/lib/panel-record.sh"
+if [ ! -r "$LIB" ]; then
+  echo "check-unfinished-work: cannot read $LIB — cannot determine the marker helper definitions" >&2
+  exit 2
+fi
+# shellcheck source=lib/panel-record.sh
+source "$LIB"
+
 WORKTREE="${1:-}"
 NAME="${2:-}"
 
@@ -89,12 +106,25 @@ fi
 # The rule is preserve-session-records.sh's Protection 1, character for
 # character, and its comment there is canonical for why each hazard is in it —
 # including the incident where `*` in a name "matched and overwrote a DIFFERENT
-# change's preserved record". THE COPY IS DELIBERATE. These guards are
-# single-file by design and are copied into projects one at a time (the finish
-# contract has an explicit "when the script is absent" path), so a sourced
-# helper would make a guard that is present but unrunnable — a worse failure
-# than a duplicated six-line `case`. Both harnesses assert the same rejected
-# shapes, which is what keeps the copies from drifting apart silently.
+# change's preserved record". THE `case` BLOCK ITSELF STAYS DUPLICATED, on
+# purpose, in this file and in check-panel-reproducers.sh: both harnesses
+# assert the same rejected shapes, which is what keeps the two copies from
+# drifting apart silently, and a six-line containment check gains nothing
+# from being centralized.
+#
+# THIS GUARD ALSO SOURCES scripts/lib/panel-record.sh, above — a DIFFERENT
+# kind of sharing than the `case` block, and not a contradiction of it.
+# setup.sh (this repository's only installer) copies skills/, rules/,
+# commands/ and the managed CLAUDE.md/AGENTS.md block into a project; it does
+# not distribute anything under scripts/ at all. Both this guard and
+# panel-record.sh are invoked from this repository by path, so the library
+# sits beside the guard that sources it and travels with it — there is no
+# scenario where one reaches a project without the other. A guard that
+# cannot source the library still refuses rather than checking less: it
+# exits 2 above, before this containment check runs, precisely because a
+# guard "present but unrunnable" is the failure this file's own header warns
+# against, and sourcing a library that is not there next to it is exactly
+# how that failure would happen.
 #
 # It also closes the symlink question at these paths: `-f` and `-d` follow
 # symlinks, so a name that cannot leave the change's own directory is what makes
@@ -138,52 +168,18 @@ unreadable() {
   exit 2
 }
 
-# count_matching <file> <ere> — how many lines of <file> match <ere>.
-#
-# `-a` ON EVERY GREP IN THIS FILE, and here is exactly what it is load-bearing
-# for. A record carrying one stray NUL byte — a bad merge, a truncated write —
-# puts grep into binary mode, where it suppresses output and reports "no match"
-# whatever the file contains.
-#
-# For a COUNT that fails safe on its own: every count drops to zero, which makes
-# the record look like one with no declared total, and a missing total is
-# outstanding. For `ids_of` it does NOT: both identifier lists come back empty,
-# empty equals empty, and the check that holds the findings table against the
-# marker block passes vacuously. That is the reassuring direction, so it is the
-# one this flag exists for; test-check-unfinished-work.sh case 4s-iii pins it
-# with a record whose two lists genuinely disagree. The flag is on the other
-# greps as defence in depth — the same input should not be read two ways by two
-# lines of the same guard.
-#
-# `grep -c` exits 1 on "no match", which is an answer (`0`) and not a failure,
-# and >= 2 on a real error — an unreadable file, a permission anomaly. A
-# blanket `|| true` cannot tell those apart and turns the error into `0`, i.e.
-# "nothing outstanding here". They are separated here: 0 and 1 return the count,
-# anything else returns non-zero for the caller to refuse on. Every caller below
-# refuses; that discipline is what keeps an unreadable file from reading as a
-# clean one.
-count_matching() {
-  local out rc=0
-  out="$(grep -acE "$2" "$1")" || rc=$?
-  if [ "$rc" -gt 1 ]; then
-    return "$rc"
-  fi
-  printf '%s\n' "${out:-0}"
-}
-
-# ids_of <file> <ere> — the digits of every match of <ere>, one per line,
-# sorted, so two such lists can be compared for equality with `=`. Used to hold
-# the findings table's row identifiers against the marker block's; see signal
-# two. `grep -o` is fed the same exit-code discipline as count_matching.
-ids_of() {
-  local raw rc=0
-  raw="$(grep -aoE "$2" "$1")" || rc=$?
-  if [ "$rc" -gt 1 ]; then
-    return "$rc"
-  fi
-  [ -n "$raw" ] || return 0
-  printf '%s' "$raw" | tr -cd '0-9\n' | sort
-}
+# count_matching and ids_of — how many lines of a file match an ERE, and the
+# finding identifiers of every matching line — are defined once in
+# scripts/lib/panel-record.sh, sourced above, and not reimplemented here. That
+# file's own header carries the disciplines load-bearing for both: `-a` on
+# every grep so a stray NUL byte cannot put grep into binary mode and turn a
+# corrupted record into a silent "no match"; the `rc > 1` split that
+# distinguishes grep's "no match" (an answer) from a real error (a refusal);
+# and `--` before every path. Every caller below refuses on a non-zero return
+# from either helper; that discipline is what keeps an unreadable file from
+# reading as a clean one. `ids_of` is called here with the `digits` shape —
+# bare digits, sorted, duplicates retained — which `repeated_ids` below
+# depends on.
 
 # repeated_ids <sorted-id-list> — the identifiers appearing more than once in a
 # list produced by ids_of, rendered `F<n>` and comma separated; empty when every
@@ -344,7 +340,7 @@ else
   M_WITHDRAWN="$(count_matching "$PANEL" '^finding-status: F[0-9]+ withdrawn[[:space:]]+[^[:space:]]')" || unreadable "$PANEL"
   M_NOREASON="$(count_matching "$PANEL" '^finding-status: F[0-9]+ withdrawn[[:space:]]*$')" || unreadable "$PANEL"
   T_NAMED="$(count_matching "$PANEL" 'findings-total:')" || unreadable "$PANEL"
-  T_WELLFORMED="$(count_matching "$PANEL" '^findings-total: (0|[1-9][0-9]*)[[:space:]]*$')" || unreadable "$PANEL"
+  T_WELLFORMED="$(count_matching "$PANEL" "^findings-total: ${PANEL_RECORD_TOTAL_DIGITS}[[:space:]]*\$")" || unreadable "$PANEL"
 
   # The four status patterns are mutually exclusive by construction — a marker
   # ends in `open`, ends in `fixed`, has a non-blank tail after `withdrawn`, or
@@ -361,7 +357,7 @@ else
   elif [ "$T_WELLFORMED" -ne 1 ]; then
     add "the review panel record's findings total is not a plain count — it must read 'findings-total: <n>'"
   else
-    TOTAL_LINE="$(grep -am1 -E '^findings-total: (0|[1-9][0-9]*)[[:space:]]*$' "$PANEL")" || unreadable "$PANEL"
+    TOTAL_LINE="$(grep -am1 -E -- "^findings-total: ${PANEL_RECORD_TOTAL_DIGITS}[[:space:]]*\$" "$PANEL")" || unreadable "$PANEL"
     # THE COUNT IS TAKEN WITH PARAMETER EXPANSION, and that is the fix. `read -r
     # _ n` splits on IFS, which does not include `\r`, so on a CRLF record the
     # count arrived as `1<CR>` and `[ … -ne … ]` exited 2 with "integer
@@ -415,8 +411,8 @@ else
 
   # The row identifiers against the marker identifiers, as sorted lists rather
   # than as counts, so that a duplicated identifier cannot balance a missing one.
-  ROW_IDS="$(ids_of "$PANEL" '^\|?[[:space:]]*F[0-9]+[[:space:]]*\|')" || unreadable "$PANEL"
-  MARKER_IDS="$(ids_of "$PANEL" '^finding-status: F[0-9]+ ')" || unreadable "$PANEL"
+  ROW_IDS="$(ids_of "$PANEL" '^\|?[[:space:]]*F[0-9]+[[:space:]]*\|' digits)" || unreadable "$PANEL"
+  MARKER_IDS="$(ids_of "$PANEL" '^finding-status: F[0-9]+ ' digits)" || unreadable "$PANEL"
   if [ "$ROW_IDS" != "$MARKER_IDS" ]; then
     add "the findings table and the marker block do not name the same findings — every row's F<n> needs exactly one 'finding-status: F<n> …' line and the reverse"
   fi

@@ -475,11 +475,19 @@ governs every slot in the roster. See **Panel re-runs** (`skills/myflow-do/SKILL
 why this scoping reaches conditional slots alone.
 
 **Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
-outside the set named in the findings; the fix diff exceeds ~150 changed lines; the fix altered a
-delta spec, a migration, or a guard's behaviour; a targeted re-run surfaced a **new** Critical
-finding; or three or more fix rounds have already run. A trigger that fires on every fix round of
-every change in a given repository selects nothing there, so where a trigger is found not to
-discriminate, the correct repair is to narrow the condition, not to remove the escalation.
+outside the set named in the findings; the fix altered a delta spec, a migration, or a guard's
+behaviour; a targeted re-run surfaced a **new** Critical finding; three or more fix rounds have
+already run; or the fix diff exceeds ~150 changed lines **and** adds a new file. Size alone carries
+no risk signal — a mechanical rename is large and harmless, a one-line change to a guard's behaviour
+is small and dangerous — so size never escalates on its own. **The signal it is paired with is `adds
+a new file` and nothing else, because every other risk signal already escalates by itself**: a delta
+spec, a migration, a guard's behaviour and a file outside the findings set each have their own clause
+above, so repeating them here would add no case the ladder does not already reach. What the pairing
+does reach is the one gap those clauses leave — a large body of brand-new, wholly unreviewed code in
+a file the findings themselves named. See the delta spec for the longer argument. A
+trigger that fires on every fix round of every change in a given repository selects nothing there,
+so where a trigger is found not to discriminate, the correct repair is to narrow the condition, not
+to remove the escalation.
 
 Targeting is a cost optimization, never a coverage waiver: a targeted re-run is never fewer than
 two agents, and handoff still requires **zero open findings at any severity** from every agent that
@@ -571,11 +579,14 @@ failed both before and after the fix for a reason unrelated to it, since it is t
 under the same constraints, not a fresh judgment call. **The flip alone does not close a
 finding — the fix's diff must also touch at least one path the finding named, with a non-comment,
 non-whitespace change in that hunk**, and preferably at the finding's own `file:line`. A fix whose
-diff, for a given finding, touches only the reproducer's own target, or touches a named path with
-no non-comment, non-whitespace change, is not a fix: the finding stays open and goes to the operator
-through the handback below, carrying that fact as the reason. See **Panel re-runs**
-(`skills/myflow-do/SKILL-rationale.md`) for why the re-run and the materiality condition are both
-needed.
+diff, for a given finding, touches only the reproducer's own target **and no path the finding
+named**, or touches a named path with no non-comment, non-whitespace change, is not a fix: the
+finding stays open and goes to the operator through the handback below, carrying that fact as the
+reason. Where the reproducer's target *is* a path the finding named — the ordinary shape for a
+finding about a guard script, whose reproducer is that script's own test harness or the script
+itself — the fix is material, and the finding closes on the reproducer's flip. See **Panel
+re-runs** (`skills/myflow-do/SKILL-rationale.md`) for why the re-run and the materiality condition
+are both needed.
 
 **A bounce is a guard-class failure, not a review finding** — the accounting section 4 already
 gives `check-task-commit-fields.sh`: no fix-round slot consumed, no round-count advance, and it

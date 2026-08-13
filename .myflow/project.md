@@ -55,6 +55,7 @@ scripts/test-check-panel-diff-size.sh
 scripts/test-plan-dispatch-bundles.sh
 scripts/test-check-panel-reproducers.sh
 scripts/test-run-reproducer.sh
+scripts/test-check-markdown-integrity.sh
 ```
 
 **Measured runtime: 118.63s for the commands above, against this harness's 120000ms default tool
@@ -73,6 +74,7 @@ scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
 scripts/check-workspace-isolation.sh
 scripts/check-contract-budget.sh
+scripts/check-markdown-integrity.py
 ```
 
 **There is no auto-fix command in this repository.** The Lint Fix Priority rule's "run the

@@ -23,12 +23,17 @@
 #
 # THE COMMAND IS DISPATCHED AS AN ARGUMENT VECTOR, NEVER A STRING THROUGH A
 # SHELL. The path token is resolved to a real file on disk and executed
-# directly, with its arguments passed as a bash array — `exec "$path"
-# "${args[@]}"` inside a subshell — so nothing in the reproducer's own text
-# is ever handed to a shell for interpretation. That is the guarantee the
-# prose this script replaces claimed and had nothing behind; the
-# shell-metacharacter checks below still run first, but they are now the
-# second layer of a real argv-exec barrier rather than the only one.
+# directly, with its arguments passed as a bash array. The exec itself goes
+# through a `python3 -c 'os.setsid(); os.execvp(...)'` shim (D4) so the
+# reproducer launches in a process group of its own — Darwin ships no
+# `setsid` binary — but the argv vector still passes through the shim
+# untouched: `os.execvp(sys.argv[1], sys.argv[1:])` hands the resolved path
+# and its arguments to the kernel exactly as given, so nothing in the
+# reproducer's own text is ever handed to a shell for interpretation. That
+# is the guarantee the prose this script replaces claimed and had nothing
+# behind; the shell-metacharacter checks below still run first, but they
+# are now the second layer of a real argv-exec barrier rather than the only
+# one.
 #
 # CONTAINMENT IS RESOLVED, NOT MERELY LEXICAL. check-panel-reproducers.sh
 # checks a panel record's reproducer lines lexically only — no leading `-`
@@ -202,6 +207,21 @@ for arg in "${ARGS[@]}"; do
 done
 
 # ---------------------------------------------------------------------
+# The process-group mechanism (D4) is checked before anything runs, exactly
+# like every containment check above it: a missing or non-functional
+# python3 is refused here, at exit 2, and the run never falls back to an
+# ungrouped exec, because an ungrouped exec is the exact condition in which
+# a re-parented survivor goes unseen. python3 is already a declared
+# dependency of this repository (`/usr/bin/python3`, standard library only)
+# for check-plan-provenance.py, so this widens nothing.
+# ---------------------------------------------------------------------
+
+PYTHON3_BIN="$(command -v python3 2>/dev/null || true)"
+if [ -z "$PYTHON3_BIN" ] || ! "$PYTHON3_BIN" -c 'import os' >/dev/null 2>&1; then
+  refuse "python3 is required to launch the reproducer in a process group of its own, and is missing or non-functional"
+fi
+
+# ---------------------------------------------------------------------
 # Execution, bounded, with a direct exec — the guarantee this script
 # exists to make true rather than merely claim.
 # ---------------------------------------------------------------------
@@ -314,15 +334,41 @@ collect_descendants() {
   done
 }
 
-# `set -m` is what puts the backgrounded subshell in a process group of its
-# own, so the group kill below reaches every process the reproducer forks —
-# not merely the one pid this script holds. stdin is /dev/null: this script
-# is non-interactive, and a reproducer that prompts for input must fail
-# rather than wait on a terminal nobody is watching.
-set -m
-( cd -- "$WORKTREE" && printf x >&$SENTINEL_FD && exec "$RESOLVED_PATH" "${ARGS[@]}" ) </dev/null >"$OUT_TMP" 2>"$ERR_TMP" &
+# `os.setsid()` (D4) is what puts the exec'd reproducer in a process group
+# of its own — a NEW session, with a NEW process group whose pgid equals
+# the calling process's own pid — so the group kill below reaches every
+# process the reproducer forks, even one that re-parents to launchd before
+# any poll ever observes it as a descendant. `os.setsid()` only succeeds
+# when the calling process is not already a process group leader, which is
+# why this backgrounds WITHOUT bash's own `set -m` job control: monitor
+# mode would make the subshell itself a group leader (pgid == its own pid)
+# before python3 ever runs, and `os.setsid()` on an already-leading process
+# fails with EPERM — measured directly: `bash -c 'set -m; ( python3 -c
+# "os.setsid()" ) & wait'` raises `PermissionError: [Errno 1] Operation not
+# permitted`. Without `set -m`, the backgrounded subshell inherits this
+# script's own process group instead of leading one, so `os.setsid()`
+# inside it always succeeds, and $CMD_PID below is both the pid python3
+# retains across its own `execvp` into the reproducer AND the pgid that
+# call establishes — the two are the same number from here on. The `--`
+# the design's own sketch used ahead of the argv vector is deliberately
+# absent: measured directly against this machine's python3 (3.14.6),
+# `python3 -c code -- foo bar` leaves the literal string `--` sitting in
+# `sys.argv[1]`, which `os.execvp(sys.argv[1], ...)` would then try to exec
+# as a file named `--`. $RESOLVED_PATH is always an absolute path inside
+# the worktree, never able to be mistaken for a python3 option, so passing
+# it as the first argument after the inline code needs no separator. stdin
+# is /dev/null: this script is non-interactive, and a reproducer that
+# prompts for input must fail rather than wait on a terminal nobody is
+# watching.
+( cd -- "$WORKTREE" && printf x >&$SENTINEL_FD && exec "$PYTHON3_BIN" -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "$RESOLVED_PATH" "${ARGS[@]}" ) </dev/null >"$OUT_TMP" 2>"$ERR_TMP" &
 CMD_PID=$!
-set +m
+# The process group pgrep/kill below target: os.setsid() sets the calling
+# process's own pgid to its own pid, and that calling process IS $CMD_PID
+# (python3 keeps its pid across execvp), so the two are numerically
+# identical. Named separately here anyway, rather than reusing $CMD_PID
+# inline everywhere below, so every group-targeted pgrep/kill call reads as
+# what it is.
+PGID="$CMD_PID"
 
 DESC_LOG=""
 {
@@ -362,19 +408,53 @@ $seen"
       seen="$(collect_descendants "$CMD_PID")"
       [ -n "$seen" ] && DESC_LOG="$DESC_LOG
 $seen"
-      kill -TERM -"$CMD_PID" 2>/dev/null || kill -TERM "$CMD_PID" 2>/dev/null || true
-      GRACE_DEADLINE=$((SECONDS + GRACE))
-      while kill -0 "$CMD_PID" 2>/dev/null && [ "$SECONDS" -lt "$GRACE_DEADLINE" ]; do sleep "$POLL"; done
-      kill -KILL -"$CMD_PID" 2>/dev/null || kill -KILL "$CMD_PID" 2>/dev/null || true
+      # No kill happens here. Signalling is deliberately deferred past this
+      # loop entirely, to the single point below where the pre-kill process
+      # group snapshot is taken — see the comment there for why a kill this
+      # early would have made that snapshot's own "before anything is
+      # signalled" claim false on exactly this path.
       break
     fi
     sleep "$POLL"
   done
-  set +e
-  wait "$CMD_PID"
-  RC=$?
-  set -e
 } 2>/dev/null
+
+# GROUP DETECTION, FIRST (D4) — a `pgrep -g "$PGID"` snapshot taken HERE, at
+# the one point in this function that provably precedes every `kill` call
+# below, on every path, timeout included. A second snapshot site used to
+# sit inside the timeout branch above and fire only there; that gave this
+# comment's own claim — "before anything is signalled" — two places to be
+# tested and only one of them true, which is how F4 slipped through: the
+# timeout branch's `kill -TERM`/`kill -KILL` used to run before this line
+# rather than after it, so a process reaped between that kill and this
+# snapshot never appeared in it and so was never named to the operator. The
+# timeout branch above now only sets $TIMED_OUT and breaks; every actual
+# kill, timeout or not, happens after this line, in the block that follows
+# it, which is what makes "before anything is signalled" true on every path
+# rather than only the early-exit one.
+#
+# This is what closes F54's residual gap: a fast double fork, whose
+# intermediate process exits within milliseconds, re-parents its grandchild
+# to launchd before $CMD_PID itself ever leaves the `while kill -0
+# "$CMD_PID"` loop, so $CMD_PID exits on its own well inside the bound and
+# $TIMED_OUT stays 0 — the exact condition under which the unpatched
+# script returned "defect not demonstrated" while a live process kept
+# running. `pgrep -g` answers by process group, never by parentage: a
+# process's pgid does not change when its ppid does, so this still finds a
+# process the descendant walk above lost the moment it was re-parented.
+#
+# Taken as a SNAPSHOT before any signal, rather than folded into a
+# separate group-scoped TERM/grace/KILL sequence of its own: `pgrep -g` is
+# a full process-table scan, measurably slower than the `kill -0 <exact
+# pid>` check the retry sweep below already uses, and that extra latency
+# was enough, measured directly, for a just-SIGKILLed process to be
+# reaped before a follow-up `pgrep -g` call could report it — silently
+# erasing the very survivor this detection exists to name. Feeding the
+# snapshot into the SAME retry sweep as the descendant walk's own KIDS,
+# below, keeps exactly one kill-and-report mechanism, the one already
+# proven (cases 10, 13) to catch the narrow not-yet-reaped window with a
+# tight, single-pid `kill -0` check and no added delay.
+GROUP_MEMBERS_PREKILL="$(pgrep -g "$PGID" 2>/dev/null || true)"
 
 # KIDS is the union of every "<pid> <depth>" line logged above, reduced to
 # one entry per pid (the deepest depth it was ever seen at — a pid does not
@@ -384,35 +464,120 @@ $seen"
 # below relies on: killing a parent before a still-uncollected child would
 # re-orphan that child mid-sweep, the exact defect this walk exists to stop
 # happening by omission.
+#
+# Computed HERE, before the timeout kill sequence below, rather than after
+# it: this is pure data massaging over $DESC_LOG and $GROUP_MEMBERS_PREKILL,
+# neither of which any kill below can change, so computing it earlier costs
+# nothing in correctness — but it costs a measured amount in latency
+# (`awk`/`sort`, each its own fork+exec). Measured directly on Darwin
+# 25.5.0: a same-group descendant killed by a *group-wide* `kill -KILL
+# -PGID` is typically reaped within roughly a millisecond — far faster than
+# the awk/sort pipeline this arithmetic runs, so computing KIDS after such
+# a kill routinely lost the race and silently emptied the very retry sweep
+# meant to catch the descendant. Computing it here, before that kill has
+# even been sent, removes the arithmetic from the gap entirely; the
+# escalation kill below is also scoped to $CMD_PID alone rather than the
+# whole group for the same measured reason — see the comment there.
 if [ -n "$DESC_LOG" ]; then
   KIDS="$(printf '%s\n' "$DESC_LOG" | awk 'NF==2 { d=$2+0; p=$1; if (!(p in maxd) || d>maxd[p]) maxd[p]=d } END { for (p in maxd) print maxd[p], p }' | sort -rn -k1,1 -k2,2n | awk '{print $2}')"
 else
   KIDS=""
 fi
 
-# RESIDUAL GAP, stated honestly rather than implied away: a grandchild that
-# re-parents (e.g. via a double fork whose middle process exits) to pid 1
-# BEFORE any poll iteration above ever observes it is invisible to this
-# technique. `pgrep -P` only ever answers "children of this still-tracked
-# pid right now" — once a process is reparented to init/launchd with no
-# poll having caught it as a descendant first, nothing run by this script
-# can walk back to it. `pgrep -P` remains the only tool available here:
-# `ps -o sid=` is not a valid keyword on this platform (F44) and `ps -o
-# sess=` was measured to report 0 for every process tried, real session
-# leader included, so neither can name a detached tree by session instead.
-# Polling on every iteration (not only at the bound) narrows this window as
-# far as it can be narrowed without a tool this platform does not have; it
-# does not close it.
+# The pre-kill group snapshot is folded into KIDS here, deduplicated, so
+# the SAME retry-and-report sweep below is the one backstop for both
+# detection paths — the walk still names pids the group pass would only
+# ever report as a bare count. This is also where a class the group
+# deliberately does NOT cover would surface: a reproducer that calls
+# `setsid` itself leaves the group on its own initiative, so `pgrep -g
+# "$PGID"` cannot see it — only the descendant walk above can, and only if
+# some poll caught it before it re-parented, which is the same residual
+# limit this script has always had for that one case (see the note below).
+if [ -n "$GROUP_MEMBERS_PREKILL" ]; then
+  for gp in $GROUP_MEMBERS_PREKILL; do
+    case " $KIDS " in
+      *" $gp "*) : ;;
+      *) KIDS="$KIDS $gp" ;;
+    esac
+  done
+  KIDS="${KIDS# }"
+fi
 
-# A detached child that left the reproducer's own process group is
-# untouched by the group kill above (on the timeout path) and was never
-# killed at all (on the path below, where the parent exited under the bound
-# on its own). Retry the same SIGTERM-then-grace-then-SIGKILL sequence
-# against every pid any poll above named, then report whichever of them is
+# The timeout kill sequence itself, deferred to here — strictly after the
+# snapshot and the KIDS arithmetic above, so that snapshot is provably the
+# first signal-adjacent thing on the timeout path too, exactly as it
+# already was on the early-exit path (nothing above this line sends any
+# signal on either path). `wait "$CMD_PID"` moved down here with it: on
+# the timeout path it must run after the kill, and keeping both paths'
+# wait in this one place is what keeps there being a single snapshot point
+# rather than a second one added back beside it.
+#
+# The initial SIGTERM still targets the whole group (`-"$CMD_PID"`, the
+# pgid form): a courtesy that lets an ordinary, non-detaching descendant
+# exit cleanly, exactly as before. The escalation to SIGKILL, though, is
+# scoped to `$CMD_PID` alone, never the group — this is the second half of
+# closing F4, not an unrelated change: a same-group descendant that
+# ignores SIGTERM (the exact shape $GROUP_MEMBERS_PREKILL exists to catch)
+# used to be reaped by this line's own group-wide `kill -KILL -PGID`
+# before the retry sweep below ever got to it, which measurably outran
+# that sweep's `kill -0` liveness check every time it was tried — the pid
+# was real and the kill was real, but nothing after this line could still
+# see it, so it was never named. Leaving that pid's kill to the retry
+# sweep instead — the same TERM-then-grace-then-SIGKILL-then-immediate-
+# check sequence already proven reliable for a detached survivor (cases
+# 10, 16) — still kills it, just via the one mechanism whose own
+# immediately-following check is known to win the reap race, rather than
+# a second, earlier kill call that only ever wins the race to erase it.
+{
+  if [ "$TIMED_OUT" -eq 1 ]; then
+    kill -TERM -"$CMD_PID" 2>/dev/null || kill -TERM "$CMD_PID" 2>/dev/null || true
+    GRACE_DEADLINE=$((SECONDS + GRACE))
+    while kill -0 "$CMD_PID" 2>/dev/null && [ "$SECONDS" -lt "$GRACE_DEADLINE" ]; do sleep "$POLL"; done
+    kill -KILL "$CMD_PID" 2>/dev/null || true
+  fi
+  set +e
+  wait "$CMD_PID"
+  RC=$?
+  set -e
+} 2>/dev/null
+
+# A courtesy SIGTERM to the whole process group — "kill by group first",
+# ahead of the per-pid retry sweep below — sent once, unconditionally, and
+# never waited on here: it is a best-effort head start for any group
+# member the retry sweep is about to walk individually anyway, harmless
+# when the group is already empty (a `kill` on a pgid with nothing left in
+# it simply errors, discarded like every other best-effort signal in this
+# script). The retry sweep below is what actually waits, escalates to
+# SIGKILL and reports — this line only ever shortens that sweep's own
+# grace window in practice, never replaces it.
+kill -TERM -- -"$PGID" 2>/dev/null || true
+
+# RESIDUAL GAP, stated honestly rather than implied away. Before this
+# task, a grandchild that re-parented to launchd before any poll observed
+# it was invisible outright: `pgrep -P` only ever answers "children of this
+# still-tracked pid right now", and once a process was reparented with no
+# poll having caught it as a descendant first, nothing run by this script
+# could walk back to it. The process group established at launch (D4)
+# closes that gap for the ordinary case — pgid survives re-parenting even
+# though ppid does not, so `pgrep -g "$PGID"` above finds it regardless of
+# how fast it detached. What remains open is narrower and different in
+# kind: a reproducer that calls `setsid` (or otherwise calls `setpgid` on
+# itself or a child) LEAVES the group deliberately, on its own initiative,
+# and no group-based lookup can see a process that removed itself from the
+# group being searched. That case still depends on the descendant walk
+# having caught the process before it left — the same limit `pgrep -P`
+# always had, now scoped to only this one case instead of every fast
+# double fork.
+
+# Retry the same SIGTERM-then-grace-then-SIGKILL sequence against every pid
+# any poll or group check above named, then report whichever of them is
 # still alive — checked UNCONDITIONALLY, on every run, not only when
 # $TIMED_OUT is 1: a child detached before the parent exits normally is
 # exactly as orphaned and exactly as unaccounted-for as one detached before
-# a kill, and the disposition below is the same either way.
+# a kill, and the disposition below is the same either way. This is the
+# backstop the group kill above falls back to, not a duplicate of it: a
+# pid killed here may already be dead from the group signal, in which case
+# `kill -0` below simply finds nothing left to do.
 if [ -n "${KIDS:-}" ]; then
   STILL=""
   for kid in $KIDS; do

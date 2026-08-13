@@ -389,8 +389,107 @@ expect_exit_and_names 'case 15: a missing reproducer-metachars.sh is cannot-answ
   "$MISSING_DEP_DIR/run-reproducer.sh" "$wt" "scripts/ok.sh"
 assert_not_ran 'case 15' "$wt"
 
+# ===========================================================================
+# 16. A FAST double fork — the intermediate exits before run-reproducer.sh's
+#     very first poll can ever observe the grandchild as $CMD_PID's own
+#     descendant, unlike case 14's slower two-level fork (whose intermediate
+#     lives 0.6s, long enough for at least one 0.2s poll to see it via
+#     collect_descendants). Here the intermediate backgrounds the
+#     grandchild and exits with no delay at all: before task 6's fix, this
+#     re-parents the grandchild to launchd before collect_descendants' very
+#     first call can ever run, and a parentage walk can never see it again
+#     afterwards — measured directly against the unpatched script, which
+#     returned exit 1 "defect not demonstrated" here while leaving a real
+#     `sleep 31` process running under launchd. Only the process group
+#     task 6 establishes at launch (D4) — which survives re-parenting,
+#     since re-parenting changes ppid, never pgid — can still find it. The
+#     grandchild ignores SIGTERM so the SIGKILL path is exercised
+#     deterministically, matching cases 10, 13 and 14's own fixtures.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/doublefork-fast.sh" '( bash -c "trap \"\" TERM; sleep 31" & )
+exit 0'
+set +e
+out16="$(RUN_REPRODUCER_GRACE_SECONDS=1 "$GUARD" "$wt" "scripts/doublefork-fast.sh" 2>&1)"
+got16=$?
+set -e
+fastfork_pid="$(printf '%s\n' "$out16" | grep -oE 'pid\(s\): [0-9]+' | grep -oE '[0-9]+' || true)"
+if [ "$got16" -eq 3 ] && [[ "$out16" == *'surviving process'* ]] && [ -n "$fastfork_pid" ]; then
+  printf 'ok: %s\n' 'case 16: a fast double-forked grandchild that re-parents before the first poll is still named with its pid'
+else
+  printf 'FAIL %s: expected exit 3 naming a surviving grandchild pid, got exit %s\n%s\n' 'case 16: a fast double-forked grandchild that re-parents before the first poll is still named with its pid' "$got16" "$out16"
+  FAILED=1
+fi
+# Best-effort cleanup mirroring cases 10, 13 and 14's own pkill below, plus a
+# direct kill of the pid the guard itself named, so a failing assertion
+# still leaves nothing running on the machine running the suite.
+[ -n "$fastfork_pid" ] && kill -KILL "$fastfork_pid" >/dev/null 2>&1 || true
+pkill -9 -f 'trap .* TERM; sleep 31' >/dev/null 2>&1 || true
+
+# ===========================================================================
+# 17. Control: an ordinary, non-forking reproducer still demonstrates the
+#     defect exactly as case 1 does, and leaves no trace of itself running
+#     afterward — proving the process-group wrapper task 6 adds at the exec
+#     point did not change the normal, non-forking path any of cases 1-15
+#     already exercise. The reproducer's own marker argument, unique per
+#     run, is passed on its command line so a lingering copy of the exec'd
+#     process (a broken shim leaving a zombie behind, for instance) would
+#     still be found by `pgrep -f` even after this script's own $GUARD call
+#     has returned and its own bookkeeping is done.
+# ===========================================================================
+wt="$(make_worktree)"
+marker17="run-reproducer-test-case17-$$-$RANDOM"
+fixture "$wt" "scripts/ordinary17.sh" "exit 5"
+expect_exit 'case 17: an ordinary non-forking reproducer still demonstrates the defect' 0 "$GUARD" "$wt" "scripts/ordinary17.sh $marker17"
+if pgrep -f "$marker17" >/dev/null 2>&1; then
+  printf 'FAIL %s: a process carrying the reproducer'"'"'s own marker survived the run\n' 'case 17'
+  FAILED=1
+else
+  printf 'ok: %s\n' 'case 17: no process is left behind'
+fi
+
+
+# ===========================================================================
+# 18. F4: the SAME fast double fork as case 16, but this time the top-level
+#     reproducer does NOT exit on its own — it sleeps well past the bound,
+#     so run-reproducer.sh actually takes the TIMEOUT branch (unlike case
+#     16, which pins the early-exit path). The grandchild ignores SIGTERM
+#     and stays in $CMD_PID's own process group (no setsid of its own), and
+#     its immediate parent exits with no delay, re-parenting it before the
+#     very first poll — exactly the shape only the pre-kill `pgrep -g`
+#     snapshot can see, per case 16's own comment.
+#
+#     Before task 6's restructuring, that snapshot was taken AFTER the
+#     timeout branch's own blind `kill -TERM -PGID` / `kill -KILL -PGID`
+#     had already run: by the time the snapshot's `pgrep -g` call fired,
+#     the grandchild had already been signalled (and was often already
+#     reaped), so it was silently absent from the snapshot, absent from
+#     $KIDS, and absent from the operator report — an exit 3 that never
+#     said "surviving process", even though a real process only died
+#     because a blind, unnamed kill happened to reach it. This case pins
+#     exactly that path and must fail against the unfixed script.
+# ===========================================================================
+wt="$(make_worktree)"
+fixture "$wt" "scripts/doublefork-timeout.sh" '( bash -c "trap \"\" TERM; sleep 30" & )
+sleep 30'
+set +e
+out18="$(RUN_REPRODUCER_BOUND_SECONDS=2 RUN_REPRODUCER_GRACE_SECONDS=1 "$GUARD" "$wt" "scripts/doublefork-timeout.sh" 2>&1)"
+got18=$?
+set -e
+timeoutfork_pid="$(printf '%s\n' "$out18" | grep -oE 'pid\(s\): [0-9]+' | grep -oE '[0-9]+' || true)"
+if [ "$got18" -eq 3 ] && [[ "$out18" == *'surviving process'* ]] && [ -n "$timeoutfork_pid" ]; then
+  printf 'ok: %s\n' 'case 18: a fast double-forked grandchild is still named on the timeout path'
+else
+  printf 'FAIL %s: expected exit 3 naming a surviving grandchild pid on the timeout path, got exit %s\n%s\n' 'case 18: a fast double-forked grandchild is still named on the timeout path' "$got18" "$out18"
+  FAILED=1
+fi
+# Best-effort cleanup mirroring case 16's own, so a failing assertion still
+# leaves nothing running on the machine running the suite.
+[ -n "$timeoutfork_pid" ] && kill -KILL "$timeoutfork_pid" >/dev/null 2>&1 || true
+pkill -9 -f 'trap .* TERM; sleep 30' >/dev/null 2>&1 || true
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'test-run-reproducer: one or more cases failed\n' >&2
   exit 1
 fi
-printf 'test-run-reproducer: all 15 cases plus the metacharacter loop and its control pass\n'
+printf 'test-run-reproducer: all 18 cases plus the metacharacter loop and its control pass\n'

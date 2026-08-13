@@ -627,8 +627,33 @@ cp "$GUARD" "$MISSING_DEP_DIR/check-panel-reproducers.sh"
 expect_exit_and_names 'case 37: a missing reproducer-metachars.sh is cannot-answer, not violations-found' 2 'cannot read' \
   "$MISSING_DEP_DIR/check-panel-reproducers.sh" "$wt"
 
+# ===========================================================================
+# 38. A missing scripts/lib/panel-record.sh is likewise cannot-answer (exit
+#     2), not violations-found (exit 1) — the spec's "A missing library is a
+#     refusal" scenario (F4). Same shape as case 37, and deliberately kept
+#     separate from it rather than folded together: the two are different
+#     sourced dependencies, checked by two different `[ ! -r ... ]` guards in
+#     check-panel-reproducers.sh, and a regression in either one must fail on
+#     its own rather than needing the other's fixture to also be right.
+#     Exercised against a REAL copy of the guard, sitting in its own sandbox
+#     directory with a well-formed panel record and reproducer-metachars.sh
+#     present, but deliberately no lib/panel-record.sh beside it — never the
+#     real scripts/lib/panel-record.sh, which this case does not touch.
+# ===========================================================================
+wt="$(make_worktree 'findings-total: 1
+finding-status: F1 fixed
+
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
+MISSING_LIB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test-missing-lib.XXXXXX")"
+WORKTREES+=("$MISSING_LIB_DIR")
+cp "$GUARD" "$MISSING_LIB_DIR/check-panel-reproducers.sh"
+cp "$SCRIPT_DIR/reproducer-metachars.sh" "$MISSING_LIB_DIR/reproducer-metachars.sh"
+expect_exit_and_names 'case 38: a missing lib/panel-record.sh is cannot-answer, not violations-found' 2 'cannot read' \
+  "$MISSING_LIB_DIR/check-panel-reproducers.sh" "$wt"
+
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducers-test: one or more cases failed\n' >&2
   exit 1
 fi
-printf 'check-panel-reproducers-test: all 37 cases plus the metacharacter loop pass\n'
+printf 'check-panel-reproducers-test: all 38 cases plus the metacharacter loop pass\n'

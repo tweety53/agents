@@ -42,6 +42,19 @@ fi
 # shellcheck source=reproducer-metachars.sh
 source "$SCRIPT_DIR/reproducer-metachars.sh"
 
+# THE MARKER HELPERS (count_matching, grep_lines_of, ids_of) ARE DEFINED ONCE,
+# in scripts/lib/panel-record.sh, sourced by this guard and by
+# check-unfinished-work.sh — not reimplemented here. Same readability-before-
+# source discipline as reproducer-metachars.sh above, and for the same
+# reason: a missing or unreadable library must be this guard's own exit 2,
+# "cannot answer at all", never exit 1's "violations found".
+if [ ! -r "$SCRIPT_DIR/lib/panel-record.sh" ]; then
+  echo "check-panel-reproducers: cannot read $SCRIPT_DIR/lib/panel-record.sh — cannot determine the marker helper definitions" >&2
+  exit 2
+fi
+# shellcheck source=lib/panel-record.sh
+source "$SCRIPT_DIR/lib/panel-record.sh"
+
 WORKTREE="${1:-}"
 [[ -n "$WORKTREE" && -d "$WORKTREE" ]] || { echo "check-panel-reproducers: not a directory: ${WORKTREE:-<missing>}" >&2; exit 2; }
 # Canonicalise to an absolute path before it is ever concatenated into a
@@ -106,78 +119,24 @@ if od -An -c -- "$PANEL" | grep -q '\\0'; then
   add "the panel record contains a NUL byte — bash cannot hold one in a variable once read, and no legitimate record has a reason to carry one"
 fi
 
-# count_matching <ere> — how many lines of the panel record match <ere>.
-# `grep -c` exits 1 on "no match", which is an answer (0) and not a failure,
-# and >= 2 on a real error — an unreadable file, a permission anomaly. A
-# blanket `|| true` cannot tell those apart and turns the error into `0`,
-# i.e. "nothing outstanding here"; they are separated here instead, mirroring
-# check-unfinished-work.sh's own count_matching. `--` guards every
-# invocation against a record path that begins with `-`.
-count_matching() {
-  local out rc=0
-  out="$(grep -acE -- "$1" "$PANEL")" || rc=$?
-  if [ "$rc" -gt 1 ]; then
-    return "$rc"
-  fi
-  printf '%s\n' "${out:-0}"
-}
+# count_matching, grep_lines_of and ids_of are defined once in
+# scripts/lib/panel-record.sh, sourced above, and not reimplemented here.
+# `lines_of` and `full_lines_of` stay as this guard's own mode-bound call-site
+# sugar — callers read better naming which shape they want — now forwarding to
+# the library's `grep_lines_of` with the panel record as the file argument
+# every other call site below also supplies explicitly.
+lines_of() { grep_lines_of "$PANEL" match "$1"; }
+full_lines_of() { grep_lines_of "$PANEL" line "$1"; }
 
-# grep_lines_of <mode> <ere> — every match of <ere> in the panel record, one
-# per line, raw and NOT deduplicated. `lines_of` and `full_lines_of` below are
-# the two mode-bound callers and were previously two near-duplicate bodies
-# differing only in grep's `-o` flag; they are kept as separate names because
-# callers read better naming which shape they want, but the body — the exit
-# code discipline, the `-a` for a stray NUL byte, the `--` guarding a record
-# path beginning with `-` — lives here once.
-#   mode "match" — `grep -o`: only the substring the pattern matched, for
-#     callers that need to see repeats (the duplicate-identifier check) or
-#     line numbers (the unbroken-span check).
-#   mode "line" — plain `grep -E`: the whole matching line, for callers that
-#     need the full command text. An anchor pattern that only asserts "some
-#     non-space character follows the identifier" (as the reproducer anchor
-#     does) would hand a caller that wants the whole command, under mode
-#     "match", just that one character.
-# Empty, with a clean 0 return, when nothing matches — the same exit-code
-# discipline as count_matching.
-grep_lines_of() {
-  local mode="$1" ere="$2" raw rc=0 opt
-  case "$mode" in
-    match) opt='-aoE' ;;
-    line) opt='-aE' ;;
-    *)
-      echo "grep_lines_of: unknown mode '$mode'" >&2
-      return 2
-      ;;
-  esac
-  raw="$(grep "$opt" -- "$ere" "$PANEL")" || rc=$?
-  if [ "$rc" -gt 1 ]; then
-    return "$rc"
-  fi
-  [ -n "$raw" ] && printf '%s\n' "$raw"
-  return 0
-}
+# The identifiers of every line in the panel record matching a pattern,
+# de-duplicated for use as a set (`ids-unique`, the shape this guard's
+# comparisons need — see scripts/lib/panel-record.sh for why both shapes
+# exist and neither is default).
+STATUS_IDS="$(ids_of "$PANEL" '^finding-status: F[0-9]+ [^[:space:]]' ids-unique)" || unreadable
+REPRO_IDS="$(ids_of "$PANEL" '^finding-reproducer: F[0-9]+ [^[:space:]]' ids-unique)" || unreadable
 
-lines_of() { grep_lines_of match "$1"; }
-full_lines_of() { grep_lines_of line "$1"; }
-
-# ids_of <ere> — the identifiers of every line in the panel record matching
-# <ere>, sorted and de-duplicated for use as a set. `grep -a` keeps a stray
-# NUL byte from putting grep into binary mode, where it suppresses output
-# and reports "no match" whatever the file contains. The second-stage grep
-# never fails here: it runs only once `raw` is confirmed non-empty, and
-# every line in `raw` matched a pattern that already contains `F[0-9]+`.
-ids_of() {
-  local raw
-  raw="$(lines_of "$1")" || return "$?"
-  [ -n "$raw" ] || return 0
-  printf '%s\n' "$raw" | grep -aoE 'F[0-9]+' | sort -u
-}
-
-STATUS_IDS="$(ids_of '^finding-status: F[0-9]+ [^[:space:]]')" || unreadable
-REPRO_IDS="$(ids_of '^finding-reproducer: F[0-9]+ [^[:space:]]')" || unreadable
-
-R_ANCHORED="$(count_matching '^finding-reproducer: F[0-9]+ [^[:space:]]')" || unreadable
-R_NAMED="$(count_matching 'finding-reproducer:')" || unreadable
+R_ANCHORED="$(count_matching "$PANEL" '^finding-reproducer: F[0-9]+ [^[:space:]]')" || unreadable
+R_NAMED="$(count_matching "$PANEL" 'finding-reproducer:')" || unreadable
 if [ "$R_NAMED" -ne "$R_ANCHORED" ]; then
   add "$((R_NAMED - R_ANCHORED)) line(s) naming finding-reproducer: that are not marker lines — a marker must begin its line, as 'finding-reproducer: F<n> <command | none — reason>'"
 fi
@@ -193,8 +152,8 @@ fi
 # it is followed by a letter, not a word boundary). NONE_REASONED is the
 # subset of those that go on to carry ` — ` and a reason. The difference
 # between the two is exactly the bare-`none`-with-no-reason defect.
-NONE_WORD="$(count_matching '^finding-reproducer: F[0-9]+ none([[:space:]]|$)')" || unreadable
-NONE_REASONED="$(count_matching '^finding-reproducer: F[0-9]+ none — [^[:space:]]')" || unreadable
+NONE_WORD="$(count_matching "$PANEL" '^finding-reproducer: F[0-9]+ none([[:space:]]|$)')" || unreadable
+NONE_REASONED="$(count_matching "$PANEL" '^finding-reproducer: F[0-9]+ none — [^[:space:]]')" || unreadable
 NONE_BARE=$((NONE_WORD - NONE_REASONED))
 if [ "$NONE_BARE" -gt 0 ]; then
   add "$NONE_BARE reproducer line(s) declare 'none' with no reason — the exemption form is 'none — <reason>', not a bare 'none'"
@@ -320,15 +279,15 @@ fi
 # the malformed duplicate passed unreported at exit 0 because nothing was
 # ever counting lines that merely NAME reproducers-total: regardless of
 # shape.
-T_NAMED="$(count_matching '^reproducers-total:')" || unreadable
-T_WELLFORMED="$(count_matching '^reproducers-total: (0|[1-9][0-9]{0,14})[[:space:]]*$')" || unreadable
+T_NAMED="$(count_matching "$PANEL" '^reproducers-total:')" || unreadable
+T_WELLFORMED="$(count_matching "$PANEL" "^reproducers-total: ${PANEL_RECORD_TOTAL_DIGITS}[[:space:]]*\$")" || unreadable
 if [ "$T_NAMED" -ne "$T_WELLFORMED" ]; then
   add "$((T_NAMED - T_WELLFORMED)) line(s) naming reproducers-total: that are not well-formed — a count line must read 'reproducers-total: <n>' with no leading zero and no sign"
 fi
 if [ "$T_WELLFORMED" -ne 1 ]; then
   add "the panel record must carry exactly one 'reproducers-total: <n>' line"
 else
-  DECLARED_LINE="$(grep -am1 -E -- '^reproducers-total: (0|[1-9][0-9]{0,14})[[:space:]]*$' "$PANEL")" || unreadable
+  DECLARED_LINE="$(grep -am1 -E -- "^reproducers-total: ${PANEL_RECORD_TOTAL_DIGITS}[[:space:]]*\$" "$PANEL")" || unreadable
   DECLARED="$(printf '%s\n' "$DECLARED_LINE" | grep -oE '[0-9]+')"
   if [ "$DECLARED" != "$R_ANCHORED" ]; then
     add "the panel record declares reproducers-total: $DECLARED but carries $R_ANCHORED finding-reproducer: marker line(s)"
