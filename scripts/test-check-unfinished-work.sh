@@ -504,6 +504,18 @@ run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a total that is not a plain count is OUTSTANDING"
 assert_reason "not a plain count" "a malformed total names its signal"
 
+# 4p-i. A findings-total: digit run long enough to overflow shell arithmetic
+#     (26 digits) is bounded out at the pattern, the same bound
+#     check-panel-reproducers.sh already applies to reproducers-total. It must
+#     be reported as malformed — "not a plain count" — never read as a total
+#     and held against the marker count, which is the disagreement message a
+#     shorter, well-formed mismatch gets.
+new_fixture
+write_panel "12345678901234567890123456" fixed
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "an oversized total is OUTSTANDING at exit 0, not a refusal at exit 2"
+assert_reason "not a plain count" "an oversized total is reported malformed, not compared as a total"
+
 # 4q. THE DRIFT THIS DESIGN MUST NOT HIDE: a row written with no marker beside it.
 #     The declared total still counts the finding, so the checksum disagrees with
 #     the marker block and the record is outstanding. Both numbers are named, so
@@ -873,6 +885,30 @@ run_guard "" ""
   || fail "missing arguments: expected exit 2, got rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "missing arguments: emits no verdict line" \
   || fail "missing arguments: emitted a verdict line: $OUT"
+
+# 11. A missing library is a refusal (spec scenario, F4): a copy of this guard
+#    with no lib/panel-record.sh beside it cannot source the marker helpers
+#    and must exit 2, naming the problem, rather than continuing with a
+#    reduced set of checks. The copy is made in a throwaway sandbox — never
+#    the real scripts/lib/panel-record.sh, which is not touched — so a
+#    failure partway through this case cannot corrupt the working tree.
+NOLIB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-nolib-test.XXXXXX")"
+SANDBOXES+=("$NOLIB_DIR")
+cp "$GUARD" "$NOLIB_DIR/check-unfinished-work.sh"
+chmod +x "$NOLIB_DIR/check-unfinished-work.sh"
+set +e
+OUT="$("$NOLIB_DIR/check-unfinished-work.sh" "$WORK" demo 2>"$ERRFILE")"
+RC=$?
+set -e
+ERR="$(cat "$ERRFILE")"
+[ "$RC" -eq 2 ] && pass "a guard copy with no lib/panel-record.sh beside it exits 2" \
+  || fail "missing library: expected exit 2, got rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "a guard copy with no lib/panel-record.sh beside it emits no verdict line" \
+  || fail "missing library: emitted a verdict line: $OUT"
+case "$ERR" in
+  *"panel-record.sh"*) pass "a guard copy with no lib/panel-record.sh beside it names the missing library on stderr" ;;
+  *) fail "missing library: stderr does not name panel-record.sh: $ERR" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

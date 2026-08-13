@@ -10,7 +10,13 @@ noise in every repo that has none.
 
 **A scanned key is a guess, and a wrong guess is not recoverable.** `jiraIssue` drives irreversible
 external writes — In Progress → In Review → **Done**, plus description edits — possibly on someone
-else's ticket, and transitions are forward-only, so nothing walks a wrong one back. Therefore:
+else's ticket, and transitions are forward-only, so nothing walks a wrong one back. Therefore the
+asymmetry decides it: asking costs one prompt, and guessing wrong costs an irreversible write on
+someone else's ticket, so a key the command merely *noticed* must be affirmed before it can drive
+one, while a key the operator typed needs no such affirmation because they already affirmed it by
+typing it. The procedure that follows is
+**Resolution (how `jiraIssue` is decided)** (`skills/myflow-contracts/jira-integration.md`), which
+is canonical for it and is deliberately not restated here.
 
 ### Change naming
 
