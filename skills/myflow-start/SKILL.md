@@ -92,7 +92,30 @@ running.
 brainstorming, so the board is correct while planning runs. A failure is one skipped-with-reason
 line and planning continues; nothing about this call may delay or alter the proposal.
 
+**Mark this stage now that the name is fixed**, per **Stage marks**
+(`skills/myflow-contracts/pipeline.md`) — a failed mark never blocks, delays or alters anything
+above or below it. On a revision round the name was already known at the top of this section, so
+`begin` may fire there; on a creating run the name is what this section produces, so `begin` and
+`end` fire together, back to back, only now — never before, since `myflow stage begin`'s `<change>`
+argument requires a name that does not exist until this point:
+
+```bash
+myflow stage begin -command '/myflow-start' -stage 'resolve the change' <name>
+myflow stage end   -command '/myflow-start' -stage 'resolve the change' -outcome completed <name>
+```
+
 ## Ask the planning effort, the models, and the review panel roster — creating runs only
+
+**This stage runs, and is marked, only on the run that creates the change** — its own name in the
+Level 1 table carries `*(creating run only)*` for exactly that reason. A revision round asks nothing
+here and marks nothing here either; per **Stage marks** (`skills/myflow-contracts/pipeline.md`), a
+failed mark never blocks, delays or alters anything below:
+
+```bash
+myflow stage begin -command '/myflow-start' \
+  -stage 'ask the planning effort, the three model choices and the review panel roster *(creating run only)*' \
+  <name>
+```
 
 **Ask once, on the run that creates the change**, and never again for it. "Creates" means the state
 file does not exist — not a guess about the operator or the conversation. All five questions below
@@ -154,7 +177,19 @@ recorded a level under the old key would otherwise be reused at `default` rather
 the operator chose, and this run then writes that mistake back. See
 **Planning effort** (`skills/myflow-contracts/state-file.md`).
 
+On a creating run, close the stage once all four questions are answered and recorded:
+
+```bash
+myflow stage end -command '/myflow-start' \
+  -stage 'ask the planning effort, the three model choices and the review panel roster *(creating run only)*' \
+  -outcome completed <name>
+```
+
 ## B. Basic Workflow #1 — Brainstorming
+
+```bash
+myflow stage begin -command '/myflow-start' -stage 'brainstorm' <name>
+```
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
@@ -239,9 +274,21 @@ own judgment** (`skills/myflow-contracts/pipeline.md`).
 **The two prompts recommend opposite courses, and each is honest because of its own trigger — do
 not harmonise them.** See **Convergence** (`skills/myflow-start/SKILL-rationale.md`) for why.
 
+The convergence loop's own exit — an explicit **move on** at the confirm above — is what closes the
+checklist itself; the **design approval** the HARD GATE requires is a separate, later act by the
+same operator and gets its own mark:
+
+```bash
+myflow stage end   -command '/myflow-start' -stage 'brainstorm' -outcome completed <name>
+myflow stage begin -command '/myflow-start' -stage 'design approval' <name>
+# … the operator approves the design — this is the HARD GATE above …
+myflow stage end   -command '/myflow-start' -stage 'design approval' -outcome completed <name>
+```
+
 ## C. Create the change and its artifacts
 
 ```bash
+myflow stage begin -command '/myflow-start' -stage 'create the OpenSpec artifacts' <name>
 openspec new change "<name>"
 openspec status --change "<name>" --json
 openspec instructions <artifact-id> --change "<name>" --json
@@ -316,7 +363,15 @@ What this section holds is what the `STARTED` handoff counts. That line is defin
 **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`), which also states why it
 is regenerable rather than run-only.
 
+```bash
+myflow stage end -command '/myflow-start' -stage 'create the OpenSpec artifacts' -outcome completed <name>
+```
+
 ## D. Basic Workflow #3 — Writing plans
+
+```bash
+myflow stage begin -command '/myflow-start' -stage 'writing-plans' <name>
+```
 
 Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
@@ -355,7 +410,15 @@ Add this header to `tasks.md`:
 Before publishing the artifact, run the project's configured plan-provenance guard and its
 configured build-green guard, if the project declares them, and fix any hit.
 
+```bash
+myflow stage end -command '/myflow-start' -stage 'writing-plans' -outcome completed <name>
+```
+
 ## E. Publish the proposal artifact
+
+```bash
+myflow stage begin -command '/myflow-start' -stage 'publish the proposal artifact' <name>
+```
 
 Load the `artifact-design` skill, then build one self-contained page carrying the proposal's why
 and what, the design including `## Decisions` and `## Open questions`, the delta specs, and the
@@ -371,7 +434,15 @@ republishes to this **same** path, which is what keeps the URL stable.
 
 Record the returned URL as `artifactUrl`. This page is what the human reads at `STARTED`.
 
+```bash
+myflow stage end -command '/myflow-start' -stage 'publish the proposal artifact' -outcome completed <name>
+```
+
 ## F. Write state and hand off
+
+```bash
+myflow stage begin -command '/myflow-start' -stage 'write `STARTED`' <name>
+```
 
 Write the state file per **State file** (`skills/myflow-contracts/state-file.md`):
 
@@ -400,6 +471,10 @@ The In Progress transition already happened in section **A**. Sync added scope h
 when this run added scope the issue does not already describe.
 
 Stage the planning artifacts. The state file lives outside the repo — never `git add` it.
+
+```bash
+myflow stage end -command '/myflow-start' -stage 'write `STARTED`' -outcome completed <name>
+```
 
 ```
 ## Proposal ready — review required

@@ -221,6 +221,42 @@ steps are done, in progress and open, followed by one line per step marked done 
 harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 (`skills/myflow-contracts/pipeline-rationale.md`) for why the rule is stated against the mechanism.
 
+## Stage marks
+
+Every `/myflow-*` pipeline command — `/myflow-start`, `/myflow-do`, `/myflow-finish` and
+`/myflow-fast` — marks each of its own stages: `myflow stage begin` when the stage starts,
+`myflow stage end` when it closes, both naming the command, the stage and the change. The stage
+names are exactly the ones in **Level 1 — the stages of each command** (`README.md`) — that table is
+restated nowhere here, on purpose: a second copy is exactly what its own README-parsing test
+(`stats/internal/stages/names_test.go`) exists to make impossible. Each skill's own mark calls sit at
+that skill's own stage boundaries, in that skill's own `SKILL.md`, and name the stage exactly as its
+row spells it — markdown formatting, backticks and all, since the CLI compares the `-stage` value
+byte for byte against the documented name and rejects anything else, naming the documented
+alternatives.
+
+```bash
+myflow stage begin -command '/myflow-do' -stage 'the review panel' <name>
+# … the stage's own work …
+myflow stage end   -command '/myflow-do' -stage 'the review panel' -outcome completed <name>
+```
+
+**A mark never blocks, delays, or alters the stage it marks.** On any store failure the CLI
+journals the intent, prints one warning line, and exits 0 — the same never-block guarantee **State
+file** (`skills/myflow-contracts/state-file.md`) already states for `state set`. Do not branch on
+`myflow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
+still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
+the mark exactly the block it is required not to be. The only nonzero exit is a caller mistake — an
+undocumented stage name or a missing required flag — which is a defect in the skill's own call, not
+an outcome of the stage, and is fixed by correcting the call rather than worked around.
+
+**`stage end` carries no harness of its own** — the harness is recorded once at `begin` and is
+immutable, so an end mark can never contradict the harness a stage began under. Where the harness
+exposes a session identifier, `stage begin` may carry it via `-session`; where it does not, the flag
+is simply omitted.
+
+`/myflow-status` marks nothing — its own row in the Level 1 table says so, and a read-only report
+that wrote stage runs would be recording work nobody did.
+
 ## Handoff output
 
 Every command ends in the same shape, and prints **nothing** after it:
@@ -516,24 +552,53 @@ no preservation step invents a model slug. See **Model policy**
 
 ## Change name resolution (all `/myflow-*` commands)
 
-`<name>` is **optional** on every `/myflow-*` command. When omitted, the candidate set is the
-**union** of two sources, not `openspec list --json` alone:
+`<name>` is **optional** on every `/myflow-*` command. When omitted, the candidate set is built
+from the store when the daemon answers, and from the filesystem only when it does not — and the
+command building it says which of the two produced the set, per **State file**
+(`skills/myflow-contracts/state-file.md`).
+
+**The store is reached first, through the CLI — `myflow state list [-C dir]`, never a hand-written
+HTTP call.** `state list` enumerates the store on the caller's behalf (`GET
+/api/v1/stats/state-board` under the hood, over a period wide enough to cover every change ever
+recorded, since the store starts empty per **State file**) and prints one JSON object:
+`"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`), and
+`"records"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`). Going through the CLI rather
+than a skill calling `curl` directly is deliberate, not a style preference: `state list` shares the
+same `Client.ListStateBoard` method every other read uses, so it inherits the `Myflow-Daemon`
+header check, the timeout, and the unreachable/refused classification once, in the one package that
+owns them, instead of every contract file that enumerates changes growing its own copy of that HTTP
+handling — the outcome `design.md`'s `daemon-owns-db` decision names and rejects.
+
+**When `"source":"store"`**, the candidate set is every record's `name`, dropping one whose `state`
+is `FINISHED` — **States** above already defines `FINISHED` as archived, so this is the store-backed
+form of the same exclusion.
+
+**When `"source":"fallback"`** — `state list` could not reach the daemon and instead scanned the
+local on-disk fallback directory — the candidate set falls back to the union of two filesystem
+sources:
 
 - the non-archived names `openspec list --json` reports; and
-- the basenames (minus `.json`) of every file directly under the project's state directory,
-  `/Users/tweety53/Agents/myflow/state/<project-key>/*.json`, with `<project-key>` resolved exactly
-  as **State file** (`skills/myflow-contracts/state-file.md`) already defines it — that file owns
-  the formula and the bash that computes it, and neither is re-derived here.
+- the names `state list`'s own `"records"` carries in this mode — the basenames of whatever is
+  directly under the project's state directory, `/Users/tweety53/Agents/myflow/state/<project-key>/`
+  — which, per **State file**'s "The store starts empty", now holds only the CLI's on-disk fallback
+  records, never a second live source. A name found only here is one whose last write could not
+  reach the store.
 
 From that union, drop any name whose `openspec/changes/<name>/` directory has already reached
 `openspec/changes/archive/`. The state directory is per-project rather than per-worktree, so a
-change's state file is reachable from the main checkout regardless of which worktree created it. See
+fallback record is reachable from the main checkout regardless of which worktree wrote it. See
 **Change name resolution (all `/myflow-*` commands)** (`skills/myflow-contracts/pipeline-rationale.md`)
-for why the second source (the state directory) is needed alongside `openspec list --json`.
+for why the filesystem source is needed at all now that the store is the normal path.
 
-**A state-directory file that cannot be parsed is reported and skipped from the union — never
+**A record `state list` marks `"unreadable":true` is reported and skipped from the union — never
 silently dropped.** Name the unreadable file in the resolution's own output; do not fold it into a
 "zero matches" or "no change" result as if it were never there.
+
+**Every command that resolves this candidate set reports which of the two sources produced it** —
+`state list`'s own `"source"` field, echoed rather than re-derived. A
+report built from the filesystem fallback during an outage must never be presented the way a report
+built from the live store is — that is precisely the silent-stale-data outcome this resolution
+exists to prevent.
 
 Once the candidate set is built, resolution proceeds exactly as before:
 

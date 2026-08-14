@@ -13,12 +13,16 @@ The fix-first lint policy is a **global rule**, installed into the managed block
 `~/.claude/CLAUDE.md` from `agents/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
-What is project-specific is which commands it means. Record them in this project's
-`.myflow/project.md`, then name them here — for example:
+What is project-specific is which commands it means. Full list in `.myflow/project.md`'s `## lint`
+section — named here so this file states them rather than leaving a placeholder:
 
 ```bash
-<auto-fix command>     # the formatter, run first
-<check command>        # must pass before you claim the work is done
+cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
+                                                          # this repository has an auto-fix command
+scripts/check-vocabulary.sh                              # plus every other scripts/check-*.sh guard
+scripts/check-references.sh                               # named in .myflow/project.md's `## lint`
+cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
+cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
 ```
 
 Pre-approved suppressions and documented deviations live in `CONTRIBUTING.md`. Do not

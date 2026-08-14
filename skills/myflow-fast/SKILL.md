@@ -37,12 +37,34 @@ a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
+```bash
+myflow stage begin -command '/myflow-fast' -stage 'state gate' <name-or-best-guess>
+```
+
 Accepts **no state** (creates a change) or **`IN_PROGRESS`**. On any other state, emit the
 wrong-state handoff from **Wrong state for this command**
 (`skills/myflow-contracts/pipeline.md`), naming the actual state, the states this command expects,
 and the suggested command instead. Proceed only on an explicit override.
 
+```bash
+myflow stage end -command '/myflow-fast' -stage 'state gate' -outcome completed <name-or-best-guess>
+```
+
+**This command marks its own four Level 1 stages only** — `/myflow-fast`'s own row in the table, not
+the finer-grained `/myflow-start` and `/myflow-do` stages the sections below cite and run by
+reference. A section cited here (`skills/myflow-start/SKILL.md`'s, `skills/myflow-do/SKILL.md`'s)
+runs exactly as written **except** for its own stage marks: this command does not re-emit them
+under `-command '/myflow-start'` or `-command '/myflow-do'`, since under `/myflow-fast` that content
+is folded into one coarser stage of this command's own. See **Stage marks**
+(`skills/myflow-contracts/pipeline.md`).
+
 ## No state file — brainstorm into implementation
+
+```bash
+myflow stage begin -command '/myflow-fast' \
+  -stage '*(creating run)* brainstorming chained straight into implementation and the review panel, no gate in between — the full sequence, by cited section, is **No state file — brainstorm into implementation** (`skills/myflow-fast/SKILL.md`)' \
+  <name>
+```
 
 This branch runs when no state file exists yet for the change — the same condition `/myflow-start`
 treats as a creating run. Run these sections of `skills/myflow-start/SKILL.md` exactly as written,
@@ -92,15 +114,41 @@ single command invocation with no operator action between them, and that is deli
 human gate between brainstorming converging and implementation starting in the existing pipeline
 either, so nothing that used to pause now doesn't.
 
+```bash
+myflow stage end -command '/myflow-fast' \
+  -stage '*(creating run)* brainstorming chained straight into implementation and the review panel, no gate in between — the full sequence, by cited section, is **No state file — brainstorm into implementation** (`skills/myflow-fast/SKILL.md`)' \
+  -outcome completed <name>
+```
+
 ## At `IN_PROGRESS`
 
 **An argument present.** Treat it as fix instructions and resume the worktree — run
+
+```bash
+myflow stage begin -command '/myflow-fast' \
+  -stage '*(at `IN_PROGRESS`, argument present)* a fix, chained the same way — **At `IN_PROGRESS`** (`skills/myflow-fast/SKILL.md`)' \
+  <name>
+```
+
 **3. Documenting a fix, before implementing it** (`skills/myflow-do/SKILL.md`) and the rest of
 sections 1–7 exactly as `/myflow-do` runs them at `IN_PROGRESS`, using the argument text as the
 fix's guidance. The state is written back unchanged, per
 **A fix never moves the state** (`skills/myflow-contracts/pipeline.md`).
 
+```bash
+myflow stage end -command '/myflow-fast' \
+  -stage '*(at `IN_PROGRESS`, argument present)* a fix, chained the same way — **At `IN_PROGRESS`** (`skills/myflow-fast/SKILL.md`)' \
+  -outcome completed <name>
+```
+
 **No argument (bare invocation).** Proceed to the integrate question — run
+
+```bash
+myflow stage begin -command '/myflow-fast' \
+  -stage '*(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`)' \
+  <name>
+```
+
 **Deciding which run this is** (`skills/myflow-finish/SKILL.md`) through
 **1.3 Take the chosen route** (`skills/myflow-finish/SKILL.md`) exactly as `/myflow-finish` run 1
 runs them: the unfinished-work gate, the landing question (open PR / merge and push / manual), the
@@ -114,6 +162,12 @@ merge, sync delta specs, archive the change, commit and push the archive, remove
 worktrees/branches, verify the cleanup, and write `FINISHED`. Nothing external blocks this route, so
 nothing pauses between run 1 and run 2 here.
 
+```bash
+myflow stage end -command '/myflow-fast' \
+  -stage '*(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`)' \
+  -outcome completed <name>
+```
+
 ### After open PR or manual specifically
 
 Stop after the route completes, printing the same handoff **1.5 State and handoff**
@@ -121,6 +175,12 @@ Stop after the route completes, printing the same handoff **1.5 State and handof
 this command's control — an external merge, or the operator's own manual steps — before archiving
 can happen, so nothing continues automatically. The next bare `/myflow-fast <name>` call, once the
 branch is integrated, runs run 2 (archive).
+
+```bash
+myflow stage end -command '/myflow-fast' \
+  -stage '*(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`)' \
+  -outcome completed <name>
+```
 
 ## Recorded defaults favor speed
 

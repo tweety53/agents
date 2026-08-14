@@ -38,6 +38,10 @@ a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
+```bash
+myflow stage begin -command '/myflow-do' -stage 'state gate' <name>
+```
+
 Accepts **`STARTED`** (first run) or **`IN_PROGRESS`** (fix run).
 
 - From `STARTED`: create the worktree, implement the plan, end at `IN_PROGRESS`.
@@ -60,9 +64,14 @@ At `FINISHED` the change is archived; emit the wrong-state handoff and stop.
 
 **Never** invoke `finishing-a-development-branch` — integration is `/myflow-finish`'s job.
 
+```bash
+myflow stage end -command '/myflow-do' -stage 'state gate' -outcome completed <name>
+```
+
 ## 1. Load context and validate the plan
 
 ```bash
+myflow stage begin -command '/myflow-do' -stage 'load context and validate the plan' <name>
 openspec status --change "<name>" --json
 openspec instructions apply --change "<name>" --json
 ```
@@ -77,7 +86,19 @@ it before touching code.
 
 Extract the **Global constraints** verbatim from the delta specs and `design.md` for the reviewers.
 
+```bash
+myflow stage end -command '/myflow-do' -stage 'load context and validate the plan' -outcome completed <name>
+```
+
 ## 2. Isolate the workspace (first run only)
+
+**This stage runs, and is marked, on a first run only** — its own name in the Level 1 table carries
+`*(first run only)*`. A fix run resumes the existing worktree instead, per section 3 below, and
+marks nothing here:
+
+```bash
+myflow stage begin -command '/myflow-do' -stage 'isolate the workspace *(first run only)*' <name>
+```
 
 Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
 default branch without explicit consent. Record each worktree's merge base and absolute path in
@@ -104,7 +125,21 @@ The main checkout has no id, and a project that declares no isolation at all is 
 wherever it runs: every value resolves to the project's declared default, and neither is reported as
 a misconfiguration. See **The empty id** (`skills/myflow-contracts/workspace-isolation.md`).
 
+On a first run, close the stage once the worktree exists and the workspace id is computed:
+
+```bash
+myflow stage end -command '/myflow-do' -stage 'isolate the workspace *(first run only)*' -outcome completed <name>
+```
+
 ## 3. Documenting a fix, before implementing it
+
+**This stage runs, and is marked, on a fix run only** — its own name in the Level 1 table carries
+`*(re-runs only)*`. A first run creates the worktree instead, per section 2 above, and marks
+nothing here:
+
+```bash
+myflow stage begin -command '/myflow-do' -stage 'document the fix *(re-runs only)*' <name>
+```
 
 On a fix run, record what changed **before** writing code, so the proposal never goes stale. Ask
 which of exactly two, with named options rather than open prose — shape per Operator prompts
@@ -120,7 +155,17 @@ If the fix adds scope the linked Jira issue does not describe, sync the issue **
 **Description sync** in Jira integration (`skills/myflow-contracts/jira-integration.md`). Never
 transition the issue here.
 
+On a fix run, close the stage once the fix is recorded:
+
+```bash
+myflow stage end -command '/myflow-do' -stage 'document the fix *(re-runs only)*' -outcome completed <name>
+```
+
 ## 4. Execute (SDD + TDD)
+
+```bash
+myflow stage begin -command '/myflow-do' -stage 'SDD + TDD per task' <name>
+```
 
 **At most one implementer subagent may be in flight against a given worktree at any moment.** The
 parent waits for the previous implementer's commit sha for that worktree before dispatching the
@@ -227,7 +272,15 @@ the roster table in section 5 for what each preset means.
 
 On BLOCKED: pause and report. Never guess.
 
+```bash
+myflow stage end -command '/myflow-do' -stage 'SDD + TDD per task' -outcome completed <name>
+```
+
 ## 5. The review panel
+
+```bash
+myflow stage begin -command '/myflow-do' -stage 'the review panel' <name>
+```
 
 **Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
 the field is absent or null. It names the preset in force for this run, per
@@ -624,7 +677,15 @@ Only that answer writes `withdrawn`, and only with the reason the operator gives
 the run may write it: the guard reads a `withdrawn` marker with nothing after the status as
 outstanding, so a withdrawal with no stated reason does not clear the gate it appears to.
 
+```bash
+myflow stage end -command '/myflow-do' -stage 'the review panel' -outcome completed <name>
+```
+
 ## 6. Resolve the run instructions
+
+```bash
+myflow stage begin -command '/myflow-do' -stage 'resolve the run instructions' <name>
+```
 
 In the same run, resolve the run instructions for the handoff's `Run it:` section. It writes no
 file. See **6. Resolve the run instructions** (`skills/myflow-do/SKILL-rationale.md`) for why.
@@ -660,7 +721,20 @@ Resolve:
   means running its guard scripts, assertion harnesses and a sandboxed installer pass, not an
   app, port and URL that do not exist.
 
+```bash
+myflow stage end -command '/myflow-do' -stage 'resolve the run instructions' -outcome completed <name>
+```
+
 ## 7. Verify, stage, and hand off
+
+This section carries four of the Level 1 table's stages, marked one at a time as each opens and
+closes rather than all at once, per **Stage marks** (`skills/myflow-contracts/pipeline.md`).
+
+```bash
+myflow stage begin -command '/myflow-do' \
+  -stage "validate the project's \`## workspace isolation\` section, then export what it declares" \
+  <name>
+```
 
 **First, validate the section and export what it declares — with the script, not by eye.** Run
 
@@ -717,9 +791,22 @@ review gate by the operator, through the project's own `## run` commands, which 
 creation and its one-time notice belong. See **7. Verify, stage, and hand off**
 (`skills/myflow-do/SKILL-rationale.md`) for why.
 
+```bash
+myflow stage end -command '/myflow-do' \
+  -stage "validate the project's \`## workspace isolation\` section, then export what it declares" \
+  -outcome completed <name>
+myflow stage begin -command '/myflow-do' -stage 'run the project'"'"'s lint and test commands' <name>
+```
+
 Run the project's `## lint` and `## test` commands from `.myflow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
 gate — so a non-zero exit blocks this handoff.
+
+```bash
+myflow stage end -command '/myflow-do' -stage 'run the project'"'"'s lint and test commands' \
+  -outcome completed <name>
+myflow stage begin -command '/myflow-do' -stage 'stage, excluding the planning paths' <name>
+```
 
 Confirm every intended checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit
 per completed task, per section 4's commit-per-task model, with every fix-round and red-task-partner
@@ -765,6 +852,11 @@ stop-on-failure rule and the symlinked-planning-path case are all under **Git bo
 case is ordinary here — a fix round that touched neither `openspec/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 
+```bash
+myflow stage end   -command '/myflow-do' -stage 'stage, excluding the planning paths' -outcome completed <name>
+myflow stage begin -command '/myflow-do' -stage 'write `IN_PROGRESS`' <name>
+```
+
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
 `artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `prUrl` and `reviewPanelRoster` forward
@@ -774,6 +866,10 @@ The state file lives outside the repo — never
 
 Read the planning effort through the retired-key fallback, not from `planningEffort` alone, per
 **State file** (`skills/myflow-contracts/state-file.md`).
+
+```bash
+myflow stage end -command '/myflow-do' -stage 'write `IN_PROGRESS`' -outcome completed <name>
+```
 
 ```
 ## Implementation committed — review and test

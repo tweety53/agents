@@ -1,0 +1,36 @@
+{
+  "changeFields": [
+    "branch",
+    "jira_issue",
+    "name",
+    "planning_effort",
+    "pr_url",
+    "project",
+    "review_panel_roster",
+    "state",
+    "updated_at",
+    "updated_by"
+  ],
+  "stageRunFields": [
+    "attempt",
+    "branch",
+    "command",
+    "duration_ms",
+    "ended_at",
+    "harness",
+    "jira_issue",
+    "name",
+    "outcome",
+    "planning_effort",
+    "pr_url",
+    "project",
+    "repo_root",
+    "review_panel_roster",
+    "session_id",
+    "stage",
+    "started_at",
+    "state",
+    "updated_at",
+    "updated_by"
+  ]
+}

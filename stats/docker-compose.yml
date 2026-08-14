@@ -1,0 +1,23 @@
+# Dedicated PostgreSQL stack for myflow's stats app. Independent of the
+# gymie-postgres container (port 5432): this exposes 5433 on the host so the
+# two never collide. See openspec/changes/kan-16-myflow-stats-app/design.md
+# ("Own docker-compose stack, daemon under launchd") for why this stack is
+# separate rather than reusing gymie's.
+services:
+  myflow-postgres:
+    image: postgres:18-alpine
+    container_name: myflow-postgres
+    environment:
+      POSTGRES_USER: myflow
+      POSTGRES_PASSWORD: myflow
+      POSTGRES_DB: myflow
+    ports:
+      - "5433:5432"
+    volumes:
+      # postgres:18+ images store data in a version-specific subdirectory
+      # under /var/lib/postgresql — mounting at .../data (the pre-18
+      # convention) makes the entrypoint refuse to start. See
+      # https://github.com/docker-library/postgres/pull/1259.
+      - myflow-pgdata:/var/lib/postgresql
+volumes:
+  myflow-pgdata:

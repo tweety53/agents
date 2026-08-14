@@ -1,0 +1,377 @@
+/* Minimal styling for a local, single-user dashboard -- density and
+   clarity over decoration, per this task's own design guidance. Colors
+   are the tokens theme.css declares (task 19, step 1: "theme.css
+   declares the palette ... styles.css consumes them. No component
+   hard-codes a colour"). This file's own rules build the layout and
+   consume those tokens by name; none of them redeclare a colour value. */
+@import "./theme.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+
+.app-shell header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-shell h1 {
+  font-size: 1.25rem;
+  margin: 0 0 0.75rem;
+}
+
+.app-shell nav ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.app-shell nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.app-shell nav a[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.dashboard-time-range {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.dashboard-time-range legend {
+  font-size: var(--panel-heading-size);
+  text-transform: uppercase;
+  letter-spacing: var(--panel-heading-tracking);
+  color: var(--text-secondary);
+  padding: 0;
+}
+
+main {
+  padding: 1.5rem;
+}
+
+.view-description {
+  color: var(--text-secondary);
+  margin-top: 0;
+}
+
+.not-recorded {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.data-table-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+th button {
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  color: var(--text-primary);
+}
+
+.data-table-pager {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.metric-unavailable {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.metric-value {
+  color: var(--text-primary);
+}
+
+.trend-chart {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.trend-bar {
+  fill: var(--series-1);
+}
+
+.trend-bar-unavailable {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.data-table-detail-row td {
+  background: var(--surface-2);
+}
+
+/* Run detail dashboard (task 18) -- the "still running" open-run marker
+   and the timeline itself. The summary strip above them was a definition
+   list here (.run-detail-summary) before task 20 recomposed it onto stat
+   panels (RunPanel, in RunDetail.tsx), which is why that selector -- and
+   the div/dt/dd rules that styled it -- is gone: an unused rule left
+   behind by a recomposition is a stale second description of a fact
+   (Single Source of Truth, engineering-principles.md) with nothing left
+   rendering to match it. Follows the same muted/italic treatment as
+   .metric-unavailable so an open run reads distinctly from a measured
+   duration, never as a zero. */
+.stage-run-open {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.stage-timeline {
+  display: block;
+  margin-bottom: 1.25rem;
+}
+
+.stage-timeline-label {
+  fill: var(--text-secondary);
+  font-size: 10px;
+}
+
+.stage-timeline-bar {
+  fill: var(--series-1);
+}
+
+.stage-timeline-bar-open {
+  fill: var(--series-1);
+  fill-opacity: 0.4;
+  stroke: var(--series-1);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.stage-run-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0;
+}
+
+.stage-run-detail div {
+  margin: 0;
+}
+
+.stage-run-detail dt {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.stage-run-detail dd {
+  margin: 0;
+}
+
+.stage-run-detail-raw {
+  flex-basis: 100%;
+}
+
+.stage-run-detail-raw pre {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem;
+  background: var(--surface-2);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+}
+
+/* Dashboard chrome (task 19) -- the top bar carrying the time-range
+   picker and the template variables, and the panel primitives every
+   dashboard (task 20) composes. Structure and feel follow Grafana's dark
+   dashboard UI: a dark ground with slightly-lighter bordered panels, a
+   dense top bar, small uppercase-ish panel headings, and generous
+   numeric emphasis in stat panels -- no Grafana asset, font or
+   stylesheet is imported anywhere in this build. */
+
+.dashboard-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: var(--panel-border-width) solid var(--border);
+  margin-bottom: var(--space-4);
+}
+
+.dashboard-bar-variables {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.dashboard-variable {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.dashboard-variable select,
+.dashboard-variable input {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: var(--panel-border-width) solid var(--border);
+  border-radius: var(--panel-radius);
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+}
+
+.dashboard-variable select:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.dashboard-variable-hint {
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Panel primitive -- a bordered region with a heading, an optional
+   description, and a body (task 19, step 2: "the unit the round's spec
+   calls 'one self-contained result with its own heading'"). */
+.panel {
+  background: var(--surface-panel);
+  border: var(--panel-border-width) solid var(--border);
+  border-radius: var(--panel-radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.panel-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--panel-heading-size);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--panel-heading-tracking);
+  color: var(--text-secondary);
+}
+
+.panel-description {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.panel-body {
+  color: var(--text-primary);
+}
+
+.panel-error {
+  color: var(--status-critical);
+}
+
+/* Stat panel -- one large number with a label (task 19, step 3). */
+.stat-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.stat-panel-value {
+  font-size: var(--stat-value-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.stat-panel-value .metric-unavailable {
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.stat-panel-sparkline {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+/* Time-series panel -- an inline SVG line chart, no charting dependency
+   (task 19, step 3). Muted axis and grid lines, per Grafana's own
+   reference. */
+.time-series-panel {
+  display: block;
+}
+
+.time-series-axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.time-series-line {
+  stroke: var(--series-1);
+  stroke-width: 2;
+}
+
+.time-series-point {
+  fill: var(--series-1);
+}
+
+/* Dashboard recomposition (task 20) -- every one of the nine dashboards
+   is now ViewFrame's page chrome (title, description) wrapping a row of
+   stat panels above a table or chart panel, following the layout
+   TimeSeriesPanel and StatPanel were already built for (task 19). */
+.dashboard-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.dashboard-stat-row .panel {
+  flex: 1 1 200px;
+}
+
+/* A table now renders inside a Panel's bordered, padded body rather than
+   spanning the page -- this keeps a wide table's own overflow contained
+   to itself instead of widening the panel or the page around it. */
+.data-table-scroll {
+  overflow-x: auto;
+}
