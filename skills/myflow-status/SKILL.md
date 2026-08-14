@@ -1,15 +1,15 @@
 ---
 name: myflow-status
 description: Show every open myflow change with its pipeline state, PR, next command, and last update. Read-only. Use for /myflow-status.
-allowed-tools: Bash(openspec:*), Bash(git:*), Bash(jq:*)
+allowed-tools: Bash(openspec:*), Bash(git:*), Bash(jq:*), Bash(myflow:*)
 license: MIT
-compatibility: Requires openspec CLI and jq.
+compatibility: Requires openspec CLI, the myflow CLI, and jq.
 metadata:
   author: gymie
   version: "2.0"
 ---
 
-Report the pipeline state of every open (non-archived) OpenSpec change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes the state file.
+Report the pipeline state of every open (non-archived) OpenSpec change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
 
 **Announce at start:** "Using myflow-status."
 
@@ -23,10 +23,22 @@ Follow both contracts:
 ### 1. List open changes
 
 Enumerate the candidate set exactly as **Change name resolution**
-(`skills/myflow-contracts/pipeline.md`) defines it — the union of `openspec list --json` and the
-names of the files in the project's state directory, minus anything archived — rather than running
-`openspec list --json` alone: a change staged only in a worktree has a state file but no change
-directory in this checkout, and would otherwise go unreported.
+(`skills/myflow-contracts/pipeline.md`) defines it — through `myflow state list [-C dir]`, never a
+hand-written HTTP call:
+
+```bash
+MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
+BOARD="$(myflow state list -C "$MAIN_CHECKOUT")"
+```
+
+`$BOARD` is one JSON object: `"source"` (`"store"` or `"fallback"`), `"complete"`
+(`true` only when `"source":"store"`), and `"records"` (each `name`, `state`, `updatedAt`,
+`updatedBy`, and `"unreadable":true` for a fallback file that could not be parsed).
+
+**Report which source produced the set, before the table** — `jq -r .source <<<"$BOARD"`. When it
+reads `fallback`, say so in one line — `⚠ store unreachable — reporting from local fallback files,
+which may be stale` — so a report built during an outage is never mistaken for one built from the
+live store. Say nothing extra when it reads `store`; that is the normal case.
 
 With a `<name>` argument, restrict to that change and include the detail view (step 4). With no argument, report every non-archived change.
 
@@ -34,15 +46,32 @@ Zero open changes → say so and suggest `/myflow-start`. Stop.
 
 ### 2. Resolve each change's state
 
-For each change, resolve its user-scoped state file path per **State file** in `skills/myflow-contracts/state-file.md`, then read it:
+For each change, resolve its record through the CLI, per **State file**
+(`skills/myflow-contracts/state-file.md`) — never a direct file read, never `jq` on a path:
 
 ```bash
-MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
-PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
-STATE_FILE="/Users/tweety53/Agents/myflow/state/$PROJECT_KEY/<name>.json"
+MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
+ERR="$(mktemp)"
+RECORD="$(myflow state get "<name>" -C "$MAIN_CHECKOUT" 2>"$ERR")"
+STATUS=$?
+WARNING="$(cat "$ERR")"; rm -f "$ERR"
+```
 
-jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, (.planningEffort // .effort), (.models // {} | tojson), (.reviewPanelRoster // null), .updatedAt, .updatedBy, (.worktrees // {} | keys[])' \
-  "$STATE_FILE" 2>/dev/null
+- **`STATUS=0` and `$WARNING` empty** — the record came from the store.
+- **`STATUS=0` and `$WARNING` reads `⚠ myflow: store unreachable — read local fallback`** — the
+  record came from the on-disk fallback file. Report this change's row as **source: fallback**. If
+  `$RECORD` is also empty (no fallback file exists either), treat this exactly like `STATUS=1`
+  below.
+- **`STATUS=1`** — the store was reached and correctly holds no record for this change (`myflow:
+  no state recorded for <project>/<name>` on stderr): report the change by name as **no state
+  recorded** and omit it from the table, the same way a missing state file was always reported.
+- **Any other `STATUS`, or a `$RECORD` that is not valid JSON** — the record is unreadable: name the
+  change in this command's own output and skip it. Never rebuild it by inference.
+
+Then read the fields from `$RECORD`:
+
+```bash
+printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, (.planningEffort // .effort), (.models // {} | tojson), (.reviewPanelRoster // null), .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
 ```
 
 **The planning-effort read falls back to the retired key, and that fallback is the whole of the
@@ -56,13 +85,13 @@ back is the raw one; mapping it to a level is section 3's job, below.
 
 **Merge status** decides whether the next `/myflow-finish` integrates or archives. It is answered
 once per worktree in the set resolved per **Resolving a change's worktrees**
-(`skills/myflow-contracts/pipeline.md`) — never a raw read of the state file's `worktrees` map,
+(`skills/myflow-contracts/pipeline.md`) — never a raw read of the record's `worktrees` map,
 which a `{}` or absent map would make a loop over its keys report on nothing. Per that same
 section, a resolved set that comes back empty is never a vacuous pass: say so in this change's
 detail view — **merge status: unknown, no worktree recorded** — rather than silently omitting the
 row. Each worktree in the resolved set is answered in **three steps, in this order**:
 
-1. **Resolve the merge base recorded for that worktree** in the state file's `worktrees` map.
+1. **Resolve the merge base recorded for that worktree** in the record's `worktrees` map.
    **No recorded merge base**, and equally **one that is recorded but does not resolve in that
    worktree** — `git rev-parse --verify --end-of-options "<recorded>^{commit}"` fails, because
    history was rewritten, the clone is shallow, or the object was pruned — makes the merge status
@@ -94,9 +123,9 @@ disagree, say so in the detail view and name which is which: that disagreement i
 next `/myflow-finish` will stop on, and the operator should see it here rather than discover it
 there.
 
-**A state file that is missing or unparseable is named in this command's own output, and the change
-is omitted from the table.** This command writes nothing — never the state file, never anything
-else.
+**A record that is missing (no state recorded) or unreadable is named in this command's own output,
+and the change is omitted from the table.** This command writes nothing — never the store, never
+the on-disk fallback file, never anything else.
 
 ### 3. Render the table
 
@@ -189,11 +218,11 @@ Add below the table:
 Then regenerate the change's full handoff block for its current state and print it. Load **Handoff
 blocks** (`skills/myflow-contracts/handoff-blocks.md`) here — it is canonical for the per-state
 templates, and this is the only step of any `/myflow-*` command that loads it — and render from the
-template that matches the current state. Build it from the state file and the artifacts as they now
+template that matches the current state. Build it from the record and the artifacts as they now
 stand; nothing is read back from a stored copy of an earlier run's text, because no command stores
 one.
 
-- A value the state file does not carry is reported as **missing**, so a block whose artifact URL
+- A value the record does not carry is reported as **missing**, so a block whose artifact URL
   reads *missing* is distinguishable from one whose URL was never printed. A run-only value is the
   exception and is omitted instead:
   **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) marks which fields those
@@ -225,7 +254,7 @@ one.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
 - **The `Run it:` section is resolved, never copied from a stored run.** Follow **6. Resolve the
   run instructions** (`skills/myflow-do/SKILL.md`) — canonical for how those lines are produced —
-  and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the state file
+  and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the record
   and the project's own `.myflow/project.md` — never the project's declared base — not from any text
   `/myflow-do` printed earlier. Do not restate the resolution *procedure* here — the steps that
   compute each app root, start command and URL; a second copy of those steps is the failure this
@@ -237,7 +266,7 @@ unchanged.
 ## Guardrails
 
 - **Never** commit, stage, push, merge, or archive.
-- **Never** advance a state, rewind a state, or write the state file — this command is entirely
+- **Never** advance a state, rewind a state, or write the record — this command is entirely
   read-only.
 - **Never** fabricate a `prUrl`.
 - **Never** create a worktree or branch.

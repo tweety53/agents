@@ -9,3 +9,16 @@
 
 # Python bytecode from the guard wrappers (check-plan-provenance.py, check-task-*.py)
 __pycache__/
+
+# stats/ build output — the Vite SPA build and the compiled daemon/CLI binaries
+stats/bin/
+stats/web/node_modules/
+stats/web/dist/
+# The Vite build's actual outDir (stats/web/vite.config.ts): inside
+# internal/web, not stats/web/dist, so //go:embed can reach it without a
+# "../" pattern (see internal/web/embed.go's own doc comment). Not
+# committed for the same reason the CLI/daemon binaries above aren't: a
+# build with no dist/ present must fail loudly at compile time, not build
+# against a stale, committed copy.
+stats/internal/web/dist/
+stats/web/tsconfig.tsbuildinfo

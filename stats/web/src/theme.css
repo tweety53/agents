@@ -1,0 +1,76 @@
+/* theme.css is the one place this app's palette, spacing scale, panel
+   border/radius and typography tokens are declared (task 19, step 1: "No
+   component hard-codes a colour"). styles.css consumes these custom
+   properties; it no longer declares its own :root colour tokens.
+
+   Grafana's own dark dashboard theme is the reference for the dark
+   values below -- a canvas slightly darker than the panels sitting on
+   it, muted borders and grid lines, and a text scale built for dense
+   numeric readouts (stat panels, tables). No Grafana asset, font or
+   stylesheet is imported anywhere in this build; only the token *values*
+   are matched by hand. */
+
+:root {
+  color-scheme: dark;
+  --surface-1: #111217;
+  --surface-2: #181b1f;
+  --surface-panel: #181b1f;
+  --text-primary: #d8d9da;
+  --text-secondary: #9fa7b3;
+  --text-muted: #6e7681;
+  --border: #2c3235;
+  --border-strong: #34383d;
+  --series-1: #5794f2;
+  --status-critical: #e0226e;
+  --status-ok: #73bf69;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  --panel-radius: 3px;
+  --panel-border-width: 1px;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --stat-value-size: 2rem;
+  --panel-heading-size: 0.7rem;
+  --panel-heading-tracking: 0.06em;
+}
+
+/* The light variant is still served, never forced: a light-mode viewer
+   gets it via the OS media query, and `data-theme="light"` gets it
+   explicitly regardless of the OS setting. Token *names* are identical
+   to :root's dark defaults above -- only which values apply changes. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f1f0ec;
+    --surface-panel: #ffffff;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7972;
+    --border: #d8d6cf;
+    --border-strong: #c7c5bd;
+    --series-1: #2a78d6;
+    --status-critical: #e34948;
+    --status-ok: #3d8b3d;
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --surface-2: #f1f0ec;
+  --surface-panel: #ffffff;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7972;
+  --border: #d8d6cf;
+  --border-strong: #c7c5bd;
+  --series-1: #2a78d6;
+  --status-critical: #e34948;
+  --status-ok: #3d8b3d;
+}

@@ -79,6 +79,17 @@ against itself and report every pushed branch as merged.
 
 # Run 1 — integrate
 
+**On a `RUN1` verdict**, mark the Level 1 table's combined first stage — the preflight verdict just
+taken above, folded together with run 1's unfinished-work gate below — per **Stage marks**
+(`skills/myflow-contracts/pipeline.md`). A `RUN2` verdict marks nothing here; its own first mark is
+`*run 2:* verify the merge`, below:
+
+```bash
+myflow stage begin -command '/myflow-finish' \
+  -stage 'the preflight verdict, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate' \
+  <name>
+```
+
 ## 1.0 Check for unfinished work
 
 Run `scripts/check-unfinished-work.sh <worktree> <name>` once per worktree in the set found by
@@ -118,7 +129,22 @@ reaches the planning commit and the handoff, so the durable record does not depe
 Why **Stop** is the marked recommendation is stated under
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not re-argued here.
 
+Close the combined preflight-verdict-and-unfinished-work-gate mark opened above, whichever way this
+gate resolved: `completed` on **Continue** or **File or join a Jira follow-up, then continue**,
+`stopped` on **Stop** (the run ends here, at `IN_PROGRESS`, with nothing staged, committed or
+pushed):
+
+```bash
+myflow stage end -command '/myflow-finish' \
+  -stage 'the preflight verdict, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate' \
+  -outcome completed <name>
+```
+
 ## 1.1 Ask how the branch should land, before any git action
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage 'the landing question' <name>
+```
 
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*
@@ -134,7 +160,15 @@ from a PR CLI when one is usable — say so, including whether it is open or clo
 the operator answers. See **1.1 Ask how the branch should land, before any git action**
 (`skills/myflow-finish/SKILL-rationale.md`) for why.
 
+```bash
+myflow stage end -command '/myflow-finish' -stage 'the landing question' -outcome completed <name>
+```
+
 ## 1.2 Commit the staged work
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage 'preserve the session records' <name>
+```
 
 **Before any route commits, reshape the branch.** Run
 `git -C <worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
@@ -157,6 +191,11 @@ to stop the integration. **A non-zero exit means a copy was attempted and refuse
 it with the script's own stderr message and continue the integration, per the outcome table under
 **Preserving the session records** in `skills/myflow-contracts/pipeline.md`. Say in the handoff
 which records were preserved and which were not.
+
+```bash
+myflow stage end   -command '/myflow-finish' -stage 'preserve the session records' -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage 'two commits, implementation first' <name>
+```
 
 Then stage and commit twice, in this order, rather than assuming everything is already staged: the
 operator may have edited the worktree at the human gate without staging.
@@ -190,7 +229,15 @@ looks like a lost one. See **1.2 Commit the staged work**
 
 The state file is **not** committed — it lives outside the repo.
 
+```bash
+myflow stage end -command '/myflow-finish' -stage 'two commits, implementation first' -outcome completed <name>
+```
+
 ## 1.3 Take the chosen route
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage 'the landing routes' <name>
+```
 
 Per **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 1. Push with `-u` so the
 branch has an upstream; the unpushed-commits check in run 2 treats a missing upstream as unknown
@@ -213,6 +260,10 @@ is lost, because nothing was pushed.
 it is the same trust model the human gate rests on. If the answer is No, leave `prUrl` null and say
 what to do next.
 
+```bash
+myflow stage end -command '/myflow-finish' -stage 'the landing routes' -outcome completed <name>
+```
+
 ## 1.4 No verification gate
 
 **Run no tests, no linters, and no spec-coverage check** — see
@@ -221,14 +272,35 @@ what to do next.
 
 ## 1.5 State and handoff
 
+**This section carries the Level 1 table's last two run-1 stages, in the order the table lists
+them**: the state write happens first, and the Jira transition follows it — never before, per
+**Transitions** (`skills/myflow-contracts/jira-integration.md`), cited below. See **Stage marks**
+(`skills/myflow-contracts/pipeline.md`).
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage 'write `IN_PROGRESS`' <name>
+```
+
 Write the state file with `state` unchanged at `IN_PROGRESS`, `prUrl` set if a PR was opened, and
 every other field carried forward.
+
+```bash
+myflow stage end -command '/myflow-finish' -stage 'write `IN_PROGRESS`' -outcome completed <name>
+```
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage 'move the issue to In Review' <name>
+```
 
 **Transition the issue to In Review** at the end of a successful run 1, whichever route was taken —
 pull request, merge and push, or manual. Per
 **Transitions** (`skills/myflow-contracts/jira-integration.md`): after the state write, never
 before, never blocking. A run that stopped on a failed push does **not** transition; the branch
 never left the operator's hands.
+
+```bash
+myflow stage end -command '/myflow-finish' -stage 'move the issue to In Review' -outcome completed <name>
+```
 
 ```
 ## Branch integrated — waiting on the merge | merged and waiting on run 2
@@ -265,19 +337,44 @@ been merged, a run stopped at a run-2 cleanup leftover most often. See **1.5 Sta
 # Run 2 — archive and clean up
 
 Follow **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 2 for the full
-procedure. In outline, and stopping at the first step that fails:
+procedure. In outline, and stopping at the first step that fails, each numbered step below is
+bracketed by its own mark per **Stage marks** (`skills/myflow-contracts/pipeline.md`), using that
+step's exact name from the Level 1 table — a failed mark never blocks, delays or alters the step
+it brackets:
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage '*run 2:* verify the merge' <name>
+```
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`, which
    must stay reachable on its own as the only evidence on a non-GitHub forge. Fetch first so the
    tracking ref is current. Not merged → this is not run 2; fall back to run 1 and **archive
-   nothing**.
+   nothing** — end this mark `-outcome not-run-2` and stop; nothing below runs.
+
+```bash
+myflow stage end   -command '/myflow-finish' -stage '*run 2:* verify the merge' -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage 'sync delta specs and archive' <name>
+```
+
 2. **Sync delta specs, then archive.** Assess each delta in `<changeRoot>/specs/` against
    `openspec/specs/`, show a summary, and offer: sync now (recommended), archive without syncing,
    or cancel. Apply `## ADDED` by appending (creating the capability spec if absent), `## MODIFIED`
    by replacing the block matched on its `### Requirement:` heading whitespace-insensitively,
    `## REMOVED` by deleting it, `## RENAMED` in place preserving the body. Then move the change to
    `openspec/changes/archive/<YYYY-MM-DD>-<name>/`, taking any nested `<name>-fix-N` with it.
+
+```bash
+myflow stage end   -command '/myflow-finish' -stage 'sync delta specs and archive' -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage 'commit and push the archive' <name>
+```
+
 3. **Commit and push the archive** on the base branch in the main checkout.
+
+```bash
+myflow stage end   -command '/myflow-finish' -stage 'commit and push the archive' -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage 'cleanup' <name>
+```
+
 4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket.** The workspace half runs the project's `remove` command, read from the
    command table **Project configuration** (`skills/myflow-contracts/project-configuration.md`)
@@ -296,6 +393,14 @@ procedure. In outline, and stopping at the first step that fails:
    see **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
 5. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) gives.
+
+Steps 4 and 5 together are the Level 1 table's one `cleanup` stage:
+
+```bash
+myflow stage end   -command '/myflow-finish' -stage 'cleanup' -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage 'verify the cleanup' <name>
+```
+
 6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, after every removal above. `COMPLETE:` → report the cleanup as verified, **relay
    every clause the line carries after ` — ` word for word**, and go on to step 7 — a `SKIPPED:`
@@ -307,12 +412,30 @@ procedure. In outline, and stopping at the first step that fails:
    checked as well as the line, because a caller that greps for `COMPLETE` in empty output finds
    nothing. Why a leftover blocks the write, and why run 2 is safe to re-enter afterwards, is
    canonical under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
+
+Close this mark with the verdict step 6 reached: `completed` on `COMPLETE:`, `leftover` on
+`LEFTOVER:` or on a missing verdict line — either way the run stops here, at `IN_PROGRESS`, and
+nothing below runs:
+
+```bash
+myflow stage end -command '/myflow-finish' -stage 'verify the cleanup' -outcome completed <name>
+```
+
+```bash
+myflow stage begin -command '/myflow-finish' -stage 'write `FINISHED`' <name>
+```
+
 7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
    whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`,
    `reviewPanelRoster` and `prUrl` forward — read the planning effort through the retired-key
    fallback, per **State file** (`skills/myflow-contracts/state-file.md`). This is the terminal
    write, so a field dropped here is dropped for good. The state file stays at its user-scoped path
    as the terminal record — it is **never** moved into the archive.
+
+```bash
+myflow stage end -command '/myflow-finish' -stage 'write `FINISHED`' -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage 'self-review' <name>
+```
 
 **Transition the issue to Done** after the state write, per
 **Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 6
@@ -379,6 +502,17 @@ transitions nothing — the change is not done.
    A commit that FAILS (hook rejection, push rejected) is reported with git's own output. The change
    stays `FINISHED` regardless — a report that failed to commit is a self-review failure to report
    in the handoff, never a reason to reopen the change.
+
+```bash
+myflow stage end -command '/myflow-finish' -stage 'self-review' -outcome completed <name>
+```
+
+The change is `FINISHED` before this mark closes, and a failure inside self-review — a declined
+run, a failed filing, a failed commit — is a self-review failure to report, never a reason this mark
+records anything but `completed`: self-review's own outcome is carried in the handoff text, not in
+this mark's `-outcome` value. See **Stage marks** (`skills/myflow-contracts/pipeline.md`) — a failed
+*mark* is a different thing from a failed self-review, and only the former ever changes what this
+call records.
 
 ```
 ## Finished

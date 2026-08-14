@@ -5,12 +5,15 @@ auto-detected from the repository instead.
 
 ## apps
 
-This repository has **no runnable application**. It is the source of the myflow skills, commands,
-and rules, installed elsewhere by `setup.sh`. There is nothing to start, no port, and no URL.
+This repository is mostly the source of the myflow skills, commands, and rules, installed
+elsewhere by `setup.sh` — that half has no port and no URL. It also now holds `stats/`, a
+PostgreSQL-backed Go service (`myflowd`) with an embedded React SPA, plus a thin `myflow` CLI. Both
+halves live in the one repo and are covered below.
 
 | App | Repo root | Kind | URL | Notes |
 |-----|-----------|------|-----|-------|
-| myflow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Markdown | — | The only repo in scope. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
+| myflow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
+| myflow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `myflowd`, loopback-only. Backed by a dedicated `myflow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. |
 
 **This repository is Bash + Python, not Bash-only.** `scripts/check-plan-provenance.sh` is a thin
 wrapper that execs `scripts/check-plan-provenance.py` (Python 3, standard library only —
@@ -26,12 +29,28 @@ of the toolchain, not a drift.
 
 ## run
 
-There is no service to run. To exercise the installer without touching the real home directory:
+To exercise the installer without touching the real home directory:
 
 ```bash
 SANDBOX="$(mktemp -d)"
 HOME="$SANDBOX" ./setup.sh global
 ```
+
+**The stats daemon.** Bring up the dedicated Postgres stack, then build and run `myflowd`:
+
+```bash
+cd stats && docker compose up -d          # myflow-postgres on host port 5433
+cd stats && make build                    # builds the SPA, then verifies the Go build
+cd stats && go build -o bin/myflowd ./cmd/myflowd && ./bin/myflowd
+```
+
+`myflowd` binds `127.0.0.1:4173` (override with `MYFLOWD_PORT`) and refuses to start on any other
+interface or on an unparsable `MYFLOWD_PORT` rather than defaulting silently. Running it this way is
+for manual, foreground verification only — for a daemon that survives logout and restarts on
+failure, see `stats/README.md`'s "Running the daemon at login" section and its launchd agent.
+**No skill loads that agent**; loading it is an operator step, deliberately, because an agent left
+running unattended during this change's development harvested 2,961 transcript offsets into the
+database before anyone noticed.
 
 ## test
 
@@ -56,12 +75,18 @@ scripts/test-plan-dispatch-bundles.sh
 scripts/test-check-panel-reproducers.sh
 scripts/test-run-reproducer.sh
 scripts/test-check-markdown-integrity.sh
+cd stats && go test ./... -race -count=1
+cd stats/web && npm test
 ```
 
-**Measured runtime: 118.63s for the commands above, against this harness's 120000ms default tool
-timeout.** Nothing in the list is broken — this is proximity to the timeout, not a failure — but a
-caller this close to the edge should raise the timeout or split the run across more than one
-invocation, rather than reading a timeout here as one of these commands failing. This note cites no
+**Measured runtime: roughly 144s total** — 118.63s for the Bash/Python guard tests above, plus
+23.93s for `go test ./... -race -count=1` and 1.80s for the SPA's `npm test` (both measured against
+the already-running `myflow-postgres` compose stack, with `stats/internal/web/dist` already built)
+— against this harness's 120000ms default tool timeout. This was already close to the edge before
+`stats/` existed; adding the Go and SPA suites moves it from "close" to "reliably over" for a single
+invocation. Split the run across more than one invocation (the guard tests as one call,
+`cd stats && go test ./...` as a second, `cd stats/web && npm test` as a third) or raise the tool
+timeout, rather than reading a timeout here as one of these commands failing. This note cites no
 count of the list on purpose: a written count goes stale the first time a command is added to it,
 and nothing here checks it against the list above.
 
@@ -75,14 +100,20 @@ scripts/check-task-build-green.sh
 scripts/check-workspace-isolation.sh
 scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
+cd stats && gofmt -l .
+cd stats && go vet ./...
+cd stats/web && npx tsc -b
 ```
 
-**There is no auto-fix command in this repository.** The Lint Fix Priority rule's "run the
-auto-fix command first" step is therefore inapplicable here — not skipped. Every guard in the list
-above reports `file:line` and is fixed by editing the offending line, never by weakening the guard
-or adding a suppression marker to silence a real hit. The list is cited by count nowhere in this
-file, deliberately: a written count went stale the first time a guard was added to it, and the same
-sentence would go stale again on the next.
+**There is no auto-fix command for the guard scripts** (`scripts/check-*`) — every one of them
+reports `file:line` and is fixed by editing the offending line, never by weakening the guard or
+adding a suppression marker to silence a real hit. **`stats/` does have one**: `cd stats && gofmt
+-w .` reformats Go source before the `gofmt -l .` check above is run, per the Lint Fix Priority
+rule's "run the auto-fix command first" step. There is no equivalent for the SPA — `web/package.json`
+carries no lint or format script, only `tsc -b`'s type check, so a TypeScript violation is fixed by
+hand like a guard-script one. The list is cited by count nowhere in this file, deliberately: a
+written count went stale the first time a guard was added to it, and the same sentence would go
+stale again on the next.
 
 **`check-contract-budget.sh` is a ratchet, not a target.** It fails when a file under
 `skills/myflow-contracts/`, or a `skills/*/SKILL.md` or `skills/*/SKILL-rationale.md`, outgrows the
@@ -137,9 +168,17 @@ adding a suppression marker.
 
 ## stop
 
-This repository has **no runnable stack**, so there is nothing to stop. The key is present rather
-than omitted so that `/myflow-finish`'s stack-stopped check is skipped as a recorded decision, not
-as an oversight.
+The manual, foreground `myflowd` started above stops with Ctrl-C or `kill` on its PID — it shuts
+down gracefully, draining in-flight requests before its connection pool closes.
+
+```bash
+cd stats && docker compose down           # stops myflow-postgres; does not touch other stacks
+launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist   # only if the login agent is loaded
+```
+
+The launchd agent line is a no-op if the agent was never loaded — see `stats/README.md`. This key
+is present rather than omitted so that `/myflow-finish`'s stack-stopped check runs against a real
+answer, not a recorded "nothing to stop" that stopped being true when `stats/` landed.
 
 ## standards
 
