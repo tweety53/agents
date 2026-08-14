@@ -119,8 +119,30 @@ type rawLine struct {
 }
 
 type rawMessage struct {
-	Model string    `json:"model"`
-	Usage *rawUsage `json:"usage"`
+	Model   string            `json:"model"`
+	Usage   *rawUsage         `json:"usage"`
+	Content []rawContentBlock `json:"content"`
+}
+
+// rawContentBlock is the minimal shape ParseCommandRecords needs from one
+// entry of message.content -- just enough to recognise a Bash tool call
+// and read the literal command text it carries (KAN-172, task 2). Every
+// other content block shape (text, thinking, tool_result, and whatever
+// else a message carries) decodes into the same struct and is simply
+// ignored by name, the same tolerance rawLine's own doc comment already
+// commits to for the rest of the transcript format.
+type rawContentBlock struct {
+	Type  string          `json:"type"`
+	Name  string          `json:"name"`
+	Input json.RawMessage `json:"input"`
+}
+
+// rawBashInput is the one field ParseCommandRecords reads out of a Bash
+// tool_use block's "input" object -- the command text exactly as the
+// caller wrote it, before the shell expands anything (design.md's "the
+// session token is a literal, never a shell substitution").
+type rawBashInput struct {
+	Command string `json:"command"`
 }
 
 type rawUsage struct {
@@ -252,32 +274,104 @@ func ParseAssistantRecords(complete []byte) []Record {
 	return out
 }
 
+// CommandRecord is one recorded shell command found in a transcript,
+// alongside the session it was recorded under -- exactly what KAN-172's
+// session-token resolution needs (watcher.go) and nothing about token
+// usage, which ParseAssistantRecords already covers separately from the
+// same bytes. SessionID is the same top-level "sessionId" every Record
+// also carries; Command is the Bash tool_use block's "input.command"
+// field, read verbatim, before the shell ever expands it.
+type CommandRecord struct {
+	SessionID string
+	Command   string
+}
+
+// ParseCommandRecords decodes every Bash tool_use command found in
+// complete's assistant lines. Unlike ParseAssistantRecords, it does not
+// require the line to carry a "usage" object: a mark's session token must
+// be discoverable from an assistant line even in the hypothetical case
+// that line's usage is absent, since nothing about session-token
+// resolution depends on token accounting. In the ordinary case both are
+// read from the same
+// bytes in the same pass (ReadNewRecords calls both), so this is not a
+// second read of the file -- it is a second, independent extraction over
+// bytes already in memory.
+//
+// A content block that is not a Bash tool_use, or whose input does not
+// decode as {"command": "..."}, contributes nothing -- the same
+// tolerance the rest of this package extends to a transcript format it
+// only reads and never writes.
+func ParseCommandRecords(complete []byte) []CommandRecord {
+	var out []CommandRecord
+	start := 0
+	for start < len(complete) {
+		idx := bytes.IndexByte(complete[start:], '\n')
+		if idx < 0 {
+			break // complete always ends in '\n'; unreachable in practice.
+		}
+		end := start + idx + 1
+		line := bytes.TrimSpace(complete[start:end])
+		start = end
+		if len(line) == 0 {
+			continue
+		}
+
+		var raw rawLine
+		if err := json.Unmarshal(line, &raw); err != nil {
+			continue
+		}
+		if raw.Type != recordTypeAssistant || raw.Message == nil {
+			continue
+		}
+		for _, block := range raw.Message.Content {
+			if block.Type != "tool_use" || block.Name != "Bash" || len(block.Input) == 0 {
+				continue
+			}
+			var input rawBashInput
+			if err := json.Unmarshal(block.Input, &input); err != nil {
+				continue
+			}
+			if input.Command == "" {
+				continue
+			}
+			out = append(out, CommandRecord{SessionID: raw.SessionID, Command: input.Command})
+		}
+	}
+	return out
+}
+
 // ReadNewRecords reads path from offset to EOF, splits off any partial
-// trailing line (SplitCompleteLines), parses the assistant records found
-// in the complete portion, and returns them alongside the byte offset a
-// caller should persist as "consumed" -- offset + len(complete), never
-// len(raw): a partial final line must never be counted as read, or a
-// restart that catches it mid-write would skip the rest of that same
-// line forever once the writer finishes it.
+// trailing line (SplitCompleteLines), parses the assistant records and
+// the Bash commands found in the complete portion, and returns both
+// alongside the byte offset a caller should persist as "consumed" --
+// offset + len(complete), never len(raw): a partial final line must
+// never be counted as read, or a restart that catches it mid-write would
+// skip the rest of that same line forever once the writer finishes it.
+//
+// commands is read from the same complete bytes as records, in the same
+// call -- this is the one place a caller (Watcher.RunOnce) reads a
+// transcript's newly-arrived bytes, so session-token resolution
+// (KAN-172, task 2) rides on that read rather than scanning the file, or
+// the transcripts root, a second time.
 //
 // A file shorter than offset (rotated or truncated out from under the
 // watcher) is reported via ErrOffsetBeyondEOF rather than silently
 // reread from 0, which would double-count everything already attributed
 // from it under the old identity.
-func ReadNewRecords(path string, offset int64) (records []Record, newOffset int64, err error) {
+func ReadNewRecords(path string, offset int64) (records []Record, commands []CommandRecord, newOffset int64, err error) {
 	f, err := openAt(path, offset)
 	if err != nil {
-		return nil, offset, err
+		return nil, nil, offset, err
 	}
 	defer f.Close()
 
 	raw, err := io.ReadAll(f)
 	if err != nil {
-		return nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
+		return nil, nil, offset, fmt.Errorf("harvest: read %s from offset %d: %w", path, offset, err)
 	}
 
 	complete, _ := SplitCompleteLines(raw)
-	return ParseAssistantRecords(complete), offset + int64(len(complete)), nil
+	return ParseAssistantRecords(complete), ParseCommandRecords(complete), offset + int64(len(complete)), nil
 }
 
 // openAt opens path and seeks to offset, checking first that offset does

@@ -381,3 +381,12 @@ func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (
 func (fakeStore) ListModels(context.Context, store.Period, *string) ([]string, error) {
 	return nil, nil
 }
+
+// AllRecordedRunsUnmeasured is here purely to keep satisfying
+// api.StatsStore -- this file's fakeStore never exercises a stats route
+// (unanticipated file, task 5: the interface it implements gained one
+// method, and every implementer of it must compile; mechanical
+// substitution, no logic change).
+func (fakeStore) AllRecordedRunsUnmeasured(context.Context, store.Period, *string) (bool, error) {
+	return false, nil
+}

@@ -9,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/stages"
@@ -55,9 +57,14 @@ type stageBeginRequest struct {
 	RepoRoot         *string `json:"repoRoot,omitempty"`
 	Harness          string  `json:"harness"`
 	SessionID        *string `json:"sessionId,omitempty"`
-	Command          string  `json:"command"`
-	Stage            string  `json:"stage"`
-	StartedAt        string  `json:"startedAt"`
+	// SessionToken is the literal, unique correlator `stage begin` wrote into its
+	// own command text (KAN-172, task 1) -- required, exactly as Harness
+	// is, so the daemon always has something a later harvest cycle
+	// (task 2) can look for in a transcript.
+	SessionToken string `json:"sessionToken"`
+	Command      string `json:"command"`
+	Stage        string `json:"stage"`
+	StartedAt    string `json:"startedAt"`
 }
 
 // stageEndRequest is the wire shape POST /api/v1/stages/end accepts. It
@@ -100,9 +107,14 @@ type BeginStageMark struct {
 	RepoRoot         *string
 	Harness          string
 	SessionID        *string
-	Command          string
-	Stage            string
-	StartedAt        time.Time
+	// SessionToken is the literal correlator `stage begin` recorded. See
+	// stageBeginRequest.SessionToken's doc comment for what it is and why it is
+	// required; ApplyBeginStageMark validates its shape
+	// (validateSessionTokenShape) before it ever reaches the store.
+	SessionToken string
+	Command      string
+	Stage        string
+	StartedAt    time.Time
 }
 
 // EndStageMark is the typed, transport-agnostic shape of an end mark. See
@@ -139,6 +151,66 @@ const claudeCodeHarness = "claude-code"
 // defect design.md says a mark for an unknown change is worth seeing.
 const syntheticChangeUpdatedBy = "myflow stage begin (synthetic)"
 
+// ErrInvalidSessionToken is returned by ApplyBeginStageMark when mark.SessionToken is
+// empty, or contains a shape that a shell would expand before the
+// transcript ever saw it (validateSessionTokenShape). Like ErrUnknownStage, this
+// is a caller mistake, never a store failure: the handler answers 400
+// carrying the reason (never mapStoreError's generic 500 fallback), and
+// internal/client classifies it as ErrStageMarkRejected, never
+// ErrUnavailable.
+var ErrInvalidSessionToken = errors.New("api: invalid sessionToken")
+
+// sessionTokenShellVarPattern matches a "$" immediately followed by a shell
+// variable-name character ($VAR, $HOME, $_x) -- one of the three
+// substitution shapes design.md's "the sessionToken is a literal, never a shell
+// substitution" names. It deliberately does not match bare "$" or "$$"
+// (a PID expansion) on their own: the task names exactly three shapes
+// ("$(", a backtick, and "$" followed by a name), and this is the pattern
+// for the third.
+var sessionTokenShellVarPattern = regexp.MustCompile(`\$[A-Za-z_]`)
+
+// validateSessionTokenShape rejects a sessionToken that cannot identify anything: one
+// that is empty, or that carries a shell-substitution shape a caller's own
+// shell would expand before the transcript is ever written --
+// cmd/myflow/stage.go's runStageBegin runs the identical check, client
+// side, before the store is ever contacted, for the same reason
+// stages.Validate is checked in both places (defence in depth: a mark
+// replayed from internal/reconcile's journal reaches ApplyBeginStageMark
+// without ever passing back through the CLI's own check). The two copies
+// are not shared code -- cmd/myflow knows only HTTP, never this package
+// (design.md, "Boundaries") -- so a change to one must be mirrored in the
+// other; each has its own test file pinning the same three shapes and the
+// same reasoning in its message.
+//
+// Why each shape is rejected: `tool_use.input.command`, which the
+// harvester later reads a transcript for (KAN-172, task 2), records the
+// command text exactly as it was handed to the tool -- before the shell
+// ever expands it. A sessionToken built from `$(...)`, a backtick, or `$VAR`
+// therefore lands in every calling session's transcript as the identical,
+// unexpanded literal, and discriminates nothing between them.
+func validateSessionTokenShape(sessionToken string) error {
+	switch {
+	case sessionToken == "":
+		return fmt.Errorf("%w: a sessionToken is required", ErrInvalidSessionToken)
+	case strings.Contains(sessionToken, "$("):
+		return fmt.Errorf("%w: %q contains a command substitution \"$(...)\" -- "+
+			"the transcript records the command text before the shell expands it, "+
+			"so this value would be recorded identically by every caller and identify nothing; "+
+			"write a literal token instead", ErrInvalidSessionToken, sessionToken)
+	case strings.Contains(sessionToken, "`"):
+		return fmt.Errorf("%w: %q contains a backtick -- backtick command substitution is expanded by "+
+			"the shell after the transcript already recorded the unexpanded text, "+
+			"so this value would be recorded identically by every caller and identify nothing; "+
+			"write a literal token instead", ErrInvalidSessionToken, sessionToken)
+	case sessionTokenShellVarPattern.MatchString(sessionToken):
+		return fmt.Errorf("%w: %q contains a shell variable reference ($VAR) -- "+
+			"the transcript records the command text before the shell expands it, "+
+			"so this value would be recorded identically by every caller and identify nothing; "+
+			"write a literal token instead", ErrInvalidSessionToken, sessionToken)
+	}
+	return nil
+}
+
 // ErrNoOpenStageRun is ApplyEndStageMark's own not-found condition: no
 // stage run matching the requested identity is currently open. It is
 // distinct from store.ErrStageRunNotFound (which names a specific,
@@ -170,6 +242,11 @@ func IsDefinitiveMarkOutcome(err error) bool {
 		// table that has since changed) named a stage this build of
 		// myflowd does not document. That will not resolve itself by
 		// retrying the identical entry.
+		return true
+	case errors.Is(err, ErrInvalidSessionToken):
+		// A caller mistake -- an empty or shell-substitution sessionToken -- that
+		// retrying the identical journalled entry can never fix, exactly
+		// like an undocumented stage name above.
 		return true
 	case errors.Is(err, ErrNoOpenStageRun):
 		return true
@@ -243,14 +320,23 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 		RepoRoot:         req.RepoRoot,
 		Harness:          req.Harness,
 		SessionID:        req.SessionID,
+		SessionToken:     req.SessionToken,
 		Command:          req.Command,
 		Stage:            req.Stage,
 		StartedAt:        startedAt,
 	})
 	if err != nil {
 		var unknownStage *stages.ErrUnknownStage
-		if errors.As(err, &unknownStage) {
+		switch {
+		case errors.As(err, &unknownStage):
 			writeErrorWithCode(w, http.StatusBadRequest, CodeUndocumentedStage, err.Error())
+			return
+		case errors.Is(err, ErrInvalidSessionToken):
+			// A caller mistake, not a store failure -- mapStoreError's
+			// generic default (500 "internal error") would swallow the
+			// reason this is rejected, exactly the failure mode
+			// CodeUndocumentedStage exists to avoid for a stage name.
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("begin stage %s/%s for %s/%s", req.Command, req.Stage, req.ProjectKey, req.ChangeName), err)
@@ -271,6 +357,11 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 // mark replayed after README.md's table has since changed is caught here
 // too, by the same check, rather than a separate one.
 //
+// mark.SessionToken is validated the same way, by validateSessionTokenShape: empty, or
+// carrying a shell-substitution shape, is rejected as ErrInvalidSessionToken
+// before the store is ever touched -- again mirroring the CLI's own
+// identical check.
+//
 // A mark for a change the store has never heard of is not dropped: when
 // BeginStage reports store.ErrChangeNotFound, this bootstraps a synthetic
 // change row -- state STARTED, updated by syntheticChangeUpdatedBy -- and
@@ -284,16 +375,24 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err := stages.Validate(stages.Command(mark.Command), mark.Stage); err != nil {
 		return StageMarkResult{}, err
 	}
+	if err := validateSessionTokenShape(mark.SessionToken); err != nil {
+		return StageMarkResult{}, err
+	}
 
+	var sessionToken *string
+	if mark.SessionToken != "" {
+		sessionToken = &mark.SessionToken
+	}
 	in := store.BeginStageInput{
-		ProjectKey: mark.ProjectKey,
-		ChangeName: mark.ChangeName,
-		RepoRoot:   mark.RepoRoot,
-		Harness:    mark.Harness,
-		SessionID:  mark.SessionID,
-		Command:    mark.Command,
-		Stage:      mark.Stage,
-		StartedAt:  mark.StartedAt,
+		ProjectKey:   mark.ProjectKey,
+		ChangeName:   mark.ChangeName,
+		RepoRoot:     mark.RepoRoot,
+		Harness:      mark.Harness,
+		SessionID:    mark.SessionID,
+		SessionToken: sessionToken,
+		Command:      mark.Command,
+		Stage:        mark.Stage,
+		StartedAt:    mark.StartedAt,
 	}
 
 	run, err := ss.BeginStage(ctx, in)

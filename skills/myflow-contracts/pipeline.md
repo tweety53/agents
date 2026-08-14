@@ -226,19 +226,59 @@ harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 Every `/myflow-*` pipeline command — `/myflow-start`, `/myflow-do`, `/myflow-finish` and
 `/myflow-fast` — marks each of its own stages: `myflow stage begin` when the stage starts,
 `myflow stage end` when it closes, both naming the command, the stage and the change. The stage
-names are exactly the ones in **Level 1 — the stages of each command** (`README.md`) — that table is
-restated nowhere here, on purpose: a second copy is exactly what its own README-parsing test
-(`stats/internal/stages/names_test.go`) exists to make impossible. Each skill's own mark calls sit at
-that skill's own stage boundaries, in that skill's own `SKILL.md`, and name the stage exactly as its
-row spells it — markdown formatting, backticks and all, since the CLI compares the `-stage` value
-byte for byte against the documented name and rejects anything else, naming the documented
-alternatives.
+identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
+(`README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
+own README-parsing test (`stats/internal/stages/names_test.go`) exists to make impossible. Each
+skill's own mark calls sit at that skill's own stage boundaries, in that skill's own `SKILL.md`, and
+name the stage by its Key column exactly — the CLI compares the `-stage` value byte for byte against
+the documented key and rejects anything else, naming the documented alternatives.
+
+**A `stage begin` mark MUST carry `-session-token` and `-harness`.** Neither is optional, and a call
+missing either is a caller mistake the CLI rejects before it ever reaches the store (see below).
+`-session-token` is a literal, unique token this **run** — not this mark — generates once, at the
+start of the run, and then passes unchanged on every mark that run makes, so the daemon can later
+find it in the calling session's own transcript and bind every stage run carrying it to that
+transcript's own `sessionId` — design.md's "bind after the fact, by a correlator the caller writes"
+and "one token per session, not one per mark" (kan-172). Generate the token once, near the start of
+the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
+same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
+— `claude-code`, `cursor` or `codex`.
+
+**The token is per run, generated fresh, never reused across runs.** Two concurrent runs that
+happened to carry the same token would resolve to more than one session, which the ambiguity rule
+below already refuses — correctly, since a token shared by two sessions identifies neither. A run
+that starts identifies itself with its own new token; a run that already has one (mid-run, at a
+later mark) reuses it.
+
+**Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
+filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below —
+because one skill source installs into `~/.claude/skills/`, `~/.cursor/skills/` and
+`~/.codex/skills/` alike, and a hardcoded `-harness claude-code` would mislabel every Cursor and
+Codex run as Claude Code, hiding the very thing the field exists to record: that Cursor and Codex
+write no transcript, so their runs are *explicitly unavailable* rather than zero.
+`scripts/check-stage-mark-calls.sh` rejects a hardcoded `-harness` literal in skill source the same
+way it rejects a substituted session token.
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'the review panel' <name>
+myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 # … the stage's own work …
-myflow stage end   -command '/myflow-do' -stage 'the review panel' -outcome completed <name>
+myflow stage end   -command '/myflow-do' -stage do.review-panel -outcome completed <name>
+# … a later stage in the same run reuses the same token, not a new one …
+myflow stage begin -command '/myflow-do' -stage do.lint-and-test -harness <harness> -session-token mf-<literal-token> <name>
 ```
+
+**The session token MUST be a literal, written directly into the command — never a shell
+substitution.** `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
+backtick or a `$VAR` reference. The reason is what makes the whole binding mechanism work: the
+transcript records `tool_use.input.command` — the text handed to the tool — **before** the shell ever
+expands it. A substitution therefore lands in every calling session's transcript as the identical,
+unexpanded string, and discriminates nothing between them. A reader who does not know this will
+"improve" the literal into a substitution the first chance they get, which is exactly the regression
+this paragraph, `stats/cmd/myflow/stage.go`'s `validateSessionToken`, `internal/api/stages.go`'s
+`validateSessionTokenShape`, and `scripts/check-stage-mark-calls.sh` all exist to stop. Write a
+concrete token in its place — `<literal-token>` above means "invent a short, unique string right
+here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
+at every mark".
 
 **A mark never blocks, delays, or alters the stage it marks.** On any store failure the CLI
 journals the intent, prints one warning line, and exits 0 — the same never-block guarantee **State
@@ -246,13 +286,13 @@ file** (`skills/myflow-contracts/state-file.md`) already states for `state set`.
 `myflow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
 still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
 the mark exactly the block it is required not to be. The only nonzero exit is a caller mistake — an
-undocumented stage name or a missing required flag — which is a defect in the skill's own call, not
-an outcome of the stage, and is fixed by correcting the call rather than worked around.
+undocumented stage key, a missing required flag, or a session token carrying a substitution shape —
+which is a defect in the skill's own call, not an outcome of the stage, and is fixed by correcting the
+call rather than worked around.
 
-**`stage end` carries no harness of its own** — the harness is recorded once at `begin` and is
-immutable, so an end mark can never contradict the harness a stage began under. Where the harness
-exposes a session identifier, `stage begin` may carry it via `-session`; where it does not, the flag
-is simply omitted.
+**`stage end` carries no session token and no harness of its own** — attribution happens once, at
+`begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness
+a stage began under.
 
 `/myflow-status` marks nothing — its own row in the Level 1 table says so, and a read-only report
 that wrote stage runs would be recording work nobody did.

@@ -55,6 +55,13 @@ type StatsStore interface {
 	// ExcludedNoModel), the latter GET /api/v1/models's only source.
 	CountRunsWithoutModel(ctx context.Context, period store.Period, project *string) (int, error)
 	ListModels(ctx context.Context, period store.Period, project *string) ([]string, error)
+	// AllRecordedRunsUnmeasured backs statsResponse's Unmeasured, below:
+	// the third arm between "not recorded" and "recorded as zero"
+	// (design.md, "the third arm of the absence distinction"). Called only
+	// when Recorded is already true -- a period predating any telemetry
+	// cannot also be "all unmeasured", so calling it there would spend a
+	// query answering a question that does not apply to that period.
+	AllRecordedRunsUnmeasured(ctx context.Context, period store.Period, project *string) (bool, error)
 }
 
 // var _ StatsStore = (*store.Store)(nil) verifies at compile time that the
@@ -133,6 +140,17 @@ const acceptedStatsQueryParamNames = "from, to, project, breakdown, change, comm
 // omitempty omits only a nil pointer -- absent means "no filter" -- and
 // still encodes a pointer to zero as an explicit 0, per this file's own
 // header comment on why no metric field here uses plain omitempty.
+//
+// Unmeasured is task 5's third arm, added deliberately alongside Recorded
+// rather than folded into it: Recorded carries one fact ("this period is
+// not entirely before anything this store has ever held"), and Unmeasured
+// carries a different one ("stage runs exist for this period, and not one
+// of them carries a measurement"). Collapsing the two into one flag would
+// make a recording misconfiguration -- runs exist, attribution never
+// bound one to a session -- indistinguishable from a genuinely quiet
+// period, which is exactly the defect this task exists to close. It is
+// only ever true when Recorded is also true (see the handler): a period
+// that predates all telemetry is reported through Recorded alone.
 type statsResponse struct {
 	View               viewName `json:"view"`
 	From               string   `json:"from"`
@@ -141,6 +159,7 @@ type statsResponse struct {
 	Model              *string  `json:"model,omitempty"`
 	BoundaryConvention string   `json:"boundaryConvention"`
 	Recorded           bool     `json:"recorded"`
+	Unmeasured         bool     `json:"unmeasured"`
 	ExcludedNoModel    *int     `json:"excludedNoModel,omitempty"`
 	Rows               any      `json:"rows"`
 }
@@ -263,6 +282,22 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Unmeasured is resolved only once Recorded is true (statsResponse's
+	// own doc comment and the StatsStore interface's doc comment on
+	// AllRecordedRunsUnmeasured): a period that predates any telemetry is
+	// already fully reported by Recorded=false, so asking "did none of its
+	// runs carry a measurement" would be a wasted query answering a
+	// question that period does not raise.
+	var unmeasured bool
+	if recorded {
+		unmeasured, err = h.store.AllRecordedRunsUnmeasured(r.Context(), period, project)
+		if err != nil {
+			status, msg := mapStoreError(h.logger, "resolve unmeasured period for "+string(name), err)
+			writeError(w, status, msg)
+			return
+		}
+	}
+
 	resp := statsResponse{
 		View:               name,
 		From:               period.From.UTC().Format(time.RFC3339Nano),
@@ -271,6 +306,7 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		Model:              model,
 		BoundaryConvention: boundaryConvention,
 		Recorded:           recorded,
+		Unmeasured:         unmeasured,
 	}
 
 	// ExcludedNoModel is computed -- and only present on the wire -- when a

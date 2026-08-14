@@ -37,8 +37,15 @@ a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
+**Generate this run's session token once, right now, before the first mark below — a short, unique
+literal string — and reuse that exact same value at every `stage begin` this run makes, including
+every mark inside a cited section below.** Never generate a fresh token per mark, and never let a
+cited section's own "generate once" instruction cause a second token part-way through this run: this
+whole chained sequence, start through finish, is **one run** and carries **one token**
+(design.md's "one token per session, not one per mark").
+
 ```bash
-myflow stage begin -command '/myflow-fast' -stage 'state gate' <name-or-best-guess>
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-<literal-token> <name-or-best-guess>
 ```
 
 Accepts **no state** (creates a change) or **`IN_PROGRESS`**. On any other state, emit the
@@ -47,24 +54,27 @@ wrong-state handoff from **Wrong state for this command**
 and the suggested command instead. Proceed only on an explicit override.
 
 ```bash
-myflow stage end -command '/myflow-fast' -stage 'state gate' -outcome completed <name-or-best-guess>
+myflow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed <name-or-best-guess>
 ```
 
-**This command marks its own four Level 1 stages only** — `/myflow-fast`'s own row in the table, not
-the finer-grained `/myflow-start` and `/myflow-do` stages the sections below cite and run by
-reference. A section cited here (`skills/myflow-start/SKILL.md`'s, `skills/myflow-do/SKILL.md`'s)
-runs exactly as written **except** for its own stage marks: this command does not re-emit them
-under `-command '/myflow-start'` or `-command '/myflow-do'`, since under `/myflow-fast` that content
-is folded into one coarser stage of this command's own. See **Stage marks**
-(`skills/myflow-contracts/pipeline.md`).
+**This command mints no stage key of its own — it marks the same granular Level 1 stages the
+sections it cites already document**, per design.md's "`/myflow-fast` reuses the chained commands'
+stage names" (kan-172): `/myflow-fast`'s allowed stage set is the **union** of `/myflow-start`'s,
+`/myflow-do`'s and `/myflow-finish`'s, expressed in the Level 1 table's Commands column, not a
+fourth set of names. A section cited here (`skills/myflow-start/SKILL.md`'s, `skills/myflow-do/SKILL.md`'s,
+`skills/myflow-finish/SKILL.md`'s) runs exactly as written, **including its own stage marks** —
+every `myflow stage begin`/`myflow stage end` in that section fires exactly where it is written,
+with exactly the key and harness rules its own file states, and **two substitutions**: `-command`
+reads `/myflow-fast` in every one of them, never the cited section's own command name, and
+`-session-token` carries this run's own token throughout — the one generated once at the state gate
+above, never a fresh one minted at the cited section's own first mark.
+This is what makes a fast run's stages directly comparable, stage for stage, against the equivalent
+`start`→`do`→`finish` sequence — a fast run records `do.review-panel`, not a `fast.*` key of its
+own. A stage a cited section skips under the conditions stated in its own file (e.g.
+`start.ask-options` on this skill's creating run, `do.document-fix` on a first run) is skipped here
+too, and marks nothing. See **Stage marks** (`skills/myflow-contracts/pipeline.md`).
 
 ## No state file — brainstorm into implementation
-
-```bash
-myflow stage begin -command '/myflow-fast' \
-  -stage '*(creating run)* brainstorming chained straight into implementation and the review panel, no gate in between — the full sequence, by cited section, is **No state file — brainstorm into implementation** (`skills/myflow-fast/SKILL.md`)' \
-  <name>
-```
 
 This branch runs when no state file exists yet for the change — the same condition `/myflow-start`
 treats as a creating run. Run these sections of `skills/myflow-start/SKILL.md` exactly as written,
@@ -114,45 +124,33 @@ single command invocation with no operator action between them, and that is deli
 human gate between brainstorming converging and implementation starting in the existing pipeline
 either, so nothing that used to pause now doesn't.
 
-```bash
-myflow stage end -command '/myflow-fast' \
-  -stage '*(creating run)* brainstorming chained straight into implementation and the review panel, no gate in between — the full sequence, by cited section, is **No state file — brainstorm into implementation** (`skills/myflow-fast/SKILL.md`)' \
-  -outcome completed <name>
-```
+Every stage mark for this branch is the cited section's own — `start.resolve-change`,
+`start.brainstorm`, `start.design-approval`, `start.create-artifacts`, `start.writing-plans`,
+`do.load-context`, `do.isolate-workspace`, `do.sdd-tdd`, `do.review-panel`, `do.run-instructions`,
+`do.workspace-export`, `do.lint-and-test`, `do.stage-diff`, `do.write-in-progress`, in that order —
+each fired exactly where its own `skills/myflow-start/SKILL.md` or `skills/myflow-do/SKILL.md`
+section documents it, under `-command '/myflow-fast'`, per this file's own **State gate** section
+above. `start.ask-options` and `start.publish-proposal` are skipped, per this branch's own overrides
+above, and mark nothing.
 
 ## At `IN_PROGRESS`
 
-**An argument present.** Treat it as fix instructions and resume the worktree — run
-
-```bash
-myflow stage begin -command '/myflow-fast' \
-  -stage '*(at `IN_PROGRESS`, argument present)* a fix, chained the same way — **At `IN_PROGRESS`** (`skills/myflow-fast/SKILL.md`)' \
-  <name>
-```
-
+**An argument present.** Treat it as fix instructions and resume the worktree, running
 **3. Documenting a fix, before implementing it** (`skills/myflow-do/SKILL.md`) and the rest of
 sections 1–7 exactly as `/myflow-do` runs them at `IN_PROGRESS`, using the argument text as the
 fix's guidance. The state is written back unchanged, per
-**A fix never moves the state** (`skills/myflow-contracts/pipeline.md`).
+**A fix never moves the state** (`skills/myflow-contracts/pipeline.md`). Every stage mark is
+`do.document-fix` followed by the same sections 1–7 keys listed above, again under
+`-command '/myflow-fast'`.
 
-```bash
-myflow stage end -command '/myflow-fast' \
-  -stage '*(at `IN_PROGRESS`, argument present)* a fix, chained the same way — **At `IN_PROGRESS`** (`skills/myflow-fast/SKILL.md`)' \
-  -outcome completed <name>
-```
-
-**No argument (bare invocation).** Proceed to the integrate question — run
-
-```bash
-myflow stage begin -command '/myflow-fast' \
-  -stage '*(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`)' \
-  <name>
-```
-
+**No argument (bare invocation).** Proceed to the integrate question, running
 **Deciding which run this is** (`skills/myflow-finish/SKILL.md`) through
 **1.3 Take the chosen route** (`skills/myflow-finish/SKILL.md`) exactly as `/myflow-finish` run 1
 runs them: the unfinished-work gate, the landing question (open PR / merge and push / manual), the
-two commits, and the chosen route.
+two commits, and the chosen route. Every stage mark is the cited section's own —
+`finish.preflight`, `finish.unfinished-work-gate`, `finish.landing-question`,
+`finish.preserve-sessions`, `finish.commit-two`, `finish.landing-routes` — again under
+`-command '/myflow-fast'`.
 
 ### After merge-and-push specifically
 
@@ -160,13 +158,10 @@ Continue, within the same invocation and without a further command from the oper
 **Run 2 — archive and clean up** (`skills/myflow-finish/SKILL.md`) exactly as written: verify the
 merge, sync delta specs, archive the change, commit and push the archive, remove the
 worktrees/branches, verify the cleanup, and write `FINISHED`. Nothing external blocks this route, so
-nothing pauses between run 1 and run 2 here.
-
-```bash
-myflow stage end -command '/myflow-fast' \
-  -stage '*(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`)' \
-  -outcome completed <name>
-```
+nothing pauses between run 1 and run 2 here. Every stage mark is the cited section's own —
+`finish.write-in-progress`, `finish.move-in-review`, `finish.verify-merge`, `finish.sync-archive`,
+`finish.commit-archive`, `finish.cleanup`, `finish.verify-cleanup`, `finish.write-finished`,
+`finish.self-review` — again under `-command '/myflow-fast'`.
 
 ### After open PR or manual specifically
 
@@ -174,13 +169,8 @@ Stop after the route completes, printing the same handoff **1.5 State and handof
 (`skills/myflow-finish/SKILL.md`) prints for run 1. Each of these two routes needs an action outside
 this command's control — an external merge, or the operator's own manual steps — before archiving
 can happen, so nothing continues automatically. The next bare `/myflow-fast <name>` call, once the
-branch is integrated, runs run 2 (archive).
-
-```bash
-myflow stage end -command '/myflow-fast' \
-  -stage '*(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`)' \
-  -outcome completed <name>
-```
+branch is integrated, runs run 2 (archive). The route taken already closed `finish.landing-routes`
+above — no further mark fires until that next call.
 
 ## Recorded defaults favor speed
 

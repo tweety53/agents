@@ -17,7 +17,7 @@ import (
 // TestStageBeginRecordsIdentityAndInstant pins that `stage begin` sends
 // the store exactly the identity a real begin mark needs: project (derived
 // from the git repo, not typed by the caller), change name, command,
-// stage, harness and session id -- and that a documented stage name is
+// stage, harness and session id -- and that a documented stage key is
 // accepted, never rejected as a usage error.
 func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 	repo := gitRepo(t)
@@ -43,8 +43,9 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 		[]string{
 			"stage", "begin",
 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "SDD + TDD per task",
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd",
 			"-harness", "claude-code", "-session", "sess-123",
+			"-session-token", "mf-session-token-identity-abc",
 			"kan-16",
 		},
 		strings.NewReader(""), &stdout, &stderr)
@@ -66,14 +67,17 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 	if got["command"] != "/myflow-do" {
 		t.Errorf("command = %v, want /myflow-do", got["command"])
 	}
-	if got["stage"] != "SDD + TDD per task" {
-		t.Errorf("stage = %v, want %q", got["stage"], "SDD + TDD per task")
+	if got["stage"] != "do.sdd-tdd" {
+		t.Errorf("stage = %v, want %q", got["stage"], "do.sdd-tdd")
 	}
 	if got["harness"] != "claude-code" {
 		t.Errorf("harness = %v, want claude-code", got["harness"])
 	}
 	if got["sessionId"] != "sess-123" {
 		t.Errorf("sessionId = %v, want sess-123", got["sessionId"])
+	}
+	if got["sessionToken"] != "mf-session-token-identity-abc" {
+		t.Errorf("sessionToken = %v, want mf-session-token-identity-abc", got["sessionToken"])
 	}
 	if got["projectKey"] == nil || got["projectKey"] == "" {
 		t.Errorf("projectKey was not sent: %s", gotBody)
@@ -107,7 +111,7 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "SDD + TDD per task", "kan-16"},
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-session-token-default-harness", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -122,12 +126,12 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 	}
 }
 
-// --- stage begin/end: an undocumented stage name is rejected before the
+// --- stage begin/end: an undocumented stage key is rejected before the
 // network is ever touched ---
 
 // TestStageBeginRejectsUndocumentedStageWithoutContactingStore is the
 // CLI-level half of task 8's rejection requirement (internal/stages/
-// names_test.go pins Validate itself): a stage name absent from README's
+// names_test.go pins Validate itself): a stage key absent from README's
 // Level 1 table must be refused as a usage error, and the store must
 // never be contacted for it -- if it were, the fallback would swallow the
 // caller's own mistake as if it were a store outage.
@@ -146,17 +150,140 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "a stage nobody documented", "kan-16"},
+			"-command", "/myflow-do", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2 (an undocumented stage is a usage error); stderr:\n%s", code, stderr.String())
 	}
 	if contacted {
-		t.Error("the store was contacted for an undocumented stage name -- it must be rejected before any network call")
+		t.Error("the store was contacted for an undocumented stage key -- it must be rejected before any network call")
 	}
 	if stderr.Len() == 0 {
 		t.Error("stderr is empty, want an error naming the documented alternatives")
+	}
+}
+
+// --- stage begin: a sessionToken that cannot identify anything is rejected ---
+
+// TestStageBeginRequiresSessionToken pins tasks.md's "A missing -session-token is a
+// caller mistake, not a stage outcome": exit non-zero, name the flag, and
+// never contact the store -- exactly like an undocumented stage key.
+func TestStageBeginRequiresSessionToken(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (a missing -session-token is a usage error); stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted with no -session-token -- it must be rejected before any network call")
+	}
+	if !strings.Contains(stderr.String(), "-session-token") {
+		t.Errorf("stderr = %q, want it to name -session-token", stderr.String())
+	}
+}
+
+// TestStageBeginRejectsShellSubstitutionSessionToken pins design.md's "the sessionToken
+// is a literal, never a shell substitution": each of the three shapes the
+// task names -- "$(", a backtick, and "$" followed by a name -- is
+// rejected with its own case, the store is never contacted, and the error
+// says why rather than just "invalid" (design.md: "a reader who does not
+// know that will reintroduce the defect").
+func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
+	cases := []struct {
+		name         string
+		sessionToken string
+		wantMessage  string
+	}{
+		{"command substitution", "mf-$(date +%s)-$$", "command substitution"},
+		{"backtick", "mf-`date +%s`", "backtick"},
+		{"shell variable", "mf-$SESSION_ID", "shell variable"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", tc.sessionToken, "kan-16"},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2 (a shell-substitution sessionToken is a usage error); stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted with a shell-substitution sessionToken -- it must be rejected before any network call")
+			}
+			if !strings.Contains(stderr.String(), tc.wantMessage) {
+				t.Errorf("stderr = %q, want it to explain why (%q)", stderr.String(), tc.wantMessage)
+			}
+		})
+	}
+}
+
+// TestStageBeginAcceptsLiteralSessionToken pins the positive case alongside the
+// three rejections above: a literal sessionToken with no shell metacharacters at
+// all is accepted and sent to the store unchanged -- covered in detail by
+// TestStageBeginRecordsIdentityAndInstant's own "sessionToken" assertion; this
+// pins specifically that a sessionToken merely containing "$" on its own (no
+// "$(" and no following name character) is not mistaken for a
+// substitution.
+func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-20260814-abc123", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if got["sessionToken"] != "mf-20260814-abc123" {
+		t.Errorf("sessionToken = %v, want mf-20260814-abc123", got["sessionToken"])
 	}
 }
 
@@ -189,7 +316,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 		[]string{
 			"stage", "end",
 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "SDD + TDD per task",
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd",
 			"-outcome", "completed",
 			"-fix-rounds", "2", "-panel-rounds", "1",
 			"-findings", `{"critical":0,"major":1}`,
@@ -254,7 +381,7 @@ func TestStageEndOmitsMetricsWhenNoFlagsGiven(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "SDD + TDD per task", "-outcome", "completed", "kan-16"},
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-outcome", "completed", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -283,7 +410,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
-				"-command", "/myflow-do", "-stage", "SDD + TDD per task", "kan-16"},
+				"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-session-token-fallback-begin", "kan-16"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -320,7 +447,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
-				"-command", "/myflow-do", "-stage", "SDD + TDD per task", "-outcome", "completed", "kan-16"},
+				"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-outcome", "completed", "kan-16"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -364,7 +491,7 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "SDD + TDD per task", "kan-16"},
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-session-token-fallback-journal", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())

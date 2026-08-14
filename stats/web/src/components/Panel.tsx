@@ -1,14 +1,18 @@
 // Panel is the chrome primitive every dashboard (task 20) composes
 // itself from: a bordered region with a heading, an optional
 // description, and a body -- "one self-contained result with its own
-// heading" (proposal.md's Fix round 1). It carries the loading, error
-// and not-recorded branches ViewFrame.tsx renders today, so recomposing
-// a view into panels cannot lose the not-recorded distinction on the
+// heading" (proposal.md's Fix round 1). It carries the loading, error,
+// not-recorded and unmeasured branches ViewFrame.tsx used to render, so
+// recomposing a view into panels cannot lose either distinction on the
 // way: a period entirely before the store held anything must still read
 // as "no data was recorded" rather than falling through to whatever a
-// child would otherwise render for an empty result. Its own test asserts
-// exactly that -- a panel handed a `recorded: false` response renders the
-// not-recorded banner and never calls `children` at all.
+// child would otherwise render for an empty result, and a period whose
+// runs were recorded but never attributed must read as its own third
+// state -- never folded into either neighbour (task 5, design.md's "the
+// third arm of the absence distinction"). Its own tests assert exactly
+// that: a panel handed `recorded: false` renders the not-recorded
+// banner, a panel handed `recorded: true, unmeasured: true` renders the
+// unmeasured banner, and neither ever calls `children`.
 //
 // This is deliberately the same branch structure ViewFrame.tsx already
 // has, not a coincidentally-similar rewrite: Panel is what a view
@@ -49,7 +53,13 @@ export function Panel<Row>({ title, description, state, children }: PanelProps<R
             No data was recorded for this period.
           </p>
         )}
-        {state.status === "ready" && state.data.recorded && children(state.data)}
+        {state.status === "ready" && state.data.recorded && state.data.unmeasured && (
+          <p className="unmeasured" data-testid="unmeasured">
+            Runs were recorded for this period, but none carried measurements. Check your recording
+            setup -- this is not the same as a quiet period.
+          </p>
+        )}
+        {state.status === "ready" && state.data.recorded && !state.data.unmeasured && children(state.data)}
       </div>
     </section>
   );

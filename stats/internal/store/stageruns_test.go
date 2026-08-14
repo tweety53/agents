@@ -9,8 +9,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/store"
 )
+
+// *store.Store must satisfy harvest.SessionTokenBinder structurally -- this is
+// the compile-time half of the same wiring assertion cmd/myflowd/main.go
+// makes for WindowSource, HarvestSink and Pricer (task 2's own file list
+// keeps this task out of cmd/myflowd, so it is asserted here instead,
+// where UnresolvedSessionTokens and BindSession are actually defined).
+var _ harvest.SessionTokenBinder = (*store.Store)(nil)
 
 // seedChange puts a minimal, valid change under projectKey/name and returns
 // nothing -- callers key every stage run call by that same project/name
@@ -72,6 +80,258 @@ func TestBeginStageAllocatesAttempts(t *testing.T) {
 	}
 	if third.Attempt != 1 {
 		t.Errorf("BeginStage attempt for a different stage = %d, want 1 (its own series)", third.Attempt)
+	}
+}
+
+// TestBeginStageRoundTripsSessionToken pins KAN-172, task 1's own
+// acceptance criterion: the store persists whatever correlator BeginStage
+// is given, and returns it unchanged both from BeginStage itself and from
+// a later GetStageRun -- the two reads a harvest cycle (task 2) and a
+// caller re-fetching the row would each perform.
+func TestBeginStageRoundTripsSessionToken(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-session-token-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in.SessionID = nil
+	in.SessionToken = ptr("mf-session-token-round-trip")
+
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if run.SessionToken == nil || *run.SessionToken != "mf-session-token-round-trip" {
+		t.Errorf("BeginStage SessionToken = %v, want mf-session-token-round-trip", run.SessionToken)
+	}
+
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.SessionToken == nil || *got.SessionToken != "mf-session-token-round-trip" {
+		t.Errorf("GetStageRun SessionToken = %v, want mf-session-token-round-trip", got.SessionToken)
+	}
+	// SessionID stays unset -- writing a sessionToken records only the
+	// correlator, never a guessed session (design.md's kan-172 "a session
+	// is never guessed"); binding it is task 2's job, not BeginStage's.
+	if got.SessionID != nil {
+		t.Errorf("SessionID = %v, want nil -- BeginStage must not resolve a session from a sessionToken", got.SessionID)
+	}
+}
+
+// TestUnresolvedSessionTokensReturnsOnlyRowsAwaitingBinding is
+// UnresolvedSessionTokens' own acceptance test: a row with a sessionToken and no
+// session_id is returned; a row with neither, and a row already bound
+// (both sessionToken and session_id set), are not -- exactly the partial
+// index's own WHERE clause (stage_runs_unresolved_session_token, migration
+// 0008), proven against the real predicate rather than assumed to match
+// it.
+func TestUnresolvedSessionTokensReturnsOnlyRowsAwaitingBinding(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-unresolved-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	unresolved := baseBeginInput(projectKey, "kan-1", "/myflow-do", "unresolved stage")
+	unresolved.SessionID = nil
+	unresolved.SessionToken = ptr("mf-unresolved")
+	unresolvedRun, err := st.BeginStage(ctx, unresolved)
+	if err != nil {
+		t.Fatalf("BeginStage (unresolved): %v", err)
+	}
+
+	noToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "no sessionToken at all")
+	noToken.SessionID = nil
+	noToken.SessionToken = nil
+	if _, err := st.BeginStage(ctx, noToken); err != nil {
+		t.Fatalf("BeginStage (no sessionToken): %v", err)
+	}
+
+	alreadyBound := baseBeginInput(projectKey, "kan-1", "/myflow-do", "already bound")
+	alreadyBound.SessionID = ptr("session-already-bound")
+	alreadyBound.SessionToken = ptr("mf-already-bound")
+	if _, err := st.BeginStage(ctx, alreadyBound); err != nil {
+		t.Fatalf("BeginStage (already bound): %v", err)
+	}
+
+	got, err := st.UnresolvedSessionTokens(ctx)
+	if err != nil {
+		t.Fatalf("UnresolvedSessionTokens: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("UnresolvedSessionTokens returned %d rows, want exactly 1: %v", len(got), got)
+	}
+	if sessionToken, ok := got[unresolvedRun.ID]; !ok || sessionToken != "mf-unresolved" {
+		t.Errorf("UnresolvedSessionTokens = %v, want {%d: mf-unresolved}", got, unresolvedRun.ID)
+	}
+}
+
+// TestBindSessionSetsSessionID is BindSession's positive case: a stage
+// run with no session_id gets exactly the session it is told to bind.
+func TestBindSessionSetsSessionID(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-bind-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "to be bound")
+	in.SessionID = nil
+	in.SessionToken = ptr("mf-to-bind")
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	bound, err := st.BindSession(ctx, "mf-to-bind", "session-newly-bound")
+	if err != nil {
+		t.Fatalf("BindSession: %v", err)
+	}
+	if bound != 1 {
+		t.Fatalf("bound = %d on the first bind, want 1", bound)
+	}
+
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.SessionID == nil || *got.SessionID != "session-newly-bound" {
+		t.Errorf("SessionID = %v, want session-newly-bound", got.SessionID)
+	}
+}
+
+// TestBindSessionBindsEveryRunSharingAToken is KAN-172 task 4b's own
+// acceptance criterion for the store half of "one token per session, not
+// one per mark": when a session's token has been generated once and
+// carried on several marks, each producing its own stage run row, a
+// single BindSession call for that token binds every one of those rows at
+// once -- not just whichever one a caller happened to name. This is the
+// mechanism task 4b changes BindSession's own signature (stage run id ->
+// token) to make possible.
+func TestBindSessionBindsEveryRunSharingAToken(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-bind-shared-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-shared-across-marks"
+	first := baseBeginInput(projectKey, "kan-1", "/myflow-do", "first mark")
+	first.SessionID = nil
+	first.SessionToken = ptr(token)
+	firstRun, err := st.BeginStage(ctx, first)
+	if err != nil {
+		t.Fatalf("BeginStage (first): %v", err)
+	}
+
+	second := baseBeginInput(projectKey, "kan-1", "/myflow-do", "second mark")
+	second.SessionID = nil
+	second.SessionToken = ptr(token)
+	secondRun, err := st.BeginStage(ctx, second)
+	if err != nil {
+		t.Fatalf("BeginStage (second): %v", err)
+	}
+
+	bound, err := st.BindSession(ctx, token, "session-shared")
+	if err != nil {
+		t.Fatalf("BindSession: %v", err)
+	}
+	if bound != 2 {
+		t.Fatalf("bound = %d, want 2 (both runs sharing the token)", bound)
+	}
+
+	for _, id := range []int64{firstRun.ID, secondRun.ID} {
+		got, err := st.GetStageRun(ctx, id)
+		if err != nil {
+			t.Fatalf("GetStageRun(%d): %v", id, err)
+		}
+		if got.SessionID == nil || *got.SessionID != "session-shared" {
+			t.Errorf("run %d SessionID = %v, want session-shared", id, got.SessionID)
+		}
+	}
+}
+
+// TestBindSessionIsOneWay is design.md's "unbinding never happens",
+// pinned directly against the store: a second BindSession call against
+// a token that is already bound reports zero rows bound and leaves the
+// original session untouched, even when it names a different session
+// entirely -- binding never overwrites what a first call already set.
+func TestBindSessionIsOneWay(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-oneway-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "bound once")
+	in.SessionID = nil
+	in.SessionToken = ptr("mf-one-way")
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	if _, err := st.BindSession(ctx, "mf-one-way", "session-first"); err != nil {
+		t.Fatalf("BindSession (first): %v", err)
+	}
+
+	bound, err := st.BindSession(ctx, "mf-one-way", "session-second")
+	if err != nil {
+		t.Fatalf("BindSession (second): %v", err)
+	}
+	if bound != 0 {
+		t.Fatalf("bound = %d on the second bind, want 0", bound)
+	}
+
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.SessionID == nil || *got.SessionID != "session-first" {
+		t.Errorf("SessionID = %v, want unchanged session-first (binding is one-way)", got.SessionID)
+	}
+}
+
+// TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken is KAN-172 task
+// 4b's other acceptance criterion: "a mark arriving with an already-bound
+// token is bound at write time, doing no resolution work at all". Once a
+// token has been bound to a session (by an earlier BindSession call, the
+// harvester's own job), a later BeginStage call carrying that same token
+// gets its session_id set immediately, from insertStageRun's own
+// COALESCE, and never appears in UnresolvedSessionTokens at all.
+func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-resolve-at-insert-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-already-resolved"
+	first := baseBeginInput(projectKey, "kan-1", "/myflow-do", "first mark")
+	first.SessionID = nil
+	first.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, first); err != nil {
+		t.Fatalf("BeginStage (first): %v", err)
+	}
+	if _, err := st.BindSession(ctx, token, "session-resolved"); err != nil {
+		t.Fatalf("BindSession: %v", err)
+	}
+
+	second := baseBeginInput(projectKey, "kan-1", "/myflow-do", "second mark")
+	second.SessionID = nil
+	second.SessionToken = ptr(token)
+	secondRun, err := st.BeginStage(ctx, second)
+	if err != nil {
+		t.Fatalf("BeginStage (second): %v", err)
+	}
+	if secondRun.SessionID == nil || *secondRun.SessionID != "session-resolved" {
+		t.Fatalf("second run SessionID = %v, want session-resolved (resolved at insert time)", secondRun.SessionID)
+	}
+
+	unresolved, err := st.UnresolvedSessionTokens(ctx)
+	if err != nil {
+		t.Fatalf("UnresolvedSessionTokens: %v", err)
+	}
+	if _, ok := unresolved[secondRun.ID]; ok {
+		t.Errorf("second run appears in UnresolvedSessionTokens = %v, want absent: its session was already known at insert time", unresolved)
 	}
 }
 

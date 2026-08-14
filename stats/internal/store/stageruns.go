@@ -63,13 +63,21 @@ type StageRun struct {
 	RepoRoot  *string
 	Harness   string
 	SessionID *string
-	Command   string
-	Stage     string
-	Attempt   int
-	StartedAt time.Time
-	EndedAt   *time.Time
-	Outcome   *string
-	Metrics   json.RawMessage
+	// SessionToken is the literal, unique correlator `stage begin` wrote
+	// (KAN-172, task 1) -- present whenever SessionID is not yet resolved,
+	// and left in place, unused, once binding has happened, since binding
+	// is one-way (design.md's kan-172 "unbinding never happens"). A nil
+	// value means this run predates the sessionToken column (the store's own
+	// no-backfill rows) or, in principle, was marked by a harness build
+	// that never sent one.
+	SessionToken *string
+	Command      string
+	Stage        string
+	Attempt      int
+	StartedAt    time.Time
+	EndedAt      *time.Time
+	Outcome      *string
+	Metrics      json.RawMessage
 }
 
 // BeginStageInput identifies the change a stage run belongs to by its
@@ -85,9 +93,15 @@ type BeginStageInput struct {
 	RepoRoot  *string
 	Harness   string
 	SessionID *string
-	Command   string
-	Stage     string
-	StartedAt time.Time
+	// SessionToken is the literal correlator to persist alongside the run,
+	// so a later harvest cycle can find it in a transcript and bind
+	// SessionID (KAN-172, task 2). Whether it is required at all is an
+	// application-layer decision (internal/api and cmd/myflow both enforce
+	// it); the store persists whatever it is given, nil included.
+	SessionToken *string
+	Command      string
+	Stage        string
+	StartedAt    time.Time
 }
 
 // BeginStage records the start of one stage run and allocates its attempt
@@ -122,37 +136,57 @@ func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, e
 	return StageRun{}, fmt.Errorf("%w: %s/%s %s/%s", ErrTooManyAttemptCollisions, in.ProjectKey, in.ChangeName, in.Command, in.Stage)
 }
 
+// insertStageRun inserts one stage run. Its session_id is computed inside
+// the same INSERT ... SELECT as the attempt number: the caller-supplied
+// SessionID ($5) wins when given, otherwise this looks for a session
+// already bound to the same session_token by an earlier run (KAN-172, task
+// 4b's "a mark arriving with an already-bound token is bound at write
+// time, doing no resolution work at all") -- one run's own token is
+// shared, unchanged, by every mark that run makes (design.md's "one token
+// per session, not one per mark"), so a second or later mark for a run
+// whose token the harvester has already resolved gets its session_id at
+// insert time and never enters the unresolved-session-token pool at all.
+// A session_token of NULL naturally matches no row in the subquery, so no
+// separate NULL guard is needed.
 func (s *Store) insertStageRun(ctx context.Context, in BeginStageInput) (StageRun, error) {
 	var (
-		run       StageRun
-		metrics   []byte
-		sessionID *string
+		run          StageRun
+		metrics      []byte
+		sessionID    *string
+		sessionToken *string
 	)
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO stage_runs (
-			change_id, repo_root, harness, session_id, command, stage, attempt, started_at, metrics
+			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics
 		)
 		SELECT
-			c.id, $3, $4, $5, $6, $7,
+			c.id, $3, $4,
+			COALESCE($5, (
+				SELECT sr2.session_id FROM stage_runs sr2
+				WHERE sr2.session_token = $6 AND sr2.session_id IS NOT NULL
+				LIMIT 1
+			)),
+			$6, $7, $8,
 			COALESCE(
 				(SELECT MAX(sr.attempt) FROM stage_runs sr
-				 WHERE sr.change_id = c.id AND sr.command = $6 AND sr.stage = $7),
+				 WHERE sr.change_id = c.id AND sr.command = $7 AND sr.stage = $8),
 				0
 			) + 1,
-			$8, '{}'::jsonb
+			$9, '{}'::jsonb
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
-		RETURNING id, change_id, repo_root, harness, session_id, command, stage, attempt,
+		RETURNING id, change_id, repo_root, harness, session_id, session_token, command, stage, attempt,
 		          started_at, ended_at, outcome, metrics
-	`, in.ProjectKey, in.ChangeName, in.RepoRoot, in.Harness, in.SessionID, in.Command, in.Stage, in.StartedAt).
+	`, in.ProjectKey, in.ChangeName, in.RepoRoot, in.Harness, in.SessionID, in.SessionToken, in.Command, in.Stage, in.StartedAt).
 		Scan(
-			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &run.Command, &run.Stage,
+			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
 			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
 		)
 	if err != nil {
 		return StageRun{}, err
 	}
 	run.SessionID = sessionID
+	run.SessionToken = sessionToken
 	run.Metrics = metrics
 	return run, nil
 }
@@ -228,17 +262,18 @@ func (s *Store) MergeMetrics(ctx context.Context, stageRunID int64, patch json.R
 // GetStageRun returns the stage run recorded under id.
 func (s *Store) GetStageRun(ctx context.Context, id int64) (StageRun, error) {
 	var (
-		run       StageRun
-		metrics   []byte
-		sessionID *string
+		run          StageRun
+		metrics      []byte
+		sessionID    *string
+		sessionToken *string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, change_id, repo_root, harness, session_id, command, stage, attempt,
+		SELECT id, change_id, repo_root, harness, session_id, session_token, command, stage, attempt,
 		       started_at, ended_at, outcome, metrics
 		FROM stage_runs
 		WHERE id = $1
 	`, id).Scan(
-		&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &run.Command, &run.Stage,
+		&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
 		&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
 	)
 	if err != nil {
@@ -248,6 +283,7 @@ func (s *Store) GetStageRun(ctx context.Context, id int64) (StageRun, error) {
 		return StageRun{}, fmt.Errorf("store: get stage run %d: %w", id, err)
 	}
 	run.SessionID = sessionID
+	run.SessionToken = sessionToken
 	run.Metrics = metrics
 	return run, nil
 }
@@ -298,7 +334,7 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	}
 
 	sqlText := fmt.Sprintf(`
-		SELECT sr.id, sr.change_id, sr.repo_root, sr.harness, sr.session_id, sr.command, sr.stage,
+		SELECT sr.id, sr.change_id, sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
 		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics
 		FROM stage_runs sr
 		JOIN changes c ON c.id = sr.change_id
@@ -316,17 +352,19 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	var out []StageRun
 	for rows.Next() {
 		var (
-			run       StageRun
-			metrics   []byte
-			sessionID *string
+			run          StageRun
+			metrics      []byte
+			sessionID    *string
+			sessionToken *string
 		)
 		if err := rows.Scan(
-			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &run.Command, &run.Stage,
+			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
 			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics,
 		); err != nil {
 			return nil, 0, fmt.Errorf("store: query stage runs: scan: %w", err)
 		}
 		run.SessionID = sessionID
+		run.SessionToken = sessionToken
 		run.Metrics = metrics
 		out = append(out, run)
 	}
@@ -339,6 +377,74 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 	}
 
 	return out, total, nil
+}
+
+// UnresolvedSessionTokens returns every stage run id and its session_token
+// for which session_id has not yet been bound (KAN-172, task 2; reworked
+// per-run rather than per-mark in task 4b). It is the harvester's sole
+// read path onto the correlator task 1 introduced -- exactly the rows
+// stage_runs_unresolved_session_token (migration 0008) indexes, so this
+// query costs nothing proportional to the table's full size.
+//
+// A run whose session_token is NULL (predates the column, or was marked
+// by a harness build that never sent one) is not returned: there is
+// nothing here for a harvest cycle to look for. Nor is a run whose token
+// insertStageRun already resolved at insert time (KAN-172, task 4b) --
+// its session_id was never NULL to begin with, so it never enters this
+// pool at all, regardless of how many other runs share its token.
+func (s *Store) UnresolvedSessionTokens(ctx context.Context) (map[int64]string, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, session_token FROM stage_runs
+		WHERE session_token IS NOT NULL AND session_id IS NULL
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("store: unresolved session tokens: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[int64]string)
+	for rows.Next() {
+		var (
+			id           int64
+			sessionToken string
+		)
+		if err := rows.Scan(&id, &sessionToken); err != nil {
+			return nil, fmt.Errorf("store: unresolved session tokens: scan: %w", err)
+		}
+		out[id] = sessionToken
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: unresolved session tokens: %w", err)
+	}
+	return out, nil
+}
+
+// BindSession sets session_id to sessionID on every stage run carrying
+// sessionToken that has not already been bound -- not just the one stage
+// run whose mark first revealed the token to the harvester (KAN-172, task
+// 4b's "a resolving token binds every run carrying it, not just the one
+// that revealed it" -- the whole economy of moving from one correlator per
+// mark to one per session). The UPDATE's own WHERE session_id IS NULL is
+// what makes binding one-way per row: a run that already carries a
+// session_id -- bound by an earlier cycle, resolved at insert time
+// (insertStageRun's own doc comment), or (in principle) by a concurrent
+// harvester -- is left untouched rather than overwritten. This is the same
+// "let the database detect and report the race, don't check-then-act in
+// Go" shape BeginStage's attempt allocation already uses.
+//
+// bound reports how many rows this call actually updated. Zero, with no
+// error, is not a failure: every run carrying the token may already have
+// been bound (by an earlier cycle, or because every later mark for that
+// run resolved its session_id at insert time and never needed this path
+// at all) -- there is nothing left to retry.
+func (s *Store) BindSession(ctx context.Context, sessionToken string, sessionID string) (bound int64, err error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE stage_runs SET session_id = $2 WHERE session_token = $1 AND session_id IS NULL
+	`, sessionToken, sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("store: bind session for session token: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 // SweepAbandoned closes every stage run that is still open (no end mark)

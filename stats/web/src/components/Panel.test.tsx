@@ -1,9 +1,12 @@
-// Panel.test.tsx covers the panel primitive's loading/error/not-recorded
-// branches -- the same branches ViewFrame.tsx already tests, carried
-// forward so a view recomposed onto Panel (task 20) cannot lose the
-// not-recorded distinction on the way -- plus StatPanel's own
-// null-versus-zero rule (task 19, step 3), asserted as three separate
-// cases so they cannot collapse into one another.
+// Panel.test.tsx covers the panel primitive's loading/error/not-recorded/
+// unmeasured branches -- the not-recorded branch carried forward so a
+// view recomposed onto Panel (task 20) cannot lose that distinction, and
+// the unmeasured branch added by task 5 for the third arm of the same
+// absence distinction (design.md, "the third arm of the absence
+// distinction") -- plus StatPanel's own null-versus-zero rule (task 19,
+// step 3). All three of not-recorded / unmeasured / measured-including-zero
+// are asserted as separate cases so none can collapse into another --
+// task 5's own non-negotiable rule.
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Panel } from "./Panel";
@@ -12,7 +15,7 @@ import { TimeSeriesPanel } from "./TimeSeriesPanel";
 import type { StatsResponse } from "../api";
 import type { StatsViewState } from "../hooks/useStatsView";
 
-function readyState<Row>(rows: Row, recorded = true): StatsViewState<Row> {
+function readyState<Row>(rows: Row, recorded = true, unmeasured = false): StatsViewState<Row> {
   return {
     status: "ready",
     data: {
@@ -21,6 +24,7 @@ function readyState<Row>(rows: Row, recorded = true): StatsViewState<Row> {
       to: "2026-02-01T00:00:00Z",
       boundaryConvention: "a stage run is attributed to the period containing its start instant",
       recorded,
+      unmeasured,
       rows,
     } satisfies StatsResponse<Row>,
   };
@@ -48,16 +52,28 @@ describe("Panel", () => {
     render(<Panel title="Runs" description="A panel" state={readyState([], false)} children={children} />);
     expect(screen.getByTestId("not-recorded")).toHaveTextContent("No data was recorded for this period.");
     expect(children).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("unmeasured")).not.toBeInTheDocument();
   });
 
-  it("calls children with the response's data once it is ready and recorded", () => {
+  it("renders the unmeasured banner when the response says recorded: true, unmeasured: true, and never calls children -- distinctly from the not-recorded banner", () => {
+    const children = vi.fn();
+    render(<Panel title="Runs" description="A panel" state={readyState([], true, true)} children={children} />);
+    expect(screen.getByTestId("unmeasured")).toHaveTextContent(
+      "Runs were recorded for this period, but none carried measurements.",
+    );
+    expect(children).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("not-recorded")).not.toBeInTheDocument();
+  });
+
+  it("calls children with the response's data once it is ready, recorded and measured -- including a genuinely-zero result -- and renders neither absence banner", () => {
     render(
-      <Panel title="Runs" description="A panel" state={readyState([{ id: 1 }])}>
+      <Panel title="Runs" description="A panel" state={readyState([{ id: 1 }], true, false)}>
         {(data) => <p data-testid="body">{data.rows.length} rows</p>}
       </Panel>,
     );
     expect(screen.getByTestId("body")).toHaveTextContent("1 rows");
     expect(screen.queryByTestId("not-recorded")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("unmeasured")).not.toBeInTheDocument();
   });
 
   it("renders the panel's title and description as chrome", () => {

@@ -266,9 +266,14 @@ type BeginStageRequest struct {
 	RepoRoot         *string
 	Harness          string
 	SessionID        *string
-	Command          string
-	Stage            string
-	StartedAt        time.Time
+	// SessionToken is the literal, unique correlator `stage begin` wrote into its
+	// own command text (KAN-172, task 1) -- required, alongside Harness,
+	// so a later harvest cycle has something to find in the calling
+	// session's own transcript.
+	SessionToken string
+	Command      string
+	Stage        string
+	StartedAt    time.Time
 }
 
 // BeginStageResult identifies the stage run the daemon created, so a later
@@ -305,6 +310,7 @@ type beginStageWireRequest struct {
 	RepoRoot         *string `json:"repoRoot,omitempty"`
 	Harness          string  `json:"harness"`
 	SessionID        *string `json:"sessionId,omitempty"`
+	SessionToken     string  `json:"sessionToken"`
 	Command          string  `json:"command"`
 	Stage            string  `json:"stage"`
 	StartedAt        string  `json:"startedAt"`
@@ -407,6 +413,7 @@ func (c *Client) BeginStage(ctx context.Context, in BeginStageRequest) (BeginSta
 		RepoRoot:         in.RepoRoot,
 		Harness:          in.Harness,
 		SessionID:        in.SessionID,
+		SessionToken:     in.SessionToken,
 		Command:          in.Command,
 		Stage:            in.Stage,
 		StartedAt:        in.StartedAt.UTC().Format(time.RFC3339Nano),

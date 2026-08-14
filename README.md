@@ -87,23 +87,72 @@ stateDiagram-v2
 
 ### Level 1 — the stages of each command
 
-One row per command — the five this pipeline has, three of them pipeline commands, one composite
-command, and one read-only, exactly as **Command surface** (`skills/myflow-contracts/pipeline.md`)
-names them. A
-stage marked ▸ hides substructure and is expanded at level 2 below. The gate column is the human
-gate that *follows* the run — a property of the state the command ends in, never a stage of its
-own.
+Two tables. The first is the stage vocabulary itself — every documented stage, across the five
+commands this pipeline has (three pipeline commands, one composite command, one read-only, exactly
+as **Command surface** (`skills/myflow-contracts/pipeline.md`) names them). The second is the human
+gate that *follows* each command's run — a property of the state the command ends in, never a stage
+of its own, so it is kept out of the first table rather than repeated per stage.
 
-`/myflow-finish` is one command with two runs, so its row carries both, labelled: the preflight
-verdict picks which one a given invocation performs, and the run is never a command of its own.
+**Stages, in order.** One row per stage: a stable **key** a mark carries and the store groups by, a
+human-readable **name** that may be reworded without splitting recorded history, and every command
+that runs it. A name marked ▸ hides substructure and is expanded at level 2 below.
 
-| Command | Stages, in order | Gate after it |
-|---------|------------------|---------------|
-| `/myflow-start` | resolve the change → ask the planning effort, the three model choices and the review panel roster *(creating run only)* → brainstorm ▸ → design approval → create the OpenSpec artifacts → writing-plans ▸ → publish the proposal artifact → write `STARTED` | you read the proposal artifact |
-| `/myflow-do` | state gate → load context and validate the plan → isolate the workspace *(first run only)* → document the fix *(re-runs only)* → SDD + TDD per task ▸ → the review panel ▸ → resolve the run instructions → validate the project's `## workspace isolation` section, then export what it declares → run the project's lint and test commands → stage, excluding the planning paths → write `IN_PROGRESS` | you review the staged diff **and** run the apps |
-| `/myflow-finish` | the preflight verdict ▸, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate ▸ → the landing question → preserve the session records → two commits, implementation first → the landing routes ▸ → write `IN_PROGRESS` → move the issue to In Review; *run 2:* verify the merge → sync delta specs and archive → commit and push the archive → cleanup ▸ → verify the cleanup → write `FINISHED` → self-review | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
-| `/myflow-fast` | state gate → *(creating run)* brainstorming chained straight into implementation and the review panel, no gate in between — the full sequence, by cited section, is **No state file — brainstorm into implementation** (`skills/myflow-fast/SKILL.md`); *(at `IN_PROGRESS`, argument present)* a fix, chained the same way — **At `IN_PROGRESS`** (`skills/myflow-fast/SKILL.md`); *(bare at `IN_PROGRESS`)* the landing question, and merge-and-push alone continues into the archive sequence within the same invocation — same section, plus **After merge-and-push specifically** (`skills/myflow-fast/SKILL.md`) | creating run or fix: you review the staged diff **and** run the apps; open PR or manual: you wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
-| `/myflow-status` | read-only — no stages, no state write; regenerates a handoff block when given a change name | — |
+A key is namespaced by the command that *defines* the stage, never by the command that merely runs
+it. `/myflow-fast` chains `/myflow-start`, `/myflow-do` and `/myflow-finish` without minting a
+single stage name of its own: its allowed stage set is the **union** of the three, expressed here by
+listing `/myflow-fast` in the Commands column of every row those three define, so a fast run is
+directly comparable, stage for stage, against the equivalent start→do→finish sequence. See design.md
+under kan-172 for the rejected alternatives. `/myflow-status` marks no stages at all and contributes
+no rows.
+
+| Key | Name | Commands |
+|-----|------|----------|
+| `start.resolve-change` | Resolve the change | `/myflow-start`, `/myflow-fast` |
+| `start.ask-options` | Ask planning effort, models & panel roster (creating run only) | `/myflow-start`, `/myflow-fast` |
+| `start.brainstorm` | Brainstorm ▸ | `/myflow-start`, `/myflow-fast` |
+| `start.design-approval` | Design approval | `/myflow-start`, `/myflow-fast` |
+| `start.create-artifacts` | Create the OpenSpec artifacts | `/myflow-start`, `/myflow-fast` |
+| `start.writing-plans` | Writing-plans ▸ | `/myflow-start`, `/myflow-fast` |
+| `start.publish-proposal` | Publish the proposal artifact | `/myflow-start`, `/myflow-fast` |
+| `start.write-started` | Write `STARTED` | `/myflow-start`, `/myflow-fast` |
+| `do.state-gate` | State gate | `/myflow-do`, `/myflow-fast` |
+| `do.load-context` | Load context and validate the plan | `/myflow-do`, `/myflow-fast` |
+| `do.isolate-workspace` | Isolate the workspace (first run only) | `/myflow-do`, `/myflow-fast` |
+| `do.document-fix` | Document the fix (re-runs only) | `/myflow-do`, `/myflow-fast` |
+| `do.sdd-tdd` | SDD + TDD per task ▸ | `/myflow-do`, `/myflow-fast` |
+| `do.review-panel` | The review panel ▸ | `/myflow-do`, `/myflow-fast` |
+| `do.run-instructions` | Resolve the run instructions | `/myflow-do`, `/myflow-fast` |
+| `do.workspace-export` | Validate and export workspace isolation | `/myflow-do`, `/myflow-fast` |
+| `do.lint-and-test` | Run the project's lint and test commands | `/myflow-do`, `/myflow-fast` |
+| `do.stage-diff` | Stage, excluding the planning paths | `/myflow-do`, `/myflow-fast` |
+| `do.write-in-progress` | Write `IN_PROGRESS` | `/myflow-do`, `/myflow-fast` |
+| `finish.preflight` | Preflight verdict (decides run 1 vs run 2) ▸ | `/myflow-finish`, `/myflow-fast` |
+| `finish.unfinished-work-gate` | Unfinished-work gate (run 1) ▸ | `/myflow-finish`, `/myflow-fast` |
+| `finish.landing-question` | The landing question (run 1) | `/myflow-finish`, `/myflow-fast` |
+| `finish.preserve-sessions` | Preserve the session records (run 1) | `/myflow-finish`, `/myflow-fast` |
+| `finish.commit-two` | Two commits, implementation first (run 1) | `/myflow-finish`, `/myflow-fast` |
+| `finish.landing-routes` | The landing routes (run 1) ▸ | `/myflow-finish`, `/myflow-fast` |
+| `finish.write-in-progress` | Write `IN_PROGRESS` (run 1) | `/myflow-finish`, `/myflow-fast` |
+| `finish.move-in-review` | Move the issue to In Review (run 1) | `/myflow-finish`, `/myflow-fast` |
+| `finish.verify-merge` | Verify the merge (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.sync-archive` | Sync delta specs and archive (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.commit-archive` | Commit and push the archive (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.cleanup` | Cleanup (run 2) ▸ | `/myflow-finish`, `/myflow-fast` |
+| `finish.verify-cleanup` | Verify the cleanup (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.write-finished` | Write `FINISHED` (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.self-review` | Self-review (run 2) | `/myflow-finish`, `/myflow-fast` |
+
+**Gate after it.** `/myflow-finish` is one command with two runs, so its row carries both, labelled:
+the preflight verdict picks which one a given invocation performs, and the run is never a command of
+its own.
+
+| Command | Gate after it |
+|---------|---------------|
+| `/myflow-start` | you read the proposal artifact |
+| `/myflow-do` | you review the staged diff **and** run the apps |
+| `/myflow-finish` | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
+| `/myflow-fast` | creating run or fix: you review the staged diff **and** run the apps; open PR or manual: you wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
+| `/myflow-status` | — |
 
 `/myflow-finish` run 2's sequence ends with `self-review`, carrying no ▸: its procedure is not
 expanded at level 2 below because it is canonical under **Run 2 — the branch is merged**

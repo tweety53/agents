@@ -130,6 +130,19 @@ export interface StatsResponse<Row = unknown> {
    */
   recorded: boolean;
   /**
+   * The third arm of the absence distinction (design.md, "the third arm
+   * of the absence distinction"): true when stage runs exist for this
+   * period and scope, but not one of them carries a measurement --
+   * distinct from `recorded: false` ("no runs exist for this period at
+   * all") and distinct from a view whose rows carry a real, measured
+   * zero. Only ever true when `recorded` is also true -- a period that
+   * predates any telemetry is reported through `recorded` alone. A UI
+   * must render this as its own state, never folding it into either
+   * neighbour: that collapse is exactly the defect task 5 exists to
+   * close (a recording misconfiguration read as a quiet week).
+   */
+  unmeasured: boolean;
+  /**
    * How many stage runs in scope recorded no model at all, present only
    * when a model restriction was applied -- absent means "no filter",
    * never "zero were excluded" (task 21, step 3), so a UI reading this

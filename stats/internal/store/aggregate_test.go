@@ -1006,3 +1006,103 @@ func TestListModels(t *testing.T) {
 		}
 	}
 }
+
+// --- TestAllRecordedRunsUnmeasured* --------------------------------------
+//
+// Task 5's third arm: three separate cases pinning that "no runs", "runs
+// recorded but none measured" and "a run measured as a real zero" cannot
+// collapse into one another (tasks.md's own "must not collapse" rule).
+
+// TestAllRecordedRunsUnmeasuredWhenNoneCarryTokens seeds two runs in
+// period, neither carrying a "tokens" key -- one with no metrics merged
+// at all, one that recorded a model but no tokens -- and asserts the
+// period reads as entirely unmeasured, not as empty.
+func TestAllRecordedRunsUnmeasuredWhenNoneCarryTokens(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-allunmeasured-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	noMetrics := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	noMetrics.SessionID = ptr("s-no-metrics")
+	noMetrics.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	runStage(t, st, noMetrics, nil, noMetrics.StartedAt.Add(time.Minute), "completed")
+
+	modelNoTokens := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	modelNoTokens.SessionID = ptr("s-model-no-tokens")
+	modelNoTokens.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
+	runStage(t, st, modelNoTokens, json.RawMessage(`{"models":{"claude-opus-5":{"cost_usd":5}}}`), modelNoTokens.StartedAt.Add(time.Minute), "completed")
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	unmeasured, err := st.AllRecordedRunsUnmeasured(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("AllRecordedRunsUnmeasured: %v", err)
+	}
+	if !unmeasured {
+		t.Errorf("AllRecordedRunsUnmeasured = false, want true: neither seeded run carries a \"tokens\" key")
+	}
+}
+
+// TestAllRecordedRunsUnmeasuredFalseWhenARunIsMeasuredAsZero seeds one
+// unmeasured run alongside one whose tokens bag is present but totals a
+// real zero, and asserts the period does NOT read as all-unmeasured: a
+// single measured run, even one measured at zero, is enough to disprove
+// "none was measured" for the whole period.
+func TestAllRecordedRunsUnmeasuredFalseWhenARunIsMeasuredAsZero(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-allunmeasured-zero-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	unmeasured := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	unmeasured.SessionID = ptr("s-unmeasured")
+	unmeasured.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	runStage(t, st, unmeasured, nil, unmeasured.StartedAt.Add(time.Minute), "completed")
+
+	measuredZero := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	measuredZero.SessionID = ptr("s-measured-zero")
+	measuredZero.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
+	runStage(t, st, measuredZero, json.RawMessage(`{"tokens":{"main":{"input":0}}}`), measuredZero.StartedAt.Add(time.Minute), "completed")
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	got, err := st.AllRecordedRunsUnmeasured(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("AllRecordedRunsUnmeasured: %v", err)
+	}
+	if got {
+		t.Errorf("AllRecordedRunsUnmeasured = true, want false: one run carries a \"tokens\" key, even measured at zero")
+	}
+}
+
+// TestAllRecordedRunsUnmeasuredFalseWhenNoRunsInPeriod asserts a period
+// with no stage runs at all reads as false here -- "no runs" and "runs
+// recorded but none measured" are the two different arms this method must
+// never conflate; the caller (internal/api) uses the existing recorded
+// signal, not this method, to report the "no runs" arm.
+func TestAllRecordedRunsUnmeasuredFalseWhenNoRunsInPeriod(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-allunmeasured-empty-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	got, err := st.AllRecordedRunsUnmeasured(ctx, period, &projectKey)
+	if err != nil {
+		t.Fatalf("AllRecordedRunsUnmeasured: %v", err)
+	}
+	if got {
+		t.Errorf("AllRecordedRunsUnmeasured = true, want false: no runs exist in this period at all")
+	}
+}
