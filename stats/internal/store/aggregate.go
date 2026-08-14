@@ -656,3 +656,35 @@ func (s *Store) ListModels(ctx context.Context, period Period, project *string) 
 	}
 	return out, nil
 }
+
+// AllRecordedRunsUnmeasured reports the third arm of the absence
+// distinction (design.md, "the third arm of the absence distinction"):
+// whether stage runs exist for period (and, when project is non-nil,
+// belong to that project) and *none* of them carry a measurement. It is
+// deliberately not "is the period empty" -- a period with zero runs is a
+// different, already-handled case (this store's own empty-slice returns
+// from every aggregation method, and (*statsHandler).recorded in
+// internal/api) -- this method only ever contributes a true when it has
+// first confirmed at least one run exists; a period with no runs at all
+// returns false here, same as a period where every run was measured.
+//
+// "Measured" mirrors CostPerChangeRow.MeasuredRuns' own convention: a run
+// counts as measured when its metrics bag carries a "tokens" key at all,
+// regardless of that key's value -- the same absence-is-not-a-value rule
+// this file applies everywhere else. A run priced at a real, measured
+// zero still has "tokens", so it is never mistaken here for one that was
+// never attributed.
+func (s *Store) AllRecordedRunsUnmeasured(ctx context.Context, period Period, project *string) (bool, error) {
+	var total, measured int
+	err := s.pool.QueryRow(ctx, `
+		SELECT COUNT(*), COUNT(*) FILTER (WHERE sr.metrics ? 'tokens')
+		FROM stage_runs sr
+		JOIN changes c ON c.id = sr.change_id
+		WHERE sr.started_at >= $1 AND sr.started_at < $2
+		  AND ($3::text IS NULL OR c.project_key = $3)
+	`, period.From, period.To, project).Scan(&total, &measured)
+	if err != nil {
+		return false, fmt.Errorf("store: all recorded runs unmeasured: %w", err)
+	}
+	return total > 0 && measured == 0, nil
+}

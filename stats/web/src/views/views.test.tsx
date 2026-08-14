@@ -26,13 +26,14 @@ vi.mock("../api", async (importOriginal) => {
 
 const period = { from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-02-01T00:00:00Z") };
 
-function envelope<Row>(view: ViewName, rows: Row, recorded = true): StatsResponse<Row> {
+function envelope<Row>(view: ViewName, rows: Row, recorded = true, unmeasured = false): StatsResponse<Row> {
   return {
     view,
     from: period.from.toISOString(),
     to: period.to.toISOString(),
     boundaryConvention: "a stage run is attributed to the period containing its start instant",
     recorded,
+    unmeasured,
     rows,
   };
 }
@@ -222,6 +223,26 @@ describe("absence is rendered distinctly from a recorded zero", () => {
     // exactly what "not duplicated across two files" looks like from one.
     const banners = await screen.findAllByTestId("not-recorded");
     expect(banners.length).toBeGreaterThan(0);
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("time-series-point")).not.toBeInTheDocument();
+  });
+
+  // Task 5's third arm, exercised end to end through a real view rather
+  // than Panel.test.tsx's isolated fixture: a period whose runs were
+  // recorded but never attributed must read as its own state, distinct
+  // from both "no data was recorded" (the case immediately above) and
+  // from an ordinary measured table -- never collapsing into either.
+  it("a period whose runs were recorded but none attributed reports that plainly, not as 'no data was recorded'", async () => {
+    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+      Promise.resolve(envelope(view, [], true, true)),
+    );
+    render(<Trend period={period} project={undefined} />);
+    const banners = await screen.findAllByTestId("unmeasured");
+    expect(banners.length).toBeGreaterThan(0);
+    for (const banner of banners) {
+      expect(banner).toHaveTextContent("Runs were recorded for this period, but none carried measurements.");
+    }
+    expect(screen.queryByTestId("not-recorded")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByTestId("time-series-point")).not.toBeInTheDocument();
   });

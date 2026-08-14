@@ -527,6 +527,7 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 			RepoRoot:         req.RepoRoot,
 			Harness:          req.Harness,
 			SessionID:        req.SessionID,
+			SessionToken:     req.SessionToken,
 			Command:          req.Command,
 			Stage:            req.Stage,
 			StartedAt:        req.StartedAt,

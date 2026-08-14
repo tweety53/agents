@@ -100,6 +100,7 @@ scripts/check-task-build-green.sh
 scripts/check-workspace-isolation.sh
 scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
+scripts/check-stage-mark-calls.sh
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b

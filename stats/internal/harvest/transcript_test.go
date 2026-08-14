@@ -154,7 +154,7 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 		t.Fatalf("write growing fixture: %v", err)
 	}
 
-	firstPass, offsetAfterFirst, err := harvest.ReadNewRecords(path, 0)
+	firstPass, _, offsetAfterFirst, err := harvest.ReadNewRecords(path, 0)
 	if err != nil {
 		t.Fatalf("ReadNewRecords (truncated): %v", err)
 	}
@@ -170,7 +170,7 @@ func TestTruncatedFinalLineIsResumedNotFailed(t *testing.T) {
 		t.Fatalf("complete the write: %v", err)
 	}
 
-	secondPass, offsetAfterSecond, err := harvest.ReadNewRecords(path, offsetAfterFirst)
+	secondPass, _, offsetAfterSecond, err := harvest.ReadNewRecords(path, offsetAfterFirst)
 	if err != nil {
 		t.Fatalf("ReadNewRecords (resumed): %v", err)
 	}
@@ -246,8 +246,89 @@ func TestReadNewRecordsOffsetBeyondEOFIsReported(t *testing.T) {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	_, _, err := harvest.ReadNewRecords(path, 10_000)
+	_, _, _, err := harvest.ReadNewRecords(path, 10_000)
 	if !errors.Is(err, harvest.ErrOffsetBeyondEOF) {
 		t.Fatalf("ReadNewRecords error = %v, want ErrOffsetBeyondEOF", err)
+	}
+}
+
+// TestParseCommandRecordsFindsBashToolUse is KAN-172 task 2's parsing
+// guard: a `stage begin ... -session-token mf-abc123 ...` command a skill
+// runs through the Bash tool lands in an assistant line's
+// message.content[].input.command, exactly as a real transcript records
+// it (confirmed by reading a live ~/.claude/projects/*.jsonl file before
+// writing this fixture, not assumed). ParseCommandRecords must recover
+// that literal string, alongside the session it was recorded under.
+func TestParseCommandRecordsFindsBashToolUse(t *testing.T) {
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"running the mark"},{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code","description":"begin stage"}}]}}` + "\n")
+
+	got := harvest.ParseCommandRecords(line)
+	if len(got) != 1 {
+		t.Fatalf("got %d command records, want 1: %+v", len(got), got)
+	}
+	if got[0].SessionID != "session-x" {
+		t.Errorf("SessionID = %q, want %q", got[0].SessionID, "session-x")
+	}
+	want := "myflow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code"
+	if got[0].Command != want {
+		t.Errorf("Command = %q, want %q", got[0].Command, want)
+	}
+}
+
+// TestParseCommandRecordsSkipsNonBashToolsAndTextBlocks is the negative
+// companion: a text block, a non-Bash tool_use (for example Read), and a
+// Bash-named block whose input carries no "command" key must all
+// contribute nothing -- silently, the same tolerance
+// ParseAssistantRecords already extends to shapes this package does not
+// recognise.
+func TestParseCommandRecordsSkipsNonBashToolsAndTextBlocks(t *testing.T) {
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"hello"},{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/foo"}},{"type":"tool_use","name":"Bash","input":{"description":"no command key here"}}]}}` + "\n")
+
+	got := harvest.ParseCommandRecords(line)
+	if len(got) != 0 {
+		t.Fatalf("got %d command records, want 0: %+v", len(got), got)
+	}
+}
+
+// TestParseCommandRecordsIgnoresMissingUsage is the reason
+// ParseCommandRecords does not reuse ParseAssistantRecords' per-line
+// gate: an assistant line carrying a Bash tool_use but no "usage" object
+// at all (a shape this package has not observed live, but not one this
+// parser should depend on to find a session token) must still yield its
+// command.
+func TestParseCommandRecordsIgnoresMissingUsage(t *testing.T) {
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-xyz"}}]}}` + "\n")
+
+	got := harvest.ParseCommandRecords(line)
+	if len(got) != 1 || got[0].Command != "myflow stage begin -session-token mf-xyz" {
+		t.Fatalf("got %+v, want one command record for mf-xyz", got)
+	}
+}
+
+// TestReadNewRecordsAlsoReturnsCommands is the wiring guard for
+// ReadNewRecords' extended signature: the same read that returns token
+// records must also return the Bash commands found in the identical
+// byte range, so Watcher.RunOnce's session-token resolution (KAN-172,
+// task 2) never needs a second read of the file.
+func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "session.jsonl")
+	content := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-abc123"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	records, commands, newOffset, err := harvest.ReadNewRecords(path, 0)
+	if err != nil {
+		t.Fatalf("ReadNewRecords: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("got %d token records, want 1", len(records))
+	}
+	if len(commands) != 1 || commands[0].Command != "myflow stage begin -session-token mf-abc123" {
+		t.Fatalf("got %+v, want one command record for mf-abc123", commands)
+	}
+	if int(newOffset) != len(content) {
+		t.Errorf("newOffset = %d, want %d", newOffset, len(content))
 	}
 }

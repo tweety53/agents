@@ -79,15 +79,21 @@ against itself and report every pushed branch as merged.
 
 # Run 1 — integrate
 
-**On a `RUN1` verdict**, mark the Level 1 table's combined first stage — the preflight verdict just
-taken above, folded together with run 1's unfinished-work gate below — per **Stage marks**
+**On a `RUN1` verdict**, mark the Level 1 table's first two stages: the preflight verdict just
+taken above (`finish.preflight`, closed immediately since the verdict is already in hand), then
+run 1's unfinished-work gate (`finish.unfinished-work-gate`), per **Stage marks**
 (`skills/myflow-contracts/pipeline.md`). A `RUN2` verdict marks nothing here; its own first mark is
-`*run 2:* verify the merge`, below:
+`finish.verify-merge`, below.
+
+**Generate this run's session token once, right here, before the first mark — a short, unique
+literal string — and reuse that exact same value, unchanged, at every `stage begin` run 1 makes
+below.** Never mint a fresh token per mark (design.md's "one token per session, not one per mark").
+Run 2, a separate invocation, generates its own token at its own first mark, below.
 
 ```bash
-myflow stage begin -command '/myflow-finish' \
-  -stage 'the preflight verdict, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate' \
-  <name>
+myflow stage begin -command '/myflow-finish' -stage finish.preflight -harness <harness> -session-token mf-<literal-token> <name>
+myflow stage end   -command '/myflow-finish' -stage finish.preflight -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ## 1.0 Check for unfinished work
@@ -129,21 +135,18 @@ reaches the planning commit and the handoff, so the durable record does not depe
 Why **Stop** is the marked recommendation is stated under
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not re-argued here.
 
-Close the combined preflight-verdict-and-unfinished-work-gate mark opened above, whichever way this
-gate resolved: `completed` on **Continue** or **File or join a Jira follow-up, then continue**,
-`stopped` on **Stop** (the run ends here, at `IN_PROGRESS`, with nothing staged, committed or
-pushed):
+Close the `finish.unfinished-work-gate` mark opened above, whichever way this gate resolved:
+`completed` on **Continue** or **File or join a Jira follow-up, then continue**, `stopped` on
+**Stop** (the run ends here, at `IN_PROGRESS`, with nothing staged, committed or pushed):
 
 ```bash
-myflow stage end -command '/myflow-finish' \
-  -stage 'the preflight verdict, taken once per worktree in the resolved set, decides which run follows — *run 1:* the unfinished-work gate' \
-  -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.unfinished-work-gate -outcome completed <name>
 ```
 
 ## 1.1 Ask how the branch should land, before any git action
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage 'the landing question' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 > **How should this branch land?**
@@ -161,13 +164,13 @@ the operator answers. See **1.1 Ask how the branch should land, before any git a
 (`skills/myflow-finish/SKILL-rationale.md`) for why.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'the landing question' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.landing-question -outcome completed <name>
 ```
 
 ## 1.2 Commit the staged work
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage 'preserve the session records' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Before any route commits, reshape the branch.** Run
@@ -193,8 +196,8 @@ it with the script's own stderr message and continue the integration, per the ou
 which records were preserved and which were not.
 
 ```bash
-myflow stage end   -command '/myflow-finish' -stage 'preserve the session records' -outcome completed <name>
-myflow stage begin -command '/myflow-finish' -stage 'two commits, implementation first' <name>
+myflow stage end   -command '/myflow-finish' -stage finish.preserve-sessions -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.commit-two -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Then stage and commit twice, in this order, rather than assuming everything is already staged: the
@@ -230,13 +233,13 @@ looks like a lost one. See **1.2 Commit the staged work**
 The state file is **not** committed — it lives outside the repo.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'two commits, implementation first' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.commit-two -outcome completed <name>
 ```
 
 ## 1.3 Take the chosen route
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage 'the landing routes' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Per **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 1. Push with `-u` so the
@@ -261,7 +264,7 @@ it is the same trust model the human gate rests on. If the answer is No, leave `
 what to do next.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'the landing routes' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.landing-routes -outcome completed <name>
 ```
 
 ## 1.4 No verification gate
@@ -278,18 +281,18 @@ them**: the state write happens first, and the Jira transition follows it — ne
 (`skills/myflow-contracts/pipeline.md`).
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage 'write `IN_PROGRESS`' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Write the state file with `state` unchanged at `IN_PROGRESS`, `prUrl` set if a PR was opened, and
 every other field carried forward.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'write `IN_PROGRESS`' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.write-in-progress -outcome completed <name>
 ```
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage 'move the issue to In Review' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.move-in-review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Transition the issue to In Review** at the end of a successful run 1, whichever route was taken —
@@ -299,7 +302,7 @@ before, never blocking. A run that stopped on a failed push does **not** transit
 never left the operator's hands.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'move the issue to In Review' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.move-in-review -outcome completed <name>
 ```
 
 ```
@@ -340,10 +343,15 @@ Follow **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → ru
 procedure. In outline, and stopping at the first step that fails, each numbered step below is
 bracketed by its own mark per **Stage marks** (`skills/myflow-contracts/pipeline.md`), using that
 step's exact name from the Level 1 table — a failed mark never blocks, delays or alters the step
-it brackets:
+it brackets.
+
+**Generate this run's own session token once, right here, before this first mark — a short, unique
+literal string — and reuse that exact same value, unchanged, at every `stage begin` run 2 makes
+below.** This is a separate invocation from run 1 above, so it carries its own, freshly-generated
+token, never run 1's.
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage '*run 2:* verify the merge' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`, which
@@ -352,8 +360,8 @@ myflow stage begin -command '/myflow-finish' -stage '*run 2:* verify the merge' 
    nothing** — end this mark `-outcome not-run-2` and stop; nothing below runs.
 
 ```bash
-myflow stage end   -command '/myflow-finish' -stage '*run 2:* verify the merge' -outcome completed <name>
-myflow stage begin -command '/myflow-finish' -stage 'sync delta specs and archive' <name>
+myflow stage end   -command '/myflow-finish' -stage finish.verify-merge -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 2. **Sync delta specs, then archive.** Assess each delta in `<changeRoot>/specs/` against
@@ -364,15 +372,15 @@ myflow stage begin -command '/myflow-finish' -stage 'sync delta specs and archiv
    `openspec/changes/archive/<YYYY-MM-DD>-<name>/`, taking any nested `<name>-fix-N` with it.
 
 ```bash
-myflow stage end   -command '/myflow-finish' -stage 'sync delta specs and archive' -outcome completed <name>
-myflow stage begin -command '/myflow-finish' -stage 'commit and push the archive' <name>
+myflow stage end   -command '/myflow-finish' -stage finish.sync-archive -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 3. **Commit and push the archive** on the base branch in the main checkout.
 
 ```bash
-myflow stage end   -command '/myflow-finish' -stage 'commit and push the archive' -outcome completed <name>
-myflow stage begin -command '/myflow-finish' -stage 'cleanup' <name>
+myflow stage end   -command '/myflow-finish' -stage finish.commit-archive -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
@@ -397,8 +405,8 @@ myflow stage begin -command '/myflow-finish' -stage 'cleanup' <name>
 Steps 4 and 5 together are the Level 1 table's one `cleanup` stage:
 
 ```bash
-myflow stage end   -command '/myflow-finish' -stage 'cleanup' -outcome completed <name>
-myflow stage begin -command '/myflow-finish' -stage 'verify the cleanup' <name>
+myflow stage end   -command '/myflow-finish' -stage finish.cleanup -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
@@ -418,11 +426,11 @@ Close this mark with the verdict step 6 reached: `completed` on `COMPLETE:`, `le
 nothing below runs:
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'verify the cleanup' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.verify-cleanup -outcome completed <name>
 ```
 
 ```bash
-myflow stage begin -command '/myflow-finish' -stage 'write `FINISHED`' <name>
+myflow stage begin -command '/myflow-finish' -stage finish.write-finished -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
@@ -433,8 +441,8 @@ myflow stage begin -command '/myflow-finish' -stage 'write `FINISHED`' <name>
    as the terminal record — it is **never** moved into the archive.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'write `FINISHED`' -outcome completed <name>
-myflow stage begin -command '/myflow-finish' -stage 'self-review' <name>
+myflow stage end -command '/myflow-finish' -stage finish.write-finished -outcome completed <name>
+myflow stage begin -command '/myflow-finish' -stage finish.self-review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Transition the issue to Done** after the state write, per
@@ -504,7 +512,7 @@ transitions nothing — the change is not done.
    in the handoff, never a reason to reopen the change.
 
 ```bash
-myflow stage end -command '/myflow-finish' -stage 'self-review' -outcome completed <name>
+myflow stage end -command '/myflow-finish' -stage finish.self-review -outcome completed <name>
 ```
 
 The change is `FINISHED` before this mark closes, and a failure inside self-review — a declined

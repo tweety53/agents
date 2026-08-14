@@ -49,15 +49,16 @@ func (f *fakeStore) BeginStage(_ context.Context, in store.BeginStageInput) (sto
 
 	f.nextStageRunID++
 	run := store.StageRun{
-		ID:        f.nextStageRunID,
-		RepoRoot:  in.RepoRoot,
-		Harness:   in.Harness,
-		SessionID: in.SessionID,
-		Command:   in.Command,
-		Stage:     in.Stage,
-		Attempt:   attempt,
-		StartedAt: in.StartedAt,
-		Metrics:   json.RawMessage(`{}`),
+		ID:           f.nextStageRunID,
+		RepoRoot:     in.RepoRoot,
+		Harness:      in.Harness,
+		SessionID:    in.SessionID,
+		SessionToken: in.SessionToken,
+		Command:      in.Command,
+		Stage:        in.Stage,
+		Attempt:      attempt,
+		StartedAt:    in.StartedAt,
+		Metrics:      json.RawMessage(`{}`),
 	}
 	f.stageRuns = append(f.stageRuns, stageRunRecord{run: run, projectKey: in.ProjectKey, changeName: in.ChangeName})
 	return run, nil
@@ -275,13 +276,14 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 
 	session := "sess-1"
 	req := map[string]any{
-		"projectKey": "proj",
-		"changeName": "chg",
-		"harness":    "claude-code",
-		"sessionId":  session,
-		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
-		"startedAt":  "2026-08-13T10:00:00Z",
+		"projectKey":   "proj",
+		"changeName":   "chg",
+		"harness":      "claude-code",
+		"sessionId":    session,
+		"sessionToken": "mf-session-token-identity",
+		"command":      "/myflow-do",
+		"stage":        "do.sdd-tdd",
+		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
 	if resp.StatusCode != http.StatusOK {
@@ -295,14 +297,17 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 	if run.Command != "/myflow-do" {
 		t.Errorf("Command = %q, want /myflow-do", run.Command)
 	}
-	if run.Stage != "SDD + TDD per task" {
-		t.Errorf("Stage = %q, want %q", run.Stage, "SDD + TDD per task")
+	if run.Stage != "do.sdd-tdd" {
+		t.Errorf("Stage = %q, want %q", run.Stage, "do.sdd-tdd")
 	}
 	if run.Harness != "claude-code" {
 		t.Errorf("Harness = %q, want claude-code", run.Harness)
 	}
 	if run.SessionID == nil || *run.SessionID != session {
 		t.Errorf("SessionID = %v, want %q", run.SessionID, session)
+	}
+	if run.SessionToken == nil || *run.SessionToken != "mf-session-token-identity" {
+		t.Errorf("SessionToken = %v, want %q", run.SessionToken, "mf-session-token-identity")
 	}
 	wantStart, _ := time.Parse(time.RFC3339, "2026-08-13T10:00:00Z")
 	if !run.StartedAt.Equal(wantStart) {
@@ -351,6 +356,55 @@ func TestStageBeginRejectsUndocumentedStage(t *testing.T) {
 	}
 }
 
+// TestStageBeginRejectsInvalidSessionToken is the server-side half of KAN-172,
+// task 1's sessionToken rejection: even though the CLI validates first
+// (cmd/myflow/stage_test.go's own identical cases), the daemon itself
+// must never persist a sessionToken that cannot identify anything, and must
+// answer 400 carrying the reason -- not mapStoreError's generic 500,
+// which would swallow it (api.ErrInvalidSessionToken's own doc comment). Each
+// case is the shape design.md names: a missing sessionToken, and the three
+// shell-substitution shapes that would be recorded identically by every
+// caller (`$(...)`, a backtick, and `$VAR`).
+func TestStageBeginRejectsInvalidSessionToken(t *testing.T) {
+	cases := []struct {
+		name         string
+		sessionToken any // nil omits the field entirely, pinning the "missing" case
+	}{
+		{"missing", nil},
+		{"command substitution", "mf-$(date +%s)-$$"},
+		{"backtick", "mf-`date +%s`"},
+		{"shell variable", "mf-$SESSION_ID"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := newFakeStore()
+			fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+			srv := newStageTestServer(t, fs)
+			defer srv.Close()
+
+			req := map[string]any{
+				"projectKey": "proj",
+				"changeName": "chg",
+				"harness":    "claude-code",
+				"command":    "/myflow-do",
+				"stage":      "do.sdd-tdd",
+				"startedAt":  "2026-08-13T10:00:00Z",
+			}
+			if tc.sessionToken != nil {
+				req["sessionToken"] = tc.sessionToken
+			}
+
+			resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400; body: %s", resp.StatusCode, body)
+			}
+			if len(fs.stageRuns) != 0 {
+				t.Errorf("len(stageRuns) = %d, want 0 -- an invalid sessionToken must never be recorded", len(fs.stageRuns))
+			}
+		})
+	}
+}
+
 // TestMarkForUnknownChangeIsStored pins design.md's "a mark for an unknown
 // change is stored, not dropped": a begin mark naming a change the store
 // has never heard of is recorded against a synthetic change row for the
@@ -366,8 +420,9 @@ func TestMarkForUnknownChangeIsStored(t *testing.T) {
 		"mainCheckoutPath": "/repo/proj",
 		"changeName":       "chg-nobody-made",
 		"harness":          "claude-code",
+		"sessionToken":     "mf-session-token-unknown-change",
 		"command":          "/myflow-do",
-		"stage":            "SDD + TDD per task",
+		"stage":            "do.sdd-tdd",
 		"startedAt":        "2026-08-13T10:00:00Z",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
@@ -408,12 +463,13 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 	defer srv.Close()
 
 	beginReq := map[string]any{
-		"projectKey": "proj",
-		"changeName": "chg",
-		"harness":    "claude-code",
-		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
-		"startedAt":  "2026-08-13T10:00:00Z",
+		"projectKey":   "proj",
+		"changeName":   "chg",
+		"harness":      "claude-code",
+		"sessionToken": "mf-session-token-end-metrics",
+		"command":      "/myflow-do",
+		"stage":        "do.sdd-tdd",
+		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
 		t.Fatalf("begin: status = %d; body: %s", resp.StatusCode, body)
@@ -431,7 +487,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
+		"stage":      "do.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 		"metrics":    json.RawMessage(`{"fix_rounds":2,"tokens":{"output":50}}`),
@@ -496,11 +552,12 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 		"changeName": "chg",
 		"harness":    "claude-code",
 		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
+		"stage":      "do.sdd-tdd",
 	}
 
 	// A normal begin -- attempt 1.
 	beginReq["startedAt"] = "2026-08-13T10:00:00Z"
+	beginReq["sessionToken"] = "mf-session-token-highest-attempt-1"
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
 		t.Fatalf("first begin: status = %d; body: %s", resp.StatusCode, body)
 	}
@@ -509,6 +566,7 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 	// mark -- BeginStage has no idempotency key, so this genuinely opens a
 	// second attempt exactly as design.md describes.
 	beginReq["startedAt"] = "2026-08-13T10:01:00Z"
+	beginReq["sessionToken"] = "mf-session-token-highest-attempt-2"
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
 		t.Fatalf("second (replayed) begin: status = %d; body: %s", resp.StatusCode, body)
 	}
@@ -524,7 +582,7 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
+		"stage":      "do.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}
@@ -558,7 +616,7 @@ func TestStageEndWithNoOpenRunIsNotFound(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
+		"stage":      "do.sdd-tdd",
 		"outcome":    "completed",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", endReq)
@@ -579,12 +637,13 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 	t.Helper()
 
 	beginReq := map[string]any{
-		"projectKey": "proj",
-		"changeName": "chg",
-		"harness":    harness,
-		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
-		"startedAt":  "2026-08-13T10:00:00Z",
+		"projectKey":   "proj",
+		"changeName":   "chg",
+		"harness":      harness,
+		"sessionToken": "mf-session-token-" + harness,
+		"command":      "/myflow-do",
+		"stage":        "do.sdd-tdd",
+		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
 		t.Fatalf("begin: status = %d; body: %s", resp.StatusCode, body)
@@ -594,7 +653,7 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/myflow-do",
-		"stage":      "SDD + TDD per task",
+		"stage":      "do.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}

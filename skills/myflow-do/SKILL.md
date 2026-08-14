@@ -38,8 +38,12 @@ a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
+**Generate this run's session token once, right now, before the first mark below — a short, unique
+literal string — and reuse that exact same value, unchanged, at every `stage begin` this run makes
+below.** Never mint a fresh token per mark (design.md's "one token per session, not one per mark").
+
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'state gate' <name>
+myflow stage begin -command '/myflow-do' -stage do.state-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Accepts **`STARTED`** (first run) or **`IN_PROGRESS`** (fix run).
@@ -65,13 +69,13 @@ At `FINISHED` the change is archived; emit the wrong-state handoff and stop.
 **Never** invoke `finishing-a-development-branch` — integration is `/myflow-finish`'s job.
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'state gate' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.state-gate -outcome completed <name>
 ```
 
 ## 1. Load context and validate the plan
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'load context and validate the plan' <name>
+myflow stage begin -command '/myflow-do' -stage do.load-context -harness <harness> -session-token mf-<literal-token> <name>
 openspec status --change "<name>" --json
 openspec instructions apply --change "<name>" --json
 ```
@@ -87,7 +91,7 @@ it before touching code.
 Extract the **Global constraints** verbatim from the delta specs and `design.md` for the reviewers.
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'load context and validate the plan' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.load-context -outcome completed <name>
 ```
 
 ## 2. Isolate the workspace (first run only)
@@ -97,7 +101,7 @@ myflow stage end -command '/myflow-do' -stage 'load context and validate the pla
 marks nothing here:
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'isolate the workspace *(first run only)*' <name>
+myflow stage begin -command '/myflow-do' -stage do.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
@@ -128,7 +132,7 @@ a misconfiguration. See **The empty id** (`skills/myflow-contracts/workspace-iso
 On a first run, close the stage once the worktree exists and the workspace id is computed:
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'isolate the workspace *(first run only)*' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.isolate-workspace -outcome completed <name>
 ```
 
 ## 3. Documenting a fix, before implementing it
@@ -138,7 +142,7 @@ myflow stage end -command '/myflow-do' -stage 'isolate the workspace *(first run
 nothing here:
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'document the fix *(re-runs only)*' <name>
+myflow stage begin -command '/myflow-do' -stage do.document-fix -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 On a fix run, record what changed **before** writing code, so the proposal never goes stale. Ask
@@ -158,13 +162,13 @@ transition the issue here.
 On a fix run, close the stage once the fix is recorded:
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'document the fix *(re-runs only)*' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.document-fix -outcome completed <name>
 ```
 
 ## 4. Execute (SDD + TDD)
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'SDD + TDD per task' <name>
+myflow stage begin -command '/myflow-do' -stage do.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **At most one implementer subagent may be in flight against a given worktree at any moment.** The
@@ -273,13 +277,13 @@ the roster table in section 5 for what each preset means.
 On BLOCKED: pause and report. Never guess.
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'SDD + TDD per task' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.sdd-tdd -outcome completed <name>
 ```
 
 ## 5. The review panel
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'the review panel' <name>
+myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
@@ -678,13 +682,13 @@ the run may write it: the guard reads a `withdrawn` marker with nothing after th
 outstanding, so a withdrawal with no stated reason does not clear the gate it appears to.
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'the review panel' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.review-panel -outcome completed <name>
 ```
 
 ## 6. Resolve the run instructions
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage 'resolve the run instructions' <name>
+myflow stage begin -command '/myflow-do' -stage do.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 In the same run, resolve the run instructions for the handoff's `Run it:` section. It writes no
@@ -722,7 +726,7 @@ Resolve:
   app, port and URL that do not exist.
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'resolve the run instructions' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.run-instructions -outcome completed <name>
 ```
 
 ## 7. Verify, stage, and hand off
@@ -732,7 +736,9 @@ closes rather than all at once, per **Stage marks** (`skills/myflow-contracts/pi
 
 ```bash
 myflow stage begin -command '/myflow-do' \
-  -stage "validate the project's \`## workspace isolation\` section, then export what it declares" \
+  -stage do.workspace-export \
+  -harness <harness> \
+  -session-token mf-<literal-token> \
   <name>
 ```
 
@@ -793,9 +799,9 @@ creation and its one-time notice belong. See **7. Verify, stage, and hand off**
 
 ```bash
 myflow stage end -command '/myflow-do' \
-  -stage "validate the project's \`## workspace isolation\` section, then export what it declares" \
+  -stage do.workspace-export \
   -outcome completed <name>
-myflow stage begin -command '/myflow-do' -stage 'run the project'"'"'s lint and test commands' <name>
+myflow stage begin -command '/myflow-do' -stage do.lint-and-test -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Run the project's `## lint` and `## test` commands from `.myflow/project.md` (auto-detect if
@@ -803,9 +809,9 @@ absent) and show the output. **Nothing runs them later** — `/myflow-finish` ha
 gate — so a non-zero exit blocks this handoff.
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'run the project'"'"'s lint and test commands' \
+myflow stage end -command '/myflow-do' -stage do.lint-and-test \
   -outcome completed <name>
-myflow stage begin -command '/myflow-do' -stage 'stage, excluding the planning paths' <name>
+myflow stage begin -command '/myflow-do' -stage do.stage-diff -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Confirm every intended checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit
@@ -853,8 +859,8 @@ case is ordinary here — a fix round that touched neither `openspec/` nor the t
 to add — but say in the handoff which of the two commits, if either, was made.
 
 ```bash
-myflow stage end   -command '/myflow-do' -stage 'stage, excluding the planning paths' -outcome completed <name>
-myflow stage begin -command '/myflow-do' -stage 'write `IN_PROGRESS`' <name>
+myflow stage end   -command '/myflow-do' -stage do.stage-diff -outcome completed <name>
+myflow stage begin -command '/myflow-do' -stage do.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
@@ -868,7 +874,7 @@ Read the planning effort through the retired-key fallback, not from `planningEff
 **State file** (`skills/myflow-contracts/state-file.md`).
 
 ```bash
-myflow stage end -command '/myflow-do' -stage 'write `IN_PROGRESS`' -outcome completed <name>
+myflow stage end -command '/myflow-do' -stage do.write-in-progress -outcome completed <name>
 ```
 
 ```

@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
@@ -30,14 +32,19 @@ import (
 const defaultHarness = "unknown"
 
 const stageUsage = `usage: myflow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                          -command cmd -stage name <change>
+                          -command cmd -stage key -session-token token <change>
        myflow stage end [-addr url] [-timeout dur] [-C dir]
-                        -command cmd -stage name -outcome outcome
+                        -command cmd -stage key -outcome outcome
                         [-fix-rounds n] [-panel-rounds n] [-findings json] <change>
 
-stage names must be one of README.md's Level 1 -- the stages of each
-command table; an undocumented name is rejected before it ever reaches
-the store.
+-stage takes a stage KEY, not its prose name -- one of README.md's Level 1
+-- the stages of each command table's Key column; an undocumented key is
+rejected before it ever reaches the store.
+
+-session-token must be a literal, unique token this command writes -- never a
+shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
+records the command text before the shell expands it, so a substitution
+would be recorded identically by every caller and identify nothing.
 `
 
 func runStage(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -75,7 +82,7 @@ func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.command, "command", "", "the myflow command this stage belongs to, e.g. /myflow-do")
-	fset.StringVar(&f.stage, "stage", "", "the stage name, exactly as README.md's Level 1 table documents it")
+	fset.StringVar(&f.stage, "stage", "", "the stage key, exactly as README.md's Level 1 table's Key column documents it -- never its prose name")
 }
 
 func finishStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) error {
@@ -106,6 +113,56 @@ func resolveHarness(harnessFlag string) string {
 		return v
 	}
 	return defaultHarness
+}
+
+// sessionTokenShellVarPattern matches a "$" immediately followed by a shell
+// variable-name character ($VAR, $HOME, $_x) -- the third of the three
+// substitution shapes validateSessionToken rejects. It deliberately does not
+// match a bare "$" or "$$" (a PID expansion) on their own: design.md and
+// tasks.md name exactly three shapes ("$(", a backtick, and "$" followed
+// by a name), and this is the pattern for the third.
+//
+// internal/api/stages.go's validateSessionTokenShape carries the identical
+// pattern and the identical reasoning, server side -- see its own doc
+// comment for why the two are not shared code.
+var sessionTokenShellVarPattern = regexp.MustCompile(`\$[A-Za-z_]`)
+
+// validateSessionToken rejects a sessionToken that cannot identify anything: one
+// carrying a shell-substitution shape a caller's own shell would expand
+// before the transcript is ever written.
+//
+// Why each shape is rejected: `tool_use.input.command` -- what a later
+// harvest cycle (KAN-172, task 2) reads a transcript for -- records the
+// command text exactly as it was handed to the tool, before the shell
+// ever expands it. A sessionToken built from `$(...)`, a backtick, or `$VAR`
+// therefore lands in every calling session's transcript as the identical,
+// unexpanded literal, and discriminates nothing between them -- design.md's
+// "the sessionToken is a literal, never a shell substitution".
+//
+// This is the CLI-side half of the check; internal/api's
+// validateSessionTokenShape is the server-side half, run again on every mark
+// (including one replayed from the journal, which never passes back
+// through this function) as defence in depth, exactly as stages.Validate
+// is checked in both places for an undocumented stage key.
+func validateSessionToken(sessionToken string) error {
+	switch {
+	case strings.Contains(sessionToken, "$("):
+		return fmt.Errorf("-session-token %q contains a command substitution \"$(...)\" -- "+
+			"the transcript records the command text before the shell expands it, "+
+			"so this value would be recorded identically by every caller and identify nothing; "+
+			"write a literal token instead", sessionToken)
+	case strings.Contains(sessionToken, "`"):
+		return fmt.Errorf("-session-token %q contains a backtick -- backtick command substitution is expanded by "+
+			"the shell after the transcript already recorded the unexpanded text, "+
+			"so this value would be recorded identically by every caller and identify nothing; "+
+			"write a literal token instead", sessionToken)
+	case sessionTokenShellVarPattern.MatchString(sessionToken):
+		return fmt.Errorf("-session-token %q contains a shell variable reference ($VAR) -- "+
+			"the transcript records the command text before the shell expands it, "+
+			"so this value would be recorded identically by every caller and identify nothing; "+
+			"write a literal token instead", sessionToken)
+	}
+	return nil
 }
 
 // stageJournalPath is where a stage mark's fallback intent is journalled:
@@ -151,9 +208,9 @@ func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer) 
 }
 
 // runStageBegin implements `myflow stage begin`. It validates the stage
-// name against internal/stages' documented table -- README.md's Level 1
+// key against internal/stages' documented table -- README.md's Level 1
 // table, transcribed there -- before ever contacting the store: an
-// undocumented stage name is a defect in the caller, not a store failure,
+// undocumented stage key is a defect in the caller, not a store failure,
 // so it is reported and exits 2 (a usage error), never taking the
 // never-block fallback path a store failure would.
 //
@@ -171,6 +228,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	registerStageIdentityFlags(fset, &f)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $MYFLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known")
+	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -182,6 +240,19 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
 		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if *sessionTokenFlag == "" {
+		// A missing -session-token is a caller mistake, not a stage outcome:
+		// exit non-zero naming the flag, exactly as -command/-stage above
+		// already do -- the one class of nonzero exit the never-block
+		// rule permits (tasks.md, "Step 1: The column and the flags").
+		fmt.Fprintln(stderr, "myflow: -session-token is required")
+		fmt.Fprint(stderr, stageUsage)
+		return 2
+	}
+	if err := validateSessionToken(*sessionTokenFlag); err != nil {
+		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		return 2
 	}
 
@@ -206,6 +277,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		ChangeName:       f.name,
 		Harness:          resolveHarness(*harnessFlag),
 		SessionID:        sessionID,
+		SessionToken:     *sessionTokenFlag,
 		Command:          f.command,
 		Stage:            f.stage,
 		StartedAt:        time.Now(),

@@ -58,6 +58,41 @@ else. See `internal/store/pricing.go` and `internal/store/pricing_seed.go`
 for the mechanism, and `internal/harvest/attribute.go`'s `Bucket` for how
 the cache-creation split reaches the metrics bag in the first place.
 
+## Checking attribution by hand
+
+KAN-16 shipped a measurement system that could not measure: every stage run
+was recorded with `session_id` NULL, so the harvester attributed every
+transcript offset it read to nothing, and the dashboards just looked
+empty. Nothing failed loudly — it was found by a human staring at that
+empty dashboard and asking why. This is the same check, made a minute's
+work instead of an investigation.
+
+While a `myflow-postgres` stack and `myflowd` are both running (see above),
+and while a real `/myflow-*` command is mid-run (so a change and at least
+one stage mark already exist):
+
+```bash
+# 1. Find the change's most recent stage run.
+curl -s 'http://127.0.0.1:4173/api/v1/stage-runs?project=<project-key>&name=<change-name>&sort=-started_at&limit=1' | jq .
+
+# 2. Wait one harvest cycle (5s, cmd/myflowd's harvestInterval) -- longer
+#    if the mark's own turn hasn't flushed to the transcript yet.
+sleep 6
+
+# 3. Re-query the same stage run by id.
+curl -s 'http://127.0.0.1:4173/api/v1/stage-runs?id=<id>' | jq '.stageRuns[0] | {sessionId, metrics}'
+```
+
+Expect `sessionId` to be a real session id, not `null`, and `metrics` to
+carry a non-empty `tokens` object and a `cost_usd` — not `{}`. A stage
+still short of its first flushed turn, or run on a harness with no
+transcript (Cursor, Codex), stays `sessionId: null` with empty `metrics`
+honestly — that is the *recorded, not measured* state (see "Pricing"
+above and this repository's `myflow-run-telemetry` capability), not a
+symptom by itself. What is a symptom: every stage run staying unbound
+minutes after it should have flushed, across every change — that is
+exactly what KAN-16 looked like.
+
 ## Running the daemon at login
 
 `stats/launchd/com.tweety53.myflowd.plist` is a macOS user launchd agent

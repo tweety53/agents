@@ -97,11 +97,15 @@ line and planning continues; nothing about this call may delay or alter the prop
 above or below it. On a revision round the name was already known at the top of this section, so
 `begin` may fire there; on a creating run the name is what this section produces, so `begin` and
 `end` fire together, back to back, only now — never before, since `myflow stage begin`'s `<change>`
-argument requires a name that does not exist until this point:
+argument requires a name that does not exist until this point.
+
+**Generate this run's session token once, right here, before this first mark — a short, unique
+literal string — and reuse that exact same value, unchanged, at every `stage begin` this run makes
+below.** Never mint a fresh token per mark (design.md's "one token per session, not one per mark").
 
 ```bash
-myflow stage begin -command '/myflow-start' -stage 'resolve the change' <name>
-myflow stage end   -command '/myflow-start' -stage 'resolve the change' -outcome completed <name>
+myflow stage begin -command '/myflow-start' -stage start.resolve-change -harness <harness> -session-token mf-<literal-token> <name>
+myflow stage end   -command '/myflow-start' -stage start.resolve-change -outcome completed <name>
 ```
 
 ## Ask the planning effort, the models, and the review panel roster — creating runs only
@@ -113,7 +117,9 @@ failed mark never blocks, delays or alters anything below:
 
 ```bash
 myflow stage begin -command '/myflow-start' \
-  -stage 'ask the planning effort, the three model choices and the review panel roster *(creating run only)*' \
+  -stage start.ask-options \
+  -harness <harness> \
+  -session-token mf-<literal-token> \
   <name>
 ```
 
@@ -181,14 +187,14 @@ On a creating run, close the stage once all four questions are answered and reco
 
 ```bash
 myflow stage end -command '/myflow-start' \
-  -stage 'ask the planning effort, the three model choices and the review panel roster *(creating run only)*' \
+  -stage start.ask-options \
   -outcome completed <name>
 ```
 
 ## B. Basic Workflow #1 — Brainstorming
 
 ```bash
-myflow stage begin -command '/myflow-start' -stage 'brainstorm' <name>
+myflow stage begin -command '/myflow-start' -stage start.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
@@ -279,16 +285,16 @@ checklist itself; the **design approval** the HARD GATE requires is a separate, 
 same operator and gets its own mark:
 
 ```bash
-myflow stage end   -command '/myflow-start' -stage 'brainstorm' -outcome completed <name>
-myflow stage begin -command '/myflow-start' -stage 'design approval' <name>
+myflow stage end   -command '/myflow-start' -stage start.brainstorm -outcome completed <name>
+myflow stage begin -command '/myflow-start' -stage start.design-approval -harness <harness> -session-token mf-<literal-token> <name>
 # … the operator approves the design — this is the HARD GATE above …
-myflow stage end   -command '/myflow-start' -stage 'design approval' -outcome completed <name>
+myflow stage end   -command '/myflow-start' -stage start.design-approval -outcome completed <name>
 ```
 
 ## C. Create the change and its artifacts
 
 ```bash
-myflow stage begin -command '/myflow-start' -stage 'create the OpenSpec artifacts' <name>
+myflow stage begin -command '/myflow-start' -stage start.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
 openspec new change "<name>"
 openspec status --change "<name>" --json
 openspec instructions <artifact-id> --change "<name>" --json
@@ -364,13 +370,13 @@ What this section holds is what the `STARTED` handoff counts. That line is defin
 is regenerable rather than run-only.
 
 ```bash
-myflow stage end -command '/myflow-start' -stage 'create the OpenSpec artifacts' -outcome completed <name>
+myflow stage end -command '/myflow-start' -stage start.create-artifacts -outcome completed <name>
 ```
 
 ## D. Basic Workflow #3 — Writing plans
 
 ```bash
-myflow stage begin -command '/myflow-start' -stage 'writing-plans' <name>
+myflow stage begin -command '/myflow-start' -stage start.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
@@ -411,13 +417,13 @@ Before publishing the artifact, run the project's configured plan-provenance gua
 configured build-green guard, if the project declares them, and fix any hit.
 
 ```bash
-myflow stage end -command '/myflow-start' -stage 'writing-plans' -outcome completed <name>
+myflow stage end -command '/myflow-start' -stage start.writing-plans -outcome completed <name>
 ```
 
 ## E. Publish the proposal artifact
 
 ```bash
-myflow stage begin -command '/myflow-start' -stage 'publish the proposal artifact' <name>
+myflow stage begin -command '/myflow-start' -stage start.publish-proposal -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Load the `artifact-design` skill, then build one self-contained page carrying the proposal's why
@@ -435,13 +441,13 @@ republishes to this **same** path, which is what keeps the URL stable.
 Record the returned URL as `artifactUrl`. This page is what the human reads at `STARTED`.
 
 ```bash
-myflow stage end -command '/myflow-start' -stage 'publish the proposal artifact' -outcome completed <name>
+myflow stage end -command '/myflow-start' -stage start.publish-proposal -outcome completed <name>
 ```
 
 ## F. Write state and hand off
 
 ```bash
-myflow stage begin -command '/myflow-start' -stage 'write `STARTED`' <name>
+myflow stage begin -command '/myflow-start' -stage start.write-started -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Write the state file per **State file** (`skills/myflow-contracts/state-file.md`):
@@ -473,7 +479,7 @@ when this run added scope the issue does not already describe.
 Stage the planning artifacts. The state file lives outside the repo — never `git add` it.
 
 ```bash
-myflow stage end -command '/myflow-start' -stage 'write `STARTED`' -outcome completed <name>
+myflow stage end -command '/myflow-start' -stage start.write-started -outcome completed <name>
 ```
 
 ```

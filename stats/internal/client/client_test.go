@@ -400,12 +400,13 @@ func TestListStateBoardFallsBackWhenSuccessLacksDaemonHeader(t *testing.T) {
 
 func minimalBeginReq() client.BeginStageRequest {
 	return client.BeginStageRequest{
-		ProjectKey: "proj",
-		ChangeName: "chg",
-		Harness:    "claude-code",
-		Command:    "/myflow-do",
-		Stage:      "SDD + TDD per task",
-		StartedAt:  time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
+		ProjectKey:   "proj",
+		ChangeName:   "chg",
+		Harness:      "claude-code",
+		SessionToken: "mf-session-token-minimal",
+		Command:      "/myflow-do",
+		Stage:        "SDD + TDD per task",
+		StartedAt:    time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -837,6 +838,15 @@ func (stubStageStore) CountRunsWithoutModel(context.Context, store.Period, *stri
 
 func (stubStageStore) ListModels(context.Context, store.Period, *string) ([]string, error) {
 	return nil, errStageStoreNotImplemented
+}
+
+// AllRecordedRunsUnmeasured is here purely to keep satisfying
+// api.StatsStore -- this file's stubStageStore never exercises a stats
+// route (unanticipated file, task 5: the interface it implements gained
+// one method, and every implementer of it must compile; mechanical
+// substitution, no logic change).
+func (stubStageStore) AllRecordedRunsUnmeasured(context.Context, store.Period, *string) (bool, error) {
+	return false, errStageStoreNotImplemented
 }
 
 var _ api.StatsStore = stubStageStore{}

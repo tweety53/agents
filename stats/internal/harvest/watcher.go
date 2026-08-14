@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -109,6 +110,54 @@ type Pricer interface {
 	Price(ctx context.Context, stageRunID int64) error
 }
 
+// maxSessionTokenResolutionCycles bounds how many RunOnce cycles a Watcher
+// keeps looking for a given session token before giving up (design.md,
+// "binding is bounded, and unbinding never happens"; the spec's own
+// "bound is a bound number of cycles, or a wall-clock window -- pick
+// one"). This package picks cycles, not wall-clock: the bound only
+// exists to cap wasted work for a harness that will never produce a
+// transcript at all (Cursor, Codex -- design.md's rejected-alternatives
+// section), and a cycle count is exact and trivial to test
+// deterministically (drive RunOnce N times), where a wall-clock bound
+// would make the same test depend on either a fake clock threaded
+// through this package for no other purpose, or a real sleep. At
+// cmd/myflowd's own harvestInterval (5s, main.go), 60 cycles is 5
+// minutes -- ample time for a live harness's transcript line to be
+// flushed and read even under load, while bounding the cost of a
+// harness that never will to a few minutes of per-cycle map lookups
+// rather than forever.
+//
+// The bound is tracked per token (task 4b), not per stage run: a run's own
+// later marks never enter this bookkeeping at all once its token has
+// bound (they resolve at insert time, store.Store.insertStageRun's own doc
+// comment), so there is exactly one bounded search per session, not one
+// per mark that session makes.
+const maxSessionTokenResolutionCycles = 60
+
+// SessionTokenBinder resolves the session tokens a run generates once and
+// passes on every mark it makes (KAN-172, task 1; reworked from one
+// correlator per mark to one per session in task 4b) into session_id
+// bindings, once a harvest cycle has located the transcript that carries
+// one. Defined here, at the consumer, per go-interface-design, exactly
+// like WindowSource, HarvestSink and Pricer above: internal/harvest never
+// imports internal/store, so this package is testable against a fake with
+// no PostgreSQL required. The daemon wires a real implementation backed by
+// *store.Store, whose UnresolvedSessionTokens and BindSession methods are
+// written to match this interface exactly.
+type SessionTokenBinder interface {
+	// UnresolvedSessionTokens returns every stage run id and its session
+	// token for which no session has yet been bound.
+	UnresolvedSessionTokens(ctx context.Context) (map[int64]string, error)
+	// BindSession binds session_id to sessionID on every stage run
+	// carrying sessionToken that has not already been bound -- not just
+	// the one stage run whose mark first revealed the token (task 4b's
+	// "a resolving token binds every run carrying it, not just the one
+	// that revealed it"). bound is how many rows this call actually
+	// updated; zero, with no error, is not a failure -- see
+	// store.Store.BindSession's own doc comment.
+	BindSession(ctx context.Context, sessionToken string, sessionID string) (bound int64, err error)
+}
+
 // Watcher periodically scans a transcripts root for *.jsonl files and
 // harvests whatever bytes are new since each one's last committed offset,
 // attributing them via its Attributor and committing the result -- both
@@ -117,11 +166,41 @@ type Pricer interface {
 // only through WindowSource (via Attributor), HarvestSink, and (when
 // configured) Pricer.
 type Watcher struct {
-	root       string
-	sink       HarvestSink
-	attributor *Attributor
-	logger     *slog.Logger
-	pricer     Pricer
+	root          string
+	sink          HarvestSink
+	attributor    *Attributor
+	logger        *slog.Logger
+	pricer        Pricer
+	sessionTokens SessionTokenBinder
+
+	// tokenCycles counts, per session token, how many RunOnce cycles have
+	// searched for that token without finding a unique match yet.
+	// gaveUpTokens holds the tokens this Watcher has stopped looking for
+	// at all -- either maxSessionTokenResolutionCycles was reached
+	// (bounded give-up) or an earlier cycle found the token in more than
+	// one session (ambiguity is treated as terminal too: waiting longer
+	// cannot un-ambiguate two transcripts that already both carry the
+	// same literal token). Both maps are keyed by token, not by stage run
+	// id (task 4b): every stage run carrying a given token shares one
+	// bounded search, not one each, which is the whole economy of moving
+	// from one correlator per mark to one per session -- a run's second or
+	// later mark, once its token has bound, resolves session_id at insert
+	// time and never enters this bookkeeping at all
+	// (store.Store.insertStageRun's own doc comment).
+	//
+	// Both maps are this Watcher's own in-memory state, not persisted -- a
+	// daemon restart resets them, which only ever gives an abandoned token
+	// a fresh bounded number of cycles rather than losing correctness
+	// (UnresolvedSessionTokens is re-queried from Postgres every cycle
+	// regardless), so this is a purely local cost-bounding optimisation,
+	// never a source of truth.
+	//
+	// Neither map is guarded by a mutex: RunOnce is never called
+	// concurrently with itself on one Watcher (Run's own loop calls it
+	// serially; every test in this package does too), the same
+	// assumption this struct's other fields already rely on.
+	tokenCycles  map[string]int
+	gaveUpTokens map[string]bool
 }
 
 // WatcherOption configures optional Watcher behaviour not every caller
@@ -140,12 +219,52 @@ func WithPricer(p Pricer) WatcherOption {
 	return func(w *Watcher) { w.pricer = p }
 }
 
+// WithSessionTokenBinder configures the Watcher to resolve stage runs'
+// session tokens (KAN-172, task 2): each cycle, it asks binder which
+// session tokens are still unresolved and looks for them among the
+// transcripts that cycle is already reading, binding session_id where
+// exactly one session's transcript carries a session token. A Watcher
+// built with no WithSessionTokenBinder option resolves no session tokens
+// at all -- every stage run stays exactly as unattributed as it was
+// before this task, the same additive shape WithPricer already
+// established.
+func WithSessionTokenBinder(binder SessionTokenBinder) WatcherOption {
+	return func(w *Watcher) { w.sessionTokens = binder }
+}
+
+// HasPricer reports whether this Watcher was configured with WithPricer.
+// Exported for cmd/myflowd's own wiring test (KAN-172, task 7): asserting
+// the constructed value here, rather than grepping main.go's source text
+// for "WithPricer", is what still catches a refactor that keeps the call
+// site's text but drops its effect.
+func (w *Watcher) HasPricer() bool {
+	return w.pricer != nil
+}
+
+// HasSessionTokenBinder reports whether this Watcher was configured with
+// WithSessionTokenBinder. See HasPricer's doc comment for why this exists
+// and why it asserts the constructed value rather than source text -- this
+// is the accessor that would have caught task 7's own defect (main.go
+// building a Watcher with no binder at all, so no stage run was ever
+// bound despite tasks 1-6 all working).
+func (w *Watcher) HasSessionTokenBinder() bool {
+	return w.sessionTokens != nil
+}
+
 // NewWatcher builds a Watcher over root (scanned recursively for
 // *.jsonl files), sink (where offsets are read from and results are
 // committed to) and attributor (how records become deltas). logger may
-// be nil. opts configures optional behaviour -- see WithPricer.
+// be nil. opts configures optional behaviour -- see WithPricer and
+// WithSessionTokenBinder.
 func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *slog.Logger, opts ...WatcherOption) *Watcher {
-	w := &Watcher{root: root, sink: sink, attributor: attributor, logger: logger}
+	w := &Watcher{
+		root:         root,
+		sink:         sink,
+		attributor:   attributor,
+		logger:       logger,
+		tokenCycles:  make(map[string]int),
+		gaveUpTokens: make(map[string]bool),
+	}
 	for _, opt := range opts {
 		opt(w)
 	}
@@ -173,6 +292,28 @@ func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *s
 // ordinary, correct outcome of losing that race, not an error condition
 // -- the next RunOnce simply re-reads the current state and tries again.
 //
+// Withholding a batch that revealed a sessionToken: when a SessionTokenBinder is
+// configured (WithSessionTokenBinder), a file's newly read batch is checked
+// for still-pending sessionTokens (matchSessionTokens) before it is attributed or
+// committed at all. A batch that matched one is *not* attributed or
+// committed this cycle -- its offset is left exactly where it was, so
+// the next cycle re-reads the identical bytes once resolveSessionTokens (run
+// once, after every file this cycle has been read) has had a chance to
+// bind the session that batch just revealed.
+//
+// This is load-bearing, not an optimisation: Claude Code flushes a
+// turn's transcript entries together, so the `stage begin -session-token ...`
+// mark and that same turn's own usage routinely arrive in the very same
+// batch -- not a later one, and a mark's own turn is frequently a
+// stage's largest. Attributing and committing that batch before binding
+// has happened would compute it against a window that does not exist
+// yet, commit a delta of nothing, advance the offset past it, and never
+// get another chance: nothing re-reads bytes the offset has already
+// moved past. Withholding the commit is what keeps this batch's usage
+// from being lost outright rather than merely attributed one cycle
+// late (TestBindMarkAndFirstUsageInSameBatchAreBothAttributed,
+// watcher_test.go, is the regression test for exactly this).
+//
 // RunOnce returns the number of files whose newly read records were
 // successfully committed by this call.
 func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
@@ -180,6 +321,15 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	pendingSessionTokens := w.pendingSessionTokens(ctx)
+	// matchedSessions accumulates, per sessionToken, the distinct session ids
+	// found carrying it across every transcript this cycle reads -- not
+	// just the first file that matches, since the whole point of
+	// scanning every file before deciding is telling "exactly one
+	// session" apart from "more than one" (design.md, "a session is
+	// never guessed").
+	matchedSessions := make(map[string]map[string]bool, len(pendingSessionTokens))
 
 	touchedFiles := 0
 	for _, path := range files {
@@ -193,13 +343,31 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			continue
 		}
 
-		records, newOffset, err := ReadNewRecords(path, offset)
+		records, commands, newOffset, err := ReadNewRecords(path, offset)
 		if err != nil {
 			w.warn("harvest: read transcript failed, will retry", "path", path, "error", err)
 			continue
 		}
+
+		matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
+
 		if newOffset == offset {
 			continue // nothing new (or only a partial trailing line) since last time.
+		}
+
+		if matchedHere {
+			// This batch is the one that revealed a still-pending sessionToken
+			// -- withhold its commit rather than attribute and commit it
+			// now (see this method's own doc comment, "withholding a
+			// batch that revealed a sessionToken"). The offset does not
+			// advance, so the next cycle re-reads this exact same
+			// region once resolveSessionTokens (below, after every file this
+			// cycle has been read) has had a chance to bind it -- at
+			// which point WindowsForSession will actually have a window
+			// for it, and this same batch's usage attributes correctly
+			// instead of being computed against no window, committed as
+			// an empty delta, and never revisited.
+			continue
 		}
 
 		deltas, err := w.attributor.Attribute(ctx, records)
@@ -242,7 +410,305 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			}
 		}
 	}
+
+	w.resolveSessionTokens(ctx, pendingSessionTokens, matchedSessions)
+
 	return touchedFiles, nil
+}
+
+// pendingSessionTokens returns this cycle's stage-run-id -> session-token
+// map to search for: whatever w.sessionTokens.UnresolvedSessionTokens
+// reports, minus any run whose token this Watcher has already given up on
+// (gaveUpTokens, keyed by token -- task 4b) -- so a token that has already
+// been logged as abandoned is never looked for again by this process,
+// which is the whole point of tracking gaveUpTokens at all. A Watcher with
+// no SessionTokenBinder configured (WithSessionTokenBinder never called)
+// returns nil, and every other token-related step below is a no-op over
+// an empty map -- resolving session tokens is additive, exactly like
+// pricing.
+func (w *Watcher) pendingSessionTokens(ctx context.Context) map[int64]string {
+	if w.sessionTokens == nil {
+		return nil
+	}
+	all, err := w.sessionTokens.UnresolvedSessionTokens(ctx)
+	if err != nil {
+		w.warn("harvest: list unresolved session tokens failed, will retry", "error", err)
+		return nil
+	}
+	pending := make(map[int64]string, len(all))
+	for stageRunID, sessionToken := range all {
+		if w.gaveUpTokens[sessionToken] {
+			continue
+		}
+		pending[stageRunID] = sessionToken
+	}
+	return pending
+}
+
+// matchSessionTokens scans commands -- the Bash commands newly read from one
+// transcript file this cycle -- for every sessionToken in pending, recording
+// each distinct session id a match was found under into matched, and
+// reports whether this file's commands matched at least one pending
+// sessionToken (RunOnce uses that to withhold this batch's commit -- see its
+// own doc comment on "withholding a batch that revealed a sessionToken").
+//
+// A sessionToken is matched only when the command is genuinely a mark
+// carrying it -- isSessionMarkCommand, below -- never by the token's bare
+// presence in the command text. KAN-172's final review panel (finding F4)
+// caught a bare `strings.Contains(cmd.Command, sessionToken)` here: any
+// command that merely MENTIONED a pending sessionToken -- a diagnostic
+// grep for it, a log dump, a database query, an echo -- counted exactly
+// like the real `stage begin -session-token <sessionToken> ...` invocation
+// that actually identifies the session. Two matches produce a correctly
+// refused ambiguity, but once the owning session's own mark bytes have
+// already been read past (the offset only ever advances) the mention
+// becomes the *only* remaining occurrence, and the run silently bound to
+// the mentioning session instead -- reproduced live, twice: stage run 22
+// bound through the dispatcher's own diagnostic greps for its token.
+func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []CommandRecord, matched map[string]map[string]bool) bool {
+	if len(pending) == 0 || len(commands) == 0 {
+		return false
+	}
+	matchedHere := false
+	for _, cmd := range commands {
+		for _, sessionToken := range pending {
+			if !isSessionMarkCommand(cmd.Command, sessionToken) {
+				continue
+			}
+			matchedHere = true
+			sessions := matched[sessionToken]
+			if sessions == nil {
+				sessions = make(map[string]bool)
+				matched[sessionToken] = sessions
+			}
+			sessions[cmd.SessionID] = true
+		}
+	}
+	return matchedHere
+}
+
+// stageMarkInvocationPattern matches the `stage begin` / `stage end`
+// subcommand shape as two adjacent words -- design.md's and stage.go's
+// own usage string (`myflow stage begin ...` / `myflow stage end ...`),
+// with whatever whitespace separates them. It deliberately imposes no
+// flag ordering of its own: stage.go's own flag registration imposes
+// none on -harness, -session, -stage, -command or -session-token. The
+// command starting with "myflow" is anchored separately, by
+// commandBeginsWithMyflow (isSessionMarkCommand's own doc comment,
+// finding F5) -- not folded into this pattern, so this regexp continues
+// to describe only the subcommand shape, and a mark wrapped in a longer
+// compound command (`cd ... && myflow stage begin ...`) is still
+// recognised, just by the other requirement.
+var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end)\b`)
+
+// isSessionMarkCommand reports whether command is genuinely a stage mark
+// carrying sessionToken as the value of its own -session-token flag --
+// the fix for KAN-172 finding F4 (matchSessionTokens' own doc comment
+// above has the defect and its live reproduction), tightened again for
+// finding F5 below. It requires all of the following, not any subset:
+//
+//  1. the command -- after stripping a leading `cd <path> &&` compound,
+//     which a mark may legitimately be wrapped in -- begins with a word
+//     whose base name (path.Base) is exactly "myflow"
+//     (commandBeginsWithMyflow);
+//  2. the command invokes `stage begin` or `stage end`
+//     (stageMarkInvocationPattern);
+//  3. sessionToken is the exact value bound to -session-token in that
+//     same command, whether written as two fields ("-session-token
+//     TOKEN") or joined with "=" ("-session-token=TOKEN") -- both are
+//     valid to the flag package cmd/myflow/stage.go builds on.
+//
+// Requirement 3 is field-based (strings.Fields), not a second substring
+// test on the whole command: a token that merely follows the word
+// "-session-token" somewhere in an unrelated position would reintroduce
+// exactly the class of bug requirement 3 alone replaces.
+//
+// F5 (two independent reviewers, both tracing the same counterexample):
+// requirements 2 and 3 alone cannot distinguish a genuine invocation from
+// a command that only PRINTS one, e.g. `echo "myflow stage begin ...
+// -session-token mf-abc123 ..."` inside a quoted example, a README
+// snippet, or this very package's own doc comments (which echo that
+// shape as prose). strings.Fields splits on whitespace only, so the
+// quote characters stay attached to the words at either end of the
+// quoted string, not to "-session-token" or the token that follows it --
+// the two still appear as adjacent fields exactly as they would in a
+// real invocation, and requirement 3 alone accepts them; the same is
+// true of requirement 2, since "stage begin" appears literally inside
+// the quoted text. Closing this does not need parsing the command as
+// shell syntax (recognising `echo`, quoting, heredocs) -- an earlier
+// version of this comment claimed it did; a reviewer disproved that by
+// tracing the code and showing that anchoring alone closes exactly the
+// named counterexample. Requirement 1 is that anchor: `echo "myflow ..."`
+// begins with the word echo, not myflow, so it now fails requirement 1
+// before requirements 2 or 3 are even reached. A genuine invocation
+// begins with myflow (or a path to it -- commandBeginsWithMyflow's own
+// doc comment) whether wrapped in `cd ... &&` or not, so no legitimate
+// shape is lost; TestMarkInvocationShapeIsNotOverAnchored is the
+// regression test that a tighter anchor does not also reject those.
+//
+// Nothing is left open by this fix within the shapes above: what remains
+// unhandled is only shapes this package does not claim to handle at all,
+// e.g. a mark wrapped in a shell function or alias that itself expands to
+// `myflow ...` -- there is no rendered text here to anchor on for those,
+// the same limit every text-based (non-shell-parsing) matcher has.
+func isSessionMarkCommand(command, sessionToken string) bool {
+	if !commandBeginsWithMyflow(command) {
+		return false
+	}
+	if !stageMarkInvocationPattern.MatchString(command) {
+		return false
+	}
+	fields := strings.Fields(command)
+	for i, field := range fields {
+		switch {
+		case field == "-session-token" || field == "--session-token":
+			if i+1 < len(fields) && trimTokenQuotes(fields[i+1]) == sessionToken {
+				return true
+			}
+		case strings.HasPrefix(field, "-session-token="):
+			if trimTokenQuotes(field[len("-session-token="):]) == sessionToken {
+				return true
+			}
+		case strings.HasPrefix(field, "--session-token="):
+			if trimTokenQuotes(field[len("--session-token="):]) == sessionToken {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// commandBeginsWithMyflow reports whether command -- after stripping a
+// leading `cd <path> &&` compound, which a real mark may legitimately be
+// wrapped in (design.md, stageMarkInvocationPattern's own doc comment) --
+// begins with a word whose final path segment (path.Base) is exactly
+// "myflow". This is isSessionMarkCommand's F5 anchor: an echoed example
+// (`echo "myflow stage begin ..."`) begins with echo, not myflow, and is
+// rejected here before requirements 2 or 3 (isSessionMarkCommand's own
+// doc comment) are even reached.
+//
+// path.Base is deliberately used rather than an exact "myflow" match, so
+// this accepts however the daemon's own environment happens to invoke
+// the binary: bare "myflow" (the PATH-resolved, documented shape;
+// design.md's and stage.go's usage string), an absolute path such as
+// "/usr/local/bin/myflow", or a relative one such as "./bin/myflow" --
+// all three are the same program, and rejecting the latter two would
+// re-create the same silent-non-binding failure mode this whole finding
+// exists to avoid (a genuine mark that stops matching binds nothing,
+// exactly like the bug being fixed), just triggered by how the caller's
+// shell happens to resolve the binary instead of by an echo. Nothing
+// with a different base name matches, including a path that merely
+// contains "myflow" as a substring of a longer segment (e.g.
+// "myflow-helper" or "not-myflow"), because path.Base is compared for
+// exact equality, not scanned as a substring.
+//
+// Only a single leading `cd <path> &&` is recognised, matching
+// stageMarkInvocationPattern's own doc comment ("a mark may be wrapped in
+// a longer compound command (`cd ... && myflow stage begin ...`)") --
+// not `cd`  with no `&&` (that is not a compound at all, just a lone `cd`
+// command, correctly rejected) and not a chain of several `&&`-joined
+// commands before the mark (a shape no caller in this repository
+// produces; recognising it would need actual shell parsing, which this
+// package deliberately does not do -- isSessionMarkCommand's own doc
+// comment).
+func commandBeginsWithMyflow(command string) bool {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return false
+	}
+	start := 0
+	if fields[0] == "cd" {
+		start = -1
+		for i, f := range fields {
+			if f == "&&" {
+				start = i + 1
+				break
+			}
+		}
+		if start < 0 {
+			return false
+		}
+	}
+	if start >= len(fields) {
+		return false
+	}
+	word := trimTokenQuotes(fields[start])
+	return filepath.Base(word) == "myflow"
+}
+
+// trimTokenQuotes strips a single layer of surrounding straight quotes a
+// shell-quoted flag value might carry ("-session-token 'mf-abc'" or
+// "-session-token=\"mf-abc\""), so isSessionMarkCommand compares the same
+// literal validateSessionToken accepted, not a quoted rendering of it.
+func trimTokenQuotes(s string) string {
+	return strings.Trim(s, `"'`)
+}
+
+// resolveSessionTokens decides, for every distinct token this cycle
+// searched for (pending, still keyed by stage run id, one entry per run
+// carrying an unresolved token), what its matchedSessions say and acts on
+// it -- this is where "exactly one match binds, zero stays unresolved,
+// more than one is refused" (design.md, this task's own spec requirement)
+// actually happens, once every transcript this cycle reads has already
+// been scanned (matchSessionTokens, above), never before.
+//
+// The decision and the give-up/ambiguity bookkeeping are made once per
+// token (task 4b), not once per stage run: BindSession itself binds every
+// run sharing a token in one call (store.Store.BindSession's own doc
+// comment), so calling it once per stage run here would be redundant work
+// for every run beyond the first, and tokenCycles/gaveUpTokens would
+// otherwise let one run's stage give up on a schedule out of step with
+// another run sharing the exact same token.
+func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]string, matchedSessions map[string]map[string]bool) {
+	tokenRuns := make(map[string][]int64, len(pending))
+	for stageRunID, sessionToken := range pending {
+		tokenRuns[sessionToken] = append(tokenRuns[sessionToken], stageRunID)
+	}
+
+	for sessionToken, stageRunIDs := range tokenRuns {
+		sessions := matchedSessions[sessionToken]
+
+		switch len(sessions) {
+		case 0:
+			w.tokenCycles[sessionToken]++
+			if w.tokenCycles[sessionToken] < maxSessionTokenResolutionCycles {
+				continue
+			}
+			w.warn("harvest: session token unresolved after the bounded window, giving up",
+				"stage_run_ids", stageRunIDs, "cycles", w.tokenCycles[sessionToken])
+			w.gaveUpTokens[sessionToken] = true
+			delete(w.tokenCycles, sessionToken)
+
+		case 1:
+			var sessionID string
+			for s := range sessions {
+				sessionID = s
+			}
+			bound, err := w.sessionTokens.BindSession(ctx, sessionToken, sessionID)
+			if err != nil {
+				w.warn("harvest: bind session failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
+				continue
+			}
+			// bound == 0 means every run carrying this token was in fact
+			// bound already (task 2 spec's "binding is one-way": nothing
+			// here ever re-binds it) -- not an error, just stale
+			// information from this cycle's own read of
+			// UnresolvedSessionTokens. Either way, this Watcher has
+			// nothing left to do for this token.
+			_ = bound
+			delete(w.tokenCycles, sessionToken)
+
+		default:
+			sessionIDs := make([]string, 0, len(sessions))
+			for s := range sessions {
+				sessionIDs = append(sessionIDs, s)
+			}
+			w.warn("harvest: session token matched more than one session, refusing to bind",
+				"stage_run_ids", stageRunIDs, "sessions", sessionIDs)
+			w.gaveUpTokens[sessionToken] = true
+			delete(w.tokenCycles, sessionToken)
+		}
+	}
 }
 
 // encodePatches marshals each stage run's Delta into the json.RawMessage

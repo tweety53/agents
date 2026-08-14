@@ -33,6 +33,12 @@ function aggregateEnvelope(rows: CostPerChangeRow[]): StatsResponse<CostPerChang
     to: "2026-01-01T00:00:00Z",
     boundaryConvention: "a stage run is attributed to the period containing its start instant",
     recorded: true,
+    // Unanticipated edit, task 5: StatsResponse gained a required
+    // `unmeasured` field (the third arm of the absence distinction), and
+    // this fixture predates it. This route always requests an
+    // already-recorded period, so `false` is the correct fixture value,
+    // not merely a compiling one -- mechanical addition, no logic change.
+    unmeasured: false,
     rows,
   };
 }

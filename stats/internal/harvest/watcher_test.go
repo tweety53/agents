@@ -1,11 +1,15 @@
 package harvest_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -688,5 +692,668 @@ func TestPricingFailureIsNotFatal(t *testing.T) {
 	// configured at all.
 	if got := sink.totals[1].Main.Input; got != 109 {
 		t.Errorf("tokens.main.input = %v, want 109 (the commit succeeded regardless of the pricing failure)", got)
+	}
+}
+
+// --- KAN-172 task 2: sessionToken resolution ---------------------------------
+
+// crossedTokenRun is one stage run's mutable state inside
+// fakeSessionTokenStore -- exactly what UnresolvedSessionTokens, BindSession
+// and WindowsForSession all need to answer consistently with each
+// other, the same coupling a real *store.Store enforces through one
+// shared stage_runs table. This is deliberately a tighter fake than
+// fakeWindowSource plus a standalone SessionTokenBinder fake (used by most
+// tests below): the crossed-session-token test needs a stage run's window to
+// only exist once its session_id has actually been bound, exactly like
+// a real WindowsForSession query keyed on session_id would behave, so a
+// binding bug shows up as wrong attribution, not just a wrong map entry.
+type crossedTokenRun struct {
+	sessionToken string
+	sessionID    *string
+	startedAt    time.Time
+}
+
+// fakeSessionTokenStore implements both harvest.SessionTokenBinder and
+// harvest.WindowSource over the same in-memory runs map.
+type fakeSessionTokenStore struct {
+	runs map[int64]*crossedTokenRun
+}
+
+func (f *fakeSessionTokenStore) UnresolvedSessionTokens(_ context.Context) (map[int64]string, error) {
+	out := make(map[int64]string)
+	for id, r := range f.runs {
+		if r.sessionID == nil {
+			out[id] = r.sessionToken
+		}
+	}
+	return out, nil
+}
+
+// BindSession binds every run sharing sessionToken that is not already
+// bound -- reproducing store.Store.BindSession's own "one UPDATE, every
+// matching row" shape (KAN-172, task 4b), not just whichever single run a
+// caller happened to name.
+func (f *fakeSessionTokenStore) BindSession(_ context.Context, sessionToken string, sessionID string) (int64, error) {
+	var bound int64
+	for _, r := range f.runs {
+		if r.sessionToken != sessionToken || r.sessionID != nil {
+			continue
+		}
+		sid := sessionID
+		r.sessionID = &sid
+		bound++
+	}
+	return bound, nil
+}
+
+func (f *fakeSessionTokenStore) WindowsForSession(_ context.Context, sessionID string) ([]harvest.Window, error) {
+	var out []harvest.Window
+	for id, r := range f.runs {
+		if r.sessionID != nil && *r.sessionID == sessionID {
+			out = append(out, harvest.Window{
+				StageRunID: id,
+				SessionID:  sessionID,
+				StartedAt:  r.startedAt,
+			})
+		}
+	}
+	return out, nil
+}
+
+var (
+	_ harvest.SessionTokenBinder = (*fakeSessionTokenStore)(nil)
+	_ harvest.WindowSource       = (*fakeSessionTokenStore)(nil)
+)
+
+// TestCrossedSessionTokensBindEachRunToItsOwnSession is the crossed-session-token test
+// design.md and tasks.md both single out as the point of this task: two
+// transcripts, two stage runs, discovered in filename order that is
+// deliberately the *opposite* of which session each sessionToken actually
+// belongs to ("a-session-beta.jsonl" sorts and is processed before
+// "b-session-alpha.jsonl", yet stage run 1's sessionToken lives in the alpha
+// file). A resolver that bound by "whichever transcript is discovered or
+// processed first/last" (design.md's rejected "newest transcript"
+// alternative, generalised) rather than by matching the literal sessionToken
+// would bind both runs to the same wrong session here; this test only
+// passes because binding is driven by the sessionToken actually found in each
+// transcript's own recorded command text.
+//
+// Binding and attribution are proven together, across two cycles: cycle
+// 1 contains only the two `stage begin -session-token ...` marks (no other
+// usage) and binds both runs; cycle 2 appends real usage to each
+// transcript now that a window exists for each bound session, and the
+// resulting per-run totals must reflect only that run's own session's
+// tokens -- proving neither run received the other's usage, not merely
+// that BindSession was called with the right arguments.
+func TestCrossedSessionTokensBindEachRunToItsOwnSession(t *testing.T) {
+	dir := t.TempDir()
+	started := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
+
+	sessionStore := &fakeSessionTokenStore{runs: map[int64]*crossedTokenRun{
+		1: {sessionToken: "mf-session-token-alpha", startedAt: started},
+		2: {sessionToken: "mf-session-token-beta", startedAt: started},
+	}}
+
+	sessionAlphaPath := filepath.Join(dir, "b-session-alpha.jsonl")
+	sessionBetaPath := filepath.Join(dir, "a-session-beta.jsonl")
+
+	writeMark := func(path, sessionID, sessionToken string) {
+		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -stage do.tests -session-token %s -harness claude-code"}}]}}`+"\n", sessionID, sessionToken)
+		if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+	writeMark(sessionAlphaPath, "session-alpha", "mf-session-token-alpha")
+	writeMark(sessionBetaPath, "session-beta", "mf-session-token-beta")
+
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(sessionStore), nil, harvest.WithSessionTokenBinder(sessionStore))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1, binding): %v", err)
+	}
+
+	if got := sessionStore.runs[1].sessionID; got == nil || *got != "session-alpha" {
+		t.Fatalf("stage run 1 session = %v, want session-alpha", got)
+	}
+	if got := sessionStore.runs[2].sessionID; got == nil || *got != "session-beta" {
+		t.Fatalf("stage run 2 session = %v, want session-beta", got)
+	}
+
+	appendUsage := func(path, sessionID string, inputTokens int) {
+		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:02Z","sessionId":%q,"message":{"model":"claude-opus-5","usage":{"input_tokens":%d,"output_tokens":1}}}`+"\n", sessionID, inputTokens)
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+		if err != nil {
+			t.Fatalf("open %s for append: %v", path, err)
+		}
+		defer f.Close()
+		if _, err := f.WriteString(line); err != nil {
+			t.Fatalf("append to %s: %v", path, err)
+		}
+	}
+	appendUsage(sessionAlphaPath, "session-alpha", 111)
+	appendUsage(sessionBetaPath, "session-beta", 222)
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 2, attribution): %v", err)
+	}
+
+	if got := sink.totals[1].Main.Input; got != 111 {
+		t.Errorf("stage run 1 tokens.main.input = %d, want 111 (session-alpha's own usage, not session-beta's)", got)
+	}
+	if got := sink.totals[2].Main.Input; got != 222 {
+		t.Errorf("stage run 2 tokens.main.input = %d, want 222 (session-beta's own usage, not session-alpha's)", got)
+	}
+}
+
+// countingSessionTokenBinder is a simpler SessionTokenBinder-only fake for the tests
+// below, which are about the resolution *lifecycle* (bounded give-up,
+// ambiguity, already-bound) rather than about attribution -- they pair
+// it with an empty fakeWindowSource, since no test here asserts on
+// token totals.
+type countingSessionTokenBinder struct {
+	sessionToken string
+	stageRunID   int64
+	bound        map[int64]string
+	bindCalls    int
+}
+
+func (c *countingSessionTokenBinder) UnresolvedSessionTokens(_ context.Context) (map[int64]string, error) {
+	if _, ok := c.bound[c.stageRunID]; ok {
+		return map[int64]string{}, nil
+	}
+	return map[int64]string{c.stageRunID: c.sessionToken}, nil
+}
+
+// BindSession takes sessionToken now, not a stage run id (KAN-172, task
+// 4b) -- this single-run fake still records the result against its one
+// stageRunID, since every test using it carries only one run per token.
+func (c *countingSessionTokenBinder) BindSession(_ context.Context, sessionToken string, sessionID string) (int64, error) {
+	c.bindCalls++
+	if sessionToken != c.sessionToken {
+		return 0, fmt.Errorf("counting session token binder: unknown token %q", sessionToken)
+	}
+	if c.bound == nil {
+		c.bound = map[int64]string{}
+	}
+	if _, already := c.bound[c.stageRunID]; already {
+		return 0, nil
+	}
+	c.bound[c.stageRunID] = sessionID
+	return 1, nil
+}
+
+var _ harvest.SessionTokenBinder = (*countingSessionTokenBinder)(nil)
+
+// TestSessionTokenResolvesOnALaterCycleWithinTheBound is task 2 step 3's first
+// named test: a sessionToken that appears several cycles after the mark, but
+// still well inside the bounded window, must still bind -- the bound
+// exists to cap wasted work on a sessionToken that will never appear, not to
+// shrink the window a live but slow-flushing transcript has to land in.
+func TestSessionTokenResolvesOnALaterCycleWithinTheBound(t *testing.T) {
+	dir := t.TempDir()
+	binder := &countingSessionTokenBinder{sessionToken: "mf-later-cycle", stageRunID: 42}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	for i := range 3 {
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (cycle %d): %v", i, err)
+		}
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls = %d before the sessionToken ever appears, want 0", binder.bindCalls)
+	}
+
+	path := filepath.Join(dir, "late.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-late","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-later-cycle"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (binding cycle): %v", err)
+	}
+	if binder.bindCalls != 1 {
+		t.Fatalf("bindCalls = %d, want 1", binder.bindCalls)
+	}
+	if binder.bound[42] != "session-late" {
+		t.Fatalf("bound session = %q, want session-late", binder.bound[42])
+	}
+}
+
+// TestSessionTokenMatchedByTwoSessionsRecordsNoSessionAndStopsRetrying is the
+// ambiguity scenario: the same sessionToken found in two different sessions'
+// transcripts must never be bound to either -- "a session is never
+// guessed" (design.md) -- must be reported (logged), and must not be
+// re-reported or retried on a later cycle: ambiguity cannot resolve
+// itself by waiting, so it is treated as terminal exactly like the
+// bounded give-up.
+func TestSessionTokenMatchedByTwoSessionsRecordsNoSessionAndStopsRetrying(t *testing.T) {
+	dir := t.TempDir()
+	binder := &countingSessionTokenBinder{sessionToken: "mf-ambiguous", stageRunID: 7}
+
+	writeMark := func(name, sessionID string) {
+		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-ambiguous"}}]}}`+"\n", sessionID)
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	writeMark("one.jsonl", "session-one")
+	writeMark("two.jsonl", "session-two")
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), logger, harvest.WithSessionTokenBinder(binder))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls = %d, want 0: an ambiguous sessionToken must never be bound", binder.bindCalls)
+	}
+	if !strings.Contains(logBuf.String(), "more than one session") {
+		t.Fatalf("log output = %q, want a message reporting the ambiguity", logBuf.String())
+	}
+
+	logBuf.Reset()
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (second cycle): %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls after a second cycle = %d, want still 0", binder.bindCalls)
+	}
+	if logBuf.Len() != 0 {
+		t.Fatalf("log output after the second cycle = %q, want empty: ambiguity is reported once, not every cycle", logBuf.String())
+	}
+}
+
+// TestSessionTokenStopsBeingScannedAfterBoundedGiveUp is task 2 step 3's
+// "actually stops" test: a sessionToken whose transcript never appears must be
+// abandoned after maxSessionTokenResolutionCycles cycles (60, watcher.go),
+// logged exactly once, and -- the guard that would catch a give-up that
+// merely stops *logging* rather than stops *looking* -- must not bind
+// even if its transcript line shows up afterward.
+func TestSessionTokenStopsBeingScannedAfterBoundedGiveUp(t *testing.T) {
+	dir := t.TempDir()
+	binder := &countingSessionTokenBinder{sessionToken: "mf-never-appears", stageRunID: 99}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), logger, harvest.WithSessionTokenBinder(binder))
+
+	// 60 empty cycles: nothing to find, so the give-up bound is reached
+	// on the last of these.
+	for i := range 60 {
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (cycle %d): %v", i, err)
+		}
+	}
+	if got := strings.Count(logBuf.String(), "giving up"); got != 1 {
+		t.Fatalf("give-up logged %d times after 60 cycles, want exactly 1: %q", got, logBuf.String())
+	}
+
+	// The sessionToken's transcript line finally appears -- too late. It must
+	// not be looked for any more.
+	path := filepath.Join(dir, "toolate.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-toolate","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-never-appears"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	logBuf.Reset()
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (after give-up): %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls = %d, want 0: a sessionToken is never resolved once this Watcher has abandoned it", binder.bindCalls)
+	}
+	if strings.Contains(logBuf.String(), "giving up") {
+		t.Fatalf("give-up logged again on a later cycle, want it logged exactly once ever: %q", logBuf.String())
+	}
+}
+
+// TestAlreadyBoundRunIsNeverReconsidered is the one-way-binding guard at
+// the Watcher level: a stage run UnresolvedSessionTokens no longer reports
+// (because its session_id is already set -- store.Store.UnresolvedSessionTokens'
+// own WHERE clause, stageruns.go) must never be handed to BindSession
+// again, even when a transcript carrying its sessionToken is right there to be
+// read. Binding is one-way (design.md); this is what "never" means in
+// practice, one layer up from the store's own WHERE-guarded UPDATE.
+func TestAlreadyBoundRunIsNeverReconsidered(t *testing.T) {
+	dir := t.TempDir()
+	binder := &countingSessionTokenBinder{sessionToken: "mf-already-bound", stageRunID: 5}
+	binder.bound = map[int64]string{5: "session-original"}
+
+	path := filepath.Join(dir, "session.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-imposter","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-already-bound"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls = %d, want 0: an already-bound run must never be reconsidered", binder.bindCalls)
+	}
+	if binder.bound[5] != "session-original" {
+		t.Fatalf("bound session = %q, want unchanged session-original", binder.bound[5])
+	}
+}
+
+// TestBindMarkAndFirstUsageInSameBatchAreBothAttributed is the defect a
+// post-commit review found in this task's first pass: Claude Code
+// flushes a turn's transcript entries together, so the `stage begin
+// -session-token ...` mark and that same turn's own usage arrive in the *same*
+// newly-read batch -- not a later one. A Watcher that attributes a
+// batch and commits it (advancing the offset) before sessionToken resolution
+// has had a chance to bind the session that batch just revealed loses
+// that usage permanently: nothing ever re-reads bytes the offset has
+// already moved past. Because a mark's own turn is frequently a stage's
+// largest, this was not a rare edge case -- it was every stage's first
+// turn, every time.
+//
+// This test writes both the mark (as part of an assistant message that
+// also carries that message's own usage) and a second message's usage
+// into one file, present from the very first read, then drives two
+// cycles: the first must bind without losing the batch that revealed
+// the sessionToken, and the second must show the usage that batch carried, not
+// zero.
+func TestBindMarkAndFirstUsageInSameBatchAreBothAttributed(t *testing.T) {
+	dir := t.TempDir()
+	started := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
+	sessionStore := &fakeSessionTokenStore{runs: map[int64]*crossedTokenRun{
+		1: {sessionToken: "mf-same-batch", startedAt: started},
+	}}
+
+	path := filepath.Join(dir, "session.jsonl")
+	content := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-same-batch","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-same-batch"}}]}}` + "\n" +
+		`{"type":"assistant","timestamp":"2025-12-01T00:00:02Z","sessionId":"session-same-batch","message":{"model":"claude-opus-5","usage":{"input_tokens":333,"output_tokens":1}}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(sessionStore), nil, harvest.WithSessionTokenBinder(sessionStore))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1): %v", err)
+	}
+	if got := sessionStore.runs[1].sessionID; got == nil || *got != "session-same-batch" {
+		t.Fatalf("stage run 1 session after cycle 1 = %v, want session-same-batch", got)
+	}
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 2): %v", err)
+	}
+
+	if got := sink.totals[1].Main.Input; got != 338 {
+		t.Errorf("tokens.main.input = %d, want 338 (5 from the mark's own turn + 333 from the same batch's second message -- neither lost)", got)
+	}
+}
+
+// TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle is KAN-172 task
+// 4b's own pinning test: "a run whose token is already bound makes a
+// further mark, and its batch is committed in the same cycle rather than
+// withheld." Under the per-mark shape this replaces, this test fails --
+// confirmed directly, before this rework, against the equivalent
+// pre-4b fixture: two stage runs sharing one correlator value (run 1
+// already bound to "session-shared", run 2 still unbound) drove
+// UnresolvedNonces to keep treating run 2's mark as needing its own
+// resolution, so its batch -- carrying real usage in the very same
+// message as the mark -- was withheld rather than committed.
+//
+// Task 4b's mechanism is what changes the outcome here, at the store
+// layer this test's fake stands in for: insertStageRun resolves
+// session_id at insert time from an already-bound token, so a stage run
+// created with a token that has already resolved never enters
+// UnresolvedSessionTokens at all, and RunOnce never has a reason to
+// withhold its batch.
+func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
+	dir := t.TempDir()
+	started := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
+	boundSessionID := "session-shared"
+
+	// Stage run 2's session_id is already resolved -- reproducing what
+	// store.Store.insertStageRun now does at insert time for a run whose
+	// token has already bound (task 4b), rather than something this
+	// Watcher-level fake resolves itself. This fake's UnresolvedSessionTokens
+	// only ever reports a run whose sessionID is nil, so run 2 is never
+	// pending in the first place.
+	// Run 1's window starts an hour after the mark's own message timestamp
+	// -- a later stage in the same, already-bound session -- so only run
+	// 2's window is open when that message arrives; this isolates the
+	// attribution to run 2 without depending on any attempt-based
+	// tie-break between two simultaneously open windows.
+	sessionStore := &fakeSessionTokenStore{runs: map[int64]*crossedTokenRun{
+		1: {sessionToken: "mf-shared", sessionID: &boundSessionID, startedAt: started.Add(time.Hour)},
+		2: {sessionToken: "mf-shared", sessionID: &boundSessionID, startedAt: started},
+	}}
+
+	path := filepath.Join(dir, "session.jsonl")
+	content := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-shared","message":{"model":"claude-opus-5","usage":{"input_tokens":77,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-shared"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(sessionStore), nil, harvest.WithSessionTokenBinder(sessionStore))
+
+	touched, err := w.RunOnce(context.Background())
+	if err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if touched != 1 {
+		t.Fatalf("RunOnce touched %d files, want 1 (committed in the same cycle, not withheld)", touched)
+	}
+	if got := sink.totals[2].Main.Input; got != 77 {
+		t.Fatalf("stage run 2 tokens.main.input = %d, want 77 committed in the same cycle (not withheld)", got)
+	}
+}
+
+// togglableSessionTokenBinder is a countingSessionTokenBinder with one
+// extra knob: whether its one stage run is reported as pending at all.
+// The F4 silent-misattribution test (below) needs to simulate a run whose
+// token was NOT pending during an earlier cycle (so a transcript line
+// naming it was read and its offset consumed as ordinary content, never
+// scanned as a candidate) and only becomes pending afterward -- exactly
+// the shape the live daemon was in immediately after F1 was fixed and
+// restarted: the mark's own bytes were already behind the read offset
+// from before the binder existed, and only later-written bytes were ever
+// scanned against the newly-pending token.
+type togglableSessionTokenBinder struct {
+	sessionToken string
+	stageRunID   int64
+	pending      bool
+	bound        map[int64]string
+	boundOrder   []string
+	bindCalls    int
+}
+
+func (b *togglableSessionTokenBinder) UnresolvedSessionTokens(_ context.Context) (map[int64]string, error) {
+	if !b.pending {
+		return map[int64]string{}, nil
+	}
+	if _, ok := b.bound[b.stageRunID]; ok {
+		return map[int64]string{}, nil
+	}
+	return map[int64]string{b.stageRunID: b.sessionToken}, nil
+}
+
+func (b *togglableSessionTokenBinder) BindSession(_ context.Context, sessionToken string, sessionID string) (int64, error) {
+	b.bindCalls++
+	if sessionToken != b.sessionToken {
+		return 0, fmt.Errorf("togglable session token binder: unknown token %q", sessionToken)
+	}
+	if b.bound == nil {
+		b.bound = map[int64]string{}
+	}
+	b.bound[b.stageRunID] = sessionID
+	b.boundOrder = append(b.boundOrder, sessionID)
+	return 1, nil
+}
+
+var _ harvest.SessionTokenBinder = (*togglableSessionTokenBinder)(nil)
+
+// TestCommandMerelyMentioningTokenDoesNotBind is F4's first required
+// test, written to fail against the pre-fix matcher: matchSessionTokens
+// matched by bare strings.Contains, so a diagnostic command that only
+// MENTIONS a pending sessionToken -- a grep for it, a log dump, a database
+// query, an echo -- counted exactly like a genuine
+// `stage begin -session-token ...` invocation. Here the sessionToken is
+// pending and never appears in any genuine mark at all; the only
+// occurrence anywhere is a grep's argument. A correct matcher must never
+// bind on that alone.
+func TestCommandMerelyMentioningTokenDoesNotBind(t *testing.T) {
+	dir := t.TempDir()
+	binder := &togglableSessionTokenBinder{sessionToken: "mf-mention-only", stageRunID: 101, pending: true}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	path := filepath.Join(dir, "mentioner.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-mentioner","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"grep 'mf-mention-only' ~/.claude/projects/*/*.jsonl"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls = %d, want 0: a command that merely mentions the sessionToken must never bind it (grep is not a mark)", binder.bindCalls)
+	}
+}
+
+// TestMentionAfterOwnMarkIsConsumedDoesNotMisattribute is F4's severity
+// proof, not just its symptom: session A genuinely marks a stage with
+// sessionToken; A's own mark bytes are read and committed on a cycle
+// before the token is pending at all (mirroring the live sequence -- the
+// SessionTokenBinder was wired in later, after F1 was fixed and the
+// daemon restarted, so the file offset had already moved past the real
+// mark). Once the token becomes pending, the only occurrence left for
+// this Watcher to find is session B's transcript, which merely MENTIONS
+// A's token in a diagnostic command -- never a mark of its own. A matcher
+// that matches by bare substring has nothing else to bind to and silently
+// attributes A's stage run to B; the fix must leave it unbound instead.
+func TestMentionAfterOwnMarkIsConsumedDoesNotMisattribute(t *testing.T) {
+	dir := t.TempDir()
+	token := "mf-k172-silent-misattribution"
+	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 202, pending: false}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	// Cycle 1: session A's real mark is written and read while the token
+	// is NOT YET pending (matchSessionTokens returns early on an empty
+	// pending map), so the offset commits past it exactly as it did on
+	// the live daemon before its SessionTokenBinder was wired in.
+	sessionAPath := filepath.Join(dir, "session-a.jsonl")
+	markLine := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-a","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -stage do.tests -session-token ` + token + ` -harness claude-code"}}]}}` + "\n"
+	if err := os.WriteFile(sessionAPath, []byte(markLine), 0o644); err != nil {
+		t.Fatalf("write %s: %v", sessionAPath, err)
+	}
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1, pre-pending): %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls after cycle 1 = %d, want 0 (token was not yet pending)", binder.bindCalls)
+	}
+
+	// The token becomes pending now -- session A's mark bytes are already
+	// behind the read offset and will never be scanned again.
+	binder.pending = true
+
+	// Cycle 2: session B's transcript, new to this cycle, merely mentions
+	// A's token in a diagnostic command.
+	sessionBPath := filepath.Join(dir, "session-b.jsonl")
+	mentionLine := `{"type":"assistant","timestamp":"2025-12-01T00:00:02Z","sessionId":"session-b","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"grep '` + token + `' /tmp/dispatch.log"}}]}}` + "\n"
+	if err := os.WriteFile(sessionBPath, []byte(mentionLine), 0o644); err != nil {
+		t.Fatalf("write %s: %v", sessionBPath, err)
+	}
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 2, mention only): %v", err)
+	}
+
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls after cycle 2 = %d, want 0: stage run 202 must NOT bind to session-b, which only mentioned the token", binder.bindCalls)
+	}
+	for _, sid := range binder.boundOrder {
+		if sid == "session-b" {
+			t.Fatalf("stage run 202 was bound to %q, a session that only mentioned the token in a grep -- silent misattribution", sid)
+		}
+	}
+}
+
+// TestMarkInvocationShapeIsNotOverAnchored proves the matcher accepts the
+// invocation shapes a real mark can actually take -- a leading `cd ... &&`,
+// flags in a different order than the doc comment's example, and the
+// `-session-token=value` form -- rather than a rewrite that only accepts
+// one rigid shape.
+func TestMarkInvocationShapeIsNotOverAnchored(t *testing.T) {
+	dir := t.TempDir()
+	token := "mf-k172-shape"
+	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 303, pending: true}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	path := filepath.Join(dir, "session.jsonl")
+	// -harness comes before -session-token (order differs from the doc
+	// comment's canonical example), and the whole thing is prefixed by a
+	// cd && compound, exactly as a real caller might invoke it.
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-shape","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"cd /repo && myflow stage begin -harness claude-code -stage do.tests -session-token ` + token + ` change-name"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if binder.bindCalls != 1 {
+		t.Fatalf("bindCalls = %d, want 1: a genuine mark wrapped in cd && and with reordered flags must still bind", binder.bindCalls)
+	}
+	if binder.bound[303] != "session-shape" {
+		t.Fatalf("bound session = %q, want session-shape", binder.bound[303])
+	}
+}
+
+// TestEchoedMarkExampleDoesNotBind is F5's regression test: a command that
+// only PRINTS a mark-shaped string -- echo "myflow stage begin ...
+// -session-token <token> ..." -- must never bind, because it is not itself
+// an invocation of myflow. Before the F5 fix, strings.Fields saw
+// -session-token and the token as adjacent fields regardless of the
+// surrounding quotes, and stageMarkInvocationPattern's "stage begin" match
+// was found inside the quoted text too, so an echoed example counted
+// exactly like a real mark and silently bound whichever session printed
+// it.
+func TestEchoedMarkExampleDoesNotBind(t *testing.T) {
+	dir := t.TempDir()
+	token := "mf-k172-echoed-example"
+	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 404, pending: true}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	path := filepath.Join(dir, "echoer.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-echoer","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"echo \"myflow stage begin -stage do.tests -session-token ` + token + ` -harness claude-code\""}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if binder.bindCalls != 0 {
+		t.Fatalf("bindCalls = %d, want 0: a command that only echoes a mark-shaped example must never bind (F5)", binder.bindCalls)
 	}
 }

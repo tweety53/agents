@@ -63,16 +63,19 @@ func (f *fakeStore) ReworkRate(_ context.Context, _ store.Period, project, _ *st
 	return f.reworkRate, f.reworkRateErr
 }
 
-// CountRunsWithoutModel and ListModels have no fakeStore field of their
-// own: this type exists purely to keep satisfying api.StatsStore at call
-// sites that never exercise a stats route at all (this section's own
-// header comment) -- no test here needs either to return anything but a
-// harmless zero value.
+// CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured have no
+// fakeStore field of their own: this type exists purely to keep satisfying
+// api.StatsStore at call sites that never exercise a stats route at all
+// (this section's own header comment) -- no test here needs any of them to
+// return anything but a harmless zero value.
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
 	return 0, nil
 }
 func (f *fakeStore) ListModels(_ context.Context, _ store.Period, _ *string) ([]string, error) {
 	return nil, nil
+}
+func (f *fakeStore) AllRecordedRunsUnmeasured(_ context.Context, _ store.Period, _ *string) (bool, error) {
+	return false, nil
 }
 
 var _ api.StatsStore = (*fakeStore)(nil)
@@ -109,6 +112,17 @@ type statsFake struct {
 	countRunsWithoutModelErr error
 	models                   []string
 	modelsErr                error
+
+	// allRecordedRunsUnmeasured and allRecordedRunsUnmeasuredErr let a
+	// test drive task 5's third arm directly, independent of stageRuns'
+	// own fixtures -- statsFake's other aggregation fields already work
+	// this way (see this type's own header comment), and
+	// AllRecordedRunsUnmeasured's real implementation is exercised
+	// separately, against real Postgres, by
+	// internal/store/aggregate_test.go's own TestAllRecordedRunsUnmeasured*
+	// cases.
+	allRecordedRunsUnmeasured    bool
+	allRecordedRunsUnmeasuredErr error
 
 	stageRuns         []statsRun
 	queryStageRunsErr error
@@ -156,6 +170,10 @@ func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *
 func (f *statsFake) ListModels(_ context.Context, _ store.Period, p *string) ([]string, error) {
 	f.lastProject = p
 	return f.models, f.modelsErr
+}
+func (f *statsFake) AllRecordedRunsUnmeasured(_ context.Context, _ store.Period, p *string) (bool, error) {
+	f.lastProject = p
+	return f.allRecordedRunsUnmeasured, f.allRecordedRunsUnmeasuredErr
 }
 
 func (f *statsFake) QueryStageRuns(_ context.Context, q store.Query) ([]store.StageRun, int, error) {
@@ -274,6 +292,7 @@ type statsEnvelope struct {
 	Model              *string         `json:"model"`
 	BoundaryConvention string          `json:"boundaryConvention"`
 	Recorded           bool            `json:"recorded"`
+	Unmeasured         bool            `json:"unmeasured"`
 	ExcludedNoModel    *int            `json:"excludedNoModel"`
 	Rows               json.RawMessage `json:"rows"`
 }
@@ -684,6 +703,91 @@ func TestPeriodBeforeAnyDataReportsNotRecorded(t *testing.T) {
 			t.Errorf("Recorded = true, want false: store has never recorded any stage run")
 		}
 	})
+}
+
+// --- TestThreeAbsenceStatesDoNotCollapse ---------------------------------
+//
+// Task 5's own non-negotiable rule: (a) no runs in the period, (b) runs
+// recorded but none attributed, (c) attributed and measured at a real
+// zero, asserted as three separate wire responses so that no two of them
+// can render identically -- that collapse is the exact defect this task
+// closes (tasks.md, "5 A recorded but unmeasured run is visible as such").
+func TestThreeAbsenceStatesDoNotCollapse(t *testing.T) {
+	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	seeded := statsRun{
+		run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/myflow-do", Stage: "x"},
+		projectKey: "proj", changeName: "kan-1",
+	}
+
+	t.Run("(a) no runs in the period at all: Recorded=false, Unmeasured=false", func(t *testing.T) {
+		sts := &statsFake{stageRuns: []statsRun{seeded}}
+		ts := newStatsTestServer(t, sts)
+		status, env, body := getStats(t, ts, "/api/v1/stats/cost-per-change?from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z")
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		if env.Recorded {
+			t.Errorf("Recorded = true, want false: period predates any telemetry")
+		}
+		if env.Unmeasured {
+			t.Errorf("Unmeasured = true, want false: a period with no runs at all is never reported as the unmeasured arm")
+		}
+	})
+
+	t.Run("(b) runs recorded but none attributed: Recorded=true, Unmeasured=true", func(t *testing.T) {
+		sts := &statsFake{stageRuns: []statsRun{seeded}, allRecordedRunsUnmeasured: true}
+		ts := newStatsTestServer(t, sts)
+		status, env, body := getStats(t, ts, periodPath("cost-per-change"))
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		if !env.Recorded {
+			t.Errorf("Recorded = false, want true: period covers the earliest recorded run")
+		}
+		if !env.Unmeasured {
+			t.Errorf("Unmeasured = false, want true: the store reports every run in scope carries no measurement")
+		}
+	})
+
+	t.Run("(c) attributed and measured as a real zero: Recorded=true, Unmeasured=false", func(t *testing.T) {
+		sts := &statsFake{stageRuns: []statsRun{seeded}, allRecordedRunsUnmeasured: false}
+		ts := newStatsTestServer(t, sts)
+		status, env, body := getStats(t, ts, periodPath("cost-per-change"))
+		if status != http.StatusOK {
+			t.Fatalf("status %d, body %s", status, body)
+		}
+		if !env.Recorded {
+			t.Errorf("Recorded = false, want true: period covers the earliest recorded run")
+		}
+		if env.Unmeasured {
+			t.Errorf("Unmeasured = true, want false: at least one run in scope was measured, even at a real zero")
+		}
+	})
+}
+
+// TestUnmeasuredNeverComputedWhenPeriodPredatesTelemetry pins the guard in
+// (*statsHandler).view: AllRecordedRunsUnmeasured is only called once
+// Recorded is already true, so a period that predates all telemetry never
+// even asks the store the unmeasured question -- asserted by never handing
+// the fake a fixture that would let it answer true, and confirming the
+// response still reports Unmeasured=false.
+func TestUnmeasuredNeverComputedWhenPeriodPredatesTelemetry(t *testing.T) {
+	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	sts := &statsFake{
+		stageRuns: []statsRun{{
+			run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/myflow-do", Stage: "x"},
+			projectKey: "proj", changeName: "kan-1",
+		}},
+		allRecordedRunsUnmeasured: true, // would flip the assertion below if ever consulted
+	}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, "/api/v1/stats/cost-per-change?from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if env.Unmeasured {
+		t.Errorf("Unmeasured = true, want false: the period predates telemetry, so the store's AllRecordedRunsUnmeasured must never have been consulted")
+	}
 }
 
 // --- TestLiveStateBoardMatchesStatusOutput ------------------------------

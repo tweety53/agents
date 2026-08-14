@@ -169,7 +169,7 @@ func run(logger *slog.Logger) error {
 	// satisfies harvest.Pricer directly -- Price's signature already
 	// matches it (compile-time check below) -- so, like HarvestSink, no
 	// adapter is needed here.
-	watcher := harvest.NewWatcher(transcriptsRoot, st, attributor, logger, harvest.WithPricer(st))
+	watcher := newTranscriptWatcher(transcriptsRoot, st, attributor, logger)
 	go watcher.Run(watchCtx, harvestInterval)
 
 	// Task 10: close stage runs whose session has gone silent past
@@ -206,6 +206,20 @@ func run(logger *slog.Logger) error {
 	// every in-flight request has actually finished, not merely after
 	// Shutdown decided it was done.
 	return <-serveErr
+}
+
+// newTranscriptWatcher builds the harvest.Watcher the daemon runs.
+// Extracted out of run (KAN-172, task 7) so wiring_test.go can call it
+// directly and assert on the *constructed* Watcher -- Watcher.HasPricer,
+// Watcher.HasSessionTokenBinder -- rather than on this file's own source
+// text, which a refactor could keep unchanged while silently dropping an
+// option. This is the exact class of defect task 7 fixes: the daemon
+// built this watcher inline with harvest.WithPricer(st) but no
+// harvest.WithSessionTokenBinder(st), so pendingSessionTokens always
+// returned nil and no stage run was ever bound, despite tasks 1-6 all
+// working and 329 Go tests staying green throughout.
+func newTranscriptWatcher(root string, st *store.Store, attributor *harvest.Attributor, logger *slog.Logger) *harvest.Watcher {
+	return harvest.NewWatcher(root, st, attributor, logger, harvest.WithPricer(st), harvest.WithSessionTokenBinder(st))
 }
 
 // storeWindowSource adapts *store.Store to harvest.WindowSource: the one
