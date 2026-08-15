@@ -92,12 +92,20 @@ const (
 // ChangeStore is the store dependency the change endpoints need, defined
 // here at the consumer rather than alongside store.Store, per
 // go-interface-design's "define interfaces at the consumer": exactly the
-// three methods changeHandler calls, nothing more, so a fake implementing
-// it for a test needs no database at all.
+// methods changeHandler calls, nothing more, so a fake implementing it for
+// a test needs no database at all.
 type ChangeStore interface {
 	GetChange(ctx context.Context, projectKey, name string) (store.Change, error)
 	PutChange(ctx context.Context, c store.Change) error
 	QueryChanges(ctx context.Context, q store.Query) ([]store.Change, int, error)
+	// projectResolver backs resolveProjectParam (stats.go), which
+	// parseChangeQuery (changes.go) uses to resolve the changes list's own
+	// "project" filter -- the same rule every stats view applies to its
+	// own "project" parameter. Embedded rather than spelling
+	// ProjectKeysByDisplayName's signature out a second time (panel round
+	// 1, F2) -- see StatsStore's own embedding (stats.go) for the same
+	// reasoning.
+	projectResolver
 }
 
 // var _ ChangeStore = (*store.Store)(nil) verifies at compile time that the

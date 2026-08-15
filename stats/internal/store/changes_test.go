@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -547,5 +548,78 @@ func TestConcurrentPutChangeBootstrapsNewProjectWithoutRace(t *testing.T) {
 	}
 	if len(got) != writers {
 		t.Fatalf("ListChanges(%s) returned %d changes, want %d (one per concurrent writer)", projectKey, len(got), writers)
+	}
+}
+
+// --- ProjectKeysByDisplayName -------------------------------------------
+//
+// ProjectKeysByDisplayName is the server-side twin of
+// stats/web/src/lib/projectLabel.ts: it derives a display name from
+// project_key in SQL by trimming the same documented suffix -- a trailing
+// "-" plus exactly eight lowercase hex characters -- so the two sides
+// agree on what a key "displays as" by construction rather than by
+// comment. These tests seed real project rows through PutChange (the only
+// way a project row is created) and read them back by display name.
+
+func TestProjectKeysByDisplayNameReturnsBothKeysForSharedDisplayName(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	base := fmt.Sprintf("proj-shared-%d", time.Now().UnixNano())
+	keyA := base + "-a740d89c"
+	keyB := base + "-7c1f238a"
+
+	if err := st.PutChange(ctx, baseChange(keyA, "kan-1")); err != nil {
+		t.Fatalf("PutChange %s: %v", keyA, err)
+	}
+	if err := st.PutChange(ctx, baseChange(keyB, "kan-1")); err != nil {
+		t.Fatalf("PutChange %s: %v", keyB, err)
+	}
+
+	got, err := st.ProjectKeysByDisplayName(ctx, base)
+	if err != nil {
+		t.Fatalf("ProjectKeysByDisplayName(%s): %v", base, err)
+	}
+	sort.Strings(got)
+	want := []string{keyA, keyB}
+	sort.Strings(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ProjectKeysByDisplayName(%s) = %v, want %v", base, got, want)
+	}
+}
+
+func TestProjectKeysByDisplayNameReturnsOneKeyForUniqueDisplayName(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	base := fmt.Sprintf("proj-unique-%d", time.Now().UnixNano())
+	key := base + "-a740d89c"
+
+	if err := st.PutChange(ctx, baseChange(key, "kan-1")); err != nil {
+		t.Fatalf("PutChange %s: %v", key, err)
+	}
+
+	got, err := st.ProjectKeysByDisplayName(ctx, base)
+	if err != nil {
+		t.Fatalf("ProjectKeysByDisplayName(%s): %v", base, err)
+	}
+	want := []string{key}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ProjectKeysByDisplayName(%s) = %v, want %v", base, got, want)
+	}
+}
+
+func TestProjectKeysByDisplayNameReturnsNoneForUnknownName(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	base := fmt.Sprintf("proj-unknown-%d", time.Now().UnixNano())
+
+	got, err := st.ProjectKeysByDisplayName(ctx, base)
+	if err != nil {
+		t.Fatalf("ProjectKeysByDisplayName(%s): %v", base, err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("ProjectKeysByDisplayName(%s) = %v, want none", base, got)
 	}
 }

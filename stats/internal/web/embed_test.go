@@ -390,3 +390,12 @@ func (fakeStore) ListModels(context.Context, store.Period, *string) ([]string, e
 func (fakeStore) AllRecordedRunsUnmeasured(context.Context, store.Period, *string) (bool, error) {
 	return false, nil
 }
+
+// ProjectKeysByDisplayName is here for the same reason
+// AllRecordedRunsUnmeasured's own doc comment gives: api.ChangeStore and
+// api.StatsStore both gained this method for task 3's project
+// display-name resolution, and every implementer must keep compiling --
+// this file's fakeStore never exercises project resolution at all.
+func (fakeStore) ProjectKeysByDisplayName(context.Context, string) ([]string, error) {
+	return nil, nil
+}
