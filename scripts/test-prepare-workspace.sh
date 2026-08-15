@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
-# Assertion harness for prepare-workspace.sh. Builds sandboxed git repositories
-# under TMPDIR for every case that needs a declared `## workspace isolation`
-# section; never touches the real repository tree for those. The no-op case is
-# the one exception — it runs the script against this repository itself, since
-# the thing under test there is exactly the same no-op check-workspace-
-# isolation.sh already keeps: this repository declares no section.
+# Assertion harness for prepare-workspace.sh. Every case builds a sandboxed git
+# repository under TMPDIR; none of them reads this repository's own tree.
+#
+# The no-op case used to be an exception, asserting against this repository
+# itself on the premise that it declares no `## workspace isolation` section.
+# That premise died the day the section was added, and the case then failed on
+# every run — reporting a defect in the script where the real defect was the
+# assertion's stale picture of the repository. Fixtures cannot go stale that
+# way, and 1a/1b below already covered the same behaviour with them, so the
+# real-repository case was dropped rather than rewritten to match the section
+# that now exists. What prepare-workspace.sh does against a real declaring
+# project is covered where it runs: check-workspace-isolation.sh is a lint step
+# over this repository's own section, and section 7 of skills/myflow-do/SKILL.md
+# runs this script against each apply worktree.
 #
 # Three cases, matching the three the task record asks for: (1) no `##
 # workspace isolation` section — no-op, exit 0, nothing printed; (2) a section
@@ -18,7 +26,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRIPT="$SCRIPT_DIR/prepare-workspace.sh"
 FAILURES=0
 
@@ -74,15 +81,7 @@ REPOS+=("$ERRFILE")
 # Case 1: No `## workspace isolation` section — no-op, exit 0, nothing printed.
 # ===========================================================================
 
-# 1a. This repository itself: it declares no section, exactly mirroring
-#     check-workspace-isolation.sh's own no-op case for a project with none.
-run_script "$REPO_ROOT"
-[ "$RC" -eq 0 ] && pass "1a: this repository exits 0" \
-  || fail "1a: expected exit 0, got rc=$RC out=$OUT err=$ERR"
-[ -z "$OUT" ] && pass "1a: this repository prints nothing" \
-  || fail "1a: expected no stdout, got: $OUT"
-
-# 1b. A fixture project.md with sections but none named `## workspace
+# 1a. A fixture project.md with sections but none named `## workspace
 #     isolation`.
 new_repo "kan-1-no-isolation"
 write_config "# fixture
@@ -94,18 +93,18 @@ scripts/test-setup.sh
 \`\`\`
 "
 run_script "$REPO"
-[ "$RC" -eq 0 ] && pass "1b: no isolation section exits 0" \
-  || fail "1b: expected exit 0, got rc=$RC out=$OUT err=$ERR"
-[ -z "$OUT" ] && pass "1b: no isolation section prints nothing" \
-  || fail "1b: expected no stdout, got: $OUT"
+[ "$RC" -eq 0 ] && pass "1a: no isolation section exits 0" \
+  || fail "1a: expected exit 0, got rc=$RC out=$OUT err=$ERR"
+[ -z "$OUT" ] && pass "1a: no isolation section prints nothing" \
+  || fail "1a: expected no stdout, got: $OUT"
 
-# 1c. No `.myflow/project.md` at all.
+# 1b. No `.myflow/project.md` at all.
 new_repo "kan-2-no-config"
 run_script "$REPO"
-[ "$RC" -eq 0 ] && pass "1c: no .myflow/project.md exits 0" \
-  || fail "1c: expected exit 0, got rc=$RC out=$OUT err=$ERR"
-[ -z "$OUT" ] && pass "1c: no .myflow/project.md prints nothing" \
-  || fail "1c: expected no stdout, got: $OUT"
+[ "$RC" -eq 0 ] && pass "1b: no .myflow/project.md exits 0" \
+  || fail "1b: expected exit 0, got rc=$RC out=$OUT err=$ERR"
+[ -z "$OUT" ] && pass "1b: no .myflow/project.md prints nothing" \
+  || fail "1b: expected no stdout, got: $OUT"
 
 # ===========================================================================
 # Case 2: A section declared — variables exported and printed correctly.
