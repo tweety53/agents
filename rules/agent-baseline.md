@@ -39,6 +39,7 @@ governs** — the one-liner is enough to stay inside the rule, not enough to app
 | **Look up current versions before adding a dependency.** Never a remembered version. Stable only. If the lookup is inconclusive, ask. | `~/.claude/rules/dependency-versions.md` |
 | **Use Context7 for library documentation.** `resolve-library-id`, then `query-docs` — even for libraries you think you know. Not for refactoring, business-logic debugging, or general programming concepts. | `~/.claude/rules/context7.md` |
 | **A design mockup is a specification.** Reproduce it exactly, copy and typos included. No unrequested improvements. Ask about states it does not show rather than inventing them. Verify visually before claiming it matches. | `~/.claude/rules/design-mockups-are-specs.md` |
+| **Every dispatch you write carries this file.** The two sentences under "Propagate this" above, verbatim, in every subagent prompt — that is the whole of your obligation to this row, and it is what makes the rows above reach any agent you spawn. A hook denies a dispatch that omits them. | `~/.claude/rules/dispatch-carries-the-baseline.md` |
 
 Every path in that table is a symlink `agents/setup.sh global` created, pointing at the `.mdc` in the
 `agents` repo whose core excerpt the managed block renders — one file per rule, reachable by a stable
