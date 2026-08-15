@@ -33,7 +33,7 @@ const columns: Column<ModelComparisonRow>[] = [
   { key: "reworkAttempts", header: "Rework attempts", sortable: true, accessor: (r) => r.reworkAttempts },
 ];
 
-export function ModelComparison({ period, project, model }: ViewProps) {
+export function ModelComparison({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<ModelComparisonRow[]>("model-comparison", {
     from: period.from,
     to: period.to,
@@ -63,6 +63,8 @@ export function ModelComparison({ period, project, model }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => `${r.model}/${r.command}/${r.stage}`}
             emptyMessage="No stage runs recording a model in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
           />
         )}
       </Panel>

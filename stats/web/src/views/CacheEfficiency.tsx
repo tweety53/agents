@@ -60,7 +60,7 @@ function sumNullable(values: Array<number | null>): number | null {
   return any ? total : null;
 }
 
-export function CacheEfficiency({ period, project, model }: ViewProps) {
+export function CacheEfficiency({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<CacheEfficiencyRow[]>("cache-efficiency", {
     from: period.from,
     to: period.to,
@@ -95,6 +95,8 @@ export function CacheEfficiency({ period, project, model }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => `${r.command}/${r.stage}`}
             emptyMessage="No stage runs in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
           />
         )}
       </Panel>

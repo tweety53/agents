@@ -6,8 +6,9 @@
 // assert this component's own wiring rather than the network layer.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardBar } from "./DashboardBar";
+import { defaultPeriod } from "./PeriodPicker";
 import type { ChangeDTO, ModelsResponse } from "../api";
 
 const { fetchModelsMock, listChangesMock } = vi.hoisted(() => ({
@@ -73,6 +74,159 @@ describe("DashboardBar: time range", () => {
     const [lastCall] = props.onPeriodChange.mock.calls[0];
     expect(lastCall.to).toEqual(period.to);
     expect(lastCall.from).toEqual(new Date("2026-01-05T00:00"));
+  });
+});
+
+describe("DashboardBar: period presets (task 3)", () => {
+  // A fixed clock, not a second `new Date()` at assertion time -- the
+  // latter is flaky by construction (the two calls can straddle a
+  // millisecond boundary). App.test.tsx's "task 2" describe block uses
+  // the same pattern.
+  const NOW = new Date("2026-03-15T14:30:00.000Z");
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function todayMidnight(): Date {
+    const midnight = new Date(NOW);
+    midnight.setHours(0, 0, 0, 0);
+    return midnight;
+  }
+
+  it.each([
+    ["Today", todayMidnight()],
+    ["7 days", new Date(NOW.getTime() - 7 * DAY_MS)],
+    ["30 days", new Date(NOW.getTime() - 30 * DAY_MS)],
+    ["90 days", new Date(NOW.getTime() - 90 * DAY_MS)],
+    ["All time", new Date("2020-01-01T00:00:00Z")],
+  ])("selecting %s sets the period from that bound to now", (name, expectedFrom) => {
+    const props = baseProps();
+    render(<DashboardBar {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name }));
+
+    expect(props.onPeriodChange).toHaveBeenCalledTimes(1);
+    const [applied] = props.onPeriodChange.mock.calls[0];
+    expect(applied.from).toEqual(expectedFrom);
+    expect(applied.to).toEqual(NOW);
+  });
+
+  it("marks a preset active when the current period equals that preset's range", () => {
+    const props = baseProps();
+    props.period = { from: new Date(NOW.getTime() - 7 * DAY_MS), to: NOW };
+    render(<DashboardBar {...props} />);
+
+    expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Today" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "90 days" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "All time" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("marks no preset active when the period is a hand-typed range", () => {
+    const props = baseProps();
+    props.period = { from: new Date("2025-06-01T00:00:00Z"), to: new Date("2025-06-15T00:00:00Z") };
+    render(<DashboardBar {...props} />);
+
+    for (const name of ["Today", "7 days", "30 days", "90 days", "All time"]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+    }
+  });
+
+  // Regression for the bug this task's review found: `range()` and
+  // `defaultPeriod()` both read "now" fresh on every call, but the period
+  // this bar was given is a fixed snapshot from the moment it was set.
+  // Before the fix, comparing the two for exact equality meant a preset
+  // read as active only in the instant it was picked -- any later
+  // re-render (an unrelated prop change, here) recomputed a `now` a few
+  // seconds further on and flipped `aria-pressed` back to false even
+  // though the period on screen never changed.
+  it("keeps a preset marked active across a re-render once time has moved on", () => {
+    const props = baseProps();
+    props.period = { from: new Date(NOW.getTime() - 7 * DAY_MS), to: NOW };
+    const { rerender } = render(<DashboardBar {...props} />);
+
+    expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
+
+    vi.setSystemTime(new Date(NOW.getTime() + 5000));
+    rerender(<DashboardBar {...props} project="kan-16-myflow-stats-app" />);
+
+    expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("DashboardBar: reset to default (task 3)", () => {
+  const NOW = new Date("2026-03-15T14:30:00.000Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is present while the period differs from the default", () => {
+    const props = baseProps();
+    props.period = { from: new Date("2025-06-01T00:00:00Z"), to: new Date("2025-06-15T00:00:00Z") };
+    render(<DashboardBar {...props} />);
+
+    expect(screen.getByRole("button", { name: "Reset to default" })).toBeInTheDocument();
+  });
+
+  it("is absent while the period is the default", () => {
+    const props = baseProps();
+    props.period = defaultPeriod();
+    render(<DashboardBar {...props} />);
+
+    expect(screen.queryByRole("button", { name: "Reset to default" })).not.toBeInTheDocument();
+  });
+
+  it("restores the default period when clicked", () => {
+    const props = baseProps();
+    props.period = { from: new Date("2025-06-01T00:00:00Z"), to: new Date("2025-06-15T00:00:00Z") };
+    render(<DashboardBar {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
+
+    expect(props.onPeriodChange).toHaveBeenCalledTimes(1);
+    const [applied] = props.onPeriodChange.mock.calls[0];
+    expect(applied).toEqual(defaultPeriod());
+  });
+
+  // Same root cause as the preset regression above, on the other side of
+  // the same comparison: before the fix, a period that was the default at
+  // mount read as non-default (and so grew a reset button) the moment a
+  // later re-render recomputed `defaultPeriod()` against a newer `now`.
+  it("stays absent across a re-render once time has moved on, while the period is still the default", () => {
+    const props = baseProps();
+    props.period = defaultPeriod();
+    const { rerender } = render(<DashboardBar {...props} />);
+
+    expect(screen.queryByRole("button", { name: "Reset to default" })).not.toBeInTheDocument();
+
+    vi.setSystemTime(new Date(NOW.getTime() + 5000));
+    rerender(<DashboardBar {...props} project="kan-16-myflow-stats-app" />);
+
+    expect(screen.queryByRole("button", { name: "Reset to default" })).not.toBeInTheDocument();
+  });
+});
+
+describe("DashboardBar: manual entry keeps working (task 3)", () => {
+  it("does not call onPeriodChange when the typed value is unparsable", () => {
+    const props = baseProps();
+    render(<DashboardBar {...props} />);
+
+    const start = screen.getByLabelText("Period start");
+    fireEvent.change(start, { target: { value: "not-a-date" } });
+
+    expect(props.onPeriodChange).not.toHaveBeenCalled();
   });
 });
 

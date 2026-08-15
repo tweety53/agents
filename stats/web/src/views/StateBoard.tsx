@@ -59,7 +59,7 @@ const columns: Column<StateBoardRow>[] = [
 // therefore never forwards `model` to useStatsView, even if App.tsx ever
 // stopped disabling it -- the same defence-in-depth useRunDetail.ts's own
 // client-side change filter documents for a different restriction.
-export function StateBoard({ period, project }: ViewProps) {
+export function StateBoard({ period, onPeriodChange, project }: ViewProps) {
   const state = useStatsView<StateBoardRow[]>("state-board", { from: period.from, to: period.to, project });
 
   return (
@@ -76,6 +76,8 @@ export function StateBoard({ period, project }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => `${r.projectKey}/${r.name}`}
             emptyMessage="No changes updated in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
           />
         )}
       </Panel>

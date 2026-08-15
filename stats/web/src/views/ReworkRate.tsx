@@ -31,7 +31,7 @@ function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-export function ReworkRate({ period, project, model }: ViewProps) {
+export function ReworkRate({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<ReworkRateRow[]>("rework-rate", { from: period.from, to: period.to, project, model });
 
   return (
@@ -70,6 +70,8 @@ export function ReworkRate({ period, project, model }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => `${r.command}/${r.stage}`}
             emptyMessage="No stage runs in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
           />
         )}
       </Panel>

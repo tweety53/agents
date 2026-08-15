@@ -46,7 +46,7 @@ function sumNullable(values: Array<number | null>): number | null {
   return any ? total : null;
 }
 
-export function Trend({ period, project, model }: ViewProps) {
+export function Trend({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<TrendPoint[]>("trend", { from: period.from, to: period.to, project, model });
 
   return (
@@ -64,7 +64,14 @@ export function Trend({ period, project, model }: ViewProps) {
       </Panel>
       <Panel title="By day" state={state}>
         {(data) => (
-          <DataTable columns={columns} rows={data.rows} rowKey={(r) => r.day} emptyMessage="No stage runs in this period." />
+          <DataTable
+            columns={columns}
+            rows={data.rows}
+            rowKey={(r) => r.day}
+            emptyMessage="No stage runs in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
+          />
         )}
       </Panel>
     </ViewFrame>

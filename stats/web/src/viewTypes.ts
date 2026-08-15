@@ -15,6 +15,13 @@ import type { Period } from "./components/PeriodPicker";
 
 export interface ViewProps {
   period: Period;
+  /**
+   * Returns the period to its default. Optional, like `model` above, for
+   * the same reason: it exists so a view's `DataTable` can offer "the
+   * period may be why" (task 4) without reaching for anything global, and
+   * a view that has not been wired up yet simply does not pass it on.
+   */
+  onPeriodChange?: (period: Period) => void;
   project: string | undefined;
   model?: string | undefined;
 }
