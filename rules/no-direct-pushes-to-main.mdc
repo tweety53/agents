@@ -1,0 +1,48 @@
+---
+description: Never push directly to main — land on the integration branch and promote via PR
+alwaysApply: true
+---
+
+# No direct pushes to `main`
+
+Agent-enforced, since GitHub branch protection may be unavailable.
+
+<!-- core -->
+Never `git push` to `main` — plain, `--force`, or via a refspec like `develop:main`. Land work on
+`develop` or the project's integration branch; `main` is reached only through a PR merged on GitHub,
+never a local merge pushed straight up. Tag releases on `main` after merging, using semver. Where a
+repo's branch protection *is* configured, that is the primary enforcement and this rule sits
+underneath it.
+
+<!-- /core -->
+
+## Why it is enforced at the agent level
+
+Branch protection on `main` requires a paid plan for private repos on personal accounts, so it is
+not always available server-side. Where it is not, enforce the same discipline at the agent level,
+in every project, regardless of plan.
+
+## The rule
+
+- Never `git push` directly to `main` — plain, `--force`, or via a branch-rename refspec like
+  `develop:main`. The refspec form is included explicitly because it is the one that looks like it
+  is pushing a feature branch.
+- Land changes on `develop`, or the project's integration branch, first.
+- Promote `develop` → `main` only via a pull request (`gh pr create --base main --head develop`),
+  merged through GitHub — never a local merge pushed straight to `main`.
+- Tag releases on `main` after merging (`gh release create vX.Y.Z --generate-notes`, or an explicit
+  `git tag` plus push), using semver.
+
+## Where server-side protection exists
+
+If a repo's branch protection *is* configured — paid plan, org account — that is the primary
+enforcement. This rule is the fallback for when it is not, and still applies underneath it. Do not
+treat a configured ruleset as licence to stop checking; treat a missing one as the case this rule
+was written for.
+
+## Pushing at all
+
+Commit or push only when the user asks. If you are on the default branch and about to commit, branch
+first.
+
+Applies globally, all projects, no exceptions, until the user says otherwise.
