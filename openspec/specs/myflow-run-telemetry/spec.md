@@ -167,9 +167,21 @@ nothing.
 The harness SHALL likewise be the harness the command is actually running under, never a fixed value
 written into shared command text, since one source is installed into several harnesses.
 
-A stage run whose session cannot be established SHALL be recorded with no session rather than with a
-guessed one. Attributing one session's usage to another's stage run is worse than recording none:
-both figures are then wrong and nothing distinguishes them.
+**A command SHALL be recognised as a mark by the invocation it performs, not by where that
+invocation sits in the command text.** Marks are emitted inside shell blocks carrying variable
+assignments, directory changes and other statements; a rule that requires the invocation to lead the
+text rejects the shapes actually emitted, and a mark that is not recognised binds nothing at all.
+
+Recognition SHALL NOT be satisfied by a command that merely mentions a correlator. Where recognition
+admits a command that only reproduces a mark's text without performing it, that SHALL be documented
+rather than left implicit — **a false negative here is silent and total, while a false positive is
+narrow and, where two sessions match, already refused by the ambiguity rule.**
+
+#### Scenario: A mark inside a larger shell block
+
+- **WHEN** a mark is emitted after variable assignments, a directory change, or on a later line of a
+  multi-statement command
+- **THEN** it is recognised, and its stage run binds to the session that emitted it
 
 #### Scenario: A mark is emitted
 
@@ -275,4 +287,21 @@ the same stage under different commands are directly comparable.
 
 - **WHEN** a mark names a key no documented stage declares
 - **THEN** it is rejected, naming the documented alternatives
+
+### Requirement: A state gate reads the state before it marks
+
+A command that both gates on a change's state and marks its own stages SHALL read that state
+**before** emitting its first mark.
+
+A mark SHALL NOT cause the state it is about to be gated on to come into existence. Where marking
+creates a record for a change that has none, a command that marks first observes a state its own
+mark authored, and can refuse to proceed on the strength of it.
+
+A record whose only author is a mark's own side effect SHALL NOT satisfy a state gate that expects a
+state a pipeline command wrote.
+
+#### Scenario: A creating run marks its state gate
+
+- **WHEN** a command that accepts no existing state marks its own state-gate stage
+- **THEN** it still proceeds as a creating run, rather than refusing on a state its mark created
 
