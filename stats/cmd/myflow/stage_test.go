@@ -287,6 +287,63 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
 	}
 }
 
+// TestStageBeginCannotDetectShellExpandedSessionToken documents tasks.md
+// task 1b's finding rather than a fix: a sessionToken written
+// `-session-token $T` at the call site is expanded by the calling shell
+// before this program's argv is ever populated, so what this test sends is
+// exactly what the real CLI receives from that invocation -- an ordinary
+// literal indistinguishable from one the caller typed by hand. The mark is
+// accepted and sent to the store; the transcript for the real invocation
+// would still record the unexpanded "$T" and never contain this literal,
+// so the mark silently binds nothing. No check at this layer can tell
+// these two cases apart (validateSessionToken's own doc comment explains
+// why); the actual defence is downstream, in
+// internal/harvest.Watcher.resolveSessionTokens's bounded give-up and
+// warning when a token never matches any transcript. This test exists so a
+// future change cannot "fix" this by asserting a rejection here without
+// first reading why one was ruled out.
+func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	// The value a shell would leave behind after expanding an unquoted or
+	// double-quoted $T -- ordinary characters, no "$", no backtick: this is
+	// what -session-token $T actually delivers to argv, not the literal
+	// text "$T" a caller reading the call site would assume was recorded.
+	const expandedValue = "mf-20260815-142233-9f3c1a"
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", expandedValue, "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 -- this shape is, and must remain, indistinguishable "+
+			"from a hand-typed literal at this layer; stderr:\n%s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if got["sessionToken"] != expandedValue {
+		t.Errorf("sessionToken = %v, want %v", got["sessionToken"], expandedValue)
+	}
+}
+
 // --- stage end: records outcome and metrics ---
 
 // TestStageEndRecordsOutcomeAndMetrics pins that `stage end` sends the

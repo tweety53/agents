@@ -45,6 +45,14 @@ rejected before it ever reaches the store.
 shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
 records the command text before the shell expands it, so a substitution
 would be recorded identically by every caller and identify nothing.
+
+This CLI can only reject a substitution shape it can still see -- write
+-session-token $T (unquoted or double-quoted) and the calling shell expands
+$T to its value before this program ever runs, so the value this program
+receives is an ordinary literal and passes every check here, while the
+transcript still records the unexpanded "$T" and the mark binds nothing.
+There is no fix at this layer: type the literal token itself on the command
+line, not a variable holding it.
 `
 
 func runStage(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -144,6 +152,36 @@ var sessionTokenShellVarPattern = regexp.MustCompile(`\$[A-Za-z_]`)
 // (including one replayed from the journal, which never passes back
 // through this function) as defence in depth, exactly as stages.Validate
 // is checked in both places for an undocumented stage key.
+//
+// A KNOWN, UNCLOSEABLE GAP (tasks.md task 1b): this check, and its
+// server-side twin, both operate on the string this process's own argv
+// carries -- and argv is populated by the calling shell *after* it has
+// already expanded any `$VAR`. A caller who writes `-session-token $T`
+// hands this function the literal value of $T, indistinguishable here
+// from a token the caller typed by hand; the transcript records the
+// command exactly as typed, i.e. still carrying `$T`, so the token this
+// function saw and validated never appears in any transcript at all. Nothing
+// observable at this layer -- not argv, not the environment, not the
+// process tree -- carries the pre-expansion command text, so no check
+// here can catch this shape: rejecting it would require rejecting every
+// ordinary literal too, which is exactly the false-negative-over-false-
+// positive trade this file's own package doc (tasks.md's "Global
+// Constraints") forbids inverting.
+//
+// The actual defence against this shape lives downstream, not here:
+// internal/harvest's Watcher already treats a token that never matches
+// any transcript as a run to give up on after a bounded number of
+// resolution cycles, logging a warning rather than binding it silently
+// (Watcher.resolveSessionTokens's `case 0` branch, gated by
+// maxSessionTokenResolutionCycles) -- the same bounded-give-up path a
+// token from `$(...)`, a backtick, or `$VAR` written *without* the shell
+// getting to expand it (e.g. inside single quotes) already falls into if
+// this function's three rejections above were ever bypassed. That
+// warning is the only place in this system able to observe "this
+// specific token was recorded here but is absent everywhere it should
+// appear" -- the CLI, by construction, only ever sees one command's
+// worth of already-expanded argv and can never compare it against a
+// transcript.
 func validateSessionToken(sessionToken string) error {
 	switch {
 	case strings.Contains(sessionToken, "$("):

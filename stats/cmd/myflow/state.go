@@ -13,6 +13,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // defaultAddr is myflowd's default bind address (internal/config.DefaultHost
@@ -105,6 +106,42 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 	return f, nil
 }
 
+// markSyntheticIfNeeded decodes body as a JSON object and, when its
+// "updatedBy" field is exactly stages.SyntheticChangeUpdatedBy, adds
+// `"synthetic": true` to the object before re-encoding. This is the
+// machine-checkable form a caller (skills/myflow-fast/SKILL.md's state
+// gate) tests instead of comparing "updatedBy" strings itself -- a rule
+// enforced by a field a caller can test beats one enforced only by a
+// skill's prose (design.md, kan-174, "read state, then mark").
+//
+// Any decode failure, or a body with no "updatedBy" field at all, passes
+// body through completely unchanged -- byte for byte when it is not a
+// synthetic record, which is the common case and is what keeps this
+// function from disturbing state get's existing pass-through behaviour.
+func markSyntheticIfNeeded(body []byte) []byte {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return body
+	}
+	updatedByField, ok := raw["updatedBy"]
+	if !ok {
+		return body
+	}
+	var updatedBy string
+	if err := json.Unmarshal(updatedByField, &updatedBy); err != nil {
+		return body
+	}
+	if updatedBy != stages.SyntheticChangeUpdatedBy {
+		return body
+	}
+	raw["synthetic"] = json.RawMessage("true")
+	out, err := json.Marshal(raw)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
 // runStateGet implements `myflow state get <name>`. It prints the store's
 // record to stdout on success. On any store failure -- unreachable daemon,
 // timeout, malformed response, any non-2xx status other than a legitimate
@@ -133,7 +170,7 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	body, getErr := getChange(ctx, f.addr, f.timeout, projectKey, f.name)
 	switch {
 	case getErr == nil:
-		_, _ = stdout.Write(body)
+		_, _ = stdout.Write(markSyntheticIfNeeded(body))
 		return 0
 	case errors.Is(getErr, client.ErrNotFound):
 		fmt.Fprintf(stderr, "myflow: no state recorded for %s/%s\n", projectKey, f.name)
@@ -148,7 +185,7 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		fmt.Fprintln(stderr, "⚠ myflow: store unreachable — read local fallback")
 		statePath := fallback.StateFilePath(projectKey, f.name)
 		if diskBody, readErr := fallback.ReadStateFile(statePath); readErr == nil {
-			_, _ = stdout.Write(diskBody)
+			_, _ = stdout.Write(markSyntheticIfNeeded(diskBody))
 		}
 		return 0
 	}
