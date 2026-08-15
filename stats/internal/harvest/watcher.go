@@ -490,71 +490,87 @@ func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []Comman
 // stageMarkInvocationPattern matches the `stage begin` / `stage end`
 // subcommand shape as two adjacent words -- design.md's and stage.go's
 // own usage string (`myflow stage begin ...` / `myflow stage end ...`),
-// with whatever whitespace separates them. It deliberately imposes no
-// flag ordering of its own: stage.go's own flag registration imposes
-// none on -harness, -session, -stage, -command or -session-token. The
-// command starting with "myflow" is anchored separately, by
-// commandBeginsWithMyflow (isSessionMarkCommand's own doc comment,
-// finding F5) -- not folded into this pattern, so this regexp continues
-// to describe only the subcommand shape, and a mark wrapped in a longer
-// compound command (`cd ... && myflow stage begin ...`) is still
-// recognised, just by the other requirement.
+// with whatever whitespace (including a newline, inside a multi-line
+// shell block) separates them. It deliberately imposes no flag ordering
+// of its own: stage.go's own flag registration imposes none on -harness,
+// -session, -stage, -command or -session-token -- and, since KAN-174, no
+// requirement that this subcommand lead the command text either. Real
+// marks are emitted inside shell blocks carrying variable assignments,
+// directory changes and other statements ahead of the invocation, on the
+// same line or a later one (design.md, "recognise a mark by its
+// invocation, not by its position"; isSessionMarkCommand's own doc
+// comment has the fuller history).
 var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end)\b`)
 
 // isSessionMarkCommand reports whether command is genuinely a stage mark
 // carrying sessionToken as the value of its own -session-token flag --
 // the fix for KAN-172 finding F4 (matchSessionTokens' own doc comment
-// above has the defect and its live reproduction), tightened again for
-// finding F5 below. It requires all of the following, not any subset:
+// above has the defect and its live reproduction), reworked by KAN-174
+// below. It requires both of the following:
 //
-//  1. the command -- after stripping a leading `cd <path> &&` compound,
-//     which a mark may legitimately be wrapped in -- begins with a word
-//     whose base name (path.Base) is exactly "myflow"
-//     (commandBeginsWithMyflow);
-//  2. the command invokes `stage begin` or `stage end`
-//     (stageMarkInvocationPattern);
-//  3. sessionToken is the exact value bound to -session-token in that
+//  1. the command invokes `stage begin` or `stage end`, anywhere in the
+//     command text (stageMarkInvocationPattern);
+//  2. sessionToken is the exact value bound to -session-token in that
 //     same command, whether written as two fields ("-session-token
 //     TOKEN") or joined with "=" ("-session-token=TOKEN") -- both are
 //     valid to the flag package cmd/myflow/stage.go builds on.
 //
-// Requirement 3 is field-based (strings.Fields), not a second substring
+// Requirement 2 is field-based (strings.Fields), not a second substring
 // test on the whole command: a token that merely follows the word
 // "-session-token" somewhere in an unrelated position would reintroduce
-// exactly the class of bug requirement 3 alone replaces.
+// exactly the class of bug requirement 2 alone replaces -- this is what
+// still keeps a `grep`, a `psql` query, a piped `cat`, or a bare mention
+// of the token from matching
+// (TestCommandsThatOnlyMentionTokenNeverBind): none of those bind the
+// token as -session-token's own value, no matter how the position
+// requirement below is decided.
 //
-// F5 (two independent reviewers, both tracing the same counterexample):
-// requirements 2 and 3 alone cannot distinguish a genuine invocation from
-// a command that only PRINTS one, e.g. `echo "myflow stage begin ...
-// -session-token mf-abc123 ..."` inside a quoted example, a README
-// snippet, or this very package's own doc comments (which echo that
-// shape as prose). strings.Fields splits on whitespace only, so the
-// quote characters stay attached to the words at either end of the
-// quoted string, not to "-session-token" or the token that follows it --
-// the two still appear as adjacent fields exactly as they would in a
-// real invocation, and requirement 3 alone accepts them; the same is
-// true of requirement 2, since "stage begin" appears literally inside
-// the quoted text. Closing this does not need parsing the command as
-// shell syntax (recognising `echo`, quoting, heredocs) -- an earlier
-// version of this comment claimed it did; a reviewer disproved that by
-// tracing the code and showing that anchoring alone closes exactly the
-// named counterexample. Requirement 1 is that anchor: `echo "myflow ..."`
-// begins with the word echo, not myflow, so it now fails requirement 1
-// before requirements 2 or 3 are even reached. A genuine invocation
-// begins with myflow (or a path to it -- commandBeginsWithMyflow's own
-// doc comment) whether wrapped in `cd ... &&` or not, so no legitimate
-// shape is lost; TestMarkInvocationShapeIsNotOverAnchored is the
-// regression test that a tighter anchor does not also reject those.
+// KAN-172 finding F5 added a third requirement here -- the command must
+// begin (after stripping one leading `cd <path> &&`) with a word whose
+// base name is "myflow" -- to reject a command that only PRINTS a
+// mark-shaped string, e.g. `echo "myflow stage begin ...
+// -session-token mf-abc123 ..."`. KAN-174 removes that requirement: real
+// marks are routinely emitted after variable assignments
+// (`N=kan; T=mf-x; cd /repo`) and on a later line of a multi-statement
+// block, not just behind a single leading `cd ... &&`, and every one of
+// those shapes was measured rejected by the F5 anchor in production --
+// all 14 stage runs from the finish sequence that merged F5 went unbound
+// (design.md). A position anchor loose enough to admit those shapes (e.g.
+// requiring "myflow" only after a command boundary -- start of text, or
+// after `;`, `&&`, `||`, `|`, a newline) was considered and rejected: the
+// echoed-example text it is meant to exclude still only needs a newline
+// before "myflow" to satisfy a boundary anchor too, which is common in
+// exactly the multi-line blocks this defect is about, so the anchor adds
+// machinery without closing the gap it targets (design.md, "recognise a
+// mark by its invocation, not by its position").
 //
-// Nothing is left open by this fix within the shapes above: what remains
-// unhandled is only shapes this package does not claim to handle at all,
-// e.g. a mark wrapped in a shell function or alias that itself expands to
-// `myflow ...` -- there is no rendered text here to anchor on for those,
-// the same limit every text-based (non-shell-parsing) matcher has.
+// The residual this leaves open, admitted deliberately rather than left
+// implicit: a command that reproduces a mark's text -- including inside a
+// quoted `echo` -- without performing it now matches
+// (TestEchoedMarkExampleIsAnAcceptedResidual). This is preferred over
+// keeping a position anchor because the two failure modes are not
+// symmetric. A false negative here is silent and total: a mark that fails
+// to match binds nothing, and nothing else in this package or its caller
+// ever notices or retries -- exactly the state this whole change repairs.
+// A false positive needs a mark-shaped string carrying a session token
+// that is *currently pending* (UnresolvedSessionTokens;
+// pendingSessionTokens's own doc comment) -- an already-bound or
+// never-pending token in printed text matches nothing here at all, since
+// nothing is being searched for it -- and where it collides with a
+// genuine mark's own token, or with another echoed example's,
+// matchSessionTokens accumulates every distinct session id under that
+// token and resolveSessionTokens's ambiguity branch refuses to bind
+// rather than choosing one. So the false positive this admits is narrow,
+// and, on the one path where it could actually mislead (two sessions
+// truly matching), already refused rather than resolved by guessing.
+//
+// This comment does not repeat KAN-172's own error here: an earlier
+// version of the F5 comment justified admitting this same residual with a
+// claim that closing it would need parsing the command as shell syntax, a
+// claim a reviewer disproved by tracing the code. The justification above
+// is checked against this package's actual matching and withholding logic
+// (matchSessionTokens, resolveSessionTokens), not merely asserted.
 func isSessionMarkCommand(command, sessionToken string) bool {
-	if !commandBeginsWithMyflow(command) {
-		return false
-	}
 	if !stageMarkInvocationPattern.MatchString(command) {
 		return false
 	}
@@ -576,64 +592,6 @@ func isSessionMarkCommand(command, sessionToken string) bool {
 		}
 	}
 	return false
-}
-
-// commandBeginsWithMyflow reports whether command -- after stripping a
-// leading `cd <path> &&` compound, which a real mark may legitimately be
-// wrapped in (design.md, stageMarkInvocationPattern's own doc comment) --
-// begins with a word whose final path segment (path.Base) is exactly
-// "myflow". This is isSessionMarkCommand's F5 anchor: an echoed example
-// (`echo "myflow stage begin ..."`) begins with echo, not myflow, and is
-// rejected here before requirements 2 or 3 (isSessionMarkCommand's own
-// doc comment) are even reached.
-//
-// path.Base is deliberately used rather than an exact "myflow" match, so
-// this accepts however the daemon's own environment happens to invoke
-// the binary: bare "myflow" (the PATH-resolved, documented shape;
-// design.md's and stage.go's usage string), an absolute path such as
-// "/usr/local/bin/myflow", or a relative one such as "./bin/myflow" --
-// all three are the same program, and rejecting the latter two would
-// re-create the same silent-non-binding failure mode this whole finding
-// exists to avoid (a genuine mark that stops matching binds nothing,
-// exactly like the bug being fixed), just triggered by how the caller's
-// shell happens to resolve the binary instead of by an echo. Nothing
-// with a different base name matches, including a path that merely
-// contains "myflow" as a substring of a longer segment (e.g.
-// "myflow-helper" or "not-myflow"), because path.Base is compared for
-// exact equality, not scanned as a substring.
-//
-// Only a single leading `cd <path> &&` is recognised, matching
-// stageMarkInvocationPattern's own doc comment ("a mark may be wrapped in
-// a longer compound command (`cd ... && myflow stage begin ...`)") --
-// not `cd`  with no `&&` (that is not a compound at all, just a lone `cd`
-// command, correctly rejected) and not a chain of several `&&`-joined
-// commands before the mark (a shape no caller in this repository
-// produces; recognising it would need actual shell parsing, which this
-// package deliberately does not do -- isSessionMarkCommand's own doc
-// comment).
-func commandBeginsWithMyflow(command string) bool {
-	fields := strings.Fields(command)
-	if len(fields) == 0 {
-		return false
-	}
-	start := 0
-	if fields[0] == "cd" {
-		start = -1
-		for i, f := range fields {
-			if f == "&&" {
-				start = i + 1
-				break
-			}
-		}
-		if start < 0 {
-			return false
-		}
-	}
-	if start >= len(fields) {
-		return false
-	}
-	word := trimTokenQuotes(fields[start])
-	return filepath.Base(word) == "myflow"
 }
 
 // trimTokenQuotes strips a single layer of surrounding straight quotes a

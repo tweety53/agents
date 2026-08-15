@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // --- test git repo fixture ---
@@ -559,6 +560,85 @@ func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Errorf("stderr = %q, want empty when the store answers cleanly", stderr.String())
+	}
+}
+
+// TestStateGetMarksSyntheticRecord is kan-174 task 2's "A synthetic record
+// is not a state" half: a change row whose only author is a stage mark's
+// own bootstrap side effect (stages.SyntheticChangeUpdatedBy) is
+// surfaced as `"synthetic": true` in `state get`'s output, so a caller
+// (skills/myflow-fast/SKILL.md's state gate) can test a field instead of
+// comparing "updatedBy" strings itself.
+func TestStateGetMarksSyntheticRecord(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	syntheticBody, err := json.Marshal(map[string]string{
+		"state":     "STARTED",
+		"updatedBy": stages.SyntheticChangeUpdatedBy,
+	})
+	if err != nil {
+		t.Fatalf("marshal synthetic fixture: %v", err)
+	}
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(syntheticBody)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var out struct {
+		State     string `json:"state"`
+		UpdatedBy string `json:"updatedBy"`
+		Synthetic bool   `json:"synthetic"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+		t.Fatalf("decode stdout: %v (%s)", err, stdout.Bytes())
+	}
+	if !out.Synthetic {
+		t.Errorf("synthetic = false, want true for updatedBy %q", out.UpdatedBy)
+	}
+	if out.State != "STARTED" {
+		t.Errorf("state = %q, want the record's own state preserved", out.State)
+	}
+}
+
+// TestStateGetDoesNotMarkGenuineRecordSynthetic is the negative case
+// alongside TestStateGetMarksSyntheticRecord: a record written by an
+// actual pipeline command is passed through with no "synthetic" field at
+// all, not merely a false one -- proving markSyntheticIfNeeded leaves an
+// ordinary record untouched rather than annotating every record it sees.
+func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"state":"IN_PROGRESS","updatedBy":"/myflow-do"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+		t.Fatalf("decode stdout: %v (%s)", err, stdout.Bytes())
+	}
+	if _, present := out["synthetic"]; present {
+		t.Errorf(`stdout carries a "synthetic" field for a genuine record: %s`, stdout.Bytes())
 	}
 }
 

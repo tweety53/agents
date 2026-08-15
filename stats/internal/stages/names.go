@@ -1,6 +1,11 @@
 // Package stages holds the documented stage vocabulary for every myflow
 // pipeline command -- the keys a `myflow stage begin`/`stage end` mark is
-// allowed to carry.
+// allowed to carry -- plus the small set of constants the daemon and the
+// CLI must agree on to interpret a stage mark's effects, such as
+// SyntheticChangeUpdatedBy (synthetic.go). Those constants are not stage
+// vocabulary themselves, but they exist only because a stage mark does,
+// and one package for both keeps the daemon's writer and the CLI's reader
+// from ever drifting onto two copies of the same literal.
 //
 // The vocabulary is not authored here first: it is a transcription of
 // README.md's "Level 1 -- the stages of each command" table, the one place

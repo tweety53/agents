@@ -37,6 +37,23 @@ a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
+**Read the change's state before marking anything.** A mark that finds no change record creates one
+via its own bootstrap path (`myflow stage begin`'s synthetic-change fallback), and that record must
+never be the thing this gate then reads back to decide what state the run is in — a record whose
+only author is a mark's own side effect does not satisfy a state gate expecting a state a pipeline
+command wrote.
+
+```bash
+myflow state get <name-or-best-guess> -C <repo-root>
+```
+
+- **Exit 1** (`myflow: no state recorded for ...`) is **no state**: a creating run.
+- **Exit 0** with `"synthetic": true` in the printed JSON is **also no state** — this is the record
+  a stage mark's own bootstrap path would have produced had it run first; `stats/cmd/myflow/state.go`
+  (`markSyntheticIfNeeded`) sets this field whenever the record's `updatedBy` is that bootstrap
+  path's own sentinel, so this is a field to test, never a string to compare by hand.
+- **Exit 0** with no `"synthetic"` field reports the change's real `state` field.
+
 **Generate this run's session token once, right now, before the first mark below — a short, unique
 literal string — and reuse that exact same value at every `stage begin` this run makes, including
 every mark inside a cited section below.** Never generate a fresh token per mark, and never let a
@@ -48,10 +65,11 @@ whole chained sequence, start through finish, is **one run** and carries **one t
 myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-<literal-token> <name-or-best-guess>
 ```
 
-Accepts **no state** (creates a change) or **`IN_PROGRESS`**. On any other state, emit the
-wrong-state handoff from **Wrong state for this command**
-(`skills/myflow-contracts/pipeline.md`), naming the actual state, the states this command expects,
-and the suggested command instead. Proceed only on an explicit override.
+Accepts **no state** (per the read above — literal absence, or a synthetic-only record) or
+**`IN_PROGRESS`**. On any other state, emit the wrong-state handoff from
+**Wrong state for this command** (`skills/myflow-contracts/pipeline.md`), naming the actual state,
+the states this command expects, and the suggested command instead. Proceed only on an explicit
+override.
 
 ```bash
 myflow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed <name-or-best-guess>

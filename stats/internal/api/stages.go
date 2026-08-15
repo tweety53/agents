@@ -144,12 +144,14 @@ type EndStageMark struct {
 // differently on every call.
 const claudeCodeHarness = "claude-code"
 
-// syntheticChangeUpdatedBy marks a change row PutChange creates only to
-// give an otherwise-unknown mark somewhere to attach -- never a value a
-// real `state set` writes, so a record carrying it is immediately
+// stages.SyntheticChangeUpdatedBy marks a change row PutChange creates
+// only to give an otherwise-unknown mark somewhere to attach -- never a
+// value a real `state set` writes, so a record carrying it is immediately
 // recognisable as "nobody ever ran /myflow-start for this", exactly the
-// defect design.md says a mark for an unknown change is worth seeing.
-const syntheticChangeUpdatedBy = "myflow stage begin (synthetic)"
+// defect design.md says a mark for an unknown change is worth seeing. It
+// lives in internal/stages, the one package both this daemon-side file and
+// cmd/myflow/state.go already import, so the two sides test the same
+// constant rather than two copies of its literal.
 
 // ErrInvalidSessionToken is returned by ApplyBeginStageMark when mark.SessionToken is
 // empty, or contains a shape that a shell would expand before the
@@ -364,7 +366,7 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 //
 // A mark for a change the store has never heard of is not dropped: when
 // BeginStage reports store.ErrChangeNotFound, this bootstraps a synthetic
-// change row -- state STARTED, updated by syntheticChangeUpdatedBy -- and
+// change row -- state STARTED, updated by stages.SyntheticChangeUpdatedBy -- and
 // retries once. This is deliberately the same PutChange bootstrap path a
 // genuine `state set` uses for a brand-new project (store.PutChange's own
 // doc comment), so a synthetic row and a real one are indistinguishable to
@@ -403,7 +405,7 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 			Name:             mark.ChangeName,
 			State:            store.StateStarted,
 			UpdatedAt:        time.Now().UTC(),
-			UpdatedBy:        syntheticChangeUpdatedBy,
+			UpdatedBy:        stages.SyntheticChangeUpdatedBy,
 		}
 		if bootstrapErr := ss.PutChange(ctx, bootstrap); bootstrapErr != nil &&
 			!errors.Is(bootstrapErr, store.ErrMonotonicViolation) {

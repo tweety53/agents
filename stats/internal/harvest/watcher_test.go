@@ -1294,24 +1294,25 @@ func TestMentionAfterOwnMarkIsConsumedDoesNotMisattribute(t *testing.T) {
 	}
 }
 
-// TestMarkInvocationShapeIsNotOverAnchored proves the matcher accepts the
-// invocation shapes a real mark can actually take -- a leading `cd ... &&`,
-// flags in a different order than the doc comment's example, and the
-// `-session-token=value` form -- rather than a rewrite that only accepts
-// one rigid shape.
-func TestMarkInvocationShapeIsNotOverAnchored(t *testing.T) {
+// runMarkCommand builds a one-file transcript carrying a single Bash
+// tool_use command and runs one Watcher.RunOnce cycle over it, returning
+// the binder so callers can assert on bindCalls/bound. Shared by every
+// shape test below (KAN-174) so each table entry is only the command text
+// and the assertion, not the transcript/watcher plumbing.
+func runMarkCommand(t *testing.T, token string, stageRunID int64, sessionID, command string) *togglableSessionTokenBinder {
+	t.Helper()
 	dir := t.TempDir()
-	token := "mf-k172-shape"
-	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 303, pending: true}
+	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: stageRunID, pending: true}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
 	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
 
 	path := filepath.Join(dir, "session.jsonl")
-	// -harness comes before -session-token (order differs from the doc
-	// comment's canonical example), and the whole thing is prefixed by a
-	// cd && compound, exactly as a real caller might invoke it.
-	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-shape","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"cd /repo && myflow stage begin -harness claude-code -stage do.tests -session-token ` + token + ` change-name"}}]}}` + "\n"
+	encoded, err := json.Marshal(command)
+	if err != nil {
+		t.Fatalf("encode command: %v", err)
+	}
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"` + sessionID + `","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":` + string(encoded) + `}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
@@ -1319,41 +1320,154 @@ func TestMarkInvocationShapeIsNotOverAnchored(t *testing.T) {
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
 	}
-	if binder.bindCalls != 1 {
-		t.Fatalf("bindCalls = %d, want 1: a genuine mark wrapped in cd && and with reordered flags must still bind", binder.bindCalls)
+	return binder
+}
+
+// TestMarkRecognizedWhereverItSitsInTheCommand is KAN-174's regression
+// corpus: real marks are emitted inside shell blocks carrying variable
+// assignments, directory changes and other statements before the
+// `myflow stage begin`/`stage end` invocation itself, per design.md
+// ("recognise a mark by its invocation, not by its position") and the
+// spec's "A mark inside a larger shell block" scenario. Every shape here
+// was measured against the merged (pre-fix) matcher and found rejected --
+// the multi-line and variable-assignment cases in particular are the
+// defect this change repairs, not incidental coverage.
+func TestMarkRecognizedWhereverItSitsInTheCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+	}{
+		{
+			name:    "bare invocation",
+			command: "myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+		},
+		{
+			name:    "behind cd &&",
+			command: "cd /repo && myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+		},
+		{
+			name:    "after variable assignments on the same line",
+			command: "N=kan; T=mf-x; myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+		},
+		{
+			name:    "after variable assignments and a cd, same line",
+			command: "N=kan; T=mf-x; cd /repo && myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+		},
+		{
+			name:    "on a later line after variable assignments and a bare cd",
+			command: "N=kan; T=mf-x; cd /repo\nmyflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+		},
+		{
+			name:    "on a later line of a multi-statement block, one statement per line",
+			command: "WT=/repo\ncd \"$WT\"\nmyflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+		},
+		{
+			name:    "flags reordered, -harness before -session-token",
+			command: "cd /repo && myflow stage begin -harness claude-code -stage do.tests -session-token TOKEN change-name",
+		},
+		{
+			name:    "token quoted",
+			command: `myflow stage begin -stage do.tests -session-token 'TOKEN' -harness claude-code`,
+		},
+		{
+			name:    "-session-token=value form",
+			command: "myflow stage begin -stage do.tests -session-token=TOKEN -harness claude-code",
+		},
+		{
+			name:    "-session-token=value form, quoted",
+			command: `myflow stage begin -stage do.tests -session-token="TOKEN" -harness claude-code`,
+		},
+		{
+			name:    "line-continuation form (backslash-newline), as skills/myflow-do/SKILL.md emits",
+			command: "myflow stage begin -command '/myflow-do' \\\n  -stage do.workspace-export \\\n  -harness claude-code \\\n  -session-token TOKEN \\\n  change-name",
+		},
 	}
-	if binder.bound[303] != "session-shape" {
-		t.Fatalf("bound session = %q, want session-shape", binder.bound[303])
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := fmt.Sprintf("mf-k174-shape-%d", i)
+			sessionID := fmt.Sprintf("session-shape-%d", i)
+			command := strings.ReplaceAll(tt.command, "TOKEN", token)
+			binder := runMarkCommand(t, token, int64(i), sessionID, command)
+			if binder.bindCalls != 1 {
+				t.Fatalf("bindCalls = %d, want 1: a genuine mark must bind regardless of where it sits in the command (%s)", binder.bindCalls, tt.name)
+			}
+			if binder.bound[int64(i)] != sessionID {
+				t.Fatalf("bound session = %q, want %q", binder.bound[int64(i)], sessionID)
+			}
+		})
 	}
 }
 
-// TestEchoedMarkExampleDoesNotBind is F5's regression test: a command that
-// only PRINTS a mark-shaped string -- echo "myflow stage begin ...
-// -session-token <token> ..." -- must never bind, because it is not itself
-// an invocation of myflow. Before the F5 fix, strings.Fields saw
-// -session-token and the token as adjacent fields regardless of the
-// surrounding quotes, and stageMarkInvocationPattern's "stage begin" match
-// was found inside the quoted text too, so an echoed example counted
-// exactly like a real mark and silently bound whichever session printed
-// it.
-func TestEchoedMarkExampleDoesNotBind(t *testing.T) {
-	dir := t.TempDir()
-	token := "mf-k172-echoed-example"
-	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 404, pending: true}
-	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
-	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
-
-	path := filepath.Join(dir, "echoer.jsonl")
-	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-echoer","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"echo \"myflow stage begin -stage do.tests -session-token ` + token + ` -harness claude-code\""}}]}}` + "\n"
-	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
+// TestCommandsThatOnlyMentionTokenNeverBind is F4's negative corpus,
+// broadened for KAN-174: removing the position anchor must not reopen the
+// bare-containment defect F4 fixed. None of these commands perform the
+// invocation -- they only carry the token as data -- so the
+// `-session-token`-value check (requirement 2 of isSessionMarkCommand)
+// must still refuse every one of them.
+func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+	}{
+		{
+			name:    "grep for the token",
+			command: "grep 'TOKEN' ~/.claude/projects/*/*.jsonl",
+		},
+		{
+			name:    "psql query naming the token",
+			command: `psql -U myflow -d myflow -tAc "SELECT id FROM stage_runs WHERE session_token='TOKEN'"`,
+		},
+		{
+			name:    "piped cat",
+			command: "cat /tmp/dispatch.log | grep TOKEN",
+		},
+		{
+			name:    "bare mention with no stage-begin/end at all",
+			command: "echo TOKEN",
+		},
 	}
 
-	if _, err := w.RunOnce(context.Background()); err != nil {
-		t.Fatalf("RunOnce: %v", err)
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := fmt.Sprintf("mf-k174-mention-%d", i)
+			sessionID := fmt.Sprintf("session-mention-%d", i)
+			command := strings.ReplaceAll(tt.command, "TOKEN", token)
+			binder := runMarkCommand(t, token, int64(1000+i), sessionID, command)
+			if binder.bindCalls != 0 {
+				t.Fatalf("bindCalls = %d, want 0: a command that only mentions the token must never bind (%s)", binder.bindCalls, tt.name)
+			}
+		})
 	}
-	if binder.bindCalls != 0 {
-		t.Fatalf("bindCalls = %d, want 0: a command that only echoes a mark-shaped example must never bind (F5)", binder.bindCalls)
+}
+
+// TestEchoedMarkExampleIsAnAcceptedResidual is design.md's "accept the
+// echoed-example false positive, and say so" decision, locked in as a
+// test rather than left as prose: dropping the position anchor
+// (isSessionMarkCommand's own doc comment) means a command that only
+// PRINTS a mark-shaped string -- echo "myflow stage begin ...
+// -session-token <token> ..." -- now satisfies both remaining
+// requirements (contains "stage begin"/"stage end"; binds the token as
+// -session-token's value) and binds, exactly like a genuine invocation.
+//
+// This is deliberate, not a regression of F5: the alternative is a
+// position anchor, and every anchor tried (KAN-172's `cd ... &&`-only
+// anchor, chosen alternative "anchor myflow at a command position") either
+// re-rejects a real multi-line mark or is defeated by the same newline the
+// real shapes already contain. The asymmetry is the argument (design.md):
+// a false negative here is silent and total -- no stage run ever binds,
+// exactly the defect this change repairs -- while this false positive
+// needs a mark-shaped string carrying a *currently pending* token, and
+// where two sessions match it, the ambiguity rule already refuses to bind
+// rather than choosing.
+func TestEchoedMarkExampleIsAnAcceptedResidual(t *testing.T) {
+	token := "mf-k174-echoed-example"
+	binder := runMarkCommand(t, token, 404, "session-echoer",
+		`echo "myflow stage begin -stage do.tests -session-token `+token+` -harness claude-code"`)
+	if binder.bindCalls != 1 {
+		t.Fatalf("bindCalls = %d, want 1: an echoed mark-shaped example is an accepted residual false positive (design.md), not rejected", binder.bindCalls)
+	}
+	if binder.bound[404] != "session-echoer" {
+		t.Fatalf("bound session = %q, want session-echoer", binder.bound[404])
 	}
 }
