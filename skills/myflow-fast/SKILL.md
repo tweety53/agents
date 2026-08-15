@@ -54,6 +54,21 @@ myflow state get <name-or-best-guess> -C <repo-root>
   path's own sentinel, so this is a field to test, never a string to compare by hand.
 - **Exit 0** with no `"synthetic"` field reports the change's real `state` field.
 
+**The read above tolerates a guess; the mark below, which writes, does not — its `<change>`
+argument is `<name>`.** On a creating run `<name>` does not exist yet at this point, so defer the
+`do.state-gate` `begin`/`end` pair below: do not fire it here. Instead, carry it with you into
+**A. Resolve the change** (`skills/myflow-start/SKILL.md`) and fire it there yourself, the moment
+that section fixes the change name — immediately *before* that section's own `start.resolve-change`
+`begin` fires. **This `do.state-gate` mark is `/myflow-fast`'s own obligation, not something section
+A's text states or fires for you**: section A knows nothing about it, and is cited here only for the
+underlying rule of *how* a name gets resolved, per **The `<change>` argument is always a resolved
+change name** (`skills/myflow-contracts/pipeline.md`). At `IN_PROGRESS` the name is already resolved
+before this gate runs in every path, so both marks fire right here, in reading order, with no detour
+into section A. Either way, a creating run's `do.state-gate` records a near-zero duration between
+begin and end, since the name is fixed and marked in the same step — accepted, because the
+alternative buys a longer duration by marking `<name-or-best-guess>` here, which bootstraps a change
+row for a name nobody chose.
+
 **Generate this run's session token once, right now, before the first mark below — a short, unique
 literal string — and reuse that exact same value at every `stage begin` this run makes, including
 every mark inside a cited section below.** Never generate a fresh token per mark, and never let a
@@ -62,7 +77,7 @@ whole chained sequence, start through finish, is **one run** and carries **one t
 (design.md's "one token per session, not one per mark").
 
 ```bash
-myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-<literal-token> <name-or-best-guess>
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Accepts **no state** (per the read above — literal absence, or a synthetic-only record) or
@@ -72,7 +87,7 @@ the states this command expects, and the suggested command instead. Proceed only
 override.
 
 ```bash
-myflow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed <name-or-best-guess>
+myflow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed <name>
 ```
 
 **This command mints no stage key of its own — it marks the same granular Level 1 stages the

@@ -209,6 +209,216 @@ printf 'Ordinary prose with no myflow stage marks in it.\n' >"$FIXTURE_FILE"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "case 10: file with no marks passes" || fail "case 10: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 11: change argument is `<name-or-best-guess>` -> caught, finding names
+# the offending argument. A mark writes, so a guessed name bootstraps a
+# change row that outlives the run (kan-182).
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 11: guessed change name is caught" || fail "case 11: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 11: finding names the offending argument" ;;
+  *) fail "case 11: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 12: the same shape, written across continuation lines -> caught,
+# proving the check reads the assembled command and not the physical line.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' \
+  -stage do.state-gate \
+  -harness <harness> \
+  -session-token mf-abc123 <name-or-best-guess>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 12: guessed change name is caught across continuation lines" || fail "case 12: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 12: finding names the offending argument" ;;
+  *) fail "case 12: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 13: change argument is the compliant `<name>` -> exit 0. The check
+# must not fire on the form every other skill uses.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 13: compliant <name> argument passes" || fail "case 13: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 14: `stage end ... <name-or-best-guess>` -> exit 0. `stage end` is
+# deliberately not examined at all.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed <name-or-best-guess>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 14: stage end with a guessed name is never checked" || fail "case 14: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 15: change argument is `<name-or-best-guess>` followed by trailing
+# whitespace -> still caught. Kept as a regression case: the guard now
+# matches the placeholder anywhere in the assembled text, so trailing
+# whitespace after it is irrelevant, but a prior extraction-based version
+# of this guard mishandled it by splitting off an empty last token.
+# ===========================================================================
+new_fixture
+printf '```bash\nmyflow stage begin -command '"'"'/myflow-fast'"'"' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess> \n```\n' >"$FIXTURE_FILE"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 15: guessed change name with trailing whitespace is caught" || fail "case 15: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 15: finding names the offending argument" ;;
+  *) fail "case 15: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 16: change argument is a QUOTED guess placeholder, single-quoted ->
+# still caught. Kept as a regression case (kan-182 panel finding F1): the
+# guard now searches the whole assembled command text for the placeholder,
+# so a surrounding quote pair is just more text around the match and cannot
+# hide it, but a prior extraction-based version required stripping quotes
+# from the extracted token explicitly.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best-guess>'
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 16: single-quoted guessed change name is caught" || fail "case 16: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 16: finding names the offending argument" ;;
+  *) fail "case 16: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 17: same shape, double-quoted -> still caught.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 "<name-or-best-guess>"
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 17: double-quoted guessed change name is caught" || fail "case 17: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 17: finding names the offending argument" ;;
+  *) fail "case 17: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 18: change argument is followed by a trailing inline shell comment ->
+# still caught. Kept as a regression case (kan-182 panel finding F2): the
+# guard searches the whole assembled text, including any trailing comment,
+# for the placeholder -- a `stage begin` line that mentions
+# `<name-or-best-guess>` anywhere, comment or not, is a call site to fix. A
+# prior extraction-based version of this guard instead had to strip a
+# trailing comment first or the comment's last word became "the" token.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>  # resolve later
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 18: guessed change name behind a trailing comment is caught" || fail "case 18: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 18: finding names the offending argument" ;;
+  *) fail "case 18: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 19: a `#` INSIDE a quoted -session-token value must not cause a
+# compliant call (no guess placeholder anywhere) to be misread -- the call
+# must still pass. The guard no longer does any comment-stripping at all,
+# so this case is now a plain regression check that a stray `#` in an
+# unrelated flag value never produces a false positive.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token "mf-#abc123" <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 19: a # inside a quoted value is not treated as a comment" || fail "case 19: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 20: change argument is a quoted guess placeholder with an INTERNAL
+# space -> still caught. The old space-splitting last-token extraction
+# truncated a quoted value at the internal space and never saw the
+# placeholder (kan-182 panel finding F6).
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best guess>'
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 20: quoted guess placeholder with an internal space is caught" || fail "case 20: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best guess>'*) pass "case 20: finding names the offending argument" ;;
+  *) fail "case 20: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 21: a -session-token value carries an escaped literal double-quote
+# followed later by a `#` -> the guessed change argument at the end must
+# still be caught. The old awk quote-tracker closed its quote on the escaped
+# `\"`, desynced, and then treated the `#` as an unquoted comment start,
+# discarding the rest of the line -- including the guessed argument
+# (kan-182 panel finding F7).
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token "mf-\"abc#tok" <name-or-best-guess>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 21: guessed change name past an escaped-quote-plus-# session token is caught" || fail "case 21: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 21: finding names the offending argument" ;;
+  *) fail "case 21: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 22: the change argument is separated from the rest of the call by a
+# literal TAB, not a space -> still caught. The old extraction split on a
+# literal space only, so a tab-separated tail was never recognized as the
+# last token (kan-182 panel finding F8).
+# ===========================================================================
+new_fixture
+printf 'myflow stage begin -command '"'"'/myflow-fast'"'"' -stage do.state-gate -harness <harness> -session-token mf-abc123\t<name-or-best-guess>\n' >"$FIXTURE_FILE"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 22: tab-separated guessed change name is caught" || fail "case 22: rc=$RC out=$OUT"
+case "$OUT" in
+  *'<name-or-best-guess>'*) pass "case 22: finding names the offending argument" ;;
+  *) fail "case 22: expected the argument named in the finding, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

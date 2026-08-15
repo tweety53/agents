@@ -250,6 +250,16 @@ below already refuses — correctly, since a token shared by two sessions identi
 that starts identifies itself with its own new token; a run that already has one (mid-run, at a
 later mark) reuses it.
 
+**The `<change>` argument is always a resolved change name, never a guess.** Marking writes: where
+the store has no record for the name a `stage begin` carries, the begin handler bootstraps a change
+row so the mark has something to attach to, and that row outlives the run — it appears among the
+open changes, carries a next command, and is never archived, because no change directory bears that
+name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`openspec/specs/myflow-run-telemetry/spec.md`):
+that rule keeps a command from *reading* a state its own mark authored; this one keeps a command
+from *creating* a change nobody named.
+`scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
+written as a placeholder naming a guess.
+
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
 filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below —
 because one skill source installs into `~/.claude/skills/`, `~/.cursor/skills/` and
