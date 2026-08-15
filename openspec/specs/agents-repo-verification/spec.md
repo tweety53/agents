@@ -6,17 +6,28 @@ TBD - created by archiving change kan-10-myflow-economical-updates. Update Purpo
 ### Requirement: This repository declares its own myflow project configuration
 
 `.myflow/project.md` SHALL exist in this repository and SHALL declare `## apps`, `## test`,
-`## lint`, `## standards`, and `## jira`. `## test` SHALL name `scripts/test-setup.sh`,
-`scripts/test-check-references.sh`, `scripts/test-check-plan-provenance.sh`,
-`scripts/test-check-finish-preflight.sh` and `scripts/test-preserve-session-records.sh`. `## lint`
-SHALL name `scripts/check-vocabulary.sh`, `scripts/check-references.sh` and
-`scripts/check-plan-provenance.sh`, and SHALL state explicitly that no auto-fix command exists.
+`## lint`, `## standards`, `## jira`, and `## workspace isolation`. `## test` SHALL name
+`scripts/test-setup.sh`, `scripts/test-check-references.sh`,
+`scripts/test-check-plan-provenance.sh`, `scripts/test-check-finish-preflight.sh` and
+`scripts/test-preserve-session-records.sh`. `## lint` SHALL name `scripts/check-vocabulary.sh`,
+`scripts/check-references.sh` and `scripts/check-plan-provenance.sh`, and SHALL state explicitly
+that no auto-fix command exists for the non-Go half of the repository.
 
 `## lint` SHALL name every guard that **scans the repository tree** and can therefore run at any
 time. A check that requires context no tree scan provides — a branch, a worktree, a resolved base ref
 — SHALL NOT be named in `## lint`, because a lint step that cannot run outside a change would fail on
 every unrelated invocation. Such a check is invoked by the command that owns it, and its harness is
 named in `## test` like any other.
+
+**This repository holds a runnable application**, so `## apps` SHALL describe it alongside the
+skills-and-rules half that has no port and no URL, and the `## workspace isolation` section SHALL
+declare the resources an apply worktree runs against its own copy of. A repository that ships an
+application and declares no isolation gives every apply worktree the main checkout's own database and
+port, which is the failure the isolation contract exists to prevent.
+
+The `## workspace isolation` section SHALL record, in the prose beside its tables, which resources
+this repository has deliberately not isolated, so that an absent row reads as a decision rather than
+an oversight.
 
 #### Scenario: myflow reads this repository's own commands
 
@@ -27,15 +38,23 @@ named in `## test` like any other.
 #### Scenario: The absent auto-fix step is explicit
 
 - **WHEN** `.myflow/project.md` `## lint` is read
-- **THEN** it states that this repository has no auto-fix command
+- **THEN** it states which half of the repository has an auto-fix command and which has none
 - **AND** an agent following the Lint Fix Priority rule can tell the auto-fix step is
   inapplicable rather than skipped
 
-#### Scenario: The apps section describes a repository with no runnable app
+#### Scenario: The apps section describes the repository's runnable application
 
 - **WHEN** `.myflow/project.md` `## apps` is read
-- **THEN** it states that there is no runnable application and names the guard scripts and the
-  sandboxed `setup.sh` run as the verification surface
+- **THEN** it names the stats daemon, its repository root and its local URL, alongside the
+  skills-and-rules half that has neither
+- **AND** it names the guard scripts and the sandboxed `setup.sh` run as that half's verification
+  surface
+
+#### Scenario: The isolation declaration is validated rather than merely present
+
+- **WHEN** the repository's lint runs `scripts/check-workspace-isolation.sh`
+- **THEN** the declared section is checked against the contract's rules and reported well formed
+- **AND** the run is no longer a silent pass earned by declaring nothing
 
 #### Scenario: A new tree-scanning guard is reachable through the declared configuration
 
