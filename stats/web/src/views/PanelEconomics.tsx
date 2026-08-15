@@ -52,7 +52,7 @@ function sumNullable(values: Array<number | null>): number | null {
   return any ? total : null;
 }
 
-export function PanelEconomics({ period, project, model }: ViewProps) {
+export function PanelEconomics({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<PanelEconomicsRow[]>("panel-economics", {
     from: period.from,
     to: period.to,
@@ -88,6 +88,8 @@ export function PanelEconomics({ period, project, model }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => r.reviewPanelRoster}
             emptyMessage="No panel-reviewed stage runs in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
           />
         )}
       </Panel>

@@ -22,6 +22,7 @@
 // anything other than a request to the server.
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { FilterBar } from "./FilterBar";
+import { defaultPeriod, sameRange, type Period } from "./PeriodPicker";
 
 export interface Column<T> {
   /** Stable key identifying the column; also the sort/filter key. */
@@ -47,6 +48,27 @@ export interface DataTableProps<T> {
   /** Optional expandable detail rendered beneath a row when toggled open. */
   renderDetail?: (row: T) => ReactNode;
   detailLabel?: string;
+  /**
+   * The period this table's rows were fetched for, and a way to return it
+   * to the default. Both are optional and only change what the empty state
+   * says (task 4, "An empty view says whether the period is why") -- a
+   * caller that omits them keeps today's plain `emptyMessage`. Passed
+   * explicitly rather than read from anywhere global: this component has
+   * no other reason to know the period, and a table rendered outside the
+   * dashboard shell (if one ever exists) should not have to fake one up.
+   */
+  period?: Period;
+  onPeriodChange?: (period: Period) => void;
+}
+
+// An empty result and a period narrowed by mistake render identically
+// unless something here says otherwise -- design.md's "Empty states": the
+// hint and the reset both apply only when `period` differs from the
+// default, because under the default, empty is a true negative and
+// blaming the period would train the operator to distrust it (spec:
+// "An empty view says whether the period is why").
+function isDefaultPeriod(period: Period): boolean {
+  return sameRange(period, defaultPeriod());
 }
 
 type SortDirection = "asc" | "desc";
@@ -75,6 +97,8 @@ export function DataTable<T>({
   emptyMessage = "No rows for this period.",
   renderDetail,
   detailLabel = "Details",
+  period,
+  onPeriodChange,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
@@ -154,7 +178,19 @@ export function DataTable<T>({
       />
 
       {sorted.length === 0 ? (
-        <p className="data-table-empty">{emptyMessage}</p>
+        <div className="data-table-empty">
+          <p>{emptyMessage}</p>
+          {period && !isDefaultPeriod(period) && (
+            <p className="data-table-empty-hint">
+              The period may be why -- try the default.
+              {onPeriodChange && (
+                <button type="button" onClick={() => onPeriodChange(defaultPeriod())}>
+                  Reset period to default
+                </button>
+              )}
+            </p>
+          )}
+        </div>
       ) : (
         // Every table this component renders now sits inside a Panel's
         // bordered, padded body (task 20's recomposition) rather than

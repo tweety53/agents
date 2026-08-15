@@ -161,7 +161,7 @@ function sumNullable(values: Array<number | null>): number | null {
   return any ? total : null;
 }
 
-export function CostPerChange({ period, project, model }: ViewProps) {
+export function CostPerChange({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<CostPerChangeRow[]>("cost-per-change", { from: period.from, to: period.to, project, model });
 
   return (
@@ -192,6 +192,8 @@ export function CostPerChange({ period, project, model }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => `${r.projectKey}/${r.changeName}/${r.command}/${r.stage}`}
             emptyMessage="No stage runs in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
             detailLabel="repository breakdown"
             renderDetail={(r) => (
               <RepoBreakdown period={period} project={r.projectKey} changeName={r.changeName} command={r.command} stage={r.stage} />

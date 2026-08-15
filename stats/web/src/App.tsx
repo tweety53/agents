@@ -13,7 +13,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { VIEW_NAMES, type ViewName } from "./api";
 import { DashboardBar } from "./components/DashboardBar";
-import type { Period } from "./components/PeriodPicker";
+import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
 import { CacheEfficiency } from "./views/CacheEfficiency";
 import { CostPerChange } from "./views/CostPerChange";
@@ -78,29 +78,98 @@ function parseRunRoute(hash: string): { project: string; change: string } | null
   return { project: decodeURIComponent(match[1]), change: decodeURIComponent(match[2]) };
 }
 
+// The hash is split into path and query before either matcher below ever
+// sees it. `currentRoute()` used to match the *whole* hash, so appending
+// `?from=…&to=…` (task 2) broke both matchers silently:
+// `cost-per-change?from=…` is not a view name, so every static view fell
+// back to the default view; and `^run/([^/]+)/([^/]+)$` absorbed
+// `?from=…` into the change segment, so run detail opened on a change
+// that did not exist. Neither matcher is taught about query strings --
+// the point of the split is that they never see one.
+function splitHash(hash: string): { path: string; query: string } {
+  const qIndex = hash.indexOf("?");
+  return qIndex === -1 ? { path: hash, query: "" } : { path: hash.slice(0, qIndex), query: hash.slice(qIndex + 1) };
+}
+
 function currentRoute(): Route {
   const hash = window.location.hash.replace(/^#\/?/, "");
-  const run = parseRunRoute(hash);
+  const { path } = splitHash(hash);
+  const run = parseRunRoute(path);
   if (run) {
     return { kind: "run", ...run };
   }
-  return { kind: "view", view: isViewName(hash) ? hash : DEFAULT_VIEW };
+  return { kind: "view", view: isViewName(path) ? path : DEFAULT_VIEW };
 }
 
-function useHashRoute(): Route {
+/**
+ * Review finding F1: a `hashchange` can arrive with no reload -- pasting a
+ * shared deep link into a tab where the app is already mounted fires it
+ * just the same as clicking an in-app link -- so `useState`'s initialiser
+ * never re-runs and the in-memory period survives untouched unless this
+ * listener also re-derives it. `onUrlPeriod` is called only when the new
+ * hash carries an explicit, validly-parsed period (`periodFromQuery`,
+ * task 2's same fallback rule): an in-app nav click's hash carries no
+ * query at all, and that case must leave the current period alone rather
+ * than resetting it to the default on every click.
+ */
+function useHashRoute(onUrlPeriod: (period: Period) => void): Route {
   const [route, setRoute] = useState<Route>(currentRoute());
   useEffect(() => {
-    const onHashChange = () => setRoute(currentRoute());
+    const onHashChange = () => {
+      setRoute(currentRoute());
+      const hash = window.location.hash.replace(/^#\/?/, "");
+      const { query } = splitHash(hash);
+      const period = periodFromQuery(query);
+      if (period) onUrlPeriod(period);
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
+    // onUrlPeriod is NOT a stable identity -- App creates it fresh on every
+    // render. This effect subscribes once and so captures the mount-time
+    // closure permanently, which is safe only because that closure's body
+    // reads nothing from App's scope: it forwards to setPeriod's functional
+    // update form, and setPeriod is the genuinely stable one.
+    //
+    // That safety is a property of the closure's body, not of the dependency
+    // array. If onUrlPeriod is ever edited to read an outer variable directly
+    // -- `route` or `period`, say, instead of the functional update -- this
+    // handler will read that variable's mount-time value forever, because the
+    // effect never resubscribes. Change the body and you must revisit this.
   }, []);
   return route;
 }
 
-function defaultPeriod(): Period {
-  const to = new Date();
-  const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+/**
+ * Reads `from`/`to` from the hash's query, applying them only when both
+ * are present, both parse to a valid instant, and `from` is strictly
+ * before `to`. Anything else -- missing, incomplete, unparsable or
+ * reversed -- returns null so the caller falls back to the default period
+ * rather than partially applying it. The URL is untrusted input: a
+ * crafted one must not be able to produce an empty view with no
+ * explanation, which is the failure this change exists to remove.
+ */
+function periodFromQuery(query: string): Period | null {
+  const params = new URLSearchParams(query);
+  const fromStr = params.get("from");
+  const toStr = params.get("to");
+  if (!fromStr || !toStr) return null;
+  const from = new Date(fromStr);
+  const to = new Date(toStr);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
+  if (from.getTime() >= to.getTime()) return null;
   return { from, to };
+}
+
+function currentPeriod(): Period {
+  const hash = window.location.hash.replace(/^#\/?/, "");
+  const { query } = splitHash(hash);
+  return periodFromQuery(query) ?? defaultPeriod();
+}
+
+function routePath(route: Route): string {
+  return route.kind === "run"
+    ? `run/${encodeURIComponent(route.project)}/${encodeURIComponent(route.change)}`
+    : route.view;
 }
 
 /**
@@ -113,10 +182,32 @@ const MODEL_DISABLED_REASON =
   "The live state board's rows are changes, not stage runs, so a model restriction cannot apply here.";
 
 export function App() {
-  const route = useHashRoute();
-  const [period, setPeriod] = useState<Period>(defaultPeriod);
+  const [period, setPeriod] = useState<Period>(currentPeriod);
+  // A hashchange carrying the same period as the current one (e.g. the
+  // write-back effect below round-tripping through history, or a repeat
+  // paste of the same link) must not thrash: comparing by value, not by
+  // the freshly-parsed Date objects' identity, is what keeps a no-op
+  // arrival from triggering a re-render and re-fetch.
+  const onUrlPeriod = (next: Period) => {
+    setPeriod((prev) => (prev.from.getTime() === next.from.getTime() && prev.to.getTime() === next.to.getTime() ? prev : next));
+  };
+  const route = useHashRoute(onUrlPeriod);
   const [project, setProject] = useState<string | undefined>(undefined);
   const [model, setModel] = useState<string | undefined>(undefined);
+
+  // Carries the period into the hash's query on every change, via
+  // `replaceState` rather than a hash assignment -- adjusting a range is
+  // exploration, not navigation, and one history entry per adjustment
+  // would make the back button useless. `replaceState` does not dispatch
+  // `hashchange`, so this write never feeds back into useHashRoute's own
+  // listener as a route change.
+  useEffect(() => {
+    const params = new URLSearchParams({ from: period.from.toISOString(), to: period.to.toISOString() });
+    const newHash = `#/${routePath(route)}?${params.toString()}`;
+    if (window.location.hash !== newHash) {
+      window.history.replaceState(null, "", newHash);
+    }
+  }, [route, period]);
 
   const ActiveView = route.kind === "view" ? VIEW_COMPONENTS[route.view] : null;
   // The state board is the one dashboard today whose rows are changes
@@ -160,7 +251,14 @@ export function App() {
           // cheap on this route specifically.
           <RunDetail project={route.project} change={route.change} model={model} />
         ) : (
-          ActiveView && <ActiveView period={period} project={project} model={modelDisabled ? undefined : model} />
+          ActiveView && (
+            <ActiveView
+              period={period}
+              onPeriodChange={setPeriod}
+              project={project}
+              model={modelDisabled ? undefined : model}
+            />
+          )
         )}
       </main>
     </div>

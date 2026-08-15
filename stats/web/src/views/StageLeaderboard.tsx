@@ -45,7 +45,7 @@ const columns: Column<StageLeaderboardRow>[] = [
   },
 ];
 
-export function StageLeaderboard({ period, project, model }: ViewProps) {
+export function StageLeaderboard({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<StageLeaderboardRow[]>("stage-leaderboard", {
     from: period.from,
     to: period.to,
@@ -70,6 +70,8 @@ export function StageLeaderboard({ period, project, model }: ViewProps) {
             rows={data.rows}
             rowKey={(r) => `${r.command}/${r.stage}`}
             emptyMessage="No costed stage runs in this period."
+            period={period}
+            onPeriodChange={onPeriodChange}
           />
         )}
       </Panel>
