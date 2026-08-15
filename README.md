@@ -29,6 +29,7 @@ agents-data/
 │   ├── dependency-versions.mdc        ← look up the current stable version before adding one (always-on)
 │   ├── design-mockups-are-specs.mdc   ← build a mockup exactly as drawn (always-on)
 │   ├── context7.mdc                   ← fetch library docs through Context7, not from memory (always-on)
+│   ├── dispatch-carries-the-baseline.mdc  ← every subagent dispatch carries the agent-baseline pointer (always-on)
 │   ├── agent-baseline.md              ← NOT a rule: the file a dispatched subagent is told to read, listing every rule above and pointing at its installed full text
 │   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.myflow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── hooks/
