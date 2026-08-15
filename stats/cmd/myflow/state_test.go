@@ -854,6 +854,59 @@ func TestStateListTakesNoPositionalArguments(t *testing.T) {
 	}
 }
 
+func TestResolveDefaultAddr(t *testing.T) {
+	tests := []struct {
+		name string
+		env  string
+		set  bool
+		want string
+	}{
+		{name: "unset leaves the built-in default", set: false, want: defaultAddr},
+		{name: "set replaces the built-in default", env: "http://127.0.0.1:4174", set: true, want: "http://127.0.0.1:4174"},
+		{name: "empty is treated as unset", env: "", set: true, want: defaultAddr},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.set {
+				t.Setenv("MYFLOW_ADDR", tt.env)
+			} else {
+				t.Setenv("MYFLOW_ADDR", "")
+				if err := os.Unsetenv("MYFLOW_ADDR"); err != nil {
+					t.Fatalf("unset MYFLOW_ADDR: %v", err)
+				}
+			}
+			if got := resolveDefaultAddr(); got != tt.want {
+				t.Fatalf("resolveDefaultAddr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveDefaultAddrFlagBeatsEnvironment(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	t.Setenv("MYFLOW_ADDR", "http://127.0.0.1:4174")
+
+	var handled string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		handled = r.Host
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-addr", srv.URL, "-C", repo, "some-change"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stderr=%s", code, stderr.String())
+	}
+	if handled == "" {
+		t.Fatalf("explicit -addr was not used: request never reached the test server")
+	}
+}
+
 // --- helpers ---
 
 func jsonEqual(t *testing.T, a, b []byte) bool {

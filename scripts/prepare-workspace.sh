@@ -55,8 +55,8 @@
 # check-workspace-isolation.sh cannot be found.
 #
 # A project declaring no `## workspace isolation` section is the ordinary
-# case for a repository with no runnable application — this repository is
-# one — and is never reported as a misconfiguration, per **The empty id**
+# case for a repository with no runnable application, and is never reported
+# as a misconfiguration, per **The empty id**
 # (skills/myflow-contracts/workspace-isolation.md).
 set -euo pipefail
 

@@ -721,9 +721,7 @@ Resolve:
   **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
 - **Where the project declares no runnable application**, resolve the `## lint` and `## test`
   commands instead, with every path in them made absolute, and do not give the handoff an
-  application shape the project does not have. This repository is that case: "running it" here
-  means running its guard scripts, assertion harnesses and a sandboxed installer pass, not an
-  app, port and URL that do not exist.
+  application shape the project does not have.
 
 ```bash
 myflow stage end -command '/myflow-do' -stage do.run-instructions -outcome completed <name>

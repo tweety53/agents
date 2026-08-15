@@ -86,7 +86,7 @@ type stageIdentityFlags struct {
 }
 
 func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
-	fset.StringVar(&f.addr, "addr", defaultAddr, "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	fset.StringVar(&f.command, "command", "", "the myflow command this stage belongs to, e.g. /myflow-do")
@@ -275,6 +275,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
+	noteAddrEnvUsage(fset, stderr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
 		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
@@ -381,6 +382,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
+	noteAddrEnvUsage(fset, stderr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
 		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)

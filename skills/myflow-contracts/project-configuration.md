@@ -475,9 +475,9 @@ Different table, different phase, different thing at stake.
 
 **A project that declares no `## workspace isolation` section is not misconfigured.** It behaves
 exactly as it does today **everywhere, including in apply worktrees** — nothing derived, nothing
-exported, nothing created and nothing removed — and no command reports it. The agents repository is
-itself that case and is right to be: it declares no runnable application, so it has nothing to
-isolate. Why absence is an ordinary answer rather than a gap waiting to be filled, and what an empty
+exported, nothing created and nothing removed — and no command reports it. A project with no
+runnable application is right to be in that case: it has nothing to isolate. Why absence is an
+ordinary answer rather than a gap waiting to be filled, and what an empty
 workspace id resolves to, are stated under **The empty id** (`skills/myflow-contracts/workspace-isolation.md`).
 
 **The file is optional, and every key within it is optional.**

@@ -24,6 +24,54 @@ import (
 // sharing a package.
 const defaultAddr = "http://127.0.0.1:4173"
 
+// resolveDefaultAddr returns the value the three -addr flag registrations
+// (two in state.go, one in stage.go) take as their default: MYFLOW_ADDR
+// when it is set to a non-empty value, defaultAddr otherwise -- mirroring
+// how internal/config.FromEnv already treats an empty environment
+// variable as unset.
+//
+// The -addr flag itself already existed and was never the problem: it
+// simply was not passed. What was missing was a way to set the address
+// once per session instead of remembering it on every single command --
+// MYFLOW_ADDR is that mechanism. An explicit -addr still wins, since the
+// flag's default is all this changes.
+func resolveDefaultAddr() string {
+	if v := os.Getenv("MYFLOW_ADDR"); v != "" {
+		return v
+	}
+	return defaultAddr
+}
+
+// noteAddrEnvUsage prints one line to stderr naming the address a command
+// is about to use, but only when that address came from MYFLOW_ADDR rather
+// than from an explicit -addr flag on this invocation: fset.Visit only
+// calls back for a flag actually set on the command line, so "addr" not
+// appearing there means the flag's value is exactly what
+// resolveDefaultAddr() returned as its default.
+//
+// This exists because MYFLOW_ADDR is meant to be exported once per shell
+// session (see README.md's "The UI-test stack"), and an export outlives
+// the command that motivated it -- every `myflow state`/`myflow stage`
+// run afterwards in that shell silently inherits it, with no other signal,
+// since a successful write exits 0 the same way whether it reached the
+// live daemon or a test one. Call this after fset.Parse succeeds, once
+// per command, so a stray or stale MYFLOW_ADDR is visible before its
+// effect is.
+func noteAddrEnvUsage(fset *flag.FlagSet, stderr io.Writer) {
+	explicit := false
+	fset.Visit(func(fl *flag.Flag) {
+		if fl.Name == "addr" {
+			explicit = true
+		}
+	})
+	if explicit {
+		return
+	}
+	if v := os.Getenv("MYFLOW_ADDR"); v != "" {
+		fmt.Fprintf(stderr, "myflow: using MYFLOW_ADDR=%s\n", v)
+	}
+}
+
 // defaultTimeout bounds how long `state get`/`state set` waits for the
 // store before taking the fallback path. It is short on purpose: every
 // second spent waiting on a store that turns out to be down is a second
@@ -86,12 +134,13 @@ type stateFlags struct {
 func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateFlags{}
-	fset.StringVar(&f.addr, "addr", defaultAddr, "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	if err := fset.Parse(args); err != nil {
 		return stateFlags{}, err
 	}
+	noteAddrEnvUsage(fset, stderr)
 	if fset.NArg() != 1 {
 		return stateFlags{}, fmt.Errorf("expected exactly one argument, the change name")
 	}
@@ -264,12 +313,13 @@ type stateListFlags struct {
 func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateListFlags{}
-	fset.StringVar(&f.addr, "addr", defaultAddr, "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	if err := fset.Parse(args); err != nil {
 		return stateListFlags{}, err
 	}
+	noteAddrEnvUsage(fset, stderr)
 	if fset.NArg() != 0 {
 		return stateListFlags{}, fmt.Errorf("state list takes no positional arguments")
 	}
