@@ -53,6 +53,37 @@
 # table, so a `myflow stage begin` appearing in its SKILL.md would itself be
 # a defect this guard would (correctly) catch — there is no exemption for it.
 #
+# It also enforces that a `stage begin`'s change argument is never a guess.
+# The guard cannot know whether `<name>` is resolved at a given call site,
+# but it can know that a bracketed placeholder whose own text says "guess"
+# is not — `<name-or-best-guess>` and any restatement of it. KAN-182: on
+# 2026-08-15 `/myflow-fast`'s state gate marked `do.state-gate` with
+# `<name-or-best-guess>` before its change name was resolved; the daemon's
+# begin handler bootstraps a change row for any name it has never seen
+# (`ApplyBeginStageMark`, `stats/internal/api/stages.go`), so the guess got
+# a row of its own — `kan-175` and `kan-175-more-ui-ux-fixes` appeared as
+# two open changes, 29 seconds apart. A mark writes, so a guessed name
+# bootstraps a change row that outlives the run.
+#
+# The check does not try to identify "the change argument" at all. Finding
+# the last token on a shell command line requires parsing shell syntax, and
+# this guard kept getting that parsing wrong: KAN-182 round 1 added
+# quote-awareness to a naive last-token extraction so a quoted or
+# commented-out placeholder would still be caught, and that parsing
+# introduced three more bypasses (round 2) — a quoted value with an internal
+# space that a space-only split truncated before the placeholder, an escaped
+# quote inside a session token that desynced the quote-tracker so a later
+# `#` was read as an unquoted comment and discarded the rest of the line,
+# and a tab before the change argument that a space-only split never saw as
+# a token boundary. Extraction is deleted rather than patched a fourth time.
+# Instead the check searches the WHOLE assembled command text for a
+# bracketed placeholder whose own text says "guess" (`<...guess...>`,
+# case-insensitive) — strictly stronger than extracting a token, and immune
+# to quoting, spacing and comments because it never tries to reason about
+# any of them. One behaviour is worth stating plainly: a guessed placeholder
+# written inside a trailing comment is reported too — a `stage begin` line
+# that mentions `<name-or-best-guess>` anywhere is a call site to fix.
+#
 # MULTI-LINE INVOCATIONS. A real call is frequently wrapped across several
 # lines with a trailing `\` continuation, exactly as an ordinary shell
 # command would be. This guard joins a `stage begin` line with every
@@ -146,6 +177,17 @@ harness_value() {
     | sed -E "s/^-harness[[:space:]]+//; s/^'(.*)'\$/\1/; s/^\"(.*)\"\$/\1/"
 }
 
+# guess_placeholder <command text> — the first bracketed placeholder whose
+# own text says "guess" (`<...guess...>`, case-insensitive), found ANYWHERE
+# in the assembled command text, or empty if none appears. No shell parsing
+# at all: no token extraction, no quote-tracking, no comment-stripping — the
+# regex is applied to the whole line, so quoting, internal whitespace, tabs
+# and trailing comments cannot hide a placeholder from it (KAN-182 F6/F7/F8).
+guess_placeholder() {
+  local text="$1"
+  printf '%s\n' "$text" | grep -oE -- '<[^<>]*[Gg][Uu][Ee][Ss][Ss][^<>]*>' | head -n1
+}
+
 VIOLATIONS=0
 CHECKED=0
 
@@ -204,6 +246,12 @@ for target in "${TARGETS[@]}"; do
             fi
             ;;
         esac
+      fi
+
+      guess="$(guess_placeholder "$cmd")"
+      if [[ -n "$guess" ]]; then
+        printf '%s:%s: `stage begin` names a guess, not a resolved change (%s) -- a mark writes, so a guessed name bootstraps a change row that outlives the run; wait until the change name is resolved before marking\n' "$f" "$lineno" "$guess"
+        VIOLATIONS=$((VIOLATIONS + 1))
       fi
     done < <(assemble_calls "$f")
   done
