@@ -253,6 +253,88 @@ install_rules_cursor() {
   done < <(always_on_rules)
 }
 
+# install_rules_claude <target-dir>
+# Installs the FULL text of every always-on rule as ~/.claude/rules/<name>.md, plus the
+# agent baseline that dispatched subagents read.
+#
+# The managed block in ~/.claude/CLAUDE.md carries only each rule's core excerpt and a
+# `Full rule: ~/.claude/rules/<name>.md` pointer, so these links are what make that pointer
+# resolve. They are symlinks into this repo, never copies: the block's core and the full text
+# are then the same file, and there is no second copy to fall out of date.
+#
+# The `.mdc` source is linked under a `.md` name. Claude Code has no `.mdc` association, and
+# the pointer a rule renders into the block names `.md`; the frontmatter that remains at the
+# top of the linked file is a two-line header a reader skips.
+#
+# agent-baseline.md is not a rule and carries no frontmatter — it is the one file a dispatched
+# agent is told to read, listing each rule in a line and pointing at these same paths. It ships
+# here because it is useless unless the paths it names exist.
+install_rules_claude() {
+  local target_dir="$1" rule_name rule_file baseline
+  [[ -d "$RULES_SRC" ]] || return 0
+  info "Installing full rule texts into $target_dir"
+  mkdir -p "$target_dir"
+  prune_stale_links "$target_dir"
+  while IFS= read -r rule_name; do
+    rule_file="$RULES_SRC/$rule_name"
+    [[ -f "$rule_file" ]] || continue
+    link_into "$rule_file" "$target_dir/${rule_name%.mdc}.md" "${rule_name%.mdc}.md"
+  done < <(always_on_rules)
+  baseline="$RULES_SRC/agent-baseline.md"
+  if [[ -f "$baseline" ]]; then
+    link_into "$baseline" "$target_dir/agent-baseline.md" "agent-baseline.md"
+  else
+    warn "$baseline is missing — subagent dispatches point at a file that does not exist"
+    SKIPPED=$((SKIPPED + 1))
+  fi
+}
+
+# install_hooks <claude-dir>
+# Installs the harness hooks, then reports on the one thing this installer will not do for
+# the user: registering them.
+#
+# settings.json is the user's own file — model, theme, permissions, their own hooks. Editing
+# JSON from bash means either a dependency this script does not have or a hand-rolled parser
+# that eventually eats a config it did not understand. The hook file is installed and the
+# exact snippet is printed instead; registering it is one paste, and it stays the user's call.
+install_hooks() {
+  local claude_dir="$1" hooks_src="$SCRIPT_DIR/hooks" hook_file hook_name settings
+  [[ -d "$hooks_src" ]] || return 0
+  info "Installing hooks into $claude_dir/hooks"
+  mkdir -p "$claude_dir/hooks"
+  prune_stale_links "$claude_dir/hooks"
+  for hook_file in "$hooks_src"/*; do
+    [[ -f "$hook_file" ]] || continue
+    hook_name=$(basename "$hook_file")
+    link_into "$hook_file" "$claude_dir/hooks/$hook_name" "$hook_name"
+  done
+  # `set -e` is on, so grep's normal "no match" (rc 1) must not be allowed to kill the run —
+  # capture the status instead of testing it inline, then let require_grep_ok reject only a
+  # real grep failure (rc ≥ 2), the same way every other caller in this script does.
+  settings="$claude_dir/settings.json"
+  if [[ -f "$settings" ]]; then
+    local rc=0
+    grep -q 'enforce-agent-baseline' "$settings" || rc=$?
+    require_grep_ok "$rc" "checking $settings for the agent-baseline hook"
+    (( rc == 0 )) && return 0
+  fi
+  echo ""
+  echo "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces"
+  echo "    that subagent dispatches carry the rules. Add this to \"hooks\" in $settings:"
+  cat <<'SNIPPET'
+
+    "PreToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/enforce-agent-baseline.py\"" }
+        ]
+      }
+    ]
+SNIPPET
+  echo ""
+}
+
 install_commands() {
   local commands_src="$1"
   local target_dir="$2"
@@ -299,10 +381,14 @@ install_cursor() {
 # installer itself corrupted, leaving the user to hand-edit generated content. Refusing to
 # write is the only outcome that keeps the file reconcilable.
 render_managed_block() {
-  local rule_name rule_file body
+  local rule_name rule_file body has_open has_close
   local -a rule_names=()
+  # Global render (no explicit rule list) is the only mode that honours core markers; see
+  # the core-extraction comment in the loop below for why.
+  local global_render=1
   if (( $# > 0 )); then
     rule_names=("$@")
+    global_render=0
   else
     while IFS= read -r rule_name; do rule_names+=("$rule_name"); done < <(always_on_rules)
   fi
@@ -335,8 +421,51 @@ render_managed_block() {
   later run die on a file this installer wrote. Indent or fence that line in
   $rule_file so it is no longer a bare delimiter, then re-run."
     fi
+    # A rule may mark a CORE excerpt — the part that must be in the prompt of every session,
+    # as distinct from the full text a reader opens when they need it. Globally the block
+    # carries the core plus a pointer to the installed full rule, which lives once in this
+    # repo and is reachable at ~/.claude/rules/<name>.md via install_rules_claude.
+    #
+    # Core extraction is deliberately GLOBAL-ONLY. A project's opted-in standards render into
+    # that project's own CLAUDE.md, and pointing those at ~/.claude/rules/ would name a path
+    # no install ever creates for an opt-in rule — so with an explicit rule list the whole
+    # body is inlined exactly as before. An unmarked rule is likewise inlined whole, which is
+    # what keeps myflow-manual-review.mdc and every opt-in standard rendering unchanged.
+    # `if` rather than `grep … && flag=1`: under `set -e` an AND-list whose last command
+    # fails IS a failing statement, so an unmarked rule — the common case — aborted the
+    # render mid-block, leaving a begin delimiter with no end for the next run to trip over.
+    # A grep inside an `if` condition is exempt from `set -e`, which is why every other
+    # detection in this script is written this way.
+    has_open=0; has_close=0
+    if printf '%s\n' "$body" | grep -qFx '<!-- core -->';  then has_open=1;  fi
+    if printf '%s\n' "$body" | grep -qFx '<!-- /core -->'; then has_close=1; fi
+    if (( has_open != has_close )); then
+      die "rule $rule_name has an unbalanced core marker. <!-- core --> and <!-- /core -->
+  must both be present, each alone on its own line, or neither. One without the other
+  silently renders the wrong amount of text into every managed block this installer writes.
+  Fix $rule_file, then re-run."
+    fi
     printf '\n<!-- rule: %s -->\n\n' "$rule_name"
-    printf '%s\n' "$body"
+    if (( global_render && has_open )); then
+      # The core is everything up to the closing marker — title and any short preamble
+      # included — with the marker lines themselves dropped.
+      printf '%s\n' "$body" | awk '
+        { sub(/\r$/, "") }
+        $0 == "<!-- /core -->" { exit }
+        $0 == "<!-- core -->"  { next }
+        { print }
+      '
+      printf 'Full rule: `~/.claude/rules/%s.md`.\n' "${rule_name%.mdc}"
+      continue
+    fi
+    # Whole-body render: the markers are scaffolding for the renderer, not content, so they
+    # are dropped here too. Harmless if they survived — they are HTML comments — but a reader
+    # of a project's CLAUDE.md should not meet a marker for a mode that file never uses.
+    printf '%s\n' "$body" | awk '
+      { sub(/\r$/, "") }
+      $0 == "<!-- core -->" || $0 == "<!-- /core -->" { next }
+      { print }
+    '
   done
   printf '\n%s\n' "$CLAUDE_MD_END"
 }
@@ -647,6 +776,12 @@ install_global() {
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.claude/commands"
   install_commands "$COMMANDS_CURSOR_SRC" "$home_dir/.cursor/commands"
   install_rules_cursor "$home_dir/.cursor/rules"
+  # Claude Code's layer is two halves of one source: the core of each rule goes into the
+  # managed block below, the full text is linked here, and the block's `Full rule:` pointer
+  # is what joins them. Install the links BEFORE the block, so a pointer is never written to
+  # a path that does not exist yet.
+  install_rules_claude "$home_dir/.claude/rules"
+  install_hooks "$home_dir/.claude"
   for managed_file in "${managed_files[@]}"; do
     install_managed_block "$managed_file"
   done
@@ -658,6 +793,13 @@ install_global() {
   echo "              skill by reading $home_dir/.codex/skills/<skill>/SKILL.md and following it."
   echo "   Rules    → $home_dir/.cursor/rules/, and the managed block in both"
   echo "              $home_dir/.claude/CLAUDE.md and $home_dir/.codex/AGENTS.md"
+  echo "              Full texts → $home_dir/.claude/rules/, which the core excerpt in the"
+  echo "              managed block points at. Same files, one source, no copies."
+  echo "   Hooks    → $home_dir/.claude/hooks/ — installed, but registered only if"
+  echo "              $home_dir/.claude/settings.json already names them (see any warning above)."
+  echo "   Subagents inherit NO rules. Every dispatch must carry the two-sentence pointer to"
+  echo "   $home_dir/.claude/rules/agent-baseline.md — that file is the whole rule set for a"
+  echo "   dispatched agent, and it propagates itself to any depth."
   echo "   Opt-in rules (e.g. kotlin-backend-development-standard) are NOT installed globally."
   echo "   A project adopts one by naming it under ## standards in its own .myflow/project.md;"
   echo "   run './setup.sh <harness> /path/to/that/project' to render it into that project's"

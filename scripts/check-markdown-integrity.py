@@ -26,8 +26,8 @@ THE BLOCK MODEL
 =============================================================================
 
 A file is walked line by line into a flat sequence of typed blocks —
-`frontmatter`, `fence`, `thematic_break`, `table`, `heading`, `list_item`,
-`blockquote`, `paragraph` — following the shape `check-plan-provenance.py`'s
+`frontmatter`, `fence`, `thematic_break`, `html_comment`, `table`,
+`heading`, `list_item`, `blockquote`, `paragraph` — following the shape `check-plan-provenance.py`'s
 own classifier uses: a block ends at a blank line, at a line that opens a
 new block outright (a fence, a heading, a thematic break, a new list
 marker, a table header), or at EOF; content inside a fence is never
@@ -69,7 +69,13 @@ line is not a torn paragraph. **A thematic break** (a bare line of three
 or more `-`, `*` or `_` characters, elsewhere in the file — a horizontal
 rule) is its own single-line `thematic_break` block for the same reason:
 it is punctuation-free by construction and is not a paragraph that failed
-to end.
+to end. **A standalone HTML comment** — a whole line of `<!-- … -->`, such
+as the `<!-- core -->` markers `setup.sh` renders against or the `<!-- rule:
+… -->` labels it writes — is its own `html_comment` block on the same
+grounds: it renders to nothing, it cannot carry terminal punctuation, and a
+paragraph does not continue through it. Only a comment that opens and
+closes on one line qualifies; a multi-line comment is left to the ordinary
+walk.
 
 Signals 1 and 3 (broken code span, unterminated paragraph) scan only
 `paragraph`-kind blocks — a fence, a table cell, a heading and a list item
@@ -161,6 +167,12 @@ EMPHASIS_MARKERS = frozenset("*_")
 FENCE_OPEN_RE = re.compile(r'^ {0,3}(`{3,}|~{3,})(.*)$')
 FENCE_CLOSE_RE = re.compile(r'^ {0,3}(`+|~+)[ \t]*$')
 THEMATIC_BREAK_RE = re.compile(r'^ {0,3}(-{3,}|\*{3,}|_{3,})[ \t]*$')
+# A line that is nothing but an HTML comment — `<!-- core -->`, `<!-- rule: x.mdc -->`,
+# a provenance banner. Punctuation-free by construction and invisible when rendered, so
+# like a thematic break it is its own block and never a paragraph that failed to end.
+# Deliberately single-line and anchored: a comment that opens on one line and closes on
+# another is prose-adjacent enough to keep scanning.
+HTML_COMMENT_RE = re.compile(r'^ {0,3}<!--(?:(?!-->).)*-->[ \t]*$')
 HEADING_RE = re.compile(r'^ {0,3}#{1,6}(\s|$)')
 LIST_ITEM_RE = re.compile(r'^\s*([-*+]|\d+[.)])\s+')
 BLOCKQUOTE_RE = re.compile(r'^\s*>(\s|$)')
@@ -251,13 +263,16 @@ class Finding:
 def _opens_new_block(line: str) -> Optional[str]:
     """Return the block kind `line` unconditionally opens (a fence, a
     heading, a thematic break, a blockquote, or a new list marker), or
-    None if `line` is not, by itself, the start of one of those. Table
+    None if `line` is not, by itself, the start of one of those, nor a
+    standalone HTML comment. Table
     detection is handled separately by the caller, since it needs to look
     at the FOLLOWING line (the separator row) to be sure."""
     if FENCE_OPEN_RE.match(line):
         return "fence"
     if THEMATIC_BREAK_RE.match(line):
         return "thematic_break"
+    if HTML_COMMENT_RE.match(line):
+        return "html_comment"
     if HEADING_RE.match(line):
         return "heading"
     if BLOCKQUOTE_RE.match(line):
@@ -355,7 +370,7 @@ def parse_blocks(text: str) -> List[Block]:
             i += 1
             continue
 
-        if opened in ("thematic_break", "heading"):
+        if opened in ("thematic_break", "heading", "html_comment"):
             flush()
             blocks.append(Block(kind=opened, start_line=lineno, end_line=lineno, lines=[raw]))
             i += 1

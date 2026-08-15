@@ -22,7 +22,17 @@ agents-data/
 ├── rules/
 │   ├── myflow-manual-review.mdc       ← myflow trigger + contract pointers (always-on stub, installed globally)
 │   ├── lint-fix-priority.mdc          ← never suppress/bypass linters (always-on, installed globally)
+│   ├── never-touch-production.mdc     ← no route to a production system, ever (always-on)
+│   ├── no-direct-pushes-to-main.mdc   ← land on the integration branch, promote by PR (always-on)
+│   ├── be-brief.mdc                   ← answer at the length the question needs; prose only (always-on)
+│   ├── build-the-simplest-thing.mdc   ← complexity is opt-in (always-on)
+│   ├── dependency-versions.mdc        ← look up the current stable version before adding one (always-on)
+│   ├── design-mockups-are-specs.mdc   ← build a mockup exactly as drawn (always-on)
+│   ├── context7.mdc                   ← fetch library docs through Context7, not from memory (always-on)
+│   ├── agent-baseline.md              ← NOT a rule: the file a dispatched subagent is told to read, listing every rule above and pointing at its installed full text
 │   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.myflow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
+├── hooks/
+│   └── enforce-agent-baseline.py      ← PreToolUse hook: denies a subagent dispatch whose prompt omits the agent-baseline pointer
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
@@ -321,12 +331,11 @@ cd /path/to/agents-data
 It symlinks straight out of this checkout, so editing a file here takes effect
 immediately — no re-run needed except when a file is **added** or **removed**.
 
-**One exception, and it is the highest-stakes one:** the always-on rules
-(`rules/*.mdc` with `alwaysApply: true`) are *not* symlinked into Claude Code or Codex —
-their text is **inlined** into the managed blocks in `~/.claude/CLAUDE.md` and
-`~/.codex/AGENTS.md`. Editing `rules/lint-fix-priority.mdc` or
-`rules/myflow-manual-review.mdc` has no effect on either harness until you re-run
-`./setup.sh global`. Only the `~/.cursor/rules/` copy is a live symlink.
+**One exception, and it is the highest-stakes one:** what the managed blocks in
+`~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` carry is **rendered text, not a symlink**.
+Editing an always-on rule has no effect on either harness's injected prompt until you
+re-run `./setup.sh global`. The `~/.cursor/rules/` and `~/.claude/rules/` copies are live
+symlinks and need no re-run.
 
 | Target | What lands there |
 |--------|------------------|
@@ -335,8 +344,27 @@ their text is **inlined** into the managed blocks in `~/.claude/CLAUDE.md` and
 | `~/.claude/commands/` | every file in `commands-claude/` — the `/myflow-*` Claude Code commands |
 | `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*` and `/opsx:*` Cursor commands |
 | `~/.cursor/rules/` | whichever rules declare `alwaysApply: true` in their frontmatter, and only those |
-| `~/.claude/CLAUDE.md` | a managed block, delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, containing the always-on rule text inlined — Claude Code's global rule layer |
-| `~/.codex/AGENTS.md` | the **same** managed block, same delimiters, same inlined rule text — Codex's global rule layer. A global install writes this file even if you never ran a Codex-specific install |
+| `~/.claude/rules/` | the same always-on rules, symlinked as `<name>.md` — their **full text**, which the managed block's `Full rule:` pointers name. Plus `agent-baseline.md`, the file a dispatched subagent is told to read |
+| `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
+| `~/.claude/CLAUDE.md` | a managed block, delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, containing each always-on rule's **core** and a pointer to its full text — Claude Code's global rule layer |
+| `~/.codex/AGENTS.md` | the **same** managed block, same delimiters, same rendered text — Codex's global rule layer. A global install writes this file even if you never ran a Codex-specific install |
+
+### Core and full text are one source
+
+A rule may wrap part of its body in `<!-- core -->` / `<!-- /core -->`. Globally, the
+managed block gets that core plus `Full rule: ~/.claude/rules/<name>.md`, and the pointer
+resolves to a symlink back to the very `.mdc` the core was rendered from — one file, no
+second copy to go stale. A rule with no markers is inlined whole, exactly as before.
+
+Core extraction is global-only. A project's opted-in standards render into that project's
+own `CLAUDE.md` with the full body and no pointer, because `~/.claude/rules/` never holds
+an opt-in rule. The markers themselves are stripped from every render.
+
+Subagents inherit none of this. A dispatched agent reads no `CLAUDE.md`, so every dispatch
+has to carry a pointer to `~/.claude/rules/agent-baseline.md` — which lists every rule in a
+line, points at these same paths, and instructs the agent to pass the same pointer on, so
+the rules survive to any dispatch depth. `hooks/enforce-agent-baseline.py` denies a
+dispatch whose prompt omits it.
 
 Two things are deliberate:
 

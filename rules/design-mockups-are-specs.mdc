@@ -1,0 +1,69 @@
+---
+description: Build a design mockup exactly as drawn; ask about what it does not show
+alwaysApply: true
+---
+
+# Design mockups are a specification, not an inspiration
+
+<!-- core -->
+Build it exactly as drawn: layout, spacing, sizes, colours, typography, radii, shadows, icons, and
+the literal copy — typos included. **No unrequested improvements** — if the mockup looks wrong, say
+so and build it as drawn unless the user agrees to change it. Reuse existing tokens where they
+already match; add new ones where the mockup demands values the system lacks, rather than bending
+the mockup to fit.
+
+**Ask rather than invent.** Mockups always underspecify — interaction, hover/focus/disabled,
+loading/empty/error, validation, breakpoints, overflow. Batch the questions up front; ask mid-build
+the moment a real blocker appears. Verify visually before claiming it matches: run it, screenshot
+it, compare side by side.
+
+<!-- /core -->
+
+Applies to any mockup the user presents — an image, a Figma frame or link, a screenshot, an HTML
+prototype, a PDF.
+
+## Match it
+
+Layout, spacing, sizes, colours, typography (family, weight, size, line height, letter spacing),
+border radii, shadows, icons, and the literal copy shown. Reproduce the mockup's text verbatim,
+typos included, unless told otherwise.
+
+## No unrequested improvements
+
+Do not "fix" alignment, rebalance whitespace, substitute a different component, modernise the
+styling, or swap the palette because something looks off. If the mockup appears wrong, say so and
+build it as drawn unless the user agrees to change it.
+
+The instinct to improve is the failure mode here. A mockup that looks slightly wrong is usually
+either deliberate or already agreed with someone you are not talking to.
+
+## Tokens serve the mockup, not the reverse
+
+Reuse the project's existing design tokens and components where they already match the mockup's
+values. Introduce new ones when the mockup demands values the system does not have — do not bend the
+mockup to fit the tokens.
+
+## Ask rather than invent
+
+Mockups are static and always underspecify. The moment something the mockup does not answer comes
+up, ask — do not guess, and do not silently pick a default. Typical gaps:
+
+- Behaviour of interactive elements.
+- Hover, focus, active and disabled states.
+- Loading, empty, error and overflow states.
+- Validation rules and messages.
+- Responsive behaviour at breakpoints the mockup does not show.
+- What happens with long text or large numbers.
+- Exact assets or icon sets.
+- Which real data feeds which element.
+
+Batch the questions and ask them before building where possible; ask mid-build the moment a genuine
+blocker appears. Where a gap is small and clearly answered by an established convention already in
+the codebase, follow that convention and say so.
+
+## Verify visually before claiming it is done
+
+Run the app, screenshot the page, compare it against the mockup side by side. "It should match" is
+not verification.
+
+Applies globally, all projects, no exceptions.

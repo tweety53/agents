@@ -313,6 +313,19 @@ make_fixture_repo() {
   # A value that merely starts with `true` must not be read as `true`.
   printf -- '---\ndescription: fixture tricky value\nalwaysApply: true_for_kotlin_only\n---\n\n# Tricky\nBODY-TRICKY-PREFIX\n' \
     >"$d/rules/tricky-prefix.mdc"
+  # An always-on rule carrying a CORE excerpt. Globally the block gets the core plus a
+  # pointer to the installed full text; a project's own block gets the whole body. Two
+  # sentinels, so those renders can be told apart.
+  printf -- '---\ndescription: fixture rule with a core excerpt\nalwaysApply: true\n---\n\n# Cored\n<!-- core -->\nBODY-CORE-EXCERPT\n<!-- /core -->\n\n## Detail\nBODY-AFTER-CORE\n' \
+    >"$d/rules/cored.mdc"
+  # Not a rule, and carries no frontmatter: the baseline a dispatched subagent is told to
+  # read. install_rules_claude links it beside the rules and warns when it is missing, so
+  # the fixture needs one for an otherwise-clean install to stay clean.
+  printf '# fixture agent baseline\n' >"$d/rules/agent-baseline.md"
+  # The hook that enforces the baseline in dispatches. Named as the real one is, because
+  # install_hooks reports on registration by looking for that name in settings.json.
+  mkdir -p "$d/hooks"
+  printf '#!/usr/bin/env python3\n"""fixture hook"""\n' >"$d/hooks/enforce-agent-baseline.py"
 
   if [[ -n "$bad" ]]; then
     # An always-on rule whose BODY carries a bare begin delimiter. Inlining it would put a
@@ -562,11 +575,54 @@ assert_absent "an unterminated frontmatter is not installed" "$home/.cursor/rule
 assert_absent "alwaysApply: true_for_kotlin_only is not installed" "$home/.cursor/rules/tricky-prefix.mdc"
 rule_count=0
 for f in "$home/.cursor/rules"/*; do [[ -e "$f" || -L "$f" ]] && rule_count=$((rule_count + 1)); done
-assert_eq "exactly one rule is installed" 1 "$rule_count"
+# Two, and exactly two: good-always.mdc and cored.mdc are the fixture's always-on rules.
+# The count is the assertion that catches an opt-in rule sneaking in under a new code path,
+# so it is stated as a number rather than derived from the fixture.
+assert_eq "exactly the two always-on rules are installed" 2 "$rule_count"
 assert_contains "the managed block carries the always-on rule body" "$home/.claude/CLAUDE.md" "BODY-GOOD-ALWAYS"
 assert_not_contains "the managed block omits the opt-in rule" "$home/.claude/CLAUDE.md" "BODY-OPT-IN"
 assert_not_contains "the managed block omits the unterminated rule" "$home/.claude/CLAUDE.md" "BODY-UNTERMINATED"
 assert_not_contains "the managed block omits the true-prefixed rule" "$home/.claude/CLAUDE.md" "BODY-TRICKY-PREFIX"
+
+group "Core excerpts, full-text links and the agent baseline"
+
+# The global layer is two halves of one source: the managed block carries each rule's core
+# and a pointer, ~/.claude/rules/ carries the full text as a symlink into the repo. The
+# failure this guards against is silent — a pointer that names a path no install creates, or
+# a block that quietly inlines a rule's entire body again.
+new_home; home="$HOME_DIR"
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "the install succeeds" "$RUN_RC" "$RUN_LOG"
+
+assert_contains "the block carries the core excerpt" "$home/.claude/CLAUDE.md" "BODY-CORE-EXCERPT"
+assert_not_contains "the block stops at the closing marker" "$home/.claude/CLAUDE.md" "BODY-AFTER-CORE"
+assert_not_contains "no core marker survives into the block" "$home/.claude/CLAUDE.md" "<!-- core -->"
+assert_contains "the block points at the installed full rule" "$home/.claude/CLAUDE.md" \
+  'Full rule: `~/.claude/rules/cored.md`.'
+# Codex reads the same rendered text, so its block must carry the same core and pointer.
+assert_contains "AGENTS.md carries the core too" "$home/.codex/AGENTS.md" "BODY-CORE-EXCERPT"
+
+assert_exists "the full text is linked into ~/.claude/rules" "$home/.claude/rules/cored.md"
+assert_exists "an unmarked rule is linked there as well" "$home/.claude/rules/good-always.md"
+assert_absent "an opt-in rule is not linked there" "$home/.claude/rules/opt-in-false.md"
+assert_exists "the agent baseline is installed" "$home/.claude/rules/agent-baseline.md"
+# The pointer in the block is only as good as the file it names.
+assert_contains "the linked full text has what the block dropped" "$home/.claude/rules/cored.md" "BODY-AFTER-CORE"
+
+assert_exists "the enforcement hook is installed" "$home/.claude/hooks/enforce-agent-baseline.py"
+assert_contains "an unregistered hook is reported, not assumed" "$RUN_LOG" "NOT registered"
+
+# An unbalanced marker renders the wrong amount of text into every block, so it must abort
+# the run rather than ship a half-rule.
+UNBALANCED_FIXTURE="$SANDBOX/fixture-repo-unbalanced-core"
+make_fixture_repo "$UNBALANCED_FIXTURE"
+printf -- '---\ndescription: fixture unbalanced core\nalwaysApply: true\n---\n\n# Unbalanced\n<!-- core -->\nBODY-UNBALANCED\n' \
+  >"$UNBALANCED_FIXTURE/rules/unbalanced.mdc"
+new_home; home="$HOME_DIR"
+run_setup "$UNBALANCED_FIXTURE" "$home" global
+assert_rc_nonzero "an unbalanced core marker aborts the run" "$RUN_RC"
+assert_contains "the abort names the offending rule" "$RUN_LOG" "unbalanced.mdc"
+assert_absent "nothing was installed: CLAUDE.md" "$home/.claude/CLAUDE.md"
 
 group "The opt-in Kotlin rule is installed by no mode"
 
