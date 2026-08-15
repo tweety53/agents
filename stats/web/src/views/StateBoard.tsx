@@ -17,6 +17,7 @@ import { ViewFrame } from "../components/ViewFrame";
 import type { StateBoardRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { formatDateTime, formatInt } from "../format";
+import { projectLabel } from "../lib/projectLabel";
 import type { ViewProps } from "../viewTypes";
 
 /**
@@ -31,8 +32,35 @@ function runDetailHref(row: StateBoardRow): string {
   return `#/run/${encodeURIComponent(row.projectKey)}/${encodeURIComponent(row.name)}`;
 }
 
+// The Project column names the project, it does not key it (kan-183): the
+// hash suffix identifies a checkout, not something a reader benefits from
+// parsing. `render` shows the display name; the full key survives as the
+// cell's `title`, one hover away.
+//
+// `accessor` deliberately disagrees with `render` (panel round 1, F3): it
+// stays the full key, not the display name. DataTable's exact-match filter
+// and free-text search both key off `accessor` (DataTable.tsx), and two
+// projects whose keys differ only in the disambiguating hash suffix share
+// one display name -- resolveProjectParam (stats/internal/api/stats.go)
+// refuses that exact ambiguity server-side with a 400 naming the
+// candidates. An accessor keyed to the display name would silently merge
+// those two projects into one filter entry client-side, the very
+// ambiguity the server refuses to guess through. Keeping accessor at the
+// full key means sorting, search and the filter dropdown all key on
+// identity -- the dropdown now lists full keys, not display names, since
+// FilterBar renders an option's visible text from the same accessor value
+// it filters on (there is no way to shorten one without the other). Do
+// not "fix" this back to `projectLabel` to match `render`: that
+// reintroduces the merge this comment describes.
 const columns: Column<StateBoardRow>[] = [
-  { key: "projectKey", header: "Project", sortable: true, accessor: (r) => r.projectKey, filterable: true },
+  {
+    key: "projectKey",
+    header: "Project",
+    sortable: true,
+    accessor: (r) => r.projectKey,
+    render: (r) => <span title={r.projectKey}>{projectLabel(r.projectKey)}</span>,
+    filterable: true,
+  },
   {
     key: "name",
     header: "Change",

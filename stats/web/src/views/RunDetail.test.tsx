@@ -364,6 +364,24 @@ describe("a change whose stage runs exceed one fetched page (task 25, step 4)", 
   });
 });
 
+// Task 2 (kan-183): the header names the project by its display name, but
+// the route itself -- section aria-label and useRunDetail's request -- is
+// keyed by the full project key, which is not this task's to shorten.
+describe("the header names the project by its display name (kan-183)", () => {
+  const HASHED_PROJECT = "agents-a740d89c";
+
+  it("shows the display name, not the raw key, while the section identity keeps the full key", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+
+    render(<RunDetail project={HASHED_PROJECT} change={CHANGE} />);
+
+    await screen.findByRole("heading", { name: CHANGE });
+    expect(screen.getByText("Project agents")).toBeInTheDocument();
+    expect(screen.queryByText(`Project ${HASHED_PROJECT}`)).not.toBeInTheDocument();
+  });
+});
+
 describe("the run-detail dashboard's model variable (task 20's own decision: honoured, not disabled)", () => {
   const runOnSonnet: StageRunDTO = {
     stageRunId: 10,

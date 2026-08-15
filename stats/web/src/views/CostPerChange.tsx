@@ -22,10 +22,27 @@ import { ViewFrame } from "../components/ViewFrame";
 import { fetchStatsView, type CostPerChangeRepoRow, type CostPerChangeRow } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
 import { formatInt, formatMs, formatUsd } from "../format";
+import { projectLabel } from "../lib/projectLabel";
 import type { ViewProps } from "../viewTypes";
 
+// Same rule as StateBoard.tsx's own Project column (kan-183), including
+// its reversal at panel round 1 (F3): `render` shows the display name,
+// but `accessor` deliberately stays the full key, since DataTable's
+// exact-match filter and search both key off accessor, and two projects
+// whose keys differ only in the disambiguating hash suffix must not merge
+// into one filter entry -- see StateBoard.tsx's own Project column for
+// the full reasoning. This view's `rowKey` and its repo-breakdown request
+// (`project={r.projectKey}`, below) both already read the full key,
+// unaffected by this column either way.
 const columns: Column<CostPerChangeRow>[] = [
-  { key: "projectKey", header: "Project", sortable: true, accessor: (r) => r.projectKey, filterable: true },
+  {
+    key: "projectKey",
+    header: "Project",
+    sortable: true,
+    accessor: (r) => r.projectKey,
+    render: (r) => <span title={r.projectKey}>{projectLabel(r.projectKey)}</span>,
+    filterable: true,
+  },
   { key: "changeName", header: "Change", sortable: true, accessor: (r) => r.changeName, filterable: true },
   { key: "command", header: "Command", sortable: true, accessor: (r) => r.command, filterable: true },
   { key: "stage", header: "Stage", sortable: true, accessor: (r) => r.stage },

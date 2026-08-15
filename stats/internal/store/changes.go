@@ -259,6 +259,70 @@ func (s *Store) ListChanges(ctx context.Context, projectKey string) ([]Change, e
 	return changes, nil
 }
 
+// ProjectKeySuffixPattern is the regular expression, in POSIX/RE2 syntax
+// (valid both as a Go regexp and as a PostgreSQL regexp_replace pattern),
+// that matches the trailing "-" plus exactly eight lowercase hexadecimal
+// characters a project key carries to disambiguate two same-named
+// checkouts (State file, skills/myflow-contracts/state-file.md).
+//
+// This package's own SQL (below) and internal/api/stats.go's
+// looksLikeProjectKey both build their pattern from this one constant
+// (panel round 1, F1) rather than keeping a second, silently-driftable
+// copy in the same Go module -- unlike stats/web/src/lib/projectLabel.ts,
+// which is a real language boundary this constant cannot reach across:
+// that TypeScript copy is the one duplicate that must stay a duplicate,
+// and its own doc comment names this constant's Go twin by file path for
+// exactly the reason this one names it back.
+const ProjectKeySuffixPattern = `-[0-9a-f]{8}$`
+
+// projectKeysByDisplayNameQuery is built from ProjectKeySuffixPattern via
+// fmt.Sprintf, not a query parameter: PostgreSQL's regexp_replace takes its
+// pattern as a plain SQL argument like any other, so binding it as $2
+// alongside displayName's $1 would work equally well, but building the
+// query text once here keeps the single source of truth visible next to
+// the query it derives, without adding a second bound parameter whose
+// only caller ever passes the same fixed literal.
+var projectKeysByDisplayNameQuery = fmt.Sprintf(`
+	SELECT project_key
+	FROM projects
+	WHERE regexp_replace(project_key, '%s', '') = $1
+	ORDER BY project_key
+`, ProjectKeySuffixPattern)
+
+// ProjectKeysByDisplayName returns every project key whose display name --
+// project_key with ProjectKeySuffixPattern's suffix removed -- equals
+// displayName. It is the server-side twin of
+// stats/web/src/lib/projectLabel.ts: the same suffix, anchored at the end
+// the same way, trimmed here in SQL instead of in the client, so the two
+// sides agree on what a key "displays as" by construction rather than by
+// keeping a comment in sync.
+//
+// Zero results means no project has that display name. More than one
+// means the name is ambiguous -- two projects share a basename and differ
+// only in the disambiguating hash -- which internal/api's resolution
+// helper (stats/internal/api/stats.go) turns into a 400 naming the
+// candidates, rather than picking one silently.
+func (s *Store) ProjectKeysByDisplayName(ctx context.Context, displayName string) ([]string, error) {
+	rows, err := s.pool.Query(ctx, projectKeysByDisplayNameQuery, displayName)
+	if err != nil {
+		return nil, fmt.Errorf("store: project keys by display name %q: %w", displayName, err)
+	}
+	defer rows.Close()
+
+	var keys []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, fmt.Errorf("store: project keys by display name %q: scan: %w", displayName, err)
+		}
+		keys = append(keys, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: project keys by display name %q: %w", displayName, err)
+	}
+	return keys, nil
+}
+
 // QueryChanges returns the page of changes matching q -- its filters,
 // free-text search, sort and page -- against the fixed allowlist in
 // query.go, along with the total count of matching rows (ignoring q's

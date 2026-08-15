@@ -34,6 +34,18 @@ const changeA: ChangeDTO = {
   updatedAt: "2026-01-15T10:00:00Z",
   updatedBy: "alice",
 };
+// A key that actually carries the documented -[0-9a-f]{8} suffix
+// (kan-183) -- changeA's and changeB's own projectKey ("kan-16-...-app")
+// ends in "app", which projectLabel never strips, so an assertion built
+// only on those two would pass identically whether or not the option
+// label actually shortens anything.
+const changeHashed: ChangeDTO = {
+  projectKey: "agents-a740d89c",
+  name: "kan-1",
+  state: "IN_PROGRESS",
+  updatedAt: "2026-01-20T10:00:00Z",
+  updatedBy: "alice",
+};
 const changeB: ChangeDTO = {
   projectKey: "kan-16-myflow-stats-app",
   name: "kan-7-myflow-principles-panel-jira",
@@ -290,5 +302,19 @@ describe("DashboardBar: the change variable navigates rather than filters", () =
     expect(props.onModelChange).not.toHaveBeenCalled();
 
     window.location.hash = "";
+  });
+
+  // kan-183: the option label names the project, it does not key it. This
+  // is the one assertion in the suite that can actually fail that claim --
+  // every other option-label check here uses a projectKey without the
+  // documented suffix, so projectLabel is a no-op for them regardless of
+  // whether the shortening works.
+  it("labels an option with the project's display name, not its raw key, for a key carrying the hash suffix", async () => {
+    listChangesMock.mockReset();
+    listChangesMock.mockResolvedValue({ total: 1, changes: [changeHashed] });
+    render(<DashboardBar {...baseProps()} />);
+
+    expect(await screen.findByRole("option", { name: "agents/kan-1" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: `${changeHashed.projectKey}/${changeHashed.name}` })).not.toBeInTheDocument();
   });
 });

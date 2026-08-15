@@ -11,9 +11,11 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,6 +64,14 @@ type StatsStore interface {
 	// cannot also be "all unmeasured", so calling it there would spend a
 	// query answering a question that does not apply to that period.
 	AllRecordedRunsUnmeasured(ctx context.Context, period store.Period, project *string) (bool, error)
+	// projectResolver backs resolveProjectParam, below: every "project"
+	// value this handler parses (view and listModels alike) goes through
+	// it before reaching any of the methods above. Embedded rather than
+	// spelling ProjectKeysByDisplayName's signature out a second time
+	// (panel round 1, F2): the contract lives once, in projectResolver
+	// itself, and this embedding is what states, in the type rather than
+	// only in prose, that StatsStore already satisfies it.
+	projectResolver
 }
 
 // var _ StatsStore = (*store.Store)(nil) verifies at compile time that the
@@ -168,8 +178,11 @@ type statsResponse struct {
 // every view shares. "from" and "to" are both required -- a view with no
 // period is not a smaller request, it is a different, unbounded one this
 // endpoint deliberately does not offer (design.md: "every statistics view
-// is period-parameterised... rather than filtered in the client").
-func parsePeriodAndProject(values map[string][]string) (store.Period, *string, error) {
+// is period-parameterised... rather than filtered in the client"). The
+// "project" value, if present, is resolved through resolveProjectParam --
+// see its own doc comment for what a display name, an exact key, an
+// ambiguous name and an unknown one each do.
+func parsePeriodAndProject(ctx context.Context, resolver projectResolver, values map[string][]string) (store.Period, *string, error) {
 	fromRaw := firstValue(values, "from")
 	toRaw := firstValue(values, "to")
 	if fromRaw == "" || toRaw == "" {
@@ -189,9 +202,121 @@ func parsePeriodAndProject(values map[string][]string) (store.Period, *string, e
 
 	var project *string
 	if p := firstValue(values, "project"); p != "" {
-		project = &p
+		resolved, err := resolveProjectParam(ctx, resolver, p)
+		if err != nil {
+			return store.Period{}, nil, err
+		}
+		project = &resolved
 	}
 	return store.Period{From: from, To: to}, project, nil
+}
+
+// projectKeySuffixPattern matches the trailing "-" plus exactly eight
+// lowercase hexadecimal characters that stats/web/src/lib/projectLabel.ts
+// strips, client-side, to derive a project's display name. Built from
+// store.ProjectKeySuffixPattern (panel round 1, F1) rather than its own
+// literal, so this Go-side copy and internal/store/changes.go's SQL copy
+// cannot drift against each other -- see that constant's own doc comment
+// for why the TypeScript copy is the one duplicate that stays a duplicate.
+// A "project" query value already carrying that shape cannot itself be a
+// display name -- projectLabel.ts never leaves that suffix on -- so
+// looksLikeProjectKey treats it as an exact key already, letting
+// resolveProjectParam skip resolution (and its query) entirely for the
+// common case: a value read straight off a link or a bookmark that still
+// carries the full key.
+var projectKeySuffixPattern = regexp.MustCompile(store.ProjectKeySuffixPattern)
+
+func looksLikeProjectKey(value string) bool {
+	return projectKeySuffixPattern.MatchString(value)
+}
+
+// projectResolver is the minimal store dependency resolveProjectParam
+// needs, defined at the consumer per go-interface-design. Both ChangeStore
+// (server.go) and StatsStore (above) embed projectResolver rather than
+// spelling its one method out a second time (panel round 1, F2), so
+// h.store already satisfies this interface at either call site below with
+// no adapter needed.
+type projectResolver interface {
+	ProjectKeysByDisplayName(ctx context.Context, displayName string) ([]string, error)
+}
+
+// resolveProjectParam is the one place a "project" query parameter is
+// turned into the project key a store query actually filters on. It is
+// shared by parsePeriodAndProject (every stats view, plus GET
+// /api/v1/models) and changes.go's parseChangeQuery (the changes list's
+// own "project" filter) so specs/myflow-stats-views/spec.md's "The project
+// parameter accepts a display name" is applied identically at both call
+// sites rather than reimplemented at either.
+//
+//   - A value already carrying the derivation suffix (looksLikeProjectKey)
+//     is used unchanged, with no query at all: a display name never
+//     carries that suffix, so a value that does can only be a key --
+//     exact or unknown -- and either way the caller's own store query
+//     already handles it (an unknown key matches zero rows, exactly as
+//     today).
+//   - Otherwise value is resolved against project display names: one
+//     match resolves to that project's key; several is refused with an
+//     error naming the ambiguity and every candidate key (mapped to 400
+//     by both callers); none passes value through unchanged, preserving
+//     "an unknown project yields no rows" rather than turning a filter
+//     that never errored before into one that suddenly can.
+//
+// projectResolverError wraps a failure resolveProjectParam propagates
+// straight from projectResolver.ProjectKeysByDisplayName -- a store
+// failure, not a caller mistake -- so it can be told apart from every
+// other error resolveProjectParam and its two callers (parsePeriodAndProject
+// above, parseChangeQuery in changes.go) can return: a malformed period, a
+// missing "from"/"to", an ambiguous display name. All of those are genuine
+// client errors and stay 400; a *projectResolverError is a store call that
+// failed one line earlier than every other store call in these handlers,
+// and deserves the identical treatment: routed through mapStoreError via
+// writeParseOrStoreError below, for the same logged 500 and generic body.
+//
+// Before this existed, list() (changes.go), view() and listModels()
+// (stats.go) classified *any* error out of parseChangeQuery /
+// parsePeriodAndProject as a 400, so a database failure here -- as opposed
+// to one line later, inside the store call each handler itself makes --
+// produced an unlogged 400 whose body carried the store's raw internal
+// text, instead of the logged 500 with a generic body every other store
+// failure in these handlers gets (post-commit review round 2, F4/F5).
+type projectResolverError struct {
+	err error
+}
+
+func (e *projectResolverError) Error() string { return e.err.Error() }
+func (e *projectResolverError) Unwrap() error { return e.err }
+
+// writeParseOrStoreError reports the error parseChangeQuery or
+// parsePeriodAndProject returned: a *projectResolverError is unwrapped and
+// routed through mapStoreError, exactly as every other store failure in
+// these handlers is; anything else is the client error it already was and
+// stays a 400 with its own message intact.
+func writeParseOrStoreError(w http.ResponseWriter, logger *slog.Logger, action string, err error) {
+	var resolverErr *projectResolverError
+	if errors.As(err, &resolverErr) {
+		status, msg := mapStoreError(logger, action, resolverErr.err)
+		writeError(w, status, msg)
+		return
+	}
+	writeError(w, http.StatusBadRequest, err.Error())
+}
+
+func resolveProjectParam(ctx context.Context, resolver projectResolver, value string) (string, error) {
+	if value == "" || looksLikeProjectKey(value) {
+		return value, nil
+	}
+	keys, err := resolver.ProjectKeysByDisplayName(ctx, value)
+	if err != nil {
+		return "", &projectResolverError{err: err}
+	}
+	switch len(keys) {
+	case 0:
+		return value, nil
+	case 1:
+		return keys[0], nil
+	default:
+		return "", fmt.Errorf("project %q matches more than one project: %s", value, strings.Join(keys, ", "))
+	}
 }
 
 // parseLimit parses a "limit" query value shared by both list-shaped
@@ -237,9 +362,9 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	period, project, err := parsePeriodAndProject(values)
+	period, project, err := parsePeriodAndProject(r.Context(), h.store, values)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeParseOrStoreError(w, h.logger, "resolve project for "+string(name), err)
 		return
 	}
 
@@ -1087,9 +1212,9 @@ func (h *statsHandler) listModels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	period, project, err := parsePeriodAndProject(values)
+	period, project, err := parsePeriodAndProject(r.Context(), h.store, values)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeParseOrStoreError(w, h.logger, "resolve project for list models", err)
 		return
 	}
 

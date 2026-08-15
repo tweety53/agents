@@ -343,6 +343,177 @@ describe("the state board is the only navigation path into a change's own dashbo
   });
 });
 
+// Task 2 (kan-183): the Project column names a project, it does not key
+// it. Both StateBoard and CostPerChange render the same shape of column,
+// so both get the same three assertions: the cell shows the display name,
+// the full key survives as the cell's title (the identity the operator
+// still needs when two checkouts share a basename), and the row's own
+// link target -- StateBoard's only one -- keeps the full key regardless,
+// since that is the route's identity and not this task's to shorten.
+describe("the Project column names a project instead of keying it", () => {
+  const PROJECT_KEY = "agents-a740d89c";
+
+  it("state board's Project cell shows the display name with the full key as its title", async () => {
+    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+      Promise.resolve(
+        envelope(view, [
+          {
+            projectKey: PROJECT_KEY,
+            name: "kan-1",
+            state: "IN_PROGRESS",
+            updatedAt: "2026-01-15T10:00:00Z",
+            updatedBy: "alice",
+            nextCommand: "/myflow-finish",
+          },
+        ]),
+      ),
+    );
+
+    render(<StateBoard period={period} project={undefined} />);
+
+    const cell = await screen.findByRole("cell", { name: "agents" });
+    expect(cell).toHaveTextContent(/^agents$/);
+    expect(cell.querySelector(`[title="${PROJECT_KEY}"]`)).not.toBeNull();
+
+    // The row's link target is the route's identity -- it keeps the full
+    // key even though the cell beside it now reads short.
+    const link = screen.getByRole("link", { name: "kan-1" });
+    expect(link).toHaveAttribute("href", `#/run/${encodeURIComponent(PROJECT_KEY)}/${encodeURIComponent("kan-1")}`);
+  });
+
+  it("cost per change's Project cell shows the display name with the full key as its title", async () => {
+    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+      Promise.resolve(
+        envelope(view, [
+          {
+            projectKey: PROJECT_KEY,
+            changeName: "kan-1",
+            command: "/myflow-do",
+            stage: "SDD + TDD per task",
+            runCount: 1,
+            measuredRuns: 1,
+            totalTokensInput: 100,
+            meanTokensInput: 100,
+            totalCostUsd: 1,
+            totalDurationMs: 1000,
+            mainTokens: 90,
+            sidechainTokens: 10,
+          },
+        ]),
+      ),
+    );
+
+    render(<CostPerChange period={period} project={undefined} />);
+
+    const cell = await screen.findByRole("cell", { name: "agents" });
+    expect(cell).toHaveTextContent(/^agents$/);
+    expect(cell.querySelector(`[title="${PROJECT_KEY}"]`)).not.toBeNull();
+  });
+
+  // Reversed from task 2's original assertion (F3, panel round 1): the
+  // dropdown now lists the full key, not the display name -- FilterBar
+  // renders an option's value and its visible text from the same source
+  // (DataTable's own `accessor`), so there is no way to keep the cell's
+  // short label on the dropdown without also keying the filter itself on
+  // it, which is exactly the ambiguity this fix closes. See the "two
+  // projects whose keys share a basename" describe block below for why:
+  // a control whose job is disambiguating two same-named projects cannot
+  // itself compare on the name that fails to disambiguate them.
+  it("the Project filter dropdown now lists the full key, not the display name", async () => {
+    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+      Promise.resolve(
+        envelope(view, [
+          {
+            projectKey: PROJECT_KEY,
+            name: "kan-1",
+            state: "IN_PROGRESS",
+            updatedAt: "2026-01-15T10:00:00Z",
+            updatedBy: "alice",
+            nextCommand: "/myflow-finish",
+          },
+        ]),
+      ),
+    );
+
+    render(<StateBoard period={period} project={undefined} />);
+
+    await screen.findByRole("cell", { name: "agents" });
+    const option = screen.getByRole("option", { name: PROJECT_KEY }) as HTMLOptionElement;
+    expect(option.value).toBe(PROJECT_KEY);
+    expect(screen.queryByRole("option", { name: "agents" })).not.toBeInTheDocument();
+  });
+});
+
+// F3 (panel round 1, Major): DataTable's exact-match filter and free-text
+// search both key off a column's `accessor`. Task 2 set the Project
+// column's accessor to the *display name*, so the filter dropdown offered
+// one option per distinct display name -- and two projects whose keys
+// differ only in the disambiguating hash suffix collapsed into that one
+// option, silently merging what resolveProjectParam
+// (stats/internal/api/stats.go) refuses server-side with a 400 naming the
+// ambiguity. The fix returns the accessor to the full key: the dropdown
+// now offers one option per key, each of which narrows to exactly the one
+// project it names.
+describe("the Project filter narrows by key identity, not by display name", () => {
+  const BASENAME = "agents";
+  const KEY_ONE = `${BASENAME}-a740d89c`;
+  const KEY_TWO = `${BASENAME}-b851e9ad`;
+
+  function twoProjectsSharingABasename(): void {
+    fetchStatsViewMock.mockImplementation((view: ViewName) =>
+      Promise.resolve(
+        envelope(view, [
+          {
+            projectKey: KEY_ONE,
+            name: "kan-1",
+            state: "IN_PROGRESS",
+            updatedAt: "2026-01-15T10:00:00Z",
+            updatedBy: "alice",
+            nextCommand: "/myflow-finish",
+          },
+          {
+            projectKey: KEY_TWO,
+            name: "kan-2",
+            state: "STARTED",
+            updatedAt: "2026-01-15T11:00:00Z",
+            updatedBy: "bob",
+            nextCommand: "/myflow-do",
+          },
+        ]),
+      ),
+    );
+  }
+
+  it("offers one filter option per project key, not one per display name", async () => {
+    twoProjectsSharingABasename();
+    render(<StateBoard period={period} project={undefined} />);
+
+    await screen.findByRole("link", { name: "kan-1" });
+    const select = screen.getByRole("combobox", { name: "Filter by Project" });
+    // Pre-fix, both rows' accessor collapsed to "agents": the dropdown's
+    // deduplicated option list held exactly one entry, and selecting it
+    // could never narrow the table to either project alone.
+    expect(within(select).getAllByRole("option")).toHaveLength(3); // "All" plus one per key
+  });
+
+  it("filtering by one key's value selects only that project's row", async () => {
+    twoProjectsSharingABasename();
+    const user = userEvent.setup();
+    render(<StateBoard period={period} project={undefined} />);
+
+    await screen.findByRole("link", { name: "kan-1" });
+    const select = screen.getByRole("combobox", { name: "Filter by Project" });
+
+    await user.selectOptions(select, KEY_ONE);
+    expect(screen.getByRole("link", { name: "kan-1" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "kan-2" })).not.toBeInTheDocument();
+
+    await user.selectOptions(select, KEY_TWO);
+    expect(screen.getByRole("link", { name: "kan-2" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "kan-1" })).not.toBeInTheDocument();
+  });
+});
+
 describe("routing", () => {
   it("the live state board is the default route", async () => {
     window.location.hash = "";

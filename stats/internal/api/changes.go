@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -316,9 +317,9 @@ func (h *changeHandler) put(w http.ResponseWriter, r *http.Request) {
 // field and the accepted alternatives -- never a 500, and never a
 // silently ignored parameter.
 func (h *changeHandler) list(w http.ResponseWriter, r *http.Request) {
-	q, err := parseChangeQuery(r)
+	q, err := parseChangeQuery(r.Context(), h.store, r)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeParseOrStoreError(w, h.logger, "resolve project for changes list", err)
 		return
 	}
 
@@ -356,7 +357,13 @@ var reservedQueryParams = map[string]bool{
 // resulting Query is deterministic regardless of net/http's unordered
 // url.Values map -- callers that inspect q.Filters (including this
 // package's own tests) see a stable order.
-func parseChangeQuery(r *http.Request) (store.Query, error) {
+//
+// The "project" filter, if present, is resolved through
+// resolveProjectParam (stats.go) before it becomes a Filter -- the same
+// display-name rule every stats view applies to its own "project"
+// parameter, applied here at this endpoint's one parse site rather than
+// reimplemented.
+func parseChangeQuery(ctx context.Context, resolver projectResolver, r *http.Request) (store.Query, error) {
 	values := r.URL.Query()
 	q := store.Query{Search: values.Get("q")}
 
@@ -398,7 +405,15 @@ func parseChangeQuery(r *http.Request) (store.Query, error) {
 		if reservedQueryParams[field] || len(vals) == 0 || vals[0] == "" {
 			continue
 		}
-		q.Filters = append(q.Filters, store.Filter{Field: field, Op: store.OpEq, Value: vals[0]})
+		value := vals[0]
+		if field == "project" {
+			resolved, err := resolveProjectParam(ctx, resolver, value)
+			if err != nil {
+				return store.Query{}, err
+			}
+			value = resolved
+		}
+		q.Filters = append(q.Filters, store.Filter{Field: field, Op: store.OpEq, Value: value})
 	}
 	sort.Slice(q.Filters, func(i, j int) bool { return q.Filters[i].Field < q.Filters[j].Field })
 

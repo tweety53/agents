@@ -37,6 +37,7 @@ import { StageTimeline } from "../components/StageTimeline";
 import { StatPanel } from "../components/StatPanel";
 import { useRunDetail } from "../hooks/useRunDetail";
 import { formatInt, formatMs, formatUsd } from "../format";
+import { projectLabel } from "../lib/projectLabel";
 
 export interface RunDetailProps {
   project: string;
@@ -63,8 +64,12 @@ export function RunDetail({ project, change, model }: RunDetailProps) {
   return (
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard">
       <h2>{change}</h2>
+      {/* The header names the project (kan-183), it does not key it -- the
+          section's own aria-label above and useRunDetail's request both
+          keep the full key, since that is the route's identity and not
+          this line's to shorten. */}
       <p className="view-description">
-        Project {project}
+        Project {projectLabel(project)}
         {model && ` · Model ${model}`}
       </p>
 

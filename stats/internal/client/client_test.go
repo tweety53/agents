@@ -761,6 +761,14 @@ func (s *inMemoryChangeStore) QueryChanges(_ context.Context, _ store.Query) ([]
 	return all, len(all), nil
 }
 
+// ProjectKeysByDisplayName is here purely to keep satisfying
+// api.ChangeStore -- see stubStageStore.ProjectKeysByDisplayName's own
+// doc comment for why: this file's tests never send a display-name
+// "project" value either.
+func (s *inMemoryChangeStore) ProjectKeysByDisplayName(context.Context, string) ([]string, error) {
+	return nil, nil
+}
+
 var _ api.ChangeStore = (*inMemoryChangeStore)(nil)
 
 // stubStageStore satisfies api.StageStore with nothing but errors: this
@@ -847,6 +855,17 @@ func (stubStageStore) ListModels(context.Context, store.Period, *string) ([]stri
 // substitution, no logic change).
 func (stubStageStore) AllRecordedRunsUnmeasured(context.Context, store.Period, *string) (bool, error) {
 	return false, errStageStoreNotImplemented
+}
+
+// ProjectKeysByDisplayName is here for the same reason
+// AllRecordedRunsUnmeasured's own doc comment gives: api.StatsStore (and
+// api.ChangeStore, which inMemoryChangeStore implements separately) gained
+// this method for task 3's project display-name resolution, and every
+// implementer must keep compiling -- this file's tests never send a
+// display-name "project" value, so there is nothing for a real
+// implementation here to do.
+func (stubStageStore) ProjectKeysByDisplayName(context.Context, string) ([]string, error) {
+	return nil, errStageStoreNotImplemented
 }
 
 var _ api.StatsStore = stubStageStore{}

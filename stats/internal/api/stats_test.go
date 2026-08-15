@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,6 +131,23 @@ type statsFake struct {
 	lastQuery         store.Query
 	lastProject       *string
 	lastModel         *string
+
+	// projectKeysByDisplayName and projectKeysByDisplayNameCalls give
+	// this file's own tests the same control over task 3's project
+	// display-name resolution that fakeStore's identically-shaped fields
+	// give changes_test.go -- see fakeStore.ProjectKeysByDisplayName's own
+	// doc comment.
+	projectKeysByDisplayName      map[string][]string
+	projectKeysByDisplayNameErr   error
+	projectKeysByDisplayNameCalls []string
+}
+
+func (f *statsFake) ProjectKeysByDisplayName(_ context.Context, displayName string) ([]string, error) {
+	f.projectKeysByDisplayNameCalls = append(f.projectKeysByDisplayNameCalls, displayName)
+	if f.projectKeysByDisplayNameErr != nil {
+		return nil, f.projectKeysByDisplayNameErr
+	}
+	return f.projectKeysByDisplayName[displayName], nil
 }
 
 func (f *statsFake) LiveStateBoard(_ context.Context, _ store.Period, p *string) ([]store.LiveStateRow, error) {
@@ -655,6 +674,129 @@ func TestNoProjectFilterAggregatesAcrossProjects(t *testing.T) {
 	}
 	if sts.lastProject != nil {
 		t.Fatalf("store received project = %v, want nil", sts.lastProject)
+	}
+}
+
+// TestStatsViewAcceptsProjectDisplayName asserts a "project" value that is
+// a display name matching exactly one project resolves to that project's
+// key before it reaches the store -- specs/myflow-stats-views/spec.md's
+// "A display name is filtered on".
+func TestStatsViewAcceptsProjectDisplayName(t *testing.T) {
+	sts := &statsFake{projectKeysByDisplayName: map[string][]string{"agents": {"agents-a740d89c"}}}
+	ts := newStatsTestServer(t, sts)
+
+	status, env, body := getStats(t, ts, periodPath("cost-per-change")+"&project=agents")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if env.Project == nil || *env.Project != "agents-a740d89c" {
+		t.Fatalf("response project = %v, want resolved key %q", env.Project, "agents-a740d89c")
+	}
+	if sts.lastProject == nil || *sts.lastProject != "agents-a740d89c" {
+		t.Fatalf("store received project = %v, want resolved key %q", sts.lastProject, "agents-a740d89c")
+	}
+}
+
+// TestStatsViewExactProjectKeyRunsNoResolutionQuery asserts a "project"
+// value already carrying the derivation suffix is used unchanged, with no
+// call to ProjectKeysByDisplayName at all -- specs/myflow-stats-views/spec.md's
+// "A full key is filtered on": "it is used as-is, with no resolution
+// attempted".
+func TestStatsViewExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
+	sts := &statsFake{}
+	ts := newStatsTestServer(t, sts)
+
+	status, env, body := getStats(t, ts, periodPath("cost-per-change")+"&project=agents-a740d89c")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if env.Project == nil || *env.Project != "agents-a740d89c" {
+		t.Fatalf("response project = %v, want %q unchanged", env.Project, "agents-a740d89c")
+	}
+	if len(sts.projectKeysByDisplayNameCalls) != 0 {
+		t.Fatalf("ProjectKeysByDisplayName called with %v, want no calls for an exact key", sts.projectKeysByDisplayNameCalls)
+	}
+}
+
+// TestStatsViewAmbiguousProjectDisplayNameReturns400 asserts a "project"
+// value matching more than one project's display name is rejected with
+// 400, naming the ambiguity and both candidate keys, rather than silently
+// filtering by one of them.
+func TestStatsViewAmbiguousProjectDisplayNameReturns400(t *testing.T) {
+	sts := &statsFake{projectKeysByDisplayName: map[string][]string{
+		"agents": {"agents-a740d89c", "agents-7c1f238a"},
+	}}
+	ts := newStatsTestServer(t, sts)
+
+	status, _, body := getStats(t, ts, periodPath("cost-per-change")+"&project=agents")
+	if status != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400, body %s", status, body)
+	}
+	if !strings.Contains(string(body), "agents-a740d89c") || !strings.Contains(string(body), "agents-7c1f238a") {
+		t.Fatalf("expected both candidate keys named in the body, got %q", body)
+	}
+}
+
+// TestStatsViewProjectResolutionStoreFailureReturns500 asserts that a
+// store failure inside ProjectKeysByDisplayName -- as opposed to a
+// genuine client mistake like an ambiguous display name -- is reported as
+// a logged 500 with a generic body, exactly like any other store failure
+// this handler reports, rather than the 400 an ordinary parse failure
+// gets. Before the fix, resolveProjectParam's propagated store error was
+// indistinguishable from a parse error at this call site and was reported
+// as 400 with the store's own internal text leaking into the body
+// (post-commit review round 2, F5).
+func TestStatsViewProjectResolutionStoreFailureReturns500(t *testing.T) {
+	sts := &statsFake{
+		projectKeysByDisplayNameErr: errors.New(`store: project keys by display name "agents": connection refused`),
+	}
+	ts := newStatsTestServer(t, sts)
+
+	status, _, body := getStats(t, ts, periodPath("cost-per-change")+"&project=agents")
+	if status != http.StatusInternalServerError {
+		t.Fatalf("status %d, want 500, body %s", status, body)
+	}
+	if strings.Contains(string(body), "connection refused") {
+		t.Fatalf("response body leaked internal store text: %s", body)
+	}
+}
+
+// TestListModelsProjectResolutionStoreFailureReturns500 is
+// TestStatsViewProjectResolutionStoreFailureReturns500's counterpart for
+// GET /api/v1/models, which resolves its own "project" parameter through
+// the same parsePeriodAndProject call (post-commit review round 2, F5).
+func TestListModelsProjectResolutionStoreFailureReturns500(t *testing.T) {
+	sts := &statsFake{
+		projectKeysByDisplayNameErr: errors.New(`store: project keys by display name "agents": connection refused`),
+	}
+	ts := newStatsTestServer(t, sts)
+
+	status, body := doGetRaw(t, ts, fmt.Sprintf("/api/v1/models?from=%s&to=%s&project=agents", fromParam, toParam))
+	if status != http.StatusInternalServerError {
+		t.Fatalf("status %d, want 500, body %s", status, body)
+	}
+	if strings.Contains(body, "connection refused") {
+		t.Fatalf("response body leaked internal store text: %s", body)
+	}
+}
+
+// TestStatsViewUnknownProjectPassesThroughUnchanged asserts a "project"
+// value matching no project's display name at all is passed through
+// unchanged, yielding no rows -- exactly as an unknown key already does --
+// rather than being treated as an error.
+func TestStatsViewUnknownProjectPassesThroughUnchanged(t *testing.T) {
+	sts := &statsFake{}
+	ts := newStatsTestServer(t, sts)
+
+	status, env, body := getStats(t, ts, periodPath("cost-per-change")+"&project=no-such-project")
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	if env.Project == nil || *env.Project != "no-such-project" {
+		t.Fatalf("response project = %v, want %q unchanged", env.Project, "no-such-project")
+	}
+	if sts.lastProject == nil || *sts.lastProject != "no-such-project" {
+		t.Fatalf("store received project = %v, want %q unchanged", sts.lastProject, "no-such-project")
 	}
 }
 

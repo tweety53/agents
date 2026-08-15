@@ -9,6 +9,7 @@
 // never invents a second source of truth for "which changes exist".
 import { useEffect, useState, type ChangeEvent } from "react";
 import { listChanges, type ChangeDTO } from "../api";
+import { projectLabel } from "../lib/projectLabel";
 
 export interface ChangeVariableProps {
   project: string | undefined;
@@ -82,8 +83,12 @@ export function ChangeVariable({ project, onSelect }: ChangeVariableProps) {
           Select a change…
         </option>
         {changes.map((c, index) => (
+          // The option label names the project (kan-183) rather than
+          // keying it; navigation itself still uses the full key --
+          // handleChange and runDetailHash, above, read c.projectKey
+          // unchanged, so the route's identity is untouched by this label.
           <option key={`${c.projectKey}/${c.name}`} value={index}>
-            {c.projectKey}/{c.name}
+            {projectLabel(c.projectKey)}/{c.name}
           </option>
         ))}
       </select>

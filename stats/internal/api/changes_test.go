@@ -78,6 +78,26 @@ type fakeStore struct {
 	// (TestProjectFilterRestrictsResults / TestNoProjectFilterAggregatesAcrossProjects)
 	// without needing real per-project filtering logic in this fake.
 	lastStatsProject *string
+
+	// --- project display-name resolution (task 3's resolveProjectParam,
+	// stats.go) --- projectKeysByDisplayName maps a display name to the
+	// project keys that resolve to it, so a test can seed a unique match,
+	// an ambiguous one (two-plus keys), or leave a name absent for the
+	// "unknown project" case. projectKeysByDisplayNameCalls records every
+	// display name actually queried, so a test can assert that an exact
+	// key -- one already carrying the derivation suffix -- never reaches
+	// this method at all (spec: "no resolution query is run").
+	projectKeysByDisplayName      map[string][]string
+	projectKeysByDisplayNameErr   error
+	projectKeysByDisplayNameCalls []string
+}
+
+func (f *fakeStore) ProjectKeysByDisplayName(_ context.Context, displayName string) ([]string, error) {
+	f.projectKeysByDisplayNameCalls = append(f.projectKeysByDisplayNameCalls, displayName)
+	if f.projectKeysByDisplayNameErr != nil {
+		return nil, f.projectKeysByDisplayNameErr
+	}
+	return f.projectKeysByDisplayName[displayName], nil
 }
 
 func newFakeStore() *fakeStore {
@@ -421,6 +441,116 @@ func TestListChangesFiltersByProjectAndState(t *testing.T) {
 		want, ok := wantFields[f.Field]
 		if !ok || f.Value != want {
 			t.Fatalf("unexpected filter %+v", f)
+		}
+	}
+}
+
+// TestListChangesAcceptsProjectDisplayName asserts the changes list's own
+// "project" filter resolves a display name matching exactly one project to
+// that project's key before the store ever sees the filter -- the same
+// resolution stats views get, applied here at the list endpoint's own
+// parse site (specs/myflow-stats-views/spec.md, "A display name is
+// filtered on").
+func TestListChangesAcceptsProjectDisplayName(t *testing.T) {
+	fs := newFakeStore()
+	fs.projectKeysByDisplayName = map[string][]string{"agents": {"agents-a740d89c"}}
+	all := []store.Change{
+		{ProjectKey: "agents-a740d89c", Name: "kan-1", State: store.StateStarted},
+		{ProjectKey: "other-7c1f238a", Name: "kan-2", State: store.StateStarted},
+	}
+	fs.filterFunc = func(q store.Query) []store.Change {
+		var out []store.Change
+		for _, c := range all {
+			if matchesFilters(c, q.Filters) {
+				out = append(out, c)
+			}
+		}
+		return out
+	}
+
+	ts := newTestServer(t, fs)
+	status, body := doGet(t, ts, "/api/v1/changes?project=agents")
+	if status != http.StatusOK {
+		t.Fatalf("got status %d, want 200, body=%s", status, body)
+	}
+
+	var resp listChangesResponseTest
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode response: %v; body=%s", err, body)
+	}
+	if len(resp.Changes) != 1 || resp.Changes[0].ProjectKey != "agents-a740d89c" {
+		t.Fatalf("expected exactly the change from agents-a740d89c, got %+v", resp.Changes)
+	}
+
+	for _, f := range fs.lastQuery.Filters {
+		if f.Field == "project" && f.Value != "agents-a740d89c" {
+			t.Fatalf("store received project filter %v, want resolved key %q", f.Value, "agents-a740d89c")
+		}
+	}
+}
+
+// TestListChangesRejectsAmbiguousProjectDisplayName asserts a display name
+// matching more than one project is refused with 400, naming the
+// ambiguity and listing the candidate keys, rather than silently filtering
+// on one of them.
+func TestListChangesRejectsAmbiguousProjectDisplayName(t *testing.T) {
+	fs := newFakeStore()
+	fs.projectKeysByDisplayName = map[string][]string{
+		"agents": {"agents-a740d89c", "agents-7c1f238a"},
+	}
+	ts := newTestServer(t, fs)
+
+	status, body := doGet(t, ts, "/api/v1/changes?project=agents")
+	if status != http.StatusBadRequest {
+		t.Fatalf("got status %d, want 400, body=%s", status, body)
+	}
+	if !strings.Contains(body, "agents-a740d89c") || !strings.Contains(body, "agents-7c1f238a") {
+		t.Fatalf("expected both candidate keys named in the body, got %q", body)
+	}
+}
+
+// TestListChangesProjectResolutionStoreFailureReturns500 asserts that a
+// store failure inside ProjectKeysByDisplayName -- as opposed to a genuine
+// client mistake like an ambiguous display name -- is reported as a
+// logged 500 with a generic body, exactly like any other store failure in
+// this handler, rather than the 400 an ordinary parse failure gets. Before
+// the fix, resolveProjectParam's propagated store error was
+// indistinguishable from a parse error at this call site and was reported
+// as 400 with the store's own internal text leaking into the body
+// (post-commit review round 2, F4).
+func TestListChangesProjectResolutionStoreFailureReturns500(t *testing.T) {
+	fs := newFakeStore()
+	fs.projectKeysByDisplayNameErr = errors.New("store: project keys by display name \"agents\": connection refused")
+	ts := newTestServer(t, fs)
+
+	status, body := doGet(t, ts, "/api/v1/changes?project=agents")
+	if status != http.StatusInternalServerError {
+		t.Fatalf("got status %d, want 500, body=%s", status, body)
+	}
+	if strings.Contains(body, "connection refused") {
+		t.Fatalf("response body leaked internal store text: %s", body)
+	}
+}
+
+// TestListChangesExactProjectKeyRunsNoResolutionQuery asserts a "project"
+// value already carrying the derivation suffix is used unchanged and never
+// reaches ProjectKeysByDisplayName at all -- specs/myflow-stats-views/spec.md's
+// "A full key is filtered on": "it is used as-is, with no resolution
+// attempted".
+func TestListChangesExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
+	fs := newFakeStore()
+	ts := newTestServer(t, fs)
+
+	status, body := doGet(t, ts, "/api/v1/changes?project=agents-a740d89c")
+	if status != http.StatusOK {
+		t.Fatalf("got status %d, want 200, body=%s", status, body)
+	}
+	if len(fs.projectKeysByDisplayNameCalls) != 0 {
+		t.Fatalf("ProjectKeysByDisplayName called with %v, want no calls for an exact key", fs.projectKeysByDisplayNameCalls)
+	}
+	for _, f := range fs.lastQuery.Filters {
+		if f.Field == "project" && f.Value != "agents-a740d89c" {
+			t.Fatalf("store received project filter %v, want unchanged %q", f.Value, "agents-a740d89c")
 		}
 	}
 }
