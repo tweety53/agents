@@ -225,7 +225,7 @@ run_guard "$REPO"
 assert_silent "a project with no .myflow/project.md passes silently"
 
 # 1b. A project.md with no `## workspace isolation` section. This is the
-#     overwhelmingly common case and includes the agents repository itself.
+#     overwhelmingly common case across projects myflow is installed into.
 new_project
 write_config "# fixture
 
@@ -239,11 +239,13 @@ run_guard "$REPO"
 assert_silent "a project declaring no isolation section passes silently"
 
 # 1c. The agents repository itself, read from its real path rather than from a
-#     fixture. It declares no section, and this guard is about to be added to
-#     its own lint list — a guard that failed on the repository it ships in
-#     would be reverted rather than fixed.
+#     fixture. It declares its own `## workspace isolation` section, and this
+#     guard is on its own lint list — a guard that failed on the repository it
+#     ships in would be reverted rather than fixed. assert_silent checks a
+#     single-line verdict, not empty output, so a well-formed section still
+#     passes: it reports ISOLATION-OK on one line.
 run_guard "$REPO_ROOT"
-assert_silent "the agents repository passes silently"
+assert_silent "the agents repository's own section validates cleanly"
 
 # 1d. Invoked with no argument at all, which is how the `## lint` list runs it.
 #     It resolves its own repository root, so a lint step is one word long.

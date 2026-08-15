@@ -52,6 +52,13 @@ failure, see `stats/README.md`'s "Running the daemon at login" section and its l
 running unattended during this change's development harvested 2,961 transcript offsets into the
 database before anyone noticed.
 
+**The UI-test stack**, for ad-hoc testing from the main checkout rather than from an apply worktree:
+`make ui-test-up` and `make ui-test-down` (`stats/Makefile`) bring a second, disposable `myflowd` up
+on port 4174 against `myflow_uitest`, seeded with a fixed fixture, and tear it down again. Point a
+session at it with `MYFLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated by the
+`## workspace isolation` section below — that section covers apply worktrees, and this stack is a
+single, main-checkout-only fixture instead.
+
 ## test
 
 ```bash
@@ -68,6 +75,7 @@ scripts/test-gather-self-review-context.sh
 scripts/test-check-task-build-green.sh
 scripts/test-check-task-commit-fields.sh
 scripts/test-check-workspace-isolation.sh
+scripts/test-workspace.sh
 scripts/test-check-contract-budget.sh
 scripts/test-check-vocabulary.sh
 scripts/test-check-panel-diff-size.sh
@@ -75,6 +83,7 @@ scripts/test-plan-dispatch-bundles.sh
 scripts/test-check-panel-reproducers.sh
 scripts/test-run-reproducer.sh
 scripts/test-check-markdown-integrity.sh
+scripts/test-check-uitest-overrides.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
@@ -98,6 +107,7 @@ scripts/check-references.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
 scripts/check-workspace-isolation.sh
+scripts/check-uitest-overrides.sh
 scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
@@ -134,9 +144,9 @@ needs a change in flight.
 
 **Its place in this list is a self-check on this repository, not how it covers the projects myflow
 is installed into** — and conflating the two made a permanently vacuous lint step read as
-enforcement. This repository declares no `## workspace isolation` section, so the run here passes
-silently and has done since the guard was added; a green lint run therefore says nothing whatever
-about any project's declaration. What covers those is `/myflow-do`, which runs this guard against
+enforcement. The run here checks this repository's own `## workspace isolation` section below; a
+green lint run therefore says nothing whatever about any other project's declaration. What covers
+those is `/myflow-do`, which runs this guard against
 each apply worktree before it resolves the section, per section 7 of `skills/myflow-do/SKILL.md` —
 so a declaration is validated where it is read, in whichever repository holds it. The lint entry
 stays because this repository's own configuration is one more configuration worth checking, and
@@ -154,7 +164,7 @@ need a change in flight and a worktree passed in, so they are covered by their o
 `## test` instead.
 
 **Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
-`ISOLATION-OK` and the fact that this repository declares no section; its own header carries its
+`ISOLATION-OK` and validates this repository's own declared section; its own header carries its
 full exit-code contract: 0 every project checked is well formed, 1 violations found, 2 it cannot
 answer at all. `check-plan-provenance.sh` reports
 "all provenance stated" — see the script's own header for the full exit-code contract: 0
@@ -189,3 +199,25 @@ answer, not a recorded "nothing to stop" that stopped being true when `stats/` l
 ## jira
 
 `KAN`
+
+## workspace isolation
+
+| Resource | Variable | Default | In a workspace |
+|----------|----------|---------|----------------|
+| `database` | `MYFLOWD_DSN` | `postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable` | `postgres://myflow:myflow@localhost:5433/myflow_<id_underscored>?sslmode=disable` |
+| `port` | `MYFLOWD_PORT` | `4173` | `+<offset>` |
+| `url` | `MYFLOW_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:<value:MYFLOWD_PORT>` |
+
+| Command | Runs |
+|---------|------|
+| `create` | `scripts/workspace.sh create <id>` |
+| `remove` | `scripts/workspace.sh remove <id>` |
+| `survivors` | `scripts/workspace.sh survivors <id>` |
+
+**`MYFLOW_STATE_DIR` and `MYFLOW_TRANSCRIPTS_DIR` are deliberately not isolated.** The `Resource`
+column above is a closed vocabulary — `database`, `bucket`, `cache index`, `port`, `url`, and no
+other word — and a directory path is none of those five, so neither variable gets a row; this is a
+decision, not an oversight. The consequence is bounded: every worktree's `myflowd` still harvests
+from the one real transcripts root, but each writes the result into its *own* isolated database from
+the table above, so the harvested data ends up duplicated across worktrees rather than shared through
+one database. Neither variable crosses the boundary this section exists to protect.

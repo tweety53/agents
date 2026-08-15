@@ -13,11 +13,10 @@
 # section 7 of skills/myflow-do/SKILL.md — and that is the call that reaches
 # every project myflow is installed into, because the read happens in the
 # project rather than here. This repository ALSO lists it in its own `## lint`,
-# which is a self-check on this repository's configuration and nothing more:
-# this repository declares no section, so that run passes silently every time,
-# and a green lint run says nothing about any other project. Reading the lint
-# entry as the enforcement was exactly the shape of false pass every branch
-# below is written against, one level up.
+# which is a self-check on this repository's own `## workspace isolation`
+# section and nothing more: a green lint run says nothing about any other
+# project. Reading the lint entry as the enforcement was exactly the shape of
+# false pass every branch below is written against, one level up.
 #
 # Prints one violation line per finding, then ONE verdict line per project:
 #   ISOLATION-OK:      <path> — <what was checked>

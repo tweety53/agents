@@ -37,6 +37,75 @@ Tests that need the compose stack's PostgreSQL skip themselves with a clear
 message when the stack is not running, so `go test ./...` is always safe to
 run without Docker.
 
+**This stack is not needed for the Go test suite.** `go test ./...` already
+gets its own isolation: every test that touches Postgres creates its own
+database (see `internal/store/testsupport_test.go`), used once and never
+shared with the live database, another test, or the UI-test stack below.
+Nobody running `go test` needs to bring up the UI-test stack first.
+
+## The UI-test stack
+
+For testing the application's browser interface by hand, from the main
+checkout, against real data that is not the operator's own — separate from
+both the live daemon (port 4173, database `myflow`) and any `/myflow-do`
+worktree's own isolated stack (see `.myflow/project.md`'s
+`## workspace isolation`).
+
+```bash
+cd stats
+make ui-test-up
+```
+
+This drops and recreates the `myflow_uitest` database in the same
+`myflow-postgres` container the live stack uses (host port 5433), starts
+`myflowd` on port **4174** against it, waits for the daemon to answer, and
+seeds it with a fixed fixture — two projects, changes spanning `STARTED`,
+`IN_PROGRESS` and `FINISHED`, and stage runs carrying token usage, so the
+views render something rather than an empty interface.
+
+**Every `make ui-test-up` resets the stack.** The database is dropped and
+recreated from scratch each time, never reused from a previous session —
+that is what keeps its contents known at the start of every session,
+rather than accumulating the way the live database did.
+
+Point a session or a browser tab at it:
+
+```bash
+export MYFLOW_ADDR=http://127.0.0.1:4174
+```
+
+`MYFLOW_ADDR` overrides the `myflow` CLI's default daemon address (see "A
+single variable targets the test stack" in this change's spec); opening
+`http://127.0.0.1:4174` directly in a browser reaches the same daemon's
+SPA. The live daemon on 4173 and the live database are untouched by
+either bring-up or by anything written during the test session.
+
+**`export` persists for the rest of that shell session, not just the next
+command.** Once exported, *every* subsequent `myflow state`/`myflow stage`
+invocation in that shell — including ones run much later, unrelated to UI
+testing — silently targets the test stack on 4174 instead of the live
+daemon on 4173, until the shell exits or the variable is unset. No
+`/myflow-*` skill passes `-addr` explicitly, so nothing overrides this, and
+a successful `state set` exits 0 with no warning either way — there is no
+signal that a write landed on the test stack instead of the live one. To
+avoid that:
+
+- Prefer scoping it to one command instead of exporting it:
+  `MYFLOW_ADDR=http://127.0.0.1:4174 myflow state get <name>`, or
+- Run the UI-test session in a separate subshell (`bash`, then `export`
+  inside it, then `exit` when done), or
+- If you do `export` it in your main shell, `unset MYFLOW_ADDR` as soon as
+  you are done testing, before running any real `/myflow-*` command.
+
+Tear it down when done:
+
+```bash
+make ui-test-down
+```
+
+This stops the daemon and drops `myflow_uitest`, both idempotently — a
+second `make ui-test-down` is not an error.
+
 ## Pricing
 
 `myflowd` seeds the published Anthropic per-model rates (`internal/store
