@@ -1,0 +1,55 @@
+-- 0009_stage_run_open_session_token.sql: indexes the supersede UPDATE's
+-- own predicate (KAN-185, task 3 -- the operator's answer to the review
+-- panel's finding F3, added after the original design; see design.md's
+-- Migration Plan).
+--
+-- Task 2's insertStageRunAndSupersede (stageruns.go) closes every other
+-- still-open run of a begin mark's session_token in the same transaction
+-- as the insert:
+--
+--   UPDATE stage_runs
+--   SET ended_at = $2, outcome = 'superseded'
+--   WHERE session_token = $1
+--     AND ended_at IS NULL
+--     AND id <> $3
+--     AND started_at <= $2
+--
+-- Without this index, that UPDATE reaches its rows through
+-- stage_runs_ended_at (0004_query_indexes.sql), a plain, non-partial
+-- index on ended_at alone -- it narrows to every open run system-wide and
+-- then filters each one by session_token, id and started_at in turn. The
+-- panel measured that scan at 0.47ms with 200 concurrent open runs
+-- against a 500,200-row table (design.md); negligible at this tool's real
+-- scale, but this is the `stage begin` path, required never to block or
+-- delay the stage it marks (skills/myflow-contracts/pipeline.md), and its
+-- cost grows with the system-wide open-run count rather than with
+-- anything the marking session controls.
+--
+-- stage_runs_unresolved_session_token (0008_stage_run_session_token.sql)
+-- cannot serve this query: it is partial on session_token IS NOT NULL AND
+-- session_id IS NULL, a predicate the supersede does not carry -- the
+-- supersede must find an open run regardless of whether its session_id
+-- has already been bound.
+--
+-- The partial predicate here, ended_at IS NULL, is exactly the row set
+-- the supersede ever scans: a run that has already closed -- superseded,
+-- abandoned, or ended normally -- is never a supersede candidate again,
+-- so indexing a closed row would only cost writes without ever serving a
+-- read. session_token is left out of the WHERE clause on purpose: it is
+-- the column being equality-matched, not the filter, and belongs in the
+-- index's key list instead.
+--
+-- Building this index is not free of cost to a running daemon, and this
+-- migration does not claim otherwise (fix round 4, F10): applyMigration
+-- (migrations.go) wraps every migration in one transaction, and a plain
+-- CREATE INDEX inside a transaction holds a write-blocking lock on
+-- stage_runs until that transaction commits. CREATE INDEX CONCURRENTLY is
+-- not an option here -- Postgres refuses it inside a transaction block,
+-- so the runner's own transactional design forecloses it, not a choice
+-- this migration declined to make. The lock is therefore held for the
+-- length of the index build, proportional to the table: trivial at this
+-- tool's scale (a few hundred rows in the live store), not trivial for a
+-- large one, and a marking session that lands inside that window waits
+-- rather than fails.
+CREATE INDEX stage_runs_open_session_token ON stage_runs (session_token)
+  WHERE ended_at IS NULL;

@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -296,8 +299,8 @@ func TestBindSessionIsOneWay(t *testing.T) {
 // token is bound at write time, doing no resolution work at all". Once a
 // token has been bound to a session (by an earlier BindSession call, the
 // harvester's own job), a later BeginStage call carrying that same token
-// gets its session_id set immediately, from insertStageRun's own
-// COALESCE, and never appears in UnresolvedSessionTokens at all.
+// gets its session_id set immediately, from insertStageRunAndSupersede's
+// own COALESCE, and never appears in UnresolvedSessionTokens at all.
 func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -335,6 +338,199 @@ func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
 	}
 }
 
+// TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession is
+// design.md's begin-supersedes-open-runs decision, pinned against the
+// store: a begin mark closes every still-open run of its own session
+// token that started no later than it, recording outcome "superseded"
+// and an end instant equal to the new run's own start -- the incident
+// itself, reduced: an orphan stage of one change (kan-175) left open by
+// a dropped end mark, and the live stage of another change (kan-184)
+// that the same session moved on to.
+func TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-supersede-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-175")
+	seedChange(t, st, projectKey, "kan-184")
+
+	const token = "mf-supersede-token"
+
+	a := baseBeginInput(projectKey, "kan-175", "/myflow-fast", "finish.verify-merge")
+	a.SessionToken = ptr(token)
+	a.StartedAt = time.Date(2026, 8, 16, 10, 11, 1, 0, time.UTC)
+	runA, err := st.BeginStage(ctx, a)
+	if err != nil {
+		t.Fatalf("BeginStage (A): %v", err)
+	}
+
+	b := baseBeginInput(projectKey, "kan-184", "/myflow-do", "SDD + TDD per task")
+	b.SessionToken = ptr(token)
+	b.StartedAt = a.StartedAt.Add(2 * time.Hour)
+	runB, err := st.BeginStage(ctx, b)
+	if err != nil {
+		t.Fatalf("BeginStage (B): %v", err)
+	}
+
+	gotA, err := st.GetStageRun(ctx, runA.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (A): %v", err)
+	}
+	if gotA.Outcome == nil || *gotA.Outcome != "superseded" {
+		t.Errorf("run A outcome = %v, want superseded", gotA.Outcome)
+	}
+	if gotA.EndedAt == nil || !gotA.EndedAt.Equal(b.StartedAt) {
+		t.Errorf("run A EndedAt = %v, want %v (B's started_at)", gotA.EndedAt, b.StartedAt)
+	}
+
+	gotB, err := st.GetStageRun(ctx, runB.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (B): %v", err)
+	}
+	if gotB.EndedAt != nil {
+		t.Errorf("run B EndedAt = %v, want nil (still open)", gotB.EndedAt)
+	}
+	if gotB.Outcome != nil {
+		t.Errorf("run B Outcome = %v, want nil (still open)", gotB.Outcome)
+	}
+}
+
+// TestBeginStageLeavesAnOpenRunThatStartedLaterAlone is
+// design.md's supersede-guarded-on-start-order decision: a journalled
+// begin mark replayed later carries its original, older start instant,
+// so it must not close a run that genuinely started after it -- doing so
+// would close the live stage the session is actually in, the same class
+// of damage this change exists to stop.
+func TestBeginStageLeavesAnOpenRunThatStartedLaterAlone(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-replay-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-replay-token"
+
+	live := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	live.SessionToken = ptr(token)
+	live.StartedAt = time.Date(2026, 8, 16, 11, 0, 0, 0, time.UTC)
+	liveRun, err := st.BeginStage(ctx, live)
+	if err != nil {
+		t.Fatalf("BeginStage (live): %v", err)
+	}
+
+	replay := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	replay.SessionToken = ptr(token)
+	replay.StartedAt = time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC)
+	if _, err := st.BeginStage(ctx, replay); err != nil {
+		t.Fatalf("BeginStage (replay): %v", err)
+	}
+
+	got, err := st.GetStageRun(ctx, liveRun.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (live): %v", err)
+	}
+	if got.EndedAt != nil || got.Outcome != nil {
+		t.Errorf("live run closed by an older replayed begin: EndedAt=%v Outcome=%v, want both nil", got.EndedAt, got.Outcome)
+	}
+}
+
+// TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant pins the
+// supersede UPDATE's `started_at <= $2` guard at its equal-instant
+// boundary -- the shape a real journal replay actually carries: the CLI
+// captures StartedAt once, before the RPC attempt (cmd/myflow/stage.go's
+// runStageBegin), and internal/reconcile.go's applyStageMarkEntry replays
+// that same original instant unchanged, so the replay's StartedAt equals
+// the attempt it replays rather than falling strictly before it (see
+// attribute.go's bestWindow doc comment for the same correction).
+// TestBeginStageLeavesAnOpenRunThatStartedLaterAlone already covers the
+// strictly-earlier replay start; this covers the equal one.
+func TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-same-instant-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token = "mf-same-instant-token"
+	startedAt := time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC)
+
+	first := baseBeginInput(projectKey, "kan-1", "/myflow-do", "first attempt")
+	first.SessionToken = ptr(token)
+	first.StartedAt = startedAt
+	firstRun, err := st.BeginStage(ctx, first)
+	if err != nil {
+		t.Fatalf("BeginStage (first): %v", err)
+	}
+
+	replay := baseBeginInput(projectKey, "kan-1", "/myflow-do", "replayed begin")
+	replay.SessionToken = ptr(token)
+	replay.StartedAt = startedAt
+	if _, err := st.BeginStage(ctx, replay); err != nil {
+		t.Fatalf("BeginStage (replay): %v", err)
+	}
+
+	got, err := st.GetStageRun(ctx, firstRun.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (first): %v", err)
+	}
+	if got.Outcome == nil || *got.Outcome != "superseded" {
+		t.Errorf("first run Outcome = %v, want superseded", got.Outcome)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(startedAt) {
+		t.Errorf("first run EndedAt = %v, want %v (the shared started_at)", got.EndedAt, startedAt)
+	}
+}
+
+// TestBeginStageWithNoSessionTokenSupersedesNothing is
+// design.md's supersede-keyed-on-token decision, pinned in both
+// directions: an open run recorded with no session token stays open
+// when another run begins, and a begin mark carrying no session token
+// closes nothing -- a NULL token matches no row through SQL's own `=`,
+// so two NULL tokens never appear to match each other.
+func TestBeginStageWithNoSessionTokenSupersedesNothing(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-notoken-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	noToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "no token open run")
+	noToken.SessionToken = nil
+	noToken.StartedAt = time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC)
+	noTokenRun, err := st.BeginStage(ctx, noToken)
+	if err != nil {
+		t.Fatalf("BeginStage (no token): %v", err)
+	}
+
+	// A begin carrying a real token must not close the no-token run.
+	withToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "with token")
+	withToken.SessionToken = ptr("mf-notoken-other")
+	withToken.StartedAt = noToken.StartedAt.Add(time.Hour)
+	if _, err := st.BeginStage(ctx, withToken); err != nil {
+		t.Fatalf("BeginStage (with token): %v", err)
+	}
+
+	got, err := st.GetStageRun(ctx, noTokenRun.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (no token run): %v", err)
+	}
+	if got.EndedAt != nil || got.Outcome != nil {
+		t.Errorf("no-token run was closed by a begin carrying a token: EndedAt=%v Outcome=%v, want both nil", got.EndedAt, got.Outcome)
+	}
+
+	// A begin carrying no token itself must close nothing either.
+	anotherNoToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "another no-token begin")
+	anotherNoToken.SessionToken = nil
+	anotherNoToken.StartedAt = withToken.StartedAt.Add(time.Hour)
+	if _, err := st.BeginStage(ctx, anotherNoToken); err != nil {
+		t.Fatalf("BeginStage (another no token): %v", err)
+	}
+
+	gotAgain, err := st.GetStageRun(ctx, noTokenRun.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun (no token run, again): %v", err)
+	}
+	if gotAgain.EndedAt != nil || gotAgain.Outcome != nil {
+		t.Errorf("no-token run was closed by a begin carrying no token: EndedAt=%v Outcome=%v, want both nil", gotAgain.EndedAt, gotAgain.Outcome)
+	}
+}
+
 func TestBeginStageUnknownChangeIsNotFound(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -363,7 +559,7 @@ func TestConcurrentBeginStageDoesNotCollide(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-concurrent-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	const writers = 20
+	const writers = 30
 	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
 
 	var wg sync.WaitGroup
@@ -400,6 +596,110 @@ func TestConcurrentBeginStageDoesNotCollide(t *testing.T) {
 	}
 	if len(seen) != writers {
 		t.Errorf("got %d distinct attempt numbers, want %d", len(seen), writers)
+	}
+}
+
+// TestConcurrentBeginStageForOneSessionLeavesOneOpenRun is fix round 4's
+// F8, demonstrated: design.md's supersede-serialised-per-session decision
+// exists because atomicity is not serialisability. Every writer here
+// shares the *same* session token and the *same* StartedAt -- the shape
+// the reconciler's replay actually produces (a live begin racing a
+// replayed copy of the identical journalled request) -- rather than
+// distinct, increasing StartedAt values: with a shared StartedAt, the
+// supersede UPDATE's own `started_at <= $2` guard is satisfied regardless
+// of which writer's transaction happens to commit first, so exactly one
+// open run is the only possible correct outcome no matter how the
+// goroutines interleave. Distinct StartedAt values would not give that
+// guarantee -- the guard is deliberately asymmetric (an older-started
+// replay must never supersede a run that genuinely started later), so a
+// begin that commits after another one with a *later* StartedAt already
+// went open would leave both open, which is correct per
+// supersede-guarded-on-start-order and not what this test is about.
+//
+// Each writer's own (command, stage) is distinct, though -- unlike
+// TestConcurrentBeginStageDoesNotCollide, which shares one triple on
+// purpose to exercise attempt allocation. Sharing a triple here would let
+// BeginStage's own attempt-collision retry loop (stageRunsAttemptConstraint)
+// absorb most of the contention before it ever reaches the supersede at
+// all: measured against the pre-fix code, 150 writers sharing one triple
+// left exactly one run open on every run, while 30 writers each on their
+// own triple reliably left several open, because nothing but the
+// supersede itself was left to serialise them.
+//
+// Without the transaction's advisory lock, two writers whose inserts
+// happen to overlap in time under READ COMMITTED can each fail to see
+// the other's still-uncommitted row when their own supersede UPDATE
+// runs, so neither closes the other and both stay open -- this is what
+// this test fails on before the lock exists.
+func TestConcurrentBeginStageForOneSessionLeavesOneOpenRun(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-concurrent-supersede-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const writers = 30
+	const token = "mf-concurrent-supersede-token"
+	startedAt := time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
+
+	var wg sync.WaitGroup
+	ids := make([]int64, writers)
+	errs := make([]error, writers)
+	// start is closed once every writer has reached its own starting
+	// block, so all `writers` calls actually race the database at once
+	// instead of trickling in staggered by ordinary goroutine scheduling
+	// -- without this, the transactions rarely overlap enough on a fast
+	// local connection to exercise the race at all.
+	var ready sync.WaitGroup
+	ready.Add(writers)
+	start := make(chan struct{})
+
+	for i := range writers {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			ready.Done()
+			<-start
+
+			callCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+
+			in := baseBeginInput(projectKey, "kan-1", "/myflow-do", fmt.Sprintf("stage-%d", i))
+			in.SessionToken = ptr(token)
+			in.StartedAt = startedAt
+			run, err := st.BeginStage(callCtx, in)
+			errs[i] = err
+			if err == nil {
+				ids[i] = run.ID
+			}
+		}(i)
+	}
+	ready.Wait()
+	close(start)
+	wg.Wait()
+
+	openCount, supersededCount := 0, 0
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("writer %d: BeginStage: %v", i, err)
+		}
+		got, err := st.GetStageRun(ctx, ids[i])
+		if err != nil {
+			t.Fatalf("GetStageRun %d: %v", ids[i], err)
+		}
+		switch {
+		case got.EndedAt == nil && got.Outcome == nil:
+			openCount++
+		case got.Outcome != nil && *got.Outcome == "superseded" && got.EndedAt != nil && got.EndedAt.Equal(startedAt):
+			supersededCount++
+		default:
+			t.Errorf("run %d in unexpected state: EndedAt=%v Outcome=%v", ids[i], got.EndedAt, got.Outcome)
+		}
+	}
+	if openCount != 1 {
+		t.Errorf("open runs = %d, want exactly 1 (every writer shared one session token and start instant)", openCount)
+	}
+	if supersededCount != writers-1 {
+		t.Errorf("superseded runs = %d, want %d", supersededCount, writers-1)
 	}
 }
 
@@ -632,6 +932,48 @@ func TestEndStageUnknownStageRunIsNotFound(t *testing.T) {
 	err := st.EndStage(ctx, 99999999, time.Now(), "completed")
 	if !errors.Is(err, store.ErrStageRunNotFound) {
 		t.Fatalf("EndStage(unknown id) error = %v, want errors.Is(_, store.ErrStageRunNotFound)", err)
+	}
+}
+
+// TestEndStageRefusesARunAlreadyClosed is fix round 4's F9, pinned at the
+// store: design.md's end-mark-cannot-resurrect decision. A row EndStage
+// has already closed must not be reopened, or have its outcome silently
+// replaced, by a second call landing on the same id -- the shape a
+// supersede racing a slow end mark's lookup-then-close gap produces
+// (ApplyEndStageMark, internal/api/stages.go). The second call must
+// report a distinct, typed refusal rather than success, and must leave
+// the row exactly as the first call left it.
+func TestEndStageRefusesARunAlreadyClosed(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-twice-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	firstEnd := run.StartedAt.Add(5 * time.Minute)
+	if err := st.EndStage(ctx, run.ID, firstEnd, "completed"); err != nil {
+		t.Fatalf("EndStage (first): %v", err)
+	}
+
+	secondEnd := run.StartedAt.Add(10 * time.Minute)
+	err = st.EndStage(ctx, run.ID, secondEnd, "superseded")
+	if !errors.Is(err, store.ErrStageRunAlreadyClosed) {
+		t.Fatalf("EndStage (second) error = %v, want errors.Is(_, store.ErrStageRunAlreadyClosed)", err)
+	}
+
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	if got.EndedAt == nil || !got.EndedAt.Equal(firstEnd) {
+		t.Errorf("EndedAt = %v, want %v (the first, definitive close, untouched by the second call)", got.EndedAt, firstEnd)
+	}
+	if got.Outcome == nil || *got.Outcome != "completed" {
+		t.Errorf("Outcome = %v, want completed (the first call's outcome, not the second call's)", got.Outcome)
 	}
 }
 
@@ -1325,5 +1667,57 @@ func TestStageRunsRepoRootMustMatchChangeRepos(t *testing.T) {
 	_, err := st.BeginStage(ctx, in)
 	if err == nil {
 		t.Fatalf("BeginStage with a repo_root absent from change_repos succeeded, want a foreign-key rejection")
+	}
+}
+
+// TestSupersedeIndexExists pins that migration 0009 is embedded, applied,
+// and names its index what this change agreed on -- the part a later edit
+// could silently drop. An index is a performance property and a query plan
+// is not stable enough to assert on (EXPLAIN output varies with planner
+// statistics and row counts), so this checks pg_indexes directly rather
+// than the supersede UPDATE's plan.
+//
+// Matching the index name alone (fix round 5, finding F18) would still
+// pass if the index were rebuilt under the same name over a different
+// column, or without the `WHERE ended_at IS NULL` predicate that is this
+// migration's whole point -- indexdef carries both, so this asserts the
+// definition, not just that something by this name exists.
+//
+// *store.Store exposes no raw-query escape hatch (by design -- see
+// store.go's package doc, "the only package in this module that builds
+// SQL"), so this opens its own connection to the same freshly-migrated
+// database, the same shape TestRepeatableReadPreventsCountDrift
+// (query_test.go) already uses for a query the typed API does not serve.
+func TestSupersedeIndexExists(t *testing.T) {
+	dsn := newTestDatabase(t)
+	ctx := context.Background()
+
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer st.Close()
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer pool.Close()
+
+	var indexdef string
+	err = pool.QueryRow(ctx,
+		"SELECT indexdef FROM pg_indexes WHERE indexname = $1", "stage_runs_open_session_token",
+	).Scan(&indexdef)
+	if err != nil {
+		t.Fatalf("query pg_indexes: %v", err)
+	}
+	if !strings.Contains(indexdef, "(session_token)") {
+		t.Errorf("indexdef = %q, want it to index (session_token)", indexdef)
+	}
+	if !strings.Contains(indexdef, "WHERE (ended_at IS NULL)") {
+		t.Errorf("indexdef = %q, want the partial predicate WHERE (ended_at IS NULL)", indexdef)
 	}
 }

@@ -471,11 +471,20 @@ func TestExactBoundaryMessageGoesToTheStartingWindow(t *testing.T) {
 }
 
 // TestReplayedBeginPrefersHighestAttempt is F3's own test: two open
-// windows for the same session, both containing the message's timestamp
-// (Window's own doc comment: "A replayed begin mark can open a second
-// attempt" -- design.md), must resolve to the one with the higher
-// Attempt, never the lower one and never whichever WindowsForSession
-// happens to list first. Both orderings are exercised, the same
+// windows for the same session, both containing the message's timestamp,
+// must resolve to the one with the higher Attempt, never the lower one
+// and never whichever WindowsForSession happens to list first. Despite
+// its name and its variables' names below, this is *not* a same-instant
+// replay case: orphan and replay start ten minutes apart (15:00 and
+// 15:10), so latest-start-wins already picks stage run 302 on its own
+// StartedAt, before Attempt is ever consulted -- the same resolution
+// TestOverlappingOpenWindowsPreferTheLatestStarted checks directly (fix
+// round 4, findings F7 and F11: task 2's supersede closes a genuine
+// replay's earlier attempt at the same instant it started, so the
+// ordinary replay path never reaches this same-instant tiebreak at all;
+// see bestWindow's own doc comment). What this test still pins is that a
+// *higher* attempt does not lose to a *later* start when both point the
+// same way, and that neither list order changes the answer -- the same
 // discipline TestExactBoundaryMessageGoesToTheStartingWindow uses for the
 // boundary case, to rule out an incidental ORDER BY standing in for the
 // stated tie-break rule.
@@ -504,6 +513,136 @@ func TestReplayedBeginPrefersHighestAttempt(t *testing.T) {
 		}
 		if _, ok := deltas[301]; ok {
 			t.Fatalf("order %v: stage run 301 (Attempt=1, the orphaned earlier attempt) has a delta, want untouched", order)
+		}
+	}
+}
+
+// TestOverlappingOpenWindowsPreferTheLatestStarted is the incident from
+// design.md, reduced: an orphan window left open by a dropped end mark
+// (started 15:00, attempt 1) and the stage actually running (started
+// 15:10, attempt 1) both contain a message at 15:25. Both windows sit at
+// the same attempt, so the old highest-attempt tie-break has nothing to
+// say and used to fall back to iteration order -- exactly what let stage
+// run 146 (kan-175) absorb two hours of kan-184's tokens. The message
+// must go to the later-started window, and the orphan must receive
+// nothing, in both list orders.
+func TestOverlappingOpenWindowsPreferTheLatestStarted(t *testing.T) {
+	orphan := harvest.Window{
+		StageRunID: 401, SessionID: mainSessionID, Attempt: 1,
+		StartedAt: mustParse(t, "2026-07-26T15:00:00Z"), EndedAt: nil, // still open, dropped end mark
+	}
+	live := harvest.Window{
+		StageRunID: 402, SessionID: mainSessionID, Attempt: 1,
+		StartedAt: mustParse(t, "2026-07-26T15:10:00Z"), EndedAt: nil, // still open, later start
+	}
+	rec := harvest.Record{
+		Timestamp: mustParse(t, "2026-07-26T15:25:00Z"),
+		SessionID: mainSessionID,
+		Usage:     harvest.Usage{InputTokens: 1},
+	}
+
+	for _, order := range [][]harvest.Window{{orphan, live}, {live, orphan}} {
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: order}}
+		a := harvest.NewAttributor(windows)
+
+		deltas, err := a.Attribute(context.Background(), []harvest.Record{rec})
+		if err != nil {
+			t.Fatalf("Attribute: %v", err)
+		}
+		if _, ok := deltas[402]; !ok {
+			t.Fatalf("order %v: deltas = %v, want an entry for 402 (the window that started last)", order, deltas)
+		}
+		if _, ok := deltas[401]; ok {
+			t.Fatalf("order %v: stage run 401 (the orphan, started first) has a delta, want untouched", order)
+		}
+	}
+}
+
+// TestSameInstantWindowsFallBackToHighestAttempt asserts the tie-break
+// survives with something to do: two windows sharing one StartedAt,
+// attempts 1 and 2 -- latest-start alone cannot distinguish them, so the
+// higher attempt still wins.
+func TestSameInstantWindowsFallBackToHighestAttempt(t *testing.T) {
+	sameStart := mustParse(t, "2026-07-26T15:00:00Z")
+	low := harvest.Window{
+		StageRunID: 501, SessionID: mainSessionID, Attempt: 1,
+		StartedAt: sameStart, EndedAt: nil,
+	}
+	high := harvest.Window{
+		StageRunID: 502, SessionID: mainSessionID, Attempt: 2,
+		StartedAt: sameStart, EndedAt: nil,
+	}
+	rec := harvest.Record{
+		Timestamp: sameStart.Add(time.Minute),
+		SessionID: mainSessionID,
+		Usage:     harvest.Usage{InputTokens: 1},
+	}
+
+	for _, order := range [][]harvest.Window{{low, high}, {high, low}} {
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: order}}
+		a := harvest.NewAttributor(windows)
+
+		deltas, err := a.Attribute(context.Background(), []harvest.Record{rec})
+		if err != nil {
+			t.Fatalf("Attribute: %v", err)
+		}
+		if _, ok := deltas[502]; !ok {
+			t.Fatalf("order %v: deltas = %v, want an entry for 502 (Attempt=2, same start instant)", order, deltas)
+		}
+		if _, ok := deltas[501]; ok {
+			t.Fatalf("order %v: stage run 501 (Attempt=1, same start instant) has a delta, want untouched", order)
+		}
+	}
+}
+
+// TestLatestStartOutranksAHigherAttempt pins bestWindow's tie-break
+// *order* directly -- something none of the three tests above actually
+// discriminates (fix round 5, finding F15). Swap bestWindow's two clauses
+// to attempt-first in a scratch copy and every one of them still passes:
+// TestOverlappingOpenWindowsPreferTheLatestStarted holds both windows at
+// attempt 1, so it has no attempt difference to get wrong;
+// TestSameInstantWindowsFallBackToHighestAttempt holds both starts equal,
+// so it never exercises the StartedAt comparison at all; and
+// TestReplayedBeginPrefersHighestAttempt's winner carries *both* the later
+// start and the higher attempt, so either clause alone would pick it. That
+// is exactly how the KAN-185 incident could return -- an orphan at a
+// higher attempt number reabsorbing a live stage's tokens -- with nothing
+// in this file failing.
+//
+// This test is the one that does fail on that swap: window A starts
+// earlier but carries the *higher* attempt, window B starts later but
+// carries the *lower* attempt, and only latest-start-first picks B.
+func TestLatestStartOutranksAHigherAttempt(t *testing.T) {
+	earlierHigherAttempt := harvest.Window{
+		StageRunID: 601, SessionID: mainSessionID, Attempt: 5,
+		StartedAt: mustParse(t, "2026-07-26T15:00:00Z"), EndedAt: nil,
+	}
+	laterLowerAttempt := harvest.Window{
+		StageRunID: 602, SessionID: mainSessionID, Attempt: 1,
+		StartedAt: mustParse(t, "2026-07-26T15:10:00Z"), EndedAt: nil,
+	}
+	rec := harvest.Record{
+		Timestamp: mustParse(t, "2026-07-26T15:25:00Z"),
+		SessionID: mainSessionID,
+		Usage:     harvest.Usage{InputTokens: 1},
+	}
+
+	for _, order := range [][]harvest.Window{
+		{earlierHigherAttempt, laterLowerAttempt},
+		{laterLowerAttempt, earlierHigherAttempt},
+	} {
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{mainSessionID: order}}
+		att := harvest.NewAttributor(windows)
+
+		deltas, err := att.Attribute(context.Background(), []harvest.Record{rec})
+		if err != nil {
+			t.Fatalf("Attribute: %v", err)
+		}
+		if _, ok := deltas[602]; !ok {
+			t.Fatalf("order %v: deltas = %v, want an entry for 602 (later start, lower attempt)", order, deltas)
+		}
+		if _, ok := deltas[601]; ok {
+			t.Fatalf("order %v: stage run 601 (earlier start, higher attempt) has a delta, want untouched", order)
 		}
 	}
 }

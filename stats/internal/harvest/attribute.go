@@ -331,18 +331,46 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 }
 
 // bestWindow returns the window among windows whose interval contains ts,
-// preferring the one with the highest Attempt when more than one matches.
+// preferring the one with the latest StartedAt when more than one
+// matches; where two such windows start at the same instant, the higher
+// Attempt breaks the tie.
 //
 // More than one open window for the same session is not the ordinary
-// case, but it is a real one: design.md's "A replayed begin mark can open
-// a second attempt" documents exactly this -- a `stage begin` that times
-// out on the client after the store already committed it is journalled
-// and replayed, opening a genuine second attempt while the first stays
-// open until the sweeper closes it. When that has happened, the highest
-// attempt is the one a live session is actually still writing to, so
-// preferring it over the orphaned earlier attempt is the same choice
-// ApplyEndStageMark's findOpenStageRun already makes for the identical
-// situation (internal/api/stages.go).
+// case, but it is a real one. design.md's "stale open stage run" incident
+// is what the latest-start rule itself exists for: an orphan left open by
+// a dropped end mark and the stage actually running can both sit at
+// attempt 1, so an attempt-only tie-break has nothing to say and used to
+// fall back to iteration order -- storeWindowSource.WindowsForSession's
+// unsorted query, oldest first, forever. Of two windows that both contain
+// a message, the one that started later is the one the session is
+// actually in: a stale open window must not outrank it.
+//
+// The same-instant Attempt tiebreak is *not* the ordinary replay path,
+// despite once having been described as one. A replayed begin mark does
+// carry the original attempt's own StartedAt unchanged -- the CLI
+// captures it once, before the RPC attempt (cmd/myflow/stage.go's
+// runStageBegin), and internal/reconcile.go's applyStageMarkEntry replays
+// that same instant (StartedAt: req.StartedAt) -- but
+// store.insertStageRunAndSupersede then closes the earlier attempt with
+// ended_at set to that same instant, and Window.contains rejects an empty
+// [T, T) interval: a window whose StartedAt equals its EndedAt contains
+// no timestamp at all, not even T itself. By the time a harvest cycle
+// reads WindowsForSession, the ordinary replay therefore presents exactly
+// one open window at that instant, never two, and bestWindow is never
+// asked to arbitrate between them.
+//
+// What the same-instant tiebreak actually defends against is windows the
+// store no longer produces on that ordinary path: a stage run recorded
+// before this change existed, one carrying no session_token (the
+// supersede matches on session_token alone, so a NULL token is never
+// closed by it), or the narrow instant before a concurrent supersede's
+// own transaction commits. Attempt is kept for those, not for the replay
+// case its own history once named.
+//
+// A window that is neither later nor higher never replaces the current
+// best, so the result is deterministic under any input order -- the
+// first match standing until a strictly later start, or a same-instant
+// strictly higher attempt, displaces it.
 //
 // This is distinct from the exact-boundary case Window.contains' own doc
 // comment covers: two *adjacent, non-overlapping* windows never reach
@@ -358,7 +386,8 @@ func bestWindow(windows []Window, ts time.Time) (Window, bool) {
 		if !w.contains(ts) {
 			continue
 		}
-		if !found || w.Attempt > best.Attempt {
+		if !found || w.StartedAt.After(best.StartedAt) ||
+			(w.StartedAt.Equal(best.StartedAt) && w.Attempt > best.Attempt) {
 			best = w
 			found = true
 		}

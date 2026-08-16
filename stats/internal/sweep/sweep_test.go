@@ -2,6 +2,7 @@ package sweep_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -248,11 +249,26 @@ func TestConcurrentSweepersDoNotDoubleCloseOrCollide(t *testing.T) {
 // live `stage end` for the same row must never leave the row in an
 // inconsistent state (an outcome with no end instant, or vice versa), and
 // must never lose the fact that the row was closed at all -- whichever of
-// the two writes lands last determines the final outcome, and that is the
-// only property asserted here, deliberately: this project's design
+// the two writes commits first determines the final outcome, and that is
+// the only property asserted here, deliberately: this project's design
 // (internal/api/stages.go's ApplyEndStageMark doc comment) already commits
 // to "no correctness hazard, at most one spurious statistic", not to a
 // specific winner between a live end and a sweep that happen to race.
+//
+// Which of the two calls actually wins is no longer "whoever commits
+// last, silently" (fix round 4, design.md's end-mark-cannot-resurrect):
+// EndStage's UPDATE now requires ended_at IS NULL, guarding against
+// exactly the class of race this test drives, not only the supersede race
+// the decision names first. If the sweep commits first, the live
+// EndStage's now-guarded UPDATE finds the row already closed and returns
+// store.ErrStageRunAlreadyClosed instead of silently overwriting
+// "abandoned" with "completed" -- a typed, coherent refusal, not a torn
+// state. If the live end commits first, SweepAbandoned's own UPDATE
+// (unaffected by this task -- it was already a single, self-contained
+// statement filtered on ended_at IS NULL, never a separate lookup-then-write
+// pair) simply excludes the now-closed row from what it touches. Either
+// way the row ends up with exactly one coherent outcome; this test checks
+// that outcome is the one whichever call actually reported succeeding.
 func TestSweepRacingLiveEndDoesNotCorruptOutcome(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
@@ -284,7 +300,11 @@ func TestSweepRacingLiveEndDoesNotCorruptOutcome(t *testing.T) {
 	if sweepErr != nil {
 		t.Fatalf("sweep RunOnce: %v", sweepErr)
 	}
-	if endErr != nil {
+	// endErr is nil when the live end won the race, and
+	// store.ErrStageRunAlreadyClosed when the sweep won it and closed the
+	// row first -- both are the coherent, expected outcomes of this race;
+	// anything else is a real failure.
+	if endErr != nil && !errors.Is(endErr, store.ErrStageRunAlreadyClosed) {
 		t.Fatalf("live EndStage: %v", endErr)
 	}
 
@@ -295,7 +315,11 @@ func TestSweepRacingLiveEndDoesNotCorruptOutcome(t *testing.T) {
 	if got.EndedAt == nil || got.Outcome == nil {
 		t.Fatalf("stage run left inconsistent: EndedAt=%v, Outcome=%v -- a race must produce one coherent outcome, never a torn one", got.EndedAt, got.Outcome)
 	}
-	if *got.Outcome != "completed" && *got.Outcome != "abandoned" {
-		t.Fatalf("Outcome = %q, want either \"completed\" or \"abandoned\"", *got.Outcome)
+	wantOutcome := "completed"
+	if endErr != nil {
+		wantOutcome = "abandoned"
+	}
+	if *got.Outcome != wantOutcome {
+		t.Fatalf("Outcome = %q, want %q (whichever of sweep/live-end actually reported winning this race)", *got.Outcome, wantOutcome)
 	}
 }

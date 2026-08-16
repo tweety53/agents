@@ -537,10 +537,17 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 // -- design.md's "A replayed begin mark can open a second attempt" records
 // exactly this path, a `stage begin` that times out client-side after
 // committing, is journalled, and replayed, opening a genuine second
-// attempt -- `stage end` must close the higher-numbered attempt and leave
-// the orphaned, lower-numbered one open for task 10's sweeper. Closing the
-// wrong one would attribute that end's outcome and metrics to an attempt
-// no live session is actually writing to.
+// attempt -- `stage end` must close the higher-numbered attempt. This test
+// deliberately gives the two begins distinct session tokens: a real replay
+// carries the *same* token as the attempt it replays, and
+// store.insertStageRunAndSupersede would then close the earlier attempt
+// itself, at begin time, before `stage end` is ever called (see
+// stageruns_test.go's TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant
+// for that path). Distinct tokens keep both attempts open against this
+// test's fakeStore -- which implements no supersede logic at all -- so
+// this test can pin findOpenStageRun's own tie-break in isolation. Closing
+// the wrong one would attribute that end's outcome and metrics to an
+// attempt no live session is actually writing to.
 func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
@@ -593,7 +600,7 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 	attempt1 := fs.stageRuns[0].run
 	attempt2 := fs.stageRuns[1].run
 	if attempt1.EndedAt != nil {
-		t.Errorf("attempt 1 (the orphan) was closed by end; it must stay open for the sweeper -- EndedAt = %v", *attempt1.EndedAt)
+		t.Errorf("attempt 1 (the orphan) was closed by end; findOpenStageRun must resolve to the higher attempt only -- EndedAt = %v", *attempt1.EndedAt)
 	}
 	if attempt2.EndedAt == nil {
 		t.Fatal("attempt 2 (the live one) was not closed by end -- EndedAt is nil")
@@ -622,6 +629,54 @@ func TestStageEndWithNoOpenRunIsNotFound(t *testing.T) {
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", endReq)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404; body: %s", resp.StatusCode, body)
+	}
+}
+
+// TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun is fix round 4's F9,
+// pinned at ApplyEndStageMark's own translation: an end mark whose target
+// run was closed by a concurrent supersede in the gap between
+// findOpenStageRun's lookup and this call's own EndStage write must be
+// reported as the definitive refusal ErrNoOpenStageRun (404), never as
+// success -- design.md's end-mark-cannot-resurrect. This fakeStore has no
+// real transaction to race, so the gap is simulated directly: EndStage is
+// made to answer exactly as store.EndStage itself now does when it finds
+// the row already closed, store.ErrStageRunAlreadyClosed, and what this
+// test actually pins is ApplyEndStageMark's translation of that into
+// ErrNoOpenStageRun rather than a raw, unmapped failure.
+func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+
+	beginReq := map[string]any{
+		"projectKey":   "proj",
+		"changeName":   "chg",
+		"harness":      "claude-code",
+		"command":      "/myflow-do",
+		"stage":        "do.sdd-tdd",
+		"startedAt":    "2026-08-13T10:00:00Z",
+		"sessionToken": "mf-session-token-race-with-supersede",
+	}
+	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
+		t.Fatalf("begin: status = %d; body: %s", resp.StatusCode, body)
+	}
+
+	// A concurrent supersede lands between findOpenStageRun's lookup and
+	// this end mark's own EndStage write.
+	fs.endStageErr = store.ErrStageRunAlreadyClosed
+
+	endReq := map[string]any{
+		"projectKey": "proj",
+		"changeName": "chg",
+		"command":    "/myflow-do",
+		"stage":      "do.sdd-tdd",
+		"endedAt":    "2026-08-13T10:05:00Z",
+		"outcome":    "completed",
+	}
+	resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", endReq)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (ErrNoOpenStageRun, not success or a raw store error); body: %s", resp.StatusCode, body)
 	}
 }
 

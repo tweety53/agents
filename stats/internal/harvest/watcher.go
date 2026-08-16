@@ -129,8 +129,8 @@ type Pricer interface {
 //
 // The bound is tracked per token (task 4b), not per stage run: a run's own
 // later marks never enter this bookkeeping at all once its token has
-// bound (they resolve at insert time, store.Store.insertStageRun's own doc
-// comment), so there is exactly one bounded search per session, not one
+// bound (they resolve at insert time, store.Store.insertStageRunAndSupersede's
+// own doc comment), so there is exactly one bounded search per session, not one
 // per mark that session makes.
 const maxSessionTokenResolutionCycles = 60
 
@@ -186,7 +186,7 @@ type Watcher struct {
 	// from one correlator per mark to one per session -- a run's second or
 	// later mark, once its token has bound, resolves session_id at insert
 	// time and never enters this bookkeeping at all
-	// (store.Store.insertStageRun's own doc comment).
+	// (store.Store.insertStageRunAndSupersede's own doc comment).
 	//
 	// Both maps are this Watcher's own in-memory state, not persisted -- a
 	// daemon restart resets them, which only ever gives an abandoned token
