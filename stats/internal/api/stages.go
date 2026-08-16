@@ -522,6 +522,17 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 // longer attach to anything is unresolvable in the same sense, and is
 // retired the same way, loudly logged by internal/reconcile rather than
 // silently dropped.
+//
+// The same refusal covers a narrower race findOpenStageRun cannot see:
+// its own lookup and the EndStage write below are two separate calls, and
+// a concurrent begin's supersede (store.insertStageRunAndSupersede) can
+// close openRun in the gap between them -- design.md's
+// end-mark-cannot-resurrect. store.EndStage reports that as
+// store.ErrStageRunAlreadyClosed, which is translated into
+// ErrNoOpenStageRun here rather than left to fall through mapStoreError's
+// generic 500: the run this mark was trying to close is, by the time this
+// runs, exactly as unreachable as if findOpenStageRun had found nothing
+// at all.
 func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (StageMarkResult, error) {
 	if err := stages.Validate(stages.Command(mark.Command), mark.Stage); err != nil {
 		return StageMarkResult{}, err
@@ -532,10 +543,13 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 		return StageMarkResult{}, err
 	}
 	if openRun == nil {
-		return StageMarkResult{}, fmt.Errorf("%w: %s/%s %s/%s", ErrNoOpenStageRun, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage)
+		return StageMarkResult{}, noOpenStageRunErr(mark)
 	}
 
 	if err := ss.EndStage(ctx, openRun.ID, mark.EndedAt, mark.Outcome); err != nil {
+		if errors.Is(err, store.ErrStageRunAlreadyClosed) {
+			return StageMarkResult{}, noOpenStageRunErr(mark)
+		}
 		return StageMarkResult{}, err
 	}
 
@@ -553,6 +567,17 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 		}
 	}
 	return StageMarkResult{StageRunID: openRun.ID, Attempt: openRun.Attempt}, nil
+}
+
+// noOpenStageRunErr builds the ErrNoOpenStageRun wrap ApplyEndStageMark
+// returns for both of its two distinct not-found paths -- no run ever
+// found by findOpenStageRun, and one EndStage reports
+// store.ErrStageRunAlreadyClosed for, resolved between the lookup and the
+// write. Both are the same caller-facing refusal, so this is the one
+// place that spells out mark's identity into it (fix round 5, finding
+// F19).
+func noOpenStageRunErr(mark EndStageMark) error {
+	return fmt.Errorf("%w: %s/%s %s/%s", ErrNoOpenStageRun, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage)
 }
 
 // withTokensUnavailable adds "tokens_available": false to metrics -- a
@@ -606,17 +631,21 @@ func withTokensUnavailable(metrics json.RawMessage) (json.RawMessage, error) {
 // arbitrate -- and it picks the *newer* attempt, which is the one a
 // `stage end` issued after the replay is actually describing. It does not
 // pick wrong, and it never blocks or errors because more than one row
-// matched. What it does not do is reconcile the two attempts: the earlier,
-// now-orphaned one is left open until task 10's sweeper closes it as
-// abandoned once its session goes silent. That produces one spurious
-// "abandoned" attempt in the data -- a statistics-accuracy cost (an
-// inflated attempt/rework count for that stage, caused by network
-// flakiness rather than a genuine re-run), not a correctness hazard: no
-// data is lost, no state moves backwards, and no request ever fails
-// because of it. De-duplicating begin marks (an idempotency key BeginStage
-// could check) would close this gap properly; it is not attempted here --
-// it needs its own schema and tests, and is a candidate for task 9 or 10
-// rather than this one.
+// matched. It does not even need to reconcile the two attempts itself:
+// the replay's own begin already closed the earlier, now-orphaned one as
+// "superseded" (store.insertStageRunAndSupersede), the instant the second
+// attempt was inserted -- not left open for a sweeper to find later. That
+// still produces one spurious extra attempt in the data -- a
+// statistics-accuracy cost (an inflated attempt/rework count for that
+// stage, caused by network flakiness rather than a genuine re-run), not a
+// correctness hazard: no data is lost, no state moves backwards, and no
+// request ever fails because of it, and the two windows this leaves never
+// overlap for internal/harvest's attribution to arbitrate between
+// (attribute.go's bestWindow doc comment). De-duplicating begin marks (an
+// idempotency key BeginStage could check) would close this remaining gap
+// properly, avoiding the spurious attempt rather than merely superseding
+// it; it is not attempted here -- it needs its own schema and tests, and
+// is a candidate for a future task rather than this one.
 func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName, command, stage string) (*store.StageRun, error) {
 	runs, _, err := ss.QueryStageRuns(ctx, store.Query{
 		Filters: []store.Filter{

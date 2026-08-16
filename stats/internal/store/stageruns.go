@@ -31,6 +31,14 @@ var ErrNilMetricsPatch = errors.New("store: metrics patch must not be nil")
 // resolves itself by retrying.
 var ErrTooManyAttemptCollisions = errors.New("store: too many concurrent attempt collisions allocating a stage run")
 
+// ErrStageRunAlreadyClosed is returned by EndStage when the row exists but
+// is already closed -- distinct from ErrStageRunNotFound, which means no
+// row exists at all. design.md's end-mark-cannot-resurrect: a run a
+// supersede has already closed must not be reopened, or have its outcome
+// replaced, by a late end mark that resolved the row before the supersede
+// landed.
+var ErrStageRunAlreadyClosed = errors.New("store: stage run already closed")
+
 // stageRunsAttemptConstraint is the name given, explicitly, to the
 // UNIQUE (change_id, command, stage, attempt) constraint in
 // 0003_stage_runs.sql. BeginStage checks for this exact constraint name
@@ -43,15 +51,29 @@ const stageRunsAttemptConstraint = "stage_runs_attempt_key"
 // maxAttemptRetries bounds how many times BeginStage retries after losing
 // an attempt-number race before giving up with
 // ErrTooManyAttemptCollisions. It is set well above
-// TestConcurrentBeginStageDoesNotCollide's 20 concurrent writers -- every
-// one of those 20 can lose a race at most once each (the 21st write to
+// TestConcurrentBeginStageDoesNotCollide's 30 concurrent writers -- every
+// one of those 30 can lose a race at most once each (the 31st write to
 // land always succeeds, since only one writer can still be contending once
-// 19 have already committed their distinct attempt numbers), so 20 writers
-// need at most 19 retries in the worst case. This bound leaves real margin
+// 29 have already committed their distinct attempt numbers), so 30 writers
+// need at most 29 retries in the worst case. This bound leaves real margin
 // above that worst case rather than sitting exactly on it, so raising the
 // test's concurrency slightly does not require raising this constant in
 // lockstep.
 const maxAttemptRetries = 100
+
+// stageRunSupersedeLockNamespace is the first key of the two-argument
+// pg_advisory_xact_lock(key1, key2) insertStageRunAndSupersede takes to
+// serialise concurrent begins for one session token. Its only requirement,
+// like migrationsLockKey's (migrations.go), is to be a value this package
+// has chosen for this one purpose -- unlike migrationsLockKey, though,
+// this lock uses the two-argument form specifically so that requirement
+// is enforced by Postgres itself rather than by convention: a
+// two-argument advisory lock's (key1, key2) pair lives in a keyspace
+// Postgres never compares against a single-argument lock's key, so this
+// value cannot collide with migrationsLockKey, or with any other
+// single-bigint key this database ever takes, regardless of what either
+// value is (fix round 5, finding F17).
+const stageRunSupersedeLockNamespace = 185_004 // KAN-185, task 4
 
 // StageRun is one recorded attempt at one stage of one command, for one
 // change. A nil RepoRoot means the stage belongs to the change as a whole,
@@ -106,7 +128,12 @@ type BeginStageInput struct {
 
 // BeginStage records the start of one stage run and allocates its attempt
 // number for the (change, command, stage) triple, so that a fix re-run is
-// recorded as a new attempt rather than overwriting the one before it.
+// recorded as a new attempt rather than overwriting the one before it. It
+// also closes every still-open run sharing this call's own session token
+// that started no later than the new one, recording that run's outcome as
+// "superseded" -- the only caller-visible surface of design.md's
+// begin-supersedes-open-runs decision; insertStageRunAndSupersede's own
+// doc comment carries the reasoning for why and how, not repeated here.
 //
 // The change lookup and the attempt allocation both happen inside one
 // INSERT ... SELECT statement -- there is no separate read of the current
@@ -121,7 +148,7 @@ type BeginStageInput struct {
 // retryable condition, instead of a client-side check-then-act.
 func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, error) {
 	for range maxAttemptRetries {
-		run, err := s.insertStageRun(ctx, in)
+		run, err := s.insertStageRunAndSupersede(ctx, in)
 		if err == nil {
 			return run, nil
 		}
@@ -136,26 +163,135 @@ func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, e
 	return StageRun{}, fmt.Errorf("%w: %s/%s %s/%s", ErrTooManyAttemptCollisions, in.ProjectKey, in.ChangeName, in.Command, in.Stage)
 }
 
-// insertStageRun inserts one stage run. Its session_id is computed inside
-// the same INSERT ... SELECT as the attempt number: the caller-supplied
-// SessionID ($5) wins when given, otherwise this looks for a session
-// already bound to the same session_token by an earlier run (KAN-172, task
-// 4b's "a mark arriving with an already-bound token is bound at write
-// time, doing no resolution work at all") -- one run's own token is
-// shared, unchanged, by every mark that run makes (design.md's "one token
-// per session, not one per mark"), so a second or later mark for a run
-// whose token the harvester has already resolved gets its session_id at
-// insert time and never enters the unresolved-session-token pool at all.
-// A session_token of NULL naturally matches no row in the subquery, so no
-// separate NULL guard is needed.
-func (s *Store) insertStageRun(ctx context.Context, in BeginStageInput) (StageRun, error) {
+// insertStageRunAndSupersede inserts one stage run and closes what its
+// begin mark supersedes, as one transaction: either both effects land or
+// neither does (design.md's begin-supersedes-open-runs). A separate call
+// after the insert would leave a gap in which a crash or a lost
+// connection closes the insert without the supersede, or the reverse --
+// either way leaving the session with two runs open, the exact state
+// this rule exists to eliminate. The insert's own retry loop (BeginStage)
+// still works unchanged: a losing attempt's transaction rolls back on
+// the unique-violation error before Commit is ever called, so a retried
+// insertStageRunAndSupersede call starts the whole transaction,
+// supersede included, fresh.
+//
+// The insert's session_id is computed inside the same INSERT ... SELECT
+// as the attempt number: the caller-supplied SessionID ($5) wins when
+// given, otherwise this looks for a session already bound to the same
+// session_token by an earlier run (KAN-172, task 4b's "a mark arriving
+// with an already-bound token is bound at write time, doing no
+// resolution work at all") -- one run's own token is shared, unchanged,
+// by every mark that run makes (design.md's "one token per session, not
+// one per mark"), so a second or later mark for a run whose token the
+// harvester has already resolved gets its session_id at insert time and
+// never enters the unresolved-session-token pool at all. A session_token
+// of NULL naturally matches no row in the subquery, so no separate NULL
+// guard is needed.
+//
+// The supersede UPDATE that follows closes every still-open run sharing
+// this run's own session_token that started no later than it. It matches
+// on session_token, never session_id: a session's marks are sequential,
+// so a begin is proof that whatever that session had open before it is
+// over, and session_id is bound after the fact (KAN-172) -- routinely
+// NULL at begin time, so matching on it would silently do nothing on
+// exactly the marks that need this rule. As with the insert's own
+// subquery above, a NULL session_token matches no row through SQL's `=`,
+// so a run recorded without one is never touched, and a begin mark
+// carrying no token closes nothing either.
+//
+// ended_at is set to this run's own started_at, not now(): it is the
+// truthful boundary (the superseded stage ended no later than the moment
+// this one began) and it leaves the two windows non-overlapping, unlike
+// SweepAbandoned's now(), which is the sweeper's best guess at a stale
+// run's end rather than a known instant.
+//
+// The started_at <= guard exists for a journalled begin mark replayed
+// later than it was first issued: a replay carries its original, older
+// start instant, and without the guard it would close a run that
+// genuinely started after it -- the live stage the session is actually
+// in, the same class of damage this rule exists to stop.
+//
+// The outcome is "superseded", not "abandoned": abandoned means the
+// daemon closed a run because its session went silent, and the
+// rework-rate view (aggregate.go) reads that outcome directly: folding a
+// dropped end mark into it would corrupt that statistic. A superseded
+// run is neither rework nor silence -- its own next mark is exactly what
+// discovered it was still open.
+//
+// Atomicity is not serialisability (design.md's
+// supersede-serialised-per-session): under READ COMMITTED, the pool's
+// default, two of these transactions racing for the same session token
+// can each fail to see the other's still-uncommitted insert when their
+// own supersede UPDATE runs, so neither closes the other and both stay
+// open -- the reconciler replaying a journalled begin beside a live one
+// is the live path that produces exactly this. The first statement this
+// transaction runs, when the mark carries a token, is
+// pg_advisory_xact_lock(stageRunSupersedeLockNamespace, hashtext(token)):
+// every begin for one session token is thereby fully serialised against
+// every other, so the second to acquire the lock always sees the first's
+// already-committed row. The lock is transaction-scoped, so it releases
+// on commit or rollback with no unlock call to forget -- unlike
+// migrations.go's pg_advisory_lock, which is session-scoped and
+// explicitly unlocked, because that lock spans more than one statement
+// across the whole migration run. A mark with no token supersedes nothing
+// and has nothing to serialise against, so it takes no lock and never
+// queues behind an unrelated session's.
+//
+// The two-argument form, not pg_advisory_xact_lock(hashtext(token))
+// alone, is deliberate (fix round 5, finding F17): Postgres keeps a
+// two-argument advisory lock's (key1, key2) pair in a keyspace entirely
+// separate from a single-argument lock's key, never comparing one form
+// against the other. migrations.go's pg_advisory_lock(migrationsLockKey)
+// takes a single-bigint key in that other keyspace; using the
+// single-argument form here with an arbitrary hashtext(token) key could
+// in principle land on that same key (or any other single-bigint key this
+// database ever takes) by chance collision. The two-argument form, keyed
+// on stageRunSupersedeLockNamespace, makes the collision impossible
+// outright rather than merely unlikely.
+func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInput) (StageRun, error) {
+	// An empty-string token is not a token: normalise it to NULL up front,
+	// so the lock guard below and the supersede UPDATE's own
+	// session_token = $1 match can never disagree about what counts as one
+	// (fix round 5, finding F16). SQL `=` matches '' against another
+	// empty-string row same as any other value, so a caller passing a
+	// non-nil empty string -- taking the lock guard's *in.SessionToken !=
+	// "" branch below to skip the lock while the UPDATE still matched --
+	// would supersede unserialised, exactly the race the lock exists to
+	// close. No shipped path can do this today
+	// (validateSessionTokenShape rejects "" on both the HTTP and reconcile
+	// paths), but the store carries no such invariant of its own, so it is
+	// enforced here rather than trusted to every caller.
+	if in.SessionToken != nil && *in.SessionToken == "" {
+		in.SessionToken = nil
+	}
+
 	var (
 		run          StageRun
 		metrics      []byte
 		sessionID    *string
 		sessionToken *string
 	)
-	err := s.pool.QueryRow(ctx, `
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return StageRun{}, err
+	}
+	// Rollback after a successful Commit is a documented no-op in pgx; its
+	// error carries nothing actionable here, so it is discarded explicitly
+	// rather than checked -- the same pattern CommitHarvestBatch
+	// (harvest.go) already uses. It is also what discards the insert's
+	// tentative row on any error path below Commit, including a lost
+	// attempt-number race.
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if in.SessionToken != nil {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1, hashtext($2))`,
+			int32(stageRunSupersedeLockNamespace), *in.SessionToken); err != nil {
+			return StageRun{}, err
+		}
+	}
+
+	err = tx.QueryRow(ctx, `
 		INSERT INTO stage_runs (
 			change_id, repo_root, harness, session_id, session_token, command, stage, attempt, started_at, metrics
 		)
@@ -185,6 +321,22 @@ func (s *Store) insertStageRun(ctx context.Context, in BeginStageInput) (StageRu
 	if err != nil {
 		return StageRun{}, err
 	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE stage_runs
+		SET ended_at = $2, outcome = 'superseded'
+		WHERE session_token = $1
+		  AND ended_at IS NULL
+		  AND id <> $3
+		  AND started_at <= $2
+	`, in.SessionToken, run.StartedAt, run.ID); err != nil {
+		return StageRun{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return StageRun{}, err
+	}
+
 	run.SessionID = sessionID
 	run.SessionToken = sessionToken
 	run.Metrics = metrics
@@ -205,14 +357,35 @@ func isUniqueViolation(err error, constraint string) bool {
 // Metrics are not touched here -- MergeMetrics is the only path that writes
 // them, whether called before or after EndStage, so the harvester's token
 // keys and this call's outcome keys never race to overwrite each other.
+//
+// The UPDATE only ever touches a row that is still open, per design.md's
+// end-mark-cannot-resurrect: a run insertStageRunAndSupersede has already
+// closed -- or that an earlier EndStage call already closed -- must not be
+// reopened, or have its outcome silently replaced, by a call that
+// resolved the row before that close landed. A row matching stageRunID
+// that is already closed is a distinct condition from no such row
+// existing at all, so when the guarded UPDATE affects nothing, a
+// follow-up read (run only on that path, never on the ordinary success
+// path) tells the two apart: ErrStageRunAlreadyClosed for a row that
+// exists but is closed, ErrStageRunNotFound for no row at all.
+// ApplyEndStageMark (internal/api) translates the former into the
+// definitive refusal it already returns for the latter's own caller-facing
+// case, ErrNoOpenStageRun.
 func (s *Store) EndStage(ctx context.Context, stageRunID int64, endedAt time.Time, outcome string) error {
 	tag, err := s.pool.Exec(ctx, `
-		UPDATE stage_runs SET ended_at = $2, outcome = $3 WHERE id = $1
+		UPDATE stage_runs SET ended_at = $2, outcome = $3 WHERE id = $1 AND ended_at IS NULL
 	`, stageRunID, endedAt, outcome)
 	if err != nil {
 		return fmt.Errorf("store: end stage %d: %w", stageRunID, err)
 	}
 	if tag.RowsAffected() == 0 {
+		var exists bool
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM stage_runs WHERE id = $1)`, stageRunID).Scan(&exists); err != nil {
+			return fmt.Errorf("store: end stage %d: check existence: %w", stageRunID, err)
+		}
+		if exists {
+			return fmt.Errorf("%w: %d", ErrStageRunAlreadyClosed, stageRunID)
+		}
 		return fmt.Errorf("%w: %d", ErrStageRunNotFound, stageRunID)
 	}
 	return nil
@@ -242,6 +415,14 @@ func (s *Store) EndStage(ctx context.Context, stageRunID int64, endedAt time.Tim
 // JSON Merge Patch semantics, where null means "delete this key": there is
 // no delete operation here at all, only merge. Returns ErrNilMetricsPatch
 // if patch itself is nil (Go nil, not the JSON literal null).
+//
+// Unlike EndStage, this UPDATE carries no `ended_at IS NULL` guard, and
+// that omission is deliberate rather than an oversight matching EndStage's:
+// a metrics patch is additive telemetry about work that really happened,
+// so landing it on a run that has since closed -- superseded or otherwise
+// -- still records the truth, where refusing it would discard measured
+// usage for no benefit. Only the fields that say whether a run's window is
+// open (ended_at, outcome) need the guard; a run's metrics never do.
 func (s *Store) MergeMetrics(ctx context.Context, stageRunID int64, patch json.RawMessage) error {
 	if patch == nil {
 		return ErrNilMetricsPatch
@@ -389,9 +570,10 @@ func (s *Store) QueryStageRuns(ctx context.Context, q Query) ([]StageRun, int, e
 // A run whose session_token is NULL (predates the column, or was marked
 // by a harness build that never sent one) is not returned: there is
 // nothing here for a harvest cycle to look for. Nor is a run whose token
-// insertStageRun already resolved at insert time (KAN-172, task 4b) --
-// its session_id was never NULL to begin with, so it never enters this
-// pool at all, regardless of how many other runs share its token.
+// insertStageRunAndSupersede already resolved at insert time (KAN-172,
+// task 4b) -- its session_id was never NULL to begin with, so it never
+// enters this pool at all, regardless of how many other runs share its
+// token.
 func (s *Store) UnresolvedSessionTokens(ctx context.Context) (map[int64]string, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, session_token FROM stage_runs
@@ -427,10 +609,11 @@ func (s *Store) UnresolvedSessionTokens(ctx context.Context) (map[int64]string, 
 // mark to one per session). The UPDATE's own WHERE session_id IS NULL is
 // what makes binding one-way per row: a run that already carries a
 // session_id -- bound by an earlier cycle, resolved at insert time
-// (insertStageRun's own doc comment), or (in principle) by a concurrent
-// harvester -- is left untouched rather than overwritten. This is the same
-// "let the database detect and report the race, don't check-then-act in
-// Go" shape BeginStage's attempt allocation already uses.
+// (insertStageRunAndSupersede's own doc comment), or (in principle) by a
+// concurrent harvester -- is left untouched rather than overwritten. This
+// is the same "let the database detect and report the race, don't
+// check-then-act in Go" shape BeginStage's attempt allocation already
+// uses.
 //
 // bound reports how many rows this call actually updated. Zero, with no
 // error, is not a failure: every run carrying the token may already have

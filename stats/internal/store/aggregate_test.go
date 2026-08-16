@@ -639,6 +639,66 @@ func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 	}
 }
 
+// TestReworkRateDoesNotCountASupersededRunAsAbandoned pins the delta
+// spec's "A superseded stage is not counted as rework" scenario
+// (myflow-run-telemetry, kan-185): ReworkRate's AbandonedCount must count
+// only runs recorded as "abandoned", never "superseded" -- a superseded
+// run is neither rework nor silence (design.md's
+// superseded-outcome-distinct), and folding it into this figure would
+// corrupt the rework rate. AbandonedCount's own FILTER clause is a
+// literal string match on 'abandoned' that structurally cannot catch
+// 'superseded' -- this test is what would object if that filter ever
+// widened.
+//
+// The superseded row is produced the real way -- a BeginStage carrying a
+// session token, then a second BeginStage on the same token -- rather
+// than by calling EndStage directly with the literal string, so the
+// "superseded" outcome under test is the one insertStageRunAndSupersede
+// itself wrote, not one this test typed in by hand (fix round 4, F12: the
+// original version of this test never exercised the supersede write at
+// all). Both begins share the abandoned run's own command and stage, so
+// all three runs land in the one ReworkRate group the assertions below
+// check.
+func TestReworkRateDoesNotCountASupersededRunAsAbandoned(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rework-superseded-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	abandoned := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	abandoned.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
+	runStage(t, st, abandoned, nil, abandoned.StartedAt.Add(time.Minute), "abandoned")
+
+	const token = "mf-rework-superseded-token"
+	supersededBegin := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	supersededBegin.SessionToken = ptr(token)
+	supersededBegin.StartedAt = time.Date(2026, 6, 10, 1, 0, 0, 0, time.UTC)
+	if _, err := st.BeginStage(ctx, supersededBegin); err != nil {
+		t.Fatalf("BeginStage (to be superseded): %v", err)
+	}
+
+	supersedingBegin := supersededBegin
+	supersedingBegin.StartedAt = supersededBegin.StartedAt.Add(time.Minute)
+	if _, err := st.BeginStage(ctx, supersedingBegin); err != nil {
+		t.Fatalf("BeginStage (supersedes the run above): %v", err)
+	}
+
+	period := store.Period{
+		From: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+	}
+	rows, err := st.ReworkRate(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("ReworkRate: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("ReworkRate rows = %+v, want exactly 1 (one command/stage group)", rows)
+	}
+	if rows[0].AbandonedCount != 1 {
+		t.Errorf("AbandonedCount = %d, want 1 (only the abandoned run, not the superseded one)", rows[0].AbandonedCount)
+	}
+}
+
 // TestCacheEfficiencyRatioStaysNilWhenCacheCreationIsExactlyZero is F6's
 // own test: a stage run that recorded real cache-read usage but exactly
 // zero cache-creation -- a plausible, real shape, not a malformed one:

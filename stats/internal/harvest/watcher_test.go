@@ -1113,7 +1113,7 @@ func TestBindMarkAndFirstUsageInSameBatchAreBothAttributed(t *testing.T) {
 // message as the mark -- was withheld rather than committed.
 //
 // Task 4b's mechanism is what changes the outcome here, at the store
-// layer this test's fake stands in for: insertStageRun resolves
+// layer this test's fake stands in for: insertStageRunAndSupersede resolves
 // session_id at insert time from an already-bound token, so a stage run
 // created with a token that has already resolved never enters
 // UnresolvedSessionTokens at all, and RunOnce never has a reason to
@@ -1124,7 +1124,7 @@ func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
 	boundSessionID := "session-shared"
 
 	// Stage run 2's session_id is already resolved -- reproducing what
-	// store.Store.insertStageRun now does at insert time for a run whose
+	// store.Store.insertStageRunAndSupersede now does at insert time for a run whose
 	// token has already bound (task 4b), rather than something this
 	// Watcher-level fake resolves itself. This fake's UnresolvedSessionTokens
 	// only ever reports a run whose sessionID is nil, so run 2 is never
