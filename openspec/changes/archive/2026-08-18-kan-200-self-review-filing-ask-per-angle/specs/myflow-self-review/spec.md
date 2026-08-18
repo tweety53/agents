@@ -1,6 +1,23 @@
-## MODIFIED Requirements
+## REMOVED Requirements
 
 ### Requirement: One combined reasoning pass, not four separate dispatches
+
+**Reason:** renamed and rewritten for five angles. Replaced by **Requirement: One combined reasoning
+pass over all five angles**, added below — the rule is unchanged in kind (one pass, never separate
+dispatches) and changed in extent (five angles rather than four), so the old header, which names the
+count, cannot survive the change.
+
+### Requirement: Each actionable finding gets its own Jira filing ask
+
+**Reason:** renamed and rewritten. Replaced by **Requirement: The filing ask covers every angle's
+findings**, added below. The old header says "each actionable finding", which is exactly the reading
+KAN-200 records as having collapsed to "each actionable **problem**" in practice; the replacement
+names the angles rather than the findings, and adds the explain-before-filing rule and the
+per-angle multi-select the old requirement had no place for.
+
+## ADDED Requirements
+
+### Requirement: One combined reasoning pass over all five angles
 
 Self-review SHALL answer all **five** angles below in a single reasoning pass, fed the gathered
 bundle plus the live session's own context — never as five separate subagent dispatches:
@@ -35,7 +52,7 @@ indistinguishable to a reader, and that is how a write-only angle passes unnotic
 - **THEN** that angle's section is present and carries an explicit statement that it produced none,
   rather than being omitted or left empty
 
-### Requirement: Each actionable finding gets its own Jira filing ask
+### Requirement: The filing ask covers every angle's findings
 
 The filing ask SHALL cover the findings of **every** angle, not only the problems angle.
 
@@ -83,8 +100,6 @@ self-review's — `/myflow-finish` run 1's follow-up filing included.
 
 - **WHEN** the operator selects nothing in an angle's filing prompt
 - **THEN** no issue is created for that angle, and self-review continues to the next angle
-
-## ADDED Requirements
 
 ### Requirement: The report records each finding in a parseable form
 
