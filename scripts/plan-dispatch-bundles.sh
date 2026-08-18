@@ -56,7 +56,39 @@ fi
 # CHECK_TASK_BUILD_GREEN_ROOT), so a test harness can point this wrapper at
 # a sandboxed fixture tree instead of this repository's own
 # openspec/changes/.
-REPO_ROOT="${PLAN_DISPATCH_BUNDLES_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+#
+# "One level above $SCRIPT_DIR" is NOT enough to derive that root, because
+# this script is now reachable from more than one directory — its real home
+# at <repo>/scripts/, and a skills/<name>/scripts/ symlink a command skill
+# carries it under. Going up one level from the SECOND of those lands on the
+# skill directory, which exists, so a fixed-depth guard would proceed against
+# it and return a confident wrong answer (an empty scan) rather than an
+# error. Resolving this script's own symlinks first, and deriving the root
+# from ITS real physical location, gives the same answer regardless of which
+# path invoked it. resolve_file itself is sourced from lib/resolve-file.sh —
+# see that file's header for why this guard, unlike preserve-session-records.sh
+# and gather-self-review-context.sh, may source a sibling instead of carrying
+# its own copy. Sourcing only DEFINES the function; it performs no filesystem
+# walk of its own, so doing it here unconditionally does not reintroduce the
+# eager resolution the comment below opts out of — only the CALL is deferred.
+source "$SCRIPT_DIR/lib/resolve-file.sh"
+# The override is honoured WITHOUT resolving this script's own location, and the
+# ordering is deliberate rather than incidental. `${VAR:-expr}` evaluates `expr`
+# lazily, so the fixed-depth derivation this replaced never ran at all when
+# PLAN_DISPATCH_BUNDLES_ROOT was set. Resolving first and substituting second
+# would quietly end that: a caller who sets the override precisely BECAUSE its
+# invocation path is exotic — a symlink chain past the loop's 40-hop bound, a
+# directory it cannot cd into — would start hitting an exit 2 it never used to
+# hit. Resolve only when there is nothing else to fall back to.
+if [ -n "${PLAN_DISPATCH_BUNDLES_ROOT:-}" ]; then
+  REPO_ROOT="$PLAN_DISPATCH_BUNDLES_ROOT"
+else
+  SELF_REAL="$(resolve_file "${BASH_SOURCE[0]}")" || {
+    echo "plan-dispatch-bundles.sh: cannot resolve this script's own location" >&2
+    exit 2
+  }
+  REPO_ROOT="$(cd "$(dirname "$SELF_REAL")/.." && pwd)"
+fi
 CHANGES_DIR="$REPO_ROOT/openspec/changes"
 
 STATUS=0

@@ -1,0 +1,1 @@
+../../../scripts/check-cleanup-complete.sh

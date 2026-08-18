@@ -1,0 +1,1 @@
+../../../scripts/check-workspace-isolation.sh

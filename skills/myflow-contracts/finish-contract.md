@@ -12,7 +12,7 @@ change's branch has already reached the base branch. No field records "integrati
 branch's merge status is the only source of truth, and a field could disagree with it.
 
 **The merge status is decided by three signals, in this order, and by a script — not by prose.**
-`scripts/check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
+`check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
 line and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
 worktree at all — an unreadable tree is never a licence to proceed.
 
@@ -57,7 +57,7 @@ script — but signals 1 and 3 still run, and still run in this order.
 ### Run 1 — the branch is not merged
 
 **Check for unfinished work first — before the landing question and before any git action.**
-`scripts/check-unfinished-work.sh <worktree> <change-name>` prints one verdict line and exits 0
+`check-unfinished-work.sh <worktree> <change-name>` prints one verdict line and exits 0
 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the worktree.
 Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
 read of the state file's `worktrees` map, for the same reason the preflight verdict above does not
@@ -134,7 +134,7 @@ All three routes first commit the work, in **two** commits and never one: the im
 the `openspec/` planning artifacts and the session records preserved
 under `docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact
 source). The records are copied out of the gitignored worktree before staging, by
-`scripts/preserve-session-records.sh <worktree> <name> <state-dir>`.
+`preserve-session-records.sh <worktree> <name> <state-dir>`.
 
 Those two planning paths are cleared from the index before the first `add` and excluded from it by
 pathspec — the same clearing pass **Git boundaries** (`pipeline.md`) gives `/myflow-do`, and
@@ -226,7 +226,7 @@ the one irreversible step.
 5. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`pipeline.md`) gives. That section carries the condition and
    the reason for it; this step does not repeat either.
-6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
+6. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
    behind, which is the one thing run 2 previously assumed.
 
@@ -274,7 +274,7 @@ the one irreversible step.
    forward. This step is reached only on `COMPLETE:`.
 8. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. It gathers its
-   input by invoking `scripts/gather-self-review-context.sh` rather than having the reasoning pass
+   input by invoking `gather-self-review-context.sh` rather than having the reasoning pass
    re-read files inline, runs **one** combined reasoning pass covering all four angles — problems
    and fixes, cost, what went well, and automation candidates — together with the operator's 1-5
    rating, never as four separate dispatches, and offers a per-finding Jira filing ask before
@@ -382,6 +382,14 @@ git -C "$WT" ls-files --others --ignored --exclude-standard
 ask for explicit confirmation before removing that worktree. Do not try to classify the entries as
 build output: no allowlist of names can be trusted, because the operator decides what they ignore.
 Empty list → proceed without asking.
+
+**`/myflow-fast` overrides the ask, and only the ask.** Its own **Guardrails**
+(`skills/myflow-fast/SKILL.md`) state that override and why it is safe there: that command reports
+what `--force` will destroy and proceeds, having already preserved and committed the records worth
+keeping before it reaches cleanup. The override is named here too, so two files cannot silently
+disagree about a step that destroys files. It reaches nothing else — checks 1, 2, 3 and 5 stay gates
+under every command, and an irreplaceable **unpreserved** entry still stops the run and asks, under
+`/myflow-fast` as much as here.
 
 Then, and only then:
 

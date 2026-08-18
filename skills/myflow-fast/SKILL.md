@@ -54,6 +54,12 @@ myflow state get <name-or-best-guess> -C <repo-root>
   path's own sentinel, so this is a field to test, never a string to compare by hand.
 - **Exit 0** with no `"synthetic"` field reports the change's real `state` field.
 
+**Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+confirm every guard named in `/myflow-do`'s, `/myflow-finish`'s and `/myflow-status`'s own
+presence checks — the union this skill's `scripts/` directory carries — is present in
+`skills/myflow-fast/scripts/`. A complete set prints nothing; any absence prints that section's
+block once, and the run continues under each guard's own hand-run fallback.
+
 **The read above tolerates a guess; the mark below, which writes, does not — its `<change>`
 argument is `<name>`.** On a creating run `<name>` does not exist yet at this point, so defer the
 `do.state-gate` `begin`/`end` pair below: do not fire it here. Instead, carry it with you into
@@ -244,6 +250,7 @@ implementation <model>, review panel <model>, panel fixes <model> · roster <pre
 **Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots>;
 optional: <selected, or "none — no triggers fired">
 **Staged:** N/N tasks · staged and uncommitted
+**Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 
 Worktree:   <absolute worktree path>
 
@@ -284,5 +291,18 @@ here. Add exactly the guardrails specific to this skill:
 - **Never** treat a bare invocation at `IN_PROGRESS` as a fix, and never treat an invocation carrying
   an argument as ready-to-integrate.
 - **Never** publish a proposal artifact.
+- **Never** ask check 4's ignored-files confirmation before removing a worktree in run 2. **Report**
+  what `--force` will destroy — how many ignored files, which are build output, and which are
+  irreplaceable together with whether they were already preserved — and proceed. This is a scoped
+  override of the disclosure ask in **Worktree cleanup**
+  (`skills/myflow-contracts/finish-contract.md`), `/myflow-fast` only; `/myflow-finish` still asks.
+  The reason it is safe here is that the records worth keeping are already out of the worktree by
+  this point: `finish.preserve-sessions` copies the panel record and the SDD ledger into
+  `docs/superpowers/`, and `finish.commit-two` commits them, so what check 4 lists is build output
+  plus the per-review diffs the **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`)
+  already declares worktree-lifetime. **Checks 1, 2, 3 and 5 remain gates** — a failure in any of
+  them still stops cleanup with no worktree touched — and check 4 turning up something genuinely
+  irreplaceable and *unpreserved* (a gitignored `.env`, a local override, a `.dev-state`) is not this
+  override's case: stop and ask, exactly as the contract requires.
 - **No flags.** The only argument is the optional change name or description on a creating run, or
   fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
