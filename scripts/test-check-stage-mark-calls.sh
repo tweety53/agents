@@ -202,12 +202,23 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "case 9: stage end is never checked" || fail "case 9: rc=$RC out=$OUT"
 
 # ===========================================================================
-# Case 10: a file with no stage marks at all -> exit 0, zero calls checked.
+# Case 10 (KAN-197 coverage): a file with no stage marks at all -> zero calls
+# checked FOR THAT FILE, undeclared, is now a coverage violation naming it —
+# the KAN-73-shaped case: a rule computing nothing to check for one corpus
+# member, on an otherwise clean tree. Before per-file coverage this exited 0;
+# that was exactly the gap this task closes, so the assertion below is
+# deliberately the opposite of what an earlier version of this file checked.
 # ===========================================================================
 new_fixture
 printf 'Ordinary prose with no myflow stage marks in it.\n' >"$FIXTURE_FILE"
 run_guard "$FIXTURE"
-[ "$RC" -eq 0 ] && pass "case 10: file with no marks passes" || fail "case 10: rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 10: a file with no stage marks at all is an undeclared coverage violation" \
+  || fail "case 10: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$FIXTURE_FILE"*"0 checked"*"not declared expected-zero"*) \
+    pass "case 10: names the file, the zero count, and that it is undeclared" ;;
+  *) fail "case 10: expected the file named as an undeclared zero, out=$OUT" ;;
+esac
 
 # ===========================================================================
 # Case 11: change argument is `<name-or-best-guess>` -> caught, finding names
@@ -261,8 +272,12 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "case 13: compliant <name> argument passes" || fail "case 13: rc=$RC out=$OUT"
 
 # ===========================================================================
-# Case 14: `stage end ... <name-or-best-guess>` -> exit 0. `stage end` is
-# deliberately not examined at all.
+# Case 14: `stage end ... <name-or-best-guess>` -> `stage end` is deliberately
+# not examined at all, so no guess-placeholder finding is ever reported for
+# it. This fixture carries no `stage begin` call whatsoever, so — since
+# KAN-197 — it is now ALSO an undeclared coverage violation (case 10's
+# shape); the assertion below is scoped to what this case actually tests
+# (the guess-check exemption), not to overall exit status.
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
@@ -271,7 +286,12 @@ myflow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed
 ```
 EOF
 run_guard "$FIXTURE"
-[ "$RC" -eq 0 ] && pass "case 14: stage end with a guessed name is never checked" || fail "case 14: rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 14: no stage begin call at all is an undeclared coverage violation" \
+  || fail "case 14: rc=$RC out=$OUT"
+case "$OUT" in
+  *'names a guess'*) fail "case 14: stage end was wrongly checked for a guessed name: out=$OUT" ;;
+  *) pass "case 14: stage end with a guessed name is never checked" ;;
+esac
 
 # ===========================================================================
 # Case 15: change argument is `<name-or-best-guess>` followed by trailing
@@ -417,6 +437,116 @@ run_guard "$FIXTURE"
 case "$OUT" in
   *'<name-or-best-guess>'*) pass "case 22: finding names the offending argument" ;;
   *) fail "case 22: expected the argument named in the finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 23 (KAN-197 coverage): a file with one compliant call reports its
+# count, and the verdict's own breakdown line names it.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 23: a file with one compliant call exits 0" || fail "case 23: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$FIXTURE_FILE 1"*) pass "case 23: the breakdown names the file with its checked count" ;;
+  *) fail "case 23: expected the breakdown to show '$FIXTURE_FILE 1', out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 24 (KAN-197 coverage): a member declared expected-zero in the guard's
+# own source reports its zero without failing. This guard has no
+# CHECK_*_ROOT override (unlike check-references.sh / check-guard-symlinks.sh),
+# so a sandboxed fixture path can never coincide with one of the guard's own
+# repo-relative declared names — proving "declared passes" instead requires
+# running the guard bare, against the real repository it ships in, which
+# tasks 1-4 already require to be clean. skills/myflow-status/SKILL.md is
+# declared with its own by-contract reason (task 5's own note); a second,
+# ordinary declared member (skills/myflow-contracts/SKILL.md — the guard's
+# own default corpus post-F1-narrowing is only SKILL.md/pipeline.md files, so
+# this is the smallest remaining ordinary example, not skills/README.md,
+# which the narrowed corpus no longer reaches at all) is checked alongside it
+# so this case covers both the special-reason and the generic-reason shape.
+# ===========================================================================
+set +e
+REAL_OUT="$("$GUARD" 2>&1)"
+REAL_RC=$?
+set -e
+[ "$REAL_RC" -eq 0 ] && pass "case 24: the real repository's own tree is clean" \
+  || fail "case 24: rc=$REAL_RC out=$REAL_OUT"
+case "$REAL_OUT" in
+  *"skills/myflow-status/SKILL.md 0 (declared: read-only status report"*) \
+    pass "case 24: myflow-status's declared zero carries its by-contract reason" ;;
+  *) fail "case 24: expected myflow-status's declared-zero reason in the breakdown, out=$REAL_OUT" ;;
+esac
+case "$REAL_OUT" in
+  *"skills/myflow-contracts/SKILL.md 0 (declared:"*) \
+    pass "case 24: an ordinary declared-zero member also reports as declared" ;;
+  *) fail "case 24: expected skills/myflow-contracts/SKILL.md reported as a declared zero, out=$REAL_OUT" ;;
+esac
+
+# ===========================================================================
+# Case 25 (KAN-197 F7): a directory target that enumerates to ZERO candidate
+# files must not vanish from coverage — before this fix, coverage_record was
+# never called at all for such a target, so it was invisible even though the
+# run went on to report "clean". Reproduces the panel's own repro: a fixture
+# directory holding no SKILL.md/pipeline.md file whatsoever.
+# ===========================================================================
+EMPTY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-stage-mark-calls-empty.XXXXXX")"
+run_guard "$EMPTY_DIR"
+[ "$RC" -eq 1 ] && pass "case 25: an empty target is an undeclared coverage violation, not a vanishing pass" \
+  || fail "case 25: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$EMPTY_DIR"*"0 checked"*"not declared expected-zero"*) \
+    pass "case 25: the violation names the empty target itself" ;;
+  *) fail "case 25: expected the empty target named as an undeclared zero, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 26 (KAN-197 F1 mutation): the narrowed corpus (SKILL.md/pipeline.md
+# only) still detects a SKILL.md that lost all its marks — narrowing must not
+# have cost detection — AND a co-located file that could never carry a mark
+# (any other .md basename) is correctly excluded from the corpus rather than
+# forcing a declaration for it.
+# ===========================================================================
+new_fixture
+printf 'Ordinary prose with no myflow stage marks in it.\n' >"$FIXTURE_FILE"
+printf 'This file is not named SKILL.md or pipeline.md and can never carry a mark.\n' \
+  >"$FIXTURE/notes.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 26: a SKILL.md stripped of its marks still fires after F1's narrowing" \
+  || fail "case 26: rc=$RC out=$OUT"
+case "$OUT" in
+  *"notes.md"*) fail "case 26: a non-SKILL.md/pipeline.md file was wrongly pulled into the corpus, out=$OUT" ;;
+  *) pass "case 26: a file that can never carry a mark is excluded from the corpus entirely" ;;
+esac
+
+# ===========================================================================
+# Case 27 (KAN-197 F8): a rejected coverage_record must not be swallowed. The
+# same file passed as two separate targets makes the SECOND coverage_record
+# call for it fail (already recorded); before this fix the guard ran under
+# `set -uo pipefail` with no `-e` and never read that return, so it printed a
+# "clean" verdict whose own breakdown contradicted itself. Now it refuses to
+# answer (exit 2) instead.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-abc123 <name>
+```
+EOF
+set +e
+OUT="$("$GUARD" "$FIXTURE_FILE" "$FIXTURE_FILE" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 2 ] && pass "case 27: a rejected coverage_record aborts loudly instead of reporting a contradictory clean verdict" \
+  || fail "case 27: rc=$RC out=$OUT"
+case "$OUT" in
+  *"already recorded"*) pass "case 27: the failure names the real cause" ;;
+  *) fail "case 27: expected coverage_record's own already-recorded message, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then

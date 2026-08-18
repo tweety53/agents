@@ -35,10 +35,20 @@
 #      rather than a hardcoded guard list, so a newly shipped guard is covered
 #      the moment it is symlinked in.
 #
-# Prints one violation line per finding (`path:line: message`), then ONE
-# verdict line:
+# Prints one violation line per finding (`path:line: message`), then the
+# verdict:
 #   GUARD-SYMLINKS-OK:      <root> — N guard(s) across M skill(s) validated
+#     <skill> <count> · <skill> <count> (declared) · ...
 #   GUARD-SYMLINKS-INVALID: <root> — N violation(s)
+# The second OK line is scripts/lib/coverage.sh's coverage_report fragment:
+# how many rule-2-required guards this run actually found for EACH command
+# skill, so a rule computing an empty required set for one skill (KAN-73's
+# own defect, for skills/myflow-fast/, before delegation resolution existed)
+# is visible on a passing run rather than reading as nothing to check. A
+# skill's zero is either named "(declared)" — this guard's own written
+# coverage_declare call for it — or, if undeclared, a fifth violation class
+# folded into the ordinary `path:line: message` violations above and the
+# INVALID count, never a separate exit status or report shape.
 #
 # Exit 0 clean, 1 with any violation, 2 when it cannot answer at all — a root
 # that is not a readable directory, a skills/ or scripts/ directory that
@@ -127,6 +137,13 @@ violation() {
 # and gather-self-review-context.sh, may safely source a sibling instead of
 # carrying its own copy.
 source "$SCRIPT_DIR/lib/resolve-file.sh"
+
+# coverage_record / coverage_declare / coverage_report / coverage_verdict —
+# per-skill coverage reporting and the declared-vs-undeclared-zero decision,
+# owned once in lib/coverage.sh rather than reinvented here. See that file's
+# header for why (KAN-197) and the three disciplines it carries over from
+# panel-record.sh.
+source "$SCRIPT_DIR/lib/coverage.sh"
 
 # ---------------------------------------------------------------------------
 # Command skills: every directory directly under skills/ except
@@ -726,6 +743,79 @@ while IFS="$(printf '\t')" read -r skill guard citing_file citing_line via; do
 done < "$REQUIRED_UNIQUE"
 
 # ===========================================================================
+# COVERAGE — per-skill count of what rule 2's required set actually holds,
+# via scripts/lib/coverage.sh. This is the layer that makes KAN-73's own
+# defect impossible to ship silently again: a skill whose required set
+# resolves to empty — whether it legitimately invokes no guard, or a future
+# citation shape the classifier above cannot see — is now named on a
+# PASSING run instead of reading as nothing to check.
+#
+# Declared here, never inferred from the tree: a member's presence in this
+# list is a statement this guard's own source makes, that a reviewer can
+# read and question — inferring it from the tree would restate the very
+# assumption a silent empty required set already encodes.
+# ===========================================================================
+while IFS= read -r skill; do
+  [ -n "$skill" ] || continue
+  count="$(awk -F "$(printf '\t')" -v sk="$skill" '$1 == sk { c++ } END { print c + 0 }' < "$REQUIRED_UNIQUE")"
+  # KAN-197 F8: the return is checked rather than ignored — this file already
+  # runs under `set -euo pipefail`, so a failure here would abort anyway, but
+  # a bare `coverage_record` gives no diagnostic of its own beyond whatever
+  # the library printed to stderr; checking it explicitly names the guard's
+  # own failure mode, consistent with every other library-call site in the
+  # four guards this task audited for the same gap.
+  if ! coverage_record "$skill" "$count"; then
+    echo "check-guard-symlinks: coverage_record failed for skill '$skill' (see stderr above)" >&2
+    exit 2
+  fi
+done < "$SKILL_NAMES_FILE"
+
+# declare_if_present <skill> <reason> — declares <skill> expected-zero ONLY
+# when it is actually a member of THIS run's corpus (present in
+# SKILL_NAMES_FILE, i.e. a real directory under the SKILLS_DIR this run
+# scanned — which may be a sandboxed CHECK_GUARD_SYMLINKS_ROOT fixture, not
+# this repository). Declaring a name that is not part of the current corpus
+# at all would make it a KAN-197 F3 "declared but never recorded" violation
+# for every fixture that does not happen to carry a "myflow-start" or
+# "myflow-status" directory of its own — not a real staleness, just a
+# mismatch between this guard's own hardcoded real-repo names and a smaller
+# sandboxed tree. Gating on actual corpus membership keeps F3's protection
+# meaningful for the real repository (all three names are real directories
+# here today) without that false-positive noise in test-check-guard-symlinks.sh's
+# own fixtures, several of which deliberately reuse "myflow-start" as a
+# stand-in and several of which do not.
+declare_if_present() {
+  local skill="$1" reason="$2" rc
+  set +e
+  grep -aqxF -- "$skill" "$SKILL_NAMES_FILE"
+  rc=$?
+  set -e
+  if [ "$rc" -ge 2 ]; then
+    echo "check-guard-symlinks: grep exited $rc while checking $SKILL_NAMES_FILE for '$skill'" >&2
+    exit 2
+  fi
+  [ "$rc" -eq 0 ] || return 0
+  if ! coverage_declare "$skill" "$reason"; then
+    echo "check-guard-symlinks: coverage_declare failed for '$skill' (see stderr above)" >&2
+    exit 2
+  fi
+}
+
+declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .myflow/project.md, never one symlinked into its own scripts/ directory"
+declare_if_present "myflow-status" "invokes no guard — a read-only status report; its own SKILL.md states \"No guard-presence check here\""
+declare_if_present "openspec-explore" "invokes no guard — a thinking-partner exploration mode with no implementation or verification stage"
+
+COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
+if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then
+  while IFS= read -r cvline; do
+    [ -n "$cvline" ] || continue
+    cvmember="${cvline%%:*}"
+    cvmsg="${cvline#*: }"
+    violation "$cvmember" 0 "$cvmsg"
+  done < "$COVERAGE_VERDICT_FILE"
+fi
+
+# ===========================================================================
 # Verdict.
 # ===========================================================================
 GUARD_COUNT="$(wc -l < "$GUARD_SET_FILE" | tr -d ' ')"
@@ -739,4 +829,8 @@ if [ -s "$VIOLATIONS_FILE" ]; then
 fi
 
 printf 'GUARD-SYMLINKS-OK: %s — %s guard(s) across %s skill(s) validated\n' "$ROOT" "$GUARD_COUNT" "$SKILL_COUNT"
+COVERAGE_FRAGMENT="$(coverage_report)"
+if [ -n "$COVERAGE_FRAGMENT" ]; then
+  printf '  %s\n' "$COVERAGE_FRAGMENT"
+fi
 exit 0

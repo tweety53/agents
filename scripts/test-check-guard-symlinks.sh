@@ -107,25 +107,35 @@ cd "$SCRIPT_DIR" && cd ..
 REPO_ROOT="$(pwd)"
 echo "$REPO_ROOT"'
 
-# assert_ok <label> — exit 0 and a GUARD-SYMLINKS-OK verdict on the last line.
+# assert_ok <label> — exit 0 and a GUARD-SYMLINKS-OK verdict on the FIRST
+# line. First, not last: scripts/lib/coverage.sh's per-skill breakdown, when
+# the corpus is non-empty, is an indented second line the verdict now always
+# carries on a clean run — checking the first line keeps this assertion
+# agnostic to whether that second line is present.
 assert_ok() {
   if [ "$RC" -ne 0 ]; then
     fail "$1: expected exit 0, got rc=$RC out=$OUT err=$ERR"
     return 0
   fi
-  case "$(printf '%s\n' "$OUT" | tail -n 1)" in
+  case "$(printf '%s\n' "$OUT" | head -n 1)" in
     "GUARD-SYMLINKS-OK:"*) pass "$1" ;;
     *) fail "$1: expected a GUARD-SYMLINKS-OK verdict, got: $OUT" ;;
   esac
 }
 
-# assert_silent <label> — exit 0, and the verdict line is the ONLY line.
+# assert_silent <label> — exit 0, the verdict on line 1, and at most a
+# coverage breakdown on line 2 — never a "path:line: message" violation
+# mixed in. Every fixture reaching this assertion has a non-empty corpus (at
+# least one skill directory), so coverage_report always renders a line; "one
+# line" from before this task is now "one or two."
 assert_silent() {
   local lines
   assert_ok "$1"
   lines="$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')"
-  [ "$lines" = "1" ] && pass "$1: says exactly one line" \
-    || fail "$1: expected exactly one stdout line, got $lines: $OUT"
+  case "$lines" in
+    1|2) pass "$1: verdict plus at most a coverage breakdown" ;;
+    *) fail "$1: expected 1 or 2 stdout lines, got $lines: $OUT" ;;
+  esac
 }
 
 # assert_invalid <label> — exit 1 and a GUARD-SYMLINKS-INVALID verdict.
@@ -226,14 +236,18 @@ assert_reports "is absolute" "rule 1: says the target is absolute"
 #     through would surface as a SECOND violation ("cannot read this guard's
 #     real source") on top of the rule 1 one — exactly one violation line is
 #     the assertion that pins the fix.
+# Uses "myflow-start" — one of the guard's own declared expected-zero
+# skills — rather than "myflow-do": this fixture's own assertion below
+# counts violation lines exactly, and an undeclared zero-coverage skill
+# would add a second one that has nothing to do with what F9 tests.
 new_repo
-mkdir -p "$REPO/skills/myflow-do/scripts"
+mkdir -p "$REPO/skills/myflow-start/scripts"
 OUTSIDE_TARGET="$(mktemp "${TMPDIR:-/tmp}/check-guard-symlinks-outside.XXXXXX")"
 SANDBOXES+=("$OUTSIDE_TARGET")
 printf 'unrelated content, unreadable\n' > "$OUTSIDE_TARGET"
 chmod 000 "$OUTSIDE_TARGET"
-ln -s "$OUTSIDE_TARGET" "$REPO/skills/myflow-do/scripts/check-outside.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+ln -s "$OUTSIDE_TARGET" "$REPO/skills/myflow-start/scripts/check-outside.sh"
+write_skill_md "myflow-start" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "an absolute off-repo symlink target is a rule 1 violation"
 assert_reports "is absolute" "rule 1 (F9): says the target is absolute"
@@ -406,8 +420,12 @@ assert_silent "a repository-relative path in a descriptive sentence is prose, no
 #     than being invoked by any command. A future "Run
 #     `scripts/check-vocabulary.sh` before committing" must not fail CI
 #     wrongly.
+# Uses "myflow-start" (a declared expected-zero skill): neither citation
+# below is in a form rule 2's classifier reads as a required guard, so this
+# skill's required set is genuinely empty — declaring it here keeps this
+# fixture about rule 3's exemption, not coverage.
 new_repo
-write_skill_md "myflow-do" '# myflow-do fixture
+write_skill_md "myflow-start" '# myflow-start fixture
 
 Run `scripts/check-vocabulary.sh` before committing.
 
@@ -423,8 +441,12 @@ assert_silent "a project-configured guard keeps its repository-relative path wit
 #     — before the fix, "shellsession" matched the unanchored `^sh` prefix by
 #     accident, and a repository-relative citation of a NON-exempt guard
 #     inside it was wrongly flagged.
+# Uses "myflow-start" (declared expected-zero): a citation inside a
+# ```shellsession fence is never scanned by rule 2, so this skill's required
+# set is genuinely empty here too — declaring it keeps F8 about the fence
+# language anchor, not coverage.
 new_repo
-write_skill_md "myflow-do" '# myflow-do fixture
+write_skill_md "myflow-start" '# myflow-start fixture
 
 ```shellsession
 scripts/check-qux.sh <worktree>
@@ -449,10 +471,12 @@ assert_reports "rule 4" "rule 4: names the rule"
 # A project-configured guard that is NEVER shipped (no symlink anywhere) may
 # keep the $SCRIPT_DIR/.. form without tripping rule 4 — the guard scopes
 # rule 4 to what rule 1 found actually symlinked in, never every file under
-# scripts/.
+# scripts/. Uses "myflow-start" (declared expected-zero): this fixture cites
+# nothing, so its required set is genuinely empty, and declaring it keeps
+# this test about rule 4's scoping, not coverage.
 new_repo
 add_real_guard "check-project-only.sh" "$FIXED_DEPTH_GUARD_BODY"
-write_skill_md "myflow-do" "# fixture, no citations"
+write_skill_md "myflow-start" "# fixture, no citations"
 run_guard "$REPO"
 assert_silent "an unshipped guard keeping \$SCRIPT_DIR/.. is not a rule 4 violation"
 
@@ -536,6 +560,11 @@ assert_silent "a delegating skill carrying the delegated guard is not a rule 2 v
 #      delegating. This is the false-positive this file's own header warns
 #      about (rule 2 scoped to a skill's own directory, not every citation):
 #      myflow-status cites /myflow-do constantly without invoking anything.
+#      Named "myflow-status" here on purpose, not a "-like" stand-in: it is
+#      one of the guard's own declared expected-zero skills, so its
+#      genuinely-empty required set here reads as declared rather than
+#      tripping the coverage violation added below (F12) — this fixture is
+#      about rule 2's delegation boundary, not coverage.
 new_repo
 add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
 link_guard "myflow-do" "check-deleg.sh"
@@ -547,13 +576,62 @@ write_skill_md "myflow-do" '# myflow-do fixture
 check-deleg.sh <worktree>
 ```
 '
-write_skill_md "myflow-status-like" '# fixture standing in for myflow-status
+write_skill_md "myflow-status" '# fixture standing in for myflow-status
 
 This command explains what `/myflow-do` does elsewhere. It invokes nothing
 of its own.
 '
 run_guard "$REPO"
 assert_silent "an ordinary cross-command citation outside the presence paragraph is not delegation (F4)"
+
+# ---------------------------------------------------------------------------
+# F12 — the KAN-197 regression case. Reproduces KAN-73's own shape,
+# generalized past myflow-fast's now-fixed delegation format: a skill that
+# CARRIES A REAL SYMLINK — evidence it needs a guard beside it — but whose
+# own text names no guard in a form rule 2's classifier can see (a plain
+# prose mention of another command, not the recognized "**Check guard
+# presence.**" delegation paragraph). Rule 2 itself has nothing to require,
+# so nothing to violate — before this task, that read as silent, exactly the
+# defect that let myflow-fast's own missing symlink go undetected through
+# three reviewers. After this task, the skill's own empty required set is
+# itself the finding: named, and non-zero exit, on an otherwise clean tree.
+# ---------------------------------------------------------------------------
+new_repo
+add_real_guard "check-shadow.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-shadow.sh"
+link_guard "myflow-shadow" "check-shadow.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+**Check guard presence.** Confirm every guard this command invokes:
+
+```bash
+check-shadow.sh <worktree>
+```
+'
+write_skill_md "myflow-shadow" '# myflow-shadow fixture — KANs own shape, generalized
+
+See `/myflow-do` for details on this behavior. This skill delegates, but not
+in a form the classifier above recognizes.
+'
+run_guard "$REPO"
+assert_invalid "a skill carrying a real symlink but citing nothing rule 2 can see is a coverage violation, not silence (F12)"
+assert_reports "myflow-shadow" "F12: names the under-covered skill"
+assert_reports "coverage" "F12: reports it as a coverage finding"
+assert_reports "0 checked" "F12: reports the zero count"
+assert_reports "not declared expected-zero" "F12: says it was never declared"
+
+# ---------------------------------------------------------------------------
+# F13 — the paired case: a member legitimately at zero, and DECLARED in the
+# guard's own source, reports the zero without failing. Reuses
+# "myflow-start" — one of the three names this guard's own coverage_declare
+# calls list — deliberately, the same reuse F9/F3/F8/rule-4's "unshipped
+# guard" case and F4c above already rely on.
+# ---------------------------------------------------------------------------
+new_repo
+write_skill_md "myflow-start" "# myflow-start fixture, no citations — declared expected-zero in the guard's own source"
+run_guard "$REPO"
+assert_silent "a declared expected-zero member reports its zero without failing (F13)"
+assert_reports "declared" "F13: the coverage breakdown marks the zero as declared"
 
 # ---------------------------------------------------------------------------
 # 6. Inputs this guard cannot answer about. Never fail open.

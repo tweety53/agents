@@ -48,13 +48,15 @@ set -euo pipefail
 # solely so the companion harness (test-check-references.sh) can point the
 # guard at a sandboxed fixture tree under /tmp without touching this repo —
 # never set it for a normal invocation.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [ -n "${CHECK_REFERENCES_ROOT:-}" ]; then
   REPO_ROOT="$CHECK_REFERENCES_ROOT"
 elif [ "${CHECK_REFERENCES_ROOT+set}" = "set" ]; then
   printf 'CHECK_REFERENCES_ROOT is set but empty\n' >&2
   exit 2
 else
-  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 fi
 
 # A root that is not a directory would make every target miss and the guard
@@ -68,6 +70,13 @@ REPO_ROOT_PHYS="$(cd "$REPO_ROOT" && pwd -P)"
 # The lexical root, used by the containment test below (lexical_norm is defined
 # further down; REPO_ROOT_NORM is filled in right after it).
 REPO_ROOT_ABS="$(cd "$REPO_ROOT" && pwd)"
+
+# coverage_record / coverage_declare / coverage_report / coverage_verdict —
+# per-file coverage reporting and the declared-vs-undeclared-zero decision,
+# owned once in lib/coverage.sh rather than reinvented here. See that file's
+# header for why (KAN-197) and check-guard-symlinks.sh for the pattern this
+# guard follows.
+source "$SCRIPT_DIR/lib/coverage.sh"
 
 DEFAULT_TARGETS=(
   "rules"
@@ -358,7 +367,7 @@ contained() {
 }
 
 check_file() {
-  local file="$1" lineno=0 in_fence=0 line
+  local file="$1" lineno=0 in_fence=0 line checked=0
   while IFS= read -r line || [ -n "$line" ]; do
     lineno=$((lineno + 1))
 
@@ -417,6 +426,14 @@ check_file() {
       local heads matched token
       heads="$(headings_of "$resolved")"
       [ -n "$heads" ] || continue
+      # This is a CHECKED reference: a bold token associated with a path that
+      # resolved to a real, headed file, and was actually compared against
+      # that file's headings — see scripts/lib/coverage.sh's header for why
+      # this count, not the mere fact that check_file ran, is what "coverage"
+      # means here. A file with none of these is a file this guard read but
+      # verified nothing in, indistinguishable from the outside from a rule
+      # that silently stopped checking it.
+      checked=$((checked + 1))
       matched=0
       while IFS= read -r token; do
         [ -n "$token" ] || continue
@@ -438,10 +455,142 @@ check_file() {
 $paths
 EOF
   done < "$file"
+  # KAN-197 F8: the return is checked rather than ignored, matching the audit
+  # this task also applied to check-vocabulary.sh and check-stage-mark-calls.sh
+  # (the two guards where an unchecked failure here would have been silently
+  # swallowed under `set -uo pipefail` with no `-e`). This file already runs
+  # under `set -euo pipefail`, so a failure would abort regardless, but an
+  # explicit check names the real cause instead of relying on -e's own,
+  # context-free abort.
+  if ! coverage_record "${file#"$REPO_ROOT"/}" "$checked"; then
+    printf 'check-references: coverage_record failed for %s (see stderr above)\n' "${file#"$REPO_ROOT"/}" >&2
+    exit 2
+  fi
+}
+
+# EXPECTED-ZERO FILES — established by running this guard's own association
+# and resolution logic against the real tree (2026-08-18, at df9d5dd), never
+# guessed: each of these carries no `**Bold**`-adjacent `.md`/`.mdc` path in
+# any of the shapes is_associated recognizes, so this guard genuinely
+# verifies nothing inside it. Declared here, once, rather than inferred from
+# the tree — inferring it would restate the very assumption a silently
+# uncovered file already encodes, which is exactly the case this exists to
+# fail instead of pass.
+#
+# KAN-197 F2: batched by CATEGORY rather than one flat list sharing a single
+# reason string. The panel's Primary slot found the original single reason
+# attested only to HOW the zero was measured ("ran the association logic
+# against this file"), never to WHY it is legitimate BY DESIGN — weaker than
+# this requirement's own words, "legitimately checks nothing". Each category
+# below states the actual shape that makes its members' bold/path pairs never
+# associate, verified per category rather than guessed:
+#
+#   command-dispatch stub — every path it cites sits INSIDE the same bold
+#   span as the verb citing it (e.g. "**load `skills/.../pipeline.md`
+#   first**"); looks_like_section rejects any bold span containing "/", so no
+#   candidate section name is ever formed next to the path.
+#
+#   rule file — a path citation sits in a Markdown table cell (rules/agent-
+#   baseline.md's rule table) separated from any bold text by far more than
+#   the adjacency window, or the file cites no path in a bold-adjacent shape
+#   at all.
+#
+#   contract/index doc — cites other files as a plain parenthetical backtick
+#   path or a `[label](path)` Markdown link (skills/myflow-contracts/SKILL.md's
+#   own table), never as a bold token adjacent to the path.
+#
+#   reviewer-prompt file — deliberately self-contained; three of the five
+#   cite no .md/.mdc path anywhere, and the two that do (engineering-
+#   principles.md, principles-reviewer-prompt.md) never pair the citation
+#   with an adjacent bold section name.
+#
+#   rationale/exploration doc — prose-only; any path citation sits inside the
+#   same bold span as its citing verb (the command-dispatch-stub shape), or
+#   with no bold nearby at all.
+EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
+  "commands-claude/myflow-do.md"
+  "commands-claude/myflow-fast.md"
+  "commands-claude/myflow-start.md"
+  "commands-claude/myflow-status.md"
+  "commands/myflow-do.md"
+  "commands/myflow-fast.md"
+  "commands/myflow-start.md"
+  "commands/myflow-status.md"
+  "commands/opsx-explore.md"
+)
+EXPECTED_ZERO_COMMAND_DISPATCH_REASON="command-dispatch stub — every path it cites sits inside the SAME bold span as the verb citing it (e.g. \"**load \`path\` first**\"); looks_like_section rejects any bold span containing '/', so no candidate section name ever forms adjacent to the path"
+
+EXPECTED_ZERO_RULE_FILES=(
+  "rules/agent-baseline.md"
+  "rules/be-brief.mdc"
+  "rules/build-the-simplest-thing.mdc"
+  "rules/context7.mdc"
+  "rules/dependency-versions.mdc"
+  "rules/design-mockups-are-specs.mdc"
+  "rules/dispatch-carries-the-baseline.mdc"
+  "rules/lint-fix-priority.mdc"
+  "rules/never-touch-production.mdc"
+  "rules/no-direct-pushes-to-main.mdc"
+)
+EXPECTED_ZERO_RULE_FILES_REASON="rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all"
+
+EXPECTED_ZERO_CONTRACT_DOCS=(
+  "skills/myflow-contracts/build-green.md"
+  "skills/myflow-contracts/operator-prompts.md"
+  "skills/myflow-contracts/SKILL.md"
+)
+EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path"
+
+EXPECTED_ZERO_REVIEWER_PROMPTS=(
+  "skills/myflow-do/adversarial-reviewer-prompt.md"
+  "skills/myflow-do/bug-hunter-reviewer-prompt.md"
+  "skills/myflow-do/engineering-principles.md"
+  "skills/myflow-do/principles-reviewer-prompt.md"
+  "skills/myflow-do/security-reviewer-prompt.md"
+)
+EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name"
+
+EXPECTED_ZERO_RATIONALE_DOCS=(
+  "skills/myflow-fast/SKILL-rationale.md"
+  "skills/openspec-explore/SKILL.md"
+)
+EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"
+
+# declare_category <reason> <file...> — declares every <file> with <reason>,
+# but ONLY when <file> exists under the CURRENT REPO_ROOT (KAN-197 F3
+# compatibility: REPO_ROOT is this guard's own real location by default, or a
+# sandboxed CHECK_REFERENCES_ROOT fixture under the companion test harness —
+# see that variable's own header comment above. This guard's declared lists
+# are this repository's own real paths; a sandboxed fixture scans a
+# different, smaller tree where most of them do not exist at all. Declaring
+# a path that is not part of the CURRENT run's corpus would make it a
+# KAN-197 F3 "declared but never recorded" violation for every such fixture
+# — not a real staleness, just a scope mismatch. Existence-gating keeps F3's
+# protection meaningful for this guard's real, default run (every path below
+# genuinely exists there today) without that false-positive noise.
+declare_category() {
+  local reason="$1"; shift
+  local f
+  for f in "$@"; do
+    [ -f "$REPO_ROOT/$f" ] || continue
+    if ! coverage_declare "$f" "$reason"; then
+      printf 'check-references: coverage_declare failed for %s (see stderr above)\n' "$f" >&2
+      exit 2
+    fi
+  done
+}
+
+declare_expected_zeros() {
+  declare_category "$EXPECTED_ZERO_COMMAND_DISPATCH_REASON" "${EXPECTED_ZERO_COMMAND_DISPATCH_STUBS[@]:-}"
+  declare_category "$EXPECTED_ZERO_RULE_FILES_REASON" "${EXPECTED_ZERO_RULE_FILES[@]:-}"
+  declare_category "$EXPECTED_ZERO_CONTRACT_DOCS_REASON" "${EXPECTED_ZERO_CONTRACT_DOCS[@]:-}"
+  declare_category "$EXPECTED_ZERO_REVIEWER_PROMPTS_REASON" "${EXPECTED_ZERO_REVIEWER_PROMPTS[@]:-}"
+  declare_category "$EXPECTED_ZERO_RATIONALE_DOCS_REASON" "${EXPECTED_ZERO_RATIONALE_DOCS[@]:-}"
 }
 
 main() {
   local target scanned=0
+  declare_expected_zeros
   for target in "${DEFAULT_TARGETS[@]}"; do
     local full="$REPO_ROOT/$target"
     [ -e "$full" ] || continue
@@ -462,12 +611,29 @@ main() {
     exit 2
   fi
 
+  # COVERAGE — per-file count of what this guard actually verified, via
+  # scripts/lib/coverage.sh. A file whose coverage is zero and is not in
+  # EXPECTED_ZERO_FILES above is folded into the ordinary stale-reference
+  # violations rather than a separate exit status, exactly as
+  # check-guard-symlinks.sh does it.
+  local coverage_verdict_out
+  if ! coverage_verdict_out="$(coverage_verdict)"; then
+    while IFS= read -r cvline; do
+      [ -n "$cvline" ] || continue
+      printf '%s:0: %s\n' "${cvline%%:*}" "${cvline#*: }"
+      FAILURES=$((FAILURES + 1))
+    done <<<"$coverage_verdict_out"
+  fi
+
   if [ "$FAILURES" -ne 0 ]; then
     printf '\n%d stale reference(s) found.\n' "$FAILURES" >&2
     printf 'Fix the reference, or mark the line refs-guard:allow if the bold text is emphasis.\n' >&2
     exit 1
   fi
   printf 'check-references: all referenced sections resolve\n'
+  local frag
+  frag="$(coverage_report)"
+  [ -n "$frag" ] && printf '  %s\n' "$frag"
 }
 
 main "$@"
