@@ -1,0 +1,1 @@
+../../../scripts/preserve-session-records.sh

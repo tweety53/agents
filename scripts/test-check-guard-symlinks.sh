@@ -1,0 +1,593 @@
+#!/usr/bin/env bash
+# Assertion harness for check-guard-symlinks.sh. Builds throwaway repository
+# trees under a sandboxed TMPDIR — each with its own scripts/ and skills/
+# directories — and asserts the guard's violation lines, its verdict and its
+# exit status. Never modifies the real repository tree, with one deliberate
+# read: the last case runs the guard against this repository's own real path,
+# because tasks 1-3 already landed and the guard must exit 0 against them —
+# a fixture copy would be a second place for that agreement to drift.
+#
+# READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the four rules
+# stated in openspec/changes/kan-73-install-guard-scripts-alongside-skills/
+# tasks.md's task 5 and design.md's "The guard-to-skill map" / "The
+# $SCRIPT_DIR/.. hazard" — never against observed output.
+#
+# Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
+# indexed arrays only, no associative arrays.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+GUARD="$SCRIPT_DIR/check-guard-symlinks.sh"
+FAILURES=0
+
+fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
+pass() { printf 'ok: %s\n' "$1"; }
+skip() { printf 'skip: %s (%s)\n' "$1" "$2"; }
+
+# An indexed array, not a space-separated string: sandbox paths come from
+# mktemp under TMPDIR, which may contain spaces, and word-splitting a string
+# would then rm -rf the fragments.
+SANDBOXES=()
+cleanup() {
+  [ "${#SANDBOXES[@]}" -eq 0 ] && return 0
+  for s in "${SANDBOXES[@]}"; do rm -rf "$s"; done
+}
+trap cleanup EXIT
+
+# run_guard <root> -> sets OUT (stdout only), ERR, RC. The two streams are
+# captured separately, exactly as test-check-workspace-isolation.sh does,
+# because a refusal must put its message on stderr and leave stdout empty —
+# a merged capture cannot tell an empty stdout from one carrying the message.
+run_guard() {
+  local errfile
+  errfile="$(mktemp "${TMPDIR:-/tmp}/check-guard-symlinks-stderr.XXXXXX")"
+  SANDBOXES+=("$errfile")
+  set +e
+  OUT="$(CHECK_GUARD_SYMLINKS_ROOT="$1" "$GUARD" 2>"$errfile")"
+  RC=$?
+  set -e
+  ERR="$(cat "$errfile")"
+}
+
+# new_repo -> sets REPO to an empty repository root carrying scripts/ and
+# skills/, both required for the guard's own directory checks to pass before
+# it looks at anything inside them.
+new_repo() {
+  REPO="$(mktemp -d "${TMPDIR:-/tmp}/check-guard-symlinks-repo.XXXXXX")"
+  SANDBOXES+=("$REPO")
+  mkdir -p "$REPO/scripts" "$REPO/skills"
+}
+
+# add_real_guard <name> <body> -> writes $REPO/scripts/<name>, executable.
+add_real_guard() {
+  printf '%s\n' "$2" > "$REPO/scripts/$1"
+  chmod +x "$REPO/scripts/$1"
+}
+
+# link_guard <skill> <name> -> a correct relative symlink from
+# skills/<skill>/scripts/<name> into ../../../scripts/<name>, exactly the
+# shape task 2 committed.
+link_guard() {
+  mkdir -p "$REPO/skills/$1/scripts"
+  ln -s "../../../scripts/$2" "$REPO/skills/$1/scripts/$2"
+}
+
+# write_skill_md <skill> <body> -> $REPO/skills/<skill>/SKILL.md.
+write_skill_md() {
+  mkdir -p "$REPO/skills/$1"
+  printf '%s\n' "$2" > "$REPO/skills/$1/SKILL.md"
+}
+
+PLAIN_GUARD_BODY='#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo ok'
+
+FIXED_DEPTH_GUARD_BODY='#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+echo "$REPO_ROOT"'
+
+# F5 — the same fixed-depth defect, spelled two other ways. dirname() and a
+# two-step cd chain answer the identical "one level above $SCRIPT_DIR"
+# question the literal `$SCRIPT_DIR/..` form does, and rule 4 must catch all
+# three.
+FIXED_DEPTH_GUARD_BODY_DIRNAME='#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+echo "$REPO_ROOT"'
+
+FIXED_DEPTH_GUARD_BODY_CD_CHAIN='#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" && cd ..
+REPO_ROOT="$(pwd)"
+echo "$REPO_ROOT"'
+
+# assert_ok <label> — exit 0 and a GUARD-SYMLINKS-OK verdict on the last line.
+assert_ok() {
+  if [ "$RC" -ne 0 ]; then
+    fail "$1: expected exit 0, got rc=$RC out=$OUT err=$ERR"
+    return 0
+  fi
+  case "$(printf '%s\n' "$OUT" | tail -n 1)" in
+    "GUARD-SYMLINKS-OK:"*) pass "$1" ;;
+    *) fail "$1: expected a GUARD-SYMLINKS-OK verdict, got: $OUT" ;;
+  esac
+}
+
+# assert_silent <label> — exit 0, and the verdict line is the ONLY line.
+assert_silent() {
+  local lines
+  assert_ok "$1"
+  lines="$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')"
+  [ "$lines" = "1" ] && pass "$1: says exactly one line" \
+    || fail "$1: expected exactly one stdout line, got $lines: $OUT"
+}
+
+# assert_invalid <label> — exit 1 and a GUARD-SYMLINKS-INVALID verdict.
+assert_invalid() {
+  if [ "$RC" -ne 1 ]; then
+    fail "$1: expected exit 1, got rc=$RC out=$OUT err=$ERR"
+    return 0
+  fi
+  case "$(printf '%s\n' "$OUT" | tail -n 1)" in
+    "GUARD-SYMLINKS-INVALID:"*) pass "$1" ;;
+    *) fail "$1: expected a GUARD-SYMLINKS-INVALID verdict, got: $OUT" ;;
+  esac
+}
+
+# assert_reports <needle> <label> — the report names this path or rule.
+assert_reports() {
+  case "$OUT" in
+    *"$1"*) pass "$2" ;;
+    *) fail "$2: the report does not name '$1': $OUT" ;;
+  esac
+}
+
+# assert_refuses <label> — the refusal shape: exit 2, nothing on stdout, and
+# the guard's own name on stderr. The needle carries the colon deliberately —
+# without it the shell's own "No such file or directory" would satisfy the
+# case even if the guard itself never ran.
+assert_refuses() {
+  [ "$RC" -eq 2 ] && pass "$1: exits 2" \
+    || fail "$1: expected exit 2, got rc=$RC out=$OUT"
+  [ -z "$OUT" ] && pass "$1: writes nothing to stdout" \
+    || fail "$1: emitted a verdict line: $OUT"
+  case "$ERR" in
+    *"check-guard-symlinks: "*) pass "$1: names the failure on stderr" ;;
+    *) fail "$1: no named message on stderr: $ERR" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# 1. A clean tree — the passing fixture. One real guard with no sibling
+#    dependency and no fixed-depth root, invoked with a placeholder argument
+#    inside a bash fence, correctly symlinked into the one skill that cites
+#    it.
+# ---------------------------------------------------------------------------
+new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-foo.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+Run the guard:
+
+```bash
+check-foo.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_silent "a clean tree passes with exactly one verdict line"
+
+# ---------------------------------------------------------------------------
+# 2. Rule 1 — every entry under skills/*/scripts/ is a symlink, and it
+#    resolves.
+# ---------------------------------------------------------------------------
+
+# 2a. An entry that is a regular file, not a symlink.
+new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+mkdir -p "$REPO/skills/myflow-do/scripts"
+printf 'not a symlink\n' > "$REPO/skills/myflow-do/scripts/check-bogus.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a non-symlink entry under skills/*/scripts/ is a rule 1 violation"
+assert_reports "check-bogus.sh" "rule 1: names the offending entry"
+assert_reports "rule 1" "rule 1: names the rule"
+
+# 2b. A dangling symlink.
+new_repo
+mkdir -p "$REPO/skills/myflow-do/scripts"
+ln -s "../../../scripts/does-not-exist.sh" "$REPO/skills/myflow-do/scripts/check-missing.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a dangling symlink under skills/*/scripts/ is a rule 1 violation"
+assert_reports "check-missing.sh" "rule 1: names the dangling entry"
+assert_reports "does not resolve" "rule 1: says it does not resolve"
+
+# 2c. An absolute-target symlink that still resolves.
+new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+mkdir -p "$REPO/skills/myflow-do/scripts"
+ln -s "$REPO/scripts/check-foo.sh" "$REPO/skills/myflow-do/scripts/check-foo.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "an absolute symlink target under skills/*/scripts/ is a rule 1 violation"
+assert_reports "is absolute" "rule 1: says the target is absolute"
+
+# 2d. F9 — an absolute target pointing OUTSIDE the repository entirely must
+#     stop at the rule 1 violation, not fall through into REAL_TARGETS_FILE
+#     and have rule 4 grep a file outside the repository this guard was
+#     asked to scan. The off-repo target here is unreadable, so a fall-
+#     through would surface as a SECOND violation ("cannot read this guard's
+#     real source") on top of the rule 1 one — exactly one violation line is
+#     the assertion that pins the fix.
+new_repo
+mkdir -p "$REPO/skills/myflow-do/scripts"
+OUTSIDE_TARGET="$(mktemp "${TMPDIR:-/tmp}/check-guard-symlinks-outside.XXXXXX")"
+SANDBOXES+=("$OUTSIDE_TARGET")
+printf 'unrelated content, unreadable\n' > "$OUTSIDE_TARGET"
+chmod 000 "$OUTSIDE_TARGET"
+ln -s "$OUTSIDE_TARGET" "$REPO/skills/myflow-do/scripts/check-outside.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "an absolute off-repo symlink target is a rule 1 violation"
+assert_reports "is absolute" "rule 1 (F9): says the target is absolute"
+if [ "$(id -u)" = "0" ]; then
+  skip "F9: exactly one violation line, not a second from rule 4 reading outside the repo" "running as root; mode 000 is still readable"
+else
+  N_VIOL_LINES="$(printf '%s\n' "$OUT" | grep -vc '^GUARD-SYMLINKS-')"
+  [ "$N_VIOL_LINES" = "1" ] && pass "F9: exactly one violation line, not a second from rule 4 reading outside the repo" \
+    || fail "F9: expected exactly 1 violation line, got $N_VIOL_LINES: $OUT"
+fi
+chmod 644 "$OUTSIDE_TARGET"
+
+# ---------------------------------------------------------------------------
+# 3. Rule 2 — every guard invoked in a skill's own text has a symlink in that
+#    skill's own scripts/ directory.
+# ---------------------------------------------------------------------------
+
+# 3a. Invoked in a bash fence, never symlinked in at all.
+new_repo
+add_real_guard "check-baz.sh" "$PLAIN_GUARD_BODY"
+mkdir -p "$REPO/skills/myflow-do/scripts"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+```bash
+check-baz.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "an invoked guard with no symlink is a rule 2 violation"
+assert_reports "check-baz.sh" "rule 2: names the missing guard"
+assert_reports "rule 2" "rule 2: names the rule"
+
+# 3b. A sibling dependency, resolved from the required guard's own source,
+#     missing from the skill that needs the guard beside it.
+new_repo
+add_real_guard "check-with-lib.sh" '#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/helper.sh"'
+mkdir -p "$REPO/scripts/lib"
+printf 'true\n' > "$REPO/scripts/lib/helper.sh"
+link_guard "myflow-do" "check-with-lib.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+```bash
+check-with-lib.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "a required sibling with no symlink is a rule 2 violation"
+assert_reports "lib" "rule 2: names the missing sibling"
+assert_reports "sibling dependency" "rule 2: says it is a sibling dependency"
+
+# 3c. F6 — a fence scanner reading only a line's leading token misses two
+#     real invocation shapes: `./guard.sh <args>` (the leading token stops at
+#     the `.`) and `bash guard.sh <args>` / `sh guard.sh` / `zsh guard.sh`
+#     (the guard is the SECOND token, the interpreter the first). Both are
+#     never-symlinked here, so both must be caught as rule 2 violations.
+new_repo
+add_real_guard "check-dotslash.sh" "$PLAIN_GUARD_BODY"
+add_real_guard "check-viabash.sh" "$PLAIN_GUARD_BODY"
+mkdir -p "$REPO/skills/myflow-do/scripts"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+```bash
+./check-dotslash.sh <worktree>
+```
+
+```bash
+bash check-viabash.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "a ./guard.sh or bash guard.sh invocation with no symlink is a rule 2 violation"
+assert_reports "check-dotslash.sh" "rule 2 (F6): names the ./guard.sh form"
+assert_reports "check-viabash.sh" "rule 2 (F6): names the bash guard.sh form"
+
+# 3d. F7 — positional backtick pairing. A stray, unpaired backtick earlier in
+#     the SAME line must not cause the real citation later on the same line
+#     to be dropped. `check-strayed.sh` is never symlinked, so if the
+#     citation below it is read at all, it is a rule 2 violation; before the
+#     fix, the stray backtick consumed the pairing and this citation was
+#     silently never seen.
+new_repo
+add_real_guard "check-strayed.sh" "$PLAIN_GUARD_BODY"
+mkdir -p "$REPO/skills/myflow-do/scripts"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+A stray ` mark appears here, then Run `check-strayed.sh` for the real thing.
+'
+run_guard "$REPO"
+assert_invalid "a real citation after a stray backtick on the same line is still a rule 2 violation"
+assert_reports "check-strayed.sh" "rule 2 (F7): the citation after the stray backtick was not dropped"
+
+# 3e. F10 (dedup regression) — two required guards on the SAME skill sharing
+#     ONE sibling dependency. This does not trigger the rc>=2 refusal (not
+#     externally reproducible without white-box access to this guard's own
+#     scratch directory — see the report), but it does exercise the
+#     "already seen" grep on its happy path twice over, which the discipline
+#     fix must not break: the sibling is required exactly once, and BOTH
+#     citing guards are still individually enforced.
+new_repo
+add_real_guard "check-one.sh" '#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/shared.sh"'
+add_real_guard "check-two.sh" '#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/shared.sh"'
+mkdir -p "$REPO/scripts/lib"
+printf 'true\n' > "$REPO/scripts/lib/shared.sh"
+link_guard "myflow-do" "check-one.sh"
+link_guard "myflow-do" "check-two.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+```bash
+check-one.sh <worktree>
+check-two.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "one sibling shared by two required guards is still a rule 2 violation"
+N_SHARED_LIB="$(printf '%s\n' "$OUT" | grep -c 'sibling dependency' || true)"
+[ "$N_SHARED_LIB" = "1" ] && pass "F10: the shared sibling is reported exactly once, not once per citing guard" \
+  || fail "F10: expected exactly 1 sibling-dependency violation, got $N_SHARED_LIB: $OUT"
+
+# ---------------------------------------------------------------------------
+# 4. Rule 3 — no skill text carries a repository-relative scripts/<name> path
+#    in an invoking position. Prose is exempt.
+# ---------------------------------------------------------------------------
+
+# 4a. The repository-relative form inside a bash fence — an invocation.
+new_repo
+add_real_guard "check-qux.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-qux.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+```bash
+scripts/check-qux.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_invalid "a repository-relative path inside a bash fence is a rule 3 violation"
+assert_reports "rule 3" "rule 3: names the rule"
+
+# 4b. The SAME guard, named with its repository-relative path in a plain
+#     descriptive sentence — never an invocation. Rule 3's own boundary: this
+#     must NOT be reported, or the classifier could not tell prose from a
+#     call site at all.
+new_repo
+add_real_guard "check-qux.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-qux.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+Run the guard:
+
+```bash
+check-qux.sh <worktree>
+```
+
+`scripts/check-qux.sh` reads only the marker block. It never parses the table.
+'
+run_guard "$REPO"
+assert_silent "a repository-relative path in a descriptive sentence is prose, not a rule 3 violation"
+
+# 4c. F3 — the six project-configured guards named in design.md are exempt
+#     from rule 3 wherever they appear, in a fence or in imperative prose,
+#     since they resolve through the project's own .myflow/project.md rather
+#     than being invoked by any command. A future "Run
+#     `scripts/check-vocabulary.sh` before committing" must not fail CI
+#     wrongly.
+new_repo
+write_skill_md "myflow-do" '# myflow-do fixture
+
+Run `scripts/check-vocabulary.sh` before committing.
+
+```bash
+scripts/check-references.sh
+```
+'
+run_guard "$REPO"
+assert_silent "a project-configured guard keeps its repository-relative path without tripping rule 3 (F3)"
+
+# 4d. F8 — the fence-language test is anchored to a full word. A
+#     ```shellsession fence must not be scanned as though it were bash/sh/zsh
+#     — before the fix, "shellsession" matched the unanchored `^sh` prefix by
+#     accident, and a repository-relative citation of a NON-exempt guard
+#     inside it was wrongly flagged.
+new_repo
+write_skill_md "myflow-do" '# myflow-do fixture
+
+```shellsession
+scripts/check-qux.sh <worktree>
+```
+'
+run_guard "$REPO"
+assert_silent "a \`\`\`shellsession fence is not scanned as bash/sh/zsh (F8)"
+
+# ---------------------------------------------------------------------------
+# 5. Rule 4 — no shipped guard derives a repository root as a fixed number of
+#    levels above $SCRIPT_DIR.
+# ---------------------------------------------------------------------------
+new_repo
+add_real_guard "check-fixed-depth.sh" "$FIXED_DEPTH_GUARD_BODY"
+link_guard "myflow-do" "check-fixed-depth.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a shipped guard deriving \$SCRIPT_DIR/.. is a rule 4 violation"
+assert_reports "check-fixed-depth.sh" "rule 4: names the offending guard"
+assert_reports "rule 4" "rule 4: names the rule"
+
+# A project-configured guard that is NEVER shipped (no symlink anywhere) may
+# keep the $SCRIPT_DIR/.. form without tripping rule 4 — the guard scopes
+# rule 4 to what rule 1 found actually symlinked in, never every file under
+# scripts/.
+new_repo
+add_real_guard "check-project-only.sh" "$FIXED_DEPTH_GUARD_BODY"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_silent "an unshipped guard keeping \$SCRIPT_DIR/.. is not a rule 4 violation"
+
+# 5c. F5 — the dirname() spelling of the identical defect.
+new_repo
+add_real_guard "check-fixed-dirname.sh" "$FIXED_DEPTH_GUARD_BODY_DIRNAME"
+link_guard "myflow-do" "check-fixed-dirname.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a shipped guard deriving dirname(\$SCRIPT_DIR) is a rule 4 violation (F5)"
+assert_reports "check-fixed-dirname.sh" "rule 4 (F5): names the offending guard (dirname form)"
+assert_reports "rule 4" "rule 4 (F5): names the rule (dirname form)"
+
+# 5d. F5 — the two-step `cd $SCRIPT_DIR && cd ..` spelling of the identical
+#     defect.
+new_repo
+add_real_guard "check-fixed-cdchain.sh" "$FIXED_DEPTH_GUARD_BODY_CD_CHAIN"
+link_guard "myflow-do" "check-fixed-cdchain.sh"
+write_skill_md "myflow-do" "# fixture, no citations"
+run_guard "$REPO"
+assert_invalid "a shipped guard deriving cd \$SCRIPT_DIR && cd .. is a rule 4 violation (F5)"
+assert_reports "check-fixed-cdchain.sh" "rule 4 (F5): names the offending guard (cd-chain form)"
+assert_reports "rule 4" "rule 4 (F5): names the rule (cd-chain form)"
+
+# ---------------------------------------------------------------------------
+# F4 — rule 2 for a DELEGATING skill. myflow-fast invokes no guard of its
+# own; instead its own "**Check guard presence.**" paragraph names other
+# commands' presence checks by slash-command, and its required set must be
+# the union of theirs — never silently empty. Reproduces the parent's own
+# mutation check: deleting the delegate's guard from the delegating skill's
+# scripts/ must be caught.
+# ---------------------------------------------------------------------------
+
+# F4a. myflow-do invokes check-deleg.sh directly; the delegating skill's own
+#      presence paragraph names /myflow-do by slash-command and carries no
+#      symlink for it — a rule 2 violation, reported against myflow-deleg.
+new_repo
+add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-deleg.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+**Check guard presence.** Confirm every guard this command invokes:
+
+```bash
+check-deleg.sh <worktree>
+```
+'
+write_skill_md "myflow-deleg" '# myflow-deleg fixture, a myflow-fast stand-in
+
+**Check guard presence.** Confirm every guard named in `/myflow-do` own
+presence checks is present in `skills/myflow-deleg/scripts/`.
+'
+run_guard "$REPO"
+assert_invalid "a delegating skill whose delegate requires a guard it does not carry is a rule 2 violation (F4)"
+assert_reports "check-deleg.sh" "rule 2 (F4): names the guard required by delegation"
+assert_reports "myflow-deleg" "rule 2 (F4): names the delegating skill"
+
+# F4b. Same shape, but the delegating skill DOES carry the symlink — silent.
+new_repo
+add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-deleg.sh"
+link_guard "myflow-deleg" "check-deleg.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+**Check guard presence.** Confirm every guard this command invokes:
+
+```bash
+check-deleg.sh <worktree>
+```
+'
+write_skill_md "myflow-deleg" '# myflow-deleg fixture, a myflow-fast stand-in
+
+**Check guard presence.** Confirm every guard named in `/myflow-do` own
+presence checks is present in `skills/myflow-deleg/scripts/`.
+'
+run_guard "$REPO"
+assert_silent "a delegating skill carrying the delegated guard is not a rule 2 violation (F4)"
+
+# F4c. A skill that merely CITES another command in ordinary prose — not
+#      inside a "**Check guard presence.**" paragraph — is never read as
+#      delegating. This is the false-positive this file's own header warns
+#      about (rule 2 scoped to a skill's own directory, not every citation):
+#      myflow-status cites /myflow-do constantly without invoking anything.
+new_repo
+add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-deleg.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+**Check guard presence.** Confirm every guard this command invokes:
+
+```bash
+check-deleg.sh <worktree>
+```
+'
+write_skill_md "myflow-status-like" '# fixture standing in for myflow-status
+
+This command explains what `/myflow-do` does elsewhere. It invokes nothing
+of its own.
+'
+run_guard "$REPO"
+assert_silent "an ordinary cross-command citation outside the presence paragraph is not delegation (F4)"
+
+# ---------------------------------------------------------------------------
+# 6. Inputs this guard cannot answer about. Never fail open.
+# ---------------------------------------------------------------------------
+
+# 6a. An unreadable skills/ directory — no verdict line, ever.
+if [ "$(id -u)" = "0" ]; then
+  skip "an unreadable skills/ directory refuses" "running as root; mode 000 is still readable"
+else
+  new_repo
+  chmod 000 "$REPO/skills"
+  run_guard "$REPO"
+  assert_refuses "an unreadable skills/ directory"
+  chmod 755 "$REPO/skills"
+fi
+
+# 6b. A root that is not a directory at all.
+NOT_A_DIR="$(mktemp "${TMPDIR:-/tmp}/check-guard-symlinks-notadir.XXXXXX")"
+SANDBOXES+=("$NOT_A_DIR")
+run_guard "$NOT_A_DIR"
+assert_refuses "a root that is not a directory"
+
+# ---------------------------------------------------------------------------
+# 7. The agents repository itself, read from its real path. Tasks 1-3 have
+#    already landed, so this guard must exit 0 against them — a failure here
+#    is a defect in tasks 1-3 or in this guard, never a reason to narrow it.
+# ---------------------------------------------------------------------------
+run_guard "$REPO_ROOT"
+assert_ok "the agents repository's own tree validates cleanly"
+
+# ---------------------------------------------------------------------------
+if [ "$FAILURES" -eq 0 ]; then
+  printf '\n✓ PASS\n'
+  exit 0
+fi
+printf '\n✗ FAIL — %s failure(s)\n' "$FAILURES" >&2
+exit 1

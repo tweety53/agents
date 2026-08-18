@@ -77,7 +77,7 @@ skills/myflow-contracts/jira-integration-rationale.md 3090
 skills/myflow-contracts/jira-integration.md 19698
 skills/myflow-contracts/operator-prompts.md 1136
 skills/myflow-contracts/pipeline-rationale.md 28981
-skills/myflow-contracts/pipeline.md 44574
+skills/myflow-contracts/pipeline.md 55728
 skills/myflow-contracts/plan-provenance.md 30582
 skills/myflow-contracts/project-configuration-rationale.md 17064
 skills/myflow-contracts/project-configuration.md 48278
@@ -87,12 +87,12 @@ skills/myflow-contracts/workspace-isolation.md 31680
 skills/myflow-do/SKILL-rationale.md 15721
 skills/myflow-do/SKILL.md 71317
 skills/myflow-fast/SKILL-rationale.md 3490
-skills/myflow-fast/SKILL.md 18225
+skills/myflow-fast/SKILL.md 24613
 skills/myflow-finish/SKILL-rationale.md 8100
 skills/myflow-finish/SKILL.md 39965
 skills/myflow-start/SKILL-rationale.md 8984
 skills/myflow-start/SKILL.md 36888
-skills/myflow-status/SKILL.md 17650
+skills/myflow-status/SKILL.md 22551
 skills/openspec-explore/SKILL.md 14285
 EOF
 }

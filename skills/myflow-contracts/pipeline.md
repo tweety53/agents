@@ -400,6 +400,73 @@ and reuses a running instance.
 
 Paths are absolute, resolved from `git worktree list`. Never emit a relative path.
 
+## Guard resolution
+
+**A named guard resolves to `<the running command's own skill directory>/scripts/<name>`.**
+Skills and contracts name a guard by **basename**, never by a path relative to a repository
+root — such a path resolves only when the project being worked on *is* the agents repository,
+which is the one case that is never the interesting one.
+
+Resolution against the **running command's own** skill directory is what lets a contract loaded
+by more than one command — `skills/myflow-contracts/finish-contract.md`, loaded by both
+`/myflow-finish` and `/myflow-status` — name a guard at all: the same basename resolves inside
+whichever command is actually running, never a fixed one of them.
+`skills/myflow-contracts/` is never a running command and carries no `scripts/` directory of its
+own.
+
+**The exemption is a shape, not a list of names.** A `scripts/<name>` citation names an
+invocation — and must use the basename form above — only when it sits in an **invoking
+position**: a non-comment line inside a fenced `bash`/`sh`/`zsh` command block, or a
+backtick-quoted path immediately preceded by an imperative such as "Run", "Invoke", or "Execute".
+Every other citation is **prose describing a guard rather than running it**, and keeps its
+repository-relative `scripts/…` path where that path genuinely names a file in this repository —
+this repository's own lint and test guards, resolved through this repository's own
+`.myflow/project.md` `## lint` and `## test` lists rather than through a skill's `scripts/`
+directory, are the recurring example, not the whole set: `check-references.sh`,
+`check-stage-mark-calls.sh`, `check-vocabulary.sh`, `check-contract-budget.sh`,
+`check-plan-provenance.sh` and `check-task-build-green.sh` are the ones a reader runs into most,
+but any other repository-relative mention outside an invoking position is exempt on the same
+shape, not because it appears on this list. `scripts/check-guard-symlinks.sh`'s rule 3
+implements this same distinction mechanically, classifying by a citation's shape rather than by
+name.
+
+## Guard presence check
+
+Each `/myflow-*` command checks, once at the start of its run, that every guard it can invoke —
+per **Guard resolution** above — is present in its own skill's `scripts/` directory. A complete
+set prints nothing. Any absence prints exactly one block, naming every missing guard, the
+directory searched, and the install command, then the run continues:
+
+```text
+⚠ GUARDS MISSING — 3 of 6 not found at
+  <skill-dir>/scripts/
+    check-finish-preflight.sh
+    check-unfinished-work.sh
+    preserve-session-records.sh
+These checks will be performed BY HAND.
+Re-run ./setup.sh global to install them.
+```
+
+**This is a report, never a gate.** Each contract's existing hand-run fallback still governs the
+call site a missing guard would have covered, and the handoff says those checks were run by hand.
+A guard is never skipped for want of the script — this changes only when its absence is noticed,
+not what happens next. The block is printed once, at the start of the run; a later call site for
+one of the guards it already named performs the check by hand without printing the block again.
+
+**The check covers a named guard's own sibling dependencies too, not only the guard itself.** A
+guard that resolves a neighbour from its own `$SCRIPT_DIR` at runtime — for example
+`check-unfinished-work.sh` needing `lib/panel-record.sh`, `check-task-commit-fields.sh` needing
+`check-task-commit-fields.py`, or `prepare-workspace.sh` needing `check-workspace-isolation.sh` —
+fails at the moment it reaches for that neighbour if the neighbour alone is missing, so a missing
+sibling is exactly as reportable as a missing guard, and the block names it the same way. Derive a
+guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — rather than trusting a
+hardcoded map, exactly as `scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
+here would drift from that guard's own dependencies the moment they change.
+
+Each command names, in its own text, the guards *it* can invoke — exactly the guards its own
+`scripts/` directory carries — and cites this section for the block shape rather than restating
+it.
+
 ## Finish contract
 
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`) governs the preflight signals,

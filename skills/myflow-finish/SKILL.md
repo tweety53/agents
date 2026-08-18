@@ -53,7 +53,14 @@ rationales live in that one file. This skill carries only what is specific to *e
 Which run happens is decided by one thing: whether the change's branch has already reached the
 base branch. No field records "integration started" — a field could disagree with git.
 
-Run `scripts/check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
+**Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+confirm every guard this command invokes — `check-finish-preflight.sh`,
+`check-unfinished-work.sh`, `preserve-session-records.sh`, `commit-split.sh`,
+`check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
+`skills/myflow-finish/scripts/`. A complete set prints nothing; any absence prints that section's
+block once, and the run continues under each guard's own hand-run fallback.
+
+Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read of the state file's
 `worktrees` map, which a `{}` map would make pass having checked nothing — and act on the verdict:
 
@@ -98,7 +105,7 @@ myflow stage begin -command '/myflow-finish' -stage finish.unfinished-work-gate 
 
 ## 1.0 Check for unfinished work
 
-Run `scripts/check-unfinished-work.sh <worktree> <name>` once per worktree in the set found by
+Run `check-unfinished-work.sh <worktree> <name>` once per worktree in the set found by
 **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read
 of the state file's `worktrees` map, for the same reason **Deciding which run this is** above does
 not read it raw — **before the landing question and before any git action**. See
@@ -186,7 +193,7 @@ artifacts, and the session records preserved under `docs/superpowers/` — as **
 one.
 
 **Preserve the session records first.** Run
-`scripts/preserve-session-records.sh <worktree> <name> <state-dir>` before staging, so the SDD ledger,
+`preserve-session-records.sh <worktree> <name> <state-dir>` before staging, so the SDD ledger,
 the review panel record and the proposal artifact source are committed with the change — in the
 planning commit, beside the plan they describe — rather than lost with the worktree that holds them.
 A source that does not exist is reported and skipped — never a failure, and never a reason
@@ -204,7 +211,7 @@ Then stage and commit twice, in this order, rather than assuming everything is a
 operator may have edited the worktree at the human gate without staging.
 
 ```bash
-scripts/commit-split.sh <worktree> <name> \
+commit-split.sh <worktree> <name> \
   "<type>(<name>): <what the implementation does>" \
   "chore(<name>): plan and session records"
 ```
@@ -312,6 +319,7 @@ myflow stage end -command '/myflow-finish' -stage finish.move-in-review -outcome
 **Route:** pull request | merged and pushed | manual
 **PR:** <prUrl> | none — merged directly | none — you are handling it
 **Outstanding:** <what 1.0 reported and the operator integrated over> | none
+**Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 
 <what the operator must do before the next run>
 
@@ -409,7 +417,7 @@ myflow stage end   -command '/myflow-finish' -stage finish.cleanup -outcome comp
 myflow stage begin -command '/myflow-finish' -stage finish.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-6. **Verify the cleanup.** Run `scripts/check-cleanup-complete.sh <repo> <name> <state-dir>` once
+6. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, after every removal above. `COMPLETE:` → report the cleanup as verified, **relay
    every clause the line carries after ` — ` word for word**, and go on to step 7 — a `SKIPPED:`
    clause there says a registry row was not verified, so reporting only "cleanup verified" tells the
@@ -456,7 +464,7 @@ transitions nothing — the change is not done.
    requirement to change first when that procedure changes is
    **Requirement: Self-review runs only after FINISHED is written**
    (`openspec/specs/myflow-self-review/spec.md`). What is specific to *executing* it here: the
-   script invocation `scripts/gather-self-review-context.sh
+   script invocation `gather-self-review-context.sh
    <archived-change-path> <name> <state-dir>`, resolving `<archived-change-path>` as
    `openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
    already used when it moved the change there.
@@ -532,6 +540,7 @@ call records.
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
 **Self-review:** <path> (rating: <n>/5) | skipped
+**Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
 

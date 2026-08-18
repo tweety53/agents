@@ -84,6 +84,7 @@ scripts/test-check-panel-reproducers.sh
 scripts/test-run-reproducer.sh
 scripts/test-check-markdown-integrity.sh
 scripts/test-check-uitest-overrides.sh
+scripts/test-check-guard-symlinks.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
@@ -111,6 +112,7 @@ scripts/check-uitest-overrides.sh
 scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
+scripts/check-guard-symlinks.sh
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b

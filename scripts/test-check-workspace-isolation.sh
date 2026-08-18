@@ -1194,6 +1194,84 @@ set -e
 ERR="$(cat "$ERRFILE")"
 assert_refuses "a validator that could not run"
 
+# ---------------------------------------------------------------------------
+# 16. No-argument default derives the repository root from this script's OWN
+#     resolved location, not from a fixed "one level up above $SCRIPT_DIR" —
+#     which only holds while it lives at <repo>/scripts/. Built here: a
+#     scratch tree where the guard is reachable at two depths, its real home
+#     (root/scripts/) and a skills/myflow-do/scripts/ symlink, mirroring how
+#     setup.sh's install carries it. Invoked through the symlink with no
+#     argument, it must find THAT tree's own .myflow/project.md — never the
+#     skill directory's, which has none and would silently read as "declares
+#     nothing" instead (see design.md, "The $SCRIPT_DIR/.. hazard").
+# ---------------------------------------------------------------------------
+ROOT_TEST="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-root-test.XXXXXX")"
+SANDBOXES+=("$ROOT_TEST")
+mkdir -p "$ROOT_TEST/scripts/lib" "$ROOT_TEST/skills/myflow-do/scripts"
+cp "$GUARD" "$ROOT_TEST/scripts/check-workspace-isolation.sh"
+chmod +x "$ROOT_TEST/scripts/check-workspace-isolation.sh"
+cp "$REPO_ROOT/scripts/lib/resolve-file.sh" "$ROOT_TEST/scripts/lib/resolve-file.sh"
+ln -s ../../../scripts/check-workspace-isolation.sh \
+  "$ROOT_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh"
+ln -s ../../../scripts/lib "$ROOT_TEST/skills/myflow-do/scripts/lib"
+REPO="$ROOT_TEST"
+write_iso "$VALID_RES" "$VALID_CMD"
+set +e
+OUT="$("$ROOT_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh" 2>"$ERRFILE")"
+RC=$?
+set -e
+ERR="$(cat "$ERRFILE")"
+assert_ok "case 16: no-arg default resolves through a skill-dir symlink to the real repo root"
+assert_reports "resource row(s) and" "case 16: the real .myflow/project.md was read and validated"
+assert_not_reported "no .myflow/project.md" "case 16: did not fall back to the skill directory, which has none"
+
+# ---------------------------------------------------------------------------
+# 17. F1/F11 regression: an explicit project-root argument — the shape every
+#     real caller uses (`/myflow-do` against each apply worktree; this
+#     repository's own `## lint` entry against $REPO_ROOT) — must never
+#     depend on resolving this script's OWN location. Before F11's fix, that
+#     resolution ran UNCONDITIONALLY at the top of the file, so a failure
+#     there aborted every call, even one that never reads REPO_ROOT at all.
+#     Reproduced by rigging PATH so `readlink` always fails, then invoking
+#     the guard THROUGH a symlink (so resolve_file's [ -L ] test is true and
+#     it actually calls the rigged readlink) WITH an explicit project root.
+#     Watched fail first: before the fix this case reported
+#     "cannot resolve this script's own location" and exit 2 even though a
+#     perfectly good project root was given on the command line.
+# ---------------------------------------------------------------------------
+LAZY_TEST="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-lazy-test.XXXXXX")"
+SANDBOXES+=("$LAZY_TEST")
+mkdir -p "$LAZY_TEST/scripts/lib" "$LAZY_TEST/skills/myflow-do/scripts"
+cp "$GUARD" "$LAZY_TEST/scripts/check-workspace-isolation.sh"
+chmod +x "$LAZY_TEST/scripts/check-workspace-isolation.sh"
+cp "$REPO_ROOT/scripts/lib/resolve-file.sh" "$LAZY_TEST/scripts/lib/resolve-file.sh"
+ln -s ../../../scripts/check-workspace-isolation.sh \
+  "$LAZY_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh"
+ln -s ../../../scripts/lib "$LAZY_TEST/skills/myflow-do/scripts/lib"
+
+LAZY_PROJECT="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-lazy-project.XXXXXX")"
+SANDBOXES+=("$LAZY_PROJECT")
+REPO="$LAZY_PROJECT"
+write_iso "$VALID_RES" "$VALID_CMD"
+
+BADPATH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-badpath.XXXXXX")"
+SANDBOXES+=("$BADPATH_DIR")
+printf '#!/bin/sh\nexit 1\n' > "$BADPATH_DIR/readlink"
+chmod +x "$BADPATH_DIR/readlink"
+
+set +e
+OUT="$(PATH="$BADPATH_DIR:$PATH" "$LAZY_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh" "$LAZY_PROJECT" 2>"$ERRFILE")"
+RC=$?
+set -e
+ERR="$(cat "$ERRFILE")"
+assert_ok "case 17 (F11): an explicit project root argument never triggers self-location resolution, so a rigged readlink cannot abort the run"
+assert_reports "resource row(s) and" "case 17 (F11): the given project root was validated, not skipped"
+case "$ERR" in
+  *"cannot resolve this script's own location"*)
+    fail "case 17 (F11): self-resolution was attempted even though an explicit root was given: $ERR" ;;
+  *) pass "case 17 (F11): self-resolution was never attempted" ;;
+esac
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

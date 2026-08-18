@@ -22,6 +22,17 @@ Follow both contracts:
 
 ### 1. List open changes
 
+**No guard-presence check here — this command invokes no guard.** Every other command's presence
+check, per **Guard presence check** (`skills/myflow-contracts/pipeline.md`), covers a guard that
+command literally runs; this one runs none. Step 2 below reimplements
+`check-finish-preflight.sh`'s merge-status steps in prose rather than invoking the script (see the
+note there), so there is no call site for a missing-guard report to cover.
+
+**This command therefore carries no `scripts/` directory**, exactly as `/myflow-start` does not:
+a skill ships the guards it invokes, and one that invokes none ships none. A directory nothing
+resolves against is a directory that goes stale unnoticed, which is the same reason
+`skills/myflow-contracts/` has none.
+
 Enumerate the candidate set exactly as **Change name resolution**
 (`skills/myflow-contracts/pipeline.md`) defines it — through `myflow state list [-C dir]`, never a
 hand-written HTTP call:

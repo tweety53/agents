@@ -86,10 +86,33 @@
 # THE PARSER IS THE CLEANUP GUARD'S, WIDENED FROM TWO COLUMNS TO FOUR. Its
 # hazards are the same because its input is: a `|` inside a cell, written `\|`,
 # must not split the row; a row may omit its trailing `|`; a file may arrive
-# with CRLF line endings; and a row may be indented. The copy is deliberate for
-# the reason recorded in check-cleanup-complete.sh's containment comment — these
-# guards are single-file by design and are copied into projects one at a time,
-# so a sourced helper would make a guard that is present but unrunnable.
+# with CRLF line endings; and a row may be indented. THE PARSER ITSELF stays a
+# copy, for the reason recorded in check-cleanup-complete.sh's containment
+# comment — these guards are single-file by design and are copied into
+# projects one at a time, so a sourced helper would make a guard that is
+# present but unrunnable.
+#
+# `resolve_file` IS THE ONE EXCEPTION TO THAT RULE ON THIS FILE, and the
+# exception is deliberate rather than accidental. Unlike the containment
+# parser above — which a project can and does copy into its OWN tooling,
+# standalone, with nothing else from this repository — this guard's own
+# distribution is the KAN-73 symlink farm: it is never hand-copied anywhere,
+# only ever reached at `<repo>/scripts/check-workspace-isolation.sh` or
+# through a `skills/<name>/scripts/check-workspace-isolation.sh` symlink that
+# KAN-73's install carries, and both directories carry a `lib` symlink
+# beside it as part of that same farm (KAN-73's design.md, "The guard-to-skill
+# map"). "A sourced helper would make a guard present but unrunnable" is
+# exactly the concern that fails to apply here: the helper travels WITH the
+# guard, unconditionally, wherever the guard is reachable at all — never
+# absent, so never a way to be present-but-unrunnable. This is the identical
+# argument KAN-153's review (F7) accepted for check-unfinished-work.sh sourcing
+# scripts/lib/panel-record.sh, on the evidence that `setup.sh` installs
+# skills, not `scripts/`, so a guard and the library it sources always travel
+# together in this repository — see that review's Disposition section for the
+# full reasoning, carried forward here rather than re-litigated. Left
+# genuinely single-file, out of this change's scope: preserve-session-records.sh
+# and gather-self-review-context.sh, which are copied into OTHER projects'
+# own tooling standalone and cannot assume any sibling travels with them.
 #
 # A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
 # known limitation rather than an oversight. This guard carries no fence
@@ -101,7 +124,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# resolve_file — sourced from lib/resolve-file.sh; see that file's header for
+# why this guard, unlike preserve-session-records.sh and
+# gather-self-review-context.sh, may source a sibling instead of carrying its
+# own copy. "One level above $SCRIPT_DIR" is NOT enough to derive the
+# repository root, because this script is now reachable from more than one
+# directory — its real home at <repo>/scripts/, and a skills/<name>/scripts/
+# symlink a command skill carries it under (prepare-workspace.sh's own call
+# site). Going up one level from the SECOND of those lands on the skill
+# directory, which exists, so a fixed-depth guard would proceed against it
+# and return a confident wrong answer (silently "declares nothing") rather
+# than an error. Resolving this script's own symlinks first, and deriving the
+# root from ITS real physical location, gives the same answer regardless of
+# which path invoked it.
+source "$SCRIPT_DIR/lib/resolve-file.sh"
 
 # CHECK_WORKSPACE_ISOLATION_PRINT_ROWS — an internal, undocumented-to-operators
 # switch that prepare-workspace.sh sets when it invokes this guard, so it can
@@ -117,7 +154,21 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # output documented above; only prepare-workspace.sh reads the `#ROW` lines.
 PRINT_ROWS="${CHECK_WORKSPACE_ISOLATION_PRINT_ROWS:-0}"
 
+# The self-resolution above is deferred to exactly here, inside the branch
+# that is the only reader of its answer. Every OTHER caller passes an
+# explicit project root — `/myflow-do` against each apply worktree, and this
+# repository's own `## lint` entry against `$REPO_ROOT` computed the same
+# way one level up — and resolving unconditionally at the top of the file
+# meant a failure to resolve THIS script's own location could abort a run
+# that never needed the answer at all: the production path always supplies
+# an argument. `plan-dispatch-bundles.sh` already resolves this lazily, with
+# its own comment on why; this makes the two consistent.
 if [ "$#" -eq 0 ]; then
+  SELF_REAL="$(resolve_file "${BASH_SOURCE[0]}")" || {
+    echo "check-workspace-isolation: cannot resolve this script's own location" >&2
+    exit 2
+  }
+  REPO_ROOT="$(cd "$(dirname "$SELF_REAL")/.." && pwd)"
   set -- "$REPO_ROOT"
 fi
 

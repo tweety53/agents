@@ -84,6 +84,14 @@ openspec instructions apply --change "<name>" --json
 - `state: "all_done"` → suggest `/myflow-finish <name>`.
 - Read every path in `contextFiles`. Resolve paths from the CLI JSON, never from an assumed layout.
 
+**Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+confirm every guard this command invokes — `check-panel-diff-size.sh`,
+`check-panel-reproducers.sh`, `check-task-commit-fields.sh`, `check-unfinished-work.sh`,
+`commit-split.sh`, `plan-dispatch-bundles.sh`, `prepare-workspace.sh`,
+`preserve-session-records.sh` and `run-reproducer.sh` — is present in `skills/myflow-do/scripts/`.
+A complete set prints nothing; any absence prints that section's block once, and the run continues
+under each guard's own hand-run fallback.
+
 Confirm `tasks.md` meets **writing-plans** quality — exact paths, verification commands,
 bite-sized steps, no placeholders. If it does not, invoke **superpowers:writing-plans** to repair
 it before touching code.
@@ -183,7 +191,7 @@ compile, corrupted test-result XML — this rule closes.
 Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from
 
 ```bash
-scripts/plan-dispatch-bundles.sh <changeRoot>/tasks.md
+plan-dispatch-bundles.sh <changeRoot>/tasks.md
 ```
 
 where `<changeRoot>` is section 1's `openspec status` output's `changeRoot` field, resolved inside
@@ -239,7 +247,7 @@ default to Sonnet — the two rules differ on purpose.
 commit sha back, and **before** the parent dispatches that task for review, the parent runs
 
 ```bash
-scripts/check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
+check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
 ```
 
 naming the worktree path, this task's dotted id from its `tasks.md` heading, the commit sha the
@@ -307,7 +315,7 @@ panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 **Before writing `final-review.diff`**, run
 
 ```bash
-scripts/check-panel-diff-size.sh <worktree> <merge-base>
+check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
 Exit 0 proceeds. Exit 1 puts the choice to the operator, shaped per **Operator prompts**
@@ -443,8 +451,9 @@ The same rule against quoting the format inside the record applies to this block
 its header, not its column order, not its cell boundaries, not where it starts or stops. See
 **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
-**The rules the guard does enforce, each of which reports outstanding when broken.** Run the guard
-and read its own output for the reject reason on any given record — it already reports one in
+**The rules the guard does enforce, each of which reports outstanding when broken.** Run
+`check-unfinished-work.sh` and read its own output for the reject reason on any given record — it
+already reports one in
 human-readable form; the list below is not repeated here as a parse grammar:
 
 - `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte.
@@ -576,7 +585,7 @@ theme is the root cause alone: **swapped `comm` directions**.
 **Before dispatching the fix subagent**, run
 
 ```bash
-scripts/check-panel-reproducers.sh <worktree>
+check-panel-reproducers.sh <worktree>
 ```
 
 Exit 0 proceeds. Exit 1 covers two classes, handled differently. A **missing or malformed field** —
@@ -594,7 +603,7 @@ guard could not read is not a record in which every finding declared a reproduce
 `none — <reason>` exemption form), run
 
 ```bash
-scripts/run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
+run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
 ```
 
 which is what makes the constraints this section used to only describe in prose actually true
@@ -743,7 +752,7 @@ myflow stage begin -command '/myflow-do' \
 **First, validate the section and export what it declares — with the script, not by eye.** Run
 
 ```bash
-<agents repo>/scripts/prepare-workspace.sh <worktree>
+prepare-workspace.sh <worktree>
 ```
 
 once per worktree in this run's resolved set — the same set section 2 resolved, non-empty by
@@ -753,10 +762,9 @@ examined nothing. Per **Resolving a change's worktrees** (`skills/myflow-contrac
 report an empty resolved set and do not proceed to validate a worktree the state file cannot name;
 see section 2 above for why that stop is the anomalous case. Run this **before anything else below
 this line.**
-`<agents repo>` resolves the same way a bare `.mdc` `## standards` entry does, from a global or a
-project-local install alike, stated once under **Where the agents repository is**
-(`skills/myflow-contracts/project-configuration.md`). Not finding the script there is the
-absent-script case below, and is reported rather than passed over.
+`prepare-workspace.sh` resolves per **Guard resolution** (`skills/myflow-contracts/pipeline.md`) —
+against this running command's own skill directory. Not finding it there is the absent-script case
+below, and is reported rather than passed over.
 
 `prepare-workspace.sh` runs `check-workspace-isolation.sh` against the worktree first, then — only
 if that passes — derives and exports the variables the project's `## workspace isolation` section
@@ -835,8 +843,8 @@ sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so 
 commits `openspec/` and `docs/superpowers/` — the only paths a task or fixup commit never touches —
 and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
 only — and in this order — run
-`scripts/preserve-session-records.sh <worktree> <name> <state-dir>`; then
-`scripts/commit-split.sh <worktree> <name> "<impl-msg>" "chore(<name>): plan and session records"`;
+`preserve-session-records.sh <worktree> <name> <state-dir>`; then
+`commit-split.sh <worktree> <name> "<impl-msg>" "chore(<name>): plan and session records"`;
 then push the branch, which carries whatever that call committed along with every task and fixup
 commit accumulated since the PR was opened. `<impl-msg>` covers the one case a task or fixup commit
 does not: working-tree edits the operator made at the human gate without staging them — normally
@@ -881,6 +889,7 @@ myflow stage end -command '/myflow-do' -stage do.write-in-progress -outcome comp
 **Change:** <name>
 **Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots, per the table under **5. The review panel**>; optional: <selected, or "none — no triggers fired">
 **Staged:** N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
+**Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
 Worktree:   <absolute worktree path>

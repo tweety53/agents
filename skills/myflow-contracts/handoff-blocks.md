@@ -105,6 +105,7 @@ rule the open-questions count reads through are stated once under **Open questio
 **Change:** <name>
 **Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired">
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
+**Guards:** (run-only) <all present, or how many were missing and checked by hand>
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
 Worktree:   <absolute worktree path>
@@ -125,6 +126,11 @@ Next:
 
 **`Panel` is `(run-only)`.** See **Why `Panel` is run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
+
+**`Guards` is `(run-only)` too, for the same kind of reason `Panel` is.** It reports what that
+run's own start-of-run guard presence check found in the producing command's own `scripts/`
+directory, per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
+that run ever has, since no regeneration re-runs the check.
 
 **`Run it:` is on-disk, not `(run-only)`.** The commands it lists are resolved from the worktree
 and the project's own configuration — not remembered from the run that printed them — so
@@ -160,6 +166,7 @@ recorded merge base falls back to the staged-diff line and says the range could 
 **Route:** (run-only) <pull request, merged and pushed, or manual>
 **PR:** <prUrl, or why there is none on the route taken>
 **Outstanding:** (run-only) <what the unfinished-work gate reported and the operator integrated over, or "none">
+**Guards:** (run-only) <all present, or how many were missing and checked by hand>
 
 <what the operator must do before the next run>
 
@@ -169,6 +176,11 @@ Next:
 
 **`Route` and `Outstanding` are `(run-only)`.** See **Why `Route` and `Outstanding` are run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
+
+**`Guards` is `(run-only)` too, for the same kind of reason `Panel` above is.** It reports what
+that run's own start-of-run guard presence check found in the producing command's own `scripts/`
+directory, per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
+that run ever has, since no regeneration re-runs the check.
 
 **Which rendering `/myflow-status` regenerates.** **Merge status decides it whenever the merge
 status is known**, and the command already has that answer: it runs the merge-status test in its own
@@ -208,15 +220,19 @@ from the report, so there is nothing left waiting on the operator to hand off. `
 run 2 does print a terminal block — what it synced, archived, removed and verified — and every field
 of it is run-only, because it reports what that run did rather than what the change now is. One
 renderer means nothing to keep in step, which is why that block takes no template here. That block
-carries one more field now: `**Self-review:** <path> (rating: <n>/5) | skipped`, immediately after
-`**Cleanup:** verified`, naming step 8's outcome — a value only run 2 ever has, exactly like the
-fields beside it. A run 2 that **stops** on a cleanup leftover is not this case: it leaves the change
+carries two more fields now: `**Self-review:** <path> (rating: <n>/5) | skipped`, immediately after
+`**Cleanup:** verified`, naming step 8's outcome, and `**Guards:** all present | N missing — those
+checks were performed by hand`, immediately after `Self-review`, naming what that run's own
+start-of-run guard presence check found — both values only run 2 ever has, exactly like the fields
+beside them. A run 2 that **stops** on a cleanup leftover is not this case: it leaves the change
 at `IN_PROGRESS` and prints its own interrupted-run report, every field of which is likewise
 run-only — what that run synced, archived and left behind, which the state file does not record.
-That interrupted-run report carries no `Self-review` field, because it is printed only when run 2
-stops **before** step 7 — step 8 never runs there, so there is nothing for the field to name; adding
-it regardless would misstate a run that never reached self-review. `/myflow-status` regenerates one
-of the two `IN_PROGRESS` renderings above for such a change, by the test just given.
+That interrupted-run report carries neither the `Self-review` nor the `Guards` field: it is printed
+only when run 2 stops **before** step 7, so step 8 never runs there and there is nothing for
+`Self-review` to name, and its own text prints no `Guards` line either — adding either field
+regardless would misstate a run that never reached self-review and a report that does not carry it.
+`/myflow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by
+the test just given.
 
 Which path each `open` line names, and why `open -na` rather than the `idea` shim, are
 **IntelliJ commands** (`pipeline.md`).

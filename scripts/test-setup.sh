@@ -158,6 +158,9 @@ assert_absent() { # <desc> <path>
 assert_symlink() { # <desc> <path>
   if [[ -L "$2" ]]; then pass "$1"; else fail "$1" "$2 is not a symlink"; fi
 }
+assert_executable() { # <desc> <path>
+  if [[ -x "$2" ]]; then pass "$1"; else fail "$1" "$2 is not executable"; fi
+}
 assert_identical() { # <desc> <path-a> <path-b>
   if cmp -s "$2" "$3"; then pass "$1"; else fail "$1" "$2 and $3 differ"; fi
 }
@@ -690,6 +693,75 @@ assert_not_contains "the managed CLAUDE.md does not inline the state-file write 
   "$home/.claude/CLAUDE.md" 'PROJECT_KEY="$(basename'
 assert_not_contains "the managed AGENTS.md does not inline the state-file write template" \
   "$home/.codex/AGENTS.md" 'PROJECT_KEY="$(basename'
+
+group "Every guard in a command skill's scripts/ directory reaches the install"
+
+# KAN-73's task 5 guard (check-guard-symlinks.sh) checks the REPOSITORY: that every
+# skills/*/scripts/ entry is a symlink that resolves. This group checks the INSTALL —
+# the only assertion that would have caught the original bug, because the symlinks
+# could be perfect in the repo and still not reach ~/.claude/skills/, ~/.cursor/skills/
+# or ~/.codex/skills/ if install_skills() ever stopped carrying them.
+#
+# The expected guard list is read from the repository tree itself
+# (skills/<skill>/scripts/*) rather than hardcoded here — a hardcoded copy goes stale
+# the moment a guard is added to or removed from the map in design.md.
+new_home; home="$HOME_DIR"
+run_setup "$REPO_ROOT" "$home" global
+assert_rc_zero "the global install for the guard-reachability check succeeds" "$RUN_RC" "$RUN_LOG"
+
+# Derived, not hardcoded: every skill that actually carries a scripts/ directory.
+# A hardcoded list goes stale the moment a skill gains or loses one — as it did when
+# myflow-status's directory was dropped for invoking no guard.
+GUARD_SKILLS=()
+for _gs in "$REPO_ROOT"/skills/*/scripts; do
+  [[ -d "$_gs" ]] || continue
+  GUARD_SKILLS+=("$(basename "$(dirname "$_gs")")")
+done
+[[ ${#GUARD_SKILLS[@]} -gt 0 ]] || fail "at least one skill carries a scripts/ directory" "none found under $REPO_ROOT/skills/*/scripts"
+GUARD_HARNESSES=(.claude .cursor .codex)
+
+for skill in "${GUARD_SKILLS[@]}"; do
+  skill_scripts="$REPO_ROOT/skills/$skill/scripts"
+  if [[ ! -d "$skill_scripts" ]]; then
+    fail "$skill carries a scripts/ directory to check" "$skill_scripts does not exist"
+    continue
+  fi
+  for entry in "$skill_scripts"/*; do
+    [[ -e "$entry" || -L "$entry" ]] || continue
+    name="${entry##*/}"
+    # A guard's own executable bit is read from its real source, not assumed: some
+    # entries (reproducer-metachars.sh, lib/panel-record.sh) are sourced companions,
+    # never executed directly, and are not marked executable in the repository either.
+    want_exec=0
+    [[ -f "$entry" && -x "$entry" ]] && want_exec=1
+    for harness in "${GUARD_HARNESSES[@]}"; do
+      installed="$home/$harness/skills/$skill/scripts/$name"
+      assert_exists "$harness/skills/$skill/scripts/$name is present at the installed path" "$installed"
+      if (( want_exec )); then
+        assert_executable "$harness/skills/$skill/scripts/$name is executable at the installed path" "$installed"
+      fi
+    done
+  done
+done
+
+group "check-unfinished-work.sh runs through the installed path and finds its lib/"
+
+# The guard with the hardest dependency: it sources lib/panel-record.sh from its own
+# directory. Presence is not reachability — this actually RUNS it through the installed
+# symlink chain and inspects what it printed, not just that the file exists.
+GUARD_PATH="$home/.claude/skills/myflow-finish/scripts/check-unfinished-work.sh"
+assert_exists "the installed check-unfinished-work.sh exists to invoke" "$GUARD_PATH"
+GUARD_LOG="$SANDBOX/check-unfinished-work-installed.log"
+"$GUARD_PATH" >"$GUARD_LOG" 2>&1
+GUARD_RC=$?
+# No arguments: the guard's own documented behaviour is to print a usage line and exit
+# 2. That is expected here and is NOT a failure — the failure this proves the absence
+# of is the guard reporting that it could not read its lib/.
+assert_rc_nonzero "check-unfinished-work.sh with no arguments exits non-zero (expected — not a failure)" "$GUARD_RC"
+assert_contains "check-unfinished-work.sh reaches its own usage message (proves lib/ was found, not just that the file exists)" \
+  "$GUARD_LOG" "usage: check-unfinished-work.sh"
+assert_not_contains "check-unfinished-work.sh through the installed path does not report a missing library" \
+  "$GUARD_LOG" "cannot determine the marker helper definitions"
 
 group "A pre-existing skill directory is moved outside the scanned tree"
 
