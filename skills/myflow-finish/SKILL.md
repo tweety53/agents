@@ -458,8 +458,8 @@ myflow stage begin -command '/myflow-finish' -stage finish.self-review -harness 
 transitions nothing — the change is not done.
 
 8. **Run self-review.** The procedure — skippable per run with running it the default, gathering
-   input via a script rather than an inline re-read, one combined reasoning pass across all four
-   angles plus the rating, the per-finding filing ask, and the report path — see
+   input via a script rather than an inline re-read, one combined reasoning pass across all five
+   angles plus the rating, the per-angle filing ask, and the report path — see
    **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
    requirement to change first when that procedure changes is
    **Requirement: Self-review runs only after FINISHED is written**
@@ -482,29 +482,37 @@ transitions nothing — the change is not done.
    (`skills/myflow-contracts/operator-prompts.md`), but a session that cannot ask still runs
    self-review, exactly as an explicit **Yes** would.
 
-   The reasoning step that follows is **one combined pass** — never four separate dispatches —
-   answering all four angles (problems and the pipeline change that would avoid them; token/time
-   cost and what would reduce it without quality loss; what went well and how to reproduce it; what
-   could be automated or moved to a script) plus the rating request, fed the script's bundle and the
-   live session's own context. See **Run 2 — archive and clean up**
+   The reasoning step that follows is **one combined pass** — never five separate dispatches —
+   answering all five angles per the table in **Run 2 — the branch is merged**
+   (`skills/myflow-contracts/finish-contract.md`), step 8, plus the rating request, fed the script's
+   bundle and the live session's own context. Angle 5's remit covers the records the pipeline writes
+   to files today and the derivation work now done in Bash or by the agent — **not** what the SPA
+   should display. See **Run 2 — archive and clean up**
    (`skills/myflow-finish/SKILL-rationale.md`) for why this runs as one combined pass.
 
-   For each finding that names a concrete pipeline or script change, ask once, per finding:
+   Every finding is explained in the message body first — what was observed, what breaks, and what
+   the fix would be — before any prompt fires. The filing ask is then **one multi-select prompt per
+   angle**, listing that angle's findings and defaulting to filing none, shape per Operator prompts
+   (`skills/myflow-contracts/operator-prompts.md`):
 
-   > **File `<one-line finding>` as a Jira issue?**
-   > - **No — don't file** *(default, recommended)*
-   > - **Yes — file it**
+   > **File any of this angle's findings as Jira issues?**
+   > - **<finding 1>**
+   > - **<finding 2>**
+   > - **None — file nothing** *(default, recommended)*
 
-   A bare observation with no concrete change implied gets no filing ask. Labelling a filed issue
-   and handling a filing failure follow **Labels on issues the pipeline creates** and **Never
-   blocking** (`skills/myflow-contracts/jira-integration.md`) verbatim.
+   An angle with no findings gets no filing ask, and a bare observation with no concrete change
+   implied does not appear as an option. Labelling a filed issue and handling a filing failure
+   follow **Labels on issues the pipeline creates** and **Never blocking**
+   (`skills/myflow-contracts/jira-integration.md`) verbatim.
 
    Then ask the operator to rate the run:
 
    **Rate this myflow run, 1 (rough) to 5 (excellent):**
 
-   Write `docs/self-review/<name>-self-review.md` — the four-angle report, the rating, and which
-   findings were filed versus declined — and commit and push it on the base branch **in the main
+   Write `docs/self-review/<name>-self-review.md` — one section per angle, all five present; each
+   finding one line naming its angle's label, the finding, and its disposition, the issue key when
+   filed or an explicit declined marker when not; an angle with no findings carrying an explicit
+   none-marker instead — plus the rating — and commit and push it on the base branch **in the main
    checkout**, never the removed worktree, as one guarded commit mirroring the shape **Git
    boundaries** (`skills/myflow-contracts/pipeline.md`) already documents:
 
@@ -595,6 +603,6 @@ Next:
 - **Never** let a Jira call block the archive — one skipped-with-reason line.
 - **Never** let self-review block, delay, or undo the `FINISHED` write — it runs only after that
   write succeeds, and a failure or a skip inside it never moves the change off `FINISHED`.
-- **Never** ask the self-review skip prompt, a per-finding filing ask, or the rating question
+- **Never** ask the self-review skip prompt, a per-angle filing ask, or the rating question
   before `FINISHED` has been written.
 - **No flags.** The only argument is the optional change name; report anything else.

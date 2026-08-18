@@ -69,13 +69,13 @@ budgets() {
   cat <<'EOF'
 skills/myflow-contracts/SKILL.md 7615
 skills/myflow-contracts/build-green.md 4557
-skills/myflow-contracts/finish-contract.md 33505
+skills/myflow-contracts/finish-contract.md 40724
 skills/myflow-contracts/handoff-blocks-rationale.md 14465
 skills/myflow-contracts/handoff-blocks.md 16746
 skills/myflow-contracts/jira-followups.md 44651
 skills/myflow-contracts/jira-integration-rationale.md 3090
 skills/myflow-contracts/jira-integration.md 19698
-skills/myflow-contracts/operator-prompts.md 1136
+skills/myflow-contracts/operator-prompts.md 2415
 skills/myflow-contracts/pipeline-rationale.md 28981
 skills/myflow-contracts/pipeline.md 55728
 skills/myflow-contracts/plan-provenance.md 30582

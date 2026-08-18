@@ -275,10 +275,40 @@ the one irreversible step.
 8. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. It gathers its
    input by invoking `gather-self-review-context.sh` rather than having the reasoning pass
-   re-read files inline, runs **one** combined reasoning pass covering all four angles — problems
-   and fixes, cost, what went well, and automation candidates — together with the operator's 1-5
-   rating, never as four separate dispatches, and offers a per-finding Jira filing ask before
-   committing its report to `docs/self-review/<name>-self-review.md`. **This procedure is
+   re-read files inline, and runs **one** combined reasoning pass covering all five angles below,
+   together with the operator's 1-5 rating, never as five separate dispatches.
+
+   | # | Angle | Label |
+   |---|-------|-------|
+   | 1 | Problems encountered, and what pipeline change would avoid them | `myflow-fix` |
+   | 2 | Token/time cost, and what would reduce it without quality loss | `myflow-cost` |
+   | 3 | What went well, and how to reproduce it | `myflow-improvement` |
+   | 4 | What could be automated or moved to a script | `myflow-automation` |
+   | 5 | What could move to the Go app or its persistent storage | `myflow-stats-app` |
+
+   Angle 5's remit covers the records the pipeline writes to files today and the derivation work
+   now done in Bash or by the agent — **not** what the SPA should display.
+
+   **Every angle produces zero or more findings, and an angle that produces none says so
+   explicitly** — present-but-empty, the way `## Decisions` and `## Open questions` already are,
+   rather than omitted. A silent angle and a skipped angle are indistinguishable to a reader, which
+   is how KAN-73's cost angle passed unnoticed while its section existed.
+
+   **Every finding is explained in the message body before any prompt fires** — what was observed,
+   what breaks, and what the fix would be. A prompt's option text cannot carry that explanation, so
+   the prompt records the decision only: a filed issue is durable, and an explanation arriving
+   afterward describes something the operator did not agree to.
+
+   The filing ask is **one multi-select prompt per angle**, listing that angle's findings and
+   defaulting to filing none of them, shape per **Operator prompts**
+   (`skills/myflow-contracts/operator-prompts.md`). A finding filed this way carries its angle's
+   label on top of the set **Labels on issues the pipeline creates**
+   (`skills/myflow-contracts/jira-integration.md`) already defines.
+
+   The report committed to `docs/self-review/<name>-self-review.md` carries one section per angle,
+   all five present; each finding is one line naming its angle's label, the finding, and its
+   disposition — the issue key when filed, an explicit declined marker when not — and an angle with
+   no findings carries an explicit none-marker instead of finding lines. **This procedure is
    canonical here.** Step 8 of `skills/myflow-finish/SKILL.md`'s own run 2 carries only what is
    specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
    and the report-commit shell. It is not a second statement of this rule.
@@ -286,7 +316,7 @@ the one irreversible step.
    **Which file to change first.** The normative requirement is
    **Requirement: Self-review runs only after FINISHED is written**
    (`openspec/specs/myflow-self-review/spec.md`), read alongside the sibling requirements in that
-   same file for context gathering, the combined pass, the per-finding filing ask, the rating and
+   same file for context gathering, the combined pass, the per-angle filing ask, the rating and
    the report path. That file is the requirement to change first when the procedure changes — it is
    not the runtime source of the procedure, which is stated above.
 
