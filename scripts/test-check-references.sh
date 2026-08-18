@@ -33,16 +33,16 @@ new_fixture() {
 
 # 1. A live reference passes.
 new_fixture
-printf '## State file\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+printf '## State file\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "live reference passes" || fail "live reference: rc=$RC out=$OUT"
 
 # 2. A moved section fails and is reported as file:line.
 new_fixture
-printf '## Something else\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+printf '## Something else\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "moved section fails" || fail "moved section: expected non-zero"
@@ -53,21 +53,21 @@ esac
 
 # 3. All three phrasing variants are checked identically.
 new_fixture
-printf '## State file\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
+printf '## State file\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 {
-  printf 'see **State file** in `rules/contract.mdc`\n'
-  printf 'per **State file** in `rules/contract.mdc`\n'
-  printf 'defined once under **State file** in `rules/contract.mdc`\n'
+  printf 'see **State file** in `rules/never-touch-production.mdc`\n'
+  printf 'per **State file** in `rules/never-touch-production.mdc`\n'
+  printf 'defined once under **State file** in `rules/never-touch-production.mdc`\n'
 } > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "phrasing variants pass" || fail "phrasing variants: out=$OUT"
 
 new_fixture
-printf '## Gone\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
+printf '## Gone\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 {
-  printf 'see **State file** in `rules/contract.mdc`\n'
-  printf 'per **State file** in `rules/contract.mdc`\n'
-  printf 'defined once under **State file** in `rules/contract.mdc`\n'
+  printf 'see **State file** in `rules/never-touch-production.mdc`\n'
+  printf 'per **State file** in `rules/never-touch-production.mdc`\n'
+  printf 'defined once under **State file** in `rules/never-touch-production.mdc`\n'
 } > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "phrasing variants all fail when absent" || fail "variants: expected non-zero"
@@ -81,35 +81,45 @@ done
 # 4. Multi-section lines pass when at least one bold token resolves.
 new_fixture
 printf '## Stage transitions\n\nbody\n\n## State file\n\nbody\n' \
-  > "$FIXTURE/rules/contract.mdc"
-printf 'Follow `rules/contract.mdc` — sections **Stage transitions**, **State file**.\n' \
+  > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Follow `rules/never-touch-production.mdc` — sections **Stage transitions**, **State file**.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "multi-section line passes" || fail "multi-section: out=$OUT"
 
-# 5. An allow marker suppresses a line.
+# 5. An allow marker suppresses a line. Written to a declared expected-zero
+# member: with the only line's bold token suppressed, this file's own
+# checked-reference count is genuinely zero.
 new_fixture
-printf '## Gone\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf '**Do not** copy from `rules/contract.mdc` <!-- refs-guard:allow -->\n' \
-  > "$FIXTURE/skills/demo/SKILL.md"
+mkdir -p "$FIXTURE/skills/openspec-explore"
+printf '## Gone\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf '**Do not** copy from `rules/never-touch-production.mdc` <!-- refs-guard:allow -->\n' \
+  > "$FIXTURE/skills/openspec-explore/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "allow marker suppresses" || fail "allow marker: out=$OUT"
 
-# 6. Fenced code blocks are skipped.
+# 6. Fenced code blocks are skipped. Written to a declared expected-zero
+# member: with the only candidate reference fenced out, this file's own
+# checked-reference count is genuinely zero.
 new_fixture
-printf '## Gone\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
+mkdir -p "$FIXTURE/skills/openspec-explore"
+printf '## Gone\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 {
   printf '```\n'
-  printf 'see **State file** in `rules/contract.mdc`\n'
+  printf 'see **State file** in `rules/never-touch-production.mdc`\n'
   printf '```\n'
-} > "$FIXTURE/skills/demo/SKILL.md"
+} > "$FIXTURE/skills/openspec-explore/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "fenced block skipped" || fail "fenced block: out=$OUT"
 
-# 7. A path that does not resolve to a file is skipped, not failed.
+# 7. A path that does not resolve to a file is skipped, not failed. Written
+# to a declared expected-zero member (skills/openspec-explore/SKILL.md):
+# with the reference unresolvable, this file's own checked-reference count is
+# genuinely zero, and it is the only file in this fixture's corpus.
 new_fixture
+mkdir -p "$FIXTURE/skills/openspec-explore"
 printf 'see **Whatever** in `openspec/changes/<name>/tasks.md`\n' \
-  > "$FIXTURE/skills/demo/SKILL.md"
+  > "$FIXTURE/skills/openspec-explore/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unresolvable path skipped" || fail "unresolvable path: out=$OUT"
 
@@ -117,17 +127,17 @@ run_guard "$FIXTURE"
 # be vacuous — an unresolvable path is skipped, which also exits 0 — so the
 # failing half below is what proves the relative candidate is really opened.
 new_fixture
-mkdir -p "$FIXTURE/skills/other"
-printf '## Panel re-runs\n\nbody\n' > "$FIXTURE/skills/other/SKILL.md"
-printf 'Follow **Panel re-runs** in `../other/SKILL.md`.\n' \
+mkdir -p "$FIXTURE/skills/openspec-explore"
+printf '## Panel re-runs\n\nbody\n' > "$FIXTURE/skills/openspec-explore/SKILL.md"
+printf 'Follow **Panel re-runs** in `../openspec-explore/SKILL.md`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "relative path resolves" || fail "relative path: out=$OUT"
 
 new_fixture
-mkdir -p "$FIXTURE/skills/other"
-printf '## Something else\n\nbody\n' > "$FIXTURE/skills/other/SKILL.md"
-printf 'Follow **Panel re-runs** in `../other/SKILL.md`.\n' \
+mkdir -p "$FIXTURE/skills/openspec-explore"
+printf '## Something else\n\nbody\n' > "$FIXTURE/skills/openspec-explore/SKILL.md"
+printf 'Follow **Panel re-runs** in `../openspec-explore/SKILL.md`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a stale reference through a relative path still fails" \
@@ -135,8 +145,8 @@ run_guard "$FIXTURE"
 
 # 9. Headings match case-insensitively and ignore backticks in the heading.
 new_fixture
-printf '## The `widget` setting\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'see **The widget setting** in `rules/contract.mdc`\n' \
+printf '## The `widget` setting\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'see **The widget setting** in `rules/never-touch-production.mdc`\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "heading normalization" || fail "heading normalization: out=$OUT"
@@ -150,8 +160,8 @@ run_guard "$FIXTURE"
 # to catch. This assumes the real repo itself is clean at harness-run time,
 # which check-references.sh's own baseline (verified separately) guarantees.
 new_fixture
-printf '## Gone\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+printf '## Gone\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 set +e
 OUT="$(cd "$FIXTURE" && env -u CHECK_REFERENCES_ROOT "$GUARD" 2>&1)"
@@ -164,8 +174,8 @@ set -e
 # counting/pairing. The reference resolves (a live "State file" heading), so
 # this must PASS despite the odd-looking raw "**" count on the line.
 new_fixture
-printf '## State file\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'See **State file** and code `x**y` in `rules/contract.mdc`.\n' \
+printf '## State file\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'See **State file** and code `x**y` in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "in-code ** does not desync a live reference" \
@@ -175,8 +185,8 @@ run_guard "$FIXTURE"
 # stale reference on the same line — masking must not become a new way to
 # suppress a real hit.
 new_fixture
-printf '## Something else\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'See **Gone** and code `x**y` in `rules/contract.mdc`.\n' \
+printf '## Something else\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'See **Gone** and code `x**y` in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "in-code ** does not mask a genuinely stale reference" \
@@ -185,8 +195,8 @@ run_guard "$FIXTURE"
 # 13. Round 1's soft-wrapped-bold-span fix must not regress now that bold
 # extraction runs on the code-masked line.
 new_fixture
-printf '## Jira integration\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'sync** in **Jira integration** (`rules/contract.mdc`) — canonical.\n' \
+printf '## Jira integration\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'sync** in **Jira integration** (`rules/never-touch-production.mdc`) — canonical.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "soft-wrapped bold span still tokenizes correctly" \
@@ -201,8 +211,8 @@ run_guard "$FIXTURE"
 # fails and this assertion catches the regression. (#15 covers the other half —
 # that a genuinely stale reference to an `#`-titled file still fails.)
 new_fixture
-printf '# State file\n\n## Body notes\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+printf '# State file\n\n## Body notes\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a live reference to an #-titled file passes" \
@@ -211,8 +221,8 @@ run_guard "$FIXTURE"
 # 15. The same #-titled file must still catch a genuinely stale reference —
 # proving the check runs at all, not merely that it always passes.
 new_fixture
-printf '# Something else\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+printf '# Something else\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a stale reference to an #-titled file still fails" \
@@ -228,8 +238,8 @@ new_fixture
 {
   printf '# Something else\n\n'
   printf '```bash\n# State file\necho hi\n```\n'
-} > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+} > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a fenced # comment in the referenced file does not satisfy a reference" \
@@ -245,8 +255,8 @@ new_fixture
 {
   printf '# State file\n\n## Body notes\n\n'
   printf '```bash\n# State file\necho hi\n```\n'
-} > "$FIXTURE/rules/contract.mdc"
-printf 'Resolve it per **State file** in `rules/contract.mdc`.\n' \
+} > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a real #-title still resolves alongside a fenced comment of the same text" \
@@ -255,13 +265,16 @@ run_guard "$FIXTURE"
 # 18. Adjacency premise: a bold token that is emphasis, not a section name, and
 # is not written next to the path, must not be demanded as a heading. This is
 # the shape that produced 28 false failures on this repo's own tree and forced
-# the suppression markers that then switched off real checks.
+# the suppression markers that then switched off real checks. Written to a
+# declared expected-zero member: with neither line's bold token associated to
+# a path, this file's own checked-reference count is genuinely zero.
 new_fixture
-printf '## State file\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
+mkdir -p "$FIXTURE/skills/openspec-explore"
+printf '## State file\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 {
-  printf '**Never** commit during apply. The contract lives in `rules/contract.mdc`.\n'
-  printf 'Run it **after** step 2 — see the note in `rules/contract.mdc`.\n'
-} > "$FIXTURE/skills/demo/SKILL.md"
+  printf '**Never** commit during apply. The contract lives in `rules/never-touch-production.mdc`.\n'
+  printf 'Run it **after** step 2 — see the note in `rules/never-touch-production.mdc`.\n'
+} > "$FIXTURE/skills/openspec-explore/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unassociated emphasis does not demand a heading" \
   || fail "unassociated emphasis: rc=$RC out=$OUT"
@@ -270,8 +283,8 @@ run_guard "$FIXTURE"
 # past the guard: a bold token written in a real reference shape is still
 # checked, on the same line as unrelated emphasis.
 new_fixture
-printf '## Something else\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf '**Never** skip this — see **State file** in `rules/contract.mdc`.\n' \
+printf '## Something else\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf '**Never** skip this — see **State file** in `rules/never-touch-production.mdc`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "an associated token is still checked beside emphasis" \
@@ -281,9 +294,9 @@ run_guard "$FIXTURE"
 # "Panel re-runs" is a live heading of the second file and must not also be
 # demanded of the first, which it merely sits after.
 new_fixture
-printf '## Apps\n\nbody\n' > "$FIXTURE/rules/contract.mdc"
-printf '## Panel re-runs\n\nbody\n' > "$FIXTURE/rules/other.mdc"
-printf 'the apps in `rules/contract.mdc` (see **Panel re-runs** in `rules/other.mdc`)\n' \
+printf '## Apps\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf '## Panel re-runs\n\nbody\n' > "$FIXTURE/rules/context7.mdc"
+printf 'the apps in `rules/never-touch-production.mdc` (see **Panel re-runs** in `rules/context7.mdc`)\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a token is assigned to its nearest path only" \
@@ -351,6 +364,57 @@ rm -rf "$FIXTURE/rules" "$FIXTURE/skills"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "a root with no Markdown exits 2 instead of reporting clean" \
   || fail "empty tree: rc=$RC out=$OUT"
+
+# ===========================================================================
+# 23-25. KAN-197 — per-file coverage. A guard exits 0 identically whether it
+# checked every reference in a file or checked nothing there at all; these
+# three cases are what makes the difference visible on a passing run.
+# ===========================================================================
+
+# 23. A scanned file whose references all resolve reports its count, and the
+# verdict's own breakdown line names it.
+new_fixture
+printf '## State file\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
+printf 'Resolve it per **State file** in `rules/never-touch-production.mdc`.\n' \
+  > "$FIXTURE/skills/demo/SKILL.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "coverage: a file with a live reference reports rc=0" \
+  || fail "coverage positive: rc=$RC out=$OUT"
+case "$OUT" in
+  *"skills/demo/SKILL.md 1"*) pass "coverage: the breakdown names the file with its checked count" ;;
+  *) fail "coverage positive: expected the breakdown to show skills/demo/SKILL.md 1, out=$OUT" ;;
+esac
+
+# 24. A scanned file contributing zero checked references, undeclared, fails
+# by name — this is the KAN-73-shaped case: a rule computing nothing to check
+# for one corpus member, on an otherwise clean tree.
+new_fixture
+printf 'Just prose. No cross-reference syntax anywhere in this file.\n' \
+  > "$FIXTURE/skills/demo/SKILL.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "coverage: an undeclared zero-coverage file fails" \
+  || fail "coverage undeclared zero: expected non-zero, out=$OUT"
+case "$OUT" in
+  *"skills/demo/SKILL.md"*"0 checked"*"not declared expected-zero"*) \
+    pass "coverage: names the file, the zero count, and that it is undeclared" ;;
+  *) fail "coverage undeclared zero: expected the file named as an undeclared zero, out=$OUT" ;;
+esac
+
+# 25. A member declared expected-zero in the guard's own source reports its
+# zero without failing. Reuses "rules/never-touch-production.mdc", one of
+# check-references.sh's own declared members (it genuinely carries no
+# cross-reference syntax in the real repository — measured, not guessed),
+# deliberately, the same reuse check-guard-symlinks's F13 case relies on.
+new_fixture
+printf 'Never access a production system directly. No file cross-references here.\n' \
+  > "$FIXTURE/rules/never-touch-production.mdc"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "coverage: a declared expected-zero member passes" \
+  || fail "coverage declared zero: rc=$RC out=$OUT"
+case "$OUT" in
+  *"rules/never-touch-production.mdc 0 (declared"*) pass "coverage: the breakdown marks the declared zero" ;;
+  *) fail "coverage declared zero: expected a declared-zero breakdown entry, out=$OUT" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '\n%d assertion(s) failed\n' "$FAILURES" >&2

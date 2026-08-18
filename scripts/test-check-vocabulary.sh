@@ -122,6 +122,80 @@ printf 'Ordinary prose about the current three-state pipeline.\n' > "$FIXTURE_FI
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "case 7: clean file passes" || fail "case 7: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 8: KAN-197 coverage. A guard exits 0 identically whether it scanned a
+# target's files and found them clean, or found nothing to scan at all; these
+# cases are what makes that difference visible on a passing run.
+# ===========================================================================
+
+# 8a. A target with files reports a positive coverage count, and the
+# breakdown line in the report names it.
+new_fixture
+printf 'Ordinary prose, nothing retired here.\n' > "$FIXTURE_FILE"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 8a: a scanned target with files exits 0" || fail "case 8a: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$FIXTURE 1"*) pass "case 8a: the breakdown names the target with its file count" ;;
+  *) fail "case 8a: expected the breakdown to show '$FIXTURE 1', out=$OUT" ;;
+esac
+
+# 8b. A target that enumerates to zero files, undeclared, fails by name —
+# this is the KAN-73-shaped case: a rule computing nothing to scan for one
+# corpus member, on an otherwise clean tree. An empty directory (no files at
+# all) is the natural zero here — check-vocabulary.sh's own die() already
+# refuses a target that does not exist, so an existing-but-empty directory is
+# what "checked nothing" looks like for this guard.
+EMPTY_FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/check-vocabulary-empty.XXXXXX")"
+run_guard "$EMPTY_FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 8b: an undeclared zero-file target fails" || fail "case 8b: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$EMPTY_FIXTURE"*"0 checked"*"not declared expected-zero"*) \
+    pass "case 8b: names the target, the zero count, and that it is undeclared" ;;
+  *) fail "case 8b: expected the target named as an undeclared zero, out=$OUT" ;;
+esac
+rm -rf "$EMPTY_FIXTURE"
+
+# 8c. Two targets passed in one invocation each report their own count,
+# independently — coverage is per corpus member, not a single scan-wide
+# total. Proven by pairing a non-empty target with an empty one: if coverage
+# were tracked once for the whole run instead of once per target, the
+# non-empty target's positive count would mask the empty one's zero.
+new_fixture
+printf 'Ordinary prose, nothing retired here.\n' > "$FIXTURE_FILE"
+EMPTY_FIXTURE2="$(mktemp -d "${TMPDIR:-/tmp}/check-vocabulary-empty2.XXXXXX")"
+set +e
+OUT="$("$GUARD" "$FIXTURE" "$EMPTY_FIXTURE2" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 1 ] && pass "case 8c: one empty target among several still fails" || fail "case 8c: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$EMPTY_FIXTURE2"*"0 checked"*) pass "case 8c: the empty target is named even though its sibling has files" ;;
+  *) fail "case 8c: expected the empty target named, out=$OUT" ;;
+esac
+rm -rf "$EMPTY_FIXTURE2"
+
+# ===========================================================================
+# Case 9 (KAN-197 F4): the coverage-violation stderr block ends with a
+# trailing newline, so its last line does not run into whatever prints next.
+# Command substitution ($(...)) always strips every trailing newline, so it
+# cannot distinguish "ended with one \n" from "ended with none" — this case
+# redirects stderr to a FILE instead, which preserves the literal last byte,
+# and checks that byte is a newline directly.
+# ===========================================================================
+new_fixture
+EMPTY_FIXTURE3="$(mktemp -d "${TMPDIR:-/tmp}/check-vocabulary-empty3.XXXXXX")"
+STDERR_FILE="$(mktemp "${TMPDIR:-/tmp}/check-vocabulary-stderr.XXXXXX")"
+set +e
+"$GUARD" "$EMPTY_FIXTURE3" >/dev/null 2>"$STDERR_FILE"
+RC=$?
+set -e
+[ "$RC" -eq 1 ] && pass "case 9: an undeclared empty target still fails" || fail "case 9: rc=$RC"
+LAST_BYTE="$(tail -c1 "$STDERR_FILE" | od -An -c | tr -d ' ')"
+[ "$LAST_BYTE" = '\n' ] && pass "case 9: the violation block's last byte is a newline, not a ragged last line" \
+  || fail "case 9: expected the stderr block to end with a newline, last byte was [$LAST_BYTE]"
+rm -rf "$EMPTY_FIXTURE3"
+rm -f "$STDERR_FILE"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

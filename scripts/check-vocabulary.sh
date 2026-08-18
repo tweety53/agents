@@ -45,6 +45,17 @@ trap cleanup_tmp EXIT
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# coverage_record / coverage_declare / coverage_report / coverage_verdict —
+# per-target coverage reporting and the declared-vs-undeclared-zero decision,
+# owned once in lib/coverage.sh rather than reinvented here. See that file's
+# header for why (KAN-197) and check-guard-symlinks.sh / check-references.sh
+# for the pattern this guard follows. A "target" here is a member of TREES
+# below (a DEFAULT_TARGETS entry, or a caller-supplied path) — the unit
+# collect_hits already scans one at a time, so it is the natural corpus
+# member for this guard, distinct from an individual FILE within a target
+# (which collect_hits enumerates and greps in one batch, never one at a time).
+source "$SCRIPT_DIR/lib/coverage.sh"
+
 # The default scan set: everything in this repo that can carry the vocabulary. Kept here
 # and nowhere else, so callers only ever have to say `scripts/check-vocabulary.sh`.
 #
@@ -63,6 +74,20 @@ else
   cd "$REPO_ROOT" || die "cannot enter repo root $REPO_ROOT"
   TREES=("${DEFAULT_TARGETS[@]}")
 fi
+
+# EXPECTED-ZERO TARGETS — established by enumerating every DEFAULT_TARGETS
+# member against the real tree (2026-08-18, at df9d5dd): skills (77 files),
+# rules (12), commands (6), commands-claude (5), scripts (57), README.md
+# (1), AGENTS.md (1), CLAUDE.md (1) — every one of them non-zero. Left
+# empty rather than populated with an invented member: this guard's own
+# die() above already refuses a target that does not exist as a
+# configuration error, not a corpus member, and nothing in this scan set
+# legitimately enumerates to zero files today. Declared here, never
+# inferred — exactly like check-references.sh's and
+# check-guard-symlinks.sh's own lists — so if a target genuinely becomes
+# empty later, its name is added here, not inferred from the tree.
+EXPECTED_ZERO_TARGETS=()
+EXPECTED_ZERO_REASON="enumerates to zero files under this guard's own find -L scan — declared here rather than treated as an error, for a target legitimately expected to sometimes carry none"
 
 for target in "${TREES[@]}"; do
   [[ -e "$target" ]] || die "no such file or directory: $target"
@@ -142,11 +167,13 @@ REPO_ROOT_REAL="$(abs_dir "$REPO_ROOT")" || die "cannot resolve repo root $REPO_
 # stderr is redirected, so the reason stays visible. A swallowed error reported as "✓ clean" is
 # the same vacuous pass this guard exists to prevent.
 HITS_OUT=""
+FILES_COUNT_OUT=""
 collect_hits() {
   local target="$1"; shift
   local list_tmp raw rc filtered file root dir last_dir="" last_real=""
   local -a files=()
   HITS_OUT=""
+  FILES_COUNT_OUT=""
 
   # For a file target the root is its directory: the file was named explicitly, so it cannot
   # be an escape. For a directory target it is the directory itself.
@@ -179,6 +206,12 @@ collect_hits() {
     fi
     files+=("$file")
   done <"$list_tmp"
+  # Set regardless of what follows (including the early return right below):
+  # this is the KAN-197 coverage count for this target — how many files this
+  # guard actually found to scan, not whether any of them carried a hit. A
+  # target enumerating to zero files is "nothing was checked here," visible
+  # even on a run that goes on to report clean.
+  FILES_COUNT_OUT=${#files[@]}
   [[ ${#files[@]} -gt 0 ]] || return 0
 
   raw="$(grep -aHn --null "$@" "${files[@]}" | tr '\0' "$SEP")"
@@ -362,6 +395,21 @@ check_retired_stage_vocabulary() {
   local hits="" tree
   for tree in "${TREES[@]}"; do
     collect_hits "$tree" -E "$pattern"
+    # Recorded here, once — not duplicated in check_retired_panel_vocabulary's
+    # own identical loop below, which would scan the same targets a second
+    # time and trip coverage_record's own already-recorded rejection. Both
+    # checks share one enumeration of the same TREES, so one recording is
+    # the whole answer for both.
+    #
+    # KAN-197 F8: the return is checked rather than ignored. This file runs
+    # under `set -uo pipefail` with no `-e`, so an unchecked rejection here
+    # (e.g. a future caller adding a second scan of the same tree) would be
+    # silently swallowed and the run would go on to print "✓ clean" while its
+    # own coverage breakdown contradicted that verdict — the exact shape F8
+    # found live in this file before this fix.
+    if ! coverage_record "$tree" "$FILES_COUNT_OUT"; then
+      die "coverage_record failed for '$tree' (see stderr above)"
+    fi
     [[ -z "$HITS_OUT" ]] || hits+="$HITS_OUT"$'\n'
   done
 
@@ -462,4 +510,33 @@ check_retired_panel_vocabulary() {
 status=0
 check_retired_stage_vocabulary || status=1
 check_retired_panel_vocabulary || status=1
+
+# COVERAGE — per-target count of how many files this guard actually found to
+# scan, via scripts/lib/coverage.sh. A target enumerating to zero files and
+# absent from EXPECTED_ZERO_TARGETS is folded into the overall exit status
+# here, exactly as check-references.sh and check-guard-symlinks.sh do it —
+# never a separate exit code of its own.
+if [[ ${#EXPECTED_ZERO_TARGETS[@]} -gt 0 ]]; then
+  for target in "${EXPECTED_ZERO_TARGETS[@]}"; do
+    # KAN-197 F8: the return is checked rather than ignored, for the same
+    # reason as coverage_record above — this file has no `-e` to fall back
+    # on either.
+    if ! coverage_declare "$target" "$EXPECTED_ZERO_REASON"; then
+      die "coverage_declare failed for '$target' (see stderr above)"
+    fi
+  done
+fi
+
+if ! coverage_verdict_out="$(coverage_verdict)"; then
+  # KAN-197 F4: trailing newline restored. Command substitution strips the
+  # newline coverage_verdict's own last printed line ends with, and this
+  # format string did not add one back, so the block ran into whatever
+  # printed next on the same terminal line.
+  printf '\n⚠ Coverage violation(s) — a scan target checked nothing:\n%s\n' "$coverage_verdict_out" >&2
+  status=1
+elif [[ "$status" -eq 0 ]]; then
+  coverage_frag="$(coverage_report)"
+  [[ -n "$coverage_frag" ]] && printf '  %s\n' "$coverage_frag"
+fi
+
 exit "$status"

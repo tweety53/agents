@@ -105,6 +105,13 @@ die() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# coverage_record / coverage_declare / coverage_report / coverage_verdict —
+# per-file coverage reporting and the declared-vs-undeclared-zero decision,
+# owned once in lib/coverage.sh rather than reinvented here. See that file's
+# header for why (KAN-197) and check-guard-symlinks.sh / check-references.sh
+# for the pattern this guard follows.
+source "$SCRIPT_DIR/lib/coverage.sh"
+
 if [[ $# -gt 0 ]]; then
   TARGETS=("$@")
 else
@@ -188,23 +195,111 @@ guess_placeholder() {
   printf '%s\n' "$text" | grep -oE -- '<[^<>]*[Gg][Uu][Ee][Ss][Ss][^<>]*>' | head -n1
 }
 
+# KAN-197 FIX ROUND, F1 — the corpus is narrowed to the members CAPABLE of
+# carrying a `stage begin` call, not every Markdown file under skills/. Before
+# this fix the scan glob was '*.md', which reached 33 files while only a
+# SKILL.md or pipeline.md can ever hold a stage-mark invocation (a contract
+# doc, a rationale file or a reviewer-prompt file structurally cannot) — so 28
+# of 33 declared entries were declared not because their zero was meaningful
+# but because they were never candidates, and every new rationale or
+# reviewer-prompt file added under skills/ would need a line here purely to
+# stay green. Narrowing the FIND pattern below to these two filenames removes
+# that whole non-candidate class from the corpus rather than declaring around
+# it. Detection is preserved: a SKILL.md or pipeline.md that loses all its
+# marks is still a member of this narrower corpus and still fires — see
+# test-check-stage-mark-calls.sh's mutation case for the check.
+#
+# EXPECTED-ZERO FILES — after narrowing, only two SKILL.md files under
+# skills/ genuinely carry no `stage begin` call site of their own (measured
+# 2026-08-18 by grepping each directly against this guard's own
+# call-detection pattern), plus myflow-status/SKILL.md declared separately
+# below with its own by-contract reason. Each gets its OWN one-line
+# justification for WHY its zero is legitimate by design (KAN-197 F2),
+# not a shared string attesting only to how the zero was measured.
+# Two PARALLEL indexed arrays, matched by position — never an associative
+# array, which is bash-4-only and this repository's floor is bash 3.2 (see
+# scripts/lib/coverage.sh's own header for the same constraint).
+EXPECTED_ZERO_FILES=(
+  "skills/myflow-contracts/SKILL.md"
+  "skills/openspec-explore/SKILL.md"
+)
+EXPECTED_ZERO_REASONS=(
+  "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage of its own"
+  "a thinking-partner exploration mode with no implementation or verification stage to mark — the same reason check-guard-symlinks.sh declares it expected-zero"
+)
+
+# declare_expected_zeros — called ONLY for the guard's own default, full-
+# corpus scan (no explicit CLI targets). This guard's declared list is a
+# hardcoded set of THIS REPOSITORY's own paths; a caller-supplied target
+# (the companion test harness always passes one, pointed at a sandboxed
+# mktemp fixture — see new_fixture above) scans a wholly different, smaller
+# tree where none of these paths exist. Declaring them there would make
+# every one of them a KAN-197 F3 "declared but never recorded" violation
+# even though they are simply not part of that run's corpus at all — not a
+# real staleness. Gating on "no CLI args" keeps F3's protection exactly where
+# it means something: this guard's own real, default invocation, exercised
+# bare by test-check-stage-mark-calls.sh's own case 24.
+declare_expected_zeros() {
+  local i f
+  for i in "${!EXPECTED_ZERO_FILES[@]}"; do
+    f="${EXPECTED_ZERO_FILES[$i]}"
+    if ! coverage_declare "$f" "${EXPECTED_ZERO_REASONS[$i]}"; then
+      die "coverage_declare failed for '$f' (see stderr above)"
+    fi
+  done
+  # myflow-status marks nothing BY CONTRACT, not merely as a measured fact
+  # like the files above: it is a read-only status report, and a stage mark
+  # it wrote would record work nobody did. Declared with its own reason
+  # rather than folded into the generic list, per this task's own note.
+  if ! coverage_declare "skills/myflow-status/SKILL.md" \
+    "read-only status report; writes no stage marks by contract — a mark here would record work nobody did"; then
+    die "coverage_declare failed for 'skills/myflow-status/SKILL.md' (see stderr above)"
+  fi
+}
+
 VIOLATIONS=0
 CHECKED=0
+if [[ $# -eq 0 ]]; then
+  declare_expected_zeros
+fi
 
 for target in "${TARGETS[@]}"; do
   if [[ -d "$target" ]]; then
+    # KAN-197 F1: narrowed to the two filenames capable of ever carrying a
+    # `stage begin` call — see the corpus comment above EXPECTED_ZERO_FILES.
+    FILES=()
     while IFS= read -r -d '' f; do
       FILES+=("$f")
-    done < <(find "$target" -type f -name '*.md' -print0)
+    done < <(find "$target" -type f \( -name 'SKILL.md' -o -name 'pipeline.md' \) -print0)
+    if [[ ${#FILES[@]} -eq 0 ]]; then
+      # KAN-197 F7: a directory target that enumerates to ZERO candidate
+      # files produced no file for the loop below to iterate, so
+      # coverage_record was never called at all for it -- the target
+      # vanished from coverage entirely rather than being caught, the exact
+      # vacuous-pass shape this whole change exists to close. Record the
+      # TARGET itself with a zero count so it becomes a corpus member like
+      # any other -- undeclared, it is now a violation naming itself. This
+      # is the same "record regardless of what follows" discipline
+      # check-vocabulary.sh's collect_hits already carries for its own
+      # per-target FILES_COUNT_OUT ("Set regardless of what follows,
+      # including the early return").
+      if ! coverage_record "${target#"$REPO_ROOT"/}" 0; then
+        die "coverage_record failed for target '$target' (see stderr above)"
+      fi
+      unset FILES
+      continue
+    fi
   else
     FILES=("$target")
   fi
 
   for f in "${FILES[@]:-}"; do
     [[ -n "${f:-}" ]] || continue
+    file_checked=0
     while IFS=$'\t' read -r lineno cmd; do
       [[ -n "$lineno" ]] || continue
       CHECKED=$((CHECKED + 1))
+      file_checked=$((file_checked + 1))
 
       has_session_token=1
       if ! printf '%s' "$cmd" | grep -qE -- '(^|[[:space:]])-session-token([[:space:]]|=)'; then
@@ -254,9 +349,37 @@ for target in "${TARGETS[@]}"; do
         VIOLATIONS=$((VIOLATIONS + 1))
       fi
     done < <(assemble_calls "$f")
+    # KAN-197 coverage: how many `stage begin` calls this guard actually
+    # found and checked IN THIS FILE, per scripts/lib/coverage.sh — distinct
+    # from CHECKED above, which is the corpus-wide total. A file the glob
+    # reaches but which carries no `stage begin` call at all is "nothing was
+    # checked here," visible even on a run that goes on to report clean.
+    #
+    # KAN-197 F8: the return is checked rather than ignored. This guard runs
+    # under `set -uo pipefail` with no `-e`, so an unchecked failure here
+    # (e.g. the same file enumerated twice) would be silently swallowed and
+    # the verdict would go on to report clean, contradicting its own
+    # breakdown — exactly the shape F8 found live in this file before this
+    # fix.
+    if ! coverage_record "${f#"$REPO_ROOT"/}" "$file_checked"; then
+      die "coverage_record failed for '$f' (see stderr above)"
+    fi
   done
   unset FILES
 done
+
+# COVERAGE — per-file count of `stage begin` calls this guard actually
+# found, via scripts/lib/coverage.sh. A file whose coverage is zero and is
+# not in EXPECTED_ZERO_FILES above is folded into the ordinary violation
+# count here, exactly as check-references.sh and check-guard-symlinks.sh do
+# it — never a separate exit status.
+if ! coverage_verdict_out="$(coverage_verdict)"; then
+  while IFS= read -r cvline; do
+    [[ -n "$cvline" ]] || continue
+    printf '%s:0: %s\n' "${cvline%%:*}" "${cvline#*: }"
+    VIOLATIONS=$((VIOLATIONS + 1))
+  done <<<"$coverage_verdict_out"
+fi
 
 if [[ "$VIOLATIONS" -gt 0 ]]; then
   echo "check-stage-mark-calls: $VIOLATIONS violation(s) across $CHECKED \`stage begin\` call(s) checked" >&2
@@ -264,4 +387,6 @@ if [[ "$VIOLATIONS" -gt 0 ]]; then
 fi
 
 echo "✓ Stage-mark-calls guard: clean ($CHECKED \`stage begin\` call(s) checked)"
+coverage_frag="$(coverage_report)"
+[[ -n "$coverage_frag" ]] && printf '  %s\n' "$coverage_frag"
 exit 0
