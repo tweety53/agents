@@ -243,6 +243,11 @@ An issue any `/myflow-*` command creates carries **every label on the change's l
 created issue carries `AI-generated` alone. Link the created issue to the change's issue whenever
 one exists.
 
+**A self-review finding adds one more label.** An issue filed from a self-review finding carries,
+on top of the set above, the label naming the angle that produced it. The angle-to-label table is
+canonical in step 8 of **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`),
+cited here rather than copied, so the two cannot drift.
+
 **Creation is a Jira write like any other, and fails the same way.** `createJiraIssue` can be
 refused for auth, permission, an unknown project key, a label the project does not allow, or a
 missing required field, and a session may have no Atlassian tooling at all. Any of those is one

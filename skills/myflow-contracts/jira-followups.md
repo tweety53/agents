@@ -16,6 +16,13 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 `/myflow-finish` run 1's unfinished-work gate. The rule is stated here rather than there so that a
 site added later inherits the naming instead of choosing its own.
 
+**Every filing ask explains before it asks.** Before the filing prompt fires, the message body
+explains each item the run would file — what was observed, what breaks because of it, and what the
+fix would be — never leaving that explanation to the prompt's option text. The prompt itself follows
+the shape **Operator prompts** (`skills/myflow-contracts/operator-prompts.md`) defines and records
+only the decision. A filed issue is durable and already on the board; an explanation reaching the
+operator afterward would describe something they never agreed to.
+
 **Join an open follow-up rather than filing a second one.** Before creating a follow-up, search the
 project (`searchJiraIssuesUsingJql`) for an issue that carries the `AI-generated` label, is titled
 as this section names follow-ups — `myflow follow-up`, or `<KEY> follow-up` for any key — and sits
