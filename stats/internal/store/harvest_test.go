@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -330,6 +331,151 @@ func TestHarvestBatchPreservesStageEndOutcomeKeys(t *testing.T) {
 	}
 	if tokens2.Main.Input != 7 {
 		t.Errorf("run2 tokens.main.input = %v, want 7 (harvested before the outcome keys were written)", tokens2.Main.Input)
+	}
+}
+
+// buildDispatchPatch marshals a MetricsPatch carrying one dispatch's
+// bucket through json.Marshal against harvest's own production types
+// (MetricsPatch, DispatchBucket -- internal/harvest/attribute.go), the
+// exact code path encodePatches (internal/harvest/watcher.go) uses to
+// build a real CommitHarvestBatch call's deltas. Building the raw JSON by
+// hand instead would silently stop exercising DispatchBucket's own wire
+// shape (in particular spawn_depth's *string field, F5/F23's own fixes)
+// -- exactly the kind of second, drifting approximation F19 exists to
+// eliminate -- so the tests below call this rather than writing
+// json.RawMessage literals.
+func buildDispatchPatch(t *testing.T, agentID string, bucket harvest.DispatchBucket) json.RawMessage {
+	t.Helper()
+	mp := harvest.MetricsPatch{Dispatches: map[string]harvest.DispatchBucket{agentID: bucket}}
+	raw, err := json.Marshal(mp)
+	if err != nil {
+		t.Fatalf("marshal dispatch patch: %v", err)
+	}
+	return raw
+}
+
+// TestCommitHarvestBatchSumsDispatchTokensAcrossTwoCommits proves
+// jsonb_deep_add's numeric-leaf-sums rule (0005_jsonb_deep_add.sql) holds
+// for a per-dispatch token bucket nested under "dispatches", not just the
+// top-level "tokens" key TestCommitHarvestBatchAddsAndAdvancesTogether
+// already covers: two ordinary batches for the same dispatch must leave
+// its tokens summed, never replaced.
+func TestCommitHarvestBatchSumsDispatchTokensAcrossTwoCommits(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-tokens-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	path := "/synthetic/dispatch-tokens.jsonl"
+	patch := buildDispatchPatch(t, "agent-example0001", harvest.DispatchBucket{
+		Tokens: harvest.TokenDelta{Sidechain: harvest.Bucket{Input: 8}},
+	})
+
+	if _, err := st.CommitHarvestBatch(ctx, path, 0, false, 100, map[int64]json.RawMessage{run.ID: patch}); err != nil {
+		t.Fatalf("CommitHarvestBatch (first): %v", err)
+	}
+	if _, err := st.CommitHarvestBatch(ctx, path, 100, true, 200, map[int64]json.RawMessage{run.ID: patch}); err != nil {
+		t.Fatalf("CommitHarvestBatch (second): %v", err)
+	}
+
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		Dispatches map[string]harvest.DispatchBucket `json:"dispatches"`
+	}
+	if err := json.Unmarshal(got.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal metrics: %v", err)
+	}
+	db, ok := bag.Dispatches["agent-example0001"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-example0001] in metrics: %s", got.Metrics)
+	}
+	if db.Tokens.Sidechain.Input != 16 {
+		t.Errorf("dispatches[agent-example0001].tokens.sidechain.input = %v, want 16 (8 summed across two commits)", db.Tokens.Sidechain.Input)
+	}
+}
+
+// TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits is
+// F19's own relocation of watcher_test.go's now-deleted
+// TestCommitHarvestBatchPreservesSpawnDepthAcrossTwoCommits (F15's own
+// regression test, pass 3 of KAN-201's review panel, itself a fix for
+// F12, pass 2): jsonb_deep_add itself -- not a hand-written stand-in for
+// it (mergeDeepAddFake, formerly in watcher_test.go's fakeHarvestSink) --
+// must leave a dispatch's spawn_depth exactly as sent across two ordinary
+// hasMeta=true commits, never summed and never corrupted into an
+// unquoted number.
+//
+// The patch is built through buildDispatchPatch -- DispatchBucket's real
+// production type, whose SpawnDepth field is declared *string directly
+// (internal/harvest/attribute.go, F5's and F23's own fixes) -- so
+// spawn_depth genuinely travels the wire as a JSON *string*: jsonb_typeof
+// sees 'string', not 'number', and jsonb_deep_add takes its last-write-
+// wins branch instead of its sum branch. F12's actual defect was a
+// *production* marshaling bug -- spawn_depth sent as a bare JSON number
+// -- not a test-double one; because this test drives that same
+// production type rather than a hand-written literal, it catches a
+// regression of F12 directly, with no Go-side merge logic standing
+// between the assertion and jsonb_deep_add's own rule.
+func TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-spawndepth-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	path := "/synthetic/dispatch-spawndepth.jsonl"
+	depth := "1"
+	patch := buildDispatchPatch(t, "agent-example0001", harvest.DispatchBucket{
+		Tokens:      harvest.TokenDelta{Sidechain: harvest.Bucket{Input: 8}},
+		AgentType:   "general-purpose",
+		Description: "Recurring dispatch",
+		Model:       "claude-sonnet-5",
+		SpawnDepth:  &depth,
+	})
+
+	if _, err := st.CommitHarvestBatch(ctx, path, 0, false, 100, map[int64]json.RawMessage{run.ID: patch}); err != nil {
+		t.Fatalf("CommitHarvestBatch (first, ordinary re-send): %v", err)
+	}
+	if _, err := st.CommitHarvestBatch(ctx, path, 100, true, 200, map[int64]json.RawMessage{run.ID: patch}); err != nil {
+		t.Fatalf("CommitHarvestBatch (second, ordinary re-send): %v", err)
+	}
+
+	got, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		Dispatches map[string]harvest.DispatchBucket `json:"dispatches"`
+	}
+	if err := json.Unmarshal(got.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal metrics: %v (DispatchBucket.SpawnDepth is *string, so encoding/json itself rejects a corrupted spawn_depth -- e.g. an unquoted number where its string encoding is expected -- which counts as a failure here)", err)
+	}
+	db, ok := bag.Dispatches["agent-example0001"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-example0001] in metrics: %s", got.Metrics)
+	}
+	if db.SpawnDepth == nil {
+		t.Fatalf("dispatches[agent-example0001].spawn_depth = nil, want a present \"1\"")
+	}
+	if *db.SpawnDepth != "1" {
+		t.Errorf("dispatches[agent-example0001].spawn_depth = %v, want \"1\" (preserved, never summed) after two ordinary commits", *db.SpawnDepth)
+	}
+	if db.Tokens.Sidechain.Input != 16 {
+		t.Errorf("dispatches[agent-example0001].tokens.sidechain.input = %v, want 16 (tokens still additive across both commits)", db.Tokens.Sidechain.Input)
+	}
+	if db.AgentType != "general-purpose" || db.Description != "Recurring dispatch" || db.Model != "claude-sonnet-5" {
+		t.Errorf("dispatches[agent-example0001] descriptor strings = %+v, want unchanged across both commits", db)
 	}
 }
 

@@ -228,6 +228,20 @@ type modelBucket struct {
 	Tokens modelBucketTokens `json:"tokens"`
 }
 
+// dispatchBucket is the shape Price reads out of one entry in the metrics
+// bag's "dispatches" object (internal/harvest.DispatchBucket's own
+// encoding) -- modelBucket's shape plus the dispatch's own recorded
+// model, which is what Price resolves a pricing rate against: a
+// dispatch's own tokens, priced at its own model's rate, never the
+// model that happens to head this run's "models" bag. Model is read as
+// a plain string, empty when the dispatch's meta sidecar was never
+// found (DispatchBucket's own doc comment, attribute.go) -- absence
+// Price treats exactly like any other unpriceable dispatch, below.
+type dispatchBucket struct {
+	Tokens modelBucketTokens `json:"tokens"`
+	Model  string            `json:"model"`
+}
+
 // Price resolves the pricing row in effect, at the stage run's start
 // instant, for every model its metrics bag's "models" key recorded, and
 // prices each model's bucket separately -- writing "models.<model>.cost_usd"
@@ -253,6 +267,47 @@ type modelBucket struct {
 // priced; the models that could still get their buckets written (this
 // method's own doc comment above), so this error reports an incomplete
 // result, not a failed one.
+//
+// Price also prices every entry under the metrics bag's "dispatches" key
+// (KAN-201, myflow-stats-views spec.md's "Per-dispatch cost SHALL be
+// derived through the same pricing path every other cost figure uses"),
+// writing "dispatches.<agentId>.cost_usd" through the identical rate
+// resolution and chargeableTokens.cost arithmetic used for "models.
+// <model>" above -- never an implied average rate scaled from a model
+// bucket's blended total, which is what this task replaces. A dispatch's
+// own tokens are already inside its recorded model's "models.<model>"
+// bucket -- the same usage viewed a second way -- so a dispatch's cost is
+// never added into the top-level "cost_usd": doing so would roughly
+// double every run's total. A dispatch that cannot be priced (no
+// recorded model, no rate in effect for it, or its own tokens carry
+// cache_creation_unknown or an unrated cache/fast-mode component --
+// chargeableTokens.cost's own doc comment) simply gets no cost_usd; this
+// never affects Price's own return value, since a dispatch is a second,
+// narrower view of tokens the "models" loop above has already reported
+// on at its own granularity -- Price already surfaces incompleteness
+// there, and a dispatch failing to price is not new information the
+// caller needs told to it a second time. A "dispatches" value that does
+// not even decode is likewise never fatal to the whole call (F6): it
+// degrades to no dispatch costs this pass, so the models loop's own
+// already-computed modelsPatch and top-level cost_usd still get written
+// -- losing a computed total to an unrelated field's bad data is exactly
+// the "worse than writing nothing" outcome this doc comment already
+// warns about, one paragraph up.
+//
+// Dispatch pricing runs regardless of whether the "models" loop above
+// priced anything at all (F28, pass 7 of this change's own review panel):
+// a run whose entire "models" bag is unpriceable -- no rate in effect for
+// any model recorded there -- no longer returns before the dispatches
+// loop runs. A dispatch resolves its own pricing rate from its own
+// sidecar-declared model, which routinely differs from whatever the
+// "models" bag happened to record, so refusing to even attempt dispatch
+// pricing whenever the models bag was entirely unpriceable defeated this
+// method's own per-dispatch attribution exactly when the two model
+// sources diverge -- the case per-dispatch attribution exists to expose.
+// ErrPricingNotFound is still returned naming every unpriceable model in
+// "models" whenever there is at least one, and the top-level "cost_usd"
+// is still written only when every model bucket in "models" priced --
+// both unchanged by whether any dispatch also priced.
 func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 	run, err := s.GetStageRun(ctx, stageRunID)
 	if err != nil {
@@ -312,29 +367,48 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 	// rather than one that depends on Go's randomised map iteration.
 	sort.Slice(candidates, func(i, j int) bool { return candidates[i].model < candidates[j].model })
 
+	// rateCache memoizes pricingRateInEffect per model across both the
+	// "models" loop below and the "dispatches" loop that follows it: a
+	// dispatch's own recorded model is, in the ordinary case, one of the
+	// same models this run's "models" bag already recorded (a dispatch's
+	// tokens are a subset of its model's own bucket), so re-querying
+	// Postgres a second time for the same (model, run.StartedAt) pair
+	// would be pure duplicate work for what is, by construction, almost
+	// always the same answer. Only successful lookups are cached --
+	// errors are resolved fresh each time, which costs nothing extra
+	// since an error path returns or moves on without a second lookup of
+	// the same model anyway.
+	rateCache := make(map[string]PricingRate)
+	resolveRate := func(model string) (PricingRate, error) {
+		if r, ok := rateCache[model]; ok {
+			return r, nil
+		}
+		r, err := s.pricingRateInEffect(ctx, model, run.StartedAt)
+		if err != nil {
+			return PricingRate{}, err
+		}
+		rateCache[model] = r
+		return r, nil
+	}
+
 	modelsPatch := make(map[string]any, len(candidates))
 	var missing []string
 	var total float64
 	priced := 0
 	for _, c := range candidates {
-		rate, err := s.pricingRateInEffect(ctx, c.model, run.StartedAt)
+		rate, cost, ok, err := priceCandidate(resolveRate, c.model, c.tokens, fast, &missing)
 		if err != nil {
-			if errors.Is(err, ErrPricingNotFound) {
-				missing = append(missing, c.model)
-				continue
-			}
 			return err
 		}
-		cost, ok := c.tokens.cost(rate, fast)
 		if !ok {
 			// A rate was in effect for this model, but not for every
 			// component this bucket actually recorded -- an unknown cache
 			// split, a 1-hour write against a pre-0007 row with no 1h
-			// rate, or fast speed against a model with no fast rate.
-			// Treated identically to no rate at all: this bucket is
-			// unpriceable, not partially priced (chargeableTokens.cost's
-			// own doc comment explains each case).
-			missing = append(missing, c.model)
+			// rate, or fast speed against a model with no fast rate --
+			// or no rate was in effect at all. Either way, this bucket
+			// is unpriceable, not partially priced (chargeableTokens.cost's
+			// own doc comment explains each case; priceCandidate has
+			// already appended c.model to missing).
 			continue
 		}
 		modelsPatch[c.model] = map[string]any{
@@ -345,29 +419,162 @@ func (s *Store) Price(ctx context.Context, stageRunID int64) error {
 		priced++
 	}
 
-	if priced == 0 {
-		// Nothing in this run could be priced at all -- every candidate
-		// model lacked a rate. Nothing is written; this is a straight
-		// failure, not a partial result.
-		return fmt.Errorf("%w: %s", ErrPricingNotFound, strings.Join(missing, ", "))
+	// dispatchesPatch prices each "dispatches.<agentId>" bucket through
+	// the identical rate resolution and cost arithmetic as "models.
+	// <model>" above, applied to that dispatch's own recorded model and
+	// own tokens (this method's own doc comment explains why). A
+	// dispatch that cannot be priced is simply omitted -- never added to
+	// missing, never affecting priced/total, and never causing this
+	// method to fail: it is a second, narrower view of tokens the
+	// "models" loop above has already accounted for.
+	dispatchesPatch := make(map[string]any)
+	if dispatchesRaw, ok := bag["dispatches"]; ok {
+		var dispatches map[string]dispatchBucket
+		if err := json.Unmarshal(dispatchesRaw, &dispatches); err != nil {
+			// Malformed, not fatal (F6, pass 1 of this change's own
+			// review panel): this method's own doc comment says a
+			// partial sum is "the single most dangerous output Price
+			// could produce -- worse than writing nothing", and failing
+			// here, before patchFields is even built below, would throw
+			// away the models loop's already-computed modelsPatch and
+			// total along with it -- exactly the partial-versus-nothing
+			// mistake that sentence warns against, just triggered by a
+			// different field. Before this dispatches loop existed, an
+			// unrecognised "dispatches" key was simply never read at
+			// all; a value this loop cannot decode gets the same
+			// treatment now -- skipped, degrading to "no dispatch costs
+			// priced this pass" -- rather than aborting the whole call.
+			// No writer in this codebase currently produces a malformed
+			// "dispatches" value (encodePatches, harvest/watcher.go,
+			// always emits a well-formed object), so this path is
+			// presently unreachable defensive robustness, not a
+			// response to an observed failure.
+			dispatches = nil
+		}
+		// Deterministic order, for the same reason candidates is sorted
+		// above -- a stable map key list rather than one that depends on
+		// Go's randomised iteration order. Ranges over a nil map (the
+		// decode-failure case above) exactly like an empty one.
+		agentIDs := make([]string, 0, len(dispatches))
+		for id := range dispatches {
+			agentIDs = append(agentIDs, id)
+		}
+		sort.Strings(agentIDs)
+		for _, id := range agentIDs {
+			db := dispatches[id]
+			if db.Model == "" {
+				// No sidecar was ever found for this dispatch's transcript
+				// (DispatchBucket's own doc comment) -- absence is never a
+				// value, so this dispatch is left unpriced rather than
+				// priced against a neighbouring dispatch's model.
+				continue
+			}
+			combined := combineMainAndSidechain(db.Tokens.Main, db.Tokens.Sidechain)
+			if !combined.hasCharge() {
+				// This dispatch's harvest recorded no chargeable token
+				// field for it (or no "tokens" key at all) -- not an error,
+				// just nothing to price.
+				continue
+			}
+			// A dispatch's own failure to resolve or price is never added
+			// to missing (this method's own doc comment explains why) --
+			// dispatchMissing is a throwaway, never read, that exists only
+			// because priceCandidate needs somewhere to append to; any
+			// resolveRate failure here -- ErrPricingNotFound or a genuine
+			// store error -- is treated the same, skip this dispatch,
+			// never abort the whole call (F13, pass 2 of this change's own
+			// review panel). Aborting here, before patchFields is even
+			// built below, would discard the models loop's already-computed
+			// modelsPatch and total along with it -- the identical "worse
+			// than writing nothing" mistake F6's fix prevents for a
+			// malformed dispatches value, just reached through a different
+			// trigger.
+			var dispatchMissing []string
+			_, cost, ok, _ := priceCandidate(resolveRate, db.Model, combined, fast, &dispatchMissing)
+			if !ok {
+				continue
+			}
+			dispatchesPatch[id] = map[string]any{"cost_usd": cost}
+		}
 	}
 
-	patchFields := map[string]any{"models": modelsPatch}
+	// patchFields writes "models" only when at least one model bucket
+	// actually priced (F28, pass 7 of this change's own review panel): a
+	// run whose entire "models" bag is unpriceable no longer aborts before
+	// this dispatches loop even runs, so modelsPatch can legitimately be
+	// empty here while dispatchesPatch still carries real, priceable
+	// dispatch costs -- the dispatch's own sidecar-declared model is
+	// resolved independently of whatever the models bag itself could
+	// price. Omitting an empty "models" key (rather than writing "models":
+	// {}) mirrors how "dispatches" is already omitted below when empty.
+	patchFields := map[string]any{}
+	if len(modelsPatch) > 0 {
+		patchFields["models"] = modelsPatch
+	}
 	if len(missing) == 0 {
 		patchFields["cost_usd"] = total
 	}
-	patch, err := json.Marshal(patchFields)
-	if err != nil {
-		return fmt.Errorf("store: price stage run %d: encode patch: %w", stageRunID, err)
+	if len(dispatchesPatch) > 0 {
+		patchFields["dispatches"] = dispatchesPatch
 	}
-	if err := s.MergeMetrics(ctx, stageRunID, patch); err != nil {
-		return err
+	if len(patchFields) > 0 {
+		patch, err := json.Marshal(patchFields)
+		if err != nil {
+			return fmt.Errorf("store: price stage run %d: encode patch: %w", stageRunID, err)
+		}
+		if err := s.MergeMetrics(ctx, stageRunID, patch); err != nil {
+			return err
+		}
 	}
 
 	if len(missing) > 0 {
+		// At least one candidate model bucket had no rate in effect, or
+		// carried a component its rate could not charge -- reported here
+		// exactly as before F28's fix, regardless of whether a dispatch
+		// elsewhere in this same run did get priced above: a dispatch is
+		// a second, narrower view of tokens the "models" loop has already
+		// reported on, and its pricing (or lack of it) is never new
+		// information this return value needs to carry a second time
+		// (this method's own doc comment).
 		return fmt.Errorf("%w: %s", ErrPricingNotFound, strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+// priceCandidate resolves model's pricing rate through resolveRate and
+// prices tokens against it -- the sequence Price's "models" and
+// "dispatches" loops both need (F32, pass 7 of this change's own review
+// panel: hand-copying it into both loops let a future pricing-rule change
+// applied to one silently miss the other). ok reports whether tokens
+// priced; rate and cost are only meaningful when ok is true.
+//
+// err is non-nil only for a genuine resolveRate failure that is not
+// ErrPricingNotFound (a real store error) -- deliberately left for the
+// caller to decide what to do with, since the two loops disagree: the
+// "models" loop aborts the whole Price call on it, while the "dispatches"
+// loop skips just that dispatch (F13, pass 2 of this change's own review
+// panel). Every other case that leaves tokens unpriced -- no rate in
+// effect (ErrPricingNotFound), or a component this bucket recorded that
+// the rate cannot charge (chargeableTokens.cost's own doc comment) --
+// returns ok=false, err=nil and appends model to *missing so the caller's
+// own missing-models bookkeeping (or a throwaway slice, for the
+// dispatches loop, which never reports its own failures through missing)
+// stays in exactly one place.
+func priceCandidate(resolveRate func(string) (PricingRate, error), model string, tokens chargeableTokens, fast bool, missing *[]string) (rate PricingRate, cost float64, ok bool, err error) {
+	rate, err = resolveRate(model)
+	if err != nil {
+		if errors.Is(err, ErrPricingNotFound) {
+			*missing = append(*missing, model)
+			return PricingRate{}, 0, false, nil
+		}
+		return PricingRate{}, 0, false, err
+	}
+	cost, ok = tokens.cost(rate, fast)
+	if !ok {
+		*missing = append(*missing, model)
+		return PricingRate{}, 0, false, nil
+	}
+	return rate, cost, true, nil
 }
 
 // pricingVersion names the exact pricing row a cost was derived from, so a

@@ -318,6 +318,149 @@ func TestRecordWithNoModelContributesToTotalOnlyNotToAnyBucket(t *testing.T) {
 	}
 }
 
+// TestAttributeSplitsByAgentID asserts KAN-201's own dispatch breakout:
+// two records carrying different AgentIDs against one stage run produce
+// two entries in Delta.Dispatches, each carrying only its own record's
+// usage -- Delta.Models' own per-model split (TestAttributeBucketsTokensPerModel
+// above) applied to a second key, agentId instead of model.
+func TestAttributeSplitsByAgentID(t *testing.T) {
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		mainSessionID: {{
+			StageRunID: 12,
+			SessionID:  mainSessionID,
+			StartedAt:  mustParse(t, "2025-12-01T00:00:00Z"),
+		}},
+	}}
+	a := harvest.NewAttributor(windows)
+
+	records := []harvest.Record{
+		{
+			Timestamp:   mustParse(t, "2026-01-01T00:00:00Z"),
+			SessionID:   mainSessionID,
+			IsSidechain: true,
+			AgentID:     "agent-one",
+			Usage:       harvest.Usage{InputTokens: 5},
+		},
+		{
+			Timestamp:   mustParse(t, "2026-01-01T00:00:01Z"),
+			SessionID:   mainSessionID,
+			IsSidechain: true,
+			AgentID:     "agent-two",
+			Usage:       harvest.Usage{InputTokens: 9},
+		},
+	}
+
+	deltas, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	d, ok := deltas[12]
+	if !ok {
+		t.Fatalf("no delta for stage run 12: %v", deltas)
+	}
+	if len(d.Dispatches) != 2 {
+		t.Fatalf("Dispatches = %v, want exactly two entries", d.Dispatches)
+	}
+	one, ok := d.Dispatches["agent-one"]
+	if !ok || one.Sidechain.Input != 5 {
+		t.Errorf("Dispatches[agent-one] = %+v, ok=%v, want sidechain.input=5", one, ok)
+	}
+	two, ok := d.Dispatches["agent-two"]
+	if !ok || two.Sidechain.Input != 9 {
+		t.Errorf("Dispatches[agent-two] = %+v, ok=%v, want sidechain.input=9", two, ok)
+	}
+}
+
+// TestAttributeNoAgentIDCreatesNoDispatch mirrors
+// TestRecordWithNoModelContributesToTotalOnlyNotToAnyBucket at the
+// dispatch granularity: a record carrying no AgentID -- a parent-session
+// message -- contributes to Total and to Models, and creates no entry in
+// Dispatches at all, fabricated placeholder included.
+func TestAttributeNoAgentIDCreatesNoDispatch(t *testing.T) {
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		mainSessionID: {{
+			StageRunID: 13,
+			SessionID:  mainSessionID,
+			StartedAt:  mustParse(t, "2025-12-01T00:00:00Z"),
+		}},
+	}}
+	a := harvest.NewAttributor(windows)
+
+	rec := harvest.Record{
+		Timestamp: mustParse(t, "2026-01-01T00:00:00Z"),
+		SessionID: mainSessionID,
+		Model:     "claude-opus-5",
+		AgentID:   "", // parent-session message
+		Usage:     harvest.Usage{InputTokens: 11},
+	}
+
+	deltas, err := a.Attribute(context.Background(), []harvest.Record{rec})
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	d, ok := deltas[13]
+	if !ok {
+		t.Fatalf("no delta for stage run 13: %v", deltas)
+	}
+	if d.Total.Main.Input != 11 {
+		t.Errorf("Total.Main.Input = %v, want 11", d.Total.Main.Input)
+	}
+	if _, ok := d.Models["claude-opus-5"]; !ok {
+		t.Errorf("Models[claude-opus-5] missing, want present: %v", d.Models)
+	}
+	if len(d.Dispatches) != 0 {
+		t.Errorf("Dispatches = %v, want empty -- no agentId must create no dispatch entry, fabricated or otherwise", d.Dispatches)
+	}
+}
+
+// TestExistingTokenKeysUnchanged pins the strictly-additive constraint
+// task 4's own instructions state as a hard requirement: for a batch
+// mixing main-thread and sidechain fixture records, Total.Main,
+// Total.Sidechain and every Models entry hold exactly what
+// TestSidechainAccumulatesSeparately and TestAttributeBucketsTokensPerModel
+// already assert they held before Delta.Dispatches existed -- a stage
+// run harvested before this capability must not become retroactively
+// wrong.
+func TestExistingTokenKeysUnchanged(t *testing.T) {
+	var records []harvest.Record
+	records = append(records, mainThreadRecords(t)...)
+	records = append(records, sidechainRecords(t)...)
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		mainSessionID: {{
+			StageRunID: 14,
+			SessionID:  mainSessionID,
+			StartedAt:  mustParse(t, "2025-12-01T00:00:00Z"),
+			EndedAt:    ptrTime(mustParse(t, "2027-01-01T00:00:00Z")),
+		}},
+	}}
+	a := harvest.NewAttributor(windows)
+
+	deltas, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	d, ok := deltas[14]
+	if !ok {
+		t.Fatalf("no delta for stage run 14: %v", deltas)
+	}
+
+	if d.Total.Main.Input != 109 {
+		t.Errorf("Total.Main.Input = %v, want 109 (unchanged from TestSidechainAccumulatesSeparately)", d.Total.Main.Input)
+	}
+	if d.Total.Sidechain.Input != 8 {
+		t.Errorf("Total.Sidechain.Input = %v, want 8 (unchanged from TestSidechainAccumulatesSeparately)", d.Total.Sidechain.Input)
+	}
+	opus, ok := d.Models["claude-opus-5"]
+	if !ok || opus.Main.Input != 109 {
+		t.Errorf("Models[claude-opus-5] = %+v, ok=%v, want main.input=109 (unchanged from TestAttributeBucketsTokensPerModel)", opus, ok)
+	}
+	sonnet, ok := d.Models["claude-sonnet-5"]
+	if !ok || sonnet.Sidechain.Input != 8 {
+		t.Errorf("Models[claude-sonnet-5] = %+v, ok=%v, want sidechain.input=8 (unchanged from TestAttributeBucketsTokensPerModel)", sonnet, ok)
+	}
+}
+
 // TestAttributePerModelBucketsAreAdditiveAcrossBatches simulates what
 // jsonb_deep_add does in production (0005_jsonb_deep_add.sql): two
 // separate Attribute calls over disjoint slices of the same fixture,

@@ -72,6 +72,7 @@ scripts/test-preserve-session-records.sh
 scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
+scripts/test-gather-dispatch-context.sh
 scripts/test-check-task-build-green.sh
 scripts/test-check-task-commit-fields.sh
 scripts/test-check-workspace-isolation.sh

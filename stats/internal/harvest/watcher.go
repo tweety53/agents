@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -134,6 +135,14 @@ type Pricer interface {
 // per mark that session makes.
 const maxSessionTokenResolutionCycles = 60
 
+// maxDispatchMetaBackfillCycles bounds how many RunOnce cycles
+// maybeBackfillDispatchMeta keeps re-reading one path's sidecar before
+// giving up on it (F31, pass 7 of this change's own review panel) --
+// the same bound value and the same rationale as
+// maxSessionTokenResolutionCycles above: a permanently missing or
+// corrupt sidecar must not make this re-read the same path forever.
+const maxDispatchMetaBackfillCycles = maxSessionTokenResolutionCycles
+
 // SessionTokenBinder resolves the session tokens a run generates once and
 // passes on every mark it makes (KAN-172, task 1; reworked from one
 // correlator per mark to one per session in task 4b) into session_id
@@ -201,6 +210,50 @@ type Watcher struct {
 	// assumption this struct's other fields already rely on.
 	tokenCycles  map[string]int
 	gaveUpTokens map[string]bool
+
+	// pendingDispatchMeta remembers, per subagent transcript path whose
+	// most recently committed batch carried dispatch tokens but no
+	// descriptors (ReadDispatchMeta found no sidecar at commit time), the
+	// stage-run-id -> agentId pairs that batch attributed tokens to (F4,
+	// pass 1 of this change's own review panel). A sidecar written after
+	// its transcript has already been fully harvested -- the meta file is
+	// flushed on a slightly different schedule than the transcript line
+	// it describes, so this is not a rare race -- would otherwise never
+	// get another chance: newOffset == offset on every later cycle for
+	// that path (nothing new to read), which skipped ReadDispatchMeta
+	// entirely before this map existed, permanently committing
+	// hasMeta=false. maybeBackfillDispatchMeta (below) is what spends
+	// this map: on exactly that "nothing new" branch, it re-reads the
+	// sidecar and, once found, commits a descriptors-only patch (zero
+	// TokenDelta, so nothing sums twice) to the remembered stage run ids,
+	// never re-attributing the transcript's own already-committed tokens.
+	//
+	// Like tokenCycles and gaveUpTokens above, this is purely local,
+	// in-memory bookkeeping, not persisted: a daemon restart loses
+	// pending entries, which only means a sidecar that arrived late
+	// during the previous process's lifetime and had not yet been
+	// backfilled goes unbackfilled after a restart -- not a correctness hazard, since
+	// the tokens themselves were already committed durably either way,
+	// only the descriptors would stay absent. Not guarded by a mutex, for
+	// the same reason those two maps are not: RunOnce is never called
+	// concurrently with itself on one Watcher.
+	pendingDispatchMeta map[string]map[int64]string
+
+	// dispatchMetaCycles and gaveUpDispatchMeta bound maybeBackfillDispatchMeta
+	// the same way tokenCycles and gaveUpTokens above bound the session-token
+	// retry path (F31, pass 7 of this change's own review panel): before
+	// these existed, a permanently missing or corrupt sidecar made
+	// maybeBackfillDispatchMeta re-read the same path on every idle cycle
+	// for this process's whole lifetime. dispatchMetaCycles counts, per
+	// path, how many cycles have found still no sidecar; once it reaches
+	// maxDispatchMetaBackfillCycles, gaveUpDispatchMeta[path] is set,
+	// pendingDispatchMeta[path] is dropped, and RunOnce's own "else"
+	// branch above stops re-adding entries for that path -- a give-up
+	// that actually stops looking, not merely stops logging, exactly like
+	// gaveUpTokens. Neither map is persisted or mutex-guarded, for the
+	// same reasons tokenCycles and gaveUpTokens are not.
+	dispatchMetaCycles map[string]int
+	gaveUpDispatchMeta map[string]bool
 }
 
 // WatcherOption configures optional Watcher behaviour not every caller
@@ -258,12 +311,15 @@ func (w *Watcher) HasSessionTokenBinder() bool {
 // WithSessionTokenBinder.
 func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *slog.Logger, opts ...WatcherOption) *Watcher {
 	w := &Watcher{
-		root:         root,
-		sink:         sink,
-		attributor:   attributor,
-		logger:       logger,
-		tokenCycles:  make(map[string]int),
-		gaveUpTokens: make(map[string]bool),
+		root:                root,
+		sink:                sink,
+		attributor:          attributor,
+		logger:              logger,
+		tokenCycles:         make(map[string]int),
+		gaveUpTokens:        make(map[string]bool),
+		pendingDispatchMeta: make(map[string]map[int64]string),
+		dispatchMetaCycles:  make(map[string]int),
+		gaveUpDispatchMeta:  make(map[string]bool),
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -352,7 +408,13 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 		matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
 
 		if newOffset == offset {
-			continue // nothing new (or only a partial trailing line) since last time.
+			// Nothing new (or only a partial trailing line) since last
+			// time -- but a sidecar this path's earlier batch could not
+			// find may have landed since then (F4), so give it one
+			// chance before moving on rather than skipping this path
+			// outright.
+			w.maybeBackfillDispatchMeta(ctx, path)
+			continue
 		}
 
 		if matchedHere {
@@ -376,7 +438,20 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			continue
 		}
 
-		patches, err := encodePatches(deltas)
+		// ReadDispatchMeta reads path's own sidecar, once per file, right
+		// here -- this loop already holds path, which Attribute never
+		// sees (it works from records alone). A subagent transcript's
+		// every record shares this same file's own agentId (KAN-201's
+		// tasks.md, "Facts this plan rests on"), so the single meta value
+		// read here applies to every dispatch entry any of this batch's
+		// deltas carry. hasMeta is false, and meta is the zero value, for
+		// a main-session transcript or a subagent transcript with no
+		// sidecar -- encodePatches then omits the descriptors entirely
+		// rather than inventing them (DispatchBucket's own doc comment,
+		// attribute.go).
+		meta, hasMeta := ReadDispatchMeta(path)
+
+		patches, err := encodePatches(deltas, meta, hasMeta)
 		if err != nil {
 			w.warn("harvest: encode failed, will retry", "path", path, "error", err)
 			continue
@@ -393,6 +468,59 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 			continue
 		}
 		touchedFiles++
+
+		// Once this batch has actually committed, decide whether this
+		// path needs a future backfill visit (F4): hasMeta true means
+		// descriptors just landed for real, real content, so any
+		// earlier pending entry is now stale and cleared; hasMeta false
+		// means every dispatch this batch touched still has no
+		// descriptors, so each is (re-)recorded for
+		// maybeBackfillDispatchMeta to revisit once nothing new remains
+		// to read from this path.
+		if hasMeta {
+			// Clear only the pending entries this batch actually delivered
+			// descriptors for (F29, pass 7 of this change's own review
+			// panel), never the whole per-path map. deltas can legitimately
+			// be empty here -- a batch can have newOffset != offset while
+			// parsing zero assistant records (interleaved tool_use/
+			// tool_result lines do this routinely), and CommitHarvestBatch
+			// still applies such a batch (its own doc comment says deltas
+			// "may be empty"). Before this fix, an entry a strictly earlier
+			// batch left pending for this same path -- while hasMeta was
+			// false -- was wiped by any later batch that happened to find
+			// hasMeta true, even one that delivered no descriptors at all
+			// for that stageRunID, and maybeBackfillDispatchMeta never
+			// revisits an entry it no longer holds: those descriptors were
+			// lost permanently. A stageRunID only clears here when this
+			// batch's own deltas actually carried dispatch entries for it,
+			// which is exactly when encodePatches (above) just attached
+			// this batch's meta to every one of them.
+			if pending, ok := w.pendingDispatchMeta[path]; ok {
+				for stageRunID, delta := range deltas {
+					if len(delta.Dispatches) == 0 {
+						continue
+					}
+					delete(pending, stageRunID)
+				}
+				if len(pending) == 0 {
+					delete(w.pendingDispatchMeta, path)
+				}
+			}
+		} else if !w.gaveUpDispatchMeta[path] {
+			// Never re-add an entry for a path this Watcher has already
+			// given up backfilling (F31, pass 7 of this change's own
+			// review panel) -- mirrors pendingSessionTokens' own
+			// gaveUpTokens filter above: a give-up must actually stop this
+			// Watcher from looking, not just stop it from logging.
+			for stageRunID, delta := range deltas {
+				for agentID := range delta.Dispatches {
+					if w.pendingDispatchMeta[path] == nil {
+						w.pendingDispatchMeta[path] = make(map[int64]string)
+					}
+					w.pendingDispatchMeta[path][stageRunID] = agentID
+				}
+			}
+		}
 
 		// Price every stage run this batch touched -- deliberately after
 		// CommitHarvestBatch has already reported applied, never inside
@@ -414,6 +542,117 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 	w.resolveSessionTokens(ctx, pendingSessionTokens, matchedSessions)
 
 	return touchedFiles, nil
+}
+
+// maybeBackfillDispatchMeta is called from RunOnce's "nothing new to
+// read" branch for path (F4): a batch already committed for path may
+// have left w.pendingDispatchMeta[path] populated because its sidecar
+// was not there yet at the time. This re-reads the sidecar and, once
+// found, commits a descriptors-only patch -- MetricsPatch's zero-value
+// TokenDelta contributes nothing to any sum, so this never touches, and
+// never risks double-counting, the tokens that batch already committed.
+// A patch is written per remembered stage-run-id/agentId pair, since a
+// backfill entry has never (yet) been re-attributed and RunOnce's own
+// per-file loop above builds no new Delta for this call to draw on.
+//
+// A GetHarvestOffset/CommitHarvestBatch round trip using the *current*
+// offset as both expected and new value is deliberate, not a copy-paste
+// of the ordinary commit path above: it reuses CommitHarvestBatch's own
+// optimistic-concurrency guard (HarvestSink's own doc comment) to detect
+// a concurrent harvester racing this same path, while never asking the
+// offset to move -- this call has no new bytes to account for, only
+// descriptors for tokens a past batch already committed.
+//
+// Still no sidecar (hasMeta false), a failure encoding or committing the
+// patch, or losing the concurrency race all leave path's entry in
+// w.pendingDispatchMeta untouched, so a later cycle gets another chance
+// -- exactly like every other retry path in this file. Only a successful
+// commit clears it.
+func (w *Watcher) maybeBackfillDispatchMeta(ctx context.Context, path string) {
+	pending, ok := w.pendingDispatchMeta[path]
+	if !ok || len(pending) == 0 {
+		return
+	}
+
+	meta, hasMeta := ReadDispatchMeta(path)
+	if !hasMeta {
+		// Bounded retry, mirroring resolveSessionTokens' own give-up
+		// bookkeeping (F31, pass 7 of this change's own review panel): a
+		// sidecar that never arrives must not be re-read forever.
+		w.dispatchMetaCycles[path]++
+		if w.dispatchMetaCycles[path] < maxDispatchMetaBackfillCycles {
+			return // still no sidecar; try again next cycle.
+		}
+		w.warn("harvest: dispatch-meta sidecar unresolved after the bounded window, giving up",
+			"path", path, "cycles", w.dispatchMetaCycles[path])
+		w.gaveUpDispatchMeta[path] = true
+		delete(w.dispatchMetaCycles, path)
+		delete(w.pendingDispatchMeta, path)
+		return
+	}
+	delete(w.dispatchMetaCycles, path)
+
+	patches := make(map[int64]json.RawMessage, len(pending))
+	for stageRunID, agentID := range pending {
+		depth := strconv.Itoa(meta.SpawnDepth)
+		mp := MetricsPatch{
+			Dispatches: map[string]DispatchBucket{
+				agentID: {
+					AgentType:   meta.AgentType,
+					Description: meta.Description,
+					Model:       meta.Model,
+					SpawnDepth:  &depth,
+				},
+			},
+		}
+		patch, err := json.Marshal(mp)
+		if err != nil {
+			w.warn("harvest: encode dispatch-meta backfill failed, will retry", "path", path, "stage_run_id", stageRunID, "error", err)
+			continue
+		}
+		patches[stageRunID] = patch
+	}
+	if len(patches) == 0 {
+		return
+	}
+
+	offset, found, err := w.sink.GetHarvestOffset(ctx, path)
+	if err != nil {
+		w.warn("harvest: get committed offset for dispatch-meta backfill failed, will retry", "path", path, "error", err)
+		return
+	}
+
+	applied, err := w.sink.CommitHarvestBatch(ctx, path, offset, found, offset, patches)
+	if err != nil {
+		w.warn("harvest: commit dispatch-meta backfill failed, will retry", "path", path, "error", err)
+		return
+	}
+	if !applied {
+		// Lost a race with a concurrent harvester for this file -- benign,
+		// exactly like the ordinary commit path above; retry next cycle.
+		return
+	}
+
+	delete(w.pendingDispatchMeta, path)
+
+	// Price every stage run this backfill just gave a model to (F11, pass
+	// 2 of this change's own review panel): the ordinary commit path's
+	// own pricing pass (RunOnce, above) already ran for these stage runs
+	// while this dispatch's model was still empty, and pricing.go's
+	// `if db.Model == "" { continue }` skipped it -- without a pricing
+	// pass here too, that dispatch's cost_usd stays permanently absent
+	// even though a model is now on record for it. Deliberately after
+	// the commit has reported applied, never inside it, and a pricing
+	// failure is warned about rather than fatal, matching the ordinary
+	// commit path's own discipline exactly (Pricer's own doc comment,
+	// and the comment on that call site above).
+	if w.pricer != nil {
+		for stageRunID := range patches {
+			if err := w.pricer.Price(ctx, stageRunID); err != nil {
+				w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
+			}
+		}
+	}
 }
 
 // pendingSessionTokens returns this cycle's stage-run-id -> session-token
@@ -671,22 +910,65 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 
 // encodePatches marshals each stage run's Delta into the json.RawMessage
 // shape HarvestSink.CommitHarvestBatch's deltas parameter expects: the
-// whole-run total under "tokens" (Delta.Total, unchanged meaning) and,
-// when this batch carried any, the per-model breakdown under "models"
-// (Delta.Models, task 22) -- omitted entirely rather than encoded as an
-// empty object when a batch attributed nothing to any model, so it never
-// masks a stage run's own "models" key already holding real data from an
-// earlier batch (json.RawMessage(nil) participates in no merge at all,
-// where an encoded "models":{} would still be a value jsonb_deep_add has
-// to reconcile against).
-func encodePatches(deltas map[int64]Delta) (map[int64]json.RawMessage, error) {
+// whole-run total under "tokens" (Delta.Total, unchanged meaning), when
+// this batch carried any, the per-model breakdown under "models"
+// (Delta.Models, task 22), and, when this batch carried any, the
+// per-dispatch breakdown under "dispatches" (Delta.Dispatches, KAN-201)
+// -- each omitted entirely rather than encoded as an empty object when a
+// batch attributed nothing to it, so it never masks a stage run's own
+// key already holding real data from an earlier batch (json.RawMessage(nil)
+// participates in no merge at all, where an encoded "models":{} would
+// still be a value jsonb_deep_add has to reconcile against).
+//
+// meta and hasMeta are RunOnce's own single ReadDispatchMeta read of the
+// transcript file this batch of deltas came from (its per-file loop,
+// above) -- the descriptors every entry in every delta's Dispatches gets,
+// since every record in one transcript file shares that file's own
+// agentId (KAN-201's tasks.md, "Facts this plan rests on"). hasMeta
+// false leaves a DispatchBucket's descriptor fields at their zero value,
+// which their own omitempty tags then drop from the JSON entirely --
+// never an invented "" or 0.
+func encodePatches(deltas map[int64]Delta, meta DispatchMeta, hasMeta bool) (map[int64]json.RawMessage, error) {
 	patches := make(map[int64]json.RawMessage, len(deltas))
 	for stageRunID, delta := range deltas {
 		mp := MetricsPatch{Tokens: delta.Total, Speed: delta.Speed}
 		if len(delta.Models) > 0 {
+			// A plain nil-check-and-assign, not upsertBucket (F35, pass 7
+			// of this change's own review panel): mp.Models starts nil for
+			// this stageRunID on every call, so there is never an existing
+			// value to fold in -- upsertBucket's own "get-or-zero, mutate,
+			// store back" shape reads as accumulation it never actually
+			// performs here. attribute.go's two Attribute call sites keep
+			// upsertBucket, correctly: those genuinely read and mutate an
+			// existing value across multiple records in the same batch.
 			mp.Models = make(map[string]ModelBucket, len(delta.Models))
 			for model, td := range delta.Models {
 				mp.Models[model] = ModelBucket{Tokens: td}
+			}
+		}
+		if len(delta.Dispatches) > 0 {
+			mp.Dispatches = make(map[string]DispatchBucket, len(delta.Dispatches))
+			for agentID, td := range delta.Dispatches {
+				db := DispatchBucket{Tokens: td}
+				if hasMeta {
+					db.AgentType = meta.AgentType
+					db.Description = meta.Description
+					db.Model = meta.Model
+					// A fresh local, not &meta.SpawnDepth directly (F5):
+					// meta is one shared value for every dispatch this
+					// call encodes, and while nothing here currently
+					// mutates it after this point, giving each entry
+					// its own addressable copy keeps that true by
+					// construction rather than by the loop body never
+					// changing again. strconv.Itoa converts
+					// meta.SpawnDepth (a plain int, from
+					// ReadDispatchMeta) to DispatchBucket's own wire
+					// representation (F23: SpawnDepth is *string, per
+					// that field's own doc comment in attribute.go).
+					depth := strconv.Itoa(meta.SpawnDepth)
+					db.SpawnDepth = &depth
+				}
+				mp.Dispatches[agentID] = db
 			}
 		}
 		patch, err := json.Marshal(mp)

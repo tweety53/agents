@@ -305,6 +305,137 @@ func TestParseCommandRecordsIgnoresMissingUsage(t *testing.T) {
 	}
 }
 
+// TestParseAssistantRecordsCarriesAgentID is KAN-201 task 3's positive
+// case: a subagent transcript line carries the dispatch's own "agentId"
+// field (confirmed against a real agent-<id>.jsonl file during planning,
+// tasks.md's "Facts this plan rests on"), and it must decode straight
+// into Record.AgentID -- the same one-line addition IsSidechain already
+// has.
+func TestParseAssistantRecordsCarriesAgentID(t *testing.T) {
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","agentId":"abc123","isSidechain":true,"message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n")
+	records := harvest.ParseAssistantRecords(line)
+	if len(records) != 1 {
+		t.Fatalf("got %d records, want 1", len(records))
+	}
+	if records[0].AgentID != "abc123" {
+		t.Errorf("AgentID = %q, want %q", records[0].AgentID, "abc123")
+	}
+}
+
+// TestParseAssistantRecordsAgentIDAbsent is the negative companion: a
+// parent-session line carries no "agentId" at all, and must decode to
+// AgentID == "" -- never a placeholder, per this change's own
+// absence-is-never-a-value rule.
+func TestParseAssistantRecordsAgentIDAbsent(t *testing.T) {
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1}}}` + "\n")
+	records := harvest.ParseAssistantRecords(line)
+	if len(records) != 1 {
+		t.Fatalf("got %d records, want 1", len(records))
+	}
+	if records[0].AgentID != "" {
+		t.Errorf("AgentID = %q, want empty (no agentId field on this line)", records[0].AgentID)
+	}
+}
+
+// TestReadDispatchMeta covers the positive case for the meta sidecar:
+// a subagent transcript at .../subagents/agent-x.jsonl with a
+// well-formed sibling agent-x.meta.json returns all four descriptors and
+// true. The fixture's keys match a real meta file's shape exactly
+// (tasks.md's verified plan-provenance note): agentType, description,
+// toolUseId, spawnDepth, model -- toolUseId is read by nobody here and
+// must be silently dropped, the same tolerance rawLine's own doc comment
+// commits to for the transcript format.
+func TestReadDispatchMeta(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir subagents: %v", err)
+	}
+	transcriptPath := filepath.Join(sub, "agent-x.jsonl")
+	if err := os.WriteFile(transcriptPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write transcript: %v", err)
+	}
+	metaPath := filepath.Join(sub, "agent-x.meta.json")
+	metaJSON := `{"agentType":"general-purpose","description":"Implement Task 3 checkpoint mode","toolUseId":"toolu_01DuDwNWDG136mB5nqhkgQQU","spawnDepth":1,"model":"haiku"}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write meta: %v", err)
+	}
+
+	got, ok := harvest.ReadDispatchMeta(transcriptPath)
+	if !ok {
+		t.Fatalf("ReadDispatchMeta ok = false, want true")
+	}
+	want := harvest.DispatchMeta{
+		AgentType:   "general-purpose",
+		Description: "Implement Task 3 checkpoint mode",
+		Model:       "haiku",
+		SpawnDepth:  1,
+	}
+	if got != want {
+		t.Errorf("ReadDispatchMeta = %+v, want %+v", got, want)
+	}
+}
+
+// TestReadDispatchMetaAbsent covers both ways a dispatch's tokens must
+// still be attributable with no descriptors: a subagent transcript with
+// no sidecar at all, and a transcript whose parent directory is not
+// named "subagents" even though a validly-named sidecar sits right next
+// to it -- proving the parent-directory guard governs, not merely
+// whichever file happens to exist on disk.
+func TestReadDispatchMetaAbsent(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir subagents: %v", err)
+	}
+	noSidecar := filepath.Join(sub, "agent-y.jsonl")
+	if err := os.WriteFile(noSidecar, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write transcript: %v", err)
+	}
+	if _, ok := harvest.ReadDispatchMeta(noSidecar); ok {
+		t.Errorf("ReadDispatchMeta ok = true with no sidecar present, want false")
+	}
+
+	main := filepath.Join(dir, "main")
+	if err := os.MkdirAll(main, 0o755); err != nil {
+		t.Fatalf("mkdir main: %v", err)
+	}
+	notSubagent := filepath.Join(main, "agent-z.jsonl")
+	if err := os.WriteFile(notSubagent, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write transcript: %v", err)
+	}
+	sidecarNextToIt := filepath.Join(main, "agent-z.meta.json")
+	if err := os.WriteFile(sidecarNextToIt, []byte(`{"agentType":"general-purpose","description":"d","spawnDepth":0,"model":"m"}`), 0o644); err != nil {
+		t.Fatalf("write sidecar: %v", err)
+	}
+	if _, ok := harvest.ReadDispatchMeta(notSubagent); ok {
+		t.Errorf("ReadDispatchMeta ok = true for a transcript whose parent is not subagents/, want false regardless of a present sidecar")
+	}
+}
+
+// TestReadDispatchMetaMalformed covers a sidecar that exists but does not
+// decode as JSON -- also false, never an error, per the same rule: a
+// dispatch's tokens must still be attributable without its descriptors.
+func TestReadDispatchMetaMalformed(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir subagents: %v", err)
+	}
+	transcriptPath := filepath.Join(sub, "agent-w.jsonl")
+	if err := os.WriteFile(transcriptPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write transcript: %v", err)
+	}
+	metaPath := filepath.Join(sub, "agent-w.meta.json")
+	if err := os.WriteFile(metaPath, []byte("{not valid json"), 0o644); err != nil {
+		t.Fatalf("write malformed meta: %v", err)
+	}
+
+	if _, ok := harvest.ReadDispatchMeta(transcriptPath); ok {
+		t.Errorf("ReadDispatchMeta ok = true for malformed sidecar JSON, want false")
+	}
+}
+
 // TestReadNewRecordsAlsoReturnsCommands is the wiring guard for
 // ReadNewRecords' extended signature: the same read that returns token
 // records must also return the Bash commands found in the identical

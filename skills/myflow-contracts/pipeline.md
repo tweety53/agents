@@ -506,6 +506,7 @@ their command does not load.
 | Per-task and review diffs | `/myflow-do` | `.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/myflow-do` | `.superpowers/sdd/` | preserved at run 1; removed with the worktree |
 | SDD ledger | `/myflow-do` | `.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| Dispatch context bundle | `/myflow-do` | `.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if a preserved copy exists |
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |

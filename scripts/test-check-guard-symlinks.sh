@@ -655,6 +655,89 @@ run_guard "$NOT_A_DIR"
 assert_refuses "a root that is not a directory"
 
 # ---------------------------------------------------------------------------
+# 6c. scripts/lib/resolve-file.sh's own contract (F9, pass 2 of KAN-201's
+#     own review panel) -- a deliberate exception to this file's own header
+#     ("assert against the four [guard] rules ... never against observed
+#     output"), because this is the one function this guard calls whose
+#     misbehaviour cannot be shown by any combination of those four rules:
+#     it needs resolve_file called directly, exactly as test-lib-coverage.sh
+#     already does for scripts/lib/coverage.sh, the other library this guard
+#     sources. This guard reads real filesystem entries via $entry (line
+#     250, a path from a directory scan) -- the wider exposure the
+#     dispatcher's own verification named -- so it is the natural home for
+#     resolve_file's own regression cases, not a guard-behaviour case.
+# Sourced directly into this shell, not a subshell: fail() increments the
+# top-level FAILURES this file's own exit status reads at the bottom, which
+# a subshell's own copy would silently lose.
+# shellcheck source=lib/resolve-file.sh
+source "$SCRIPT_DIR/lib/resolve-file.sh"
+
+RESOLVE_FILE_DOT_GOT="$(resolve_file ".")"
+RESOLVE_FILE_DOT_WANT="$(pwd -P)"
+if [ "$RESOLVE_FILE_DOT_GOT" = "$RESOLVE_FILE_DOT_WANT" ]; then
+  pass "resolve_file '.' resolves to the cwd itself, no spurious trailing '.' (F9)"
+else
+  fail "resolve_file '.' = '$RESOLVE_FILE_DOT_GOT', want '$RESOLVE_FILE_DOT_WANT' (F9)"
+fi
+
+TRAILING_SLASH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-guard-symlinks-trailing.XXXXXX")"
+SANDBOXES+=("$TRAILING_SLASH_DIR")
+RESOLVE_FILE_NO_SLASH="$(resolve_file "$TRAILING_SLASH_DIR")"
+RESOLVE_FILE_WITH_SLASH="$(resolve_file "$TRAILING_SLASH_DIR/")"
+if [ "$RESOLVE_FILE_WITH_SLASH" = "$RESOLVE_FILE_NO_SLASH" ] && [ -n "$RESOLVE_FILE_WITH_SLASH" ]; then
+  pass "resolve_file with a trailing slash matches the same path without one, leaf not dropped (F9)"
+else
+  fail "resolve_file with a trailing slash = '$RESOLVE_FILE_WITH_SLASH', want '$RESOLVE_FILE_NO_SLASH' (F9)"
+fi
+
+# 6d. Root itself, and a run of slashes that collapses to it (F16, pass 3
+#     of KAN-201's own review panel): resolve_file used to answer "//" for
+#     both, against this file's own header comment claiming root "is left
+#     alone". Neither case touches $TMPDIR, so it is exercised regardless
+#     of where the ambient temp directory happens to live.
+RESOLVE_FILE_ROOT="$(resolve_file "/")"
+if [ "$RESOLVE_FILE_ROOT" = "/" ]; then
+  pass "resolve_file '/' resolves to '/', not '//' (F16)"
+else
+  fail "resolve_file '/' = '$RESOLVE_FILE_ROOT', want '/' (F16)"
+fi
+
+RESOLVE_FILE_MULTI_ROOT="$(resolve_file "///")"
+if [ "$RESOLVE_FILE_MULTI_ROOT" = "/" ]; then
+  pass "resolve_file '///' collapses to '/', not '//' (F16)"
+else
+  fail "resolve_file '///' = '$RESOLVE_FILE_MULTI_ROOT', want '/' (F16)"
+fi
+
+# 6e. A root-parented symlink (F16): a symlink whose own parent directory
+#     is "/" -- $TMPDIR deliberately not used here, per this file's own
+#     6c note above, since on this machine (and most macOS ones) it lives
+#     under /var/folders/..., never under /tmp, and so never exercises
+#     this shape. macOS's own /tmp -> private/tmp is exactly this case,
+#     used directly rather than built, since a non-root process cannot
+#     create a symlink inside "/" itself to test the general case. Skipped
+#     on a platform where /tmp is a real directory (e.g. most Linux), where
+#     this shape does not arise.
+if [ -L /tmp ]; then
+  RESOLVE_FILE_TMP="$(resolve_file /tmp)"
+  RESOLVE_FILE_TMP_WANT="$(cd -P -- /tmp 2>/dev/null && pwd -P)"
+  case "$RESOLVE_FILE_TMP" in
+    //*)
+      fail "resolve_file /tmp = '$RESOLVE_FILE_TMP', a root-parented symlink doubled its leading slash (F16)"
+      ;;
+    *)
+      if [ "$RESOLVE_FILE_TMP" = "$RESOLVE_FILE_TMP_WANT" ]; then
+        pass "resolve_file /tmp (a root-parented symlink) resolves without a doubled leading slash (F16)"
+      else
+        fail "resolve_file /tmp = '$RESOLVE_FILE_TMP', want '$RESOLVE_FILE_TMP_WANT' (F16)"
+      fi
+      ;;
+  esac
+else
+  skip "a root-parented symlink (/tmp)" "/tmp is not a symlink on this platform"
+fi
+
+# ---------------------------------------------------------------------------
 # 7. The agents repository itself, read from its real path. Tasks 1-3 have
 #    already landed, so this guard must exit 0 against them — a failure here
 #    is a defect in tasks 1-3 or in this guard, never a reason to narrow it.

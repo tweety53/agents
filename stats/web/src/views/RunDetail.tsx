@@ -31,7 +31,7 @@
 // model's own buckets, via useRunDetail's own `model` parameter, rather
 // than being left rendering and doing nothing (this round's own
 // non-negotiable: "do not leave it rendering and inert").
-import type { ReactNode } from "react";
+import { type ReactNode } from "react";
 import { StageRunTable } from "../components/StageRunTable";
 import { StageTimeline } from "../components/StageTimeline";
 import { StatPanel } from "../components/StatPanel";
@@ -57,6 +57,17 @@ function RunPanel({ title, description, children }: { title: string; description
     </section>
   );
 }
+
+// Per-dispatch cost (task 5, KAN-201) rides StageRunTable's own per-row
+// detail toggle -- see components/StageRunTable.tsx's own header comment
+// on that table's dispatch section for why it moved there (F3, pass 1 of
+// this change's own review panel): it used to be a second, hand-rolled
+// expand affordance built locally in this file, rendered as a flat list
+// below the whole table with a toggle identifier synthesized from
+// `startedAt` because nothing here tied a toggle back to its own row.
+// Nested in StageRunTable instead, each toggle is keyed by `stageRunId`
+// (already unique per row) through the same mechanism MetricsDetail
+// already used, so there is nothing left for this file to build.
 
 export function RunDetail({ project, change, model }: RunDetailProps) {
   const state = useRunDetail(project, change, model);

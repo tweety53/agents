@@ -72,10 +72,53 @@ func openWindowForMainSession(stageRunID int64) map[string][]harvest.Window {
 // calls that would otherwise succeed fail instead (decremented per call,
 // without mutating any state) -- used to simulate a store outage spanning
 // several harvest cycles.
+//
+// commitCount matters beyond simulating outages: Watcher.RunOnce logs and
+// swallows a per-path CommitHarvestBatch failure ("harvest: commit
+// failed, will retry", watcher.go) rather than surfacing it through its
+// return, so a test that drives several RunOnce cycles and asserts only
+// that some value *stayed constant* across them cannot tell "every cycle
+// committed and the value correctly held" apart from "every cycle after
+// the first silently failed, so nothing changed" -- both look identical
+// to that assertion (F18, pass 4 of this change's own review panel; see
+// TestSpawnDepthStaysConstantAcrossOrdinaryReSends). Any RunOnce-driven
+// test whose point is a value's stability across repeated cycles must
+// therefore also assert a call-count signal (commitCount, as the
+// pre-existing outage tests already do) so a silently-swallowed failure
+// fails the test instead of passing it.
 type fakeHarvestSink struct {
-	offsets     map[string]int64
-	totals      map[int64]harvest.TokenDelta            // cumulative, reproducing jsonb_deep_add's effect
-	modelTotals map[int64]map[string]harvest.TokenDelta // same, per model (task 22's "models" key)
+	offsets        map[string]int64
+	totals         map[int64]harvest.TokenDelta                // cumulative, reproducing jsonb_deep_add's effect
+	modelTotals    map[int64]map[string]harvest.TokenDelta     // same, per model (task 22's "models" key)
+	dispatchTotals map[int64]map[string]harvest.DispatchBucket // same, per dispatch (KAN-201's "dispatches" key) --
+	// Tokens accumulate through addBucket, a genuine numeric sum,
+	// unchanged from before. The four descriptor fields (agent_type,
+	// description, model, spawn_depth) are applied by simple presence:
+	// whichever fields a batch's MetricsPatch carries replace whatever
+	// this fake already held for that dispatch, exactly once per field
+	// that is ever non-empty (production only ever starts sending them
+	// once hasMeta first becomes true, and resends the same constant
+	// values afterward -- encodePatches' own doc comment, watcher.go).
+	//
+	// This fake deliberately does NOT attempt jsonb_deep_add's own
+	// per-leaf, by-JSON-type sum-vs-replace rule (0005_jsonb_deep_add.sql)
+	// any more (F19, this change's own review panel): an earlier version
+	// of this fake carried a second, hand-written implementation of that
+	// rule (mergeDeepAddFake, isJSONNumberLiteral) to catch a descriptor
+	// whose wire encoding reverted to a JSON number (F12) -- and that
+	// second implementation itself drifted from the real rule once
+	// already (F15), decoding a quoted numeric string as if it were a
+	// number and silently summing it. Two drifts in three review rounds
+	// is the standing risk F19 flags: a future addition to
+	// jsonb_deep_add's type handling is only caught here if someone
+	// remembers to mirror it by hand. The merge-semantics coverage that
+	// actually needs a JSON-type-aware rule -- spawn_depth summed instead
+	// of replaced across two ordinary commits -- now runs against the
+	// real function instead:
+	// internal/store/harvest_test.go's
+	// TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits
+	// and TestCommitHarvestBatchSumsDispatchTokensAcrossTwoCommits. What
+	// remains here is deliberately dumb.
 
 	commitCount     int
 	failNextCommits int
@@ -96,9 +139,10 @@ type fakeHarvestSink struct {
 
 func newFakeHarvestSink() *fakeHarvestSink {
 	return &fakeHarvestSink{
-		offsets:     map[string]int64{},
-		totals:      map[int64]harvest.TokenDelta{},
-		modelTotals: map[int64]map[string]harvest.TokenDelta{},
+		offsets:        map[string]int64{},
+		totals:         map[int64]harvest.TokenDelta{},
+		modelTotals:    map[int64]map[string]harvest.TokenDelta{},
+		dispatchTotals: map[int64]map[string]harvest.DispatchBucket{},
 	}
 }
 
@@ -150,6 +194,38 @@ func (s *fakeHarvestSink) CommitHarvestBatch(_ context.Context, path string, exp
 				byModel[model] = td
 			}
 			s.modelTotals[stageRunID] = byModel
+		}
+
+		if len(mp.Dispatches) > 0 {
+			byDispatch := s.dispatchTotals[stageRunID]
+			if byDispatch == nil {
+				byDispatch = map[string]harvest.DispatchBucket{}
+			}
+			for agentID, bucket := range mp.Dispatches {
+				db := byDispatch[agentID]
+				addBucket(&db.Tokens.Main, bucket.Tokens.Main)
+				addBucket(&db.Tokens.Sidechain, bucket.Tokens.Sidechain)
+
+				// Descriptor fields replace by simple presence -- no
+				// JSON-type-aware merge (see the struct's own doc
+				// comment above for why that logic was removed rather
+				// than reproduced a third time).
+				if bucket.AgentType != "" {
+					db.AgentType = bucket.AgentType
+				}
+				if bucket.Description != "" {
+					db.Description = bucket.Description
+				}
+				if bucket.Model != "" {
+					db.Model = bucket.Model
+				}
+				if bucket.SpawnDepth != nil {
+					db.SpawnDepth = bucket.SpawnDepth
+				}
+
+				byDispatch[agentID] = db
+			}
+			s.dispatchTotals[stageRunID] = byDispatch
 		}
 	}
 	s.offsets[path] = newOffset
@@ -521,6 +597,470 @@ func TestDiscoverTranscriptsFindsNestedSubagentFiles(t *testing.T) {
 	}
 	if got := sink.totals[1].Sidechain.Input; got != 8 {
 		t.Errorf("tokens.sidechain.input = %v, want 8 (from the nested subagents/ file)", got)
+	}
+}
+
+// TestEncodePatchesCarriesDispatchDescriptors is encodePatches' own
+// contract (KAN-201), driven through the one real entry point that calls
+// it -- Watcher.RunOnce -- exactly the way TestRunOnceCommitsPerModelBucketAlongsideTotal
+// above proves task 22's per-model encoding, since encodePatches itself
+// is unexported and every test in this package is external. A subagent
+// transcript's sidecar meta file, once RunOnce's per-file loop has read
+// it via ReadDispatchMeta, must reach the committed patch's
+// dispatches.<agentId> entry alongside that dispatch's own token
+// figures -- descriptors and tokens travel together through one commit,
+// even though they are read from two different files on disk.
+func TestEncodePatchesCarriesDispatchDescriptors(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	metaPath := strings.TrimSuffix(subPath, ".jsonl") + ".meta.json"
+	metaJSON := `{"agentType":"general-purpose","description":"Implement Task 3","model":"claude-sonnet-5","spawnDepth":1}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write meta sidecar: %v", err)
+	}
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil)
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	byDispatch, ok := sink.dispatchTotals[1]
+	if !ok {
+		t.Fatalf("no dispatch totals committed for stage run 1: %v", sink.dispatchTotals)
+	}
+	// sidechainFixture's own assistant lines all carry agentId
+	// "agent-example0001" (confirmed by reading the fixture directly),
+	// regardless of the transcript file's own basename above.
+	db, ok := byDispatch["agent-example0001"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-example0001] committed: %v", byDispatch)
+	}
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Errorf("dispatches[agent-example0001].tokens.sidechain.input = %v, want 8", db.Tokens.Sidechain.Input)
+	}
+	if db.AgentType != "general-purpose" {
+		t.Errorf("dispatches[agent-example0001].agent_type = %q, want %q", db.AgentType, "general-purpose")
+	}
+	if db.Description != "Implement Task 3" {
+		t.Errorf("dispatches[agent-example0001].description = %q, want %q", db.Description, "Implement Task 3")
+	}
+	if db.Model != "claude-sonnet-5" {
+		t.Errorf("dispatches[agent-example0001].model = %q, want %q", db.Model, "claude-sonnet-5")
+	}
+	if db.SpawnDepth == nil || *db.SpawnDepth != "1" {
+		t.Errorf("dispatches[agent-example0001].spawn_depth = %v, want \"1\"", db.SpawnDepth)
+	}
+}
+
+// TestEncodePatchesPreservesGenuineSpawnDepthZero pins F5 (pass 1 of this
+// change's own review panel): a top-level dispatch's sidecar genuinely
+// carries "spawnDepth":0, and that must reach the committed patch as a
+// present zero, distinct from TestEncodePatchesOmitsAbsentDescriptors'
+// own no-sidecar case below, whose SpawnDepth must stay nil. Before the
+// fix, DispatchBucket.SpawnDepth was a plain int with `omitempty`, so a
+// genuine 0 and an absent value both encoded to nothing -- indistinguishable
+// on the wire and, downstream, in the stored metrics bag.
+func TestEncodePatchesPreservesGenuineSpawnDepthZero(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	metaPath := strings.TrimSuffix(subPath, ".jsonl") + ".meta.json"
+	metaJSON := `{"agentType":"general-purpose","description":"Top-level dispatch","model":"claude-sonnet-5","spawnDepth":0}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write meta sidecar: %v", err)
+	}
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil)
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	byDispatch, ok := sink.dispatchTotals[1]
+	if !ok {
+		t.Fatalf("no dispatch totals committed for stage run 1: %v", sink.dispatchTotals)
+	}
+	db, ok := byDispatch["agent-example0001"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-example0001] committed: %v", byDispatch)
+	}
+	if db.SpawnDepth == nil {
+		t.Fatalf("dispatches[agent-example0001].spawn_depth = nil, want a present \"0\" (a real sidecar recorded it)")
+	}
+	if *db.SpawnDepth != "0" {
+		t.Errorf("dispatches[agent-example0001].spawn_depth = %v, want \"0\"", *db.SpawnDepth)
+	}
+}
+
+// TestSpawnDepthStaysConstantAcrossOrdinaryReSends is the RunOnce-level
+// wiring proof that encodePatches re-sends a dispatch's descriptors,
+// including spawn_depth, on every ordinary batch its transcript grows by
+// (encodePatches' own "if hasMeta" branch runs on every commit, not
+// once) -- the sidecar is present *from before the first cycle*, unlike
+// TestBackfillsDispatchMetaWhenSidecarArrivesLate's late-arrival case
+// (F4/F11).
+//
+// This test does NOT exercise jsonb_deep_add's own per-leaf,
+// by-JSON-type sum-vs-replace rule any more: fakeHarvestSink's
+// descriptor handling is deliberately dumb (its own doc comment, above),
+// so this test cannot distinguish "replaced" from "summed" the way it
+// once did as F12's regression test (pass 2 of this change's own review
+// panel). That merge-semantics coverage now runs against the real
+// migration function instead --
+// internal/store/harvest_test.go's
+// TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits
+// (F19, this change's own review panel, relocating what had drifted
+// twice as a hand-written fake: F12, then F15). What this test still
+// pins is RunOnce's own wiring: a stable spawn_depth across repeated
+// cycles is only meaningful alongside a call-count signal (F18, pass 4
+// of this change's own review panel) -- see the cross-check below.
+func TestSpawnDepthStaysConstantAcrossOrdinaryReSends(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	metaPath := strings.TrimSuffix(subPath, ".jsonl") + ".meta.json"
+	metaJSON := `{"agentType":"general-purpose","description":"Recurring dispatch","model":"claude-sonnet-5","spawnDepth":1}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write meta sidecar: %v", err)
+	}
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil)
+
+	// Cycle 1: sidecar already present, so descriptors -- including
+	// spawn_depth -- are sent alongside this batch's tokens.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1): %v", err)
+	}
+
+	// Two more ordinary cycles, each with genuinely new transcript bytes
+	// (never a "nothing new to read" cycle, which would route through
+	// maybeBackfillDispatchMeta instead): every one re-sends the sidecar's
+	// same constant spawn_depth:1.
+	for cycle := 2; cycle <= 3; cycle++ {
+		appendFixture(t, subPath, sidechainFixture)
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (cycle %d): %v", cycle, err)
+		}
+	}
+
+	// F18 (pass 4 of this change's own review panel): a stable final value
+	// alone cannot distinguish "stayed constant because every commit
+	// succeeded" from "stayed constant because cycles 2 and 3 both failed
+	// and RunOnce silently swallowed it" (watcher.go's "harvest: commit
+	// failed, will retry" branch never surfaces a per-path commit error
+	// through RunOnce's return -- see fakeHarvestSink's own doc comment
+	// above). The cross-check: four commits happened (main-thread once
+	// plus sidechain once in cycle 1, then one more sidechain commit for
+	// each of the two ordinary re-send cycles) -- if a commit had
+	// silently failed instead, commitCount would be short and this would
+	// catch it even though *db.SpawnDepth alone would not.
+	if sink.commitCount != 4 {
+		t.Fatalf("sink.commitCount = %d, want 4 (main-thread + sidechain in cycle 1, plus one more sidechain commit per ordinary re-send cycle) -- a lower count means a commit silently failed and the spawn_depth check below would not have caught it", sink.commitCount)
+	}
+	db, ok := sink.dispatchTotals[1]["agent-example0001"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-example0001] committed: %v", sink.dispatchTotals[1])
+	}
+	if db.SpawnDepth == nil {
+		t.Fatalf("dispatches[agent-example0001].spawn_depth = nil, want a present \"1\"")
+	}
+	if *db.SpawnDepth != "1" {
+		t.Errorf("dispatches[agent-example0001].spawn_depth after 3 ordinary re-sends = %v, want \"1\" (constant, never summed)", *db.SpawnDepth)
+	}
+}
+
+// TestEncodePatchesOmitsAbsentDescriptors is the negative half: a
+// subagent transcript with no sidecar meta file must still get its
+// tokens attributed and committed under dispatches.<agentId>, with every
+// descriptor field left empty -- never invented -- exactly the rule
+// ReadDispatchMeta's own doc comment states and DispatchBucket's absence
+// case (attribute.go) requires.
+func TestEncodePatchesOmitsAbsentDescriptors(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	// Deliberately no agent-abc123.meta.json sidecar written.
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil)
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	byDispatch, ok := sink.dispatchTotals[1]
+	if !ok {
+		t.Fatalf("no dispatch totals committed for stage run 1: %v", sink.dispatchTotals)
+	}
+	db, ok := byDispatch["agent-example0001"]
+	if !ok {
+		t.Fatalf("no dispatches[agent-example0001] committed: %v", byDispatch)
+	}
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Errorf("dispatches[agent-example0001].tokens.sidechain.input = %v, want 8 (tokens attributed even with no sidecar)", db.Tokens.Sidechain.Input)
+	}
+	if db.AgentType != "" || db.Description != "" || db.Model != "" || db.SpawnDepth != nil {
+		t.Errorf("dispatches[agent-example0001] descriptors = %+v, want all absent -- no meta sidecar exists, so nothing must be invented", db)
+	}
+}
+
+// TestBackfillsDispatchMetaWhenSidecarArrivesLate is F4's own regression
+// test (pass 1 of this change's own review panel): a sidecar written
+// *after* its transcript has already been fully harvested -- so a later
+// RunOnce cycle reads no new bytes for it at all -- must still get its
+// descriptors committed once the sidecar shows up, without touching the
+// tokens that were already committed in the earlier cycle. Before the
+// fix, a "nothing new to read" cycle never called ReadDispatchMeta again
+// for that path, so hasMeta=false was permanent.
+func TestBackfillsDispatchMetaWhenSidecarArrivesLate(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	// Deliberately no sidecar yet -- it "arrives" only after the first
+	// harvest cycle has already fully consumed this transcript.
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil)
+
+	// Cycle 1: tokens are attributed and committed; no sidecar exists yet,
+	// so descriptors are absent -- exactly TestEncodePatchesOmitsAbsentDescriptors'
+	// own case.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1): %v", err)
+	}
+	db := sink.dispatchTotals[1]["agent-example0001"]
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Fatalf("cycle 1: dispatches[agent-example0001].tokens.sidechain.input = %v, want 8", db.Tokens.Sidechain.Input)
+	}
+	if db.AgentType != "" || db.SpawnDepth != nil {
+		t.Fatalf("cycle 1: descriptors = %+v, want all absent (no sidecar yet)", db)
+	}
+
+	// Cycle 2, with no new transcript bytes: still no sidecar, so nothing
+	// backfills yet -- the tokens must stay exactly where cycle 1 left
+	// them, not re-attributed.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 2, still no sidecar): %v", err)
+	}
+	db = sink.dispatchTotals[1]["agent-example0001"]
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Fatalf("cycle 2: dispatches[agent-example0001].tokens.sidechain.input = %v, want 8 (unchanged)", db.Tokens.Sidechain.Input)
+	}
+
+	// The sidecar "arrives" now, well after its transcript was fully
+	// harvested.
+	metaPath := strings.TrimSuffix(subPath, ".jsonl") + ".meta.json"
+	metaJSON := `{"agentType":"general-purpose","description":"Late sidecar","model":"claude-sonnet-5","spawnDepth":1}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write late meta sidecar: %v", err)
+	}
+
+	// Cycle 3, still no new transcript bytes: this is the cycle that must
+	// notice the now-present sidecar and backfill its descriptors.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 3, sidecar now present): %v", err)
+	}
+	db = sink.dispatchTotals[1]["agent-example0001"]
+	if db.AgentType != "general-purpose" {
+		t.Errorf("cycle 3: agent_type = %q, want %q", db.AgentType, "general-purpose")
+	}
+	if db.Description != "Late sidecar" {
+		t.Errorf("cycle 3: description = %q, want %q", db.Description, "Late sidecar")
+	}
+	if db.Model != "claude-sonnet-5" {
+		t.Errorf("cycle 3: model = %q, want %q", db.Model, "claude-sonnet-5")
+	}
+	if db.SpawnDepth == nil || *db.SpawnDepth != "1" {
+		t.Errorf("cycle 3: spawn_depth = %v, want \"1\"", db.SpawnDepth)
+	}
+	// The critical guard: descriptors landed, but the token figures are
+	// untouched -- backfilling must never re-read or re-add usage.
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Errorf("cycle 3: tokens.sidechain.input = %v, want 8 (backfill must not double-count tokens)", db.Tokens.Sidechain.Input)
+	}
+}
+
+// TestBackfillDispatchMetaPricesStageRunAfterCommit is F11's own
+// regression test (pass 2 of this change's own review panel): a
+// pricer-wired sibling of TestBackfillsDispatchMetaWhenSidecarArrivesLate
+// above, which wires no pricer at all and so cannot see this class of
+// defect. This dispatch's only ordinary pricing pass ran in cycle 1,
+// while its model was still empty -- pricing.go's `if db.Model == ""
+// { continue }` skipped it there, permanently, unless something prices
+// this stage run again once a model actually lands. Before the fix,
+// maybeBackfillDispatchMeta committed the backfilled descriptors but
+// never called Pricer.Price, so that dispatch's cost_usd stayed absent
+// forever even after its model became known.
+func TestBackfillDispatchMetaPricesStageRunAfterCommit(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	// Deliberately no sidecar yet -- it "arrives" only after the first
+	// harvest cycle has already fully consumed this transcript, exactly
+	// like TestBackfillsDispatchMetaWhenSidecarArrivesLate.
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	pricer := &fakePricer{}
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithPricer(pricer))
+
+	// Cycle 1: tokens committed for both files (the main-thread session
+	// and the subagent transcript, both attributed to stage run 1, each
+	// committed and priced separately by RunOnce's own per-file loop) --
+	// no sidecar yet, so this dispatch's model is empty and pricing.go
+	// leaves its dispatches.<agentId> bucket unpriced, but the stage run
+	// itself is still priced once per file committed (the ordinary
+	// commit path's own pricing pass, watcher.go:474-480).
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1): %v", err)
+	}
+	for _, id := range pricer.priced {
+		if id != 1 {
+			t.Fatalf("pricer.priced after cycle 1 = %v, want every call for stage run 1", pricer.priced)
+		}
+	}
+	baseline := len(pricer.priced)
+	if baseline == 0 {
+		t.Fatalf("pricer.priced after cycle 1 = %v, want at least one call", pricer.priced)
+	}
+
+	// Cycle 2, with no new transcript bytes: still no sidecar, so nothing
+	// backfills yet, and nothing new to price either.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 2, still no sidecar): %v", err)
+	}
+	if len(pricer.priced) != baseline {
+		t.Fatalf("pricer.priced after cycle 2 = %v, want still exactly %d calls (nothing new committed)", pricer.priced, baseline)
+	}
+
+	// The sidecar "arrives" now, well after its transcript was fully
+	// harvested.
+	metaPath := strings.TrimSuffix(subPath, ".jsonl") + ".meta.json"
+	metaJSON := `{"agentType":"general-purpose","description":"Late sidecar","model":"claude-sonnet-5","spawnDepth":1}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write late meta sidecar: %v", err)
+	}
+
+	// Cycle 3, still no new transcript bytes: this is the cycle that must
+	// notice the now-present sidecar, backfill its descriptors, and price
+	// this stage run one more time now that a model is finally on record
+	// for the dispatch.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 3, sidecar now present): %v", err)
+	}
+	if len(pricer.priced) != baseline+1 {
+		t.Fatalf("pricer.priced after cycle 3 = %v, want %d calls (one more, for stage run 1, after the backfill commit)", pricer.priced, baseline+1)
+	}
+	if pricer.priced[len(pricer.priced)-1] != 1 {
+		t.Fatalf("pricer.priced's last call after cycle 3 = %v, want stage run 1", pricer.priced)
+	}
+}
+
+// TestBackfillSurvivesAnInterveningBatchWithNoDispatchDescriptors pins
+// F29 (pass 7 of this change's own review panel): the "hasMeta" branch
+// that clears a path's pendingDispatchMeta entries used to delete the
+// *whole* per-path map, not only the stageRunIDs this particular batch's
+// deltas actually carried descriptors for. A batch can legitimately have
+// newOffset != offset while parsing zero assistant records at all --
+// interleaved, non-assistant lines (tool_use/tool_result in a real
+// transcript; here, the fixture's own non-"assistant"-typed "attachment"
+// line) do this routinely, and CommitHarvestBatch's own doc comment
+// documents deltas as possibly empty and still applying. Before the fix,
+// such a batch -- landing after the sidecar has arrived, so hasMeta is
+// true, but delivering no dispatch descriptors of its own -- wiped an
+// earlier batch's still-pending entry outright, and
+// maybeBackfillDispatchMeta never got a chance to revisit it: those
+// descriptors were lost permanently, even though the sidecar was sitting
+// right there the whole time.
+func TestBackfillSurvivesAnInterveningBatchWithNoDispatchDescriptors(t *testing.T) {
+	dir := t.TempDir()
+	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
+	subPath := copyFixtureInto(t, dir, filepath.Join("session", "subagents", "agent-abc123.jsonl"), sidechainFixture)
+	// Deliberately no sidecar yet.
+
+	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil)
+
+	// Cycle 1: tokens are attributed and committed; no sidecar exists yet,
+	// so pendingDispatchMeta[subPath] records stage run 1's entry.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 1): %v", err)
+	}
+	db := sink.dispatchTotals[1]["agent-example0001"]
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Fatalf("cycle 1: dispatches[agent-example0001].tokens.sidechain.input = %v, want 8", db.Tokens.Sidechain.Input)
+	}
+
+	// The sidecar arrives now.
+	metaPath := strings.TrimSuffix(subPath, ".jsonl") + ".meta.json"
+	metaJSON := `{"agentType":"general-purpose","description":"Late sidecar","model":"claude-sonnet-5","spawnDepth":1}`
+	if err := os.WriteFile(metaPath, []byte(metaJSON), 0o644); err != nil {
+		t.Fatalf("write late meta sidecar: %v", err)
+	}
+
+	// Cycle 2: new bytes land on this same path, but they carry zero
+	// assistant records -- a single non-"assistant"-typed line, the same
+	// shape ReadNewRecords already skips (transcript.go's own
+	// recordTypeAssistant check). newOffset != offset (there is new
+	// content to consume), yet Attribute(records) returns an empty deltas
+	// map, so this batch delivers no dispatch descriptors for stage run 1
+	// at all -- even though hasMeta is now true.
+	f, err := os.OpenFile(subPath, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("open %s for append: %v", subPath, err)
+	}
+	nonAssistantLine := `{"parentUuid":"uuid-sub-0001","isSidechain":true,"agentId":"agent-example0001","attachment":{"type":"deferred_tools_delta","addedNames":["ExampleTool"],"addedLines":[],"removedNames":[],"readdedNames":[]},"type":"attachment","uuid":"uuid-sub-0099","timestamp":"2026-01-01T00:05:04.000Z","userType":"external","entrypoint":"cli","cwd":"/synthetic/project","sessionId":"session-main-a1b2c3","version":"0.0.0-fixture","gitBranch":"example-branch"}` + "\n"
+	if _, err := f.WriteString(nonAssistantLine); err != nil {
+		t.Fatalf("append non-assistant line to %s: %v", subPath, err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close %s: %v", subPath, err)
+	}
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 2, intervening batch with no dispatch descriptors): %v", err)
+	}
+	// The intervening batch must not have re-priced or re-attributed
+	// anything -- descriptors are still absent, tokens unchanged.
+	db = sink.dispatchTotals[1]["agent-example0001"]
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Fatalf("cycle 2: tokens.sidechain.input = %v, want unchanged 8", db.Tokens.Sidechain.Input)
+	}
+	if db.AgentType != "" {
+		t.Fatalf("cycle 2: agent_type = %q, want still absent -- this batch delivered no dispatch descriptors", db.AgentType)
+	}
+
+	// Cycle 3, no new transcript bytes: this is the "nothing new to read"
+	// branch that calls maybeBackfillDispatchMeta. Before the fix, cycle
+	// 2's hasMeta=true had already wiped stage run 1's pending entry
+	// outright, so this cycle would find nothing left to backfill and the
+	// descriptors would stay absent forever, even with the sidecar sitting
+	// right there.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 3, backfill): %v", err)
+	}
+	db = sink.dispatchTotals[1]["agent-example0001"]
+	if db.AgentType != "general-purpose" {
+		t.Errorf("cycle 3: agent_type = %q, want %q -- the pending entry must have survived cycle 2's intervening batch", db.AgentType, "general-purpose")
+	}
+	if db.Model != "claude-sonnet-5" {
+		t.Errorf("cycle 3: model = %q, want %q", db.Model, "claude-sonnet-5")
+	}
+	if db.SpawnDepth == nil || *db.SpawnDepth != "1" {
+		t.Errorf("cycle 3: spawn_depth = %v, want \"1\"", db.SpawnDepth)
+	}
+	if db.Tokens.Sidechain.Input != 8 {
+		t.Errorf("cycle 3: tokens.sidechain.input = %v, want unchanged 8 (backfill must not double-count tokens)", db.Tokens.Sidechain.Input)
 	}
 }
 
