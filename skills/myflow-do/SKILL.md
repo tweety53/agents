@@ -87,7 +87,7 @@ openspec instructions apply --change "<name>" --json
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-panel-diff-size.sh`,
 `check-panel-reproducers.sh`, `check-task-commit-fields.sh`, `check-unfinished-work.sh`,
-`commit-split.sh`, `plan-dispatch-bundles.sh`, `prepare-workspace.sh`,
+`commit-split.sh`, `gather-dispatch-context.sh`, `plan-dispatch-bundles.sh`, `prepare-workspace.sh`,
 `preserve-session-records.sh` and `run-reproducer.sh` — is present in `skills/myflow-do/scripts/`.
 A complete set prints nothing; any absence prints that section's block once, and the run continues
 under each guard's own hand-run fallback.
@@ -179,6 +179,29 @@ myflow stage end -command '/myflow-do' -stage do.document-fix -outcome completed
 myflow stage begin -command '/myflow-do' -stage do.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**Gather the dispatch context bundle before dispatching any implementer.** Create the bundle's
+directory as part of this same step — never rely on an earlier stage having created it, which is
+exactly what left this redirect targeting a directory nothing had yet created on a fresh worktree,
+since `superpowers:subagent-driven-development` (whose own workspace script creates
+`.superpowers/sdd/`) is not invoked until later in this section. Run
+
+```bash
+mkdir -p <worktree>/.superpowers/sdd
+gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
+  > <worktree>/.superpowers/sdd/dispatch-context.md
+```
+
+where `<changeRoot>` is section 1's `openspec status` output's `changeRoot` field, resolved inside
+this worktree, and `<principles-path>` is the same absolute path of `engineering-principles.md` that
+`[PRINCIPLES_PATH]` (section 5) names — resolve it here too, since implementers dispatch before the
+principles slot does. A non-zero exit — including the guard being absent — is reported, and
+dispatching proceeds with the prompt shape this stage used before this capability existed; the bundle
+never gates a run. **Confirm the bundle was actually written** — `test -f
+<worktree>/.superpowers/sdd/dispatch-context.md` — and if it is not, report that plainly rather than
+letting the run continue silently: this capability's failure mode is a silent fallback to the
+pre-capability prompt shape, and only a visible report distinguishes that from an ordinary run. The
+missing bundle still never gates or stops the run.
+
 **At most one implementer subagent may be in flight against a given worktree at any moment.** The
 parent waits for the previous implementer's commit sha for that worktree before dispatching the
 next implementer into it; dispatches into different worktrees remain free to run concurrently. This
@@ -194,13 +217,13 @@ Invoke **superpowers:subagent-driven-development**, dispatching one implementer 
 plan-dispatch-bundles.sh <changeRoot>/tasks.md
 ```
 
-where `<changeRoot>` is section 1's `openspec status` output's `changeRoot` field, resolved inside
-this worktree. Exit 0 proceeds to dispatch. A non-zero exit is a plan defect, not a review finding:
+using the same `<changeRoot>` the gather invocation above already resolved. Exit 0 proceeds
+to dispatch. A non-zero exit is a plan defect, not a review finding:
 exit 1 names a task missing its `**Files:**` field, which `superpowers:writing-plans` repairs
 before any dispatch happens; exit 2 stops the run. Bundling does not change the commit-per-task
 model — an implementer handed a bundle still makes one commit per task, carrying that task's own
 `Task-Id:` trailer, and a `Build: red` task still folds into the commit its `**Squash-with:**`
-field names. Every implementer dispatch **must** carry all five of:
+field names. Every implementer dispatch **must** carry each of the six blocks below:
 
 > **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
@@ -230,6 +253,12 @@ green partner's own commit — the one named by the red task's `Squash-with:` fi
 > **REQUIRED READING:** [engineering-principles.md](engineering-principles.md) — your
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.
+
+> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
+> proposal, design, plan, delta specs and engineering principles, gathered for you — you need not go
+> looking for them. You may open any file it names. You **must** still read the actual diff and the
+> actual code you are reviewing or changing: the bundle is shared *input*, never a substitute for the
+> source, and never a shared conclusion.
 
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. A block tagged
@@ -293,6 +322,25 @@ myflow stage end -command '/myflow-do' -stage do.sdd-tdd -outcome completed <nam
 ```bash
 myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
+
+**Rebuild the dispatch context bundle at the start of this stage too** — never reused from section
+4's run. Create the directory again as part of this same step, same as section 4 — never assumed
+still there from an earlier stage. Run
+
+```bash
+mkdir -p <worktree>/.superpowers/sdd
+gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
+  > <worktree>/.superpowers/sdd/dispatch-context.md
+```
+
+overwriting the same path. The bundle is rebuilt at the start of every dispatching stage, never
+gathered once per run: a fix documented under section 3 edits `proposal.md` and `tasks.md`, and a
+run-scoped bundle would leave every later dispatch reading a plan that no longer exists. A non-zero
+exit — including the guard being absent — is reported, and dispatching proceeds with the prompt shape
+this stage used before this capability existed; the bundle never gates a run. **Confirm the bundle
+was actually written** — `test -f <worktree>/.superpowers/sdd/dispatch-context.md` — and report
+plainly if it is not, per section 4's rule above; the missing bundle still never gates or stops the
+run.
 
 **Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
 the field is absent or null. It names the preset in force for this run, per
@@ -361,6 +409,18 @@ demonstrates the defect, or the literal exemption form `none — <reason>`. Carr
 every slot's dispatch prompt. Slots dispatched by `subagent_type` (Bugbot, Security) receive it as
 prompt text, the same way Bugbot already receives the mutation-testing brief below — no agent
 definition is edited to carry it.
+
+**Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph:**
+
+> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
+> proposal, design, plan, delta specs and engineering principles, gathered for you — you need not go
+> looking for them. You may open any file it names. You **must** still read the actual diff and the
+> actual code you are reviewing or changing: the bundle is shared *input*, never a substitute for the
+> source, and never a shared conclusion.
+
+Slots dispatched by `subagent_type` (Bugbot, Security) receive it as prompt text too, exactly as they
+already receive the reproducer requirement and the mutation-testing brief — no agent definition is
+edited to carry it.
 
 ### Code review (low)
 
@@ -662,10 +722,42 @@ are both needed.
 gives `check-task-commit-fields.sh`: no fix-round slot consumed, no round-count advance, and it
 never closes, softens or expires the finding.
 
-Give the surviving findings — every dispatched finding from the union above — to **one** fix
-subagent as the combined list. Where a finding is confirmed as a real defect — as opposed to a
-style or principles nit — the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on the model recorded under `models.panelFix`**, defaulting to Opus
+**Rebuild the dispatch context bundle before dispatching the fix subagent.** Create the directory
+again as part of this same step, same as sections 4 and 5 — never assumed still there. Run
+
+```bash
+mkdir -p <worktree>/.superpowers/sdd
+gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
+  > <worktree>/.superpowers/sdd/dispatch-context.md
+```
+
+overwriting the same path — the plan may have changed since this stage's own start, per section 3's
+fix documentation. A non-zero exit — including the guard being absent — is reported, and dispatching
+proceeds with the prompt shape used before this capability existed; the bundle never gates a run.
+**Confirm the bundle was actually written** — `test -f
+<worktree>/.superpowers/sdd/dispatch-context.md` — and report plainly if it is not, per section 4's
+rule above; the missing bundle still never gates or stops the run.
+
+**Carry each surviving finding to the fix subagent as a structured block, not a bare restatement of
+its prose.** For every finding in the union above, carry its `F<n>`, the slot that raised it, its
+severity, its `file:line` taken verbatim from the findings table's Location column, its theme (as
+defined above), the text of its `finding-reproducer:` line, and any bounce already recorded against
+its defect identity. State plainly that these locations were established by the slot that raised
+them and are not to be re-derived. **Inline no source excerpt** for any finding: the fix round edits
+the code it is given, so an excerpt taken now would be invalidated by the fixer's own work before it
+is even read — the fix subagent opens the named file itself.
+
+> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
+> proposal, design, plan, delta specs and engineering principles, gathered for you — you need not go
+> looking for them. You may open any file it names. You **must** still read the actual diff and the
+> actual code you are reviewing or changing: the bundle is shared *input*, never a substitute for the
+> source, and never a shared conclusion.
+
+Give the surviving findings — every dispatched finding from the union above, carried as the
+structured dossier above — to **one** fix subagent as the combined list. Where a finding is confirmed
+as a real defect — as opposed to a style or principles nit — the fix subagent invokes
+**superpowers:systematic-debugging** before writing its fix. **Dispatch it on the model recorded
+under `models.panelFix`**, defaulting to Opus
 (or the harness's strongest available model) when that field is absent or null — deliberately not
 the panel's own default, for the reason stated under
 **Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in

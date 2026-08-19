@@ -8,8 +8,9 @@
 // cost-per-change aggregate -- never from summing the (possibly partial)
 // page of stage runs the interface holds.
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CostPerChangeRow, ListStageRunsResponse, StageRunDTO, StatsResponse } from "../api";
+import { VIEW_NAMES, type CostPerChangeRow, type ListStageRunsResponse, type StageRunDTO, type StatsResponse } from "../api";
 import { RunDetail } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock } = vi.hoisted(() => ({
@@ -450,5 +451,220 @@ describe("the run-detail dashboard's model variable (task 20's own decision: hon
     expect(await screen.findByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "5. The review panel" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "1. Brainstorming" })).toBeInTheDocument();
+  });
+});
+
+// Task 5 (kan-201): a stage run opens onto its own dispatches --
+// specs/myflow-stats-views/spec.md, "A stage run opens onto its own
+// dispatches". The fixture mirrors internal/harvest/attribute.go's real
+// DispatchBucket shape (KAN-201's own tasks.md, task 5's header): `tokens`
+// carries the dispatch's own token figures (or is absent when a dispatch's
+// harvest recorded none), and `agent_type`/`description`/`model`/
+// `spawn_depth` are each independently omitted -- never "" or 0 -- when no
+// meta sidecar was found for that dispatch. `spawn_depth` is a *string on
+// harvest.DispatchBucket itself (`json:"spawn_depth,omitempty"`,
+// attribute.go), not a custom-marshalled int -- deliberately:
+// jsonb_deep_add SUMS two JSON numbers at one key, so a numeric depth
+// re-sent across harvest cycles would accumulate instead of replacing
+// (KAN-201 panel finding F12). Every writer converts the plain int
+// ReadDispatchMeta reports with strconv.Itoa at the point of
+// construction (watcher.go); encoding/json's own struct handling suffices
+// to write it as a JSON string, with no MarshalJSON needed (KAN-201 panel
+// finding F23 removed the shadow struct and hand-written
+// MarshalJSON/UnmarshalJSON this used to require) -- these fixtures carry
+// the string form so they keep matching what the producer actually
+// writes. "agent-1" carries
+// both tokens and descriptors (the ordinary case); "agent-2" carries
+// tokens but no descriptors (sidecar never found); "agent-3" carries
+// descriptors but no tokens at all.
+//
+// Per-dispatch cost is a key store.Store.Price (pricing.go) writes
+// directly -- "dispatches.<agentId>.cost_usd" -- through the identical
+// rate resolution and chargeableTokens.cost arithmetic as "models.
+// <model>.cost_usd", applied to that dispatch's own recorded model and
+// own tokens. RunDetail.tsx reads it as-is; it is never a second,
+// derived calculation (an implied average rate scaled from a model
+// bucket's blended total, which is what this route used to do and which
+// overstates a cache-heavy dispatch while understating an output-heavy
+// one). "agent-1" alone carries both tokens and a priced cost_usd, so it
+// alone gets a real cost; "agent-2" has no recorded model (so Price never
+// prices it), and "agent-3" has no tokens at all -- both must read as
+// unavailable, never as a fabricated 0. The fixture carries no "models"
+// bucket at all, which is deliberate: it proves the dispatch row's cost
+// comes from the dispatch's own "cost_usd", not from deriving one out of
+// a sibling "models" bucket that, here, does not even exist.
+describe("a stage run that dispatched three subagents (kan-201)", () => {
+  const runWithDispatches: StageRunDTO = {
+    stageRunId: 30,
+    harness: "claude-code",
+    command: "/myflow-do",
+    stage: "5. The review panel",
+    attempt: 1,
+    startedAt: "2026-01-01T00:00:00Z",
+    endedAt: "2026-01-01T00:20:00Z",
+    outcome: "committed",
+    metrics: {
+      dispatches: {
+        "agent-1": {
+          tokens: { main: {}, sidechain: { input: 80000, output: 16000, cache_creation: 0, cache_read: 0, thinking: 0 } },
+          agent_type: "general-purpose",
+          description: "Review slot A",
+          model: "claude-sonnet-5",
+          spawn_depth: "1",
+          cost_usd: 1.6,
+        },
+        "agent-2": {
+          tokens: { main: {}, sidechain: { input: 20000, output: 4000, cache_creation: 0, cache_read: 0, thinking: 0 } },
+          // no agent_type/description/model/cost_usd -- sidecar never found
+        },
+        "agent-3": {
+          agent_type: "general-purpose",
+          description: "Review slot C",
+          model: "claude-sonnet-5",
+          spawn_depth: "1",
+          // no "tokens" key at all, so no cost_usd either
+        },
+      },
+    },
+  };
+
+  async function renderExpanded() {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([runWithDispatches]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    const user = userEvent.setup();
+    // The dispatch table rides the stage run's own per-row detail toggle
+    // (StageRunTable.tsx's MetricsDetail) rather than a second,
+    // dispatch-specific affordance -- see that file's own header comment
+    // (F3, pass 1 of this change's own review panel). The row is found by
+    // its stage cell, and its toggle by scoping to that row.
+    const row = (await screen.findByRole("cell", { name: "5. The review panel" })).closest("tr") as HTMLElement;
+    await user.click(within(row).getByRole("button"));
+    return screen.getAllByTestId("dispatch-row");
+  }
+
+  it("expands a stage run into its dispatches", async () => {
+    const rows = await renderExpanded();
+    expect(rows).toHaveLength(3);
+  });
+
+  it("orders dispatch rows by cost descending", async () => {
+    const rows = await renderExpanded();
+    // "agent-1" is the only dispatch that carries a "cost_usd" -- it must
+    // sort first, ahead of both dispatches with no computable cost
+    // (absent sorts last, never as zero).
+    expect(within(rows[0]).getByText("Review slot A")).toBeInTheDocument();
+  });
+
+  it("reads the dispatch's own cost_usd rather than deriving one", async () => {
+    const rows = await renderExpanded();
+    // The fixture carries no "models" bucket at all, so any value shown
+    // here can only have come from "dispatches.agent-1.cost_usd" itself
+    // -- there is nothing else in the metrics bag left to derive it from.
+    const agent1Row = rows.find((row) => within(row).queryByText("Review slot A")) as HTMLElement;
+    expect(within(agent1Row).getByText("$1.60")).toBeInTheDocument();
+  });
+
+  it("renders an unmeasured dispatch as unavailable", async () => {
+    const rows = await renderExpanded();
+    const noTokensRow = rows.find((row) => within(row).queryByText("Review slot C"));
+    expect(noTokensRow).toBeDefined();
+    // Tokens and cost are both unmeasured for this dispatch.
+    expect(within(noTokensRow as HTMLElement).getAllByTestId("unavailable").length).toBeGreaterThanOrEqual(2);
+    expect(within(noTokensRow as HTMLElement).queryByText("0")).not.toBeInTheDocument();
+    expect(within(noTokensRow as HTMLElement).queryByText("$0.0000")).not.toBeInTheDocument();
+  });
+
+  it("adds no view", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([runWithDispatches]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    await screen.findByRole("cell", { name: "5. The review panel" });
+    // The interface still serves the same eight statistics views.
+    expect(VIEW_NAMES).toHaveLength(8);
+    // Per-dispatch rows appear only under an expanded stage run.
+    expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
+  });
+});
+
+// Two stage runs sharing the same `stage` label AND the same `attempt`
+// number are the ordinary case, not a contrived one: /myflow-do records
+// one stage run per task, all under the same stage label, and a first
+// try on each carries the same attempt number (1). This used to require a
+// toggle identifier synthesized from `startedAt`, because the dispatch
+// toggles rendered as a flat list with no table-row context to tell two of
+// them apart. Nested in StageRunTable's own per-row detail instead (F3,
+// pass 1 of this change's own review panel), each toggle lives inside its
+// own <tr>, keyed by `stageRunId` -- unique per row by construction, so
+// there is no longer an identification problem to test for; what remains
+// worth pinning is that expanding one row's toggle never reveals another
+// row's dispatches.
+describe("two stage runs sharing both stage and attempt (kan-201)", () => {
+  const sharedRunA: StageRunDTO = {
+    stageRunId: 40,
+    harness: "claude-code",
+    command: "/myflow-do",
+    stage: "SDD + TDD per task",
+    attempt: 1,
+    startedAt: "2026-01-01T00:00:00Z",
+    endedAt: "2026-01-01T00:05:00Z",
+    outcome: "committed",
+    metrics: {
+      dispatches: {
+        "agent-a": {
+          tokens: { main: { input: 10 } },
+          description: "Task A dispatch",
+          model: "claude-sonnet-5",
+          cost_usd: 1,
+        },
+      },
+    },
+  };
+  const sharedRunB: StageRunDTO = {
+    stageRunId: 41,
+    harness: "claude-code",
+    command: "/myflow-do",
+    stage: "SDD + TDD per task",
+    attempt: 1,
+    startedAt: "2026-01-01T01:00:00Z",
+    endedAt: "2026-01-01T01:05:00Z",
+    outcome: "committed",
+    metrics: {
+      dispatches: {
+        "agent-b": {
+          tokens: { main: { input: 20 } },
+          description: "Task B dispatch",
+          model: "claude-sonnet-5",
+          cost_usd: 2,
+        },
+      },
+    },
+  };
+
+  it("expands only the clicked run's own dispatches, not the other run sharing its stage and attempt", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([sharedRunA, sharedRunB]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    // No sort is applied, so the table rows come back in fetch order:
+    // header row first, then sharedRunA, then sharedRunB -- both sharing
+    // the same visible stage/attempt text, so only row position (backed by
+    // each row's own `stageRunId` as DataTable's rowKey) tells them apart.
+    const rows = await screen.findAllByRole("row");
+    const [rowA, rowB] = [rows[1], rows[2]];
+
+    const user = userEvent.setup();
+    await user.click(within(rowA).getByRole("button"));
+
+    const dispatchRows = screen.getAllByTestId("dispatch-row");
+    expect(dispatchRows).toHaveLength(1);
+    expect(within(dispatchRows[0]).getByText("Task A dispatch")).toBeInTheDocument();
+    expect(screen.queryByText("Task B dispatch")).not.toBeInTheDocument();
+    expect(within(rowB).queryByTestId("dispatch-row")).not.toBeInTheDocument();
   });
 });

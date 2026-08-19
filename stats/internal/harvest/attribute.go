@@ -163,6 +163,36 @@ func (t *TokenDelta) bucket(sidechain bool) *Bucket {
 	return &t.Main
 }
 
+// upsertBucket looks up the current value for key in *m -- lazily
+// allocating the map first if *m is nil, exactly like a plain map
+// assignment to a nil map would panic without this check -- passes it to
+// combine, and stores combine's result back under key. combine receives
+// V's zero value when key was not yet present in the map.
+//
+// Used by Attribute's per-model and per-dispatch token accumulation
+// (below), where combine is a genuine accumulator (bucket().add() onto
+// whatever TokenDelta was already there for this stage run's batch so
+// far) -- nil-check, lazy make, get-or-zero, mutate, store back, done
+// once instead of twice, with each call site's own key and mutation left
+// entirely to it: this helper merges no two maps together and changes
+// what neither of them records.
+//
+// encodePatches (watcher.go) used to call this too (F24, this change's
+// own review panel), for its per-model and per-dispatch metrics-patch
+// construction -- but that combine never actually read the zero value it
+// was handed: it built a fresh ModelBucket or DispatchBucket from
+// scratch every time, since its destination map starts nil on every
+// call. That made the code read as accumulation it never performed, so
+// F35 (pass 7 of this change's own review panel) replaced those two call
+// sites with a plain nil-check-and-assign instead of this helper --
+// upsertBucket now serves only the two sites that genuinely accumulate.
+func upsertBucket[K comparable, V any](m *map[K]V, key K, combine func(V) V) {
+	if *m == nil {
+		*m = make(map[K]V)
+	}
+	(*m)[key] = combine((*m)[key])
+}
+
 // Delta is what Attribute computes for one touched stage run: Total is
 // the whole-run token delta -- unchanged in meaning from what this type
 // used to be on its own, and still the sole source of the metrics bag's
@@ -187,6 +217,20 @@ func (t *TokenDelta) bucket(sidechain bool) *Bucket {
 type Delta struct {
 	Total  TokenDelta
 	Models map[string]TokenDelta
+	// Dispatches is the same messages broken out a third way, by the
+	// agentId each subagent transcript line carries (KAN-201), keyed by
+	// that agentId and feeding the metrics bag's "dispatches.<agentId>"
+	// key (encodePatches, watcher.go, adds that dispatch's descriptors
+	// alongside these token figures -- Attribute itself sees only
+	// records, never a transcript path, so it has no descriptors to add).
+	//
+	// This is Models' own rule (this doc comment, above) applied to a
+	// second key: a record whose message carried no agentId -- every
+	// parent-session message -- contributes to Total and, when it carries
+	// a model, to Models, but to no entry here, never a fabricated ""
+	// key. Dispatches is always a subset of what Total accounts for,
+	// filled from the same records in the same pass as Total and Models.
+	Dispatches map[string]TokenDelta
 	// Speed is the last non-empty Usage.Speed seen among this stage run's
 	// records in this batch -- last-write-wins, the same rule Effort
 	// already documents for MetricsPatch, and correct for the same
@@ -208,6 +252,78 @@ type ModelBucket struct {
 	Tokens TokenDelta `json:"tokens"`
 }
 
+// DispatchBucket is one dispatch's contribution to a stage run's metrics
+// bag, nested under "dispatches.<agentId>" -- ModelBucket's own shape
+// (above) extended with that dispatch's own descriptors (KAN-201), read
+// from its transcript's sibling meta sidecar by ReadDispatchMeta
+// (transcript.go) and threaded through by encodePatches (watcher.go),
+// which alone knows which file a batch of records came from; Attribute
+// never sees a transcript path, only records, so it cannot fill these in
+// itself.
+//
+// AgentType, Description, Model and SpawnDepth all omit themselves from
+// the JSON encoding, rather than writing an empty string or an absent
+// depth, when no sidecar was found for this dispatch's transcript --
+// the same absence-is-never-a-value rule DispatchMeta's own doc comment
+// states, applied one level down at the metrics-bag encoding. All four
+// descriptors resolve last-write-wins under jsonb_deep_add
+// (0005_jsonb_deep_add.sql) while Tokens' nested leaves sum -- exactly
+// what a dispatch whose token figures grow across batches, but whose
+// descriptors never change once its sidecar is written, needs. That
+// requires every descriptor to reach jsonb_deep_add as something other
+// than a JSON *number*: the function's own rule is "sum two numbers at
+// the same key, else b replaces a" (0005_jsonb_deep_add.sql:61-62), so a
+// numeric leaf never resolves last-write-wins at all -- it accumulates.
+// AgentType, Description and Model are strings on the wire already, so
+// this holds for them for free; SpawnDepth needs its own encoding to get
+// there (below).
+//
+// SpawnDepth is a *string in Go, not a *int (F23, this change's own
+// review panel: a *int forced the dispatchBucketWire shadow struct plus
+// hand-written MarshalJSON/UnmarshalJSON this file used to carry, purely
+// to encode one field as a string, with no production reader anywhere in
+// this repository that ever needed it back as an int -- every call site
+// that sets it already holds a plain int locally, from ReadDispatchMeta's
+// DispatchMeta.SpawnDepth, and converts with strconv.Itoa at the point of
+// construction). A pointer, not a plain string, because a genuine
+// top-level dispatch's sidecar carries "spawnDepth":0, a real, measured
+// fact -- indistinguishable from "no sidecar was found" if this field's
+// zero value and its absent value collapsed together, which `omitempty`
+// on a plain string cannot prevent (Go's encoding/json omits an empty
+// string exactly as readily as an unset one). A pointer's own zero value
+// is nil, distinct from a pointer to "0", so `omitempty` on a *string
+// omits only genuine absence, never a present-and-zero depth. AgentType,
+// Description and Model do not share this hazard: none of them has a
+// legitimate empty-string value coming out of ReadDispatchMeta
+// (transcript.go) -- an agent type, a description and a model name are
+// never recorded as "" by a sidecar that exists, so an empty string
+// there really does mean "no sidecar", exactly as omitempty already
+// treats it.
+//
+// SpawnDepth is a JSON *string* ("0", "1", ...) rather than a JSON
+// number (F12, pass 2 of this change's own review panel) precisely so
+// encoding/json's ordinary struct handling suffices, with no custom
+// Marshal/Unmarshal needed: a dispatch harvested across N ordinary
+// cycles has encodePatches (watcher.go) re-send this same constant value
+// on every one of them (its own "if hasMeta" branch runs unconditionally,
+// every commit, not once), and a plain JSON number at that key would
+// make jsonb_deep_add sum it N times over instead of resolving
+// last-write-wins like every other descriptor -- silent, unbounded, and
+// specific to this one field. jsonb_deep_add itself is deliberately
+// unchanged -- summing numeric leaves is correct and load-bearing for
+// every token figure this same function merges. Decoding a corrupted
+// spawn_depth (an unquoted number where a string is expected) is still
+// rejected, not silently accepted: encoding/json itself refuses to
+// unmarshal a JSON number into a Go string field, so that guarantee
+// costs this type nothing extra to keep.
+type DispatchBucket struct {
+	Tokens      TokenDelta `json:"tokens"`
+	AgentType   string     `json:"agent_type,omitempty"`
+	Description string     `json:"description,omitempty"`
+	Model       string     `json:"model,omitempty"`
+	SpawnDepth  *string    `json:"spawn_depth,omitempty"`
+}
+
 // MetricsPatch is the JSON shape a harvest batch's results are added into
 // a stage run's metrics bag as, via store.Store.CommitHarvestBatch's
 // jsonb_deep_add. Tokens is the whole-run total (unchanged meaning from
@@ -216,8 +332,12 @@ type ModelBucket struct {
 // records broken out by model, additive per model exactly like Tokens is
 // additive overall, so two batches touching the same run and the same
 // model sum rather than replace with no merge code and no migration
-// (0005_jsonb_deep_add.sql sums numeric leaves at any depth). Effort is
-// last-write-wins, like every other non-numeric leaf under
+// (0005_jsonb_deep_add.sql sums numeric leaves at any depth). Dispatches
+// is the same batch's records broken out a third way, by agentId
+// (KAN-201) -- additive per dispatch's Tokens exactly like Models is
+// additive per model, with that dispatch's descriptors resolved
+// last-write-wins alongside it (DispatchBucket's own doc comment).
+// Effort is last-write-wins, like every other non-numeric leaf under
 // jsonb_deep_add: the harvester simply records whichever value the most
 // recently processed message in this batch carried. There is no scalar
 // Model field any more -- a stage run's model is now entirely a property
@@ -231,9 +351,10 @@ type ModelBucket struct {
 // expects -- Attribute itself returns Delta values, not encoded patches,
 // since it no longer talks to any sink at all.
 type MetricsPatch struct {
-	Tokens TokenDelta             `json:"tokens"`
-	Models map[string]ModelBucket `json:"models,omitempty"`
-	Effort string                 `json:"effort,omitempty"`
+	Tokens     TokenDelta                `json:"tokens"`
+	Models     map[string]ModelBucket    `json:"models,omitempty"`
+	Dispatches map[string]DispatchBucket `json:"dispatches,omitempty"`
+	Effort     string                    `json:"effort,omitempty"`
 	// Speed carries Delta.Speed through to the stored metrics bag's
 	// top-level "speed" key -- read back by store.Store.Price (task 23)
 	// to decide whether a run's models are priced at their fast-mode
@@ -316,12 +437,16 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 				d.Speed = r.Usage.Speed
 			}
 			if r.Model != "" {
-				if d.Models == nil {
-					d.Models = make(map[string]TokenDelta)
-				}
-				md := d.Models[r.Model]
-				md.bucket(r.IsSidechain).add(r.Usage)
-				d.Models[r.Model] = md
+				upsertBucket(&d.Models, r.Model, func(td TokenDelta) TokenDelta {
+					td.bucket(r.IsSidechain).add(r.Usage)
+					return td
+				})
+			}
+			if r.AgentID != "" {
+				upsertBucket(&d.Dispatches, r.AgentID, func(td TokenDelta) TokenDelta {
+					td.bucket(r.IsSidechain).add(r.Usage)
+					return td
+				})
 			}
 			deltas[w.StageRunID] = d
 		}

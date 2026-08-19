@@ -481,6 +481,35 @@ export interface ListStageRunsResponse {
 }
 
 /**
+ * One dispatch's contribution to a stage run, derived client-side
+ * (RunDetail.tsx is the sole reader) from its metrics bag's
+ * `dispatches.<agentId>` key -- internal/harvest.DispatchBucket's own
+ * encoding (attribute.go, KAN-201). Every field but `agentId` is optional:
+ * `agentType`/`description`/`model` are omitted, never `""`, when that
+ * dispatch's meta sidecar was never found, and `tokens`/`costUsd` are
+ * omitted, never `0`, when that dispatch (or its recorded model) carries
+ * no priceable token figures -- the same absence-is-never-a-value rule
+ * every other metrics reader in this SPA already holds
+ * (specs/myflow-stats-views/spec.md, "A stage run opens onto its own
+ * dispatches").
+ *
+ * `costUsd` is read directly from that same `dispatches.<agentId>` key's
+ * own `cost_usd` -- store.Store.Price (internal/store/pricing.go) prices
+ * each dispatch bucket through the identical pricing path it already
+ * uses for `models.<model>`, applied to the dispatch's own recorded
+ * model and own tokens, never a second, derived calculation on this
+ * client.
+ */
+export interface DispatchRow {
+  agentId: string;
+  agentType?: string;
+  description?: string;
+  model?: string;
+  tokens?: number;
+  costUsd?: number;
+}
+
+/**
  * GET /api/v1/stage-runs?q=&sort=&limit=&offset=&<filters> -- the
  * stage-run counterpart of listChanges, built on the same buildListQuery
  * this client already uses for the changes list. "project" and "name" are

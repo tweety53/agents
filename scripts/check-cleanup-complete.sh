@@ -112,6 +112,7 @@
 # registry-row-not-checked: Per-task and review diffs — removed with the worktree
 # registry-row-not-checked: Panel record — removed with the worktree
 # registry-row-not-checked: SDD ledger — removed with the worktree
+# registry-row-not-checked: Dispatch context bundle — removed with the worktree
 # registry-row-not-checked: State file — never removed; it is the terminal record
 # registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
 #

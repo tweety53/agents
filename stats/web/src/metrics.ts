@@ -16,8 +16,16 @@
 // token figure lives under one tokens object"); the top-level readers
 // (cost, model, effort, fast_mode) read the bag directly.
 
-/** Narrows an arbitrary JSON value to a plain object, or null if it isn't one. */
-function asObject(value: unknown): Record<string, unknown> | null {
+/**
+ * Narrows an arbitrary JSON value to a plain object, or null if it isn't
+ * one. Exported (F10, pass 2 of this change's own review panel) so
+ * StageRunTable.tsx's per-dispatch and per-model readers -- which narrow
+ * a nested object one level down from the whole metrics bag this file's
+ * own readers work on, not a different shape -- share this single
+ * definition instead of carrying a byte-for-byte duplicate under a
+ * second name.
+ */
+export function asObject(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
@@ -203,7 +211,7 @@ export function readSidechainTokens(bag: unknown): number | null {
  * empty object for an absent or malformed bag, never null -- callers spread
  * this directly into a detail view.
  */
-const KNOWN_TOP_LEVEL_KEYS = new Set(["cost_usd", "model", "models", "effort", "fast_mode", "tokens"]);
+const KNOWN_TOP_LEVEL_KEYS = new Set(["cost_usd", "model", "models", "effort", "fast_mode", "tokens", "dispatches"]);
 
 export function readOtherMetrics(bag: unknown): Record<string, unknown> {
   const obj = asObject(bag);

@@ -1625,6 +1625,521 @@ func TestPriceFastModeWithoutFastRateIsUnpriceable(t *testing.T) {
 	}
 }
 
+// TestPriceDispatchGetsCostThroughSamePricingPath covers KAN-201's own
+// defect fix: a dispatch's cost must be computed through the exact same
+// rate resolution and chargeableTokens.cost arithmetic as its owning
+// model bucket -- not an implied average rate scaled from the model
+// bucket's blended total, which overstates a cache-heavy dispatch and
+// understates an output-heavy one (specs/myflow-stats-views/spec.md, "Per-
+// dispatch cost SHALL be derived through the same pricing path"). This
+// also pins the double-counting guard: the top-level cost_usd is the
+// model buckets' own sum, unaffected by dispatch pricing, even though a
+// dispatch's tokens are already inside that same model bucket.
+func TestPriceDispatchGetsCostThroughSamePricingPath(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-dispatch-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-sonnet-5": {"tokens": {"sidechain": {"input": 1000000, "output": 200000}}}
+		},
+		"dispatches": {
+			"agent-1": {
+				"tokens": {"sidechain": {"input": 800000, "output": 160000}},
+				"model": "claude-sonnet-5"
+			}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		CostUSD float64 `json:"cost_usd"`
+		Models  map[string]struct {
+			CostUSD float64 `json:"cost_usd"`
+		} `json:"models"`
+		Dispatches map[string]struct {
+			CostUSD float64 `json:"cost_usd"`
+		} `json:"dispatches"`
+	}
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	const eps = 1e-9
+	wantModelCost := 1.0*1 + 0.2*5     // the model bucket's own, blended total (1M input, 200K output)
+	wantDispatchCost := 0.8*1 + 0.16*5 // priced through the same rate, on the dispatch's own tokens alone (800K input, 160K output)
+	if diff := bag.Models["claude-sonnet-5"].CostUSD - wantModelCost; diff > eps || diff < -eps {
+		t.Errorf("models.claude-sonnet-5.cost_usd = %v, want %v", bag.Models["claude-sonnet-5"].CostUSD, wantModelCost)
+	}
+	dispatch, ok := bag.Dispatches["agent-1"]
+	if !ok {
+		t.Fatalf("dispatches.agent-1 missing from priced metrics: %s", priced.Metrics)
+	}
+	if diff := dispatch.CostUSD - wantDispatchCost; diff > eps || diff < -eps {
+		t.Errorf("dispatches.agent-1.cost_usd = %v, want %v", dispatch.CostUSD, wantDispatchCost)
+	}
+	// Double-counting guard: the top-level total is the model buckets' own
+	// sum, unaffected by having also priced the dispatch view of the same
+	// tokens -- pricing both must not roughly double the run's total.
+	if diff := bag.CostUSD - wantModelCost; diff > eps || diff < -eps {
+		t.Errorf("cost_usd = %v, want %v (the model bucket's own cost; dispatch cost must not be added on top)", bag.CostUSD, wantModelCost)
+	}
+}
+
+// TestPriceDispatchIsPricedWhenEveryModelBucketIsUnpriceable pins F28
+// (pass 7 of this change's own review panel): before the fix, Price
+// returned as soon as it found the "models" bag entirely unpriceable
+// (priced == 0), before the dispatches loop below it ever ran -- so a
+// dispatch whose own sidecar-declared model DID have a valid pricing row
+// still got no cost_usd, purely because some other, unrelated model
+// happened to head this run's "models" bag with no rate at all. That
+// defeats per-dispatch attribution's whole purpose exactly when the two
+// model sources diverge, which is the case they exist to expose. This
+// pins the dispatch getting priced regardless, while every other rule
+// stays exactly as documented: ErrPricingNotFound is still returned,
+// naming the unpriceable model; no top-level cost_usd is written; and the
+// dispatch's cost is never folded into it.
+func TestPriceDispatchIsPricedWhenEveryModelBucketIsUnpriceable(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-dispatch-priced-when-models-unpriceable-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"unpriced-model": {"tokens": {"main": {"input": 1000000}}}
+		},
+		"dispatches": {
+			"agent-1": {
+				"tokens": {"sidechain": {"input": 800000, "output": 160000}},
+				"model": "claude-sonnet-5"
+			}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+	// Deliberately no pricing row for "unpriced-model" -- the run's own
+	// "models" bag is entirely unpriceable, while the dispatch's own
+	// recorded model (claude-sonnet-5) has a valid rate.
+
+	err = st.Price(ctx, run.ID)
+	if !errors.Is(err, store.ErrPricingNotFound) {
+		t.Fatalf("Price() error = %v, want errors.Is(_, store.ErrPricingNotFound): the models bag's only model has no rate", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		CostUSD    *float64 `json:"cost_usd"`
+		Dispatches map[string]struct {
+			CostUSD float64 `json:"cost_usd"`
+		} `json:"dispatches"`
+	}
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if bag.CostUSD != nil {
+		t.Errorf("cost_usd = %v, want absent: the only model bucket is unpriceable", *bag.CostUSD)
+	}
+	dispatch, ok := bag.Dispatches["agent-1"]
+	if !ok {
+		t.Fatalf("dispatches.agent-1 missing from priced metrics: %s -- its own sidecar-declared model has a valid pricing row and must be priced regardless of whether the models bag priced anything at all", priced.Metrics)
+	}
+	const eps = 1e-9
+	wantDispatchCost := 0.8*1 + 0.16*5
+	if diff := dispatch.CostUSD - wantDispatchCost; diff > eps || diff < -eps {
+		t.Errorf("dispatches.agent-1.cost_usd = %v, want %v", dispatch.CostUSD, wantDispatchCost)
+	}
+}
+
+// TestPriceDegradesOnMalformedDispatchesRatherThanFailing pins F6 (pass 1
+// of this change's own review panel): a "dispatches" value that does not
+// even decode as map[string]dispatchBucket must not abort the whole
+// Price call -- the models loop's already-computed modelsPatch and
+// top-level cost_usd must still be written. Before the fix, the decode
+// error returned immediately, before patchFields was even built,
+// discarding everything already priced. No current writer produces this
+// shape (encodePatches, harvest/watcher.go, always emits a well-formed
+// object) -- this is latent robustness, exercised here by writing the
+// malformed shape directly through MergeMetrics.
+func TestPriceDegradesOnMalformedDispatchesRatherThanFailing(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-malformed-dispatches-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-sonnet-5": {"tokens": {"sidechain": {"input": 1000000, "output": 200000}}}
+		},
+		"dispatches": "not-an-object"
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v, want nil -- a malformed dispatches value must degrade, not fail the whole call", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		CostUSD float64 `json:"cost_usd"`
+		Models  map[string]struct {
+			CostUSD float64 `json:"cost_usd"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	const eps = 1e-9
+	wantModelCost := 1.0*1 + 0.2*5
+	if diff := bag.Models["claude-sonnet-5"].CostUSD - wantModelCost; diff > eps || diff < -eps {
+		t.Errorf("models.claude-sonnet-5.cost_usd = %v, want %v -- must still be written despite the malformed dispatches value", bag.Models["claude-sonnet-5"].CostUSD, wantModelCost)
+	}
+	if diff := bag.CostUSD - wantModelCost; diff > eps || diff < -eps {
+		t.Errorf("cost_usd = %v, want %v -- the already-computed total must not be discarded", bag.CostUSD, wantModelCost)
+	}
+}
+
+// TestPriceDispatchLookupErrorDoesNotDiscardModelsResult pins F13 (pass 2
+// of this change's own review panel): a non-ErrPricingNotFound error from
+// resolveRate in the *dispatches* loop -- a genuine store failure, not
+// "no rate in effect" -- must not discard the models loop's
+// already-computed modelsPatch and total, the same "worse than writing
+// nothing" mistake F6's fix (the test above) prevents for a malformed
+// dispatches value, reached here through a different trigger. Before the
+// fix, this loop's `return err` fired before patchFields was even built,
+// throwing away everything the models loop above had already priced.
+//
+// A JSON string small enough to satisfy jsonb (unlike an embedded NUL
+// byte, which Postgres' jsonb input rejects outright regardless of
+// query, so it can never even reach MergeMetrics) cannot itself make a
+// later `model = $1` lookup fail -- any string that survives jsonb
+// storage round-trips as valid UTF-8, and text equality never errors on
+// that. The seam that *is* reachable is the pricing row itself: this
+// test seeds one, by raw SQL rather than through PutPricing (whose
+// PricingRate.InputPerMTok is a Go float64 and so cannot even represent
+// this value), whose input_per_mtok is a genuine NUMERIC Postgres
+// accepts on INSERT -- 1e309 -- but pgx's numeric-to-float64 scan
+// rejects on SELECT with strconv.ParseFloat's own "value out of range",
+// a real, deterministic, non-ErrNoRows error. A pricing rate with a
+// misplaced decimal point is exactly the kind of bad row a real seed
+// mistake could produce.
+func TestPriceDispatchLookupErrorDoesNotDiscardModelsResult(t *testing.T) {
+	dsn := newTestDatabase(t)
+	ctx := context.Background()
+
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open test store: %v", err)
+	}
+	if err := st.RunMigrations(ctx); err != nil {
+		st.Close()
+		t.Fatalf("run migrations: %v", err)
+	}
+	t.Cleanup(st.Close)
+
+	rawPool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool for direct seeding: %v", err)
+	}
+	t.Cleanup(rawPool.Close)
+
+	projectKey := fmt.Sprintf("proj-price-dispatch-lookup-error-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-sonnet-5": {"tokens": {"sidechain": {"input": 1000000, "output": 200000}}}
+		},
+		"dispatches": {
+			"agent-1": {
+				"tokens": {"sidechain": {"input": 800000, "output": 160000}},
+				"model": "overflow-model"
+			}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+	if _, err := rawPool.Exec(ctx, `
+		INSERT INTO pricing (model, effective_from, input_per_mtok, output_per_mtok, cache_write_per_mtok, cache_write_5m_per_mtok, cache_read_per_mtok)
+		VALUES ('overflow-model', $1, '1e309', 1, 1, 1, 1)
+	`, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("seed overflow pricing row: %v", err)
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v, want nil -- a dispatch lookup error must degrade, not fail the whole call", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag struct {
+		CostUSD float64 `json:"cost_usd"`
+		Models  map[string]struct {
+			CostUSD float64 `json:"cost_usd"`
+		} `json:"models"`
+		Dispatches map[string]struct {
+			CostUSD *float64 `json:"cost_usd"`
+		} `json:"dispatches"`
+	}
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	const eps = 1e-9
+	wantModelCost := 1.0*1 + 0.2*5
+	if diff := bag.Models["claude-sonnet-5"].CostUSD - wantModelCost; diff > eps || diff < -eps {
+		t.Errorf("models.claude-sonnet-5.cost_usd = %v, want %v -- must still be written despite the dispatch lookup error", bag.Models["claude-sonnet-5"].CostUSD, wantModelCost)
+	}
+	if diff := bag.CostUSD - wantModelCost; diff > eps || diff < -eps {
+		t.Errorf("cost_usd = %v, want %v -- the already-computed total must not be discarded", bag.CostUSD, wantModelCost)
+	}
+	if dispatch, ok := bag.Dispatches["agent-1"]; ok && dispatch.CostUSD != nil {
+		t.Errorf("dispatches.agent-1.cost_usd = %v, want absent -- its own model lookup failed", *dispatch.CostUSD)
+	}
+}
+
+// TestPriceDispatchWithNoRecordedModelGetsNoCost covers the sidecar-absent
+// case: a dispatch whose meta sidecar was never found records no model at
+// all (DispatchBucket's own doc comment, attribute.go), and Price must not
+// price it -- absence is never a value, never a fabricated 0 and never a
+// neighbouring dispatch's rate.
+func TestPriceDispatchWithNoRecordedModelGetsNoCost(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-dispatch-nomodel-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-sonnet-5": {"tokens": {"sidechain": {"input": 1000000}}}
+		},
+		"dispatches": {
+			"agent-2": {"tokens": {"sidechain": {"input": 200000}}}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag map[string]json.RawMessage
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var dispatches map[string]json.RawMessage
+	if err := json.Unmarshal(bag["dispatches"], &dispatches); err != nil {
+		t.Fatalf("unmarshal dispatches: %v", err)
+	}
+	var agent2 struct {
+		CostUSD *float64 `json:"cost_usd"`
+	}
+	if err := json.Unmarshal(dispatches["agent-2"], &agent2); err != nil {
+		t.Fatalf("unmarshal dispatches.agent-2: %v", err)
+	}
+	if agent2.CostUSD != nil {
+		t.Errorf("dispatches.agent-2.cost_usd = %v, want absent -- this dispatch recorded no model at all", *agent2.CostUSD)
+	}
+}
+
+// TestPriceDispatchModelWithNoPricingRowGetsNoCost covers a dispatch whose
+// own recorded model has no pricing row in effect: it gets no cost_usd,
+// not 0 and not a neighbouring model's rate -- and this must not stop
+// Price from succeeding overall when every model bucket it is actually
+// responsible for still prices cleanly.
+func TestPriceDispatchModelWithNoPricingRowGetsNoCost(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-dispatch-norate-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-sonnet-5": {"tokens": {"sidechain": {"input": 1000000}}}
+		},
+		"dispatches": {
+			"agent-3": {"tokens": {"sidechain": {"input": 200000}}, "model": "no-such-model"}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v, want success -- the run's own model bucket priced fine, a dispatch's unpriceable model must not fail the whole call", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag map[string]json.RawMessage
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var dispatches map[string]json.RawMessage
+	if err := json.Unmarshal(bag["dispatches"], &dispatches); err != nil {
+		t.Fatalf("unmarshal dispatches: %v", err)
+	}
+	var agent3 struct {
+		CostUSD *float64 `json:"cost_usd"`
+	}
+	if err := json.Unmarshal(dispatches["agent-3"], &agent3); err != nil {
+		t.Fatalf("unmarshal dispatches.agent-3: %v", err)
+	}
+	if agent3.CostUSD != nil {
+		t.Errorf("dispatches.agent-3.cost_usd = %v, want absent -- no pricing row was ever in effect for %q", *agent3.CostUSD, "no-such-model")
+	}
+}
+
+// TestPriceDispatchWithUnknownCacheSplitGetsNoCost covers the refusal
+// case at dispatch granularity: a dispatch bucket carrying
+// cache_creation_unknown must be refused, not partially priced --
+// chargeableTokens.cost's own doc comment states this rule, and it
+// applies identically whether the bucket being priced is a model's or a
+// dispatch's.
+func TestPriceDispatchWithUnknownCacheSplitGetsNoCost(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-price-dispatch-unknownsplit-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{
+		"models": {
+			"claude-sonnet-5": {"tokens": {"sidechain": {"input": 1000000}}}
+		},
+		"dispatches": {
+			"agent-4": {
+				"tokens": {"sidechain": {"cache_creation_unknown": 500000}},
+				"model": "claude-sonnet-5"
+			}
+		}
+	}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+	if err := st.PutPricing(ctx, store.PricingRate{
+		Model: "claude-sonnet-5", EffectiveFrom: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		InputPerMTok: 1, OutputPerMTok: 5, CacheWritePerMTok: 1.25, CacheReadPerMTok: 0.1,
+	}); err != nil {
+		t.Fatalf("PutPricing: %v", err)
+	}
+
+	if err := st.Price(ctx, run.ID); err != nil {
+		t.Fatalf("Price: %v", err)
+	}
+
+	priced, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun: %v", err)
+	}
+	var bag map[string]json.RawMessage
+	if err := json.Unmarshal(priced.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var dispatches map[string]json.RawMessage
+	if err := json.Unmarshal(bag["dispatches"], &dispatches); err != nil {
+		t.Fatalf("unmarshal dispatches: %v", err)
+	}
+	var agent4 struct {
+		CostUSD *float64 `json:"cost_usd"`
+	}
+	if err := json.Unmarshal(dispatches["agent-4"], &agent4); err != nil {
+		t.Fatalf("unmarshal dispatches.agent-4: %v", err)
+	}
+	if agent4.CostUSD != nil {
+		t.Errorf("dispatches.agent-4.cost_usd = %v, want absent -- its cache-creation split is unknown", *agent4.CostUSD)
+	}
+}
+
 // TestStageRunsNullRepoRootSkipsFKCheck verifies the design's claim, tagged
 // unverified in design.md, that a NULL repo_root inserts cleanly with no
 // matching change_repos row at all -- because Postgres' default FK match

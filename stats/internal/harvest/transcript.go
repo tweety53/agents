@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -92,12 +94,21 @@ type Usage struct {
 // session id attribution matches against. Every non-assistant line
 // parses to nothing (ParseAssistantRecords simply omits it), so Record
 // never needs to represent "not an assistant message".
+//
+// AgentID is the line's own "agentId" field (KAN-201) -- present on
+// every line of a subagent's own transcript
+// (subagents/agent-<id>.jsonl), confirmed against a real transcript
+// during planning, and empty on a parent-session line. It is never
+// fabricated: a record with no agentId decodes to AgentID == "", never
+// a placeholder, so a parent-session message attributes to the whole-run
+// total and its model's bucket and to no dispatch entry.
 type Record struct {
 	Timestamp   time.Time
 	SessionID   string
 	IsSidechain bool
 	Model       string
 	Effort      string
+	AgentID     string
 	Usage       Usage
 }
 
@@ -115,6 +126,7 @@ type rawLine struct {
 	SessionID   string      `json:"sessionId"`
 	IsSidechain bool        `json:"isSidechain"`
 	Effort      string      `json:"effort"`
+	AgentID     string      `json:"agentId"`
 	Message     *rawMessage `json:"message"`
 }
 
@@ -258,6 +270,7 @@ func ParseAssistantRecords(complete []byte) []Record {
 			IsSidechain: raw.IsSidechain,
 			Model:       raw.Message.Model,
 			Effort:      raw.Effort,
+			AgentID:     raw.AgentID,
 			Usage: Usage{
 				InputTokens:              u.InputTokens,
 				CacheCreationInputTokens: u.CacheCreationInputTokens,
@@ -372,6 +385,54 @@ func ReadNewRecords(path string, offset int64) (records []Record, commands []Com
 
 	complete, _ := SplitCompleteLines(raw)
 	return ParseAssistantRecords(complete), ParseCommandRecords(complete), offset + int64(len(complete)), nil
+}
+
+// DispatchMeta is a subagent dispatch's own descriptors, read from its
+// transcript's sibling agent-<id>.meta.json sidecar (KAN-201) -- exactly
+// the four fields this package's consumers need, named as the JSON keys
+// themselves are named (confirmed against a real meta file during
+// planning, tasks.md's "Facts this plan rests on"). Every other key that
+// file carries (toolUseId, and whatever else a future harness adds) is
+// simply never named here, the same tolerance rawLine's own doc comment
+// commits to for the transcript format itself.
+type DispatchMeta struct {
+	AgentType   string `json:"agentType"`
+	Description string `json:"description"`
+	Model       string `json:"model"`
+	SpawnDepth  int    `json:"spawnDepth"`
+}
+
+// subagentsDirName is the fixed parent directory name every subagent
+// transcript lives under -- .../subagents/agent-<id>.jsonl -- confirmed
+// against a real transcript tree during planning, not assumed.
+const subagentsDirName = "subagents"
+
+// ReadDispatchMeta reads the sidecar meta file alongside transcriptPath
+// and returns that dispatch's descriptors. It reports false, never an
+// error, in every case a dispatch's tokens must still be attributable
+// without them: transcriptPath's parent directory is not named
+// "subagents" (checked first, and returned without touching the
+// filesystem at all -- a main-session transcript is never a dispatch and
+// this package must not go looking for a sidecar next to it), the
+// sidecar is absent, or the sidecar's content fails to decode as JSON.
+// This mirrors ParseAssistantRecords' own tolerance for a format this
+// package only ever reads.
+func ReadDispatchMeta(transcriptPath string) (DispatchMeta, bool) {
+	if filepath.Base(filepath.Dir(transcriptPath)) != subagentsDirName {
+		return DispatchMeta{}, false
+	}
+
+	metaPath := strings.TrimSuffix(transcriptPath, ".jsonl") + ".meta.json"
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return DispatchMeta{}, false
+	}
+
+	var meta DispatchMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return DispatchMeta{}, false
+	}
+	return meta, true
 }
 
 // openAt opens path and seeks to offset, checking first that offset does

@@ -126,6 +126,20 @@
 # files, for the same reasons that script's header states.
 set -euo pipefail
 
+# within_root <resolved-path> <root> -> the path-boundary test, sourced from
+# lib/within-root.sh rather than carried as an inline copy, since this
+# script ships through the skills/*/scripts/ symlink farm
+# (skills/myflow-fast/scripts/ and skills/myflow-finish/scripts/ both carry
+# it, alongside their own `lib` symlink into scripts/lib/), which is
+# exactly the criterion that file's own header states for when a guard may
+# safely source it instead of carrying its own copy. SCRIPT_DIR is derived
+# from this script's own location (which may itself be one of those
+# symlinks) rather than assumed, so sourcing resolves correctly from either
+# entry point.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/within-root.sh"
+source "$SCRIPT_DIR/lib/lexical-normalize.sh"
+
 ARCHIVED_PATH="${1:-}"
 NAME="${2:-}"
 STATE_DIR="${3:-}"
@@ -141,19 +155,6 @@ case "$NAME" in
     exit 2
     ;;
 esac
-
-# within_root <resolved-path> <root> — true iff <resolved-path> is <root>
-# itself or lives under it. Compared as a path BOUNDARY, not a string prefix
-# (preserve-session-records.sh's own protections make the same distinction):
-# a bare prefix test would accept "/foo/bar-evil" against "/foo/bar". Defined
-# ahead of validate_archived_path() below, which reuses it for the same
-# boundary test rather than a bespoke string comparison.
-within_root() {
-  case "$1" in
-    "$2" | "$2"/*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
 
 # validate_archived_path — the ONE mechanism described in the header NOTE
 # above (F22): lexically normalize, semantically resolve, compare, refuse on
@@ -206,42 +207,23 @@ validate_archived_path() {
   # than to a separately-read $PWD, sidesteps a spurious mismatch when cwd
   # sits under an OS-level path alias such as macOS's /tmp -> /private/tmp,
   # since `git rev-parse` resolves that alias and a raw $PWD read would not).
-  # `.`/`..` components are then collapsed by a pure component-stack walk —
-  # push each `/`-separated segment, pop on `..` (never past the root), skip
-  # `.` and empty segments — touching the filesystem nowhere in this step, so
-  # it cannot be fooled by a symlink. The split into segments uses
-  # `IFS=/ read -ra` (F26), never an unquoted `for part in $abs_input`: bash
-  # applies pathname (glob) expansion as well as word-splitting to an
-  # unquoted expansion, so a `*`/`?`/`[...]` in $ARCHIVED_PATH would expand
-  # against the process cwd and corrupt this "pure string manipulation" step
-  # with real filesystem entries; `read` only field-splits on $IFS and never
-  # globs, closing that gap entirely.
+  # `.`/`..` components are then collapsed by lexically_collapse(), sourced
+  # from lib/lexical-normalize.sh (F34, this change's own review panel)
+  # rather than carried here — the walk itself (push each `/`-separated
+  # segment, pop on `..` never past the root, skip `.` and empty segments,
+  # via `IFS=/ read -ra` per F26 rather than an unquoted `for` that would
+  # let a `*`/`?`/`[...]` in $ARCHIVED_PATH glob against the process cwd)
+  # was byte-for-byte identical to gather-dispatch-context.sh's own
+  # lexical_normalize(); only the "what does a relative path join onto"
+  # half above is genuinely specific to this script, and that half stays
+  # here.
   local abs_input
   case "$ARCHIVED_PATH" in
     /*) abs_input="$ARCHIVED_PATH" ;;
     *) abs_input="$trusted_root/$ARCHIVED_PATH" ;;
   esac
-
-  local -a stack=() parts=()
-  local part
-  IFS=/ read -ra parts <<< "$abs_input"
-  for part in "${parts[@]}"; do
-    case "$part" in
-      "" | ".") continue ;;
-      "..")
-        if [ "${#stack[@]}" -gt 0 ]; then
-          unset "stack[$((${#stack[@]} - 1))]"
-        fi
-        ;;
-      *) stack+=("$part") ;;
-    esac
-  done
-
-  local archived_lexical="" seg
-  for seg in "${stack[@]:-}"; do
-    [ -n "$seg" ] && archived_lexical="$archived_lexical/$seg"
-  done
-  [ -n "$archived_lexical" ] || archived_lexical="/"
+  local archived_lexical
+  archived_lexical="$(lexically_collapse "$abs_input")"
 
   # Step 3: ARCHIVED_LEXICAL must sit exactly one segment past
   # $trusted_root/openspec/changes/archive/ — a real path boundary
@@ -333,6 +315,15 @@ find_dated() {
 # macOS ships, so the final component is walked here and the directory
 # components are left to `cd -P`. Fails on a symlink loop rather than
 # spinning.
+#
+# Kept inline here rather than sourced from scripts/lib/resolve-file.sh
+# (unlike within_root above) -- not because this script fails that file's
+# own sourcing criterion (it ships through the farm exactly like
+# within_root does, per that file's header), but because migrating it was
+# left out of scope for the change that migrated within_root. See
+# scripts/lib/resolve-file.sh's own header for the full explanation and
+# the open follow-up question it records (F37, pass 7 of this change's
+# own review panel).
 resolve_file() {
   local p="$1" hops=0 target dir
   while [ -L "$p" ]; do
