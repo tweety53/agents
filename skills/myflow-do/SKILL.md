@@ -507,6 +507,10 @@ finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 
 The same rule against quoting the format inside the record applies to this block as well.
 
+**This quoting rule is one instance of a broader constraint**, binding these marker labels anywhere
+in the record, not only in this block — see **The fix round mutation-proves what it changed** below
+for the full label-collision rule.
+
 `scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
 its header, not its column order, not its cell boundaries, not where it starts or stops. See
 **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
@@ -717,6 +721,95 @@ finding about a guard script, whose reproducer is that script's own test harness
 itself — the fix is material, and the finding closes on the reproducer's flip. See **Panel
 re-runs** (`skills/myflow-do/SKILL-rationale.md`) for why the re-run and the materiality condition
 are both needed.
+
+### The fix round mutation-proves what it changed
+
+**This binds the review panel's fix round — this section (5) — and not the per-task review's fix
+in section 4**, which uses the same words, "fix round", for a different mechanism: section 4's
+fixup-and-autosquash on a single task's commit, reviewed by that task's own reviewer. The two are
+never conflated below.
+
+**Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
+adds.** When the fix subagent reports, it names the executable behaviours its fix changed — a guard
+script, Go, TypeScript, shell, anything a test could fail on. **You** then mutate each one — revert
+it in a scratch tree, or flip the single value it turns on — confirm an existing test fails, and
+restore. The subagent does not certify its own mutations, for the same reason it does not re-run its
+own reproducers one paragraph above. Whether a given change counts as an executable behaviour is
+sometimes unclear (a refactor with no new branch, a comment beside live code); an unclear case goes
+to the operator through the same handback used below for a finding that does not converge, rather
+than the parent deciding it alone.
+
+**Each mutation alters one mechanism.** Where a single revert would also change state a second check
+reads, split it into surgical mutations, one per mechanism. A mutation touching shared state can
+pass by cross-contamination — the case goes red because the *other* check broke, not because the
+mutated mechanism works — and that reports coverage which does not exist, which is worse than
+recording no mutation at all.
+
+**A surviving mutation is repaired in this round.** Where no existing test fails, add the test that
+catches it before the round closes. It is not raised as an `F<n>` finding and costs no extra pass:
+the round has the behaviour in hand, and a finding would spend a full round recovering context it
+has not lost. This is deliberately a different disposition from a surviving mutant Bugbot reports,
+which is a reviewer's reading of a diff someone else wrote.
+
+**Record each one in this pass's log entry**, beside the mode, the slots that ran and the diff path:
+
+```text
+fix-mutation: <path> — <what was mutated> — <the test that failed>
+fix-mutation: <path> — none — <reason>
+fix-mutations-total: <n>
+```
+
+One line per changed behaviour, using the same `none — <reason>` exemption form the record already
+uses for `finding-reproducer:`. A round that changed only prose records the exemption rather than
+recording nothing.
+
+**These lines go in the pass log entry and never inside the marker block.**
+`check-unfinished-work.sh` requires every `finding-status:` marker to occupy one unbroken run of
+consecutive lines, and reads the findings table's identifiers off lines matching
+`^\|?[[:space:]]*F[0-9]+[[:space:]]*\|`. A line that split that run, or that looked like a row,
+changes that guard's verdict on a record this rule does not otherwise touch — which is why
+`scripts/test-check-unfinished-work.sh` carries a case for it.
+
+**No line anywhere in the panel record may carry the literal label `finding-status:`,
+`findings-total:`, or `finding-reproducer:` outside its own marker use — the constraint is the whole
+record's, not one line's.** `scripts/check-unfinished-work.sh` counts the first two unanchored —
+`M_NAMED` (line 337), `T_NAMED` (line 342) — and `scripts/check-panel-reproducers.sh` counts the
+third the same way, `R_NAMED` (line 139): a substring match over every line, fences included, so a
+"Format example" that merely *quotes* the marker grammar counts as a real marker line. This list is
+derived from those guards' unanchored counts, not invented by hand — extend it by re-reading the
+guards, never by guessing. `reproducers-total:` is counted too but anchored (`^`,
+check-panel-reproducers.sh:282), so it is not a hazard the same way. The rule reaches past
+`fix-mutation:` free text to any prose, and lands hardest on a round documenting the marker-parsing
+logic itself. Write around it: paraphrase the label, or break it with a non-word character. The
+failure is safe — a clean round reads `OUTSTANDING` rather than a gap reading clear — but still worth
+avoiding by construction. `scripts/test-check-unfinished-work.sh` case 12 pins the lines as inert; it
+does not pin this constraint, which is why it is stated here in words.
+
+**No guard reads these lines, and none is added.** What holds the rule instead is this: **the fix
+round does not close, and the run does not reach the handoff, while an executable behaviour it
+changed carries neither a line nor an exemption.** See **The fix round mutation-proves what it
+changed** (`skills/myflow-do/SKILL-rationale.md`) for why the parent runs the mutations and why no
+guard reads the record.
+
+**The parent checks the reported list against the fix diff before the round can close** — the
+report is the round's account of itself, and nothing above requires it to be checked against what
+actually changed. Walk every hunk of the fix diff with a non-comment, non-whitespace change: each
+one is either covered by a reported line — mutated, or exempted with a reason — or is not an
+executable behaviour at all (prose, a comment, a rename with no behaviour change). A hunk that
+changes executable behaviour and names neither a reported line nor an exemption is treated exactly
+as an unproved behaviour — the round does not close until it is added to the list and mutated. A
+hunk that removes or weakens a test or an assertion is a third case, neither of the two above: it is
+executable, but nothing can be reverted and run to prove it unsafe, because the removed assertion
+was itself the thing that would have failed. Mutation cannot cover it, so it takes a different
+obligation: state in the record what the removed or weakened assertion used to cover, and name what
+still covers that same behaviour now. That claim is checked the same way a mutation is — run the
+named covering test against the **pre-fix** code and confirm it fails; a named test that passes
+against the pre-fix code did not cover the behaviour, and the claim is false. Where nothing can be
+named, restore the coverage instead of arguing it away.
+
+This binds the fix round under every roster, `light` included — the obligation is the round's, not a
+slot's, so a preset that dispatches no Bugbot is exactly where the round's own proof is the only
+mutation reasoning that happens at all. It adds no slot to any preset.
 
 **A bounce is a guard-class failure, not a review finding** — the accounting section 4 already
 gives `check-task-commit-fields.sh`: no fix-round slot consumed, no round-count advance, and it

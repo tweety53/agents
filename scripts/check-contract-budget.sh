@@ -84,7 +84,7 @@ skills/myflow-contracts/project-configuration.md 48278
 skills/myflow-contracts/state-file.md 32559
 skills/myflow-contracts/workspace-isolation-rationale.md 14318
 skills/myflow-contracts/workspace-isolation.md 31680
-skills/myflow-do/SKILL-rationale.md 15721
+skills/myflow-do/SKILL-rationale.md 20930
 skills/myflow-do/SKILL.md 71317
 skills/myflow-fast/SKILL-rationale.md 3490
 skills/myflow-fast/SKILL.md 24613

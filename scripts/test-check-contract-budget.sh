@@ -10,6 +10,69 @@ set -euo pipefail
 GUARD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-contract-budget.sh"
 [ -x "$GUARD" ] || { printf 'guard not executable: %s\n' "$GUARD" >&2; exit 2; }
 
+# budget_row_bytes <path-relative-to-repo-root> [table-file] — read a row
+# straight out of the guard's own budgets() table (a plain heredoc in $GUARD,
+# never executed here; the second argument defaults to $GUARD and exists only
+# so the F18/F22 cases below can exercise the duplicate-row and
+# unterminated-row branches against a scratch table without touching the
+# guard's real one). A fixture sized off this is over/under its real budget
+# BY CONSTRUCTION: it stays correct however the row changes. A fixture sized
+# off a magic number copied from the table instead goes stale the next time
+# that row rises — the defect the guard's own fix round shipped (F15).
+#
+# $GUARD is a shell script, not a bare table — budgets() wraps its rows in a
+# single-quoted heredoc so raising a budget is a diff of the table alone.
+# Reading the whole script, as this helper used to, treats any stray line
+# elsewhere in it whose first two whitespace-separated fields happen to look
+# like a covered path and a number as a row of its own; a live example broke
+# this exact harness (F21). So when $table is $GUARD, only the region
+# between budgets()'s heredoc delimiters is fed to the comparison below; a
+# caller-supplied bare table (F18, F22) has no such wrapper and is read
+# whole, unchanged.
+#
+# Reads the table with a bash `while read -r` comparison — the same idiom
+# budget_for uses in $GUARD — never `awk -v want=`. The guard's own comment on
+# budget_for documents why: a path containing a newline makes awk's -v
+# assignment fail and, under `set -e`, abort the whole run rather than stay a
+# per-file violation. Unreachable here, since every call below passes a fixed
+# literal rather than a name read off the tree, but this harness sits beside
+# the guard and should not contradict its stated convention (F19).
+#
+# `|| [ -n "$brel" ]` on the read keeps a table's final row from vanishing
+# when that row carries no trailing newline — plain `while read -r` silently
+# drops an unterminated last line, and this helper now accepts a
+# caller-supplied table, so that was an undocumented precondition on
+# generalized behaviour (F22).
+#
+# A path matched by more than one row is refused rather than silently
+# resolved to the first match: this harness is reading a table it does not
+# own, and an ambiguous answer is worse than a loud one (F18). budget_for in
+# $GUARD does resolve to the first match — that tolerance is the guard's own
+# decision and is not this finding.
+budget_row_bytes() {
+  local path="$1" table="${2:-$GUARD}" brel bmax bytes= found=0
+  while read -r brel bmax || [ -n "$brel" ]; do
+    [ "$brel" = "$path" ] || continue
+    if [ "$found" -eq 1 ]; then
+      printf 'duplicate budget row for %s in %s\n' "$path" "$table" >&2
+      exit 2
+    fi
+    bytes="$bmax"
+    found=1
+  done < <(
+    if [ "$table" = "$GUARD" ]; then
+      sed -n "/<<'EOF'\$/,/^EOF\$/p" "$table" | sed '1d;$d'
+    else
+      cat "$table"
+    fi
+  )
+  if [ "$found" -eq 0 ]; then
+    printf 'no budget row for %s in %s\n' "$path" "$table" >&2
+    exit 2
+  fi
+  printf '%s' "$bytes"
+}
+
 failures=0
 
 # expect <label> <want-exit> <root>
@@ -27,16 +90,74 @@ expect() {
 FIX="$(mktemp -d)"
 trap 'rm -rf "$FIX"' EXIT
 
+# --- budget_row_bytes's own behaviour (F17, F18, F22) ----------------------
+#
+# These cases exercise the helper directly rather than through the guard —
+# each branch is new this round (or new to this round's coverage) and no
+# other case in this file reaches them. The scratch tables they need live
+# under $FIX so their cleanup rides the same trap as every other fixture
+# here, rather than needing one of its own (F23).
+
+# The missing-row path (exit 2, a message naming the path) was new shared
+# behaviour with zero coverage: replacing it with `bytes=0` left every other
+# case in this file green — a demonstrated surviving mutant (F17). The `||`
+# keeps the command substitution's exit 2 from killing the harness under
+# `set -e`. Asserting the exact wording, not just the path, is what tells
+# this refusal apart from the duplicate-row refusal below — both exit 2 and
+# both name the path, so a substring-only check cannot distinguish a correct
+# diagnosis from a wrong one; F20 found this same gap in the duplicate case
+# and it turned out F17's case (this one) shared it.
+rc=0
+out="$(budget_row_bytes 'skills/does-not-exist/SKILL.md' 2>&1)" || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q '^no budget row for skills/does-not-exist/SKILL\.md in'; then
+  printf 'ok   budget_row_bytes on a path with no row exits 2 and names the path\n'
+else
+  printf 'FAIL budget_row_bytes on a missing path: exit %s, output: %s\n' "$rc" "$out"
+  failures=$((failures + 1))
+fi
+
+# A path matched by more than one row must be refused rather than silently
+# resolved to the first match (F18). Asserting the "duplicate" wording, not
+# just the path, is what keeps this case from passing when the helper
+# actually took the missing-row branch instead (F20).
+DUP_TABLE="$FIX/dup-table"
+printf 'skills/dup/SKILL.md 100\nskills/dup/SKILL.md 200\n' > "$DUP_TABLE"
+rc=0
+out="$(budget_row_bytes 'skills/dup/SKILL.md' "$DUP_TABLE" 2>&1)" || rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q '^duplicate budget row for skills/dup/SKILL\.md in'; then
+  printf 'ok   budget_row_bytes refuses a path matched by more than one row\n'
+else
+  printf 'FAIL budget_row_bytes on a duplicated row: exit %s, output: %s\n' "$rc" "$out"
+  failures=$((failures + 1))
+fi
+
+# A table whose last row carries no trailing newline. Plain `while read -r`
+# drops an unterminated final line, so a row sitting there would be invisible
+# to both the found and the duplicate branches above — an undocumented
+# precondition on a helper that now accepts a caller-supplied table (F22).
+UNTERMINATED_TABLE="$FIX/unterminated-table"
+printf 'skills/unterminated/SKILL.md 999' > "$UNTERMINATED_TABLE"
+rc=0
+out="$(budget_row_bytes 'skills/unterminated/SKILL.md' "$UNTERMINATED_TABLE" 2>&1)" || rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "999" ]; then
+  printf 'ok   budget_row_bytes reads a final row with no trailing newline\n'
+else
+  printf 'FAIL budget_row_bytes on an unterminated final row: exit %s, output: %s\n' "$rc" "$out"
+  failures=$((failures + 1))
+fi
+
 # A file well under its declared budget.
 mkdir -p "$FIX/within/skills/myflow-contracts"
 printf 'x\n' > "$FIX/within/skills/myflow-contracts/build-green.md"
 expect 'a file well under budget passes' 0 "$FIX/within"
 
-# The same file pushed past its 4557-byte budget. 5000 bytes is over it and
-# under the next-largest budget in the table, so this asserts the comparison
-# rather than merely a large number.
+# The same file pushed past its declared budget, read straight from the
+# guard's own table so this fixture is over budget by construction rather
+# than by a number that must stay above a row that can rise (see F15).
 mkdir -p "$FIX/over/skills/myflow-contracts"
-head -c 5000 /dev/zero | tr '\0' 'x' > "$FIX/over/skills/myflow-contracts/build-green.md"
+build_green_budget="$(budget_row_bytes 'skills/myflow-contracts/build-green.md')"
+head -c "$((build_green_budget + 500))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/over/skills/myflow-contracts/build-green.md"
 expect 'a file over budget fails' 1 "$FIX/over"
 
 # A contract added later with no row in budgets(). This is the case that stops a
@@ -141,15 +262,18 @@ fi
 # contracts-directory requirement is satisfied — the point of these cases is
 # the skills/ glob, not the contracts one.
 #
-# The paths and sizes below are deliberately real repository skill paths, sized
-# relative to their REAL production budgets in the guard's own budgets() table
-# — the same coupling the pre-existing "build-green.md" cases already rely on.
+# The paths below are deliberately real repository skill paths. Each fixture's
+# size is read from the guard's own budgets() table via budget_row_bytes rather
+# than copied as a number, so it stays over/under its real row by construction
+# as that row moves — the coupling that broke in F15.
 
 # A skills/<x>/SKILL.md that exceeds its declared budget. skills/myflow-status
 # only has a SKILL.md, no rationale sibling, which keeps this fixture simple.
 mkdir -p "$FIX/skill-over/skills/myflow-contracts" "$FIX/skill-over/skills/myflow-status"
 printf 'x\n' > "$FIX/skill-over/skills/myflow-contracts/build-green.md"
-head -c 50000 /dev/zero | tr '\0' 'x' > "$FIX/skill-over/skills/myflow-status/SKILL.md"
+myflow_status_budget="$(budget_row_bytes 'skills/myflow-status/SKILL.md')"
+head -c "$((myflow_status_budget + 1000))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/skill-over/skills/myflow-status/SKILL.md"
 expect 'a skills/<x>/SKILL.md over budget fails' 1 "$FIX/skill-over"
 
 # A skills/<x>/SKILL.md under a skill name that has no row in budgets() at all.
@@ -161,18 +285,38 @@ expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared
 
 # Two skills whose SKILL.md files carry different budgets in the real table —
 # skills/openspec-explore/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
-# much larger one). skills/myflow-do/SKILL.md is sized to 20000 bytes: above
-# openspec-explore's real budget, but below myflow-do's real budget. If the table
-# were still keyed on the bare basename "SKILL.md" — the collision this task
-# fixes — every skills/*/SKILL.md would be checked against one shared row, and
-# a 20000-byte file would fail against the small budget that basename
-# collision would hand it. Keyed on the path relative to the repository root,
-# each file is checked against its own row and both pass.
+# much larger one). skills/myflow-do/SKILL.md is sized to the midpoint between
+# the two real rows, read from the guard itself: above openspec-explore's row,
+# below myflow-do's row, by construction rather than by a number that must stay
+# between two rows that can each move independently. If the table were still
+# keyed on the bare basename "SKILL.md" — the collision this task fixes —
+# every skills/*/SKILL.md would be checked against one shared row, and this
+# fixture would fail against the small budget that basename collision would
+# hand it. Keyed on the path relative to the repository root, each file is
+# checked against its own row and both pass.
 mkdir -p "$FIX/skill-distinct/skills/myflow-contracts" \
   "$FIX/skill-distinct/skills/openspec-explore" "$FIX/skill-distinct/skills/myflow-do"
 printf 'x\n' > "$FIX/skill-distinct/skills/myflow-contracts/build-green.md"
 printf 'x\n' > "$FIX/skill-distinct/skills/openspec-explore/SKILL.md"
-head -c 20000 /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
+openspec_explore_budget="$(budget_row_bytes 'skills/openspec-explore/SKILL.md')"
+myflow_do_budget="$(budget_row_bytes 'skills/myflow-do/SKILL.md')"
+
+# The fixture only discriminates the basename-collision bug when mid_size
+# lands STRICTLY BETWEEN the two rows. If the rows ever converge, integer
+# division makes mid_size collapse onto openspec_explore_budget and the case
+# below would keep reporting "ok" even with the collision bug back in place —
+# F15's own defect class (a fixture that stops discriminating when its
+# premise erodes), reintroduced by the round that fixed F15 (F16). Assert the
+# premise rather than assume it, and fail the whole harness loudly, naming
+# both rows, when it does not hold: a fixture that cannot be constructed to
+# discriminate must say so, never quietly pass.
+if [ "$((myflow_do_budget - openspec_explore_budget))" -lt 2 ]; then
+  printf 'cannot construct a discriminating fixture: skills/openspec-explore/SKILL.md is %s bytes and skills/myflow-do/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
+    "$openspec_explore_budget" "$myflow_do_budget" >&2
+  exit 2
+fi
+mid_size=$((openspec_explore_budget + (myflow_do_budget - openspec_explore_budget) / 2))
+head -c "$mid_size" /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
 expect 'two skills with different budgets are each checked against their own row' \
   0 "$FIX/skill-distinct"
 
@@ -180,9 +324,14 @@ expect 'two skills with different budgets are each checked against their own row
 # scope has no coverage at all: mutating that glob to a typo left all other cases
 # green while every SKILL-rationale.md in the repo silently stopped being guarded —
 # exactly the "escapes the ratchet silently" failure this guard exists to prevent.
+# Sized from the guard's own row (see F15: a hardcoded 20000 here fell under the
+# row when a fix round raised it, and this case stopped catching an over-budget
+# file at all).
 mkdir -p "$FIX/rationale/skills/myflow-do" "$FIX/rationale/skills/myflow-contracts"
 printf 'x\n' > "$FIX/rationale/skills/myflow-contracts/build-green.md"
-head -c 20000 /dev/zero | tr '\0' 'x' > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
+myflow_do_rationale_budget="$(budget_row_bytes 'skills/myflow-do/SKILL-rationale.md')"
+head -c "$((myflow_do_rationale_budget + 1000))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
 expect 'a SKILL-rationale.md over budget fails' 1 "$FIX/rationale"
 
 # A SKILL-rationale.md with no budget row — the undeclared case for the same glob.

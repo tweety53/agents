@@ -152,6 +152,52 @@ symmetric re-run alone cannot tell "the production code changed" from "the repro
 changed," and membership alone cannot tell a real fix from a comment or whitespace edit on a named
 path.
 
+### The fix round mutation-proves what it changed
+
+**Why the parent runs the mutations.** KAN-200's fix round 2 was not careless. It mutation-proved
+eight added harness cases, eight for eight, reported individually. It still shipped its own largest
+structural change — a record protocol's delimiter — unproved, and reverting that protocol left all
+eighteen harness cases green, because the harness contained no literal tab byte and no `\037` byte
+anywhere. The gap was found in round 3, by a reviewer who thought to ask whether the previous round
+had held itself to its own standard. A rule that asks the same actor to widen its own scope is
+asking for the judgment that already failed. `/myflow-do` settled a related question one paragraph
+earlier, where the parent re-runs each reproducer rather than accepting the subagent's account of
+its own success — related, not identical: a reproducer is a re-runnable command sitting behind two
+guards (`check-panel-reproducers.sh`'s shape check and the parent's own re-run), while a
+`fix-mutation:` line is prose the parent itself writes and no guard reads, so it could be
+fabricated undetectably in a way a reproducer's flip cannot.
+
+**Why no guard reads the record.** To be more than a nag, a guard would have to decide from a diff
+whether a round changed executable behaviour or edited a comment. A script cannot make that
+classification, and in a repository that is mostly prose it fails in the direction that matters: it
+fires on every prose fix round until someone narrows it into vacuity. KAN-197 examined and rejected
+two mechanisms of exactly this shape.
+
+This rejects only the diff-classifying guard. The cheaper variant `check-panel-reproducers.sh`
+already precedents — a shape-and-count check that `fix-mutations-total:` matches the number of
+`fix-mutation:` lines and that each is well formed — was considered and is not adopted either, for
+a reason specific to this record: a reproducer's shape check works because the shape it counts is
+itself evidence — a well-formed `finding-reproducer:` line names a command the parent then runs, so
+a malformed one is caught before it can hide anything. A `fix-mutation:` line names no command;
+counting well-formed ones only proves the parent typed a well-formed sentence, never that a mutation
+ran or that a test failed. The shape check would certify the report's grammar, not its truth, which
+is the thing that matters here.
+
+A third guard shape is different from both of the above: a grep-based lint flagging a reserved
+marker label — `finding-status:`, `findings-total:`, `finding-reproducer:` — appearing outside its
+own marker position, the family `scripts/check-unfinished-work.sh` and
+`scripts/check-panel-reproducers.sh` already form. The evidence for it is real, and is stated
+plainly rather than minimised: this exact defect class was independently rediscovered three times
+in this change's own review — F2, F9 and F11, in three different scopes across three rounds — and
+each time the fix was more prose rather than a check. That recurrence is a genuine argument for
+mechanising it. It is nonetheless out of scope here: it is a guard over the record's
+well-formedness, not over mutation-proof, which is the guard the operator declined above, and it
+belongs beside the record-format guards it would extend rather than inside a rule about fix-round
+behaviour. It is carried forward as a follow-up candidate rather than dropped.
+
+What the record buys instead is that the question becomes askable at all — a recorded field turns a
+lucky unprompted question into a line the next round's reviewers read.
+
 ## 6. Resolve the run instructions
 
 In the same run, resolve the run instructions for the handoff. This is why reviewing and testing
