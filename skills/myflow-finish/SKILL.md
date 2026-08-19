@@ -54,7 +54,7 @@ Which run happens is decided by one thing: whether the change's branch has alrea
 base branch. No field records "integration started" — a field could disagree with git.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
-confirm every guard this command invokes — `check-finish-preflight.sh`,
+confirm every guard this command invokes — `check-finish-preflight.sh`, `resolve-base-branch.sh`,
 `check-unfinished-work.sh`, `preserve-session-records.sh`, `commit-split.sh`,
 `check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
 `skills/myflow-finish/scripts/`. A complete set prints nothing; any absence prints that section's
@@ -62,7 +62,11 @@ block once, and the run continues under each guard's own hand-run fallback.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read of the state file's
-`worktrees` map, which a `{}` map would make pass having checked nothing — and act on the verdict:
+`worktrees` map, which a `{}` map would make pass having checked nothing — and act on the verdict.
+Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what `resolve-base-branch.sh` prints for
+that worktree — the remote-tracking ref, never the bare local name: `resolve-base-branch.sh`'s fetch
+refreshes only remote-tracking refs, so a stale local branch of the same name would silently feed
+this verdict.
 
 - **`RUN1`** → run 1 (integrate)
 - **`RUN2`** from every worktree → run 2 (archive and clean up)
@@ -75,12 +79,14 @@ worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read 
   line as either run — a caller that greps for `RUN2` in empty output finds nothing, which is why
   the exit code has to be checked as well as the line.
 
-**The base branch is resolved, never assumed, and never derived from the current branch.** Follow
-the resolution in **Finish contract** (`skills/myflow-contracts/finish-contract.md`); if it does not
-resolve to a branch distinct from the one checked out, **stop and ask**. This skill runs inside the
-apply worktree, where `HEAD` is the
-change's own branch — so any resolution that consults `HEAD`'s upstream would compare the branch
-against itself and report every pushed branch as merged.
+**The base branch comes from `resolve-base-branch.sh`, never assumed and never derived from the
+current branch.** Run it against the apply worktree; its exit contract is the one **Finish contract**
+(`skills/myflow-contracts/finish-contract.md`) is canonical for. Anything but exit `0` — **stop and
+ask**. This skill runs inside the apply worktree, where `HEAD` is the change's own branch — so any
+resolution that consults `HEAD`'s upstream would compare the branch against itself and report every
+pushed branch as merged. Run 2 resolves the base the same way, from the apply worktree, **before
+cleanup removes it**: the archive commit is run 2's step 3, cleanup is step 4, so the worktree is
+still there when resolution runs.
 
 ---
 
