@@ -72,12 +72,13 @@
 # CITES. skills/myflow-contracts/*.md is shared prose, cited by path from
 # every command skill for reasons that have nothing to do with which guards
 # that skill runs — myflow-status cites finish-contract.md to explain how it
-# COMBINES a merge-status answer, never to invoke anything in it. Expanding
-# rule 2's scan into every contract a skill's text happens to name was tried
-# and produced false positives on this repository's own real, correct tree
-# (myflow-start and myflow-status were reported as needing guards they do not
-# carry and do not run). Scoping to the skill's own files trades a small
-# amount of theoretical coverage — a guard invoked ONLY inside a shared
+# COMBINES a merge-status answer, not to invoke every guard that contract's
+# own prose happens to name. Expanding rule 2's scan into every contract a
+# skill's text happens to name was tried and produced false positives on this
+# repository's own real, correct tree (myflow-start and myflow-status were
+# both reported as needing guards found only in a cited contract, never one
+# either skill itself carried or ran). Scoping to the skill's own files trades
+# a small amount of theoretical coverage — a guard invoked ONLY inside a shared
 # contract's usage-synopsis prose, naming no skill by scope — for zero false
 # failures on a tree already known correct. A guard already shipped that this
 # narrower scan does not detect as required is not a violation either way:
@@ -550,11 +551,11 @@ REQUIRED_FILE="$WORK/required"
 #
 # What IS safe: every command skill that invokes at least one guard of its
 # own states so in a paragraph beginning "**Check guard presence.**" (task 4's
-# own convention — myflow-do and myflow-finish enumerate guard basenames
-# there; myflow-status instead says, in the same slot, "No guard-presence
-# check here — this command invokes no guard."). myflow-fast's OWN copy of
-# that exact paragraph is the one place in its text that names OTHER
-# commands' presence checks by slash-command — "confirm every guard named in
+# own convention — myflow-do, myflow-finish and myflow-status alike enumerate
+# guard basenames there; a skill that invokes none, like myflow-start, carries
+# no such paragraph at all). myflow-fast's OWN copy of that exact paragraph is
+# the one place in its text that names OTHER commands' presence checks by
+# slash-command — "confirm every guard named in
 # `/myflow-do`'s, `/myflow-finish`'s and `/myflow-status`'s own presence
 # checks ... is present in `skills/myflow-fast/scripts/`" — so scoping the
 # slash-command scan to THAT paragraph specifically, rather than the whole
@@ -777,11 +778,11 @@ done < "$SKILL_NAMES_FILE"
 # this repository). Declaring a name that is not part of the current corpus
 # at all would make it a KAN-197 F3 "declared but never recorded" violation
 # for every fixture that does not happen to carry a "myflow-start" or
-# "myflow-status" directory of its own — not a real staleness, just a
+# "openspec-explore" directory of its own — not a real staleness, just a
 # mismatch between this guard's own hardcoded real-repo names and a smaller
 # sandboxed tree. Gating on actual corpus membership keeps F3's protection
-# meaningful for the real repository (all three names are real directories
-# here today) without that false-positive noise in test-check-guard-symlinks.sh's
+# meaningful for the real repository (both names are real directories here
+# today) without that false-positive noise in test-check-guard-symlinks.sh's
 # own fixtures, several of which deliberately reuse "myflow-start" as a
 # stand-in and several of which do not.
 declare_if_present() {
@@ -802,7 +803,6 @@ declare_if_present() {
 }
 
 declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .myflow/project.md, never one symlinked into its own scripts/ directory"
-declare_if_present "myflow-status" "invokes no guard — a read-only status report; its own SKILL.md states \"No guard-presence check here\""
 declare_if_present "openspec-explore" "invokes no guard — a thinking-partner exploration mode with no implementation or verification stage"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
