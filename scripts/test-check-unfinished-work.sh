@@ -910,6 +910,81 @@ case "$ERR" in
   *) fail "missing library: stderr does not name panel-record.sh: $ERR" ;;
 esac
 
+# 12. The pass log's fix-mutation: lines are inert to this guard (KAN-209).
+#     A fix round records what it mutated in the pass log entry, in the same
+#     file this guard reads for a different purpose. The lines are placed
+#     OUTSIDE the marker block on purpose: one between two markers would split
+#     the unbroken run cases 4s-0 and 4s-0b assert on, and one shaped like a
+#     table row would enter the row-identifier set the 4q/4r subgroup compares
+#     against the markers. This case is what makes that placement a checked
+#     property of the guard rather than a claim in a design document.
+#
+#     The CLEAR fixture below carries TWO closed markers, not one: with only
+#     one marker there is no "between two markers" for a misplaced line to
+#     occupy, and the contiguity mechanism could never be exercised. Two
+#     markers make both mutations structurally possible against the same
+#     CLEAR: assertion — one splits the unbroken run, the other unbalances
+#     the row/marker identifier comparison.
+add_pass_log() {
+  cat >> "$WT/.superpowers/sdd/final-review-panel.md" <<'PASSLOG'
+
+### Pass 2 — targeted
+
+fix-mutation: scripts/check-thing.sh — reverted the unit-separator delimiter to a tab — scripts/test-check-thing.sh case 4 failed
+fix-mutation: skills/myflow-do/SKILL.md — none — prose only
+fix-mutations-total: 2
+PASSLOG
+}
+
+new_fixture
+write_panel 2 fixed fixed
+add_pass_log
+run_guard "$WT" demo
+assert_verdict "CLEAR:" "fix-mutation: lines in the pass log leave a clear record clear"
+
+new_fixture
+write_panel 2 open fixed
+add_pass_log
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "fix-mutation: lines do not hide an open finding"
+
+# 12a. THE PLACEMENT RULE ITSELF, PINNED (KAN-209 fix round, F4): a
+#     fix-mutation: line written BETWEEN two finding-status: markers — rather
+#     than in the pass log entry where the format requires it — splits the
+#     unbroken run signal two names, so this must read OUTSTANDING naming that
+#     signal specifically, not just any breakdown line.
+new_fixture
+{
+  printf '| ID | Slot | Severity | Location | Note |\n'
+  printf '|---|---|---|---|---|\n'
+  printf '| F1 | Lens B | Minor | a.sh:1 | one |\n'
+  printf '| F2 | Lens B | Minor | a.sh:2 | two |\n'
+  printf '\nfindings-total: 2\n'
+  printf 'finding-status: F1 fixed\n'
+  printf 'fix-mutation: scripts/check-thing.sh — reverted the delimiter — case 4 failed\n'
+  printf 'finding-status: F2 fixed\n'
+} > "$WT/.superpowers/sdd/final-review-panel.md"
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "a fix-mutation: line between two markers is OUTSTANDING"
+assert_reason "must be one unbroken block" "a fix-mutation: line splitting the marker block names the contiguity signal"
+
+# 12b. THE OTHER HALF OF THE SAME PLACEMENT RULE, PINNED: a fix-mutation: line
+#     shaped like a findings-table row — matching the row-identifier pattern
+#     `^\|?[[:space:]]*F[0-9]+[[:space:]]*\|` — enters the row-identifier set
+#     the 4q/4r subgroup compares against the markers, with no marker of its
+#     own to balance it, so this must read OUTSTANDING naming the
+#     row/marker correspondence signal specifically.
+new_fixture
+write_panel 2 fixed fixed
+{
+  printf '\n### Pass 2 — targeted\n\n'
+  printf '| F9 | scripts/check-thing.sh | reverted the delimiter | case 4 failed |\n'
+  printf 'fix-mutations-total: 1\n'
+} >> "$WT/.superpowers/sdd/final-review-panel.md"
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "a fix-mutation: line shaped like a table row is OUTSTANDING"
+assert_reason "do not name the same findings" "a row-shaped fix-mutation: line names the row/marker correspondence signal"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
