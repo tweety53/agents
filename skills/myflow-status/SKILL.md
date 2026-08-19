@@ -22,16 +22,12 @@ Follow both contracts:
 
 ### 1. List open changes
 
-**No guard-presence check here — this command invokes no guard.** Every other command's presence
-check, per **Guard presence check** (`skills/myflow-contracts/pipeline.md`), covers a guard that
-command literally runs; this one runs none. Step 2 below reimplements
-`check-finish-preflight.sh`'s merge-status steps in prose rather than invoking the script (see the
-note there), so there is no call site for a missing-guard report to cover.
-
-**This command therefore carries no `scripts/` directory**, exactly as `/myflow-start` does not:
-a skill ships the guards it invokes, and one that invokes none ships none. A directory nothing
-resolves against is a directory that goes stale unnoticed, which is the same reason
-`skills/myflow-contracts/` has none.
+**Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+confirm the one guard this command invokes — `resolve-base-branch.sh` — is present in
+`skills/myflow-status/scripts/`. A complete set prints nothing; an absence prints that section's
+block once, and the run continues under the guard's own hand-run fallback. Step 2 below still
+reimplements `check-finish-preflight.sh`'s other merge-status steps in prose rather than invoking
+that script (see the note there); only base-branch resolution is delegated to a real guard.
 
 Enumerate the candidate set exactly as **Change name resolution**
 (`skills/myflow-contracts/pipeline.md`) defines it — through `myflow state list [-C dir]`, never a
@@ -109,8 +105,16 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
    **inconclusive**. Do not infer one, and do not run either test below.
 2. **`HEAD` against that resolved merge base.** Equal → the branch has **no commits of its own**,
    so it is **not merged**, and no ancestor test is run.
-3. otherwise `git merge-base --is-ancestor <branch> origin/<base>`; a git failure or an
-   unresolvable base ref is **inconclusive**, never "not merged"
+3. otherwise resolve `<base>`, **in the same worktree**, by invoking `resolve-base-branch.sh`
+   exactly as **Finish contract** (`skills/myflow-contracts/finish-contract.md`) does — never a
+   hand-derived name, and never `HEAD@{upstream}`, for the reason stated there; running it in this
+   worktree is also what satisfies its unconditional assertion that the base differs from the
+   current branch, since `HEAD` here is the change's own branch. **A non-zero exit is
+   inconclusive** — the same disposition this step already gives a git failure or an unresolvable
+   base ref. The report continues, and the detail view carries the resolver's own stderr message
+   rather than inventing one; `/myflow-status` is read-only and never blocks. On exit `0`, run
+   `git merge-base --is-ancestor <branch> origin/<base>`; a git failure there is likewise
+   **inconclusive**, never "not merged"
 
 **Steps 1 and 2 are not optional, and neither may be skipped because the ancestor test looks
 decisive.** Why an unresolved or unequal-to-`HEAD` merge base has to be settled *before*

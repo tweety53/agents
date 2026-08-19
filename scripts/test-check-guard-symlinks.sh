@@ -559,12 +559,13 @@ assert_silent "a delegating skill carrying the delegated guard is not a rule 2 v
 #      inside a "**Check guard presence.**" paragraph — is never read as
 #      delegating. This is the false-positive this file's own header warns
 #      about (rule 2 scoped to a skill's own directory, not every citation):
-#      myflow-status cites /myflow-do constantly without invoking anything.
-#      Named "myflow-status" here on purpose, not a "-like" stand-in: it is
-#      one of the guard's own declared expected-zero skills, so its
-#      genuinely-empty required set here reads as declared rather than
-#      tripping the coverage violation added below (F12) — this fixture is
-#      about rule 2's delegation boundary, not coverage.
+#      myflow-status used to cite /myflow-do constantly without invoking
+#      anything, before KAN-236 gave it its own guard, so this fixture now
+#      stands in with "myflow-start" instead — one of the guard's own
+#      declared expected-zero skills, so its genuinely-empty required set
+#      here reads as declared rather than tripping the coverage violation
+#      added below (F12) — this fixture is about rule 2's delegation
+#      boundary, not coverage.
 new_repo
 add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
 link_guard "myflow-do" "check-deleg.sh"
@@ -576,7 +577,7 @@ write_skill_md "myflow-do" '# myflow-do fixture
 check-deleg.sh <worktree>
 ```
 '
-write_skill_md "myflow-status" '# fixture standing in for myflow-status
+write_skill_md "myflow-start" '# fixture standing in for myflow-start
 
 This command explains what `/myflow-do` does elsewhere. It invokes nothing
 of its own.

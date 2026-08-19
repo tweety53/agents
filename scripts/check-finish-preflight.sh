@@ -24,9 +24,10 @@
 # it; counting commits ahead of the base branch does NOT, because a genuinely
 # merged branch is also zero ahead once its commit joins the base branch.
 #
-# Base-branch resolution deliberately stays in pipeline.md's Finish contract
-# and is passed in. That resolution already carries a hard-won guard against
-# HEAD@{upstream}; a second copy here could drift from it.
+# Base-branch resolution is owned by resolve-base-branch.sh, not by this
+# script — the caller resolves it and passes it in. That guard already
+# carries a hard-won assertion against HEAD@{upstream}; a second copy here
+# could drift from it.
 set -euo pipefail
 
 WORKTREE="${1:-}"
