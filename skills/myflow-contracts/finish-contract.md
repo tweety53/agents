@@ -16,6 +16,13 @@ branch's merge status is the only source of truth, and a field could disagree wi
 line and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
 worktree at all — an unreadable tree is never a licence to proceed.
 
+**`<base-ref>` is composed as `origin/$BASE`** — the remote-tracking ref, `$BASE` being the bare
+name `resolve-base-branch.sh` printed — never the bare local name on its own. A bare local branch is
+wrong here because the ancestor test resolves whatever ref it is handed, and `resolve-base-branch.sh`'s
+fetch refreshes only remote-tracking refs, never local branches; a stale local branch of the same
+name would then silently feed the RUN1/RUN2/REFUSE decision, the gate in front of this command's most
+destructive step.
+
 | Verdict | Meaning |
 |---------|---------|
 | `RUN1` | integrate — the branch has not reached the base branch |
@@ -155,37 +162,52 @@ Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/myflow-finish <nam
 **Resolve the base branch; never assume it, and never derive it from the current branch.**
 
 ```bash
-# Both network calls are wrapped: `git remote show origin` against an unreachable host blocks for
-# ~75s on the default TCP timeout, which would turn a correct refusal into a two-minute hang.
-git -c core.askpass=true fetch --quiet origin 2>/dev/null || true   # a stale ref only fails safe
-BASE="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
-if [[ -z "$BASE" ]]; then
-  BASE="$(GIT_TERMINAL_PROMPT=0 git remote show origin 2>/dev/null | sed -n 's/^ *HEAD branch: //p')"
-fi
-CUR="$(git branch --show-current)"
-[[ -n "$CUR" ]] \
-  || { echo "detached HEAD — check out openspec/<name> before finishing"; exit 1; }
-[[ -n "$BASE" ]] \
-  || { echo "no base branch resolved. If this repo has no remote, finish cannot integrate — see below"; exit 1; }
-[[ "$BASE" != "$CUR" ]] \
-  || { echo "base branch resolved to the current branch ($CUR) — refusing to compare it with itself"; exit 1; }
+BASE="$(resolve-base-branch.sh "<abs-worktree>")"
 ```
+
+`<abs-worktree>` is **the apply worktree** — the same one **Reshape the branch** above just
+committed from — where `HEAD` is the change's own branch, `openspec/<name>`, by construction; never
+the main checkout. The exit contract: `0` resolved, with the name on stdout; `1` a named refusal —
+detached `HEAD`, no base resolved, the base equal to the current branch, or a base name that fails
+validation; `2` the tree cannot be read — `<abs-worktree>` is missing, unreadable, or not a git
+worktree — or `HEAD`'s own ref cannot be read (corrupt or permission-denied); `3` the repository has
+no `origin` remote at all.
 
 **Never fall back to `HEAD@{upstream}`.** `/myflow-finish` runs inside the apply worktree, where
 `HEAD` *is* `openspec/<name>` — so that fallback resolves to the change's **own** upstream, making
 the merge check `openspec/<name>` vs `origin/openspec/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
-deletes its worktree. Asserting `BASE` differs from the current branch is what makes that class of
-misresolution impossible rather than merely unlikely.
+deletes its worktree. `resolve-base-branch.sh` is where this rule is now enforced: it never
+consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
+unconditional, which is what makes that class of misresolution impossible rather than merely
+unlikely.
 
 If no base branch resolves, **stop and ask**. An unresolvable base is an honest unknown; a guessed
 one is a wrong answer at the only irreversible step.
 
+**When the script is absent** — a harness whose repository does not carry it — resolve the base
+branch by hand, in the same order, and say in the handoff that the resolution was done manually. The
+guard is never skipped for want of the script. Run the wrapped fetch first — bounded and
+credential-free, exactly as the guard's own header describes, so an unreachable remote refuses
+quickly rather than hanging — then read `refs/remotes/origin/HEAD`, falling back to `git remote show
+origin`'s reported `HEAD branch` only when that is empty. Once a candidate name is in hand, apply the
+guard's assertions in order and by hand, never accepting a guess in place of any of them: refuse a
+detached `HEAD`, refuse when no name resolved, refuse when the resolved name equals the current
+branch, and refuse the resolved name unless it matches this exact shape: the first character is one
+of `[A-Za-z0-9._]` — so a leading `-` a downstream git call would read as an option is refused, and
+so is a leading `/` — and every character in the name, start to end, is one of `[A-Za-z0-9._/-]`,
+which is what rules out control characters and anything else outside that set. That header is the
+authority for the exact commands and their order; this paragraph does not repeat what it already
+states. The character rule itself is stated here in full, not cited, because this paragraph's own
+precondition is the script's absence — a fallback the operator applies by hand when the script is
+absent cannot defer them to a file that, by the same precondition, is not there to read.
+
 **A repository with no remote at all cannot be integrated by this command.** Every route needs a
-push, and base resolution needs `origin`. Say exactly that — *"this repository has no remote, so
-there is nothing to push to or merge into"* — rather than reporting a base-branch failure, which
-sends the operator debugging the wrong thing. Offer to leave the change at `IN_PROGRESS` with the
-work staged; there is nothing to lose, because nothing was pushed.
+push, and base resolution needs `origin` — `resolve-base-branch.sh` is where that check now lives,
+and its exit `3` is how a caller recognises this case. Say exactly that — *"this repository has no
+remote, so there is nothing to push to or merge into"* — rather than reporting a base-branch
+failure, which sends the operator debugging the wrong thing. Offer to leave the change at
+`IN_PROGRESS` with the work staged; there is nothing to lose, because nothing was pushed.
 
 **No verification gate runs before integration.** No tests, no linters, no spec-coverage check.
 Correctness was established during `/myflow-do` — TDD per task, per-task review, the final review
@@ -207,6 +229,20 @@ the one irreversible step.
 4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/myflow-contracts/finish-contract.md`) below.
+
+   **`BASE` is resolved per worktree, inside the cleanup loop below — never once for the whole
+   change.** A multi-repo change has one `origin` and one default branch per repository, so a name
+   resolved against one worktree can be the wrong ref, or no ref at all, against another
+   repository's `origin`. Worktree cleanup's check 3 below is where this resolution actually runs:
+   for each worktree in the resolved set it invokes `resolve-base-branch.sh` against that same
+   worktree, immediately before that worktree's own removal — the same call and exit contract as
+   **Resolve the base branch** under Run 1 above, run again here because this is a separate
+   invocation and nothing carries `BASE` over from run 1's. Step 3's archive commit runs before this
+   step, so every worktree in the set is still present when its own resolution runs — satisfying the
+   same "before cleanup removes it" ordering this step has always required, just per worktree rather
+   than once for the change. Anything but exit `0` for a given worktree — stop and ask, exactly as
+   Run 1 does, and leave every worktree alone, per **Any failed check leaves every worktree alone**
+   below.
 
    The removal runs the project's `remove` command, read from the command table
    **Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for,
@@ -379,9 +415,14 @@ git -C "$WT" status --porcelain --untracked-files=no
 #    `.gitignore` does NOT cover. This is the check that makes `--force` safe.
 git -C "$WT" ls-files --others --exclude-standard
 
-# 3. no commits that exist only here. `@{upstream}` ERRORS when no upstream is configured, and
-#    an empty capture would read as "nothing unpushed" — so resolve it explicitly and never let
-#    a failed lookup pass as success.
+# 3. no commits that exist only here. Resolve `BASE` fresh for THIS worktree — never reused from
+#    another worktree in the set. A multi-repo change has one `origin` and one default branch per
+#    repository, so a name resolved against one worktree's `origin` can be the wrong ref, or absent
+#    entirely, in another repository. Resolving it here, before this worktree's own removal below,
+#    is what "before cleanup removes it" (run 2 step 4, above) means per worktree.
+BASE="$(resolve-base-branch.sh "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
+#    `@{upstream}` ERRORS when no upstream is configured, and an empty capture would read as
+#    "nothing unpushed" — so resolve it explicitly and never let a failed lookup pass as success.
 #
 #    Step 1 already proved the branch is an ancestor of the base branch, which is STRICTLY
 #    STRONGER evidence than "pushed to its own upstream": the commits are in the base branch.
