@@ -7,13 +7,15 @@ whatever tree the harness placed it — never necessarily this checkout. A
 bare citation like `` `README.md` `` in such a file is read against THAT
 tree, which is exactly how a bug ships: the citation resolves to nothing,
 or worse, to some unrelated file the target project happens to have.
-Exactly three forms are recognised (canonical definition:
+Exactly three FORMS of root are recognised (canonical definition:
 specs/myflow-citation-roots/spec.md — do not restate the rule here):
 
   - an installed root's own bare form (`skills/…`, `rules/…`, `commands/…`,
     `commands-claude/…`, `hooks/…`, wherever the harness placed it)
-  - `<agents repo>/…` — this checkout
-  - `<project>/…` — the project the running command is working against
+  - a placeholder root — a CLOSED set of five, see PLACEHOLDER_ROOTS below
+    for the set itself and why membership rather than bracket shape is
+    what a placeholder root requires
+  - (nothing else — anything not matching one of the above is a violation)
 
 GUARD CONTRACT (as check-installed-citations.sh, this script's wrapper,
 presents it — see that file and this module's main() for why the split):
@@ -419,6 +421,18 @@ def scan_file_for_citations(text):
 def classify_token(token, repo_root_files):
     """True when <token> is a citation at all — before its root is ever
     judged. False for every excluded shape this module's docstring names.
+
+    Two exclusions below were added by task 9, after the real corpus
+    proved they were needed (each closed exactly one of four permanent
+    false positives waves A-C could not rewrite without writing something
+    false):
+
+      - A `../`-rooted token: relative to something the document never
+        names, so there is no root that could correctly prefix it.
+      - A token carrying a leading or trailing quote character (`'`
+        or `"`): a real citation in this corpus is never wrapped in one
+        inside its own backtick span — a quoted fragment of program
+        output (a git error message, a shell one-liner's own quoting) is.
     """
     tok = token.strip()
     if not tok:
@@ -427,8 +441,12 @@ def classify_token(token, repo_root_files):
         return False  # absolute path
     if tok.startswith("~"):
         return False  # home-rooted path
+    if tok.startswith("../"):
+        return False  # parent-relative path — no document-relative root exists to write
     if URL_RE.match(tok):
         return False  # URL
+    if tok[0] in "'\"" or tok[-1] in "'\"":
+        return False  # quoted program output, not a citation
 
     first_seg = tok.split("/", 1)[0]
     if first_seg.startswith("$"):
@@ -443,14 +461,38 @@ def classify_token(token, repo_root_files):
     return True
 
 
+# PLACEHOLDER_ROOTS — the closed set specs/myflow-citation-roots/spec.md
+# enumerates. Task 9's first cut accepted ANY first segment shaped
+# `<…>` — bracket-shaped alone — which fails open: `<foo>/openspec/specs/
+# x.md` passed while naming an unrooted path, and so did a typo of a real
+# placeholder (`<changeroot>/`, `<change-root>/`). A guard that reports
+# clean while checking nothing is worse than no guard — the same
+# principle wave A's own `~/` review finding rested on: a site leaves the
+# report by acquiring a root, never by ceasing to look like a citation.
+# Adding a sixth placeholder root here is a deliberate act that extends
+# the spec's own table; it is not something this guard does by pattern-
+# matching brackets.
+PLACEHOLDER_ROOTS = frozenset(
+    {
+        "<agents repo>",
+        "<project>",
+        "<abs-worktree>",
+        "<changeRoot>",
+        "<state-dir>",
+    }
+)
+
+
 def judges_ok(token, roots):
     """True when <token> — already classified as a citation — names a
-    recognised root: an installed root's own first segment, or the
-    literal `<agents repo>/` or `<project>/` prefix.
+    recognised root: an installed root's own first segment, or a first
+    segment that is a MEMBER of the closed PLACEHOLDER_ROOTS set above —
+    never merely bracket-shaped. See that set's own comment for why this
+    is a closed membership test rather than a `startswith("<")` pattern.
     """
-    if token.startswith("<agents repo>/") or token.startswith("<project>/"):
-        return True
     first_seg = token.split("/", 1)[0]
+    if first_seg in PLACEHOLDER_ROOTS:
+        return True
     return first_seg in roots
 
 

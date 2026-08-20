@@ -345,6 +345,61 @@ else
 fi
 
 # ===========================================================================
+# SECTION: Task 9's three classifier exclusions — the real corpus proved
+# necessary after wave B refused to force a root onto four tokens the
+# classifier called citations that were not. Four cases: one per
+# exclusion, plus placeholder-rooted-is-recognised, which draws the same
+# recognised-versus-never-seen distinction agents-repo-prefix-bogus-path
+# already draws (that exact collapse is what hid this change's critical
+# defect behind a green test the first time).
+# ===========================================================================
+
+assert_case "parent-relative-path" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`../<other-app>`
+' "not-reported"
+
+assert_case "placeholder-rooted" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`<state-dir>/<name>-proposal-artifact.html`
+' "not-reported"
+
+assert_case "quoted-program-output" "skills/myflow-do/SKILL.md"   "# myflow-do fixture
+\`'openspec/<name>':\`
+" "not-reported"
+
+# placeholder-rooted-is-recognised — a companion to placeholder-rooted,
+# same shape as agents-repo-prefix-bogus-path: "not reported" alone
+# cannot tell "recognised and correctly passed" apart from "silently
+# dropped before judgment ever ran" — both look identical from outside.
+# The path here does not exist (`<state-dir>/does-not-exist.html`):
+# existence is never checked for a slash-containing token, so a bogus
+# target proves nothing except whether the CITATION ITSELF was seen —
+# proven by its member's coverage count going non-zero, not merely by
+# the absence of a violation line.
+new_fixture_repo
+write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+`<state-dir>/does-not-exist.html`
+'
+run_guard "$FIXTURE"
+if [ "$RC" -eq 0 ]   && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:'   && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+  pass "placeholder-rooted-is-recognised: recognised (coverage count 1), not silently dropped"
+else
+  fail "placeholder-rooted-is-recognised: rc=$RC out='$OUT'"
+fi
+
+# unrecognised-placeholder-is-reported — per the per-task review's
+# critical finding: the first cut of the placeholder rule accepted ANY
+# bracket-shaped first segment, which fails open — `<foo>/…` passed while
+# naming an unrooted path, and so would a typo of a real placeholder
+# (`<changeroot>/`, `<change-root>/`). This is the case whose ABSENCE let
+# that through: every earlier placeholder case only ever exercised a
+# MEMBER of the closed set, never a non-member, so a bracket-shape-only
+# implementation passed all of them anyway.
+assert_case "unrecognised-placeholder-is-reported" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+`<foo>/openspec/specs/x.md`
+' "reported"
+
+# ===========================================================================
 # SECTION: Refusal cases (4 cases, task 1 step 3's table). Every refusal
 # case asserts stdout is empty as well as the exit code.
 # ===========================================================================
