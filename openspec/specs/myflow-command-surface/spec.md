@@ -34,8 +34,17 @@ run the suggested command instead.
 `/myflow-start` SHALL perform no git actions beyond writing planning artifacts. `/myflow-do` SHALL
 create or resume a worktree and stage with `git add`, and SHALL commit and push **only** when the
 state file already records a `prUrl`. `/myflow-finish` SHALL commit, push, open a PR or merge on
-its first run, and commit and push the archive and remove worktrees, branches and the remote branch
-on its second.
+its first run. On its second run it SHALL commit the archive on `chore/archive-<name>`, remove
+worktrees, branches and the remote branch, and — after self-review has committed its report onto
+that same branch — push `chore/archive-<name>` and open a pull request against the base branch.
+
+**Run 2 SHALL NOT push the base branch.** The archive reaches the base branch only through that
+pull request, never through a local push.
+
+This is scoped to run 2 deliberately. **Run 1's merge-and-push route does push the base branch** —
+it pushes the change branch, merges it into the base branch, and pushes that — and this change does
+not touch it: that route is one of three the operator explicitly chooses between, and it is not the
+unasked-for direct push run 2 used to perform.
 
 No command other than `/myflow-finish`, and `/myflow-do` when a PR is already open, SHALL create a
 commit.
@@ -66,6 +75,13 @@ PR keeps its code commits free of planning artifacts.
 
 - **WHEN** `/myflow-finish` commits on its first run
 - **THEN** the implementation is committed first and the planning artifacts second
+
+#### Scenario: Run 2 never pushes the base branch
+
+- **WHEN** `/myflow-finish` completes its second run
+- **THEN** the only branch pushed is `chore/archive-<name>`, and the base branch is reached solely
+  through the pull request that branch opens — run 1's merge-and-push route, which does push the
+  base branch when the operator chooses it, is unaffected
 
 ### Requirement: No command accepts a flag
 

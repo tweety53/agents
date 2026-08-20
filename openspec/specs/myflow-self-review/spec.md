@@ -5,21 +5,26 @@ TBD - created by archiving change kan-23-myflow-self-review. Update Purpose afte
 ## Requirements
 ### Requirement: Self-review runs only after FINISHED is written
 
-`/myflow-finish` run 2 SHALL run self-review as its step 8, immediately after step 7 (write
+`/myflow-finish` run 2 SHALL run self-review as its step 9, immediately after step 8 (write
 `FINISHED`) succeeds, and only then. A run 2 that stops earlier — at a cleanup leftover, or on any
 failure before the `FINISHED` write — SHALL NOT run self-review.
 
 Self-review SHALL NOT be able to prevent, delay, or undo the `FINISHED` write. A failure inside
 self-review SHALL be reported and SHALL NOT reopen the change or move its state.
 
+**Only the step numbers change here.** Inserting the checkout-positioning step ahead of the sync
+shifted every later run-2 step by one; the ordering this requirement exists to guarantee — self-review
+strictly after the terminal write, never before it, and never able to affect it — is unchanged, which
+is why the archive push was placed after self-review rather than the write being moved.
+
 #### Scenario: Self-review follows a completed archive
 
-- **WHEN** run 2 reaches step 7 and writes `FINISHED`
-- **THEN** step 8 (self-review) runs next, before the terminal handoff prints
+- **WHEN** run 2 reaches step 8 and writes `FINISHED`
+- **THEN** step 9 (self-review) runs next, before the terminal handoff prints
 
 #### Scenario: A cleanup leftover skips self-review entirely
 
-- **WHEN** run 2 stops at step 6 because `check-cleanup-complete.sh` reported `LEFTOVER:`
+- **WHEN** run 2 stops at step 7 because `check-cleanup-complete.sh` reported `LEFTOVER:`
 - **THEN** self-review does not run, and the change stays at `IN_PROGRESS` exactly as it does today
 
 #### Scenario: A self-review failure never reopens the change
@@ -29,20 +34,20 @@ self-review SHALL be reported and SHALL NOT reopen the change or move its state.
 
 ### Requirement: A skip prompt defaults to running self-review
 
-On entering step 8, `/myflow-finish` SHALL ask:
+On entering step 9, `/myflow-finish` SHALL ask:
 
 > **Run self-review for this change?**
 > - **Yes — run it** *(default, recommended)*
 > - **No — skip**
 
-Only an explicit **No** SHALL skip the remainder of step 8. Silence, a stalled prompt, or a session
+Only an explicit **No** SHALL skip the remainder of step 9. Silence, a stalled prompt, or a session
 that cannot ask SHALL run self-review rather than skip it, since nothing external is written before
 the later per-finding and rating asks.
 
 #### Scenario: Explicit No skips
 
 - **WHEN** the operator answers **No — skip**
-- **THEN** step 8 stops immediately, the handoff prints `Self-review: skipped`, and nothing else in
+- **THEN** step 9 stops immediately, the handoff prints `Self-review: skipped`, and nothing else in
   the run-2 handoff changes
 
 #### Scenario: Silence runs it
@@ -53,8 +58,8 @@ the later per-finding and rating asks.
 ### Requirement: Context is gathered deterministically, not by the model re-reading files
 
 `/myflow-finish` SHALL invoke `scripts/gather-self-review-context.sh <archived-change-path> <name>
-<state-dir>` to assemble the self-review input bundle before any reasoning pass runs. The script
-SHALL collect, without performing any judgement:
+<state-dir> [<repo-root>]` to assemble the self-review input bundle before any reasoning pass runs.
+The script SHALL collect, without performing any judgement:
 
 - the SDD ledger, `docs/superpowers/ledgers/<YYYY-MM-DD>-<name>.md` — date-prefixed, exactly as
   `scripts/preserve-session-records.sh` writes it; the date is not known in advance, so the script
@@ -75,15 +80,30 @@ A source that resolves outside the repository via a symlink SHALL be reported as
 (resolves outside the repository)` on stdout instead of `skipped:` — a refusal is never reported as
 an absence — and SHALL NOT be read; the script SHALL still exit 0 for this case.
 
+`<repo-root>` is **optional**. When it is omitted, the trusted repository root SHALL be derived
+exactly as before, from the script's own process working directory. When it is supplied, it SHALL
+become the trusted repository root, and SHALL first be validated by the same tests
+`<archived-change-path>` receives: it SHALL be an absolute path, its lexically-collapsed form and its
+symlink-resolved form SHALL be identical, and it SHALL be the root of a git repository. A supplied
+`<repo-root>` failing any of those SHALL be an invocation error, exit 2 — the same class as a
+missing argument or an invalid change name. **This deliberately differs from a malformed
+`<archived-change-path>`**, which is not an invocation error: that case prints a `note:` line,
+reports every source `skipped:`, and still exits 0, per the paragraph below. The two are treated
+differently because a caller-supplied root that cannot be trusted leaves nothing safe to gather
+against, whereas an untrustworthy archived path only means those sources go unread.
+
+Trusting a caller-supplied root does not weaken the containment argument that follows: the
+prohibition being defended is deriving the anchor from `<archived-change-path>` — the untrusted input
+under test — not accepting one from the caller.
+
 `<archived-change-path>` SHALL be validated by resolving it TWICE, independently, and comparing the
 two results, rather than by a bounded, fixed-depth series of individual symlink checks:
 
-1. A trusted repository root SHALL be derived from the script's own process working directory via
-   `git rev-parse --git-common-dir` (never `--show-toplevel`, which returns a *worktree's* root
-   rather than the main repository's when run inside one) — and never from
-   `<archived-change-path>` itself, since that would trust the very path being validated. The
-   script's documented caller (`skills/myflow-finish/SKILL.md`) always invokes it with the process
-   working directory at the repository root.
+1. A trusted repository root SHALL be `<repo-root>` when supplied, and otherwise SHALL be derived
+   from the script's own process working directory via `git rev-parse --git-common-dir` (never
+   `--show-toplevel`, which returns a *worktree's* root rather than the main repository's when run
+   inside one) — and in neither case from `<archived-change-path>` itself, since that would trust the
+   very path being validated.
 2. `<archived-change-path>` SHALL be normalized into an absolute, lexically-collapsed path — `.` and
    `..` components resolved by pure string manipulation, never touching the filesystem — so this step
    alone cannot be fooled by a symlink at any component. Call this the LEXICAL path.
@@ -108,6 +128,29 @@ never resolve a symlink and use its target as a trust boundary. This single mech
 bypass shape a bounded, fixed-hop-count check could miss, since it makes no assumption about how many
 ancestor levels exist or what shape a deviation takes — it looks for ANY divergence between what the
 path string says and what the filesystem actually resolves to, not for a specific bypass pattern.
+
+**A supplied `<repo-root>` does not change any of the above.** It replaces only where the trusted
+root comes from; every containment, divergence and refusal rule stated here applies unchanged.
+
+#### Scenario: The repo root is omitted
+
+- **WHEN** the script is invoked with three arguments, from a process working directory inside the
+  repository
+- **THEN** the trusted repository root is derived via `git rev-parse --git-common-dir` exactly as
+  before, and every existing call site behaves unchanged
+
+#### Scenario: The repo root is supplied
+
+- **WHEN** the script is invoked with a fourth argument naming an absolute, symlink-free git
+  repository root
+- **THEN** that path becomes the trusted repository root, and the archived path is validated against
+  it regardless of the process working directory or the checked-out branch
+
+#### Scenario: A malformed repo root is an invocation error
+
+- **WHEN** the fourth argument is relative, reaches through a symlink, or is not a git repository
+  root
+- **THEN** the script exits 2 and gathers nothing
 
 #### Scenario: All sources present
 
@@ -201,15 +244,35 @@ never in the state file.
 
 ### Requirement: The report is committed to a fixed path
 
-Self-review SHALL write `docs/self-review/<name>-self-review.md`, containing the five-section
-report, the rating, and which findings were filed versus declined, then commit it on the base branch
-(in the main checkout) and push.
+Self-review SHALL write `docs/self-review/<name>-self-review.md`, containing the five-section report,
+the rating, and which findings were filed versus declined, then commit it on the archive branch
+`chore/archive-<name>` in the main checkout — the branch run 2's positioning step put that checkout
+on, and the same branch the archive commit already sits on.
+
+Self-review SHALL NOT push. The push is run 2's final step, which carries the archive commit and this
+report in the same pull request.
+
+The commit SHALL assert the branch rather than assume it: naming the directory with
+`git -C <main-checkout>` fixes the directory and not the branch, which is what stranded the reports
+for KAN-197 and KAN-200 on an already-merged archive branch.
 
 #### Scenario: Report path is fixed per change
 
 - **WHEN** self-review completes for change `<name>`
-- **THEN** the report exists at `docs/self-review/<name>-self-review.md`, committed and pushed on
-  the base branch
+- **THEN** the report exists at `docs/self-review/<name>-self-review.md`, committed on
+  `chore/archive-<name>`
+
+#### Scenario: The report rides in the archive pull request
+
+- **WHEN** run 2 pushes the archive branch and opens its pull request
+- **THEN** that pull request carries both the archive commit and the self-review report, so the
+  report cannot be stranded behind an already-merged archive
+
+#### Scenario: The commit is refused on the wrong branch
+
+- **WHEN** the main checkout is not on `chore/archive-<name>` when the report commit is attempted
+- **THEN** the commit is not made, the mismatch is reported naming the branch found and the branch
+  required, and the change stays `FINISHED`
 
 ### Requirement: The run-2 handoff names the self-review outcome
 
