@@ -459,10 +459,19 @@ Slot 2 is the panel's only mandatory judgment check on *how* the code is built. 
 its standards files: architecture and layer purity, new suppressions, weakened lint config.
 
 **Resolve `[PRINCIPLES_PATH]` before dispatching any principles slot.** It is the **absolute** path
-of `engineering-principles.md` in the directory you are reading this file from — under a global
-install, `~/.claude/skills/myflow-do/engineering-principles.md`. Confirm the file exists before
-spawning; if it does not, stop and report rather than dispatching a blind reviewer. See
-**5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why it must be absolute.
+of `engineering-principles.md` **beside this file** — `skills/myflow-do/`, always, including when a
+composite command such as `/myflow-fast` is the one running this section. Under a global install
+that is `~/.claude/skills/myflow-do/engineering-principles.md`. The three reviewer-prompt files this
+section links resolve the same way, beside this file.
+
+**It is deliberately not resolved against the running command's own skill directory.** That rule is
+**Guard resolution** (`skills/myflow-contracts/pipeline.md`), it governs `<skill-dir>/scripts/` and nothing else,
+and applying it here sends a `/myflow-fast` run to `skills/myflow-fast/`, which carries no such file
+— after which the fix looks like symlinking one in, rather than reading the sentence above.
+
+Confirm the file exists before spawning; if it does not, stop and report rather than dispatching a
+blind reviewer. See **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why it must
+be absolute.
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in
 `<project>/.myflow/project.md`. Entries are **not** paths to use as-is: each resolves through the
