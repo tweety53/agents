@@ -74,6 +74,6 @@ Subagent (generalPurpose):
 ```
 
 **Placeholders:**
-- `[DIFF_PATH]` — `<project>/.superpowers/sdd/final-review.diff` (or per-repo equivalent)
+- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff` (or per-repo equivalent)
 - `[PLAN_OR_REQUIREMENTS]` — plan/tasks/spec paths
 - `[GLOBAL_CONSTRAINTS]` — verbatim constraints from design/specs

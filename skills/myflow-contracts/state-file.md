@@ -137,7 +137,7 @@ field is how it gets erased.
 
 - `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
   `STARTED`, `IN_PROGRESS`, `FINISHED`.
-- `branch` — the change's branch, `<project>/openspec/<name>`; `null` before one exists.
+- `branch` — the change's branch, `openspec/<name>`; `null` before one exists.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
   that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
   legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal

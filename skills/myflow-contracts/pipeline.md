@@ -497,10 +497,10 @@ their command does not load.
 
 | Artifact | Created by | Location | Removed by |
 |----------|-----------|----------|-----------|
-| Per-task and review diffs | `/myflow-do` | `<project>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Panel record | `/myflow-do` | `<project>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
-| SDD ledger | `/myflow-do` | `<project>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
-| Dispatch context bundle | `/myflow-do` | `<project>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Panel record | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| SDD ledger | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if a preserved copy exists |
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
@@ -642,7 +642,7 @@ from their own agent definition, which the dispatcher does not read; writing a p
 them puts an unmeasured value into the audit trail.
 
 **This record outlives the change: the ledger is preserved under `<project>/docs/superpowers/ledgers/` at run
-1, before the worktree carrying `<project>/.superpowers/sdd/` is removed.** See **Model policy**
+1, before the worktree carrying `<abs-worktree>/.superpowers/sdd/` is removed.** See **Model policy**
 (`skills/myflow-contracts/pipeline-rationale.md`) for why, and **Run 1 — the branch is not merged**
 (`skills/myflow-contracts/finish-contract.md`) for the preservation duty itself.
 

@@ -99,7 +99,7 @@ carry it.
 
 **Why `Panel` is run-only.** It names the roster *that run selected* — which optional slots fired
 and which did not — and no field carries it. The only on-disk trace is the panel record
-`/myflow-do` writes under `<project>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
+`/myflow-do` writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
 removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
 there and sometimes not is not a source `/myflow-status` can regenerate from, and reporting it
 *missing* on every change whose worktree is gone would name a fault where there is none. The

@@ -166,7 +166,7 @@ BASE="$(resolve-base-branch.sh "<abs-worktree>")"
 ```
 
 `<abs-worktree>` is **the apply worktree** — the same one **Reshape the branch** above just
-committed from — where `HEAD` is the change's own branch, `<project>/openspec/<name>`, by construction; never
+committed from — where `HEAD` is the change's own branch, `openspec/<name>`, by construction; never
 the main checkout. The exit contract: `0` resolved, with the name on stdout; `1` a named refusal —
 detached `HEAD`, no base resolved, the base equal to the current branch, or a base name that fails
 validation; `2` the tree cannot be read — `<abs-worktree>` is missing, unreadable, or not a git
@@ -174,8 +174,8 @@ worktree — or `HEAD`'s own ref cannot be read (corrupt or permission-denied); 
 no `origin` remote at all.
 
 **Never fall back to `HEAD@{upstream}`.** `/myflow-finish` runs inside the apply worktree, where
-`HEAD` *is* `<project>/openspec/<name>` — so that fallback resolves to the change's **own** upstream, making
-the merge check `<project>/openspec/<name>` vs `origin/openspec/<name>`, which is true the moment the branch
+`HEAD` *is* `openspec/<name>` — so that fallback resolves to the change's **own** upstream, making
+the merge check `openspec/<name>` vs `origin/openspec/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
 deletes its worktree. `resolve-base-branch.sh` is where this rule is now enforced: it never
 consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
@@ -442,7 +442,7 @@ fi
 #    the operator, who decides. `--exclude-standard` in check 2 hides everything matched by
 #    .gitignore, <project>/.git/info/exclude or the global excludes file, and "ignored" is NOT "disposable":
 #    a deliberately-ignored .env, a local override config, or this pipeline's own
-#    <project>/.superpowers/sdd/ records are all ignored and all irreplaceable.
+#    <abs-worktree>/.superpowers/sdd/ records are all ignored and all irreplaceable.
 git -C "$WT" ls-files --others --ignored --exclude-standard
 
 # 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a

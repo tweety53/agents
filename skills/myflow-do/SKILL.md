@@ -112,7 +112,7 @@ marks nothing here:
 myflow stage begin -command '/myflow-do' -stage do.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Invoke **superpowers:using-git-worktrees**. Branch `<project>/openspec/<name>`. Never implement on the
+Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
 default branch without explicit consent. Record each worktree's merge base and absolute path in
 this run's own working notes as soon as the worktree exists — the state file's `worktrees` map is
 written only at the end of section 7. See **2. Isolate the workspace (first run only)**
@@ -183,7 +183,7 @@ myflow stage begin -command '/myflow-do' -stage do.sdd-tdd -harness <harness> -s
 directory as part of this same step — never rely on an earlier stage having created it, which is
 exactly what left this redirect targeting a directory nothing had yet created on a fresh worktree,
 since `superpowers:subagent-driven-development` (whose own workspace script creates
-`<project>/.superpowers/sdd/`) is not invoked until later in this section. Run
+`<abs-worktree>/.superpowers/sdd/`) is not invoked until later in this section. Run
 
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
@@ -378,10 +378,10 @@ restated here:
 Exit 2 stops the run: a size the guard could not measure is not a size under the cap.
 
 Record the measured count, the cap in force, and the operator's answer where one was given in
-`<project>/.superpowers/sdd/final-review-panel.md` on **every** run, including exit-0 runs. The cap moves
+`<abs-worktree>/.superpowers/sdd/final-review-panel.md` on **every** run, including exit-0 runs. The cap moves
 nothing about the roster, the slots, the escalation ladder or the zero-open-findings bar.
 
-Write `<project>/.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and unstaged), then
+Write `<abs-worktree>/.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and unstaged), then
 dispatch **separate** review subagents — one per selected slot, in **every** affected worktree.
 Never merge two slots into one prompt.
 
@@ -426,7 +426,7 @@ edited to carry it.
 
 Slot 3, the `light` preset's third required slot, is a `general-purpose` subagent on
 `models.reviewPanel`, told to invoke the harness's `code-review` skill at effort `low` against
-`<project>/.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
+`<abs-worktree>/.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
 surface the parent does not read, tell the subagent to return its findings **in its report back**
 rather than leaving them wherever the skill itself displays them, as ordinary `F<n>` rows and marker
 lines like every other slot's. Because the dispatcher names the model explicitly, the ledger records
@@ -478,11 +478,11 @@ non-negotiable here.
 **No two principle reviewers may share a lens.**
 
 **Every finding is recorded twice: as a row for the reader, and as a marker line for the guard.**
-The panel record is `<project>/.superpowers/sdd/final-review-panel.md`. Write the table:
+The panel record is `<abs-worktree>/.superpowers/sdd/final-review-panel.md`. Write the table:
 
 | ID | Slot | Severity | Location | Note |
 |---|---|---|---|---|
-| F1 | Bugbot | Minor | `<project>/src/Foo.kt:42` | replaced the silent catch |
+| F1 | Bugbot | Minor | `src/Foo.kt:42` | replaced the silent catch |
 
 and, below it, the marker block — one line per row, plus the count:
 
@@ -585,7 +585,7 @@ That is a correct outcome, not a skipped review — say so explicitly.
 **Pass 1 always runs the full roster selected for this change.** Only re-runs after a fix are
 scoped. Record `FIX_BASE=<task-sha>` — the task's commit as it stood before this fix round — then,
 once the fix is folded into that commit via `git commit --fixup=<task-sha>` and
-`git rebase --autosquash`, write `<project>/.superpowers/sdd/fix-round-N.diff` from
+`git rebase --autosquash`, write `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` from
 `git diff "$FIX_BASE"..<task-sha>`, where `<task-sha>` now names the rewritten, fixup-folded
 commit.
 
@@ -854,7 +854,7 @@ under `models.panelFix`**, defaulting to Opus
 (or the harness's strongest available model) when that field is absent or null — deliberately not
 the panel's own default, for the reason stated under
 **Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in
-`<project>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, the diff path they read,
+`<abs-worktree>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, the diff path they read,
 and — when this pass bounced any finding — each bounced finding's defect identity (file:line plus
 theme, as defined above) together with the reproducer output it carried back to its raising slot.
 A pass that bounced nothing states that plainly rather than omitting the field.

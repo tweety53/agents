@@ -400,6 +400,51 @@ assert_case "unrecognised-placeholder-is-reported" "skills/myflow-do/SKILL.md" \
 ' "reported"
 
 # ===========================================================================
+# SECTION: Task 10's two classifier exclusions — wave C's review found
+# sites that satisfied a root judgment while remaining wrong: a git branch
+# name read as an instruction to create a branch of that literal name, and
+# a fabricated findings-table Location example taught a citation shape no
+# real finding uses. Reaching zero by re-rooting either would have been
+# syntactically clean and semantically false, so both are reverted to bare
+# behind a new exclusion instead. Three cases: one per exclusion, plus
+# abs-worktree-rooted-is-recognised, which draws the same recognised-
+# versus-never-seen distinction agents-repo-prefix-bogus-path and
+# placeholder-rooted-is-recognised already draw.
+# ===========================================================================
+
+assert_case "git-branch-name-is-not-a-citation" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+Branch `openspec/<name>`.
+' "not-reported"
+
+assert_case "file-line-reference-is-not-a-citation" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+| F1 | Bugbot | Minor | `src/Foo.kt:42` | replaced the silent catch |
+' "not-reported"
+
+# abs-worktree-rooted-is-recognised — the companion case task 10 itself
+# calls for: `<abs-worktree>/…` must be RECOGNISED as a placeholder root,
+# not merely absent from the violation list — a citation excluded before
+# judgment ever ran would look identical from the outside. The path here
+# does not exist (`<abs-worktree>/.superpowers/sdd/does-not-exist.diff`):
+# existence is never the guard's business for a slash-containing token, so
+# a bogus target proves nothing except whether the CITATION ITSELF was
+# seen — proven by its member's coverage count going non-zero, not merely
+# by the absence of a violation line.
+new_fixture_repo
+write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+`<abs-worktree>/.superpowers/sdd/does-not-exist.diff`
+'
+run_guard "$FIXTURE"
+if [ "$RC" -eq 0 ] \
+  && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:' \
+  && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+  pass "abs-worktree-rooted-is-recognised: recognised (coverage count 1), not silently dropped"
+else
+  fail "abs-worktree-rooted-is-recognised: rc=$RC out='$OUT'"
+fi
+
+# ===========================================================================
 # SECTION: Refusal cases (4 cases, task 1 step 3's table). Every refusal
 # case asserts stdout is empty as well as the exit code.
 # ===========================================================================

@@ -290,6 +290,24 @@ SHELL_FENCE_LANG_RE = re.compile(r"^(bash|sh|zsh)(\s|$)")
 URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 GIT_REF_PATH_RE = re.compile(r"^refs/")
 GIT_BRANCH_RE = re.compile(r"^[A-Za-z0-9_.-]+/(main|master|HEAD)$")
+# GIT_BRANCH_LITERALS — task 10's exact-literal extension of the git-ref
+# shape above. `openspec/<name>` is the one branch name this corpus writes
+# that GIT_BRANCH_RE's suffix set (main/master/HEAD) does not cover, and it
+# is deliberately NOT folded into a shape rule ("no extension, no trailing
+# slash") — that alternative was tested and rejected: it silently stops
+# checking real corpus citations such as `<agents repo>/rules/<name>` and
+# `<project>/gradlew workspaceRemove`, a permanent blind spot for any
+# future bare directory-shaped citation, which is exactly the fail-open
+# outcome task 9 exists to prevent. An exact-literal set has no such
+# collateral: it excludes this one token and nothing shaped like it.
+GIT_BRANCH_LITERALS = frozenset({"openspec/<name>"})
+# FILE_LINE_RE — a token ending `:<digits>` names a line inside a file (a
+# findings-table Location cell, taken verbatim from `git diff` output and
+# diff-relative by construction), not a path to cite. Rooting such a token
+# teaches a format real findings never use — see skills/myflow-do/SKILL.md's
+# example findings row. Matched against the whole token, so a real path
+# citation that merely CONTAINS a colon elsewhere is untouched.
+FILE_LINE_RE = re.compile(r":[0-9]+$")
 # "$" is deliberately excluded from this set: a leading "$" is the shell-
 # variable-reference exclusion's own signal (see classify_token), and
 # keeping it here too would make that exclusion untestable in isolation —
@@ -433,6 +451,17 @@ def classify_token(token, repo_root_files):
         or `"`): a real citation in this corpus is never wrapped in one
         inside its own backtick span — a quoted fragment of program
         output (a git error message, a shell one-liner's own quoting) is.
+
+    Two more were added by task 10, after wave C's review found sites
+    that satisfy a root judgment while remaining wrong — a git branch
+    name told an agent to create a branch of that literal name, and a
+    findings-table Location example taught a fabricated citation shape:
+
+      - A GIT_BRANCH_LITERALS member: an exact git branch name, not a
+        filesystem path — see that set's own comment for why this is an
+        exact-literal exclusion rather than a shape rule.
+      - A token matching FILE_LINE_RE: a `file:line` location, diff-
+        relative by construction, not a path to cite.
     """
     tok = token.strip()
     if not tok:
@@ -447,6 +476,10 @@ def classify_token(token, repo_root_files):
         return False  # URL
     if tok[0] in "'\"" or tok[-1] in "'\"":
         return False  # quoted program output, not a citation
+    if tok in GIT_BRANCH_LITERALS:
+        return False  # git branch literal, not a path
+    if FILE_LINE_RE.search(tok):
+        return False  # file:line location, not a path to cite
 
     first_seg = tok.split("/", 1)[0]
     if first_seg.startswith("$"):

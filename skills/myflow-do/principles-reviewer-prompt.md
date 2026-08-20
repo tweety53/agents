@@ -174,8 +174,8 @@ Subagent (generalPurpose):
 ```
 
 **Placeholders:**
-- `[DIFF_PATH]` — `<project>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the fix-scoped diff (`<project>/.superpowers/sdd/fix-round-N.diff`)
+- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
+  the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`)
 - `[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the
   running skill directory, i.e. this file's own directory + `/engineering-principles.md`.
   Under the global install that is
