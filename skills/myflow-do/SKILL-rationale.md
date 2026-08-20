@@ -51,7 +51,7 @@ Why no preset moves the handoff bar: a preset able to lower it would be a way to
 way to size the panel's reading.
 
 Why the containment rule on `[STANDARDS_PATHS]` is non-negotiable: it stands between an
-attacker-editable list in a tracked file (`.myflow/project.md`'s `## standards` entries) and an
+attacker-editable list in a tracked file (`<project>/.myflow/project.md`'s `## standards` entries) and an
 arbitrary file read landing in a committed review record.
 
 Free prose is not a record of a finding's state: a state that cannot be counted cannot be enforced.
@@ -72,7 +72,7 @@ The subagent's working directory is
 the project worktree, which has no `skills/` tree, so a repo-relative path opens nothing and the
 reviewer runs with no principle list.
 
-`scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
+`<agents repo>/scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
 its header, not its column order, not its cell boundaries, not where it starts or stops. So an
 unescaped `|` inside a cell is just text, a reordered header changes nothing, and a row that lost a
 boundary pipe still counts. That is the point of the split — the previous shape asked a hand-rolled
@@ -185,8 +185,8 @@ is the thing that matters here.
 
 A third guard shape is different from both of the above: a grep-based lint flagging a reserved
 marker label — `finding-status:`, `findings-total:`, `finding-reproducer:` — appearing outside its
-own marker position, the family `scripts/check-unfinished-work.sh` and
-`scripts/check-panel-reproducers.sh` already form. The evidence for it is real, and is stated
+own marker position, the family `<agents repo>/scripts/check-unfinished-work.sh` and
+`<agents repo>/scripts/check-panel-reproducers.sh` already form. The evidence for it is real, and is stated
 plainly rather than minimised: this exact defect class was independently rediscovered three times
 in this change's own review — F2, F9 and F11, in three different scopes across three rounds — and
 each time the fix was more prose rather than a check. That recurrence is a genuine argument for
@@ -252,7 +252,7 @@ stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and
 here. What is specific to this command is *whose* staging it retracts (an implementer subagent's own
 `git add`, or a worktree resumed with a dirty index) and why `git reset -- <paths>` is the tool:
 it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
-the way `git rm --cached` would, and succeeds when a path is absent — which `docs/superpowers/` is
+the way `git rm --cached` would, and succeeds when a path is absent — which `<project>/docs/superpowers/` is
 on every run that has not preserved records yet, and where `git restore --staged` would refuse the
 whole command and unstage nothing.
 

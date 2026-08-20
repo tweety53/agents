@@ -49,15 +49,14 @@ myflow state get <name-or-best-guess> -C <repo-root>
 
 - **Exit 1** (`myflow: no state recorded for ...`) is **no state**: a creating run.
 - **Exit 0** with `"synthetic": true` in the printed JSON is **also no state** — this is the record
-  a stage mark's own bootstrap path would have produced had it run first; `stats/cmd/myflow/state.go`
+  a stage mark's own bootstrap path would have produced had it run first; `<agents repo>/stats/cmd/myflow/state.go`
   (`markSyntheticIfNeeded`) sets this field whenever the record's `updatedBy` is that bootstrap
   path's own sentinel, so this is a field to test, never a string to compare by hand.
 - **Exit 0** with no `"synthetic"` field reports the change's real `state` field.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard named in `/myflow-do`'s, `/myflow-finish`'s and `/myflow-status`'s own
-presence checks — the union this skill's `scripts/` directory carries — is present in
-`skills/myflow-fast/scripts/`. A complete set prints nothing; any absence prints that section's
+presence checks — the union `skills/myflow-fast/scripts/` carries — is present there. A complete set prints nothing; any absence prints that section's
 block once, and the run continues under each guard's own hand-run fallback.
 
 **The read above tolerates a guess; the mark below, which writes, does not — its `<change>`
@@ -298,7 +297,7 @@ here. Add exactly the guardrails specific to this skill:
   (`skills/myflow-contracts/finish-contract.md`), `/myflow-fast` only; `/myflow-finish` still asks.
   The reason it is safe here is that the records worth keeping are already out of the worktree by
   this point: `finish.preserve-sessions` copies the panel record and the SDD ledger into
-  `docs/superpowers/`, and `finish.commit-two` commits them, so what check 4 lists is build output
+  `<project>/docs/superpowers/`, and `finish.commit-two` commits them, so what check 4 lists is build output
   plus the per-review diffs the **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`)
   already declares worktree-lifetime. **Checks 1, 2, 3 and 5 remain gates** — a failure in any of
   them still stops cleanup with no worktree touched — and check 4 turning up something genuinely

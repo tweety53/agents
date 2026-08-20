@@ -88,7 +88,7 @@ re-argued here.
 ### Open questions
 
 **This cross-reference is instruction-only, and no guard checks it.**
-`scripts/check-references.sh` verifies a bold token beside a backticked path against a heading in
+`<agents repo>/scripts/check-references.sh` verifies a bold token beside a backticked path against a heading in
 another *file*; it has no notion of an `answered by <decision-id>` link between two sections of the
 same `design.md`, nor of the uniqueness rule just stated. A decision ID that is never created, a
 status left at `open` after its question was actually answered, or an ID reused across the two

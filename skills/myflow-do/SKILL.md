@@ -112,7 +112,7 @@ marks nothing here:
 myflow stage begin -command '/myflow-do' -stage do.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
+Invoke **superpowers:using-git-worktrees**. Branch `<project>/openspec/<name>`. Never implement on the
 default branch without explicit consent. Record each worktree's merge base and absolute path in
 this run's own working notes as soon as the worktree exists — the state file's `worktrees` map is
 written only at the end of section 7. See **2. Isolate the workspace (first run only)**
@@ -183,7 +183,7 @@ myflow stage begin -command '/myflow-do' -stage do.sdd-tdd -harness <harness> -s
 directory as part of this same step — never rely on an earlier stage having created it, which is
 exactly what left this redirect targeting a directory nothing had yet created on a fresh worktree,
 since `superpowers:subagent-driven-development` (whose own workspace script creates
-`.superpowers/sdd/`) is not invoked until later in this section. Run
+`<project>/.superpowers/sdd/`) is not invoked until later in this section. Run
 
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
@@ -234,7 +234,7 @@ field names. Every implementer dispatch **must** carry each of the six blocks be
 > describing the change, and a project with no stated convention may write `task(<n>): <subject>`.
 > **Never weaken or bypass a project's commit validation to fit** — no `--no-verify`, and no edit to
 > its commit-message validator; a rejected subject means writing one the project accepts. You **may**
-> `git add`/`git commit` your own work, but never `openspec/` or `docs/superpowers/` —
+> `git add`/`git commit` your own work, but never `<project>/openspec/` or `<project>/docs/superpowers/` —
 > `/myflow-finish` stages and commits those.
 
 **A `Build: red` task's commit folds into its green partner.** A task tagged `Build: red` also
@@ -378,10 +378,10 @@ restated here:
 Exit 2 stops the run: a size the guard could not measure is not a size under the cap.
 
 Record the measured count, the cap in force, and the operator's answer where one was given in
-`.superpowers/sdd/final-review-panel.md` on **every** run, including exit-0 runs. The cap moves
+`<project>/.superpowers/sdd/final-review-panel.md` on **every** run, including exit-0 runs. The cap moves
 nothing about the roster, the slots, the escalation ladder or the zero-open-findings bar.
 
-Write `.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and unstaged), then
+Write `<project>/.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and unstaged), then
 dispatch **separate** review subagents — one per selected slot, in **every** affected worktree.
 Never merge two slots into one prompt.
 
@@ -426,7 +426,7 @@ edited to carry it.
 
 Slot 3, the `light` preset's third required slot, is a `general-purpose` subagent on
 `models.reviewPanel`, told to invoke the harness's `code-review` skill at effort `low` against
-`.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
+`<project>/.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
 surface the parent does not read, tell the subagent to return its findings **in its report back**
 rather than leaving them wherever the skill itself displays them, as ordinary `F<n>` rows and marker
 lines like every other slot's. Because the dispatcher names the model explicitly, the ledger records
@@ -464,8 +464,8 @@ install, `~/.claude/skills/myflow-do/engineering-principles.md`. Confirm the fil
 spawning; if it does not, stop and report rather than dispatching a blind reviewer. See
 **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why it must be absolute.
 
-**Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in the
-project's `.myflow/project.md`. Entries are **not** paths to use as-is: each resolves through the
+**Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in
+`<project>/.myflow/project.md`. Entries are **not** paths to use as-is: each resolves through the
 entry-form table and the containment rule in **Project configuration**
 (`skills/myflow-contracts/project-configuration.md`), and an entry failing either is reported by
 name and dropped. Resolve that contract file by **absolute** path too; if it is not readable,
@@ -478,11 +478,11 @@ non-negotiable here.
 **No two principle reviewers may share a lens.**
 
 **Every finding is recorded twice: as a row for the reader, and as a marker line for the guard.**
-The panel record is `.superpowers/sdd/final-review-panel.md`. Write the table:
+The panel record is `<project>/.superpowers/sdd/final-review-panel.md`. Write the table:
 
 | ID | Slot | Severity | Location | Note |
 |---|---|---|---|---|
-| F1 | Bugbot | Minor | `src/Foo.kt:42` | replaced the silent catch |
+| F1 | Bugbot | Minor | `<project>/src/Foo.kt:42` | replaced the silent catch |
 
 and, below it, the marker block — one line per row, plus the count:
 
@@ -495,7 +495,7 @@ Do not quote the marker format inside the record itself — a validly-formatted 
 example inside prose or a fenced block reads the same as a real one.
 
 **The reproducer each finding's slot supplied gets a marker block of its own**, separate from the
-`finding-status:` block above — the two are kept apart because `scripts/check-unfinished-work.sh`
+`finding-status:` block above — the two are kept apart because `<agents repo>/scripts/check-unfinished-work.sh`
 requires the `finding-status:` lines to occupy one unbroken span, and interleaving the two blocks
 would break that. Write one `reproducers-total: <n>` count line and one `finding-reproducer: F<n>
 <command | none — reason>` line per finding:
@@ -511,7 +511,7 @@ The same rule against quoting the format inside the record applies to this block
 in the record, not only in this block — see **The fix round mutation-proves what it changed** below
 for the full label-collision rule.
 
-`scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
+`<agents repo>/scripts/check-unfinished-work.sh` reads **only the marker block**. It never parses the table: not
 its header, not its column order, not its cell boundaries, not where it starts or stops. See
 **5. The review panel** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
@@ -585,7 +585,7 @@ That is a correct outcome, not a skipped review — say so explicitly.
 **Pass 1 always runs the full roster selected for this change.** Only re-runs after a fix are
 scoped. Record `FIX_BASE=<task-sha>` — the task's commit as it stood before this fix round — then,
 once the fix is folded into that commit via `git commit --fixup=<task-sha>` and
-`git rebase --autosquash`, write `.superpowers/sdd/fix-round-N.diff` from
+`git rebase --autosquash`, write `<project>/.superpowers/sdd/fix-round-N.diff` from
 `git diff "$FIX_BASE"..<task-sha>`, where `<task-sha>` now names the rewritten, fixup-folded
 commit.
 
@@ -658,7 +658,7 @@ record-completeness defect, and the field is added before dispatch. A
 **rejected reproducer shape** — a command carrying a shell metacharacter, an absolute path, a `..`
 segment, a leading `-` on its path token, a URL, or a NUL byte — is a **refusal, not something to
 rewrite until the guard accepts it**: the line is recorded **unverifiable** and put to the operator,
-the same disposition `scripts/run-reproducer.sh` reaches for a refusal of its own below. It is
+the same disposition `<agents repo>/scripts/run-reproducer.sh` reaches for a refusal of its own below. It is
 **never silently rewritten to satisfy the guard** — the line may be exactly the injection the guard
 exists to catch, and rewriting it to pass defeats the check. Exit 2 stops the run: a record the
 guard could not read is not a record in which every finding declared a reproducer.
@@ -768,12 +768,12 @@ recording nothing.
 consecutive lines, and reads the findings table's identifiers off lines matching
 `^\|?[[:space:]]*F[0-9]+[[:space:]]*\|`. A line that split that run, or that looked like a row,
 changes that guard's verdict on a record this rule does not otherwise touch — which is why
-`scripts/test-check-unfinished-work.sh` carries a case for it.
+`<agents repo>/scripts/test-check-unfinished-work.sh` carries a case for it.
 
 **No line anywhere in the panel record may carry the literal label `finding-status:`,
 `findings-total:`, or `finding-reproducer:` outside its own marker use — the constraint is the whole
-record's, not one line's.** `scripts/check-unfinished-work.sh` counts the first two unanchored —
-`M_NAMED` (line 337), `T_NAMED` (line 342) — and `scripts/check-panel-reproducers.sh` counts the
+record's, not one line's.** `<agents repo>/scripts/check-unfinished-work.sh` counts the first two unanchored —
+`M_NAMED` (line 337), `T_NAMED` (line 342) — and `<agents repo>/scripts/check-panel-reproducers.sh` counts the
 third the same way, `R_NAMED` (line 139): a substring match over every line, fences included, so a
 "Format example" that merely *quotes* the marker grammar counts as a real marker line. This list is
 derived from those guards' unanchored counts, not invented by hand — extend it by re-reading the
@@ -782,7 +782,7 @@ check-panel-reproducers.sh:282), so it is not a hazard the same way. The rule re
 `fix-mutation:` free text to any prose, and lands hardest on a round documenting the marker-parsing
 logic itself. Write around it: paraphrase the label, or break it with a non-word character. The
 failure is safe — a clean round reads `OUTSTANDING` rather than a gap reading clear — but still worth
-avoiding by construction. `scripts/test-check-unfinished-work.sh` case 12 pins the lines as inert; it
+avoiding by construction. `<agents repo>/scripts/test-check-unfinished-work.sh` case 12 pins the lines as inert; it
 does not pin this constraint, which is why it is stated here in words.
 
 **No guard reads these lines, and none is added.** What holds the rule instead is this: **the fix
@@ -854,7 +854,7 @@ under `models.panelFix`**, defaulting to Opus
 (or the harness's strongest available model) when that field is absent or null — deliberately not
 the panel's own default, for the reason stated under
 **Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in
-`.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, the diff path they read,
+`<project>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, the diff path they read,
 and — when this pass bounced any finding — each bounced finding's defect identity (file:line plus
 theme, as defined above) together with the reproducer output it carried back to its raising slot.
 A pass that bounced nothing states that plainly rather than omitting the field.
@@ -893,7 +893,7 @@ Resolve:
 - **Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path (`../<other-app>`), and never a main-checkout path while a
   worktree holds the work.
-- **Every start command comes from `.myflow/project.md`'s `## run`**, with every path in it made
+- **Every start command comes from `<project>/.myflow/project.md`'s `## run`**, with every path in it made
   absolute.
 - **Every URL is the one this worktree resolved**, never the project's declared base. **Resolve
   each URL from this worktree's workspace id, the way section 2 computed it.** The project's
@@ -910,7 +910,7 @@ Resolve:
   URL built from that port. Name such a URL with a short note on the same line — the project's
   default, shared, and holdable by one workspace at a time — and leave the worktree's own URLs
   plain.
-- Apps in scope come from `## apps` in the project's `.myflow/project.md`, or from auto-detection
+- Apps in scope come from `## apps` in `<project>/.myflow/project.md`, or from auto-detection
   when that file or key is absent — see
   **Project configuration** (`skills/myflow-contracts/project-configuration.md`).
 - **Where the project declares no runnable application**, resolve the `## lint` and `## test`
@@ -960,7 +960,7 @@ rather than re-deriving any of them: exit 0 means the printed lines are what to 
 `## workspace isolation` section). A
 non-zero exit is the dropped-row case (exit 1, relay the script's own lines verbatim and stop) or the
 cannot-answer case (exit 2, stop the same way) — in either case, stop **before** `## lint` and
-`## test`, without writing the state file. Correcting the row in the project's `.myflow/project.md`
+`## test`, without writing the state file. Correcting the row in `<project>/.myflow/project.md`
 and re-running this command is the whole remedy.
 
 **A declared `cache index` row is never among the printed `KEY=value` lines — the script reports it
@@ -995,7 +995,7 @@ myflow stage end -command '/myflow-do' \
 myflow stage begin -command '/myflow-do' -stage do.lint-and-test -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Run the project's `## lint` and `## test` commands from `.myflow/project.md` (auto-detect if
+Run the `## lint` and `## test` commands from `<project>/.myflow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
 gate — so a non-zero exit blocks this handoff.
 
@@ -1018,14 +1018,14 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **`openspec/` and `docs/superpowers/` are never part of a task commit.** Section 4's
+> **`<project>/openspec/` and `<project>/docs/superpowers/` are never part of a task commit.** Section 4's
 > COMMIT-PER-TASK clause already excludes both paths from every task and fixup commit; this step
 > only confirms nothing slipped in, it does not stage anything itself. See **7. Verify, stage, and
 > hand off** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **The one push exception.** Every task and fixup commit already sits on the branch, unpushed, per
 sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so this run also
-commits `openspec/` and `docs/superpowers/` — the only paths a task or fixup commit never touches —
+commits `<project>/openspec/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
 and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
 only — and in this order — run
 `preserve-session-records.sh <worktree> <name> <state-dir>`; then
@@ -1046,7 +1046,7 @@ failed** — report it with the script's own stderr message and continue committ
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
 (`skills/myflow-contracts/pipeline.md`), which this call implements rather than restates. The empty
-case is ordinary here — a fix round that touched neither `openspec/` nor the test guide has nothing
+case is ordinary here — a fix round that touched neither `<project>/openspec/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 
 ```bash
@@ -1107,8 +1107,8 @@ the line rather than printing an empty one. See **Description sync**
 
 ## Guardrails
 
-- **Commit per task and per fixup, as section 4 and section 5 require** — never `openspec/` or
-  `docs/superpowers/` in a task or fixup commit. **Never push, merge, or open a PR** — except the
+- **Commit per task and per fixup, as section 4 and section 5 require** — never `<project>/openspec/` or
+  `<project>/docs/superpowers/` in a task or fixup commit. **Never push, merge, or open a PR** — except the
   `prUrl` exception above.
 - **Never** run `finishing-a-development-branch`.
 - **Never** create a second worktree for the same change.
