@@ -138,8 +138,8 @@ tree, uncommitted, so the branch carries no history for the two-commit chain bel
 that chain then commits from this reshaped state exactly as it always has.
 
 All three routes first commit the work, in **two** commits and never one: the implementation, then
-the `openspec/` planning artifacts and the session records preserved
-under `docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact
+the `<project>/openspec/` planning artifacts and the session records preserved
+under `<project>/docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact
 source). The records are copied out of the gitignored worktree before staging, by
 `preserve-session-records.sh <worktree> <name> <state-dir>`.
 
@@ -166,7 +166,7 @@ BASE="$(resolve-base-branch.sh "<abs-worktree>")"
 ```
 
 `<abs-worktree>` is **the apply worktree** — the same one **Reshape the branch** above just
-committed from — where `HEAD` is the change's own branch, `openspec/<name>`, by construction; never
+committed from — where `HEAD` is the change's own branch, `<project>/openspec/<name>`, by construction; never
 the main checkout. The exit contract: `0` resolved, with the name on stdout; `1` a named refusal —
 detached `HEAD`, no base resolved, the base equal to the current branch, or a base name that fails
 validation; `2` the tree cannot be read — `<abs-worktree>` is missing, unreadable, or not a git
@@ -174,8 +174,8 @@ worktree — or `HEAD`'s own ref cannot be read (corrupt or permission-denied); 
 no `origin` remote at all.
 
 **Never fall back to `HEAD@{upstream}`.** `/myflow-finish` runs inside the apply worktree, where
-`HEAD` *is* `openspec/<name>` — so that fallback resolves to the change's **own** upstream, making
-the merge check `openspec/<name>` vs `origin/openspec/<name>`, which is true the moment the branch
+`HEAD` *is* `<project>/openspec/<name>` — so that fallback resolves to the change's **own** upstream, making
+the merge check `<project>/openspec/<name>` vs `origin/openspec/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
 deletes its worktree. `resolve-base-branch.sh` is where this rule is now enforced: it never
 consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
@@ -219,8 +219,8 @@ the one irreversible step.
 1. **Verify the merge.** Use a PR CLI when one is usable for the host; otherwise
    `git merge-base --is-ancestor`. That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge. **Not merged → this is not run 2.**
-2. **Sync delta specs** into `openspec/specs/`, then move the change into
-   `openspec/changes/archive/<date>-<name>/`. Any nested `<name>-fix-N` sub-changes are archived in
+2. **Sync delta specs** into `<project>/openspec/specs/`, then move the change into
+   `<project>/openspec/changes/archive/<date>-<name>/`. Any nested `<name>-fix-N` sub-changes are archived in
    the same operation — never left behind, never archived alone.
 3. **Commit and push the archive** on the base branch in the main checkout. There is no merge to do
    in the normal case: the change branch was already merged, which step 1 proved. When finish is
@@ -277,7 +277,7 @@ the one irreversible step.
    `COMPLETE: <repo> — … — SKIPPED: the workspace survivor verification — '<cmd>' exited 7, so the
    service could not be reached`. A run that reported only "cleanup verified" would have told the
    operator the opposite of what the guard said, while following this table to the letter. **A skip
-   is never a pass**: `scripts/check-cleanup-complete.sh`'s own header is canonical for why, and it
+   is never a pass**: `<agents repo>/scripts/check-cleanup-complete.sh`'s own header is canonical for why, and it
    is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
    reason it could not be verified are both inside it. The relay does **not** block step 7; why an
    unreachable service must not strand an already-merged change is stated once under
@@ -341,7 +341,7 @@ the one irreversible step.
    label on top of the set **Labels on issues the pipeline creates**
    (`skills/myflow-contracts/jira-integration.md`) already defines.
 
-   The report committed to `docs/self-review/<name>-self-review.md` carries one section per angle,
+   The report committed to `<project>/docs/self-review/<name>-self-review.md` carries one section per angle,
    all five present; each finding is one line naming its angle's label, the finding, and its
    disposition — the issue key when filed, an explicit declined marker when not — and an angle with
    no findings carries an explicit none-marker instead of finding lines. **This procedure is
@@ -351,7 +351,7 @@ the one irreversible step.
 
    **Which file to change first.** The normative requirement is
    **Requirement: Self-review runs only after FINISHED is written**
-   (`openspec/specs/myflow-self-review/spec.md`), read alongside the sibling requirements in that
+   (`<agents repo>/openspec/specs/myflow-self-review/spec.md`), read alongside the sibling requirements in that
    same file for context gathering, the combined pass, the per-angle filing ask, the rating and
    the report path. That file is the requirement to change first when the procedure changes — it is
    not the runtime source of the procedure, which is stated above.
@@ -379,8 +379,8 @@ git -C "$REPO" worktree list --porcelain \
   | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/openspec/<name>") print w}'
 ```
 
-**Never guess a path.** Worktree layout differs per repository — this repo keeps its worktrees under
-`.worktrees/` (git-ignored, per `superpowers:using-git-worktrees`), which is not where every
+**Never guess a path.** Worktree layout differs per repository — this repo keeps worktrees under
+`<agents repo>/.worktrees/` (git-ignored, per `superpowers:using-git-worktrees`), which is not where every
 repository this pipeline is installed into keeps them.
 
 **Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
@@ -396,7 +396,7 @@ field reference truncates any path containing a space at the first one: fed
 `worktree /tmp/my worktree/x` it yields `/tmp/my`, and the run then `--force`-removes a path that is
 not the worktree, or fails having named the wrong one. `10` is one past the length of the literal
 `worktree ` prefix. The branch on the next line is a ref name and cannot contain a space, so `$2` is
-right for it. `scripts/check-cleanup-complete.sh` parses the same stream the same way — the guard
+right for it. `<agents repo>/scripts/check-cleanup-complete.sh` parses the same stream the same way — the guard
 and the snippet it verifies must not disagree, or the wrong one gets copied next.
 
 ### Worktree cleanup
@@ -440,9 +440,9 @@ fi
 
 # 4. what `--force` WILL destroy: ignored files. This does not gate removal — it is shown to
 #    the operator, who decides. `--exclude-standard` in check 2 hides everything matched by
-#    .gitignore, .git/info/exclude or the global excludes file, and "ignored" is NOT "disposable":
+#    .gitignore, <project>/.git/info/exclude or the global excludes file, and "ignored" is NOT "disposable":
 #    a deliberately-ignored .env, a local override config, or this pipeline's own
-#    .superpowers/sdd/ records are all ignored and all irreplaceable.
+#    <project>/.superpowers/sdd/ records are all ignored and all irreplaceable.
 git -C "$WT" ls-files --others --ignored --exclude-standard
 
 # 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a
@@ -523,7 +523,7 @@ fi
 - **The remote delete is not gated on the local one succeeding.** Gating it would leave the remote
   branch behind whenever anything unrelated failed, which is the state this step exists to end.
 
-The stack-stopped check reads the optional `## stop` key from the project's `.myflow/project.md` —
+The stack-stopped check reads the optional `## stop` key from `<project>/.myflow/project.md` —
 see **Project configuration** in `skills/myflow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
 the other two.

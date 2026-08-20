@@ -138,7 +138,7 @@ then stages with them excluded by pathspec — an exclusion governs what an
 rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
 `/myflow-finish` is what commits them.
 
-`git add -A` respects `.gitignore`. Never force-add.
+`git add -A` respects `<project>/.gitignore`. Never force-add.
 
 **Both commits are guarded, and an empty one is skipped rather than failed.** Each commit is
 preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single
@@ -169,7 +169,7 @@ exists to prevent — so the fix belongs in the repository, by making the path a
 ## Preserving the session records
 
 `/myflow-do` reads this table on its `prUrl` commit path, and `/myflow-finish` reads it in
-run 1; the invocation of `scripts/preserve-session-records.sh` itself is described by each
+run 1; the invocation of `<agents repo>/scripts/preserve-session-records.sh` itself is described by each
 caller.
 
 | Outcome | What it means | What you do |
@@ -208,7 +208,7 @@ report would put entries on the operator's task list for work nobody is doing.
 
 **The progress view is a view, never a record.** No command, guard or contract reads the harness's
 task list back as evidence of what was done. `tasks.md` remains the single source of truth for a
-plan's completion state, and `scripts/check-unfinished-work.sh` reads that file — a second source of
+plan's completion state, and `<agents repo>/scripts/check-unfinished-work.sh` reads that file — a second source of
 completion state would be one that guard cannot see.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
@@ -227,8 +227,8 @@ Every `/myflow-*` pipeline command — `/myflow-start`, `/myflow-do`, `/myflow-f
 `/myflow-fast` — marks each of its own stages: `myflow stage begin` when the stage starts,
 `myflow stage end` when it closes, both naming the command, the stage and the change. The stage
 identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
-(`README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
-own README-parsing test (`stats/internal/stages/names_test.go`) exists to make impossible. Each
+(`<agents repo>/README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
+own README-parsing test (`<agents repo>/stats/internal/stages/names_test.go`) exists to make impossible. Each
 skill's own mark calls sit at that skill's own stage boundaries, in that skill's own `SKILL.md`, and
 name the stage by its Key column exactly — the CLI compares the `-stage` value byte for byte against
 the documented key and rejects anything else, naming the documented alternatives.
@@ -254,10 +254,10 @@ later mark) reuses it.
 the store has no record for the name a `stage begin` carries, the begin handler bootstraps a change
 row so the mark has something to attach to, and that row outlives the run — it appears among the
 open changes, carries a next command, and is never archived, because no change directory bears that
-name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`openspec/specs/myflow-run-telemetry/spec.md`):
+name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`<agents repo>/openspec/specs/myflow-run-telemetry/spec.md`):
 that rule keeps a command from *reading* a state its own mark authored; this one keeps a command
 from *creating* a change nobody named.
-`scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
+`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
 written as a placeholder naming a guess.
 
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
@@ -266,7 +266,7 @@ because one skill source installs into `~/.claude/skills/`, `~/.cursor/skills/` 
 `~/.codex/skills/` alike, and a hardcoded `-harness claude-code` would mislabel every Cursor and
 Codex run as Claude Code, hiding the very thing the field exists to record: that Cursor and Codex
 write no transcript, so their runs are *explicitly unavailable* rather than zero.
-`scripts/check-stage-mark-calls.sh` rejects a hardcoded `-harness` literal in skill source the same
+`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a hardcoded `-harness` literal in skill source the same
 way it rejects a substituted session token.
 
 ```bash
@@ -284,8 +284,8 @@ transcript records `tool_use.input.command` — the text handed to the tool — 
 expands it. A substitution therefore lands in every calling session's transcript as the identical,
 unexpanded string, and discriminates nothing between them. A reader who does not know this will
 "improve" the literal into a substitution the first chance they get, which is exactly the regression
-this paragraph, `stats/cmd/myflow/stage.go`'s `validateSessionToken`, `internal/api/stages.go`'s
-`validateSessionTokenShape`, and `scripts/check-stage-mark-calls.sh` all exist to stop. Write a
+this paragraph, `<agents repo>/stats/cmd/myflow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
+`validateSessionTokenShape`, and `<agents repo>/scripts/check-stage-mark-calls.sh` all exist to stop. Write a
 concrete token in its place — `<literal-token>` above means "invent a short, unique string right
 here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
 at every mark".
@@ -332,7 +332,7 @@ Next:
 - **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
-- **`/myflow-do` never stages `openspec/` or `docs/superpowers/` before
+- **`/myflow-do` never stages `<project>/openspec/` or `<project>/docs/superpowers/` before
   finish**, and the list is fixed here rather than configured per project. `/myflow-finish` run 1
   stages them and commits them separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why leaving them unstaged
@@ -411,29 +411,29 @@ Resolution against the **running command's own** skill directory is what lets a 
 by more than one command — `skills/myflow-contracts/finish-contract.md`, loaded by both
 `/myflow-finish` and `/myflow-status` — name a guard at all: the same basename resolves inside
 whichever command is actually running, never a fixed one of them.
-`skills/myflow-contracts/` is never a running command and carries no `scripts/` directory of its
-own.
+`skills/myflow-contracts/` is never a running command and carries no
+`skills/myflow-contracts/scripts/` directory.
 
-**The exemption is a shape, not a list of names.** A `scripts/<name>` citation names an
+**The exemption is a shape, not a list of names.** A `<agents repo>/scripts/<name>` citation names an
 invocation — and must use the basename form above — only when it sits in an **invoking
 position**: a non-comment line inside a fenced `bash`/`sh`/`zsh` command block, or a
 backtick-quoted path immediately preceded by an imperative such as "Run", "Invoke", or "Execute".
 Every other citation is **prose describing a guard rather than running it**, and keeps its
-repository-relative `scripts/…` path where that path genuinely names a file in this repository —
-this repository's own lint and test guards, resolved through this repository's own
-`.myflow/project.md` `## lint` and `## test` lists rather than through a skill's `scripts/`
-directory, are the recurring example, not the whole set: `check-references.sh`,
+repository-relative `<agents repo>/scripts/…` path where that path genuinely names a file in this repository —
+this repository's own lint and test guards, resolved through
+`<agents repo>/.myflow/project.md`'s `## lint` and `## test` lists rather than through
+`<the producing command's own skill directory>/scripts/`, are the recurring example, not the whole set: `check-references.sh`,
 `check-stage-mark-calls.sh`, `check-vocabulary.sh`, `check-contract-budget.sh`,
 `check-plan-provenance.sh` and `check-task-build-green.sh` are the ones a reader runs into most,
 but any other repository-relative mention outside an invoking position is exempt on the same
-shape, not because it appears on this list. `scripts/check-guard-symlinks.sh`'s rule 3
+shape, not because it appears on this list. `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 3
 implements this same distinction mechanically, classifying by a citation's shape rather than by
 name.
 
 ## Guard presence check
 
 Each `/myflow-*` command checks, once at the start of its run, that every guard it can invoke —
-per **Guard resolution** above — is present in its own skill's `scripts/` directory. A complete
+per **Guard resolution** above — is present in `<the running command's own skill directory>/scripts/`. A complete
 set prints nothing. Any absence prints exactly one block, naming every missing guard, the
 directory searched, and the install command, then the run continues:
 
@@ -455,16 +455,16 @@ one of the guards it already named performs the check by hand without printing t
 
 **The check covers a named guard's own sibling dependencies too, not only the guard itself.** A
 guard that resolves a neighbour from its own `$SCRIPT_DIR` at runtime — for example
-`check-unfinished-work.sh` needing `lib/panel-record.sh`, `check-task-commit-fields.sh` needing
+`check-unfinished-work.sh` needing `<agents repo>/scripts/lib/panel-record.sh`, `check-task-commit-fields.sh` needing
 `check-task-commit-fields.py`, or `prepare-workspace.sh` needing `check-workspace-isolation.sh` —
 fails at the moment it reaches for that neighbour if the neighbour alone is missing, so a missing
 sibling is exactly as reportable as a missing guard, and the block names it the same way. Derive a
 guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — rather than trusting a
-hardcoded map, exactly as `scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
+hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
 here would drift from that guard's own dependencies the moment they change.
 
-Each command names, in its own text, the guards *it* can invoke — exactly the guards its own
-`scripts/` directory carries — and cites this section for the block shape rather than restating
+Each command names, in its own text, the guards *it* can invoke — exactly the guards
+`<its own skill directory>/scripts/` carries — and cites this section for the block shape rather than restating
 it.
 
 ## Finish contract
@@ -503,15 +503,15 @@ their command does not load.
 
 | Artifact | Created by | Location | Removed by |
 |----------|-----------|----------|-----------|
-| Per-task and review diffs | `/myflow-do` | `.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Panel record | `/myflow-do` | `.superpowers/sdd/` | preserved at run 1; removed with the worktree |
-| SDD ledger | `/myflow-do` | `.superpowers/sdd/` | preserved at run 1; removed with the worktree |
-| Dispatch context bundle | `/myflow-do` | `.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Per-task and review diffs | `/myflow-do` | `<project>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Panel record | `/myflow-do` | `<project>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| SDD ledger | `/myflow-do` | `<project>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| Dispatch context bundle | `/myflow-do` | `<project>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if a preserved copy exists |
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
-| Change directory | `/myflow-start` | `openspec/changes/<name>/` | moved to the archive, never deleted |
+| Change directory | `/myflow-start` | `<project>/openspec/changes/<name>/` | moved to the archive, never deleted |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |
@@ -529,7 +529,7 @@ established this.
 
 **Where the proposal artifact source comes from, and why its row is conditional.** `/myflow-start`
 writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish to the same
-URL, and the preserved copy its row requires lives under `docs/superpowers/artifacts/`. No preserved
+URL, and the preserved copy its row requires lives under `<project>/docs/superpowers/artifacts/`. No preserved
 copy → leave the file and say so. The deletion is disclosed the same way the worktree removal is.
 See **Temporary artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for why the
 row is conditional.
@@ -565,7 +565,7 @@ before reading or writing a state file.
 
 ## Project configuration
 
-The contract governing `.myflow/project.md` — its optional keys, how a `## standards` entry
+The contract governing `<project>/.myflow/project.md` — its optional keys, how a `## standards` entry
 resolves to a file, and the containment rules that keep resolution safe.
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) — load it before
 resolving project configuration.
@@ -647,8 +647,8 @@ never a guess. Slots dispatched by `subagent_type` (Bugbot, Security Review) res
 from their own agent definition, which the dispatcher does not read; writing a plausible slug for
 them puts an unmeasured value into the audit trail.
 
-**This record outlives the change: the ledger is preserved under `docs/superpowers/ledgers/` at run
-1, before the worktree carrying `.superpowers/sdd/` is removed.** See **Model policy**
+**This record outlives the change: the ledger is preserved under `<project>/docs/superpowers/ledgers/` at run
+1, before the worktree carrying `<project>/.superpowers/sdd/` is removed.** See **Model policy**
 (`skills/myflow-contracts/pipeline-rationale.md`) for why, and **Run 1 — the branch is not merged**
 (`skills/myflow-contracts/finish-contract.md`) for the preservation duty itself.
 
@@ -702,8 +702,8 @@ sources:
   records, never a second live source. A name found only here is one whose last write could not
   reach the store.
 
-From that union, drop any name whose `openspec/changes/<name>/` directory has already reached
-`openspec/changes/archive/`. The state directory is per-project rather than per-worktree, so a
+From that union, drop any name whose `<project>/openspec/changes/<name>/` directory has already reached
+`<project>/openspec/changes/archive/`. The state directory is per-project rather than per-worktree, so a
 fallback record is reachable from the main checkout regardless of which worktree wrote it. See
 **Change name resolution (all `/myflow-*` commands)** (`skills/myflow-contracts/pipeline-rationale.md`)
 for why the filesystem source is needed at all now that the store is the normal path.

@@ -30,8 +30,8 @@ the same rule.
 
 ## The guard's scope
 
-A guard script (`scripts/check-task-build-green.py`, wrapped by
-`scripts/check-task-build-green.sh` to resolve which `tasks.md` files to scan) parses a single
+A guard script (`<agents repo>/scripts/check-task-build-green.py`, wrapped by
+`<agents repo>/scripts/check-task-build-green.sh` to resolve which `tasks.md` files to scan) parses a single
 `tasks.md` and fails the run when:
 
 - a task has no `**Build:**` tag;

@@ -42,7 +42,7 @@ as the *filing* site resolves it: the project key(s) the `## jira` section names
 **Resolution (how `jiraIssue` is decided)** (`jira-integration.md`) applies to a candidate key.
 
 **Every key that reaches the clause matches `[A-Z]{2,10}` in its entirety, or it does not reach it.**
-`.myflow/project.md` is tracked in the repository and editable in any pull request — the file whose
+`<project>/.myflow/project.md` is tracked in the repository and editable in any pull request — the file whose
 `## standards` entries are constrained for that reason by
 **Project configuration** (`project-configuration.md`) — and this value is interpolated into a query
 string. An entry carrying JQL rather than a key (`KAN" OR project != "KAN`, or a bare `OR` between
@@ -326,7 +326,7 @@ correctly emitted. A retry that still cannot complete the retitle or the union r
 appended nothing this time.
 
 **That window closes at the merge, and the `⚠` does not cross it.** Every site that joins is in
-`/myflow-finish` run 1, and `scripts/check-finish-preflight.sh` routes there only while the branch
+`/myflow-finish` run 1, and `<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
 is unmerged; once it returns `RUN2` no command reaches this code again, so a join still partial when
 the branch merged stays partial. Nothing carries the warning across: no state-file field records a
 join outcome and this contract adds none, and run 2's only Jira write is the **Done** transition

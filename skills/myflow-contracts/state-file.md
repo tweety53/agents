@@ -28,7 +28,7 @@ store answers normally.
 
 `<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `myrepo-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous. It is the same key `myflow state get`/`set` send the daemon, so the store, the fallback file and the journal all address one record under one key.
 
-**Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and review (in the main checkout) two different keys for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `.git` from anywhere, including inside a worktree:
+**Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and review (in the main checkout) two different keys for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `<project>/.git` from anywhere, including inside a worktree:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
@@ -137,7 +137,7 @@ field is how it gets erased.
 
 - `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
   `STARTED`, `IN_PROGRESS`, `FINISHED`.
-- `branch` — the change's branch, `openspec/<name>`; `null` before one exists.
+- `branch` — the change's branch, `<project>/openspec/<name>`; `null` before one exists.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
   that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
   legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal
@@ -217,7 +217,7 @@ field is how it gets erased.
   "last update" from this field, the store uses it to order same-state writes (see **Writes are
   monotonic in both dimensions** below), and a fabricated value makes a stalled change look freshly
   touched or corrupts that ordering.
-- `updatedBy` — the command that last wrote the record, e.g. `"/myflow-do"`.
+- `updatedBy` — the command that last wrote the record, e.g. `/myflow-do`.
 
 **This record carries no human confirmation and no fix origin.** No command observes whether the
 human ran the apps, so nothing could honestly confirm that a human reviewed the work. And a fix
@@ -354,11 +354,11 @@ committed, never staged, and never archived** — nothing here is part of the ch
 
 **Which file to change first.** The normative requirement — that three levels exist, that `default`
 is the level offered as the recommendation, and that no level may switch a gate off — is
-**Requirement: Planning effort scales the reasoning spent inside the gates, never the gates themselves** (`openspec/specs/myflow-planning-effort/spec.md`).
+**Requirement: Planning effort scales the reasoning spent inside the gates, never the gates themselves** (`<agents repo>/openspec/specs/myflow-planning-effort/spec.md`).
 Naming the requirement in full, rather than giving the path alone, is what makes
-`scripts/check-references.sh` check this pointer — an OpenSpec `### Requirement: …` heading is a
+`<agents repo>/scripts/check-references.sh` check this pointer — an OpenSpec `### Requirement: …` heading is a
 heading like any other. The guard skips a path that does not resolve, so this one is checked only
-once the capability lands in `openspec/specs/` at finish run 2; until then it is a reference nobody
+once the capability lands in `<agents repo>/openspec/specs/` at finish run 2; until then it is a reference nobody
 verifies, which is said here rather than left to look otherwise. That spec is the requirement; the
 table below is the
 **operational form the commands read**, and it exists here so `/myflow-start` has one place to look
