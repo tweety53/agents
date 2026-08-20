@@ -90,6 +90,7 @@ scripts/test-resolve-base-branch.sh
 scripts/test-check-stage-mark-calls.sh
 scripts/test-check-self-review-report.sh
 scripts/test-lib-coverage.sh
+scripts/test-check-installed-citations.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
@@ -105,6 +106,14 @@ timeout, rather than reading a timeout here as one of these commands failing. Th
 count of the list on purpose: a written count goes stale the first time a command is added to it,
 and nothing here checks it against the list above.
 
+**`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
+list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
+`project` — to derive the installed set it classifies citations against, rather than only reading
+files already on disk. A single invocation measures about 0.84s, negligible against either total
+above, but worth naming here since it is the one guard in this repository paying for a subprocess
+rather than a plain file scan.
+<!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch openspec/kan-102-citations-resolve-to-installed-paths -->
+
 ## lint
 
 ```bash
@@ -119,6 +128,7 @@ scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
 scripts/check-self-review-report.sh
+scripts/check-installed-citations.sh
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b
@@ -170,6 +180,14 @@ omission is a decision, not an oversight. They are covered instead by their harn
 `run-reproducer.sh` are excluded for the same reason: they are `/myflow-do` helpers that likewise
 need a change in flight and a worktree passed in, so they are covered by their own harnesses under
 `## test` instead.
+
+**`check-installed-citations.sh` belongs in the list for the opposite reason those are excluded.**
+It takes no change-in-flight state — it derives the installed set by running a sandboxed `setup.sh`
+itself, twice per invocation, rather than being handed one — so it scans the same bare tree every
+other guard above does and exits identically regardless of what change, if any, is in flight. It is
+the only guard in this list that shells out to the installer rather than only reading files already
+on disk, which costs it real time; see the runtime note under `## test`, next to the entry its
+harness added there.
 
 **Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its
