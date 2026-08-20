@@ -414,21 +414,15 @@ whichever command is actually running, never a fixed one of them.
 `skills/myflow-contracts/` is never a running command and carries no
 `skills/myflow-contracts/scripts/` directory.
 
-**The exemption is a shape, not a list of names.** A `<agents repo>/scripts/<name>` citation names an
-invocation — and must use the basename form above — only when it sits in an **invoking
-position**: a non-comment line inside a fenced `bash`/`sh`/`zsh` command block, or a
-backtick-quoted path immediately preceded by an imperative such as "Run", "Invoke", or "Execute".
-Every other citation is **prose describing a guard rather than running it**, and keeps its
-repository-relative `<agents repo>/scripts/…` path where that path genuinely names a file in this repository —
-this repository's own lint and test guards, resolved through
-`<agents repo>/.myflow/project.md`'s `## lint` and `## test` lists rather than through
-`<the producing command's own skill directory>/scripts/`, are the recurring example, not the whole set: `check-references.sh`,
-`check-stage-mark-calls.sh`, `check-vocabulary.sh`, `check-contract-budget.sh`,
-`check-plan-provenance.sh` and `check-task-build-green.sh` are the ones a reader runs into most,
-but any other repository-relative mention outside an invoking position is exempt on the same
-shape, not because it appears on this list. `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 3
-implements this same distinction mechanically, classifying by a citation's shape rather than by
-name.
+**Prose describing this repository's own guard is not an invocation.** A guard invoked by name
+uses the basename form above. Prose that describes **this repository's own** lint and test
+guards — resolved through `<agents repo>/.myflow/project.md`'s `## lint` and `## test` lists
+rather than through `<the running command's own skill directory>/scripts/` — names the guard as
+`<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
+resolves, for a reader standing in an installed project, against that project's own tree, so the
+sentence would name a file the reader may be able to write. Carrying the prefix says which
+repository is meant, and removes the need for any classifier to tell describing a guard from
+running one.
 
 ## Guard presence check
 
