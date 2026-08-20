@@ -45,9 +45,11 @@ That path is a symlink into this checkout, so the content is always current. Eac
 file in `commands-claude/` is a thin wrapper naming exactly one skill plus its accepted
 states, so reading the skill directly loses nothing but the shorthand.
 
-Do **not** work around the missing command layer with a per-project `<agents repo>/setup.sh codex` install:
-`<agents repo>/openspec/specs/myflow-global-install/spec.md` requires that projects not retain their own copies
-of myflow skills, commands, or rules once the global install exists.
+Do **not** work around the missing command layer with a per-project `<agents repo>/setup.sh codex`
+install. A project-local copy shadows the global one and then goes stale: installs are additive, so
+an entry deleted from this checkout leaves its symlink behind at every destination it was ever
+installed to. `<agents repo>/setup.sh`'s own `link_into` and `prune_stale_links` exist to prevent
+exactly that shadowing, and a second install per project reintroduces it.
 
 ---
 

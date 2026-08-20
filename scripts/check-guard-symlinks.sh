@@ -119,7 +119,15 @@ if [ ! -d "$SCRIPTS_DIR" ] || [ ! -r "$SCRIPTS_DIR" ] || [ ! -x "$SCRIPTS_DIR" ]
   exit 2
 fi
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-guard-symlinks.XXXXXX")"
+# Unprotected, `set -euo pipefail` would exit here with MKTEMP's own status — 1 —
+# which is this guard's own "violations found" code, with nothing on stdout. A
+# caller reading the exit code alone would take an unwritable TMPDIR for an empty
+# violation report. Refuse with 2 instead, per this guard's exit contract above.
+# The trap is set only after success, so a failed mktemp leaves nothing to clean.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-guard-symlinks.XXXXXX")" || {
+  echo "check-guard-symlinks: mktemp -d failed under ${TMPDIR:-/tmp} — cannot create a scratch directory" >&2
+  exit 2
+}
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
 
