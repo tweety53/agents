@@ -402,7 +402,7 @@ Paths are absolute, resolved from `git worktree list`. Never emit a relative pat
 
 ## Guard resolution
 
-**A named guard resolves to `<the running command's own skill directory>/scripts/<name>`.**
+**A named guard resolves to `<skill-dir>/scripts/<name>`.**
 Skills and contracts name a guard by **basename**, never by a path relative to a repository
 root — such a path resolves only when the project being worked on *is* the agents repository,
 which is the one case that is never the interesting one.
@@ -417,7 +417,7 @@ whichever command is actually running, never a fixed one of them.
 **Prose describing this repository's own guard is not an invocation.** A guard invoked by name
 uses the basename form above. Prose that describes **this repository's own** lint and test
 guards — resolved through `<agents repo>/.myflow/project.md`'s `## lint` and `## test` lists
-rather than through `<the running command's own skill directory>/scripts/` — names the guard as
+rather than through `<skill-dir>/scripts/` — names the guard as
 `<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
 resolves, for a reader standing in an installed project, against that project's own tree, so the
 sentence would name a file the reader may be able to write. Carrying the prefix says which
@@ -427,7 +427,7 @@ running one.
 ## Guard presence check
 
 Each `/myflow-*` command checks, once at the start of its run, that every guard it can invoke —
-per **Guard resolution** above — is present in `<the running command's own skill directory>/scripts/`. A complete
+per **Guard resolution** above — is present in `<skill-dir>/scripts/`. A complete
 set prints nothing. Any absence prints exactly one block, naming every missing guard, the
 directory searched, and the install command, then the run continues:
 
@@ -458,7 +458,7 @@ hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule
 here would drift from that guard's own dependencies the moment they change.
 
 Each command names, in its own text, the guards *it* can invoke — exactly the guards
-`<its own skill directory>/scripts/` carries — and cites this section for the block shape rather than restating
+`<skill-dir>/scripts/` carries — and cites this section for the block shape rather than restating
 it.
 
 ## Finish contract

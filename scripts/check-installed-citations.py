@@ -290,23 +290,54 @@ SHELL_FENCE_LANG_RE = re.compile(r"^(bash|sh|zsh)(\s|$)")
 URL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
 GIT_REF_PATH_RE = re.compile(r"^refs/")
 GIT_BRANCH_RE = re.compile(r"^[A-Za-z0-9_.-]+/(main|master|HEAD)$")
-# GIT_BRANCH_LITERALS — task 10's exact-literal extension of the git-ref
-# shape above. `openspec/<name>` is the one branch name this corpus writes
-# that GIT_BRANCH_RE's suffix set (main/master/HEAD) does not cover, and it
-# is deliberately NOT folded into a shape rule ("no extension, no trailing
-# slash") — that alternative was tested and rejected: it silently stops
-# checking real corpus citations such as `<agents repo>/rules/<name>` and
-# `<project>/gradlew workspaceRemove`, a permanent blind spot for any
-# future bare directory-shaped citation, which is exactly the fail-open
-# outcome task 9 exists to prevent. An exact-literal set has no such
-# collateral: it excludes this one token and nothing shaped like it.
-GIT_BRANCH_LITERALS = frozenset({"openspec/<name>"})
+# ORIGIN_REF_EXTENSION_RE — the per-task-review bound on the `origin/…`
+# exclusion below (finding 1): the ORIGINAL rule excluded EVERY token
+# whose first segment was the literal `origin`, unconditionally — so
+# `` `origin/README.md` `` sailed through uncounted, never even reaching
+# judges_ok. The real corpus's only two `origin/…` sites, `origin/$BASE`
+# and `origin/openspec/<name>`, are both genuine remote-tracking refs, so
+# the rule is narrowed rather than deleted: a token whose first segment is
+# `origin` is a ref only when what follows has no file extension — a real
+# path citation in this corpus always ends in one (`.md`, `.sh`, `.py`,
+# …), and neither live site does. `origin/README.md` now falls through
+# unexcluded, is counted as checked, and is reported (first segment
+# `origin` names no recognised root).
+ORIGIN_REF_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]+$")
+# GIT_BRANCH_OPENSPEC_RE — task 10 first drew this as an exact-literal set,
+# `{"openspec/<name>"}`, for the one branch name this corpus wrote that
+# GIT_BRANCH_RE's suffix set (main/master/HEAD) does not cover. The second
+# per-task review found a second live site of the identical shape —
+# `openspec/<change-name>` — that an exact-literal set does not generalise
+# to, so it is a SHAPE now: `openspec/` followed by exactly one `<…>`
+# placeholder segment and NOTHING ELSE. Anchored at both ends so it cannot
+# widen past that: `openspec/specs/x.md` (no brackets) and
+# `openspec/changes/<name>/` (a bracket segment followed by MORE path) are
+# both still fully reportable — this is the deliberately narrow bound that
+# stops the shape from becoming the same fail-open hole task 9's
+# placeholder generalisation was reverted for. `[^/<>]+` inside the
+# brackets, not `.+`, so the bracket segment itself cannot smuggle in a
+# second `/`.
+GIT_BRANCH_OPENSPEC_RE = re.compile(r"^openspec/<[^/<>]+>$")
 # FILE_LINE_RE — a token ending `:<digits>` names a line inside a file (a
 # findings-table Location cell, taken verbatim from `git diff` output and
 # diff-relative by construction), not a path to cite. Rooting such a token
 # teaches a format real findings never use — see skills/myflow-do/SKILL.md's
 # example findings row. Matched against the whole token, so a real path
 # citation that merely CONTAINS a colon elsewhere is untouched.
+#
+# PER-TASK-REVIEW FINDING 3 — narrowing was tried and rejected, not
+# overlooked. The steer was to strip the `:<digits>` suffix and classify
+# the remainder, so a real unrooted path stays reportable. Tried exactly
+# that: it forces skills/myflow-do/SKILL.md:485's own findings-table
+# example row — `` `src/Foo.kt:42` `` — to be judged as an unrooted
+# citation, because "src/Foo.kt" genuinely IS unrooted, and that row is
+# deliberately fabricated (no such file exists) to teach the Location
+# cell's FORMAT, not to cite a real one. Re-rooting a fabricated example
+# would misrepresent it exactly as forcing a root onto task 9's negative
+# examples or a quoted git error message would. So the full-token
+# exclusion stays: this IS a documented hole (a real `path:line` citation
+# in this shape is unreportable) rather than an undocumented one — see
+# specs/myflow-citation-roots/spec.md, which the planner amends to say so.
 FILE_LINE_RE = re.compile(r":[0-9]+$")
 # "$" is deliberately excluded from this set: a leading "$" is the shell-
 # variable-reference exclusion's own signal (see classify_token), and
@@ -318,60 +349,126 @@ FILE_LINE_RE = re.compile(r":[0-9]+$")
 # metacharacters below.
 REGEX_GLOB_CHARS = set("[](){}*+?|^")
 
-AGENTS_REPO_WORD1 = "<agents"
-AGENTS_REPO_WORD2_PREFIX = "repo>/"
+def merge_bracket_placeholder_words(words):
+    """Merge a `<…>`-bracketed phrase spanning more than one word back into
+    one word, wherever it starts.
 
+    A plain whitespace split — used both to walk a backtick span's own
+    words (extract_backtick_tokens) and to tokenize a shell-fence comment
+    line (scan_file_for_citations) — breaks any placeholder whose own text
+    contains a space (`<agents repo>`, `<the running command's own skill
+    directory>`, `<project root>`) into several fragments before either
+    ever gets a chance to classify it. Left unmerged, the FIRST fragment
+    (`<agents`) is a citation candidate that never reaches classify_token/
+    judges_ok at all (a per-task-review finding — the original, narrower
+    version of this function existed for exactly `<agents repo>/…`), and —
+    once every word in a span is classified rather than only the first,
+    per that same review's finding 2 — every OTHER fragment is judged on
+    its own, standalone, which turns a single multi-word placeholder
+    citation into a garbled, unreadable violation (`` `repo>/…` ``,
+    `` `directory>/scripts/<name>` ``) instead of the real one. Generalised
+    from a hardcoded two-word case to ANY run of words starting with a `<`
+    that has no `>` of its own, consumed until a later word supplies one —
+    so the reported token is always the real placeholder text, whether or
+    not that placeholder turns out to be a recognised root (judges_ok's
+    own, separately closed, business).
 
-def merge_agents_repo_prefix(words):
-    """Merge a literal `<agents repo>/…` prefix back into one word.
-
-    The placeholder itself contains a space ("<agents repo>"), so a plain
-    whitespace split — used both to collapse a multi-word backtick span to
-    its leading word (extract_backtick_tokens) and to tokenize a shell-
-    fence comment line (scan_file_for_citations) — breaks it into two
-    fragments, `<agents` and `repo>/…`, before either ever gets a chance to
-    classify it. Left unmerged, the first fragment is a citation candidate
-    that never reaches classify_token/judges_ok at all (silently dropped —
-    finding 1), and the second is judged on its own, standalone, as a bogus
-    unrooted citation `` `repo>/…` `` (finding 2). Recognised only in this
-    exact two-word shape, case-sensitive, since that is the only shape this
-    repository's own convention writes; `<project>/…` has no embedded
-    space and never needed this.
+    A `<` that never finds a closing `>` before the words run out is left
+    exactly as split — nothing here manufactures a placeholder that is not
+    actually there. So is a `<` that DOES find one but with a `/` in some
+    word strictly between them — see the bound inline below, added after
+    panel round 2 found the earlier, unbounded version merging a shell
+    redirection (`some-cmd < scripts/input.txt > output.log`) into one
+    garbled false citation. Nested brackets closing at the first `>`
+    (`` `<a <b> c>` `` merges only through `<b>`) and an unclosed `<` are
+    both reviewed and left as-is — neither is a defect this corpus's own
+    content ever exercises.
     """
     merged = []
     i = 0
     n = len(words)
     while i < n:
-        if (
-            words[i] == AGENTS_REPO_WORD1
-            and i + 1 < n
-            and words[i + 1].startswith(AGENTS_REPO_WORD2_PREFIX)
-        ):
-            merged.append(words[i] + " " + words[i + 1])
-            i += 2
-        else:
-            merged.append(words[i])
-            i += 1
+        w = words[i]
+        if w.startswith("<") and ">" not in w:
+            j = i + 1
+            parts = [w]
+            closed = False
+            while j < n:
+                parts.append(words[j])
+                if ">" in words[j]:
+                    closed = True
+                    j += 1
+                    break
+                j += 1
+            # PANEL ROUND 2 — bound added: a word strictly BETWEEN the
+            # opening `<` word and the closing `>` word (parts[1:-1]; empty
+            # when they are adjacent, as in `<agents repo>/…`) must carry
+            # no `/`. A placeholder phrase never has one there — every real
+            # one in this corpus is plain English words until the closing
+            # bracket. A shell redirection does: `some-cmd < scripts/
+            # input.txt > output.log` splits into `<`, `scripts/input.txt`,
+            # `>`, and without this bound the greedy merge above joins all
+            # three into one garbled "citation" over ordinary prose
+            # documenting a command inline — this guard's over-report
+            # failure mode, not its silent-pass one, but a real defect in
+            # the one function that produced the change's original
+            # critical (silent-pass) defect. Rejecting here leaves the
+            # words exactly as split, the same as an unclosed `<` already
+            # falls through untouched below.
+            if closed and not any("/" in p for p in parts[1:-1]):
+                merged.append(" ".join(parts))
+                i = j
+                continue
+        merged.append(w)
+        i += 1
     return merged
 
 
 def extract_backtick_tokens(line):
     """Every span between a pair of single backticks on <line>, in order —
-    only its FIRST whitespace-delimited word, never the whole span.
+    EVERY whitespace-delimited word in the span, not only the first.
     Greedy left-to-right pairing — this file's corpus writes citations in
     plain single-backtick spans, never nested or doubled, so the extra
     machinery check-references.sh's normalized_line carries for a
     soft-wrapped orphan marker has no call site here.
 
-    A single-backtick span carrying more than one word is an inline shell
-    example — `` `agents/setup.sh global` ``, `` `sed -n '/…/p'` `` — not a
-    bare citation; check-guard-symlinks.sh's own CITATION_AWK already
-    treats a backtick span this way (its scan_prose extracts only the
-    leading `[A-Za-z0-9._-]+` run as the base token, everything after as
-    context). This guard needs slashes to survive where that one does not,
-    so the cut is at the first whitespace rather than the first non-word
-    character, but the shape of the decision — only the LEADING word of a
-    multi-word span is ever a citation candidate — is the same one.
+    Per-task-review finding 2: an earlier cut of this function kept only
+    the span's LEADING word, on the theory that a multi-word span is an
+    inline shell example — `` `agents/setup.sh global` `` — and everything
+    past the first word is an argument, not a citation. That theory is
+    right about `global` (see below), but the mechanism was wrong: it
+    dropped every OTHER word in the span too, including a genuine second
+    citation — `` `see .myflow/project.md` `` — which then went not merely
+    unreported but NEVER SEEN, the exact recognised-versus-never-seen
+    collapse this guard's own test suite exists to catch (see
+    agents-repo-prefix-bogus-path and placeholder-rooted-is-recognised).
+    Classifying every word closes that hole without reopening the
+    original one: `global` and `workspaceRemove` carry no `/` and match no
+    real file at the agents-repository root, so classify_token's own
+    bare-token rule excludes them independently, and a quoted fragment of
+    shell output (`` `sed -n '/…/p'` ``'s `'/…/p'`) is excluded by the
+    leading/trailing-quote rule task 9 added — neither exclusion is this
+    function's job to redo.
+
+    A SPAN whose own content begins with `<!--` is skipped WHOLESALE —
+    no words extracted, nothing merged, nothing handed to classify_token
+    at all. Panel round 3 first added a TOKEN-level exclusion for this
+    (`classify_token` rejecting any word starting `<!--`), then round 4
+    found it conflicts with the redirection bound in
+    merge_bracket_placeholder_words: an HTML comment illustrating a path
+    inline (`` `<!-- measured: ./gradlew test @ c515c42 -->` ``) contains
+    a `/`-bearing word (`./gradlew`) strictly between `<!--` and `-->`,
+    so that bound correctly refuses to merge it — and once unmerged, the
+    fragment `./gradlew` is judged on its own with nothing left to
+    protect it. The real fix is this one: being a comment is a property
+    of the WHOLE SPAN, not of any word inside it, so the span is excluded
+    HERE, before word-splitting or merging ever runs, and the two rules
+    stop competing over the same words. classify_token's own former
+    `<!--` check is now dead — a token-level rule can never see a comment
+    span's own content once the span produces no tokens at all — and is
+    deleted rather than kept "just in case": this repository's stated
+    policy is a hole that is written down, or a rule that is deleted, not
+    a rule nothing can reach.
     """
     tokens = []
     i = 0
@@ -381,9 +478,25 @@ def extract_backtick_tokens(line):
             j = line.find("`", i + 1)
             if j == -1:
                 break
-            words = merge_agents_repo_prefix(line[i + 1 : j].split())
-            if words:
-                tokens.append(words[0])
+            span = line[i + 1 : j]
+            # Panel round 5 (the panel's code-quality reviewer): leading whitespace INSIDE
+            # the backticks — `` ` <!-- ... -->` `` — must not defeat this
+            # check. Stripped only for the test, never for the content
+            # handed onward: split() already ignores leading/trailing
+            # whitespace on its own, so nothing here changes what a
+            # non-comment span produces. Deliberately NOT widened to
+            # "`<!--` appears anywhere in the span" — this corpus
+            # discusses comment syntax in PROSE (plan-provenance.md) where
+            # a real citation can sit elsewhere in the same span; matching
+            # anywhere would skip that citation unseen. A comment that is
+            # not span-initial at all (`` `see <!-- … --> for detail` ``)
+            # is accepted, documented residue instead — see
+            # specs/myflow-citation-roots/spec.md.
+            if span.lstrip().startswith("<!--"):
+                i = j + 1
+                continue  # an HTML comment, illustrating syntax — no tokens at all
+            words = merge_bracket_placeholder_words(span.split())
+            tokens.extend(words)
             i = j + 1
         else:
             i += 1
@@ -425,7 +538,7 @@ def scan_file_for_citations(text):
 
         if SHELL_FENCE_LANG_RE.match(fence_lang):
             if stripped.startswith("#"):
-                for tok in merge_agents_repo_prefix(raw.split()):
+                for tok in merge_bracket_placeholder_words(raw.split()):
                     candidates.append((lineno, tok))
             # A non-comment line inside a bash/sh/zsh fence is a shell
             # argument and is excluded wholesale — no candidates at all.
@@ -457,11 +570,31 @@ def classify_token(token, repo_root_files):
     name told an agent to create a branch of that literal name, and a
     findings-table Location example taught a fabricated citation shape:
 
-      - A GIT_BRANCH_LITERALS member: an exact git branch name, not a
-        filesystem path — see that set's own comment for why this is an
-        exact-literal exclusion rather than a shape rule.
+      - A GIT_BRANCH_OPENSPEC_RE match: `openspec/<…>` names a branch, not
+        a filesystem path — see that pattern's own comment for the exact,
+        deliberately narrow bound (a shape now, not an exact-literal set,
+        after the second per-task review found a second live site).
       - A token matching FILE_LINE_RE: a `file:line` location, diff-
-        relative by construction, not a path to cite.
+        relative by construction, not a path to cite. Narrowing this one
+        was tried and rejected — see FILE_LINE_RE's own comment for why it
+        stays a full-token exclusion, a documented hole rather than an
+        undocumented one.
+
+    Two more were added by the second per-task review, closing the
+    remaining real-corpus sites finding 2 (classify every word, not only a
+    span's first) newly made visible without ALSO forcing a root onto
+    fabricated illustrative content — the HTML-comment case that round
+    first drew as a token-level rule here now lives one layer up, in
+    extract_backtick_tokens: see that function's own docstring for why a
+    comment is a property of the whole span and round 4 moved it there:
+
+      - A token with any NON-FINAL `/`-delimited segment ending in `:`:
+        not a path segment — this is what excludes a fragment of
+        check-plan-provenance.py's own error-message sentence
+        (`measured:/predicted:`), quoted verbatim rather than reworded,
+        since rewording it would falsify the quote. Narrowed to non-final
+        (round 3) after the first cut silently dropped a real citation
+        ending its own span in a bare colon.
     """
     tok = token.strip()
     if not tok:
@@ -476,16 +609,40 @@ def classify_token(token, repo_root_files):
         return False  # URL
     if tok[0] in "'\"" or tok[-1] in "'\"":
         return False  # quoted program output, not a citation
-    if tok in GIT_BRANCH_LITERALS:
-        return False  # git branch literal, not a path
+    if GIT_BRANCH_OPENSPEC_RE.match(tok):
+        return False  # openspec/<…> — a branch name, not a path
     if FILE_LINE_RE.search(tok):
         return False  # file:line location, not a path to cite
+    # Panel round 3: narrowed to a NON-FINAL segment. The original,
+    # unbounded version tested every segment, including the last — which
+    # silently dropped a real citation carrying a trailing colon inside
+    # its own span (`.myflow/project.md:`, e.g. from prose reading "see
+    # `.myflow/project.md:` for the list"). `measured:/predicted:` still
+    # excludes correctly: its non-final segment `measured:` still ends in
+    # `:`. Only a colon on a segment that is NOT the path's own last
+    # component signals "this is not a path" — a real citation's own
+    # final segment ending in `:` is just trailing punctuation.
+    segs = tok.split("/")
+    if any(seg.endswith(":") for seg in segs[:-1]):
+        return False  # a non-final segment ending in ':' is not a path segment
 
     first_seg = tok.split("/", 1)[0]
     if first_seg.startswith("$"):
         return False  # shell variable reference
-    if first_seg == "origin" or GIT_REF_PATH_RE.match(tok) or GIT_BRANCH_RE.match(tok):
+    if GIT_REF_PATH_RE.match(tok) or GIT_BRANCH_RE.match(tok):
         return False  # git ref shape
+    if first_seg == "origin":
+        remainder = tok[len("origin/"):] if tok.startswith("origin/") else tok
+        # Panel round 3: a trailing "/" names a DIRECTORY, and a directory
+        # is never a git ref, so `origin/rules/` must not take this
+        # exclusion (it silently vanished before this bound: a real,
+        # reportable unrooted citation, gone). `origin/README` — no
+        # extension, no trailing slash — stays excluded: a branch
+        # genuinely could be named README, and that residue is accepted
+        # rather than closed (documented here the way FILE_LINE_RE's own
+        # hole is documented; the planner mirrors it into the spec).
+        if not remainder.endswith("/") and not ORIGIN_REF_EXTENSION_RE.search(remainder):
+            return False  # origin/<ref> — ref-shaped remainder, not a path
     if any(c in REGEX_GLOB_CHARS for c in tok):
         return False  # regular-expression or glob fragment
 
@@ -502,9 +659,23 @@ def classify_token(token, repo_root_files):
 # clean while checking nothing is worse than no guard — the same
 # principle wave A's own `~/` review finding rested on: a site leaves the
 # report by acquiring a root, never by ceasing to look like a citation.
-# Adding a sixth placeholder root here is a deliberate act that extends
-# the spec's own table; it is not something this guard does by pattern-
+# Adding a placeholder root here is a deliberate act that extends the
+# spec's own table; it is not something this guard does by pattern-
 # matching brackets.
+#
+# `<skill-dir>` — the second per-task review's sixth root, added after
+# finding six real corpus sites (pipeline.md's own "Guard resolution"
+# section and handoff-blocks.md) all naming the SAME concept under three
+# different English-phrase wordings ("the running command's own skill
+# directory", "the producing command's own skill directory", "its own
+# skill directory"). It resolves at runtime to the INSTALLED skills root —
+# `~/.claude/skills/<skill>/`, `.cursor/skills/<skill>/`, and so on —
+# which is neither this checkout nor the target project, the same
+# criterion that earned `<abs-worktree>`, `<changeRoot>` and `<state-dir>`
+# their places. All three corpus wordings are collapsed to this one short
+# form; the surrounding prose (pipeline.md's "Guard resolution" section is
+# canonical for the concept) already explains what it means, so the short
+# form loses nothing.
 PLACEHOLDER_ROOTS = frozenset(
     {
         "<agents repo>",
@@ -512,6 +683,7 @@ PLACEHOLDER_ROOTS = frozenset(
         "<abs-worktree>",
         "<changeRoot>",
         "<state-dir>",
+        "<skill-dir>",
     }
 )
 

@@ -41,7 +41,7 @@ no `/`** — see the containment rule below, which every form must pass.
 | Entry form | Resolves to |
 |-----------|-------------|
 | **Bare `*.mdc` filename** (`kotlin-backend-development-standard.mdc`) | `<agents repo>/rules/<name>` — the shared, opt-in rule library. `<agents repo>` is defined, and the two steps that resolve it are stated, under **Where the agents repository is** below. |
-| **Any other bare filename, e.g. `<project>/CLAUDE.md` or `CONTRIBUTING.md`** | The **project's own** file: `<project root>/<name>`, where the project root is the apply worktree when one exists, otherwise the main checkout. |
+| **Any other bare filename, e.g. `<project>/CLAUDE.md` or `CONTRIBUTING.md`** | The **project's own** file: `<project>/<name>`, where the project root is the apply worktree when one exists, otherwise the main checkout. |
 | **Path** (repo-relative like `<project>/docs/standards/api.md`, or absolute) | Used as-is, subject to the containment rule below; a repo-relative path resolves against the apply worktree when one exists, otherwise the main checkout. |
 
 **The `.mdc` extension is what selects the shared library, and nothing else.** A project-local
@@ -63,7 +63,7 @@ lands in a review record, and from there into a commit wherever that record is t
 **Normalize before you check — for all three entry forms, without exception.** Resolve the entry to
 its concatenated candidate path, then normalize `..`, `.`, and symlinks, and apply the containment
 test to the **normalized** result. **Never string-match the raw entry**, and never prefix-match a
-root against un-normalized text: `<project root>/../../.ssh/id_rsa` is literally
+root against un-normalized text: `<project>/../../.ssh/id_rsa` is literally
 prefixed by the project root while normalizing outside it, and
 `../../../../Users/victim/.ssh/config.mdc` contains no `/`-free basename yet still escapes once
 concatenated. A form that skipped this step would be the whole containment bypass.

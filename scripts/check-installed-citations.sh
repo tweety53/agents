@@ -50,7 +50,17 @@ fi
 # check-references.sh for the pattern this guard follows.
 source "$SCRIPT_DIR/lib/coverage.sh"
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-citations.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-citations.XXXXXX")" || {
+  # Per-task-review finding 6: unprotected, `set -euo pipefail` would exit
+  # with MKTEMP's own status here — 1 on every mktemp implementation this
+  # repository runs under — which is this guard's own "violations found"
+  # code, and with nothing on stdout. An environment failure (no writable
+  # TMPDIR) then reads exactly like an empty, clean violation report,
+  # contradicting the exit-2 "cannot answer" contract this guard states
+  # everywhere else. Refuse explicitly instead.
+  echo "check-installed-citations: mktemp -d failed under ${TMPDIR:-/tmp} — cannot create a scratch directory" >&2
+  exit 2
+}
 cleanup() { rm -rf "$WORK"; }
 trap cleanup EXIT
 

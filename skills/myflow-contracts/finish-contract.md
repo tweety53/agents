@@ -393,7 +393,7 @@ the unfinished-work gate and run 2's removal alike.
 
 **The path is taken with `substr`, never `$2`.** `worktree list --porcelain` emits it raw, so a
 field reference truncates any path containing a space at the first one: fed
-`worktree /tmp/my worktree/x` it yields `/tmp/my`, and the run then `--force`-removes a path that is
+`worktree /tmp/my worktree` it yields `/tmp/my`, and the run then `--force`-removes a path that is
 not the worktree, or fails having named the wrong one. `10` is one past the length of the literal
 `worktree ` prefix. The branch on the next line is a ref name and cannot contain a space, so `$2` is
 right for it. `<agents repo>/scripts/check-cleanup-complete.sh` parses the same stream the same way — the guard

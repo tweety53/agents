@@ -108,7 +108,7 @@ and nothing here checks it against the list above.
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
-`project` — to derive the installed set it classifies citations against, rather than only reading
+`all` — to derive the installed set it classifies citations against, rather than only reading
 files already on disk. A single invocation measures about 0.84s, negligible against either total
 above, but worth naming here since it is the one guard in this repository paying for a subprocess
 rather than a plain file scan.

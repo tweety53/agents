@@ -327,7 +327,7 @@ of those rules at once.
 A model policy that nothing records is a policy nothing can verify — and the absence of that record
 is precisely how this rule came to be missing in the first place.
 
-**This record outlives the change.** The ledger is authored under `<project>/.superpowers/`, which is
+**This record outlives the change.** The ledger is authored under `<abs-worktree>/.superpowers/`, which is
 gitignored, in a worktree `/myflow-finish` run 2 removes — but run 1 preserves it into the
 repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the operator and the panel
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model

@@ -338,7 +338,7 @@ gathered once per run: a fix documented under section 3 edits `proposal.md` and 
 run-scoped bundle would leave every later dispatch reading a plan that no longer exists. A non-zero
 exit — including the guard being absent — is reported, and dispatching proceeds with the prompt shape
 this stage used before this capability existed; the bundle never gates a run. **Confirm the bundle
-was actually written** — `test -f <worktree>/.superpowers/sdd/dispatch-context.md` — and report
+was actually written** — `test -f <abs-worktree>/.superpowers/sdd/dispatch-context.md` — and report
 plainly if it is not, per section 4's rule above; the missing bundle still never gates or stops the
 run.
 

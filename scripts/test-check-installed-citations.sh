@@ -445,17 +445,158 @@ else
 fi
 
 # ===========================================================================
+# SECTION: Second per-task review — three bugs the panel found in what
+# task 10 shipped: the `origin` exclusion excluded ANY token whose first
+# segment was `origin`, not only a ref shape; extract_backtick_tokens kept
+# only a span's leading word, so a REAL second citation in the same span
+# went not merely unreported but never seen; FILE_LINE_RE was confirmed,
+# not merely left alone — narrowing it was tried and found to force
+# re-rooting SKILL.md:485's own fabricated findings-table example.
+# ===========================================================================
+
+assert_case "origin-with-extension-is-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`origin/README.md`
+' "reported"
+
+assert_case "origin-ref-with-nested-path-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`origin/openspec/<name>`
+' "not-reported"
+
+# origin-directory-is-a-citation — panel round 3's finding: the ORIGINAL
+# bound ("remainder carries no file extension") also silently excluded a
+# DIRECTORY, since a directory has no extension either but is never a
+# git ref. `origin/rules/` (trailing slash) must be classified and
+# reported, not vanish.
+assert_case "origin-directory-is-a-citation" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+`origin/rules/`
+' "reported"
+
+assert_case "second-word-in-backtick-span-is-seen" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`see .myflow/project.md`
+' "reported"
+
+assert_case "shell-example-second-word-not-path-shaped" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`skills/other/SKILL.md verbose`
+' "not-reported"
+
+# file-line-reference-is-not-a-citation (task 10, above) already pins
+# FILE_LINE_RE's kept, undivided behaviour — re-confirmed rather than
+# re-tested here; see this guard's own module docstring for the narrowing
+# attempt and why it was rejected.
+
+# ===========================================================================
+# SECTION: Third per-task review — a sixth placeholder root (<skill-dir>,
+# collapsing six real corpus sites' three different wordings of the same
+# concept) and Group B split into three separately-bounded exclusions
+# rather than one that would have swallowed all three.
+# ===========================================================================
+
+assert_case "skill-dir-rooted" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`<skill-dir>/scripts/check-vocabulary.sh`
+' "not-reported"
+
+# skill-dir-rooted-is-recognised — the same recognised-versus-never-seen
+# distinction every root in this guard is held to. The path here does not
+# exist (`<skill-dir>/scripts/does-not-exist.sh`): existence is never the
+# guard's business for a slash-containing token, so a bogus target proves
+# nothing except whether the CITATION ITSELF was seen — proven by its
+# member's coverage count going non-zero, not merely by the absence of a
+# violation line.
+new_fixture_repo
+write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+`<skill-dir>/scripts/does-not-exist.sh`
+'
+run_guard "$FIXTURE"
+if [ "$RC" -eq 0 ] \
+  && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:' \
+  && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+  pass "skill-dir-rooted-is-recognised: recognised (coverage count 1), not silently dropped"
+else
+  fail "skill-dir-rooted-is-recognised: rc=$RC out='$OUT'"
+fi
+
+assert_case "openspec-branch-with-change-name-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`openspec/<change-name>`
+' "not-reported"
+
+# openspec-shape-with-real-path-is-still-reported and
+# openspec-shape-with-trailing-path-is-still-reported — the "second half"
+# GIT_BRANCH_OPENSPEC_RE's own comment calls out explicitly: the shape is
+# anchored at BOTH ends so it cannot widen past exactly one bracket
+# segment. Without these two cases, a shape rule that accidentally matched
+# ANY `openspec/`-prefixed token would still pass every other case in this
+# file (none of them exercises a real `openspec/...` path), which is
+# exactly how task 9's own placeholder generalisation failed open the
+# first time.
+assert_case "openspec-shape-with-real-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`openspec/specs/x.md`
+' "reported"
+
+assert_case "openspec-shape-with-trailing-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`openspec/changes/<name>/`
+' "reported"
+
+assert_case "html-comment-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`<!-- measured: ./gradlew test @ c515c42 -->`
+' "not-reported"
+
+# html-comment-with-leading-whitespace-is-not-a-citation — panel round 5
+# (the panel's code-quality reviewer): a space right inside the opening backtick
+# (`` ` <!-- ... -->` ``) must not defeat the span-initial check. Dormant
+# in the real corpus today (every live site is span-initial) but
+# untested before this case, and the reviewer showed the fragile
+# `startswith` alone lets `./gradlew` fall through to word-splitting and
+# report.
+assert_case "html-comment-with-leading-whitespace-is-not-a-citation" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+` <!-- measured: ./gradlew test @ c515c42 -->`
+' "not-reported"
+
+assert_case "colon-segment-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`measured:/predicted:`
+' "not-reported"
+
+
+# final-colon-segment-is-a-citation — panel round 3's finding: the
+# ORIGINAL rule tested EVERY segment including the last, which silently
+# dropped a real citation carrying a trailing colon inside its own span
+# (e.g. "see `.myflow/project.md:` for the list"). Only a colon on a
+# NON-FINAL segment signals "not a path" now.
+assert_case "final-colon-segment-is-a-citation" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+`.myflow/project.md:`
+' "reported"
+
+# redirection-is-not-merged-into-a-citation — panel round 2's finding: the
+# unbounded merge joined a shell redirection's `<`, its target, and `>`
+# into one garbled false citation, over ordinary prose documenting a
+# command inline. The intervening word (`skills/other/SKILL.md`) is
+# deliberately a REAL, passing citation on its own — so the OLD (buggy)
+# merged form `< skills/other/SKILL.md >` reports a violation (first
+# segment `< skills` names no root), while the FIXED, rejected-merge form
+# reports nothing at all: `<` and `>` are each harmless standalone words,
+# and `skills/other/SKILL.md` passes cleanly by itself. That gap — clean
+# under the fix, a violation without it — is what the mutation below
+# proves.
+assert_case "redirection-is-not-merged-into-a-citation" "skills/myflow-do/SKILL.md" \
+  '# myflow-do fixture
+Run `some-cmd < skills/other/SKILL.md > output.log` to reproduce.
+' "not-reported"
+
+# ===========================================================================
 # SECTION: Refusal cases (4 cases, task 1 step 3's table). Every refusal
 # case asserts stdout is empty as well as the exit code.
 # ===========================================================================
 
 # CHECK_INSTALLED_CITATIONS_ROOT set but empty.
+EMPTY_ROOT_ERRFILE="$(mktemp "${TMPDIR:-/tmp}/check-installed-citations-empty-root.XXXXXX")"
+SANDBOXES+=("$EMPTY_ROOT_ERRFILE")
 set +e
-OUT="$(CHECK_INSTALLED_CITATIONS_ROOT= "$GUARD" 2>/tmp/check-installed-citations-empty-root.$$)"
+OUT="$(CHECK_INSTALLED_CITATIONS_ROOT= "$GUARD" 2>"$EMPTY_ROOT_ERRFILE")"
 RC=$?
 set -e
-ERR="$(cat /tmp/check-installed-citations-empty-root.$$)"
-rm -f /tmp/check-installed-citations-empty-root.$$
+ERR="$(cat "$EMPTY_ROOT_ERRFILE")"
 if [ "$RC" -eq 2 ] && [ -z "$OUT" ] && printf '%s' "$ERR" | grep -aq 'CHECK_INSTALLED_CITATIONS_ROOT'; then
   pass "CHECK_INSTALLED_CITATIONS_ROOT set but empty: exit 2, stderr names it, stdout empty"
 else

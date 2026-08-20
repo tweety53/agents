@@ -26,7 +26,7 @@ nameable — write it as a path (`<project>/.cursor/rules/api.mdc`), which form 
 install is a real `~/.claude/skills/` (likewise `~/.cursor/skills/` and `~/.codex/skills/`) holding
 **one symlink per skill** — `check-vocabulary.sh` calls that shape "a farm of symlinked
 directories" and traverses it deliberately. Resolving the parent lands in `~/.claude`, which
-contains no `per-skill scripts/` directory and is not a checkout of anything; resolving the skill's own directory lands
+contains no per-skill scripts/ directory and is not a checkout of anything; resolving the skill's own directory lands
 in `<agents repo>/skills/<skill>/`, from which step 2 is right. Measured on a global install:
 `~/.claude/skills/` is a directory, `~/.claude/skills/myflow-do` is a symlink to
 `<agents repo>/skills/myflow-do/`, and the two-step rule yields the checkout root while resolving
