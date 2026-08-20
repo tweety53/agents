@@ -121,7 +121,7 @@ decisive.** Why an unresolved or unequal-to-`HEAD` merge base has to be settled 
 `git merge-base --is-ancestor` runs, and what answering them the other way round reports, is stated
 once under **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`), beside the
 selection table this answer feeds. Read it there — it is not re-derived here, and it is not
-re-derived from `scripts/check-finish-preflight.sh` either: that script's resolve-first guard and
+re-derived from `<agents repo>/scripts/check-finish-preflight.sh` either: that script's resolve-first guard and
 its comment (b) are what `pipeline.md` cites in turn.
 
 **A multi-repo change has one merge status per worktree, and the change's is the weakest of them.**
@@ -222,7 +222,7 @@ completed.
 Add below the table:
 
 - Linked Jira issue key, or "none linked"
-- Task progress (`N/M` checked from `tasks.md`)
+- Task progress (`N` of `M` checked, from `tasks.md`)
 - Nested `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that
@@ -270,7 +270,7 @@ one.
 - **The `Run it:` section is resolved, never copied from a stored run.** Follow **6. Resolve the
   run instructions** (`skills/myflow-do/SKILL.md`) — canonical for how those lines are produced —
   and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the record
-  and the project's own `.myflow/project.md` — never the project's declared base — not from any text
+  and `<project>/.myflow/project.md` — never the project's declared base — not from any text
   `/myflow-do` printed earlier. Do not restate the resolution *procedure* here — the steps that
   compute each app root, start command and URL; a second copy of those steps is the failure this
   repository's contracts are built to avoid, and naming the invariant above is not one.

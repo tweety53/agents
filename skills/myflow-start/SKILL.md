@@ -200,7 +200,7 @@ myflow stage begin -command '/myflow-start' -stage start.brainstorm -harness <ha
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
-- Save the design to `docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it when the
+- Save the design to `<project>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it when the
   brainstorming skill requires it.
 - **HARD GATE:** do not run `openspec new change` until the user approves the design.
 - For multi-subsystem work, decompose before proposing.
@@ -403,7 +403,7 @@ checked by a runtime guard during `/myflow-do`:
 - `**Commit:**` — the commit subject line this task's implementer must use.
 
 A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
-its commit folds into. `tasks.md` in this change's own `openspec/changes/` directory demonstrates
+its commit folds into. `tasks.md` in this change's own `<project>/openspec/changes/` directory demonstrates
 the real syntax for all of these fields.
 
 Add this header to `tasks.md`:

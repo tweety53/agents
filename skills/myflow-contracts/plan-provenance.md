@@ -85,7 +85,7 @@ either says how it was checked, or says plainly that it was not.
 ## The guard's scope, and why it is narrow
 
 The guard that enforces this contract reads three files per non-archived change — that change's own
-`tasks.md`, `design.md` and `proposal.md` — and explicitly excludes `openspec/changes/archive/`. It
+`tasks.md`, `design.md` and `proposal.md` — and explicitly excludes `<project>/openspec/changes/archive/`. It
 does not scan the whole repository, and it does not scan other changes' plans. Both rules apply to
 all three files identically: every fenced block needs `verified:`/`unverified:`, and no untagged
 number may appear in any of them.
@@ -95,13 +95,13 @@ design than in the tasks. Scanning only `tasks.md` left the two artifacts the ta
 from* unchecked — which is how an invented baseline can enter a plan through the door the guard
 does not watch and be transcribed into the tasks as settled fact.
 
-**`specs/` under a change is excluded**, and the reason is a difference in kind rather than a
+**`<project>/openspec/changes/<name>/specs/` is excluded**, and the reason is a difference in kind rather than a
 difference in risk. Spec text **legislates** rather than describes: a requirement that forbids a
 shape has to be able to name that shape, so an untagged fence in a spec is usually the requirement
-doing its job, not an unattributed claim. Widening into `specs/` would therefore buy hits that are
+doing its job, not an unattributed claim. Widening into `<project>/openspec/changes/<name>/specs/` would therefore buy hits that are
 correct by construction — the definition of over-firing.
 
-That is where the over-firing history bears. `scripts/check-references.sh`'s own header records
+That is where the over-firing history bears. `<agents repo>/scripts/check-references.sh`'s own header records
 that an earlier guard in this repository, once widened past the shape it was designed for, produced
 28 false failures on this repo's own tree — none of them a genuine defect. The only way to silence
 a false failure under time pressure is a suppression marker, and a suppression marker placed to
@@ -111,7 +111,7 @@ does not just annoy; it manufactures the conditions for its own defeat.
 Two things follow from that history, and they are the reason this scope is what it is rather than
 merely narrow for its own sake:
 
-1. **`specs/` stays out**, because a rule that fires on text doing its job cannot be fixed by the
+1. **`<project>/openspec/changes/<name>/specs/` stays out**, because a rule that fires on text doing its job cannot be fixed by the
    author — there is nothing to correct.
 2. **The widening removed its own false-positive classes first.** Two exemptions landed *before*
    the scan set grew: an issue key followed by a unit word (`KAN-6 errors`) is an identifier and
@@ -283,8 +283,8 @@ exists to catch, so being withdrawn is the demonstration working.
 
 | Line | Veto | What it is |
 |------|------|-----------|
-| this file (five lines), the live delta spec (`openspec/specs/myflow-plan-provenance/spec.md`, two lines), an archived copy of that spec (two lines), an archived design document (one line), or an SDD ledger (one line) | class-wide, escape, angle-bracket | the shapes each veto exists to catch, quoted on purpose (eleven lines) |
-| `openspec/changes/archive/2026-07-29-kan-14-plan-provenance/tasks.md`, a table row whose trailing `<!-- measured: … -->` comment quotes `"197 tests"` | angle-bracket | a genuine quotation, withdrawn because its line carries a `<` |
+| this file (five lines), the live delta spec (`<agents repo>/openspec/specs/myflow-plan-provenance/spec.md`, two lines), an archived copy of that spec (two lines), an archived design document (one line), or an SDD ledger (one line) | class-wide, escape, angle-bracket | the shapes each veto exists to catch, quoted on purpose (eleven lines) |
+| `<agents repo>/openspec/changes/archive/2026-07-29-kan-14-plan-provenance/tasks.md`, a table row whose trailing `<!-- measured: … -->` comment quotes `"197 tests"` | angle-bracket | a genuine quotation, withdrawn because its line carries a `<` |
 
 The last is the honest cost of the angle-bracket veto. Its quote characters pair perfectly; what
 withdraws the exemption is the `<` that opens the comment they sit in. It lives in an **archived**
@@ -332,8 +332,8 @@ treat exit 4 as "fix this line, then run it again," not as "this file has no oth
 
 **It refuses to open a planning artifact it cannot trust the path of (exit code 3).** Before
 reading any of a change's three scanned files, the guard confirms that file really sits at the
-plain, expected `openspec/changes/<name>/<filename>` path: the right basename, not a symlink, not
-reached through a change directory that resolves outside `openspec/changes/`, and not some other
+plain, expected `<project>/openspec/changes/<name>/<filename>` path: the right basename, not a symlink, not
+reached through a change directory that resolves outside `<project>/openspec/changes/`, and not some other
 non-regular file (a FIFO, a device node) sitting where a plan should be. Any of those shapes is a
 containment refusal, not an ordinary violation — a PR-controlled `design.md` that is actually a
 symlink to something else could otherwise make the guard read (or hang reading) content its author

@@ -50,8 +50,8 @@ it with the script's own stderr message and continue the integration, per the ou
 **Preserving the session records** in `skills/myflow-contracts/pipeline.md`, which is canonical
 for all three outcomes.
 
-`scripts/preserve-session-records.sh` still runs **before** the first `add`, unchanged:
-`docs/superpowers/` is one of the excluded paths, so its files are picked up by the second staging
+`<agents repo>/scripts/preserve-session-records.sh` still runs **before** the first `add`, unchanged:
+`<project>/docs/superpowers/` is one of the excluded paths, so its files are picked up by the second staging
 pass. The second `add` carries no pathspec, which is what makes it pick them up.
 
 The planning artifacts were hidden from the review diff, not from the commit.
@@ -104,7 +104,7 @@ angles plus the rating, the per-finding filing ask, and the report path — is c
 **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
 requirement to change first when that procedure changes is
 **Requirement: Self-review runs only after FINISHED is written**
-(`openspec/specs/myflow-self-review/spec.md`) — a citation `finish-contract.md` already carries,
+(`<agents repo>/openspec/specs/myflow-self-review/spec.md`) — a citation `finish-contract.md` already carries,
 not restated here.
 
 Labelling a filed issue and handling a filing failure follow **Labels on issues the pipeline

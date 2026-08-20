@@ -66,7 +66,7 @@ covers the preserved files wherever in the run they were written, and placing th
 out of the route branches, where it could be forgotten on one of them. `/myflow-do` runs the same
 script *after* its unconditional staging and stages a second time, because it stages on every run
 and commits only when a `prUrl` is already recorded; hoisting the call there would create
-`docs/superpowers/` files on every ordinary staged-only run.
+`<project>/docs/superpowers/` files on every ordinary staged-only run.
 **Do not harmonise the two orderings for symmetry** — the asymmetry is what keeps preserved records
 out of the staged-only path.
 
@@ -96,7 +96,7 @@ the run-only rule and the rendering-selection table.
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-- **`/myflow-do` never stages `openspec/` or `docs/superpowers/` before
+- **`/myflow-do` never stages `<project>/openspec/` or `<project>/docs/superpowers/` before
   finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
   implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
   display command, is what makes them absent from *every* view of the staging area — a filtered
@@ -187,7 +187,7 @@ defined; the two call sites point here rather than each describing them.
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a
    number of its own would renumber steps 6, 7 and 8, which are cited *by number* from
-   `openspec/specs/` and from `skills/myflow-finish/SKILL.md`.
+   `<agents repo>/openspec/specs/` and from `skills/myflow-finish/SKILL.md`.
 
 ### Worktree cleanup
 
@@ -253,7 +253,7 @@ survived; the section holding those declarations is the one
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for.
 
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
-ends at run 2 is checked back by `scripts/check-cleanup-complete.sh`, whose header explains which
+ends at run 2 is checked back by `<agents repo>/scripts/check-cleanup-complete.sh`, whose header explains which
 rows that leaves it reading and why; step 6 of
 **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`) is where its
 verdict is acted on.
@@ -281,18 +281,18 @@ The field shape, and the rule that an absent key reads as *not recorded*, belong
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/myflow-*` command is required to
-load this file before acting, and none of them loads `openspec/specs/`, so the file runtime actually
+load this file before acting, and none of them loads `<agents repo>/openspec/specs/`, so the file runtime actually
 reads is the file the rule has to live in. **State file** (`skills/myflow-contracts/state-file.md`)
 cites this section for the `models` field rather than defining the roles a second time, and
-`CLAUDE.md` and `AGENTS.md` name this section for the same reason.
+`<project>/CLAUDE.md` and `<project>/AGENTS.md` name this section for the same reason.
 
 **Which file to change first.** The normative requirements behind this section belong to the
-OpenSpec capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`openspec/specs/myflow-model-policy/spec.md`) anchors the defaults. That capability is the requirement; this section is the **operational form the commands read**, and the two-layer split is the same one **Planning effort** (`skills/myflow-contracts/state-file.md`) already uses. Change the capability first and bring this section with it: a section that contradicts the requirement is this file's defect, not the spec's. A live spec is also behind by construction while a change is open — its delta lands in `openspec/specs/` only at finish run 2 — which is the second reason runtime reads this section rather than that file.
+OpenSpec capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`<agents repo>/openspec/specs/myflow-model-policy/spec.md`) anchors the defaults. That capability is the requirement; this section is the **operational form the commands read**, and the two-layer split is the same one **Planning effort** (`skills/myflow-contracts/state-file.md`) already uses. Change the capability first and bring this section with it: a section that contradicts the requirement is this file's defect, not the spec's. A live spec is also behind by construction while a change is open — its delta lands in `<agents repo>/openspec/specs/` only at finish run 2 — which is the second reason runtime reads this section rather than that file.
 
 That citation is a **checked** one, not a courtesy: the guard associates a bold token with the path
 beside it and matches it against the target's headings, and an OpenSpec `### Requirement: …` heading
 is a heading like any other, so naming the requirement in full is what makes
-`scripts/check-references.sh` fire when it moves. A bare backticked path with no bold token beside
+`<agents repo>/scripts/check-references.sh` fire when it moves. A bare backticked path with no bold token beside
 it is **not** checked and rots silently — which is what this bullet's predecessor did.
 
 The two rules point in opposite directions on purpose. A reviewer's job is to be many independent
@@ -327,9 +327,9 @@ of those rules at once.
 A model policy that nothing records is a policy nothing can verify — and the absence of that record
 is precisely how this rule came to be missing in the first place.
 
-**This record outlives the change.** The ledger is authored under `.superpowers/`, which is
+**This record outlives the change.** The ledger is authored under `<abs-worktree>/.superpowers/`, which is
 gitignored, in a worktree `/myflow-finish` run 2 removes — but run 1 preserves it into the
-repository first, under `docs/superpowers/ledgers/`, so it serves the operator and the panel
+repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the operator and the panel
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
 The preservation duty itself is stated once, under
@@ -344,5 +344,5 @@ as written and no step fills it in on the way into the repository.
 
 This is why the second source matters: `openspec list --json` only
 sees change directories present in the *current* git checkout, so a change staged in a worktree —
-`openspec/changes/<name>/` created there but never committed to the main checkout — is invisible to
+`<project>/openspec/changes/<name>/` created there but never committed to the main checkout — is invisible to
 it alone, even while it sits at a human gate with a fully staged diff.

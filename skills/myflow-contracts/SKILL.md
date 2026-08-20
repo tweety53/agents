@@ -24,7 +24,7 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution, resolving a change's worktrees, and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
 | [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/myflow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
-| [project-configuration.md](project-configuration.md) | Resolve `.myflow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
+| [project-configuration.md](project-configuration.md) | Resolve `<project>/.myflow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/myflow-finish` run 1 and no other command** |
 | [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
@@ -74,5 +74,5 @@ appendices, so it never appears in the table above or anywhere in this directory
 
 This file is the entry point to the contracts, so a stale entry here misdirects every command that
 starts from it. When a contract file gains or loses a section, update the row above in the same
-change — `scripts/check-references.sh` catches a **named** section that no longer exists, but it
+change — `<agents repo>/scripts/check-references.sh` catches a **named** section that no longer exists, but it
 cannot catch a description that is merely out of date.

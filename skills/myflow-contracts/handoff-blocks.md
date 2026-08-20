@@ -128,8 +128,8 @@ Next:
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
 
 **`Guards` is `(run-only)` too, for the same kind of reason `Panel` is.** It reports what that
-run's own start-of-run guard presence check found in the producing command's own `scripts/`
-directory, per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
+run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
+per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
 that run ever has, since no regeneration re-runs the check.
 
 **`Run it:` is on-disk, not `(run-only)`.** The commands it lists are resolved from the worktree
@@ -178,8 +178,8 @@ Next:
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
 
 **`Guards` is `(run-only)` too, for the same kind of reason `Panel` above is.** It reports what
-that run's own start-of-run guard presence check found in the producing command's own `scripts/`
-directory, per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
+that run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
+per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
 that run ever has, since no regeneration re-runs the check.
 
 **Which rendering `/myflow-status` regenerates.** **Merge status decides it whenever the merge

@@ -46,7 +46,7 @@ of its own — every commit it has, the base branch already had — and that is 
 change that has never been through `/myflow-finish` reads as merged and is shown *merged and waiting
 on run 2*. The test is `HEAD` against the merge base **already recorded for that worktree** in the
 state file's `worktrees` map: equal means the branch has no commits of its own and is therefore not
-merged, whatever the ancestor test then says. `scripts/check-finish-preflight.sh` documents this
+merged, whatever the ancestor test then says. `<agents repo>/scripts/check-finish-preflight.sh` documents this
 trap and guards it in exactly that order — its comment (b), on why the recorded-merge-base check
 must run before the ancestor test — and the reasoning is not re-derived here.
 
@@ -99,11 +99,11 @@ carry it.
 
 **Why `Panel` is run-only.** It names the roster *that run selected* — which optional slots fired
 and which did not — and no field carries it. The only on-disk trace is the panel record
-`/myflow-do` writes under `.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
+`/myflow-do` writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
 removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
 there and sometimes not is not a source `/myflow-status` can regenerate from, and reporting it
 *missing* on every change whose worktree is gone would name a fault where there is none. The
-durable copy is the preserved record under `docs/superpowers/reviews/`, which run 1 writes into the
+durable copy is the preserved record under `<project>/docs/superpowers/reviews/`, which run 1 writes into the
 repository — an operator who needs the roster after the fact reads that, not a regenerated block.
 
 ### Why `prUrl` never splits the *not merged* row

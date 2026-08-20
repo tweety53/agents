@@ -21,8 +21,8 @@ The linked issue key lives in the state file's `jiraIssue` field — see **State
 
 Only `/myflow-start` resolves a key, and it follows this contract exactly.
 
-- **No Atlassian tooling available** in the session **and** no `## jira` section in the project's
-  `.myflow/project.md` → resolve `jiraIssue: null` **silently**, ask nothing, and report exactly one
+- **No Atlassian tooling available** in the session **and** no `## jira` section in
+  `<project>/.myflow/project.md` → resolve `jiraIssue: null` **silently**, ask nothing, and report exactly one
   line: `Jira: no tracker configured — not linked`.
 - **`## jira` present and set to `none`** → same: `jiraIssue: null`, no ask, one line.
 - **Otherwise** (Atlassian tooling is available, or `## jira` names a project key) → resolve as

@@ -10,7 +10,7 @@ Fixing lint violations is **mandatory** and takes **priority** over finishing un
 
 Fix, don't bypass: refactor until the linter passes. **No new inline suppressions** (`@Suppress`, `eslint-disable`, `# noqa`, `//nolint`, `#[allow(...)]` — all the same violation), and no weakening of lint or formatter config. Auto-fix first, then run the project's check command before claiming the work is done.
 
-Lint and formatter commands are project-specific. Resolve them from the project's configured lint commands (see `.myflow/project.md`); if that file is absent, detect them from the repository's build or task configuration. This rule governs the policy, not the tool names. Pre-approved exceptions live in the project's `CONTRIBUTING.md`; do not expand that list without user approval.
+Lint and formatter commands are project-specific. Resolve them from the project's configured lint commands (see `<project>/.myflow/project.md`); if that file is absent, detect them from the repository's build or task configuration. This rule governs the policy, not the tool names. Pre-approved exceptions live in the project's `CONTRIBUTING.md`; do not expand that list without user approval.
 
 <!-- /core -->
 
@@ -19,7 +19,7 @@ Lint and formatter commands are project-specific. Resolve them from the project'
 1. **Fix, don't bypass** — Refactor or reformat code to satisfy the project's lint rules.
 2. **No new suppressions** — Do not add inline suppression directives unless the user explicitly asks for that approach. Suppression syntax varies by language — `@Suppress`, `@SuppressWarnings`, `// detekt:ignore`, linter disable comments, `eslint-disable`, `# noqa`, `# type: ignore`, `//nolint`, `#[allow(...)]` — treat all of them as the same violation of this rule.
 3. **No config weakening** — Do not disable rules or lower thresholds in lint or formatter configuration to make checks pass.
-4. **Verify before completion** — Run the project's configured lint commands (see `.myflow/project.md`) before claiming work is done.
+4. **Verify before completion** — Run the project's configured lint commands (see `<project>/.myflow/project.md`) before claiming work is done.
 5. **Auto-fix first** — Run the project's configured auto-format/auto-fix command for formatting issues before manual fixes.
 
 ## Documented exceptions

@@ -174,8 +174,8 @@ Subagent (generalPurpose):
 ```
 
 **Placeholders:**
-- `[DIFF_PATH]` — `.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  the fix-scoped diff (`.superpowers/sdd/fix-round-N.diff`)
+- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
+  the fix-scoped diff (`<abs-worktree>/.superpowers/sdd/fix-round-N.diff`)
 - `[PRINCIPLES_PATH]` — the **absolute** path of `engineering-principles.md` inside the
   running skill directory, i.e. this file's own directory + `/engineering-principles.md`.
   Under the global install that is
@@ -189,13 +189,13 @@ Subagent (generalPurpose):
 - `[LENS]` — `Merged` (slot 2, required), `Lens B — simplicity & state`, or
   `Lens C — robustness & ops` (slots 5+). No two reviewers in one run share a lens.
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
-  1. the entries listed under the `## standards` section of `.myflow/project.md`, when the
+  1. the entries listed under the `## standards` section of `<project>/.myflow/project.md`, when the
      project has one — resolved to absolute paths **per the entry-form table and the
      containment rule in `skills/myflow-contracts/project-configuration.md`**,
      which is canonical. Entries are not paths to use as-is: a bare `*.mdc` filename means
      the shared agents rule library, any other bare filename means the project's own file,
      and a path that escapes the project root is dropped;
-  2. otherwise auto-detect: `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and any
+  2. otherwise auto-detect: `<project>/CLAUDE.md`, `<project>/AGENTS.md`, `CONTRIBUTING.md`, and any
      `.cursor/rules/*.mdc` that is `alwaysApply: true` or whose `globs:` match a file in
      the diff.
   Pass the resolved absolute paths; report and drop any entry that resolves to no existing

@@ -14,11 +14,11 @@ the derivation and is not restated here.
 **The `.mdc` extension is what selects the shared library, and nothing else.** Shared opt-in rules
 are deliberately **not** installed globally, so a bare filename is the only way to name one — but
 every shared rule in `<agents repo>/rules/` is an `.mdc` file, while a project's own standards are
-overwhelmingly `CLAUDE.md`, `AGENTS.md`, `CONTRIBUTING.md`, and the like. Routing *all* bare
+overwhelmingly `<project>/CLAUDE.md`, `<project>/AGENTS.md`, `CONTRIBUTING.md`, and the like. Routing *all* bare
 filenames to the agents repo therefore sent a project's real standards to a path that does not
 exist, where the drop rule silently discarded them and the principles reviewer lost the whole
 project-specific half of its mandate without anything erroring. A project-local `.mdc` is still
-nameable — write it as a path (`.cursor/rules/api.mdc`), which form 3 takes as-is.
+nameable — write it as a path (`<project>/.cursor/rules/api.mdc`), which form 3 takes as-is.
 
 ### The per-skill link, not the `skills/` directory
 
@@ -26,7 +26,7 @@ nameable — write it as a path (`.cursor/rules/api.mdc`), which form 3 takes as
 install is a real `~/.claude/skills/` (likewise `~/.cursor/skills/` and `~/.codex/skills/`) holding
 **one symlink per skill** — `check-vocabulary.sh` calls that shape "a farm of symlinked
 directories" and traverses it deliberately. Resolving the parent lands in `~/.claude`, which
-contains no `scripts/` and is not a checkout of anything; resolving the skill's own directory lands
+contains no per-skill scripts/ directory and is not a checkout of anything; resolving the skill's own directory lands
 in `<agents repo>/skills/<skill>/`, from which step 2 is right. Measured on a global install:
 `~/.claude/skills/` is a directory, `~/.claude/skills/myflow-do` is a symlink to
 `<agents repo>/skills/myflow-do/`, and the two-step rule yields the checkout root while resolving
@@ -42,7 +42,8 @@ resolve would have no answer here.
 ### Confirm the derived root before using it
 
 A skill directory that was **copied** into a project rather than linked resolves two levels up to
-something that is not the agents repository — `.claude/`, or an unrelated project root — and there
+something that is not the agents repository — an unrelated project root, or, for a global install,
+the operator's own configuration directory — and there
 is no third step that recovers the real one. That is the absent-script case, and each command says
 what it does with it.
 
@@ -89,12 +90,12 @@ argument is stated once under **The empty id** (`skills/myflow-contracts/workspa
 
 **Each command runs with a repository root as its working directory, and which root is fixed here
 rather than left to the caller.** It has to be stated because a command in this table is routinely
-repo-relative: `./gradlew workspaceRemove` and `./scripts/workspace remove` are two of the three
+repo-relative: `<project>/gradlew workspaceRemove` and `<project>/scripts/workspace remove` are two of the three
 shapes this file writes one in, and both resolve against the working directory, so a project author
 cannot write one correctly without being told which directory that is.
 
 - **`survivors` runs from the main checkout**, and that is not a convention invented here.
-  `scripts/check-cleanup-complete.sh` launches it as
+  `<agents repo>/scripts/check-cleanup-complete.sh` launches it as
   `( cd "$REPO" && exec bash -o pipefail -c "$cmd" )` against
   the repository it was handed, and it is handed the main checkout: by the time the guard asks, the
   change's apply worktree has already been removed.
@@ -122,7 +123,7 @@ a slow report is what the skip rule exists to prevent.
 
 **What the bound terminates is a process group on the machine running the guard, and a command
 that puts its real work outside that group outlives the bound.** The termination is
-`scripts/check-cleanup-complete.sh`'s, and it signals the process group it created — which reaches
+`<agents repo>/scripts/check-cleanup-complete.sh`'s, and it signals the process group it created — which reaches
 a pipeline, a subshell and any ordinary child, and reaches nothing that has left the group. Two
 shapes leave it, and the second is the one a project actually writes: a command that starts its
 work under its own job control, and **a command that reaches its service through a container
@@ -162,7 +163,7 @@ as a `port` or `bucket` row, and none is a resource anything removes.
 
 **No path is isolated inside a command, and that narrowing is deliberate.** A realistic command row
 often has no path to check at all: `docker exec <container> dropdb <id_underscored>` names none at
-all, `./gradlew workspaceRemove` names the project's own build wrapper, and `./scripts/workspace remove`
+all, `<project>/gradlew workspaceRemove` names the project's own build wrapper, and `<project>/scripts/workspace remove`
 names one script — three shapes, one rule needed. Finding "the path" in an arbitrary command means
 parsing a shell command, and a parser that is wrong about one command is a containment rule that
 reports the wrong thing about all of them. What containment buys elsewhere in this file is specific

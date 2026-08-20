@@ -27,7 +27,7 @@ status current as the run proceeds, per
 **Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
 this command registers and is the one to read. What is specific to this command, and so stated
 here: run 1 and run 2 have different step lists, so the entries registered are the steps of the run
-`scripts/check-finish-preflight.sh`'s verdict named, and none are registered before that verdict is
+`<agents repo>/scripts/check-finish-preflight.sh`'s verdict named, and none are registered before that verdict is
 in hand. A run that registered run 1's steps and then archived would show the operator a list that
 never matched the work.
 
@@ -194,8 +194,8 @@ collapses every per-task and fixup commit `/myflow-do` made on the branch back i
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
 
-All three routes commit — implementation, the `openspec/` planning
-artifacts, and the session records preserved under `docs/superpowers/` — as **two** commits, never
+All three routes commit — implementation, the `<project>/openspec/` planning
+artifacts, and the session records preserved under `<project>/docs/superpowers/` — as **two** commits, never
 one.
 
 **Preserve the session records first.** Run
@@ -379,11 +379,11 @@ myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness
 ```
 
 2. **Sync delta specs, then archive.** Assess each delta in `<changeRoot>/specs/` against
-   `openspec/specs/`, show a summary, and offer: sync now (recommended), archive without syncing,
+   `<project>/openspec/specs/`, show a summary, and offer: sync now (recommended), archive without syncing,
    or cancel. Apply `## ADDED` by appending (creating the capability spec if absent), `## MODIFIED`
    by replacing the block matched on its `### Requirement:` heading whitespace-insensitively,
    `## REMOVED` by deleting it, `## RENAMED` in place preserving the body. Then move the change to
-   `openspec/changes/archive/<YYYY-MM-DD>-<name>/`, taking any nested `<name>-fix-N` with it.
+   `<project>/openspec/changes/archive/<YYYY-MM-DD>-<name>/`, taking any nested `<name>-fix-N` with it.
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.sync-archive -outcome completed <name>
@@ -469,10 +469,10 @@ transitions nothing — the change is not done.
    **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
    requirement to change first when that procedure changes is
    **Requirement: Self-review runs only after FINISHED is written**
-   (`openspec/specs/myflow-self-review/spec.md`). What is specific to *executing* it here: the
+   (`<agents repo>/openspec/specs/myflow-self-review/spec.md`). What is specific to *executing* it here: the
    script invocation `gather-self-review-context.sh
    <archived-change-path> <name> <state-dir>`, resolving `<archived-change-path>` as
-   `openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
+   `<project>/openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
    already used when it moved the change there.
 
    The skip prompt fires first, and reads — shape per Operator prompts
@@ -515,7 +515,7 @@ transitions nothing — the change is not done.
 
    **Rate this myflow run, 1 (rough) to 5 (excellent):**
 
-   Write `docs/self-review/<name>-self-review.md` — one section per angle, all five present; each
+   Write `<project>/docs/self-review/<name>-self-review.md` — one section per angle, all five present; each
    finding one line naming its angle's label, the finding, and its disposition, the issue key when
    filed or an explicit declined marker when not; an angle with no findings carrying an explicit
    none-marker instead — plus the rating — and commit and push it on the base branch **in the main
