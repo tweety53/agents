@@ -355,9 +355,12 @@ Resolution against the **running command's** skill directory is what lets a cont
 more than one command name a guard at all. `skills/myflow-contracts/` is never a running
 command and SHALL NOT carry a `scripts/` directory.
 
-Prose that describes **this repository's own** lint and test guards is not an invocation and
-SHALL keep its repository-relative path, because there it names a file in this repository
-rather than a guard a command runs.
+Prose that describes **this repository's own** lint and test guards is not an invocation, and SHALL
+name the guard as `<agents repo>/scripts/<name>` rather than by a bare repository-relative path. A
+bare path there resolves, for a reader standing in an installed project, against that project's own
+tree — so the sentence names a file the reader may be able to write. Carrying the prefix says which
+repository is meant, and it removes the need for any classifier to tell describing a guard from
+running one.
 
 #### Scenario: A contract loaded by two commands names one guard
 
@@ -369,6 +372,12 @@ rather than a guard a command runs.
 
 - **WHEN** a skill's text invokes a guard by a path relative to a repository root
 - **THEN** the repository's own lint reports that call site and fails
+
+#### Scenario: Prose about this repository's own guard names its repository
+
+- **WHEN** an installed file describes, without invoking, a guard belonging to this repository
+- **THEN** it writes `<agents repo>/scripts/<name>`
+- **AND** a bare `scripts/<name>` in that position is reported by the repository's own lint
 
 ### Requirement: A guard SHALL NOT derive a repository root from a fixed depth above itself
 

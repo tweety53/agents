@@ -77,6 +77,18 @@ it is adjacent to the path in one of the shapes references are written in, and e
 assigned to the nearest path it is associated with. A path the line associates no token with is not
 checked. The script SHALL report every failure as `file:line` and exit non-zero.
 
+A cited path beginning with the literal `<agents repo>/` SHALL have that prefix stripped before the
+path is resolved, so a citation that names this checkout explicitly is checked exactly as the same
+citation was checked before it carried a root. Without this, adopting the citation-root convention
+would silently remove every prefixed citation from this guard's coverage — the guard would keep
+exiting `0` while checking strictly less than it did before, which is the one failure a guard must
+never have.
+
+A cited path beginning with the literal `<project>/` names a file in a project this repository
+cannot see. It SHALL be left unresolved and therefore unchecked, exactly as any other path that does
+not resolve to a real file. It SHALL NOT be treated as a containment failure: the prefix is a
+lexical marker, not a traversal out of the repository root.
+
 The script SHALL refuse to read any path that normalizes outside the repository root, SHALL decide
 that from the path's **shape** before any existence test so the verdict does not depend on what is
 on the machine, and SHALL treat such a reference as a **failure** rather than a note — a clean exit
@@ -95,6 +107,17 @@ definition, matching the contract of the repository's other guards.
 
 - **WHEN** every referenced section still exists in the file it is referenced from
 - **THEN** the script exits `0`
+
+#### Scenario: A prefixed citation is still checked
+
+- **WHEN** a line references **Model policy** in `` `<agents repo>/openspec/specs/myflow-model-policy/spec.md` ``
+- **AND** that file no longer carries a `Model policy` heading
+- **THEN** the script reports the line and exits non-zero
+
+#### Scenario: A prefixed citation is not read as an escape from the root
+
+- **WHEN** a line references a path beginning with `<project>/`
+- **THEN** the path is not resolved, the line does not fail, and no containment refusal is reported
 
 #### Scenario: Reference phrasing variants are recognized
 
