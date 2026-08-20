@@ -194,12 +194,13 @@ two commits, and the chosen route. Every stage mark is the cited section's own �
 
 Continue, within the same invocation and without a further command from the operator, into
 **Run 2 — archive and clean up** (`skills/myflow-finish/SKILL.md`) exactly as written: verify the
-merge, sync delta specs, archive the change, commit and push the archive, remove the
-worktrees/branches, verify the cleanup, and write `FINISHED`. Nothing external blocks this route, so
-nothing pauses between run 1 and run 2 here. Every stage mark is the cited section's own —
+merge, position the checkout, sync delta specs, archive the change, commit the archive, remove the
+worktrees/branches, verify the cleanup, write `FINISHED`, run self-review, and push the archive
+branch and open its pull request. Nothing external blocks this route, so nothing pauses between
+run 1 and run 2 here. Every stage mark is the cited section's own —
 `finish.write-in-progress`, `finish.move-in-review`, `finish.verify-merge`, `finish.sync-archive`,
 `finish.commit-archive`, `finish.cleanup`, `finish.verify-cleanup`, `finish.write-finished`,
-`finish.self-review` — again under `-command '/myflow-fast'`.
+`finish.self-review`, `finish.push-archive` — again under `-command '/myflow-fast'`.
 
 ### After open PR or manual specifically
 

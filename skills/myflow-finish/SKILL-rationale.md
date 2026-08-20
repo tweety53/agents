@@ -101,7 +101,7 @@ here.
 The procedure — skippable per run with running it the default, gathering
 input via a script rather than an inline re-read, one combined reasoning pass across all four
 angles plus the rating, the per-finding filing ask, and the report path — is canonical under
-**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
+**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
 requirement to change first when that procedure changes is
 **Requirement: Self-review runs only after FINISHED is written**
 (`<agents repo>/openspec/specs/myflow-self-review/spec.md`) — a citation `finish-contract.md` already carries,

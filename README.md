@@ -72,9 +72,11 @@ emits both the staged diff and the run instructions, so reviewing and testing ar
 Every command is re-entrant, and a fix never moves the state. **No command takes a flag.**
 
 `/myflow-finish` runs **twice**: once to integrate the branch (open a PR by default, merge and
-push, or leave it to you), and again once the branch is merged, to sync delta specs, archive,
-commit and push the archive, and remove the worktrees. It runs **no** tests, linters or coverage
-check — that happened during `/myflow-do`.
+push, or leave it to you), and again once the branch is merged, to sync delta specs, archive and
+commit onto a `chore/archive-<name>` branch, remove the worktrees, and — after self-review — push
+that branch and open its pull request. **Run 2 never pushes the base branch**; run 1's merge-and-push
+route still does, when you choose it. It runs **no** tests, linters or coverage check — that
+happened during `/myflow-do`.
 
 See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
 
@@ -146,12 +148,13 @@ no rows.
 | `finish.write-in-progress` | Write `IN_PROGRESS` (run 1) | `/myflow-finish`, `/myflow-fast` |
 | `finish.move-in-review` | Move the issue to In Review (run 1) | `/myflow-finish`, `/myflow-fast` |
 | `finish.verify-merge` | Verify the merge (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.sync-archive` | Sync delta specs and archive (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.commit-archive` | Commit and push the archive (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.sync-archive` | Position the checkout, sync delta specs and archive (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.commit-archive` | Commit the archive (run 2) | `/myflow-finish`, `/myflow-fast` |
 | `finish.cleanup` | Cleanup (run 2) ▸ | `/myflow-finish`, `/myflow-fast` |
 | `finish.verify-cleanup` | Verify the cleanup (run 2) | `/myflow-finish`, `/myflow-fast` |
 | `finish.write-finished` | Write `FINISHED` (run 2) | `/myflow-finish`, `/myflow-fast` |
 | `finish.self-review` | Self-review (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.push-archive` | Push the archive branch and open its PR (run 2) | `/myflow-finish`, `/myflow-fast` |
 
 **Gate after it.** `/myflow-finish` is one command with two runs, so its row carries both, labelled:
 the preflight verdict picks which one a given invocation performs, and the run is never a command of
@@ -165,10 +168,10 @@ its own.
 | `/myflow-fast` | creating run or fix: you review the staged diff **and** run the apps; open PR or manual: you wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
 | `/myflow-status` | — |
 
-`/myflow-finish` run 2's sequence ends with `self-review`, carrying no ▸: its procedure is not
-expanded at level 2 below because it is canonical under **Run 2 — the branch is merged**
-(`skills/myflow-contracts/finish-contract.md`), step 8. The requirement to change first when that
-procedure changes is
+`/myflow-finish` run 2's sequence ends with `push-archive`; the row before it, `self-review`,
+carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
+**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
+requirement to change first when that procedure changes is
 **Requirement: Self-review runs only after FINISHED is written**
 (`openspec/specs/myflow-self-review/spec.md`).
 

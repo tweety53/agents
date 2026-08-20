@@ -221,14 +221,14 @@ run 2 does print a terminal block — what it synced, archived, removed and veri
 of it is run-only, because it reports what that run did rather than what the change now is. One
 renderer means nothing to keep in step, which is why that block takes no template here. That block
 carries two more fields now: `**Self-review:** <path> (rating: <n>/5) | skipped`, immediately after
-`**Cleanup:** verified`, naming step 8's outcome, and `**Guards:** all present | N missing — those
+`**Cleanup:** verified`, naming step 9's outcome, and `**Guards:** all present | N missing — those
 checks were performed by hand`, immediately after `Self-review`, naming what that run's own
 start-of-run guard presence check found — both values only run 2 ever has, exactly like the fields
 beside them. A run 2 that **stops** on a cleanup leftover is not this case: it leaves the change
 at `IN_PROGRESS` and prints its own interrupted-run report, every field of which is likewise
 run-only — what that run synced, archived and left behind, which the state file does not record.
 That interrupted-run report carries neither the `Self-review` nor the `Guards` field: it is printed
-only when run 2 stops **before** step 7, so step 8 never runs there and there is nothing for
+only when run 2 stops **before** step 8, so step 9 never runs there and there is nothing for
 `Self-review` to name, and its own text prints no `Guards` line either — adding either field
 regardless would misstate a run that never reached self-review and a report that does not carry it.
 `/myflow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by

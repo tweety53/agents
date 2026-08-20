@@ -799,6 +799,180 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# SECTION: <repo-root> — the optional fourth positional argument
+# (Requirement: "Context is gathered deterministically, not by the model
+# re-reading files", scenarios "The repo root is omitted", "The repo root is
+# supplied" and "A malformed repo root is an invocation error", in
+# openspec/changes/kan-239-run-2-asserts-base-branch-and-archives-via-pr/
+# specs/myflow-self-review/spec.md). One assertion per case, each folding its
+# exit code and its content/emptiness check into a single pass/fail — no
+# case here duplicates a check already made above this section.
+# ===========================================================================
+
+# run_bad_root <repo-root-arg> -> sets RC, STDOUT and STDERR separately,
+# never merged, for a fourth argument expected to be rejected before any
+# gathering starts. cwd is $REPO and $REL the archived-change-path in every
+# case below — only the fourth argument varies. Streams are kept apart
+# because "gathers nothing" means stdout is genuinely empty, not merely free
+# of a marker string; a 2>&1 merge would hide that behind stderr's own text.
+run_bad_root() {
+  local repo_root_arg="$1" errfile
+  errfile="$(mktemp "${TMPDIR:-/tmp}/gather-test-stderr.XXXXXX")"
+  set +e
+  STDOUT="$(cd "$REPO" && "$SCRIPT" "$REL" demo "$STATE_DIR" "$repo_root_arg" 2>"$errfile")"
+  RC=$?
+  set -e
+  STDERR="$(cat "$errfile")"
+  rm -f "$errfile"
+}
+
+# repo-root-omitted: three arguments, cwd inside the repository — unchanged
+# behaviour, byte for byte, matching every case above this section that
+# never passes a fourth argument.
+new_repo
+add_ledger
+add_panel
+add_tasks
+add_commits
+run_it
+if [ "$RC" -eq 0 ] && case "$OUT" in *LEDGER-BODY*) true ;; *) false ;; esac; then
+  pass "repo-root-omitted: three-argument invocation is unchanged"
+else
+  fail "repo-root-omitted: rc=$RC out=$OUT"
+fi
+
+# repo-root-supplied: cwd OUTSIDE $REPO, a fourth argument naming $REPO's own
+# canonical (symlink-free) path. The only way to prove the argument is
+# actually used: a cwd outside the repository has no --git-common-dir anchor
+# to fall back on at all, so the bundle is gathered only if the fourth
+# argument itself becomes the trusted repository root.
+new_repo
+add_ledger
+add_panel
+add_tasks
+add_commits
+REPO_REAL_ABS="$(cd -P "$REPO" && pwd -P)"
+ARCHIVED_REAL_ABS="$REPO_REAL_ABS/openspec/changes/archive/2026-01-01-demo"
+OUTSIDE_CWD="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-cwd.XXXXXX")"
+TREES+=("$OUTSIDE_CWD")
+set +e
+OUT="$(cd "$OUTSIDE_CWD" && "$SCRIPT" "$ARCHIVED_REAL_ABS" demo "$STATE_DIR" "$REPO_REAL_ABS" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ] && case "$OUT" in *LEDGER-BODY*) true ;; *) false ;; esac; then
+  pass "repo-root-supplied: bundle gathered against the supplied root from outside the repository"
+else
+  fail "repo-root-supplied: rc=$RC out=$OUT"
+fi
+
+# repo-root-supplied-relative-archived-path (F3, this change's own review
+# panel): cwd OUTSIDE $REPO, a fourth argument naming $REPO's own canonical
+# root, and $REL — a RELATIVE archived-change-path, the exact shape
+# skills/myflow-finish/SKILL.md documents — rather than the absolute path
+# the "repo-root-supplied" case above uses. Step 2 (lexical normalize) joins
+# a relative $ARCHIVED_PATH onto $trusted_root (the supplied root here), so
+# step 4's semantic resolution of the SAME relative $ARCHIVED_PATH must also
+# resolve against $trusted_root, not against the actual process cwd
+# ($OUTSIDE_CWD, which has no such directory at all) — otherwise the two
+# resolutions diverge, ARCHIVED_REAL comes back empty, and every source is
+# wrongly reported skipped even though the repo-root argument was honored.
+new_repo
+add_ledger
+add_panel
+add_tasks
+add_commits
+REPO_REAL_ABS="$(cd -P "$REPO" && pwd -P)"
+OUTSIDE_CWD_REL="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-cwd-rel.XXXXXX")"
+TREES+=("$OUTSIDE_CWD_REL")
+set +e
+OUT="$(cd "$OUTSIDE_CWD_REL" && "$SCRIPT" "$REL" demo "$STATE_DIR" "$REPO_REAL_ABS" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ] && case "$OUT" in *LEDGER-BODY*) true ;; *) false ;; esac; then
+  pass "repo-root-supplied-relative-archived-path: bundle gathered (relative archived-change-path resolved against the supplied root)"
+else
+  fail "repo-root-supplied-relative-archived-path: rc=$RC out=$OUT"
+fi
+
+# repo-root-supplied-relative-archived-path-symlink: the exact same
+# override shape as the case above (cwd outside the repo, a relative
+# archived-change-path, a supplied repo-root), but the archived directory is
+# a symlink to somewhere outside the repository (the F12 attack). The
+# symlink defence must still catch this when step 4 is resolving against
+# $trusted_root instead of raw process cwd — proving the fix did not weaken
+# the lexical-vs-real divergence check.
+new_repo
+rm -rf "$ARCHIVED"
+OUTSIDE_DIR_ROOT_OVERRIDE="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-dir-root-override.XXXXXX")"
+TREES+=("$OUTSIDE_DIR_ROOT_OVERRIDE")
+printf 'TOP-SECRET-ROOT-OVERRIDE-CONTENT\n' > "$OUTSIDE_DIR_ROOT_OVERRIDE/tasks.md"
+ln -s "$OUTSIDE_DIR_ROOT_OVERRIDE" "$ARCHIVED"
+add_commits
+REPO_REAL_ABS="$(cd -P "$REPO" && pwd -P)"
+OUTSIDE_CWD_REL_SYMLINK="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-cwd-rel-symlink.XXXXXX")"
+TREES+=("$OUTSIDE_CWD_REL_SYMLINK")
+set +e
+OUT="$(cd "$OUTSIDE_CWD_REL_SYMLINK" && "$SCRIPT" "$REL" demo "$STATE_DIR" "$REPO_REAL_ABS" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 0 ] && pass "repo-root-supplied-relative-archived-path-symlink: exits 0" \
+  || fail "repo-root-supplied-relative-archived-path-symlink: rc=$RC out=$OUT"
+case "$OUT" in
+  *"note: archived-change-path '$REL' resolves through a symlink somewhere between the repository root and the leaf"*) \
+    pass "repo-root-supplied-relative-archived-path-symlink: distinct note printed" ;;
+  *) fail "repo-root-supplied-relative-archived-path-symlink: distinct note not printed: $OUT" ;;
+esac
+case "$OUT" in
+  *TOP-SECRET-ROOT-OVERRIDE-CONTENT*) \
+    fail "repo-root-supplied-relative-archived-path-symlink: target tasks.md content leaked into bundle: $OUT" ;;
+  *) pass "repo-root-supplied-relative-archived-path-symlink: target tasks.md content not in bundle" ;;
+esac
+
+# repo-root-relative: a relative fourth argument is an invocation error.
+new_repo
+add_ledger
+add_tasks
+run_bad_root "relative-root"
+if [ "$RC" -eq 2 ] && [ -z "$STDOUT" ]; then
+  pass "repo-root-relative: exits 2 with nothing gathered"
+else
+  fail "repo-root-relative: rc=$RC stdout=$STDOUT stderr=$STDERR"
+fi
+
+# repo-root-symlinked: a fourth argument reaching through a symlink is an
+# invocation error — the same lexical/real divergence test already applied
+# to <archived-change-path>.
+new_repo
+add_ledger
+add_tasks
+REPO_REAL_ABS="$(cd -P "$REPO" && pwd -P)"
+SYMLINKED_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-symlinked-root.XXXXXX")"
+rmdir "$SYMLINKED_ROOT"
+ln -s "$REPO_REAL_ABS" "$SYMLINKED_ROOT"
+TREES+=("$SYMLINKED_ROOT")
+run_bad_root "$SYMLINKED_ROOT"
+if [ "$RC" -eq 2 ] && [ -z "$STDOUT" ]; then
+  pass "repo-root-symlinked: exits 2 with nothing gathered"
+else
+  fail "repo-root-symlinked: rc=$RC stdout=$STDOUT stderr=$STDERR"
+fi
+
+# repo-root-not-a-repo: an absolute, symlink-free directory that is not a
+# git repository root is an invocation error.
+new_repo
+add_ledger
+add_tasks
+NOT_A_REPO="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-not-a-repo.XXXXXX")"
+TREES+=("$NOT_A_REPO")
+NOT_A_REPO_REAL="$(cd -P "$NOT_A_REPO" && pwd -P)"
+run_bad_root "$NOT_A_REPO_REAL"
+if [ "$RC" -eq 2 ] && [ -z "$STDOUT" ]; then
+  pass "repo-root-not-a-repo: exits 2 with nothing gathered"
+else
+  fail "repo-root-not-a-repo: rc=$RC stdout=$STDOUT stderr=$STDERR"
+fi
+
+# ===========================================================================
 # SECTION: Invocation contract — a bad change name is rejected before any
 # path is touched
 # ===========================================================================

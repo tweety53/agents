@@ -128,7 +128,9 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 | `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way — no push, merge, or PR |
 | `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
 | `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
-| `/myflow-finish` | run 2 | **Commits and pushes the archive**; removes worktrees and branches |
+| `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — and removes worktrees and branches |
+| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report on `chore/archive-<name>` — a second, separate commit, and still no push |
+| `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, and opens its pull request — never pushes `<base>` |
 | `/myflow-status` | — | None — read-only |
 
 **The planning paths** are the two that
@@ -505,6 +507,7 @@ their command does not load.
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
+| Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |
 | Change directory | `/myflow-start` | `<project>/openspec/changes/<name>/` | moved to the archive, never deleted |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
@@ -543,6 +546,14 @@ the report's output and exit-code contract under **Project configuration**
 (`skills/myflow-contracts/project-configuration.md`). A report that could not reach its service is
 skipped rather than failed. See **Temporary artifacts registry**
 (`skills/myflow-contracts/pipeline-rationale.md`) for why asking, not looking, is required here.
+
+**Nothing removes the archive branch either, on `origin` or in the repository.** Run 2 is terminal
+and the pull request it opens outlives the run, so no later run exists to delete the branch it was
+opened from — this repository already carries five such leftovers, chore/archive-kan-197,
+chore/archive-kan-200, chore/archive-kan-209, chore/self-review-kan-201 and chore/self-review-kan-236,
+which is the evidence, not a guess, that nothing removes them today. Whether some future run should
+gain that duty is design.md's open question `archive-branch-cleanup`, deliberately left open rather
+than decided here.
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can.** It is not written
 into the state file, and the project's `remove` command does not touch it either — stated as a

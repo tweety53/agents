@@ -318,6 +318,25 @@ ORIGIN_REF_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]+$")
 # brackets, not `.+`, so the bracket segment itself cannot smuggle in a
 # second `/`.
 GIT_BRANCH_OPENSPEC_RE = re.compile(r"^openspec/<[^/<>]+>$")
+# GIT_BRANCH_CHORE_RE — a sibling of GIT_BRANCH_OPENSPEC_RE, added by
+# kan-239's task 9 for the second pipeline-created branch shape that
+# exemption does not cover: `chore/archive-<name>`, the branch
+# `/myflow-finish` run 2 creates and names, backticked, in
+# finish-contract.md, and `chore/self-review-<name>`, which run 2 no
+# longer creates — kan-239 commits the self-review report onto the
+# archive branch instead — but which survives as real branches in this
+# repository from before that change. Both shapes are covered because
+# both are branch names wherever they appear. Same shape,
+# same bounds, for the same reason — a branch name is not a filesystem
+# path, so it should never be judged against one: `chore/` followed by a
+# fixed branch-kind word (`archive` or `self-review`) and exactly one
+# `<…>` placeholder segment and NOTHING ELSE. Anchored at both ends so it
+# cannot widen past that: `chore/archive-<name>/spec.md` (a bracket
+# segment followed by MORE path) stays fully reportable — the same
+# fail-open bound GIT_BRANCH_OPENSPEC_RE's own comment describes.
+# `[^/<>]+` inside the brackets, not `.+`, so the bracket segment itself
+# cannot smuggle in a second `/`.
+GIT_BRANCH_CHORE_RE = re.compile(r"^chore/(?:archive|self-review)-<[^/<>]+>$")
 # FILE_LINE_RE — a token ending `:<digits>` names a line inside a file (a
 # findings-table Location cell, taken verbatim from `git diff` output and
 # diff-relative by construction), not a path to cite. Rooting such a token
@@ -574,6 +593,12 @@ def classify_token(token, repo_root_files):
         a filesystem path — see that pattern's own comment for the exact,
         deliberately narrow bound (a shape now, not an exact-literal set,
         after the second per-task review found a second live site).
+      - A GIT_BRANCH_CHORE_RE match: `chore/archive-<…>` or
+        `chore/self-review-<…>` — kan-239's task 9, a sibling of the
+        GIT_BRANCH_OPENSPEC_RE exclusion above for the pipeline's other
+        branch-name shapes. Run 2 creates the first; the second predates
+        kan-239 and survives only as existing branches. See that
+        pattern's own comment for the same deliberately narrow bound.
       - A token matching FILE_LINE_RE: a `file:line` location, diff-
         relative by construction, not a path to cite. Narrowing this one
         was tried and rejected — see FILE_LINE_RE's own comment for why it
@@ -611,6 +636,8 @@ def classify_token(token, repo_root_files):
         return False  # quoted program output, not a citation
     if GIT_BRANCH_OPENSPEC_RE.match(tok):
         return False  # openspec/<…> — a branch name, not a path
+    if GIT_BRANCH_CHORE_RE.match(tok):
+        return False  # chore/archive-<…> or chore/self-review-<…> — a branch name, not a path
     if FILE_LINE_RE.search(tok):
         return False  # file:line location, not a path to cite
     # Panel round 3: narrowed to a NON-FINAL segment. The original,

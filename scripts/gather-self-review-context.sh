@@ -1,27 +1,53 @@
 #!/usr/bin/env bash
 # gather-self-review-context.sh — deterministically collect the SDD ledger,
 # the review-panel record, tasks.md and the relevant git log for a finished
-# change, so the self-review reasoning pass (/myflow-finish run 2, step 8)
+# change, so the self-review reasoning pass (/myflow-finish run 2, step 9)
 # judges a bundle instead of re-reading files itself.
 #
-# Usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir>
+# Usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir> [<repo-root>]
 #
 # <archived-change-path> is the ARCHIVED change directory
 # (openspec/changes/archive/<date>-<name>/), never a worktree path — by the
-# time step 8 runs, run 2 has already removed the worktree. <state-dir> is
+# time step 9 runs, run 2 has already removed the worktree. <state-dir> is
 # accepted for CLI parity with this script's usage line and with
 # preserve-session-records.sh's own <worktree> <name> <state-dir> shape; none
-# of the four sources below currently read from it.
+# of the four sources below currently read from it. <repo-root> is OPTIONAL
+# (KAN-239): see the dedicated NOTE below for what it is, why it exists, and
+# why accepting it does not weaken this script's trust argument.
 #
 # Prints one bundle to stdout: a header line naming which sources were found
 # vs. skipped, an explicit "skipped: <src> (absent)" line per missing source
 # (1-3) — matching preserve-session-records.sh's own skipped:/preserved:
 # vocabulary — and each found source's content under its own subheading.
-# Exits 2 on a missing argument or an invalid change name (a malformed
-# invocation); otherwise ALWAYS exits 0 — a missing source is never fatal,
-# since a change may legitimately have no review-panel record, but a
-# malformed invocation is. This script performs no judgement and makes no
-# pass/fail determination based on what it finds.
+# Exits 2 on a missing argument, an invalid change name, or a malformed
+# <repo-root> (a malformed invocation, in every case); otherwise ALWAYS exits
+# 0 — a missing source is never fatal, since a change may legitimately have
+# no review-panel record, but a malformed invocation is. This script
+# performs no judgement and makes no pass/fail determination based on what
+# it finds.
+#
+# NOTE on <repo-root> (KAN-239): by the time /myflow-finish run 2 reaches
+# step 9, run 2 has already removed the worktree that implemented the
+# change (see the note on <archived-change-path> above), so this script's
+# own process cwd can no longer be trusted to sit inside any git repository
+# at all — on KAN-201 it did not, which made this script structurally
+# unrunnable from step 9's actual cwd at that point. <repo-root> lets the
+# caller pass the main checkout's own path explicitly instead of relying on
+# process cwd to derive it. When absent, TRUSTED_REPO_ROOT is derived
+# exactly as before (see validate_archived_path() step 1 below); when
+# present, it BECOMES TRUSTED_REPO_ROOT directly, once validated by the same
+# tests <archived-change-path> itself receives: absolute, lexically-
+# collapsed form identical to its symlink-resolved form, and — reusing this
+# script's own existing git-common-dir derivation, just anchored at the
+# supplied path instead of at process cwd — the root of a git repository.
+# Accepting a caller-supplied root does NOT weaken the containment argument
+# validate_archived_path() makes below: the prohibition that argument
+# defends is deriving the trust anchor from <archived-change-path> itself —
+# the untrusted input under test, which a merged PR can shape freely — never
+# accepting one from the caller, who is this script's own trusted invoker
+# (skills/myflow-finish/SKILL.md step 9), not the untrusted change content.
+# A future reader who does not find this stated may read the fourth argument
+# as a regression of that argument and delete it; it is not one.
 #
 # NOTE on <archived-change-path> itself being a symlink, or any ancestor of
 # it, at any depth (F12, F13, F14, F20, F22): git tracks symlinks as
@@ -51,7 +77,7 @@
 #      points at the main repo's `.git` — including from inside a worktree —
 #      so its parent directory is the correct, invocation-independent trust
 #      anchor. This script's documented caller (skills/myflow-finish/SKILL.md
-#      step 8) always invokes it with process cwd at the repository root,
+#      step 9) always invokes it with process cwd at the repository root,
 #      exactly like this repository's other pipeline scripts, so this remains
 #      a safe trust anchor there too. Empty (not inside a git repository at
 #      all) is handled the same way as every other invalid-path case below.
@@ -67,9 +93,13 @@
 #      a real path BOUNDARY via `within_root()`, not a string prefix.
 #      Anything else (missing, extra nesting, wrong location entirely) is an
 #      invalid invocation.
-#   4. $ARCHIVED_PATH is ALSO resolved semantically, following every symlink
-#      at every component (the `cd -P`-based real resolution this script
-#      already used). Call this ARCHIVED_REAL.
+#   4. The SAME absolute path built in step 2 (relative $ARCHIVED_PATH
+#      already joined onto TRUSTED_REPO_ROOT) is ALSO resolved
+#      semantically, following every symlink at every component (the
+#      `cd -P`-based real resolution this script already used) — never raw
+#      process cwd, which could differ from TRUSTED_REPO_ROOT when the
+#      optional <repo-root> override is in play (F3, this change's own
+#      review panel). Call this ARCHIVED_REAL.
 #   5. ARCHIVED_LEXICAL and ARCHIVED_REAL are compared for EXACT equality.
 #      Step 2 never resolves anything; step 4 resolves everything; so any
 #      divergence between them — the leaf, any ancestor at any depth, a
@@ -143,9 +173,10 @@ source "$SCRIPT_DIR/lib/lexical-normalize.sh"
 ARCHIVED_PATH="${1:-}"
 NAME="${2:-}"
 STATE_DIR="${3:-}"
+REPO_ROOT_ARG="${4:-}"
 
 if [ -z "$ARCHIVED_PATH" ] || [ -z "$NAME" ] || [ -z "$STATE_DIR" ]; then
-  echo "usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir>" >&2
+  echo "usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir> [<repo-root>]" >&2
   exit 2
 fi
 
@@ -155,6 +186,56 @@ case "$NAME" in
     exit 2
     ;;
 esac
+
+# REPO_ROOT_OVERRIDE — the optional fourth argument (KAN-239; see the header
+# NOTE on <repo-root>), validated here as an invocation error: exit 2, the
+# same class as a missing argument or a malformed change name above — never
+# the exit-0/skipped-source treatment validate_archived_path() below gives
+# an invalid <archived-change-path>, because a caller-supplied repo-root is
+# this script's own trusted input (skills/myflow-finish/SKILL.md step 9),
+# not untrusted change content.
+#
+# Reuses the two mechanisms the script already owns rather than writing new
+# ones: lexically_collapse() for the lexical half, and the same `cd -P`/
+# `pwd -P` real-resolution used throughout this script for the symlink half.
+# "root of a git repository" reuses this script's own git-common-dir
+# derivation — identical to validate_archived_path() step 1 below, just
+# anchored at the supplied path instead of at process cwd — so a worktree
+# root is refused here exactly as it would be if it were process cwd,
+# keeping both derivation paths agreeing on what "the repository root"
+# means.
+REPO_ROOT_OVERRIDE=""
+if [ -n "$REPO_ROOT_ARG" ]; then
+  case "$REPO_ROOT_ARG" in
+    /*) : ;;
+    *)
+      echo "gather-self-review-context: repo-root '$REPO_ROOT_ARG' is not an absolute path" >&2
+      exit 2
+      ;;
+  esac
+  repo_root_lexical="$(lexically_collapse "$REPO_ROOT_ARG")"
+  repo_root_real=""
+  if [ -d "$REPO_ROOT_ARG" ]; then
+    repo_root_real="$(cd -P "$REPO_ROOT_ARG" 2>/dev/null && pwd -P)" || repo_root_real=""
+  fi
+  if [ -z "$repo_root_real" ] || [ "$repo_root_lexical" != "$repo_root_real" ]; then
+    echo "gather-self-review-context: repo-root '$REPO_ROOT_ARG' does not exist or resolves through a symlink" >&2
+    exit 2
+  fi
+  repo_root_common_dir="$(git -C "$repo_root_real" rev-parse --git-common-dir 2>/dev/null || true)"
+  repo_root_from_git=""
+  if [ -n "$repo_root_common_dir" ]; then
+    case "$repo_root_common_dir" in
+      /*) repo_root_from_git="$(cd "$(dirname "$repo_root_common_dir")" && pwd -P 2>/dev/null || true)" ;;
+      *) repo_root_from_git="$(cd "$repo_root_real/$(dirname "$repo_root_common_dir")" && pwd -P 2>/dev/null || true)" ;;
+    esac
+  fi
+  if [ -z "$repo_root_from_git" ] || [ "$repo_root_from_git" != "$repo_root_real" ]; then
+    echo "gather-self-review-context: repo-root '$REPO_ROOT_ARG' is not the root of a git repository" >&2
+    exit 2
+  fi
+  REPO_ROOT_OVERRIDE="$repo_root_real"
+fi
 
 # validate_archived_path — the ONE mechanism described in the header NOTE
 # above (F22): lexically normalize, semantically resolve, compare, refuse on
@@ -183,16 +264,24 @@ validate_archived_path() {
   REPO_ROOT=""
   ARCHIVED_REAL=""
 
-  # Step 1: TRUSTED_REPO_ROOT, derived from this script's own process cwd,
-  # independent of $ARCHIVED_PATH — never `-C "$ARCHIVED_PATH"`. Resolved via
-  # `--git-common-dir` (see header NOTE, F23) rather than `--show-toplevel` so
-  # this is correct whether cwd is the main checkout or a worktree.
+  # Step 1: TRUSTED_REPO_ROOT. When the caller supplied <repo-root>
+  # (REPO_ROOT_OVERRIDE, already validated above — KAN-239, see the header
+  # NOTE), that path IS TRUSTED_REPO_ROOT; no derivation from process cwd
+  # happens at all in that case. Otherwise it is derived from this script's
+  # own process cwd, independent of $ARCHIVED_PATH — never
+  # `-C "$ARCHIVED_PATH"`. Resolved via `--git-common-dir` (see header NOTE,
+  # F23) rather than `--show-toplevel` so this is correct whether cwd is the
+  # main checkout or a worktree.
   local trusted_root common_dir
-  common_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
-  if [ -n "$common_dir" ]; then
-    trusted_root="$(cd "$(dirname "$common_dir")" && pwd -P 2>/dev/null || true)"
+  if [ -n "$REPO_ROOT_OVERRIDE" ]; then
+    trusted_root="$REPO_ROOT_OVERRIDE"
   else
-    trusted_root=""
+    common_dir="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+    if [ -n "$common_dir" ]; then
+      trusted_root="$(cd "$(dirname "$common_dir")" && pwd -P 2>/dev/null || true)"
+    else
+      trusted_root=""
+    fi
   fi
   if [ -z "$trusted_root" ]; then
     ARCHIVED_PATH_INVALID=1
@@ -201,12 +290,20 @@ validate_archived_path() {
   fi
 
   # Step 2: lexically normalize $ARCHIVED_PATH into an absolute path — a
-  # relative path is joined to $trusted_root (this script's documented
-  # caller always runs it with cwd AT the repo root, so $trusted_root is
-  # cwd's own trusted, canonical representation; joining to it here, rather
-  # than to a separately-read $PWD, sidesteps a spurious mismatch when cwd
-  # sits under an OS-level path alias such as macOS's /tmp -> /private/tmp,
-  # since `git rev-parse` resolves that alias and a raw $PWD read would not).
+  # relative path is joined to $trusted_root, never to a separately-read
+  # $PWD. This is NOT merely because this script's documented caller
+  # happens to run it with cwd at the repo root (F3, this change's own
+  # review panel: that was once this step's stated justification, but the
+  # optional <repo-root> override — see the header NOTE — exists precisely
+  # so a caller can invoke this script from a cwd that is NOT inside the
+  # repository at all, which makes that justification false). The real
+  # reason is that step 4 below resolves this SAME relative $ARCHIVED_PATH
+  # from this SAME $abs_input, not from raw process cwd — so both the
+  # lexical and the semantic resolution always share one base, and can
+  # never diverge just because cwd and $trusted_root differ. Joining to
+  # $trusted_root also sidesteps a spurious mismatch when cwd sits under an
+  # OS-level path alias such as macOS's /tmp -> /private/tmp, since `git
+  # rev-parse` resolves that alias and a raw $PWD read would not.
   # `.`/`..` components are then collapsed by lexically_collapse(), sourced
   # from lib/lexical-normalize.sh (F34, this change's own review panel)
   # rather than carried here — the walk itself (push each `/`-separated
@@ -245,11 +342,22 @@ validate_archived_path() {
   esac
 
   # Step 4: resolve $ARCHIVED_PATH semantically, following every symlink at
-  # every component.
+  # every component. Resolved from $abs_input (step 2's absolute form), NOT
+  # from raw $ARCHIVED_PATH (F3, this change's own review panel): a relative
+  # $ARCHIVED_PATH was joined onto $trusted_root above, so the semantic
+  # resolution here must start from that same base. Resolving raw
+  # $ARCHIVED_PATH instead would follow the script's actual process cwd
+  # rather than $trusted_root — identical only while cwd truly sits at the
+  # repository root, which the optional <repo-root> override (see the
+  # header NOTE) exists precisely to let the caller NOT be true. When they
+  # diverge, ARCHIVED_REAL comes back empty and every source is silently
+  # reported skipped instead of found. $abs_input is already absolute
+  # either way, so an already-absolute $ARCHIVED_PATH resolves exactly as
+  # before.
   local archived_real
   archived_real=""
-  if [ -d "$ARCHIVED_PATH" ]; then
-    archived_real="$(cd -P "$ARCHIVED_PATH" 2>/dev/null && pwd -P)" || archived_real=""
+  if [ -d "$abs_input" ]; then
+    archived_real="$(cd -P "$abs_input" 2>/dev/null && pwd -P)" || archived_real=""
   fi
   if [ -z "$archived_real" ]; then
     # A leaf that IS a symlink but resolves to something other than a
@@ -257,7 +365,7 @@ validate_archived_path() {
     # just like a missing path does — but it is not a shape problem, it's
     # exactly the same trust-boundary problem as a symlink pointing outside
     # the repo (F25): report it as such rather than as "shape".
-    if [ -L "$ARCHIVED_PATH" ]; then
+    if [ -L "$abs_input" ]; then
       ARCHIVED_PATH_INVALID=1
       ARCHIVED_PATH_REASON="symlink"
       return 0
@@ -406,7 +514,15 @@ fi
 
 TASKS_FILE=""
 if [ "$ARCHIVED_PATH_INVALID" -eq 0 ]; then
-  tasks_candidate="$ARCHIVED_PATH/tasks.md"
+  # Built from $ARCHIVED_REAL, NOT raw $ARCHIVED_PATH (F3, this change's own
+  # review panel): $ARCHIVED_PATH may still be relative here, and testing
+  # it directly (`-f "$ARCHIVED_PATH/tasks.md"`) would resolve against this
+  # script's actual process cwd rather than $ARCHIVED_REAL's already-
+  # trusted, already-resolved base — the same divergence
+  # validate_archived_path() itself was fixed against, just one level
+  # further downstream. $ARCHIVED_REAL is absolute and known-safe whenever
+  # ARCHIVED_PATH_INVALID=0.
+  tasks_candidate="$ARCHIVED_REAL/tasks.md"
   if [ -f "$tasks_candidate" ]; then
     check_boundary "$tasks_candidate" "$ARCHIVED_REAL"
     if [ "$BOUNDARY_REFUSED" -eq 1 ]; then
