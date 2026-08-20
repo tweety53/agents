@@ -416,6 +416,66 @@ case "$OUT" in
   *) fail "coverage declared zero: expected a declared-zero breakdown entry, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# 26-27. kan-102-citations-resolve-to-installed-paths task 3 — a citation
+# naming its root explicitly (`<agents repo>/…` or `<project>/…`) must
+# resolve exactly as the same citation resolved before it carried a root.
+# ===========================================================================
+
+# 26. A citation prefixed with the literal `<agents repo>/` is stripped
+# before resolution and still checked — proven by making its heading go
+# stale. Without stripping, the prefixed path never resolves to a file and
+# the reference is silently skipped instead of failing: a guard that stops
+# checking without failing, which is the one failure a guard must never have.
+new_fixture
+printf '## Something else\n\nbody\n' > "$FIXTURE/agents-repo-fixture.md"
+printf 'Resolve it per **Some section** in `<agents repo>/agents-repo-fixture.md`.\n' \
+  > "$FIXTURE/skills/demo/SKILL.md"
+run_guard "$FIXTURE"
+[ "$RC" -ne 0 ] && pass "a prefixed citation is still checked" \
+  || fail "agents-repo prefix: expected non-zero (stale heading), rc=$RC out=$OUT"
+case "$OUT" in
+  *"skills/demo/SKILL.md:1"*) pass "the prefixed reference is reported by file:line" ;;
+  *) fail "agents-repo prefix: expected file:line report, out=$OUT" ;;
+esac
+
+# 27. A citation beginning `<project>/` names the target project, not this
+# repository, and always resolves to nothing here. It must fall through the
+# ordinary does-not-resolve path — neither checked nor read as an escape
+# outside the repository root, which this guard treats as a hard failure
+# (case 21 above).
+#
+# The fixture plants a COLLIDING file at the exact path stripping
+# `<project>/` would produce — .myflow/project.md at the fixture root —
+# carrying a heading that does NOT match the cited section. Without that
+# collider, "correctly left alone" and "incorrectly stripped" are
+# indistinguishable to this case: both leave the citation unresolved, RC=0,
+# no escape message either way. With it, a regression that strips
+# `<project>/` the way `<agents repo>/` is stripped makes the citation
+# resolve to this real file, and the mismatched heading turns up as a
+# reported stale reference (RC=1) instead of a silent pass. Written to a
+# declared expected-zero member (skills/openspec-explore/SKILL.md), as case
+# 7 above does for the same reason: with the reference correctly left
+# unresolved, this file's own checked-reference count is genuinely zero.
+#
+# A `<project>/` prefix is a lexical marker, not `..` — no realistic
+# mutation of this guard's `<project>/` handling ever introduces a genuine
+# escape, so the absence of a containment-refusal message below is a plain
+# sanity check on the current behavior, not a mutation-proven guarantee the
+# way the heading check above is.
+new_fixture
+mkdir -p "$FIXTURE/skills/openspec-explore" "$FIXTURE/.myflow"
+printf '## Something else\n\nbody\n' > "$FIXTURE/.myflow/project.md"
+printf 'see **Whatever** in `<project>/.myflow/project.md`\n' \
+  > "$FIXTURE/skills/openspec-explore/SKILL.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "a project-prefixed citation is neither resolved nor refused" \
+  || fail "project prefix: rc=$RC out=$OUT"
+case "$OUT" in
+  *"resolves outside the repository root"*) fail "project prefix: misread as a containment escape: out=$OUT" ;;
+  *) pass "project prefix: not read as a containment escape" ;;
+esac
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '\n%d assertion(s) failed\n' "$FAILURES" >&2
   exit 1

@@ -391,12 +391,26 @@ check_file() {
     while IFS= read -r path; do
       [ -n "$path" ] || continue
 
+      # A citation may name this repository explicitly with a literal
+      # `<agents repo>/` prefix (specs/myflow-citation-roots/spec.md). Strip
+      # it before resolving, so a citation that carries that root is checked
+      # exactly as it was before it carried one — without this, the citation
+      # never resolves to a file and is silently skipped rather than
+      # checked. `<project>/` is deliberately left untouched: it names a
+      # project this repository cannot see, so it must fall through the
+      # ordinary does-not-resolve path below rather than being stripped into
+      # something that might resolve, or read as a traversal by `contained`.
+      local resolve_path="$path"
+      case "$resolve_path" in
+        '<agents repo>/'*) resolve_path="${resolve_path#'<agents repo>/'}" ;;
+      esac
+
       # An absolute path is its own only candidate; a relative one is tried
       # against the repository root and against the referring file's directory.
       local candidates=()
-      case "$path" in
-        /*) candidates=("$path") ;;
-        *)  candidates=("$REPO_ROOT/$path" "$(dirname "$file")/$path") ;;
+      case "$resolve_path" in
+        /*) candidates=("$resolve_path") ;;
+        *)  candidates=("$REPO_ROOT/$resolve_path" "$(dirname "$file")/$resolve_path") ;;
       esac
 
       local resolved="" escaped=0 candidate safe
