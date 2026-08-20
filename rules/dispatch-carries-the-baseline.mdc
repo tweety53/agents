@@ -53,6 +53,6 @@ every dispatch.
 
 ## Registration is not automatic
 
-`setup.sh global` installs the hook file but never edits `settings.json` — that file is the user's
+`<agents repo>/setup.sh global` installs the hook file but never edits `settings.json` — that file is the user's
 own. Until the printed snippet is pasted into it, nothing enforces this rule and the convention is
 all that holds. Check for the registration rather than assuming it.

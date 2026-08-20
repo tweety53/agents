@@ -41,7 +41,7 @@ governs** — the one-liner is enough to stay inside the rule, not enough to app
 | **A design mockup is a specification.** Reproduce it exactly, copy and typos included. No unrequested improvements. Ask about states it does not show rather than inventing them. Verify visually before claiming it matches. | `~/.claude/rules/design-mockups-are-specs.md` |
 | **Every dispatch you write carries this file.** The two sentences under "Propagate this" above, verbatim, in every subagent prompt — that is the whole of your obligation to this row, and it is what makes the rows above reach any agent you spawn. A hook denies a dispatch that omits them. | `~/.claude/rules/dispatch-carries-the-baseline.md` |
 
-Every path in that table is a symlink `agents/setup.sh global` created, pointing at the `.mdc` in the
+Every path in that table is a symlink `<agents repo>/setup.sh global` created, pointing at the `.mdc` in the
 `agents` repo whose core excerpt the managed block renders — one file per rule, reachable by a stable
 path, with no copy to go stale. If that checkout is missing from this machine the pointers dangle:
 say so rather than proceeding as if the rule did not exist, and treat the one-liner as the whole rule
@@ -49,10 +49,10 @@ in the meantime.
 
 ## Project rules come on top
 
-If you are working inside a repository, read its `CLAUDE.md` — and `AGENTS.md` if present — before
+If you are working inside a repository, read `<project>/CLAUDE.md` — and `<project>/AGENTS.md` if present — before
 acting. Project rules are more specific than these and win where they overlap, including which lint,
 test and run commands the rules above actually mean. For a myflow project those commands live in
-`.myflow/project.md`, and any `/myflow-*` step loads its own contract file first; never act on a
+`<project>/.myflow/project.md`, and any `/myflow-*` step loads its own contract file first; never act on a
 remembered version of a contract. The myflow pipeline is deliberately absent from the table above —
 it is command-triggered, and summarising a state machine is exactly the staleness its own rule
 forbids.
