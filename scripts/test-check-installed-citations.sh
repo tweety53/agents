@@ -537,6 +537,35 @@ assert_case "openspec-shape-with-trailing-path-is-still-reported" "skills/myflow
 `openspec/changes/<name>/`
 ' "reported"
 
+# ===========================================================================
+# SECTION: Task 9 (kan-239) — a second pipeline-created branch shape,
+# `chore/archive-<name>`, needs the same GIT_BRANCH_OPENSPEC_RE treatment:
+# a branch name is not a path citation. Two cases, same bound as the
+# openspec pair above: the bare shape is not reported, and a bracket
+# segment followed by more path — `chore/archive-<name>/spec.md` — is the
+# fail-open bound and must stay reported.
+# ===========================================================================
+
+assert_case "chore-archive-branch-name-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+Branch `chore/archive-<name>`.
+' "not-reported"
+
+assert_case "chore-archive-shape-with-trailing-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`chore/archive-<name>/spec.md`
+' "reported"
+
+# This case pins the BRACKET-CONTENT bound, which the trailing-path case
+# above does not: widening the class to `[^>]+` still rejects
+# `chore/archive-<name>/spec.md` (that string carries only one `>`, so the
+# wider class has nothing to smuggle past), and every other assertion in
+# this file still passes. Only a bracket segment carrying a second `/`
+# separates `[^/<>]+` from `[^>]+`, so only this case fails when someone
+# later widens the regex "harmlessly" -- the exact fail-open class this
+# file's history exists to prevent.
+assert_case "chore-archive-bracket-cannot-smuggle-a-slash" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`chore/archive-<a/b>`
+' "reported"
+
 assert_case "html-comment-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
 `<!-- measured: ./gradlew test @ c515c42 -->`
 ' "not-reported"

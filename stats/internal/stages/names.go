@@ -106,12 +106,13 @@ var Table = []Stage{
 	{Key: "finish.write-in-progress", Name: "Write `IN_PROGRESS` (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
 	{Key: "finish.move-in-review", Name: "Move the issue to In Review (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
 	{Key: "finish.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.sync-archive", Name: "Sync delta specs and archive (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.commit-archive", Name: "Commit and push the archive (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
+	{Key: "finish.sync-archive", Name: "Position the checkout, sync delta specs and archive (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
+	{Key: "finish.commit-archive", Name: "Commit the archive (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
 	{Key: "finish.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{MyflowFinish, MyflowFast}},
 	{Key: "finish.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
 	{Key: "finish.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
 	{Key: "finish.self-review", Name: "Self-review (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
+	{Key: "finish.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that

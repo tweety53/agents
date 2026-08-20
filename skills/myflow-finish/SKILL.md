@@ -55,8 +55,8 @@ base branch. No field records "integration started" — a field could disagree w
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-finish-preflight.sh`, `resolve-base-branch.sh`,
-`check-unfinished-work.sh`, `preserve-session-records.sh`, `commit-split.sh`,
-`check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
+`prepare-archive-branch.sh`, `check-unfinished-work.sh`, `preserve-session-records.sh`,
+`commit-split.sh`, `check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
 `skills/myflow-finish/scripts/`. A complete set prints nothing; any absence prints that section's
 block once, and the run continues under each guard's own hand-run fallback.
 
@@ -85,7 +85,7 @@ current branch.** Run it against the apply worktree; its exit contract is the on
 ask**. This skill runs inside the apply worktree, where `HEAD` is the change's own branch — so any
 resolution that consults `HEAD`'s upstream would compare the branch against itself and report every
 pushed branch as merged. Run 2 resolves the base the same way, from the apply worktree, **before
-cleanup removes it**: the archive commit is run 2's step 3, cleanup is step 4, so the worktree is
+cleanup removes it**: the archive commit is run 2's step 4, cleanup is step 5, so the worktree is
 still there when resolution runs.
 
 ---
@@ -356,8 +356,12 @@ been merged, a run stopped at a run-2 cleanup leftover most often. See **1.5 Sta
 Follow **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 2 for the full
 procedure. In outline, and stopping at the first step that fails, each numbered step below is
 bracketed by its own mark per **Stage marks** (`skills/myflow-contracts/pipeline.md`), using that
-step's exact name from the Level 1 table — a failed mark never blocks, delays or alters the step
-it brackets.
+step's exact name from the Level 1 table — with three exceptions, each of which opens no mark of its
+own and runs inside the mark of the step before it: step 2 (positioning) inside step 3's
+`finish.sync-archive`, per that mark's own reworded Level 1 Name; step 6 (remove the proposal
+artifact source) inside step 5's `finish.cleanup`, as it already did before this change; and step 11
+(restore the checkout) inside step 10's `finish.push-archive`. **Eleven steps, eight marks.** A
+failed mark never blocks, delays or alters the step it brackets.
 
 **Generate this run's own session token once, right here, before this first mark — a short, unique
 literal string — and reuse that exact same value, unchanged, at every `stage begin` run 2 makes
@@ -378,7 +382,22 @@ myflow stage end   -command '/myflow-finish' -stage finish.verify-merge -outcome
 myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-2. **Sync delta specs, then archive.** Assess each delta in `<changeRoot>/specs/` against
+2. **Position the main checkout on the archive branch**, before anything else touches it — the same
+   mark as step 3 below, since positioning is what that mark's name now covers. Resolve `<base>`
+   with `resolve-base-branch.sh` against the apply worktree, exactly as **1.3 Take the chosen
+   route** above resolves it for run 1, then invoke
+   `prepare-archive-branch.sh <main-checkout> <base> chore/archive-<name>`. Exit `0` → the checkout
+   is on `chore/archive-<name>`, cut from a fast-forwarded `<base>`; continue to step 3. Anything
+   else stops run 2 here, with nothing staged, committed, pushed or removed — report the guard's
+   own message and leave the change at
+   `IN_PROGRESS`. The four exit codes are **Run 2 — the branch is merged**
+   (`skills/myflow-contracts/finish-contract.md`), step 2, and are not restated here.
+
+   **When the guard is absent**, perform the same positioning by hand, in the same order, and say in
+   the handoff that it was done manually — `prepare-archive-branch.sh`'s own header is the authority
+   for the exact commands, per that same step 2.
+
+3. **Sync delta specs, then archive.** Assess each delta in `<changeRoot>/specs/` against
    `<project>/openspec/specs/`, show a summary, and offer: sync now (recommended), archive without syncing,
    or cancel. Apply `## ADDED` by appending (creating the capability spec if absent), `## MODIFIED`
    by replacing the block matched on its `### Requirement:` heading whitespace-insensitively,
@@ -390,14 +409,26 @@ myflow stage end   -command '/myflow-finish' -stage finish.sync-archive -outcome
 myflow stage begin -command '/myflow-finish' -stage finish.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-3. **Commit and push the archive** on the base branch in the main checkout.
+4. **Commit the archive** on `chore/archive-<name>` in the main checkout — no push here; step 10
+   below carries it. Assert the branch in the same guarded `&&` chain rather than assuming it,
+   mirroring the shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already documents:
+
+   ```bash
+   [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <main-checkout> add -A \
+     && { git -C <main-checkout> diff --cached --quiet \
+          || git -C <main-checkout> commit -m "chore(<name>): archive"; }
+   ```
+
+   A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
+   at `IN_PROGRESS` — `git -C <main-checkout>` fixes the directory, never the branch.
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.commit-archive -outcome completed <name>
 myflow stage begin -command '/myflow-finish' -stage finish.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
+5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket.** The workspace half runs the project's `remove` command, read from the
    command table **Project configuration** (`skills/myflow-contracts/project-configuration.md`)
    defines and run from the **main checkout**, which that same table states, with the workspace id
@@ -406,26 +437,26 @@ myflow stage begin -command '/myflow-finish' -stage finish.cleanup -harness <har
    **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`). A project declaring no
    `## workspace isolation` section, or no `remove` command in it, has this half **skipped, not
    failed**. A removal that fails is **the one exception to the stop-at-the-first-failure rule
-   above**: report it and carry on to step 6, which decides the verdict from the project's survivor
+   above**: report it and carry on to step 7, which decides the verdict from the project's survivor
    report and never from this command's exit code, per
    **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`). A worktree half that
    stops on a failed check takes the removal with it, and why the removal follows that half at all —
    the stack is down only once its check 5 has run — is
    **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`);
    see **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
-5. **Remove the proposal artifact source** from the state directory, on the condition its row in
+6. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) gives.
 
-Steps 4 and 5 together are the Level 1 table's one `cleanup` stage:
+Steps 5 and 6 together are the Level 1 table's one `cleanup` stage:
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.cleanup -outcome completed <name>
 myflow stage begin -command '/myflow-finish' -stage finish.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-6. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
+7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, after every removal above. `COMPLETE:` → report the cleanup as verified, **relay
-   every clause the line carries after ` — ` word for word**, and go on to step 7 — a `SKIPPED:`
+   every clause the line carries after ` — ` word for word**, and go on to step 8 — a `SKIPPED:`
    clause there says a registry row was not verified, so reporting only "cleanup verified" tells the
    operator the opposite of what the guard said, and a skip is never a pass. `LEFTOVER:` → name what
    remains and **stop without writing `FINISHED`**, leaving
@@ -435,7 +466,7 @@ myflow stage begin -command '/myflow-finish' -stage finish.verify-cleanup -harne
    nothing. Why a leftover blocks the write, and why run 2 is safe to re-enter afterwards, is
    canonical under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
-Close this mark with the verdict step 6 reached: `completed` on `COMPLETE:`, `leftover` on
+Close this mark with the verdict step 7 reached: `completed` on `COMPLETE:`, `leftover` on
 `LEFTOVER:` or on a missing verdict line — either way the run stops here, at `IN_PROGRESS`, and
 nothing below runs:
 
@@ -447,7 +478,7 @@ myflow stage end -command '/myflow-finish' -stage finish.verify-cleanup -outcome
 myflow stage begin -command '/myflow-finish' -stage finish.write-finished -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-7. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
+8. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the entries
    whose removal actually succeeded**. Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`,
    `reviewPanelRoster` and `prUrl` forward — read the planning effort through the retired-key
    fallback, per **State file** (`skills/myflow-contracts/state-file.md`). This is the terminal
@@ -460,20 +491,21 @@ myflow stage begin -command '/myflow-finish' -stage finish.self-review -harness 
 ```
 
 **Transition the issue to Done** after the state write, per
-**Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 6
+**Jira integration** (`skills/myflow-contracts/jira-integration.md`). A run that stopped at step 7
 transitions nothing — the change is not done.
 
-8. **Run self-review.** The procedure — skippable per run with running it the default, gathering
+9. **Run self-review.** The procedure — skippable per run with running it the default, gathering
    input via a script rather than an inline re-read, one combined reasoning pass across all five
    angles plus the rating, the per-angle filing ask, and the report path — see
-   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 8. The
+   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
    requirement to change first when that procedure changes is
    **Requirement: Self-review runs only after FINISHED is written**
    (`<agents repo>/openspec/specs/myflow-self-review/spec.md`). What is specific to *executing* it here: the
    script invocation `gather-self-review-context.sh
-   <archived-change-path> <name> <state-dir>`, resolving `<archived-change-path>` as
-   `<project>/openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 2 (sync + archive)
-   already used when it moved the change there.
+   <archived-change-path> <name> <state-dir> <main-checkout>`, resolving `<archived-change-path>` as
+   `<project>/openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 3 (sync + archive)
+   already used when it moved the change there, and passing `<main-checkout>` as the trust anchor so
+   the script's `--git-common-dir` derivation no longer depends on this run's own working directory.
 
    The skip prompt fires first, and reads — shape per Operator prompts
    (`skills/myflow-contracts/operator-prompts.md`):
@@ -482,7 +514,7 @@ transitions nothing — the change is not done.
    > - **Yes — run it** *(default, recommended)*
    > - **No — skip**
 
-   An explicit **No** stops step 8 here; the handoff's `Self-review` line reads `skipped`. A
+   An explicit **No** stops step 9 here; the handoff's `Self-review` line reads `skipped`. A
    session with no interactive channel to present this prompt at all is a distinct case from
    silence — silence still gets the prompt and defaults per Operator prompts
    (`skills/myflow-contracts/operator-prompts.md`), but a session that cannot ask still runs
@@ -490,7 +522,7 @@ transitions nothing — the change is not done.
 
    The reasoning step that follows is **one combined pass** — never five separate dispatches —
    answering all five angles per the table in **Run 2 — the branch is merged**
-   (`skills/myflow-contracts/finish-contract.md`), step 8, plus the rating request, fed the script's
+   (`skills/myflow-contracts/finish-contract.md`), step 9, plus the rating request, fed the script's
    bundle and the live session's own context. Angle 5's remit covers the records the pipeline writes
    to files today and the derivation work now done in Bash or by the agent — **not** what the SPA
    should display. See **Run 2 — archive and clean up**
@@ -518,20 +550,23 @@ transitions nothing — the change is not done.
    Write `<project>/docs/self-review/<name>-self-review.md` — one section per angle, all five present; each
    finding one line naming its angle's label, the finding, and its disposition, the issue key when
    filed or an explicit declined marker when not; an angle with no findings carrying an explicit
-   none-marker instead — plus the rating — and commit and push it on the base branch **in the main
-   checkout**, never the removed worktree, as one guarded commit mirroring the shape **Git
-   boundaries** (`skills/myflow-contracts/pipeline.md`) already documents:
+   none-marker instead — plus the rating — and commit it on `chore/archive-<name>` **in the main
+   checkout**, never the removed worktree, asserting the branch rather than assuming it and **not
+   pushing here** — step 10 below pushes it in the same PR as the archive commit — as one guarded
+   commit mirroring the shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already
+   documents:
 
    ```bash
-   git -C <main-checkout> add -- docs/self-review/<name>-self-review.md \
+   [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <main-checkout> add -- docs/self-review/<name>-self-review.md \
      && { git -C <main-checkout> diff --cached --quiet \
-          || { git -C <main-checkout> commit -m "docs(<name>): self-review report" \
-               && git -C <main-checkout> push; }; }
+          || git -C <main-checkout> commit -m "docs(<name>): self-review report"; }
    ```
 
-   A commit that FAILS (hook rejection, push rejected) is reported with git's own output. The change
-   stays `FINISHED` regardless — a report that failed to commit is a self-review failure to report
-   in the handoff, never a reason to reopen the change.
+   A branch mismatch reports the branch found and stops this commit, and so does a commit that FAILS
+   (hook rejection) — reported with git's own output either way. The change stays `FINISHED`
+   regardless — a report that failed to commit is a self-review failure to report in the handoff,
+   never a reason to reopen the change.
 
 ```bash
 myflow stage end -command '/myflow-finish' -stage finish.self-review -outcome completed <name>
@@ -544,12 +579,37 @@ this mark's `-outcome` value. See **Stage marks** (`skills/myflow-contracts/pipe
 *mark* is a different thing from a failed self-review, and only the former ever changes what this
 call records.
 
+```bash
+myflow stage begin -command '/myflow-finish' -stage finish.push-archive -harness <harness> -session-token mf-<literal-token> <name>
+```
+
+10. **Push the archive branch and open its pull request.** Push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when
+    usable for the host, else print the forge's create-PR URL and ask whether it was opened — the
+    same shape **1.3 Take the chosen route** above already uses. This push carries both the archive
+    commit from step 4 and the self-review report from step 9, so there is no window in which the
+    archive pull request merges while the report is still unwritten. Run 2 never pushes to `<base>`.
+
+    A failed push, or a failed pull-request creation, is reported with the command's own output. It
+    never moves the change off `FINISHED` — the change is already terminal by step 8 — and the
+    handoff names the unpushed branch `chore/archive-<name>` and the exact push and pull-request
+    commands needed to land it by hand. The archive is never reported as landed until this step
+    actually lands it.
+
+11. **Restore the main checkout to `<base>`.** Successful or not — a failed push does not skip
+    this — never leave the checkout on the archive branch. This step runs inside step 10's
+    `finish.push-archive` mark rather than opening one of its own.
+
+```bash
+myflow stage end -command '/myflow-finish' -stage finish.push-archive -outcome completed <name>
+```
+
 ```
 ## Finished
 
 **Change:** <name>
 **Specs:** synced | skipped | none
-**Archived:** openspec/changes/archive/<date>-<name>/ (committed and pushed)
+**Archived:** openspec/changes/archive/<date>-<name>/ (committed on chore/archive-<name>)
+**Archive PR:** <prUrl> | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open a PR against <base>
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
@@ -558,9 +618,12 @@ call records.
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
 
-A run 2 that **completes** is terminal and names **no** next command.
+**The archive is never reported as landed until step 10 actually lands it.** On a failed push or PR
+creation, the `Archive PR` line is the local branch and the exact commands to land it by hand — never
+a claim that the archive merged. A run 2 that **completes step 10** is terminal and names **no** next
+command.
 
-On a leftover — or on no verdict at all — the run stops at step 6 instead, and its handoff names
+On a leftover — or on no verdict at all — the run stops at step 7 instead, and its handoff names
 what remains and points back at itself, because clearing the leftover and re-running is what
 finishes the change:
 
@@ -569,7 +632,7 @@ finishes the change:
 
 **Change:** <name>
 **Specs:** synced | skipped | none
-**Archived:** openspec/changes/archive/<date>-<name>/ (committed and pushed)
+**Archived:** openspec/changes/archive/<date>-<name>/ (committed on chore/archive-<name>)
 **Remaining:** <what the guard named> | unverified — <what the guard reported on stderr>
 **State:** IN_PROGRESS — FINISHED is not written while anything remains
 

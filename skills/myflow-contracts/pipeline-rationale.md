@@ -162,7 +162,7 @@ defined; the two call sites point here rather than each describing them.
    and `remove` runs from the main checkout — stated with the command table, in
    **Project configuration** (`skills/myflow-contracts/project-configuration.md`) — so no worktree
    removal can destroy the directory it runs from. What has always constrained this step still does:
-   the removal stays ahead of step 6, because a verification that runs before the thing it verifies
+   the removal stays ahead of step 7, because a verification that runs before the thing it verifies
    can only ever fail.
 
    **Interleaving the removal into the worktree half was considered and rejected.** Slotting it
@@ -175,7 +175,7 @@ defined; the two call sites point here rather than each describing them.
    Any failed check leaves every worktree alone —
    **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`) — and the removal behind it
    does not run, so a run blocked by something unrelated to the workspace, an
-   uncommitted file in a worktree say, has its database and bucket named as leftovers at step 6 as
+   uncommitted file in a worktree say, has its database and bucket named as leftovers at step 7 as
    well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has
    already stopped and already needs the operator, it adds lines to a report rather than a failure,
    and run 2 is re-entrant, so the pass after the blocker is cleared does both halves. The check most
@@ -186,7 +186,7 @@ defined; the two call sites point here rather than each describing them.
 
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a
-   number of its own would renumber steps 6, 7 and 8, which are cited *by number* from
+   number of its own would renumber steps 7, 8 and 9, which are cited *by number* from
    `<agents repo>/openspec/specs/` and from `skills/myflow-finish/SKILL.md`.
 
 ### Worktree cleanup
@@ -254,7 +254,7 @@ survived; the section holding those declarations is the one
 
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
 ends at run 2 is checked back by `<agents repo>/scripts/check-cleanup-complete.sh`, whose header explains which
-rows that leaves it reading and why; step 6 of
+rows that leaves it reading and why; step 7 of
 **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`) is where its
 verdict is acted on.
 

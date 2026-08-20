@@ -87,6 +87,7 @@ scripts/test-check-markdown-integrity.sh
 scripts/test-check-uitest-overrides.sh
 scripts/test-check-guard-symlinks.sh
 scripts/test-resolve-base-branch.sh
+scripts/test-prepare-archive-branch.sh
 scripts/test-check-stage-mark-calls.sh
 scripts/test-check-self-review-report.sh
 scripts/test-lib-coverage.sh

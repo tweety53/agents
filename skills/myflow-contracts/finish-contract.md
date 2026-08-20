@@ -219,14 +219,44 @@ the one irreversible step.
 1. **Verify the merge.** Use a PR CLI when one is usable for the host; otherwise
    `git merge-base --is-ancestor`. That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge. **Not merged → this is not run 2.**
-2. **Sync delta specs** into `<project>/openspec/specs/`, then move the change into
+2. **Position the main checkout on the archive branch, before anything else touches it.** Resolve
+   `<base>` with `resolve-base-branch.sh` against the apply worktree, exactly as Run 1 does above,
+   then invoke `prepare-archive-branch.sh <main-checkout> <base> chore/archive-<name>`. The exit
+   contract: `0` positioned — the checkout is on `chore/archive-<name>`, cut from a fast-forwarded
+   `<base>`; `1` a named refusal — a dirty working tree, **on `<base>` or off it**, a detached
+   `HEAD`, an existing archive branch not descended from `origin/<base>`, or a `<base>` or
+   `<archive-branch>` name that fails the guard's shape check; `2` an argument is missing,
+   `<main-checkout>` is missing, unreadable, or not a git worktree, `HEAD`'s own ref cannot be read,
+   or a checkout the guard performs fails; `3` `<base>` cannot be reconciled with `origin` — it
+   has diverged, `origin/<base>` does not resolve, or there is no `origin` remote at all.
+   Anything but exit `0` stops run 2 here, with nothing staged, committed, pushed or removed.
+
+   **When the script is absent** — a harness whose repository does not carry it — perform the same
+   positioning by hand, in this order, and say in the handoff that it was done manually. The guard is
+   never skipped for want of the script. The steps are stated in full rather than cited, for the
+   reason the resolver's own fallback above gives: the guard being absent takes its header with it.
+   Run the wrapped, credential-free fetch first, so an
+   unreachable remote refuses quickly rather than hanging. Then read `HEAD`: **refuse a detached
+   `HEAD`.** Then read the working tree with `git -C <main-checkout> status --porcelain` — the same
+   test the preflight's signal 3 uses — and **refuse a dirty tree wherever it is found, on `<base>` as
+   well as off it**, naming both the branch found and `<base>`; uncommitted changes would otherwise
+   ride onto the archive branch unremarked. On a clean tree, check out `<base>` if the checkout is not
+   already on it, then fast-forward it to `origin/<base>`, **refusing a base that cannot fast-forward**
+   rather than merging or resetting it. Finally create `chore/archive-<name>` from that base and check
+   it out — or, when it already exists, **reuse it only if it is descended from `origin/<base>`** and
+   refuse it otherwise. Apply each refusal in that order and never accept a guess in place of any of
+   them.
+3. **Sync delta specs** into `<project>/openspec/specs/`, then move the change into
    `<project>/openspec/changes/archive/<date>-<name>/`. Any nested `<name>-fix-N` sub-changes are archived in
    the same operation — never left behind, never archived alone.
-3. **Commit and push the archive** on the base branch in the main checkout. There is no merge to do
-   in the normal case: the change branch was already merged, which step 1 proved. When finish is
-   invoked with a non-base branch checked out, it commits there, merges into the base branch, and
-   pushes that. A finished change never leaves the archive move uncommitted in the working tree.
-4. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
+4. **Commit the archive on `chore/archive-<name>` — no push.** There is no merge to do: the change
+   branch was already merged, which step 1 proved. Run 2 never merges anything into the base branch,
+   and never commits the archive on the base branch itself. Every commit run 2 makes after step 2 —
+   this one and the self-review report at step 9 alike — asserts `chore/archive-<name>` rather than
+   assuming it: naming the directory with `git -C <main-checkout>` fixes the directory, not the
+   branch. A finished change never leaves the archive move uncommitted in the working tree. The push
+   happens at step 10, after self-review; step 11, which restores the checkout, closes the run.
+5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/myflow-contracts/finish-contract.md`) below.
 
@@ -237,7 +267,7 @@ the one irreversible step.
    for each worktree in the resolved set it invokes `resolve-base-branch.sh` against that same
    worktree, immediately before that worktree's own removal — the same call and exit contract as
    **Resolve the base branch** under Run 1 above, run again here because this is a separate
-   invocation and nothing carries `BASE` over from run 1's. Step 3's archive commit runs before this
+   invocation and nothing carries `BASE` over from run 1's. Step 4's archive commit runs before this
    step, so every worktree in the set is still present when its own resolution runs — satisfying the
    same "before cleanup removes it" ordering this step has always required, just per worktree rather
    than once for the change. Anything but exit `0` for a given worktree — stop and ask, exactly as
@@ -256,19 +286,19 @@ the one irreversible step.
    half skipped rather than failed** — a step whose artifact is already absent is a success, which is
    the same re-entrancy rule every other removal in run 2 follows.
 
-   **A failed removal does not stop run 2 here; it is reported, and step 6 decides the verdict** —
+   **A failed removal does not stop run 2 here; it is reported, and step 7 decides the verdict** —
    from the project's survivor report and never from this command's exit code, per
    **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
-5. **Remove the proposal artifact source** from the state directory, on the condition its row in
+6. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`pipeline.md`) gives. That section carries the condition and
    the reason for it; this step does not repeat either.
-6. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
+7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
    behind, which is the one thing run 2 previously assumed.
 
    | Verdict | What run 2 does |
    |---------|-----------------|
-   | `COMPLETE:` | report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 7 |
+   | `COMPLETE:` | report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 8 |
    | `LEFTOVER:` | name what remains, **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
 
    **A `SKIPPED:` clause on a `COMPLETE:` line is relayed, never dropped, and the two rows are
@@ -279,7 +309,7 @@ the one irreversible step.
    operator the opposite of what the guard said, while following this table to the letter. **A skip
    is never a pass**: `<agents repo>/scripts/check-cleanup-complete.sh`'s own header is canonical for why, and it
    is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
-   reason it could not be verified are both inside it. The relay does **not** block step 7; why an
+   reason it could not be verified are both inside it. The relay does **not** block step 8; why an
    unreachable service must not strand an already-merged change is stated once under
    **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
 
@@ -298,17 +328,17 @@ the one irreversible step.
    **Run 2 is re-entrant, which is what makes that safe.** Every step is remove-or-move *if present*
    and a step whose artifact is already gone is success, not an error — so a re-run after the
    operator clears the leftover repeats the verification and nothing else. An already-archived change
-   directory means step 2 is already done: sync and archive are skipped, not repeated, and the run
+   directory means step 3 is already done: sync and archive are skipped, not repeated, and the run
    continues to cleanup and verification.
 
    **When the script is absent** — a repository that does not carry it — check the same registry rows
    by hand, in the same order, and say in the handoff that the verification was done manually. The
    check is never skipped for want of the script, and "not verified" is never reported as verified.
-7. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
+8. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup**
    (`skills/myflow-contracts/finish-contract.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
-8. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
+9. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. It gathers its
    input by invoking `gather-self-review-context.sh` rather than having the reasoning pass
    re-read files inline, and runs **one** combined reasoning pass covering all five angles below,
@@ -341,11 +371,13 @@ the one irreversible step.
    label on top of the set **Labels on issues the pipeline creates**
    (`skills/myflow-contracts/jira-integration.md`) already defines.
 
-   The report committed to `<project>/docs/self-review/<name>-self-review.md` carries one section per angle,
+   The report is committed onto `chore/archive-<name>` — asserting that branch rather than assuming
+   it, and not pushed here; step 10 carries the push — to
+   `<project>/docs/self-review/<name>-self-review.md`. It carries one section per angle,
    all five present; each finding is one line naming its angle's label, the finding, and its
    disposition — the issue key when filed, an explicit declined marker when not — and an angle with
    no findings carries an explicit none-marker instead of finding lines. **This procedure is
-   canonical here.** Step 8 of `skills/myflow-finish/SKILL.md`'s own run 2 carries only what is
+   canonical here.** Step 9 of `skills/myflow-finish/SKILL.md`'s own run 2 carries only what is
    specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
    and the report-commit shell. It is not a second statement of this rule.
 
@@ -355,10 +387,24 @@ the one irreversible step.
    same file for context gathering, the combined pass, the per-angle filing ask, the rating and
    the report path. That file is the requirement to change first when the procedure changes — it is
    not the runtime source of the procedure, which is stated above.
+10. **Push the archive branch and open its pull request.** Push `chore/archive-<name>`; open a pull
+    request against `<base>` via a PR CLI when usable for the host, else print the forge's
+    create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route above
+    uses. This push carries both the archive commit and the self-review report from step 9, so
+    there is no window in which the archive pull request merges while the report is still
+    unwritten. Run 2 never pushes to `<base>`.
 
-**The Jira `Done` transition fires before step 8, not after it.** Per **Jira integration**
+    A failed push, or a failed pull-request creation, is reported with the command's own output. It
+    never moves the change off `FINISHED` — the change is already terminal by step 8 — and the
+    handoff names the unpushed branch `chore/archive-<name>` and prints the exact push and
+    pull-request commands needed to land it by hand. The archive is never reported as landed until
+    this step actually lands it.
+11. **Restore the main checkout to `<base>`.** Successful or not, run 2 leaves the main checkout on
+    `<base>`, never on the archive branch.
+
+**The Jira `Done` transition fires before step 9, not after it.** Per **Jira integration**
 (`skills/myflow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
-archive move and the state write — that transition has already happened by the time step 8 begins,
+archive move and the state write — that transition has already happened by the time step 9 begins,
 so self-review has nothing to delay: there is no Jira write left in run 2 for it to sit in front of.
 
 ### Resolving a change's worktrees
@@ -419,7 +465,7 @@ git -C "$WT" ls-files --others --exclude-standard
 #    another worktree in the set. A multi-repo change has one `origin` and one default branch per
 #    repository, so a name resolved against one worktree's `origin` can be the wrong ref, or absent
 #    entirely, in another repository. Resolving it here, before this worktree's own removal below,
-#    is what "before cleanup removes it" (run 2 step 4, above) means per worktree.
+#    is what "before cleanup removes it" (run 2 step 5, above) means per worktree.
 BASE="$(resolve-base-branch.sh "$WT")" || { echo "cannot resolve the base branch for $WT — stop and ask"; false; }
 #    `@{upstream}` ERRORS when no upstream is configured, and an empty capture would read as
 #    "nothing unpushed" — so resolve it explicitly and never let a failed lookup pass as success.
