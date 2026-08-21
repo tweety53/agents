@@ -239,9 +239,9 @@ project can differ. `/myflow-finish` stages and commits them separately, so noth
 leaving them unstaged here.
 
 **The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
-stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and is not re-derived
-here. What is specific to this command is *whose* staging it retracts (an implementer subagent's own
-`git add`, or a worktree resumed with a dirty index) and why `git reset -- <paths>` is the tool:
+stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`). What is specific to
+this command is *whose* staging it retracts (an implementer subagent's own `git add`, or a worktree
+resumed with a dirty index) and why `git reset -- <paths>` is the tool:
 it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
 the way `git rm --cached` would, and succeeds when a path is absent — which `<project>/docs/superpowers/` is
 on every run that has not preserved records yet, and where `git restore --staged` would refuse the

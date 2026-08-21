@@ -8,8 +8,7 @@ This file is the reasoning behind `skills/myflow-contracts/pipeline.md`.
 ## Stage exit — never the command's own judgment
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
-harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`) — and are
-not restated here.
+harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`).
 
 ## Command surface
 
@@ -112,7 +111,7 @@ own the tab.
 
 **Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
 against them** — for the reason **Progress visibility** (`pipeline.md`) gives, which answers
-the identical question for the task list and is not restated here. What every harness can do is
+the identical question for the task list. What every harness can do is
 **print two lines of text**, which is why printing is the rule and the measurement is only the
 reason invoking is not. So:
 
@@ -262,7 +261,7 @@ URL would leave it advertised and unrepublishable.
 ## Model policy
 
 The field shape, and the rule that an absent key reads as *not recorded*, belong to
-**State file** (`skills/myflow-contracts/state-file.md`) and are not restated here.
+**State file** (`skills/myflow-contracts/state-file.md`).
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/myflow-*` command is required to
@@ -318,8 +317,7 @@ repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the 
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
 The preservation duty itself is stated once, under
-**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`); this section
-depends on it rather than restating it.
+**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`).
 
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
 persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly

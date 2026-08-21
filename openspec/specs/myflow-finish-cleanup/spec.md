@@ -537,7 +537,7 @@ each be a failure.
 Immediately after `FINISHED` is written, run 2 SHALL invoke self-review as step 9. Self-review's own
 behavior — the skip prompt, context gathering, the reasoning pass, per-finding Jira filing, the
 operator rating, the report and the handoff line — is defined in full by the `myflow-self-review`
-capability and is not restated here. This requirement states only the invocation point: after
+capability. This requirement states only the invocation point: after
 `FINISHED`, and before the archive branch is pushed.
 
 Self-review SHALL NOT be able to prevent the `FINISHED` write, since it never runs before that write

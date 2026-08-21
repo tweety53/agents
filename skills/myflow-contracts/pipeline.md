@@ -499,8 +499,7 @@ hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule
 here would drift from that guard's own dependencies the moment they change.
 
 Each command names, in its own text, the guards *it* can invoke — exactly the guards
-`<skill-dir>/scripts/` carries — and cites this section for the block shape rather than restating
-it.
+`<skill-dir>/scripts/` carries — and cites this section for the block shape.
 
 ## Finish contract
 

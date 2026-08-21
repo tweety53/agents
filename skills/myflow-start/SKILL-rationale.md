@@ -38,7 +38,7 @@ empty, so opening "another round" here has nothing to explore and, with no hard 
 the test and re-fires the confirm — `empty test → confirm → no answer → another round → empty test →
 confirm`, without end. **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`)
 already names this exact failure mode for its own interactive ask — "a session that cannot ask at
-all" — and gives it a terminating outcome rather than a retry; cited rather than restated here.
+all" — and gives it a terminating outcome rather than a retry.
 
 **`3` is a tuned value, and this file is the only place it
 is written** — the contract and the pipeline carry the shape of the bound, never the number, so it
@@ -53,8 +53,7 @@ The confirm recommends *moving on* precisely because it is unreachable while
 this command holds an unanswered question. The offer recommends *another round* for the mirror
 reason: it is reachable only while this command genuinely holds one. That is the same shape as the
 **Stop** recommendation at the unfinished-work gate of `/myflow-finish` run 1, whose reasoning is
-stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not
-re-argued here.
+stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 ## C. Create the change and its artifacts
 

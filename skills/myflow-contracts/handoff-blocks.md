@@ -89,7 +89,7 @@ Next:
 **Both the decisions count and the open-questions count render `none` when zero — never `0` — by
 the missing-rather-than-dropped rule above.** The entry shape, the immutable ID and the never-delete
 rule the open-questions count reads through are stated once under **Open questions**
-(`skills/myflow-start/SKILL.md`) and are not repeated here. `Jira` on the line below is `(run-only)`;
+(`skills/myflow-start/SKILL.md`). `Jira` on the line below is `(run-only)`;
 `Recorded` is not. See **Why the open-questions count is on-disk, not run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`) and **Why the `Jira` line is run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).

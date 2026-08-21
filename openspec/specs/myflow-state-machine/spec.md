@@ -142,7 +142,7 @@ A file carrying the retired `effort` key SHALL be read as recording the equivale
 as unparseable, and SHALL be rewritten under `planningEffort` on the next write it receives. Where
 both keys are present, `planningEffort` SHALL win; a value outside the mapped three SHALL read as
 "not recorded" and SHALL NOT make the file unparseable. The mapping is
-`openspec/specs/myflow-planning-effort/spec.md`'s, and is not restated here.
+`openspec/specs/myflow-planning-effort/spec.md`'s.
 
 **A state file that is missing or unparseable SHALL be reported and skipped, never rebuilt from
 inference.** No command infers a state file's contents, so an unreadable file names itself in the

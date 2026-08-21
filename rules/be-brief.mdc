@@ -47,8 +47,8 @@ It compresses the report back to you, never the agent's files.
 
 The length rule governs **prose only** — never code, commit messages, docs, specs, or anything
 written to a file. Those stay as full and careful as they would otherwise be. What a written file
-owes instead, and which files owe it, is stated once in the core paragraphs above and deliberately
-not restated here. A subagent's chat report is compressed; what it writes to disk is not.
+owes instead, and which files owe it, is stated once in the core paragraphs above. A subagent's chat
+report is compressed; what it writes to disk is not.
 
 ## What to cut
 

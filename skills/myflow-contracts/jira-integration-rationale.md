@@ -16,7 +16,7 @@ someone else's ticket, so a key the command merely *noticed* must be affirmed be
 one, while a key the operator typed needs no such affirmation because they already affirmed it by
 typing it. The procedure that follows is
 **Resolution (how `jiraIssue` is decided)** (`skills/myflow-contracts/jira-integration.md`), which
-is canonical for it and is deliberately not restated here.
+is canonical for it.
 
 ### Change naming
 

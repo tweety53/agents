@@ -15,7 +15,7 @@ cited rather than re-derived.
 
 Immediately after that line, print these two commands for the operator to paste, per
 **Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
-records why they are printed rather than invoked; do not restate its reasoning here:
+records why they are printed rather than invoked:
 
 ```text
 /rename <change-name>

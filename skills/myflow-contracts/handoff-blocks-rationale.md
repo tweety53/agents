@@ -39,7 +39,7 @@ on run 2*. The test is `HEAD` against the merge base **already recorded for that
 state file's `worktrees` map: equal means the branch has no commits of its own and is therefore not
 merged, whatever the ancestor test then says. `<agents repo>/scripts/check-finish-preflight.sh` documents this
 trap and guards it in exactly that order — its comment (b), on why the recorded-merge-base check
-must run before the ancestor test — and the reasoning is not re-derived here.
+must run before the ancestor test.
 
 ### Why "recorded but unresolvable" is the dangerous condition
 

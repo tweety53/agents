@@ -193,7 +193,7 @@ chosen.
 Surface `reviewPanelRoster` the same way: the recorded preset verbatim when there is one, and,
 when step 2's read yielded `null`, `not recorded — using the default`, that default being `light`
 per `skills/myflow-start/SKILL.md`'s roster prompt, where it is the recommended option; what each
-preset means is canonical in `skills/myflow-do/SKILL.md`, and this line does not restate it. A
+preset means is canonical in `skills/myflow-do/SKILL.md`. A
 not-recorded roster is not a warning: it is the default, and this line reports it as a normal
 state, not as something missing.
 
@@ -244,7 +244,7 @@ one.
   heading says the merge has happened. `prUrl` is consulted only where that probe was inconclusive.
   The selection table, and the reason the weaker signal must not run ahead of the stronger one, are
   under **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`); render from that
-  table rather than from a rule restated here.
+  table.
 - **Use the answer you already have, and never re-derive it.** Step 2 already produced the
   merge status — all three of its steps, combined across every worktree — for the next-command
   column, and re-deriving it here with a bare ancestor test would reintroduce the

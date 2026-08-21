@@ -13,7 +13,7 @@ whether the change's branch has already reached the base branch.
 
 Immediately after that line, print these two commands for the operator to paste, per
 **Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
-records why they are printed rather than invoked; do not restate its reasoning here:
+records why they are printed rather than invoked:
 
 ```text
 /rename <change-name>
@@ -137,12 +137,12 @@ filing a new one otherwise. See **1.0 Check for unfinished work**
 (`skills/myflow-finish/SKILL-rationale.md`) for why the course is labelled this way. What that
 follow-up is titled, the search, the confirmation, what a failed search does, and how it is
 labelled are all
-**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`), and none of it is restated
-here; **a filing that fails is one skipped-with-reason line and the run still continues**, per
+**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`); **a filing that fails is one
+skipped-with-reason line and the run still continues**, per
 **Never blocking** (`skills/myflow-contracts/jira-integration.md`) — the outstanding list still
 reaches the planning commit and the handoff, so the durable record does not depend on the tracker.
 Why **Stop** is the marked recommendation is stated under
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not re-argued here.
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 Close the `finish.unfinished-work-gate` mark opened above, whichever way this gate resolved:
 `completed` on **Continue** or **File or join a Jira follow-up, then continue**, `stopped` on
@@ -226,8 +226,7 @@ commit stages the same two trees in every change, so nothing about it varies.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all stated under
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`) and are not re-argued here — this call
-implements that chain rather than restating it. In short:
+**Git boundaries** (`skills/myflow-contracts/pipeline.md`). In short:
 an empty commit is **skipped, not an error** — a fix that touched only the planning paths, a fix
 that touched only implementation, and a re-run after a rejected push all reach this block with one
 side or both already satisfied — while a commit that FAILS stops the chain and is reported with
@@ -388,7 +387,7 @@ myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness
    else stops run 2 here, with nothing staged, committed, pushed or removed — report the guard's
    own message and leave the change at
    `IN_PROGRESS`. The four exit codes are **Run 2 — the branch is merged**
-   (`skills/myflow-contracts/finish-contract.md`), step 2, and are not restated here.
+   (`skills/myflow-contracts/finish-contract.md`), step 2.
 
    **When the guard is absent**, perform the same positioning by hand, in the same order, and say in
    the handoff that it was done manually — `prepare-archive-branch.sh`'s own header is the authority

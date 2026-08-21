@@ -186,15 +186,14 @@ The stage iterates rather than passing once. After every planning-stage exchange
 clarifying questions, the approval of a design section, the operator's review of the written spec —
 one convergence test asks whether the command now holds a question its inputs do not answer, and
 while it does, another round opens or is offered. The stage closes only the way any pipeline stage
-does — **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`) —
-and is not restated here.
+does — **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`).
 
 The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
-both honest are **Convergence** (`skills/myflow-start/SKILL.md`), and are not restated here.
+both honest are **Convergence** (`skills/myflow-start/SKILL.md`).
 
 The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
 gate itself. The three levels and which of them is the default are owned by **Planning effort**
-(`skills/myflow-contracts/state-file.md`) and are not restated here.
+(`skills/myflow-contracts/state-file.md`).
 
 #### Writing-plans — `/myflow-start`
 
@@ -231,7 +230,7 @@ Which model a dispatch runs on, and the rule that every dispatch records it, are
 A change records one of three review panel rosters — `light` *(default)*, `standard` or `full` — and
 every preset dispatches exactly three required slots, whichever is recorded; `full` reproduces the
 roster in force before presets existed. What each preset means, and the roster table itself, are
-canonical under **5. The review panel** (`skills/myflow-do/SKILL.md`) and are not restated here. Four
+canonical under **5. The review panel** (`skills/myflow-do/SKILL.md`). Four
 further slots stay conditional under every preset — Security, Adversarial and the two extra principle
 lenses, B for simplicity and state, C for robustness and ops — selected from what the diff touches. Each
 selected slot is a **separate** subagent with its own prompt, in every affected worktree; two slots are
