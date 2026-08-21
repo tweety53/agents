@@ -543,7 +543,7 @@ capability and is not restated here. This requirement states only the invocation
 Self-review SHALL NOT be able to prevent the `FINISHED` write, since it never runs before that write
 succeeds, and a failure inside it SHALL NOT move the change off `FINISHED`.
 
-**Only the step numbers and the trailing clause change here.** The positioning step shifted every
+The positioning step shifted every
 later run-2 step by one, and self-review is no longer the last thing run 2 does — the archive push
 follows it, so that the report and the archive land in one pull request.
 

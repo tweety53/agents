@@ -12,7 +12,7 @@ failure before the `FINISHED` write — SHALL NOT run self-review.
 Self-review SHALL NOT be able to prevent, delay, or undo the `FINISHED` write. A failure inside
 self-review SHALL be reported and SHALL NOT reopen the change or move its state.
 
-**Only the step numbers change here.** Inserting the checkout-positioning step ahead of the sync
+Inserting the checkout-positioning step ahead of the sync
 shifted every later run-2 step by one; the ordering this requirement exists to guarantee — self-review
 strictly after the terminal write, never before it, and never able to affect it — is unchanged, which
 is why the archive push was placed after self-review rather than the write being moved.
