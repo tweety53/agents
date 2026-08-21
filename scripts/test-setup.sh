@@ -694,6 +694,17 @@ assert_not_contains "the managed CLAUDE.md does not inline the state-file write 
 assert_not_contains "the managed AGENTS.md does not inline the state-file write template" \
   "$home/.codex/AGENTS.md" 'PROJECT_KEY="$(basename'
 
+# The commit-scope-is-the-module rule is an always-on rule like any other: its core excerpt
+# renders into the managed block with a pointer to the installed full text, and the full text
+# itself is a symlink into the repository at ~/.claude/rules/, same as build-the-simplest-thing.mdc
+# and every other always-on rule checked above.
+assert_contains "the block carries the commit-scope rule's core excerpt" "$home/.claude/CLAUDE.md" \
+  "A commit's scope names the module or area inside the repository that the commit moved"
+assert_contains "the block points at the installed commit-scope rule" "$home/.claude/CLAUDE.md" \
+  'Full rule: `~/.claude/rules/commit-scope-is-the-module.md`.'
+assert_exists "the commit-scope rule's full text is installed" "$home/.claude/rules/commit-scope-is-the-module.md"
+assert_symlink "the installed commit-scope rule is a symlink into the repo" "$home/.claude/rules/commit-scope-is-the-module.md"
+
 group "Every guard in a command skill's scripts/ directory reaches the install"
 
 # KAN-73's task 5 guard (check-guard-symlinks.sh) checks the REPOSITORY: that every

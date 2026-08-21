@@ -538,6 +538,7 @@ EXPECTED_ZERO_RULE_FILES=(
   "rules/agent-baseline.md"
   "rules/be-brief.mdc"
   "rules/build-the-simplest-thing.mdc"
+  "rules/commit-scope-is-the-module.mdc"
   "rules/context7.mdc"
   "rules/dependency-versions.mdc"
   "rules/design-mockups-are-specs.mdc"

@@ -747,6 +747,95 @@ run_guard "$REPO_ROOT"
 assert_ok "the agents repository's own tree validates cleanly"
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 8. Rule 5 — no skill directory carries a symlink directly at its own top
+#    level (KAN-202 task 9). skills/myflow-do/SKILL.md's [PRINCIPLES_PATH]
+#    paragraph already says in prose that symlinking a copy in is the wrong
+#    fix for a file a skill's text names but does not carry; a session did
+#    exactly that anyway roughly five hours after that sentence was
+#    committed, in skills/myflow-fast/. Rule 1 validates entries UNDER
+#    skills/*/scripts/ and reaches nothing at a skill directory's own top
+#    level, so this rule closes that gap.
+#
+#    Both fixture skills below are named "myflow-start" and
+#    "openspec-explore" — the guard's own two declared-expected-zero
+#    members — so neither fixture's genuinely-empty required set trips the
+#    unrelated KAN-197 coverage check; these cases are about rule 5 alone.
+# ---------------------------------------------------------------------------
+
+# 8a. The violation: a symlink directly under a skill directory, pointing at
+#     a file in a sibling skill, with no other defect anywhere in the tree.
+new_repo
+mkdir -p "$REPO/skills/openspec-explore"
+printf 'principles\n' > "$REPO/skills/openspec-explore/engineering-principles.md"
+write_skill_md "openspec-explore" "# fixture, no citations"
+write_skill_md "myflow-start" "# fixture, no citations"
+ln -s "../openspec-explore/engineering-principles.md" "$REPO/skills/myflow-start/engineering-principles.md"
+run_guard "$REPO"
+assert_invalid "a symlink directly under a skill directory's top level is a rule 5 violation"
+if printf '%s\n' "$OUT" | grep -q "engineering-principles.md" \
+  && printf '%s\n' "$OUT" | grep -q "../openspec-explore/engineering-principles.md"; then
+  pass "rule 5: the report names both the symlink's path and its target"
+else
+  fail "rule 5: the report does not name both the symlink's path and its target: $OUT"
+fi
+
+# 8b. Acceptance: a symlink under skills/<skill>/scripts/ is rule 1's
+#     territory, not rule 5's — it must not be re-reported here.
+new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-start" "check-foo.sh"
+write_skill_md "myflow-start" "# fixture, no citations"
+run_guard "$REPO"
+assert_silent "a symlink under skills/<skill>/scripts/ is not a rule 5 violation"
+
+# 8c. Acceptance: a skill directory holding only regular files and
+#     directories carries no rule 5 finding.
+new_repo
+mkdir -p "$REPO/skills/myflow-start"
+write_skill_md "myflow-start" "# fixture, no citations"
+run_guard "$REPO"
+assert_silent "a skill directory with only regular files and directories is not a rule 5 violation"
+
+# 8d (pass 2, finding D). Rule 5 must see skills/myflow-contracts/ too — it
+# is shared prose, not a command skill, so COMMAND_SKILLS_FILE (rules 1-4's
+# and coverage's own scan set) excludes it, but rule 5's requirement is
+# about EVERY skill directory's own top level. Before the fix, rule 5
+# reused COMMAND_SKILLS_FILE and this symlink went entirely unreported.
+new_repo
+mkdir -p "$REPO/skills/myflow-contracts"
+printf 'contract\n' > "$REPO/skills/myflow-contracts/pipeline.md"
+printf 'other\n' > "$REPO/other-file.txt"
+ln -s "../../other-file.txt" "$REPO/skills/myflow-contracts/evil-link"
+run_guard "$REPO"
+assert_invalid "a symlink directly under skills/myflow-contracts/ is a rule 5 violation"
+assert_reports "evil-link" "rule 5: names the symlink under skills/myflow-contracts/"
+
+# 8e (pass 2, finding D). Rules 1-4 must keep ignoring myflow-contracts:
+# widening rule 5's scan must not widen theirs. A non-symlink entry under
+# skills/myflow-contracts/scripts/ — a rule 1 violation for any COMMAND
+# skill — must stay unreported here, since myflow-contracts is still
+# excluded from COMMAND_SKILLS_FILE. A real, cleanly-linked command skill
+# is added alongside it purely so the corpus is non-empty — an
+# all-myflow-contracts fixture trips the unrelated KAN-197 empty-corpus
+# refusal, which is not what this case is about.
+new_repo
+add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
+link_guard "myflow-do" "check-foo.sh"
+write_skill_md "myflow-do" '# myflow-do fixture
+
+Run the guard:
+
+```bash
+check-foo.sh <worktree>
+```
+'
+mkdir -p "$REPO/skills/myflow-contracts/scripts"
+: > "$REPO/skills/myflow-contracts/scripts/not-a-symlink.sh"
+write_skill_md "myflow-contracts" "# fixture, no citations"
+run_guard "$REPO"
+assert_silent "a non-symlink entry under skills/myflow-contracts/scripts/ is not a rule 1 violation — myflow-contracts stays out of rules 1-4's scan"
+
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0

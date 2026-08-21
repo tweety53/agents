@@ -228,14 +228,12 @@ field names. Every implementer dispatch **must** carry each of the six blocks be
 > **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer where `<n>` is this task's dotted
-> id from its `tasks.md` heading. **The trailer identifies the task; the subject follows this
-> project's own commit convention** — where that convention has a scope, `<n>` is the scope, so a
-> Conventional Commits project writes `fix(<n>): <subject>` or `feat(<n>): <subject>` with the type
-> describing the change, and a project with no stated convention may write `task(<n>): <subject>`.
-> **Never weaken or bypass a project's commit validation to fit** — no `--no-verify`, and no edit to
-> its commit-message validator; a rejected subject means writing one the project accepts. You **may**
-> `git add`/`git commit` your own work, but never `<project>/openspec/` or `<project>/docs/superpowers/` —
-> `/myflow-finish` stages and commits those.
+> id from its `tasks.md` heading. **The trailer identifies the task; the subject is this task's
+> declared `**Commit:**` field, reproduced exactly** — already what `check-task-commit-fields.sh`
+> enforces. **Never weaken or bypass a project's commit validation to fit** — no `--no-verify`, and
+> no edit to its commit-message validator; a rejected subject means writing one the project accepts.
+> You **may** `git add`/`git commit` your own work, but never `<project>/openspec/` or
+> `<project>/docs/superpowers/` — `/myflow-finish` stages and commits those.
 
 **A `Build: red` task's commit folds into its green partner.** A task tagged `Build: red` also
 carries `**Squash-with:** Task <N>`, naming the green partner whose commit it folds into. Once that
@@ -1038,13 +1036,14 @@ commits `<project>/openspec/` and `<project>/docs/superpowers/` — the only pat
 and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
 only — and in this order — run
 `preserve-session-records.sh <worktree> <name> <state-dir>`; then
-`commit-split.sh <worktree> <name> "<impl-msg>" "chore(<name>): plan and session records"`;
+`commit-split.sh <worktree> <name> "<impl-msg>" "chore(openspec): plan and session records"`;
 then push the branch, which carries whatever that call committed along with every task and fixup
 commit accumulated since the PR was opened. `<impl-msg>` covers the one case a task or fixup commit
 does not: working-tree edits the operator made at the human gate without staging them — normally
 none, in which case the script's own guard skips that commit, and only the planning commit lands.
 When there is something to describe, derive `<impl-msg>` the same way a fixup commit's subject is
-derived — `fix(<name>): <what changed since the last task commit>`. See **7. Verify, stage, and
+derived — `fix(<module>): <what changed since the last task commit>`, `<module>` naming the area
+those edits touch. See **7. Verify, stage, and
 hand off** (`skills/myflow-do/SKILL-rationale.md`) for why that ordering matters.
 
 The preservation script overwrites in place; it never creates a second dated copy. A source that does

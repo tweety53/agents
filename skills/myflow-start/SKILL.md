@@ -400,7 +400,17 @@ checked by a runtime guard during `/myflow-do`:
 - `**Tests:**` — the names of the tests this task adds.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`.
-- `**Commit:**` — the commit subject line this task's implementer must use.
+- `**Commit:**` — the commit subject line this task's implementer must use. Where the subject
+  carries a scope, the scope names the module or area the commit moves, derived from this same
+  task's `**Files:**` field. Where a task spans several modules, name the one carrying the
+  substance, or a broader area covering them — never a list. A scope is optional: leave it off
+  where no single module carries the task, rather than manufacturing one to satisfy the field.
+  `check-task-commit-fields.sh` checks this at `/myflow-do`, canonical in
+  **Requirement: A commit's scope names the module, never the change or the task**
+  (`<agents repo>/openspec/specs/myflow-commit-scope/spec.md`) — a capability this change adds, so
+  the guard skips that path until this change's own finish run 2 lands it in
+  `<agents repo>/openspec/specs/`; until then it is a reference nobody verifies, which is said here
+  rather than left to look otherwise.
 
 A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
 its commit folds into. `tasks.md` in this change's own `<project>/openspec/changes/` directory demonstrates

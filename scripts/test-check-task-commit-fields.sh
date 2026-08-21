@@ -25,14 +25,18 @@ run_guard() {
   set -e
 }
 
-# new_repo -> sets REPO to a fresh throwaway git repo with one root commit,
-# so every case's task commit has a real parent to diff against.
+# new_repo [change-name] -> sets REPO to a fresh throwaway git repo with one
+# root commit, so every case's task commit has a real parent to diff
+# against. change-name defaults to "change-a"; cases 17-23 pass a real
+# change name because check_commit_scope derives the change name from the
+# fixture's own directory, per tasks.md task 1.
 new_repo() {
+  CHANGE_NAME="${1:-change-a}"
   REPO="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-test.XXXXXX")"
   git -C "$REPO" init -q
   git -C "$REPO" config user.email "test@example.com"
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/openspec/changes/change-a"
+  mkdir -p "$REPO/openspec/changes/$CHANGE_NAME"
   printf 'root\n' > "$REPO/root.txt"
   git -C "$REPO" add root.txt
   git -C "$REPO" commit -q -m "root"
@@ -40,7 +44,7 @@ new_repo() {
 
 # write_tasks_md <repo> <content> -> writes the change's tasks.md
 write_tasks_md() {
-  printf '%s' "$2" > "$1/openspec/changes/change-a/tasks.md"
+  printf '%s' "$2" > "$1/openspec/changes/$CHANGE_NAME/tasks.md"
 }
 
 # write_project_md_test_section <repo> <command-line> -> writes a
@@ -114,7 +118,7 @@ write_tasks_md "$REPO" '### 1.1 Clean task
 **Commit:** add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf '# test_alpha covers alpha\n' > "$REPO/beta.txt"
@@ -135,7 +139,7 @@ write_tasks_md "$REPO" '### 2.1 Undeclared file
 **Commit:** add alpha only
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
 printf 'gamma\n' > "$REPO/gamma.txt"
@@ -160,7 +164,7 @@ write_tasks_md "$REPO" '### 3.1 Test present
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -180,7 +184,7 @@ write_tasks_md "$REPO" '### 4.1 Test missing
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'no tests here\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -204,7 +208,7 @@ write_tasks_md "$REPO" '### 5.1 Subject matches
 **Commit:** add alpha for real
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -224,7 +228,7 @@ write_tasks_md "$REPO" '### 6.1 Subject mismatch
 **Commit:** add alpha for real
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -249,7 +253,7 @@ write_tasks_md "$REPO" '### 7.1 Collateral covered
 **Commit:** add alpha and sweep docs
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 mkdir -p "$REPO/docs"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
@@ -276,7 +280,7 @@ fails
 **Commit:** add guard test cases
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 {
   printf '# Case 1: files subset of declared passes\n'
@@ -301,7 +305,7 @@ fails
 **Commit:** add guard test case one only
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '# Case 1: files subset of declared passes\n' > "$REPO/guard_test.sh"
 git -C "$REPO" add guard_test.sh
@@ -330,7 +334,7 @@ the wrapper this task adds
 **Commit:** add the wrapper
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'wrapper body, no case markers at all\n' > "$REPO/guard_test.sh"
 git -C "$REPO" add guard_test.sh
@@ -354,7 +358,7 @@ write_tasks_md "$REPO" '### 11.1 Regression passes
 **Commit:** add alpha_test
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
@@ -379,7 +383,7 @@ write_tasks_md "$REPO" '### 12.1 Regression skip
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -406,7 +410,7 @@ write_tasks_md "$REPO" '### 13.1 Baseline passes
 **Commit:** add alpha_test
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
@@ -429,7 +433,7 @@ write_tasks_md "$REPO" '### 14.1 Baseline skip
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'no tests here\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -463,7 +467,7 @@ Example of the field grammar, not a real field:
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -488,7 +492,7 @@ write_tasks_md "$REPO" '### 16.1 Revert conflict
 **Commit:** add alpha_test
 **Build:** green
 '
-git -C "$REPO" add openspec/changes/change-a/tasks.md
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
@@ -502,6 +506,309 @@ run_guard "$REPO" 16.1 "$SHA"
 [ "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" ] && pass "case 16: HEAD unchanged after a failed revert" || fail "case 16: HEAD moved, expected $SHA got $(git -C "$REPO" rev-parse HEAD)"
 git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet && pass "case 16: worktree clean after a failed revert, not left mid-conflict" || fail "case 16: worktree left dirty/conflicted"
 [ -z "$(git -C "$REPO" status --porcelain=v1 2>/dev/null | grep '^U')" ] && pass "case 16: no unmerged/conflicted paths left behind" || fail "case 16: unmerged paths remain"
+
+# ===========================================================================
+# Case 17: declared Commit: scope equals the change name -> exit 1, naming
+# the task and the offending scope. The real commit's subject matches the
+# declared field exactly, so the failure can only come from the new scope
+# check, never from check_commit_subject.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 17.1 Change-name scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(kan-900-some-change): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(kan-900-some-change): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 17.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 17: change-name scope fails" || fail "case 17: rc=$RC out=$OUT"
+case "$OUT" in
+  *"17.1"*"kan-900-some-change"*) pass "case 17: message names the task and the offending scope" ;;
+  *) fail "case 17: expected message naming task 17.1 and scope kan-900-some-change, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 18: declared Commit: scope equals the change name's bare Jira key
+# -> exit 1.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 18.1 Bare-key scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(kan-900): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(kan-900): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 18.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 18: bare-key scope fails" || fail "case 18: rc=$RC out=$OUT"
+case "$OUT" in
+  *"18.1"*"kan-900"*) pass "case 18: message names the task and the offending scope" ;;
+  *) fail "case 18: expected message naming task 18.1 and scope kan-900, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 19: declared Commit: scope is a numeric task id -> exit 1.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 19.1 Numeric task id scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(3): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(3): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 19.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 19: numeric task id scope fails" || fail "case 19: rc=$RC out=$OUT"
+case "$OUT" in
+  *"19.1"*"task id"*) pass "case 19: message names the task and reports the task-id shape" ;;
+  *) fail "case 19: expected message naming task 19.1 and a task-id scope, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 20: declared Commit: scope is a dotted task id -> exit 1.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 20.1 Dotted task id scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(3.2): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(3.2): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 20.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 20: dotted task id scope fails" || fail "case 20: rc=$RC out=$OUT"
+case "$OUT" in
+  *"20.1"*"task id"*) pass "case 20: message names the task and reports the task-id shape" ;;
+  *) fail "case 20: expected message naming task 20.1 and a task-id scope, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 21: declared Commit: scope names a real module -> exit 0.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '### 21.1 Module scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(scripts): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(scripts): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 21.1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 21: module scope passes" || fail "case 21: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 21: clean exit, no scope violation printed" || fail "case 21: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 22: declared Commit: field carries no scope at all -> exit 0, a
+# scope is optional.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '### 22.1 No scope
+
+**Files:** `alpha.txt`
+**Commit:** feat: add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 22.1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 22: absent scope passes" || fail "case 22: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 22: clean exit, no scope violation printed" || fail "case 22: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 23: declared Commit: scope merely contains the change's Jira key as
+# a substring -> exit 0. Proves the check is equality, not substring.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 23.1 Scope containing the key
+
+**Files:** `alpha.txt`
+**Commit:** feat(kan-900-helpers): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(kan-900-helpers): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 23.1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 23: scope merely containing the key passes (equality, not substring)" || fail "case 23: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 23: clean exit, no scope violation printed" || fail "case 23: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 24: declared Commit: scope merely contains the change name as a
+# substring -> exit 0. Proves the change-name check is equality, not
+# substring.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 24.1 Scope containing the change name
+
+**Files:** `alpha.txt`
+**Commit:** feat(kan-900-some-change-helpers): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(kan-900-some-change-helpers): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 24.1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 24: scope merely containing the change name passes (equality, not substring)" || fail "case 24: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 24: clean exit, no scope violation printed" || fail "case 24: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 25 (pass 2, finding A): the Conventional Commits breaking-change
+# subject form `<type>(<scope>)!:` names the change as its scope -> exit 1,
+# same as the plain `:` form. Before the fix, SUBJECT_SCOPE_RE did not match
+# a subject carrying `!` before the colon at all, so check_commit_scope
+# silently returned no violation for this exact subject.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 25.1 Breaking-change form names the change
+
+**Files:** `alpha.txt`
+**Commit:** feat(kan-900-some-change)!: add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(kan-900-some-change)!: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 25.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 25: breaking-change '!' form still catches a change-name scope" || fail "case 25: rc=$RC out=$OUT"
+case "$OUT" in
+  *"25.1"*"names the change"*) pass "case 25: message reports the change-name shape" ;;
+  *) fail "case 25: expected message naming task 25.1 and the change-name shape, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 26 (pass 2, finding A, sanity): the breaking-change '!' form with a
+# real module scope still passes -> exit 0. Proves the optional '!' did not
+# turn every subject into a scope match.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 26.1 Breaking-change form, real module
+
+**Files:** `alpha.txt`
+**Commit:** feat(scripts)!: add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(scripts)!: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 26.1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 26: breaking-change '!' form with a real module scope passes" || fail "case 26: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 26: clean exit, no scope violation printed" || fail "case 26: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 27 (pass 2, finding B): declared Commit: scope names the change in
+# UPPERCASE -> exit 1. Proves the change-name comparison is
+# case-insensitive.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 27.1 Uppercase change-name scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(KAN-900-SOME-CHANGE): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(KAN-900-SOME-CHANGE): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 27.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 27: uppercase change-name scope fails (case-insensitive compare)" || fail "case 27: rc=$RC out=$OUT"
+case "$OUT" in
+  *"27.1"*"names the change"*) pass "case 27: message reports the change-name shape" ;;
+  *) fail "case 27: expected message naming task 27.1 and the change-name shape, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 28 (pass 2, finding B): declared Commit: scope names the change's
+# bare Jira key in UPPERCASE -> exit 1. Jira keys are conventionally
+# written uppercase, so this is the shape a human is most likely to type.
+# ===========================================================================
+new_repo "kan-900-some-change"
+write_tasks_md "$REPO" '### 28.1 Uppercase Jira-key scope
+
+**Files:** `alpha.txt`
+**Commit:** feat(KAN-900): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(KAN-900): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 28.1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 28: uppercase Jira-key scope fails (case-insensitive compare)" || fail "case 28: rc=$RC out=$OUT"
+case "$OUT" in
+  *"28.1"*"Jira key"*) pass "case 28: message reports the Jira-key shape" ;;
+  *) fail "case 28: expected message naming task 28.1 and the Jira-key shape, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 29 (pass 2, finding C): a change name carrying TWO plausible
+# <letters>-<digits> Jira-key-shaped segments (`release-2026-kan-450-
+# cleanup`) has no unambiguous leading key at all, per _leading_jira_key's
+# fixed definition -> a task scoped to the first candidate passes rather
+# than being wrongly flagged as the change's Jira key.
+# ===========================================================================
+new_repo "release-2026-kan-450-cleanup"
+write_tasks_md "$REPO" '### 29.1 Ambiguous key-shaped change name
+
+**Files:** `alpha.txt`
+**Commit:** feat(release-2026): add alpha
+**Build:** green
+'
+git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "feat(release-2026): add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 29.1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 29: ambiguous key-shaped change name yields no leading key, scope passes" || fail "case 29: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 29: clean exit, no scope violation printed" || fail "case 29: expected no output, got: $OUT"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

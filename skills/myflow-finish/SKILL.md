@@ -218,14 +218,15 @@ operator may have edited the worktree at the human gate without staging.
 
 ```bash
 commit-split.sh <worktree> <name> \
-  "<type>(<name>): <what the implementation does>" \
-  "chore(<name>): plan and session records"
+  "<type>(<module>): <what the implementation does>" \
+  "chore(openspec): plan and session records"
 ```
 
-`<type>` and `<what the implementation does>` are derived from the reshaped diff — this run's own
-read of what the branch changed — since the `reset --soft` above collapsed every task and fixup
-commit back into the working tree, so there is no per-task subject left to reuse. The planning
-message is fixed text; only `<name>` varies.
+`<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — this
+run's own read of what the branch changed and which module carries it — since the `reset --soft`
+above collapsed every task and fixup commit back into the working tree, so there is no per-task
+subject left to reuse. The planning message is a **fixed literal**, never derived: every planning
+commit stages the same two trees in every change, so nothing about it varies.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all stated under

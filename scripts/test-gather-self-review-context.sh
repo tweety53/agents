@@ -88,12 +88,28 @@ add_tasks() {
 
 # add_commits — the two finish-run-1 commits plus the archive commit, using
 # this repository's own established subject conventions
-# (skills/myflow-contracts/pipeline.md -> Git boundaries).
+# (skills/myflow-contracts/pipeline.md -> Git boundaries). The implementation
+# and planning commits touch REAL paths (a real-path deletion, this change's
+# own review panel, pass 3, finding A) — `--allow-empty` with nothing staged
+# is the only way to produce a commit that misses PLAN_SHA's live-pathspec
+# filter, which made every case built on this helper exercise nothing but a
+# fixture artifact once the subject-only fallback was removed. The archive
+# commit stays a plain marker commit: ARCHIVE_SHA is resolved by subject
+# alone and never reads a path, so giving it one would only add fixture
+# complexity (a `git mv` destination shared with other fixtures' own
+# archived-path setup) without covering anything PLAN_SHA/IMPL_SHA don't
+# already cover realistically on their own.
 add_commits() {
   (
     cd "$REPO" \
-      && git commit -q --allow-empty -m "feat(demo): IMPLEMENTATION-COMMIT-BODY" \
-      && git commit -q --allow-empty -m "chore(demo): plan, test guide and session records PLAN-COMMIT-BODY" \
+      && mkdir -p src \
+      && printf 'IMPLEMENTATION-COMMIT-BODY\n' > src/demo-feature.txt \
+      && git add src/demo-feature.txt \
+      && git commit -q -m "feat(demo): IMPLEMENTATION-COMMIT-BODY" \
+      && mkdir -p openspec/changes/demo \
+      && printf 'PLAN-COMMIT-BODY\n' > openspec/changes/demo/proposal.md \
+      && git add openspec/changes/demo/proposal.md \
+      && git commit -q -m "chore(demo): plan, test guide and session records PLAN-COMMIT-BODY" \
       && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change ARCHIVE-COMMIT-BODY"
   )
 }
@@ -439,13 +455,21 @@ esac
 # ===========================================================================
 
 new_repo
+# add_commits runs BEFORE the ancestor is clobbered with a symlink below:
+# it now stages real commits under openspec/changes/demo/ (finding A, this
+# change's own review panel, pass 3), and `git add` refuses any path beyond
+# a symlink — so once openspec/changes/ itself is a symlink, a real `mkdir
+# -p`/`git add` under it would fail outright rather than reach the
+# invocation this section exists to test. The symlink swap is a plain
+# filesystem operation the script reads live off disk; it does not touch
+# what git log --stat already has recorded for the commits add_commits made.
+add_commits
 OUTSIDE_CHANGES_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-changes.XXXXXX")"
 TREES+=("$OUTSIDE_CHANGES_DIR")
 mkdir -p "$OUTSIDE_CHANGES_DIR/archive/2026-01-01-demo"
 printf 'TOP-SECRET-F21-HOP2-CONTENT\n' > "$OUTSIDE_CHANGES_DIR/archive/2026-01-01-demo/tasks.md"
 rm -rf "$REPO/openspec/changes"
 ln -s "$OUTSIDE_CHANGES_DIR" "$REPO/openspec/changes"
-add_commits
 run_it
 [ "$RC" -eq 0 ] && pass "changes ancestor is symlink (hop 2): exits 0" \
   || fail "changes ancestor is symlink (hop 2): rc=$RC out=$OUT"
@@ -471,13 +495,15 @@ esac
 # ===========================================================================
 
 new_repo
+# add_commits runs BEFORE the ancestor is clobbered — see the matching note
+# on the hop-2 section above.
+add_commits
 OUTSIDE_OPENSPEC_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-openspec.XXXXXX")"
 TREES+=("$OUTSIDE_OPENSPEC_DIR")
 mkdir -p "$OUTSIDE_OPENSPEC_DIR/changes/archive/2026-01-01-demo"
 printf 'TOP-SECRET-F21-HOP3-CONTENT\n' > "$OUTSIDE_OPENSPEC_DIR/changes/archive/2026-01-01-demo/tasks.md"
 rm -rf "$REPO/openspec"
 ln -s "$OUTSIDE_OPENSPEC_DIR" "$REPO/openspec"
-add_commits
 run_it
 [ "$RC" -eq 0 ] && pass "openspec ancestor is symlink (hop 3): exits 0" \
   || fail "openspec ancestor is symlink (hop 3): rc=$RC out=$OUT"
@@ -512,13 +538,15 @@ esac
 # ===========================================================================
 
 new_repo
+# add_commits runs BEFORE the ancestor is clobbered — see the matching note
+# on the hop-2 section above.
+add_commits
 OUTSIDE_F22_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-f22.XXXXXX")"
 TREES+=("$OUTSIDE_F22_DIR")
 mkdir -p "$OUTSIDE_F22_DIR/changes/archive/subdir/2026-01-01-demo"
 printf 'TOP-SECRET-F22-CONTENT\n' > "$OUTSIDE_F22_DIR/changes/archive/subdir/2026-01-01-demo/tasks.md"
 rm -rf "$REPO/openspec"
 ln -s "$OUTSIDE_F22_DIR" "$REPO/openspec"
-add_commits
 F22_ARG="openspec/changes/archive/subdir/2026-01-01-demo"
 run_with "$F22_ARG"
 [ "$RC" -eq 0 ] && pass "F22 extra nesting + symlinked openspec: exits 0" \
@@ -561,6 +589,9 @@ esac
 # ===========================================================================
 
 new_repo
+# add_commits runs BEFORE the ancestor is clobbered — see the matching note
+# on the hop-2 section above.
+add_commits
 rm -rf "$REPO/openspec"
 OUTSIDE_DOTDOT="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-dotdot.XXXXXX")"
 TREES+=("$OUTSIDE_DOTDOT")
@@ -569,7 +600,6 @@ mkdir -p "$OUTSIDE_DOTDOT/changes/archive/2026-01-01-demo"
 printf 'TOP-SECRET-F20-CONTENT\n' > "$OUTSIDE_DOTDOT/changes/archive/2026-01-01-demo/tasks.md"
 ln -s "$OUTSIDE_DOTDOT" "$REPO/openspec"
 DOTDOT_ARG="openspec/changes/archive/extra/../2026-01-01-demo"
-add_commits
 run_with "$DOTDOT_ARG"
 [ "$RC" -eq 0 ] && pass "dotdot ancestor-walk bypass: exits 0" \
   || fail "dotdot ancestor-walk bypass: rc=$RC out=$OUT"
@@ -615,14 +645,25 @@ esac
 
 # ===========================================================================
 # SECTION: F8 — a bare "archive" substring in an implementation commit's
-# subject must not exclude it from IMPL_SHA candidacy
+# subject must not exclude it from IMPL_SHA candidacy. Fixture realistic
+# (this change's own review panel, pass 3, finding A): the implementation
+# commit touches a real path outside the planning paths and the planning
+# commit actually writes openspec/changes/demo/, so this resolves through
+# the PRIMARY path+subject query — no subject-only fallback exists to fall
+# through to.
 # ===========================================================================
 
 new_repo
 (
   cd "$REPO" \
-    && git commit -q --allow-empty -m "feat(demo): implement archive browsing UI ARCHIVE-SUBSTRING-MARKER" \
-    && git commit -q --allow-empty -m "chore(demo): plan, test guide and session records" \
+    && mkdir -p src \
+    && printf 'x\n' > src/archive-browsing.txt \
+    && git add src/archive-browsing.txt \
+    && git commit -q -m "feat(demo): implement archive browsing UI ARCHIVE-SUBSTRING-MARKER" \
+    && mkdir -p openspec/changes/demo \
+    && printf 'F8-PLAN\n' > openspec/changes/demo/proposal.md \
+    && git add openspec/changes/demo/proposal.md \
+    && git commit -q -m "chore(demo): plan, test guide and session records" \
     && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change ARCHIVE-COMMIT-BODY2"
 )
 run_it
@@ -637,16 +678,28 @@ esac
 # ===========================================================================
 # SECTION: F9 — a "plan and session records" substring in an IMPLEMENTATION
 # commit's subject (not the real plan commit) must not exclude it from
-# IMPL_SHA candidacy. IMPL_SHA's exclusion grep must be anchored the same way
-# the archive branch above already is (`^[0-9a-f]+ chore\(${NAME_RE}\): `),
-# not a bare unanchored substring match against the whole "%H %s" line.
+# IMPL_SHA candidacy. IMPL_SHA is now derived from PLAN_SHA's own first
+# parent and refused only when ITS subject matches PLAN_SUBJECT_RE_OLD/NEW
+# or ARCHIVE_SUBJECT_RE from the start (`[[ "$PARENT_SUBJECT" =~ ... ]]`,
+# anchored at `^`) — not a bare unanchored substring match — so an
+# implementation commit whose subject merely CONTAINS the phrase, without
+# starting with it, must still resolve. Fixture realistic (this change's own
+# review panel, pass 3, finding A): the implementation commit touches a real
+# path and the planning commit actually writes openspec/changes/demo/, so
+# this resolves through the PRIMARY path+subject query.
 # ===========================================================================
 
 new_repo
 (
   cd "$REPO" \
-    && git commit -q --allow-empty -m "feat(demo): document plan and session records for onboarding PLAN-PHRASE-SUBSTRING-MARKER" \
-    && git commit -q --allow-empty -m "chore(demo): plan and session records" \
+    && mkdir -p src \
+    && printf 'x\n' > src/onboarding-docs.txt \
+    && git add src/onboarding-docs.txt \
+    && git commit -q -m "feat(demo): document plan and session records for onboarding PLAN-PHRASE-SUBSTRING-MARKER" \
+    && mkdir -p openspec/changes/demo \
+    && printf 'F9-PLAN\n' > openspec/changes/demo/proposal.md \
+    && git add openspec/changes/demo/proposal.md \
+    && git commit -q -m "chore(demo): plan and session records" \
     && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change PLAN-PHRASE-ARCHIVE-BODY"
 )
 run_it
@@ -762,18 +815,36 @@ esac
 # ===========================================================================
 # SECTION: New plan-commit subject wording ("plan and session records",
 # without "test guide") must resolve as PLAN_SHA and must NOT be picked up
-# by IMPL_SHA. The old subject ("plan, test guide and session records") is
-# kept as its own fixture elsewhere in this file (add_commits, and the F8
+# by IMPL_SHA. The old-old subject ("plan, test guide and session records")
+# is kept as its own fixture elsewhere in this file (add_commits, and the F8
 # section above) as the back-compat proof; this section is the new-wording
 # counterpart, proving both subjects resolve correctly side by side.
+#
+# This is also the dedicated old-era, end-to-end fixture finding A (this
+# change's own review panel, pass 3) calls for: a real implementation
+# commit touching a real path, a real planning commit that actually writes
+# openspec/changes/demo/, under the old subject, and a real archive
+# `git mv` to the archived location — proving old-era resolution goes
+# through the PRIMARY path+subject query. There is no longer a subject-only
+# fallback to fall through to (finding A deleted it as unreachable for any
+# genuine historical commit — see gather-self-review-context.sh's own
+# header note), so any successful resolution below IS resolution through
+# the primary query, by construction.
 # ===========================================================================
 
 new_repo
 (
   cd "$REPO" \
-    && git commit -q --allow-empty -m "feat(demo): NEW-WORDING-IMPLEMENTATION-COMMIT-BODY" \
-    && git commit -q --allow-empty -m "chore(demo): plan and session records NEW-WORDING-PLAN-COMMIT-BODY" \
-    && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change NEW-WORDING-ARCHIVE-COMMIT-BODY"
+    && mkdir -p src \
+    && printf 'x\n' > src/new-wording-feature.txt \
+    && git add src/new-wording-feature.txt \
+    && git commit -q -m "feat(demo): NEW-WORDING-IMPLEMENTATION-COMMIT-BODY" \
+    && mkdir -p openspec/changes/demo \
+    && printf 'NEW-WORDING-PLAN\n' > openspec/changes/demo/proposal.md \
+    && git add openspec/changes/demo/proposal.md \
+    && git commit -q -m "chore(demo): plan and session records NEW-WORDING-PLAN-COMMIT-BODY" \
+    && git mv openspec/changes/demo/proposal.md "$REL/proposal.md" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change NEW-WORDING-ARCHIVE-COMMIT-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "new-wording plan commit: exits 0" \
@@ -799,6 +870,363 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# SECTION: task 11 (KAN-202) — commit resolution under the module-scope
+# subjects finish run 1 now writes. The implementation and planning commit
+# subjects no longer carry the change name at all (the module-scope commit
+# convention), so PLAN_SHA and IMPL_SHA can no longer be resolved by a
+# subject grep keyed on the change name — path-based resolution (task 12)
+# must do it instead. ARCHIVE_SHA is unaffected: run 2's archive commit
+# subject is untouched by this change.
+# ===========================================================================
+
+# add_module_scope_commits — the implementation and planning commits back to
+# back, in that order, exactly as commit-split.sh produces them: the
+# implementation commit touches a real file outside the planning paths under
+# a module-scoped subject; the planning commit touches THIS change's own
+# LIVE directory (openspec/changes/demo/tasks.md) — the signal path-based
+# resolution now keys on exclusively (pass 2, finding F: PLAN_SHA is
+# searched only at the live path, never the archived one, since `git log
+# -- <path>` follows a commit's historical tree through a later rename) —
+# under the fixed literal subject finish run 1 now writes, with no change
+# name in it at all. `git mv` to the archived location and the archive
+# commit follow, matching the REAL run-1-then-run-2 sequence rather than
+# committing directly at the archived path, which never happens in a real
+# run (see the dedicated section below this one for why that distinction
+# matters).
+add_module_scope_commits() {
+  (
+    cd "$REPO" \
+      && mkdir -p scripts/some-module openspec/changes/demo \
+      && printf 'x\n' > scripts/some-module/foo.sh \
+      && git add scripts/some-module/foo.sh \
+      && git commit -q -m "feat(some-module): MODULE-SCOPE-IMPL-BODY" \
+      && printf 'TASKS-MODULE-SCOPE\n' > openspec/changes/demo/tasks.md \
+      && git add openspec/changes/demo/tasks.md \
+      && git commit -q -m "chore(openspec): plan and session records MODULE-SCOPE-PLAN-BODY" \
+      && git mv openspec/changes/demo "$REL" \
+      && git commit -q -m "chore(demo): sync delta specs and archive the change MODULE-SCOPE-ARCHIVE-BODY"
+  )
+}
+
+new_repo
+add_module_scope_commits
+run_it
+[ "$RC" -eq 0 ] && pass "module-scope subjects: exits 0" \
+  || fail "module-scope subjects: rc=$RC out=$OUT"
+case "$OUT" in
+  *MODULE-SCOPE-IMPL-BODY*) \
+    pass "module-scope subjects: implementation commit resolved as IMPL_SHA (the planning commit's own first parent)" ;;
+  *) fail "module-scope subjects: implementation commit not resolved as IMPL_SHA: $OUT" ;;
+esac
+case "$OUT" in
+  *MODULE-SCOPE-PLAN-BODY*) pass "module-scope subjects: planning commit resolved as PLAN_SHA by path" ;;
+  *) fail "module-scope subjects: planning commit not resolved as PLAN_SHA: $OUT" ;;
+esac
+case "$OUT" in
+  *MODULE-SCOPE-ARCHIVE-BODY*) \
+    pass "module-scope subjects: archive commit still resolved as ARCHIVE_SHA, unaffected by this change" ;;
+  *) fail "module-scope subjects: archive commit not resolved as ARCHIVE_SHA: $OUT" ;;
+esac
+
+# A DIFFERENT change's planning commit — textually IDENTICAL
+# ("chore(openspec): plan and session records" is now the same literal
+# subject across every change) and landed LATER in this repository's
+# history than demo's own. This is the case that distinguishes path-scoped
+# resolution from a merely widened subject grep: a subject-only
+# --max-count=1 match would return this later, unrelated commit instead of
+# demo's own, per the operator's stated reason for rejecting that
+# alternative.
+new_repo
+add_module_scope_commits
+(
+  cd "$REPO" \
+    && mkdir -p openspec/changes/archive/2026-01-02-demo2 \
+    && printf 'OTHER-CHANGE-TASKS\n' > openspec/changes/archive/2026-01-02-demo2/tasks.md \
+    && git add openspec/changes/archive/2026-01-02-demo2/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records OTHER-CHANGE-PLAN-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "module-scope subjects (later distractor plan commit present): exits 0" \
+  || fail "module-scope subjects (later distractor plan commit present): rc=$RC out=$OUT"
+case "$OUT" in
+  *MODULE-SCOPE-PLAN-BODY*) \
+    pass "module-scope subjects (later distractor plan commit present): own planning commit still resolved by path" ;;
+  *) fail "module-scope subjects (later distractor plan commit present): own planning commit not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *MODULE-SCOPE-IMPL-BODY*) \
+    pass "module-scope subjects (later distractor plan commit present): own implementation commit still resolved as IMPL_SHA" ;;
+  *) fail "module-scope subjects (later distractor plan commit present): own implementation commit not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *"OTHER-CHANGE-PLAN-BODY"* | *"OTHER-CHANGE-TASKS"*) \
+    fail "module-scope subjects (later distractor plan commit present): a different change's later planning commit wrongly resolved instead of demo's own: $OUT" ;;
+  *) pass "module-scope subjects (later distractor plan commit present): a different change's later planning commit correctly excluded" ;;
+esac
+
+# ===========================================================================
+# The REAL run-1-then-run-2 sequence: finish run 1 commits the planning
+# artifacts at the LIVE location, openspec/changes/<name>/, because the change
+# is not archived yet; run 2 only later renames that directory under
+# openspec/changes/archive/. So the commit PLAN_SHA must find is one that
+# touched the LIVE path — and, since pass 2's finding F, the LIVE path is the
+# ONLY pathspec PLAN_SHA is ever searched at; the prior ALSO-searched archived
+# location was removed because `git log -- <path>` already follows a commit's
+# historical tree through the later `git mv`, so the live pathspec alone
+# finds it.
+#
+# Found by the parent's own mutation pass during the fix round that added
+# path-based resolution, and repaired here rather than filed.
+new_repo
+(
+  cd "$REPO" \
+    && mkdir -p scripts/some-module openspec/changes/demo \
+    && printf 'x\n' > scripts/some-module/foo.sh \
+    && git add scripts/some-module/foo.sh \
+    && git commit -q -m "feat(some-module): LIVE-PATH-IMPL-BODY" \
+    && printf 'TASKS-LIVE\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records LIVE-PATH-PLAN-BODY" \
+    && git mv openspec/changes/demo "$REL" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change LIVE-PATH-ARCHIVE-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "run-1-live-then-run-2-archive: exits 0" \
+  || fail "run-1-live-then-run-2-archive: rc=$RC out=$OUT"
+case "$OUT" in
+  *LIVE-PATH-PLAN-BODY*) \
+    pass "run-1-live-then-run-2-archive: planning commit resolved through PLAN_PATH_LIVE, the path it actually touched" ;;
+  *) fail "run-1-live-then-run-2-archive: planning commit not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *LIVE-PATH-IMPL-BODY*) \
+    pass "run-1-live-then-run-2-archive: implementation commit resolved as the planning commit's first parent" ;;
+  *) fail "run-1-live-then-run-2-archive: implementation commit not resolved: $OUT" ;;
+esac
+
+# ===========================================================================
+# SECTION: pass 2, finding E — a LATER commit that merely touches the same
+# (now archived) directory, under a subject that is NOT a plan-commit
+# subject, must never outrank the real planning commit. Before the fix,
+# PLAN_SHA was matched by path alone, so this later commit — the most
+# recent commit touching the path — became PLAN_SHA and the real planning
+# commit disappeared from the bundle entirely.
+# ===========================================================================
+new_repo
+(
+  cd "$REPO" \
+    && mkdir -p scripts/some-module openspec/changes/demo \
+    && printf 'x\n' > scripts/some-module/foo.sh \
+    && git add scripts/some-module/foo.sh \
+    && git commit -q -m "feat(some-module): E-IMPL-BODY" \
+    && printf 'TASKS-E\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records E-PLAN-BODY" \
+    && git mv openspec/changes/demo "$REL" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change E-ARCHIVE-BODY" \
+    && printf 'TASKS-E-FIXED-TYPO\n' > "$REL/tasks.md" \
+    && git add "$REL/tasks.md" \
+    && git commit -q -m "docs(openspec): fix a typo in an archived plan"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "finding E: exits 0" \
+  || fail "finding E: rc=$RC out=$OUT"
+case "$OUT" in
+  *E-PLAN-BODY*) pass "finding E: the real planning commit is still resolved as PLAN_SHA" ;;
+  *) fail "finding E: the real planning commit was not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *"fix a typo in an archived plan"*) \
+    fail "finding E: the later, non-plan-subject commit touching the same path wrongly won instead: $OUT" ;;
+  *) pass "finding E: the later, non-plan-subject commit did not win" ;;
+esac
+case "$OUT" in
+  *E-IMPL-BODY*) pass "finding E: the real implementation commit is still resolved as IMPL_SHA" ;;
+  *) fail "finding E: the real implementation commit was not resolved: $OUT" ;;
+esac
+
+# ===========================================================================
+# SECTION: pass 2, finding G — when finish run 1 skipped the implementation
+# commit (nothing was staged outside the planning paths), the planning
+# commit's parent is whatever preceded the whole sequence — here, a merge
+# commit. Before the fix, the guard accepted any parent whose subject was
+# not one of three reserved shapes, so a merge commit was reported as this
+# change's own implementation commit: the "confident wrong answer" this
+# heuristic exists to prevent. This case had ZERO prior coverage — deleting
+# the whole refusal guard failed no test.
+# ===========================================================================
+new_repo
+ORIG_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
+(
+  cd "$REPO" \
+    && git checkout -q -b other-branch \
+    && git commit -q --allow-empty -m "feat(other): unrelated work on a side branch" \
+    && git checkout -q "$ORIG_BRANCH" \
+    && git merge -q --no-ff -m "Merge pull request #42 from someone/some-other-change" other-branch \
+    && mkdir -p openspec/changes/demo \
+    && printf 'TASKS-G\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records G-PLAN-BODY" \
+    && git mv openspec/changes/demo "$REL" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change G-ARCHIVE-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "finding G: exits 0" \
+  || fail "finding G: rc=$RC out=$OUT"
+case "$OUT" in
+  *G-PLAN-BODY*) pass "finding G: the planning commit is still resolved as PLAN_SHA" ;;
+  *) fail "finding G: the planning commit was not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *"Merge pull request #42"*) \
+    fail "finding G: the merge commit was wrongly reported as the implementation commit: $OUT" ;;
+  *) pass "finding G: the merge commit was not reported as the implementation commit (IMPL_SHA resolves nothing)" ;;
+esac
+
+# ===========================================================================
+# SECTION: pass 2, finding G — each acceptance condition pinned ALONE.
+# The finding-G fixture above merges an EMPTY branch, so its merge commit is
+# refused by the non-merge test AND by the outside-path test at the same
+# time. That makes each condition redundant there: dropping either one alone
+# still failed no test. Both mutants were found by the parent's own mutation
+# pass and are repaired here, with one fixture that isolates each condition.
+# ===========================================================================
+
+# Isolates OUTSIDE-PATH: a NON-merge parent that touches only a planning
+# path. The non-merge test passes it; only the outside-path test refuses it.
+new_repo
+(
+  cd "$REPO" \
+    && mkdir -p docs/superpowers/ledgers openspec/changes/demo \
+    && printf 'unrelated\n' > docs/superpowers/ledgers/someone-else.md \
+    && git add docs/superpowers/ledgers/someone-else.md \
+    && git commit -q -m "chore(records): PLANNING-ONLY-PARENT-BODY" \
+    && printf 'TASKS-OUTSIDE\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records OUTSIDE-PLAN-BODY" \
+    && git mv openspec/changes/demo "$REL" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change"
+)
+run_it
+case "$OUT" in
+  *OUTSIDE-PLAN-BODY*) pass "condition isolation: planning commit resolved" ;;
+  *) fail "condition isolation: planning commit not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *PLANNING-ONLY-PARENT-BODY*) \
+    fail "condition isolation: a non-merge parent touching only planning paths was wrongly accepted as IMPL_SHA: $OUT" ;;
+  *) pass "condition isolation: a non-merge parent touching only planning paths is refused (outside-path test alone)" ;;
+esac
+
+# Isolates NON-MERGE: a merge commit that DOES touch a path outside the
+# planning paths. The outside-path test would pass it; only the non-merge
+# test refuses it.
+new_repo
+ISO_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
+(
+  cd "$REPO" \
+    && git checkout -q -b iso-side \
+    && mkdir -p scripts/iso \
+    && printf 'y\n' > scripts/iso/bar.sh \
+    && git add scripts/iso/bar.sh \
+    && git commit -q -m "feat(iso): side work touching scripts" \
+    && git checkout -q "$ISO_BRANCH" \
+    && git merge -q --no-ff -m "Merge branch iso-side MERGING-PARENT-BODY" iso-side \
+    && mkdir -p openspec/changes/demo \
+    && printf 'TASKS-MERGE\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records MERGE-PLAN-BODY" \
+    && git mv openspec/changes/demo "$REL" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change"
+)
+run_it
+case "$OUT" in
+  *MERGE-PLAN-BODY*) pass "condition isolation: planning commit resolved past a merging parent" ;;
+  *) fail "condition isolation: planning commit not resolved past a merging parent: $OUT" ;;
+esac
+case "$OUT" in
+  *MERGING-PARENT-BODY*) \
+    fail "condition isolation: a merge commit touching outside paths was wrongly accepted as IMPL_SHA: $OUT" ;;
+  *) pass "condition isolation: a merge commit touching outside paths is refused (non-merge test alone)" ;;
+esac
+
+
+# ===========================================================================
+# SECTION: pass 2, finding G (positive control) — a genuine, non-merge
+# implementation commit that touches a path outside openspec/ and
+# docs/superpowers/ is still accepted as IMPL_SHA. Proves the new
+# non-merge/outside-path heuristic does not just refuse everything.
+# ===========================================================================
+new_repo
+(
+  cd "$REPO" \
+    && mkdir -p scripts/some-module openspec/changes/demo \
+    && printf 'x\n' > scripts/some-module/foo.sh \
+    && git add scripts/some-module/foo.sh \
+    && git commit -q -m "feat(some-module): G-POSITIVE-IMPL-BODY" \
+    && printf 'TASKS-G-POSITIVE\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records G-POSITIVE-PLAN-BODY" \
+    && git mv openspec/changes/demo "$REL" \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change G-POSITIVE-ARCHIVE-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "finding G positive control: exits 0" \
+  || fail "finding G positive control: rc=$RC out=$OUT"
+case "$OUT" in
+  *G-POSITIVE-IMPL-BODY*) \
+    pass "finding G positive control: a real non-merge, outside-path implementation commit is accepted as IMPL_SHA" ;;
+  *) fail "finding G positive control: the real implementation commit was not resolved: $OUT" ;;
+esac
+
+# ===========================================================================
+# SECTION: the planning commit's parent is the repository's own ROOT commit
+# (this change's own review panel, pass 3, finding C). PARENT_TOUCHES_OUTSIDE
+# was computed with `git diff --name-only "${PLAN_PARENT}^..${PLAN_PARENT}"`,
+# which fails with "fatal: ambiguous argument" when PLAN_PARENT has no `^`
+# parent to diff against (i.e. it IS the root commit) — and the `2>/dev/null`
+# on that call swallowed the failure silently, leaving PARENT_TOUCHES_OUTSIDE
+# at its default 0 and dropping a genuine implementation commit. Built as a
+# bespoke two-commit repository rather than via new_repo() (which always
+# commits its own "init" first, so the implementation commit would never be
+# the actual root commit) — deliberately no "init" commit here.
+# ===========================================================================
+
+ROOT_REPO="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-root-repo.XXXXXX")"
+TREES+=("$ROOT_REPO")
+(
+  cd "$ROOT_REPO" \
+    && git init -q \
+    && git config user.email test@example.com \
+    && git config user.name test \
+    && mkdir -p scripts/some-module openspec/changes/demo \
+    && printf 'x\n' > scripts/some-module/foo.sh \
+    && git add scripts/some-module/foo.sh \
+    && git commit -q -m "feat(some-module): ROOT-COMMIT-IMPL-BODY" \
+    && printf 'TASKS-ROOT\n' > openspec/changes/demo/tasks.md \
+    && git add openspec/changes/demo/tasks.md \
+    && git commit -q -m "chore(openspec): plan and session records ROOT-COMMIT-PLAN-BODY" \
+    && mkdir -p openspec/changes/archive \
+    && git mv openspec/changes/demo openspec/changes/archive/2026-01-01-demo \
+    && git commit -q -m "chore(demo): sync delta specs and archive the change ROOT-COMMIT-ARCHIVE-BODY"
+)
+REPO="$ROOT_REPO"
+ARCHIVED="$REPO/openspec/changes/archive/2026-01-01-demo"
+STATE_DIR="$REPO/.state"
+mkdir -p "$STATE_DIR"
+run_it
+[ "$RC" -eq 0 ] && pass "root commit as implementation commit: exits 0" \
+  || fail "root commit as implementation commit: rc=$RC out=$OUT"
+case "$OUT" in
+  *ROOT-COMMIT-IMPL-BODY*) \
+    pass "root commit as implementation commit: implementation commit resolved as IMPL_SHA despite having no parent to diff against" ;;
+  *) fail "root commit as implementation commit: implementation commit NOT resolved — PARENT_TOUCHES_OUTSIDE likely silently stayed 0 because \"git diff A^..A\" fails on a root commit: $OUT" ;;
+esac
+case "$OUT" in
+  *ROOT-COMMIT-PLAN-BODY*) pass "root commit as implementation commit: planning commit still resolved as PLAN_SHA" ;;
+  *) fail "root commit as implementation commit: planning commit not resolved: $OUT" ;;
+esac
+
 # SECTION: <repo-root> — the optional fourth positional argument
 # (Requirement: "Context is gathered deterministically, not by the model
 # re-reading files", scenarios "The repo root is omitted", "The repo root is
