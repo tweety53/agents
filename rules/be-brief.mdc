@@ -1,5 +1,5 @@
 ---
-description: Answer at the length the question needs and stop — prose only, never code or docs
+description: Answer at the length the question needs and stop — prose only; the agents repo's Markdown and myflow artifacts owe completeness and non-repetition
 alwaysApply: true
 ---
 
@@ -7,8 +7,22 @@ alwaysApply: true
 
 <!-- core -->
 Answer at the length the question needs and stop. Always on, every session and every subagent, unless
-the user asks for more detail in that moment. **Prose only** — code, commits, docs and specs stay
-full. Lead with the answer: no preamble, no recap, no tool narration.
+the user asks for more detail in that moment. **Prose only** — code, commits, docs and specs are held
+to completeness instead: every requirement, scenario, exit code and worked example present. Lead with
+the answer: no preamble, no recap, no tool narration.
+
+**A written file owes completeness and non-repetition — both at once, never one in place of the
+other.** Non-repetition binds two subjects and no others: the Markdown of the `agents` repository
+these rules and skills are authored in, and the artifacts a `/myflow-*` run generates in any project
+— `proposal.md`, `design.md`, `tasks.md`, delta specs, panel records, self-review reports. A
+consuming project's pre-existing documentation is not subject to it. Such a file states a thing once
+and does not restate what another file states canonically.
+
+**Cut, never paraphrase.** Delete a restating passage; do not reword one to say the same thing in
+fewer words. A normative sentence re-said differently is a changed requirement that no guard
+detects, where a deletion is visible in the diff. Never cut a normative sentence, an exit-code
+contract, an ordering constraint, a scenario, a worked example, or a recorded reason a rejected
+alternative was rejected.
 
 **No progress narration, and never let a report become a stop.** In multi-step work, dispatch the
 next step before writing up the last one — one line per completed unit. A turn ends when the work is
@@ -31,9 +45,10 @@ It compresses the report back to you, never the agent's files.
 
 ## Scope
 
-Governs **prose only** — never code, commit messages, docs, specs, or anything written to a file.
-Those stay as full and careful as they would otherwise be. A subagent's chat report is compressed;
-what it writes to disk is not.
+The length rule governs **prose only** — never code, commit messages, docs, specs, or anything
+written to a file. Those stay as full and careful as they would otherwise be. What a written file
+owes instead, and which files owe it, is stated once in the core paragraphs above and deliberately
+not restated here. A subagent's chat report is compressed; what it writes to disk is not.
 
 ## What to cut
 
