@@ -7,15 +7,9 @@ This file is the reasoning behind `skills/myflow-contracts/handoff-blocks.md`.
 
 ### The block each state renders
 
-Both commands resolve those lines the same way: **6. Resolve the run instructions**
-(`skills/myflow-do/SKILL.md`) is canonical for the procedure, and `/myflow-status`'s detail-view
-step cites it rather than restating it.
-
 ### Why regeneration beats storage
 
-The block a state hands off is defined **here and nowhere else**, as one template per rendering. Two
-commands render it: the command that ends in that state, and `/myflow-status <name>`. **No command
-stores the emitted text.** `/myflow-status <name>` regenerates the block from the state file and the
+`/myflow-status <name>` regenerates the block from the state file and the
 artifacts as they now stand; it never reads back a stored copy, because a stored copy reproduces the
 original exactly and then goes wrong silently the moment anything it names moves — a worktree
 removed, an artifact republished, a PR opened. Regeneration is the mechanism, not an implementation
@@ -23,7 +17,7 @@ detail of it.
 
 ### Why the open-questions count is on-disk, not run-only
 
-**Why the open-questions value is not run-only, and carries no marker.** It is derived from an
+It is derived from an
 artifact on disk — the entries under `## Open questions` in the change's design whose status is
 still `open` — exactly as the decisions count beside it in the same `Recorded` line is, so
 `/myflow-status <name>` regenerates it rather than omitting it. The `Recorded` line sits next to the
@@ -33,14 +27,11 @@ it. A count that has changed since `/myflow-start` printed it — a revision rou
 and moved the entry to `answered by <decision-id>` — is this field working: it reports what is open
 now, not what was open then. Both the decisions count and the open-questions count read `none` when
 zero, by the missing-rather-than-dropped rule; the fold moved that wording out of the inline
-placeholder and into this paragraph, which is a layout change and not a content one. The entry
-shape, the immutable ID and the never-delete rule the count reads through are stated once under
-**Open questions** (`skills/myflow-start/SKILL.md`) and are not repeated here.
+placeholder and into this paragraph, which is a layout change and not a content one.
 
 ### Why the pre-check must run before the ancestor test
 
-**The first row is a pre-check, not a special case, and it must be answered before the ancestor
-test.** `git merge-base --is-ancestor HEAD <base>` returns **true** for a branch carrying no commits
+`git merge-base --is-ancestor HEAD <base>` returns **true** for a branch carrying no commits
 of its own — every commit it has, the base branch already had — and that is the *ordinary*
 `IN_PROGRESS` shape, because `/myflow-do` stages without committing. Without the pre-check every
 change that has never been through `/myflow-finish` reads as merged and is shown *merged and waiting
@@ -52,7 +43,7 @@ must run before the ancestor test — and the reasoning is not re-derived here.
 
 ### Why "recorded but unresolvable" is the dangerous condition
 
-**Why "recorded but unresolvable" is the dangerous condition, not merely a third case.** History
+History
 being rewritten, the clone being shallow, or the object having been pruned are the ordinary ways
 `git rev-parse --verify` fails to turn a stored sha into a commit — and unlike **absent**, this
 condition carries a value, which is exactly what makes it easy to mishandle: compared as a *string*
@@ -66,7 +57,7 @@ leaving it implied by the two conditions alone.
 
 ### Why the `Jira` line is run-only
 
-**Why the `Jira` line is run-only.** It reports the transition *this run made*, and nothing on disk
+It reports the transition *this run made*, and nothing on disk
 records one: the state file carries the bare `jiraIssue` key and no transition history at all. Nor
 can the value be re-derived by asking the tracker — `/myflow-status` is forbidden from calling Jira,
 its own guardrail being that the report is read-only and never transitions or queries an issue — and
@@ -79,7 +70,7 @@ of its detail view, so what the omission drops is the transition, which is the r
 
 ### Why `IN_PROGRESS` needs two renderings
 
-**`IN_PROGRESS` has two renderings, and one template could not have served both.** Run 1 ends at
+Run 1 ends at
 `IN_PROGRESS` but hands off a branch waiting on a merge rather than a diff waiting on review: a
 worktree path, run instructions and a staged-diff command are all wrong for it, and it prints none
 of them. Forcing both into one template would leave the rule at the top of this section
@@ -87,7 +78,7 @@ unsatisfiable rather than merely unsatisfied — no single block is correct for 
 
 ### Why `Route` and `Outstanding` are run-only
 
-**Why `Route` and `Outstanding` are run-only.** The landing answer is never remembered between runs,
+The landing answer is never remembered between runs,
 per **Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`), so no
 field records which route was taken: a recorded `prUrl` implies the pull-request route, and
 nothing separates the other two. The
@@ -97,7 +88,7 @@ carry it.
 
 ### Why `Panel` is run-only
 
-**Why `Panel` is run-only.** It names the roster *that run selected* — which optional slots fired
+It names the roster *that run selected* — which optional slots fired
 and which did not — and no field carries it. The only on-disk trace is the panel record
 `/myflow-do` writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
 removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes

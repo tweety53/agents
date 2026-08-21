@@ -18,12 +18,6 @@ claim carries one in an HTML comment within the two lines after it:
   claim and comment is tolerated). The number came from actually running `<command>` at `<ref>`
   (a commit, tag, branch, or other named point), e.g. `<!-- measured: ./gradlew test @ c515c42 -->`.
 
-  **The guard checks only that a `measured:`/`predicted:` comment is present.** It does not parse
-  the `<command>` or the `@ <ref>` half — so that shape is a *convention this contract states and a
-  human enforces*, not something the script can hold you to. It is written down here as the shape
-  to follow, and named as advisory so the contract is not defined two ways: a plan whose comment
-  omits the ref passes the guard and is still wrong under this contract.
-
   **Choosing a ref while the work is uncommitted.** A plan under `/myflow-do` sits on a branch whose
   commits do not exist yet, so naming the merge base is worse than useless: the commands being cited
   frequently do not exist there, and `git cat-file -e <merge-base>:<script>` fails outright. Name

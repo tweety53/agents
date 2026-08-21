@@ -7,9 +7,6 @@ prints in its own skill and cites this file as the definition.
 
 This file is **canonical** for everything in it.
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## Handoff blocks
 
 ### The block each state renders
@@ -176,11 +173,6 @@ Next:
 
 **`Route` and `Outstanding` are `(run-only)`.** See **Why `Route` and `Outstanding` are run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
-
-**`Guards` is `(run-only)` too, for the same kind of reason `Panel` above is.** It reports what
-that run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
-per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
-that run ever has, since no regeneration re-runs the check.
 
 **Which rendering `/myflow-status` regenerates.** **Merge status decides it whenever the merge
 status is known**, and the command already has that answer: it runs the merge-status test in its own

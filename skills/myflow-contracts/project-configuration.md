@@ -4,9 +4,6 @@
 name; none of them restate the format. If a skill and this file ever disagree, this file
 wins.
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 myflow is installed globally and runs in any repository, so it must never carry one project's
 apps, ports, task names, or credentials in its own files. Everything project-specific lives in
 an optional Markdown file **in the project being worked on**:
