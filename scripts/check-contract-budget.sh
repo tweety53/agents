@@ -100,7 +100,7 @@ source "$SCRIPT_DIR/lib/owned-corpus.sh"
 # path-relative-to-repo-root<space>max-bytes, one row per covered file.
 budgets() {
   cat <<'EOF'
-.myflow/project.md 19346
+.myflow/project.md 20396
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 47306
@@ -115,12 +115,12 @@ commands/myflow-finish.md 3507
 commands/myflow-start.md 2178
 commands/myflow-status.md 1981
 commands/opsx-explore.md 9288
-openspec/specs/agents-repo-verification/spec.md 28411
+openspec/specs/agents-repo-verification/spec.md 33525
 openspec/specs/myflow-base-branch-resolution/spec.md 12796
 openspec/specs/myflow-build-green/spec.md 4181
 openspec/specs/myflow-citation-roots/spec.md 19301
 openspec/specs/myflow-command-surface/spec.md 13563
-openspec/specs/myflow-commit-scope/spec.md 7250
+openspec/specs/myflow-commit-scope/spec.md 9341
 openspec/specs/myflow-contract-distribution/spec.md 30051
 openspec/specs/myflow-contract-economy/spec.md 28200
 openspec/specs/myflow-dashboard-period/spec.md 6501
@@ -170,7 +170,7 @@ skills/myflow-contracts/jira-integration-rationale.md 3661
 skills/myflow-contracts/jira-integration.md 19932
 skills/myflow-contracts/operator-prompts.md 2432
 skills/myflow-contracts/pipeline-rationale.md 27785
-skills/myflow-contracts/pipeline.md 59216
+skills/myflow-contracts/pipeline.md 62262
 skills/myflow-contracts/plan-provenance.md 30695
 skills/myflow-contracts/project-configuration-rationale.md 16982
 skills/myflow-contracts/project-configuration.md 48175
@@ -178,7 +178,7 @@ skills/myflow-contracts/state-file.md 33172
 skills/myflow-contracts/workspace-isolation-rationale.md 14317
 skills/myflow-contracts/workspace-isolation.md 31471
 skills/myflow-do/SKILL-rationale.md 20900
-skills/myflow-do/SKILL.md 87956
+skills/myflow-do/SKILL.md 89525
 skills/myflow-do/adversarial-reviewer-prompt.md 3545
 skills/myflow-do/bug-hunter-reviewer-prompt.md 1437
 skills/myflow-do/engineering-principles.md 10737
@@ -187,7 +187,7 @@ skills/myflow-do/security-reviewer-prompt.md 1540
 skills/myflow-fast/SKILL-rationale.md 3241
 skills/myflow-fast/SKILL.md 24267
 skills/myflow-finish/SKILL-rationale.md 5532
-skills/myflow-finish/SKILL.md 49153
+skills/myflow-finish/SKILL.md 49652
 skills/myflow-start/SKILL-rationale.md 7030
 skills/myflow-start/SKILL.md 38342
 skills/myflow-status/SKILL.md 22856

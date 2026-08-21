@@ -79,6 +79,23 @@ The two commits `/myflow-finish` run 1 makes SHALL NOT carry the change name as 
   planning commit stages the same two trees in every change, so a derived value would compute a
   constant.
 
+#### Scenario: The planning commit is a fixed literal
+
+- **WHEN** run 1 commits the planning artifacts and session records
+- **THEN** the subject is exactly `chore(openspec): plan and session records`, with no change name
+  in it
+
+#### Scenario: The implementation commit's scope comes from the diff
+
+- **WHEN** run 1 commits the reshaped implementation
+- **THEN** its scope names the module that diff moved, not the change name
+
+#### Scenario: Neither message is guarded
+
+- **WHEN** run 1 writes either message
+- **THEN** no guard checks the scope, because the message is derived at integration time rather than
+  declared in a file a guard reads; the rule is stated in the contract and enforced by review
+
 ### Requirement: Finish run 2's two commits carry module scopes
 
 The two commits `/myflow-finish` run 2 makes SHALL NOT carry the change name as their scope, for the
@@ -110,23 +127,6 @@ production in KAN-244, KAN-245 and KAN-253 while the run 1 requirement above was
 
 Every site that states either message SHALL state it this way: `pipeline.md`'s Git-boundaries chain,
 `finish-contract.md`'s two-commit section, and both `commit-split.sh` call sites.
-
-#### Scenario: The planning commit is a fixed literal
-
-- **WHEN** run 1 commits the planning artifacts and session records
-- **THEN** the subject is exactly `chore(openspec): plan and session records`, with no change name
-  in it
-
-#### Scenario: The implementation commit's scope comes from the diff
-
-- **WHEN** run 1 commits the reshaped implementation
-- **THEN** its scope names the module that diff moved, not the change name
-
-#### Scenario: Neither message is guarded
-
-- **WHEN** run 1 writes either message
-- **THEN** no guard checks the scope, because the message is derived at integration time rather than
-  declared in a file a guard reads; the rule is stated in the contract and enforced by review
 
 ### Requirement: The convention is carried as an always-on rule
 

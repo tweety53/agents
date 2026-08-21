@@ -153,6 +153,29 @@ new_home
 printf '\n<!-- rule: retired-rule.mdc -->\n\nbody\n' >> "$HOME_DIR/.claude/CLAUDE.md"
 expect_stale "stale_marker: a rendered rule this checkout does not have" "which is not an always-on rule here"
 
+# --- a linked worktree is skipped, not failed --------------------------------
+# setup.sh links into the checkout it ran from, so in an apply worktree every
+# rule resolves to the main checkout. Rule 1 would call all of them misplaced and
+# fail `## lint` in every worktree a /myflow-* change runs in. Detected by `.git`
+# being a file.
+new_home
+WT_REPO="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-rules-wt.XXXXXX")"; DIRS+=("$WT_REPO")
+mkdir -p "$WT_REPO/scripts/lib" "$WT_REPO/rules"
+cp "$GUARD" "$WT_REPO/scripts/"
+cp "$RULES_SRC"/*.mdc "$RULES_SRC/agent-baseline.md" "$WT_REPO/rules/" 2>/dev/null
+printf 'gitdir: /somewhere/.git/worktrees/x\n' > "$WT_REPO/.git"
+set +e
+OUT="$(HOME="$HOME_DIR" "$WT_REPO/scripts/$(basename "$GUARD")" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -ne 0 ]; then
+  fail "worktree: a linked worktree was reported stale (rc=$RC): $OUT"
+elif ! printf '%s' "$OUT" | grep -qF "INSTALLED-RULES-WORKTREE"; then
+  fail "worktree: exited 0 but did not say it was a linked worktree; got: $OUT"
+else
+  pass "worktree: a linked worktree is skipped, not failed"
+fi
+
 # --- not installed is not stale ---------------------------------------------
 HOME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-rules-empty.XXXXXX")"; DIRS+=("$HOME_DIR")
 run_guard

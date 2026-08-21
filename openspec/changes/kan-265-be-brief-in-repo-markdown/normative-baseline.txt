@@ -27,6 +27,7 @@
 **A state file that is missing or unparseable SHALL be reported and skipped, never rebuilt from inference.**
 **A survivor SHALL be established by asking, never inferred from the removal's exit code.**
 **An ID SHALL be unique across `## Decisions` and `## Open questions` together, not merely within its own section** — the two are one namespace, because `answered by <decision-id>` reaches from one into the other.
+**An absent install SHALL NOT be a failure.**
 **An application whose port is fixed outside the declaring project's own repository is not isolated, and SHALL be recorded as a stated limitation rather than left to be discovered.**
 **An empty map SHALL be treated exactly as an absent one, and never as "there are no worktrees".**
 **Before dispatching the fix subagent**, `/myflow-do` SHALL run each supplied, constrained reproducer command through `scripts/run-reproducer.sh <worktree> <reproducer-command-line>`, with the worktree as the reproducer's working directory, under a bounded wait of **20 seconds** plus a **2-second** SIGTERM-to-SIGKILL grace — the grace matching `scripts/check-cleanup-complete.sh`'s own `SURVIVORS_KILL_GRACE`, the 20-second bound being this rule's own number rather than that script's 60-second `SURVIVORS_TIMEOUT`, since a reproducer is one short-lived check under test rather than a wait for a whole cleanup pass.
@@ -75,6 +76,7 @@
 **`file:line` is the finding's recorded location taken verbatim from the findings table; `theme` is the finding's Note reduced to the shortest defect noun phrase within it, with severity words, slot names and prose padding stripped — a reworded restatement of the same defect at the same file:line reduces to the same theme, and this reduction SHALL be defined once and cited, not restated, by every rule keyed on it.**
 **`run-reproducer.sh` SHALL launch the reproducer in a process group of its own**, so that a descendant which re-parents away from it remains findable and killable by group membership rather than by parentage.
 **`state-self-heal.md` SHALL NOT exist.**
+A **partial** install SHALL be a failure: the directory existing is what says an install happened, so every rule missing after that is drift.
 A CommonMark inline code span SHALL NOT delimit a quotation: a number written inside backticks is an ordinary numeric claim and SHALL be reported.
 A `**Commit:**` field carrying no scope at all SHALL pass — a scope is optional, and only a present-and-wrong scope fails.
 A `/myflow-*` command SHALL check, once at the start of its run, that every guard it can invoke is present in its own `scripts/` directory.
@@ -414,6 +416,7 @@ Every statement in the repository asserting that `/myflow-status` invokes no gua
 Every symlink a skill carries SHALL sit under `skills/<skill>/scripts/`, where **A guard a command invokes SHALL be reachable from that command's installed skill** already governs it.
 Every view SHALL accept a project filter and SHALL also support aggregation across projects, because the state directory is already keyed per project and more than one project uses the pipeline.
 Every view SHALL present a change spanning several repositories as a single row aggregating the whole unit of work.
+Every violation has one remedy — re-running `./setup.sh global` from this checkout — and the verdict line SHALL name it, since a reader who has just been told a link is missing has no other action to take.
 Exit **1** SHALL cover two distinct classes, handled differently by the caller: a **missing or malformed field** (no `finding-reproducer:` line for some `F<n>`, a malformed `reproducers-total:` count) is a record-completeness defect and the missing field is added before any fix is dispatched; a **rejected reproducer shape** (a command carrying a shell metacharacter, an absolute path, a `..`
 Exit 0 SHALL mean clean, 1 SHALL mean violations were found, and 2 SHALL mean the guard cannot answer at all — an unreadable root, an installer run that failed, or a file it needed to read and could not.
 Exit `3` SHALL be distinct from exit `2` so a caller can print the finish contract's no-remote message — *"this repository has no remote, so there is nothing to push to or merge into"* — rather than a base-branch failure, which sends the operator debugging the wrong thing.
@@ -463,15 +466,19 @@ It SHALL be argument-free and self-scoped from its own location, like `check-ref
 It SHALL be covered by its own test harness.
 It SHALL be covered by its own test harness.
 It SHALL be left unresolved and therefore unchecked, exactly as any other path that does not resolve to a real file.
+It SHALL be named in `.myflow/project.md` under `## lint`, and its harness `scripts/test-check-installed-rules.sh` under `## test`.
 It SHALL be named in `.myflow/project.md` under `## lint`, and its harness `scripts/test-check-markdown-integrity.sh` SHALL be named under `## test`.
 It SHALL be offered as named options with `light` marked as the recommendation, never as open prose.
 It SHALL be rewritten under `planningEffort` on the next write that file receives, with no migration pass and no announced correction.
 It SHALL be written in Python 3 using the standard library only, following the precedent set by `scripts/check-plan-provenance.py`, because the classification it performs is block structure and not a line pattern.
+It SHALL check four properties, and SHALL name the offending path in each violation:
 It SHALL cover **every** `*.md` under `skills/myflow-contracts/` — cores, appendices and `SKILL.md` alike — **and every `skills/*/SKILL.md` together with its `SKILL-rationale.md` sibling**.
+It SHALL determine the always-on set by the same frontmatter test `setup.sh`'s own `always_on_rules()` applies — a closed leading frontmatter block declaring `alwaysApply: true` — because a rule this guard calls always-on that the installer does not would demand a link no install creates, leaving the two permanently unsatisfiable together.
 It SHALL exit **0** at or under the cap, **1** over it, and **2** when it cannot answer at all — a path that is not a worktree, an unresolvable merge base, or a cap that is not a number.
 It SHALL exit **0** when every scanned file is clean, **1** when violations are found, each reported with its line, and **2** when it cannot answer at all — an unreadable file, an argument it does not accept, or a scope root that does not exist.
 It SHALL exit `2` rather than report a clean run when its root is unset-but-empty, is not a directory, or contains no Markdown at all.
 It SHALL fail the task when that scope is the change name, the change name's bare Jira key, or a dotted or numeric task id, per **A commit's scope names the module, never the change or the task** (`myflow-commit-scope`).
+It SHALL honor `CHECK_INSTALLED_RULES_HOME` as an opt-in override of the install root, so its harness can point it at a fixture tree under `TMPDIR`, and SHALL otherwise take no argument and read `$HOME`.
 It SHALL measure **bytes**, not lines and not tokens — deterministic, and dependent on no tokenizer.
 It SHALL open the pull request via a PR CLI when one is usable for the host, and otherwise SHALL print the forge's create-PR URL and ask whether it was opened — the same shape run 1's pull-request route already uses.
 It SHALL own the wrapped fetch, both resolution paths (`refs/remotes/origin/HEAD`, then `git remote show origin`), the name validation, and all three assertions.
@@ -481,10 +488,10 @@ It SHALL read the marker block through anchored patterns and SHALL NOT parse the
 It SHALL record the recommended defaults directly: `sonnet` for `models.implementation`, `models.reviewPanel` and `models.panelFix`, and `light` for `reviewPanelRoster`.
 It SHALL refuse a covered path that is a symlink rather than following it, before reading it.
 It SHALL report each violation as `file:line: <signal>: <what is wrong>`, and SHALL detect exactly these four signals:
+It SHALL report that no install was found and exit 0.
 It SHALL state what it believes settled and ask the operator whether anything is still unclear, offering named options with **moving on** as the recommended one, and SHALL end the stage at this prompt only on an answer that chooses to move on.
 It SHALL take an optional project root, defaulting to this repository, so it runs against a bare tree and can be named in `## lint`.
 It SHALL then continue.
-It prints every sentence in this repository's owned Markdown that carries `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole word — one per line, whitespace-normalised, sorted — and its exit codes are only `0` the inventory printed and `2` it cannot answer.
 Iteration order, row identity and insertion order SHALL NOT decide the outcome.
 Its `SKILL.md` SHALL carry a real **Check guard presence.**
 Its exit codes SHALL be `0` every file within budget, `1` a file over budget or missing an entry, `2` the guard cannot answer at all.
@@ -594,12 +601,14 @@ That block SHALL be separate from the `finding-status:` block, whose lines are r
 That handback is the existing human gate and SHALL NOT be turned into a routine way to defer findings.
 That route SHALL show, per stage run, the command and stage it belongs to, its attempt number, its outcome, its wall-clock duration, and every metric the run's metrics bag actually carries — and SHALL apply the absence-is-never-zero rule to each of them individually, so an unmeasured metric on an otherwise measured run reads as unavailable rather than as zero.
 The "and nothing more" bound is load-bearing: `openspec/specs/x.md` and `openspec/changes/<name>/` SHALL remain reportable
+The **archive** commit's message SHALL be the fixed literal `chore(openspec): archive change, sync delta specs`.
 The **core SHALL gain a statement of the rule** the original carried, together with whatever operative detail the rule cannot be followed without, and a citation to the appendix heading now holding the argument.
 The **implementation** commit's scope SHALL be derived from the reshaped diff — the module carrying the change's substance, or a broader area where it spans several.
 The **main checkout** SHALL have no workspace id.
 The **original passage SHALL move to the appendix byte-for-byte unchanged**, subject to the same two permitted edits above and no more.
 The **parent** SHALL perform the mutations, after the fix subagent reports.
 The **planning** commit's message SHALL be the fixed literal `chore(openspec): plan and session records`.
+The **self-review report** commit's message SHALL be `docs(self-review): <name> self-review report`.
 The ID SHALL be assigned once and SHALL NOT change, because it is the match key a later round uses.
 The LEXICAL and REAL paths SHALL be compared for exact equality.
 The LEXICAL path SHALL sit exactly one path segment past `<trusted-repository-root>/openspec/changes/archive/` — no deeper nesting, no shallower, checked as a real path boundary rather than a string prefix.
@@ -726,6 +735,7 @@ The level names SHALL say what they mean to an operator choosing between them: `
 The linked key SHALL live in the state file's `jiraIssue` field, SHALL be resolved only by `/myflow-start`, and SHALL be carried forward verbatim by every other command.
 The list of excluded paths SHALL be fixed in the contract rather than configured per project.
 The mapping SHALL be by **enumerated name**, never by inference.
+The marker SHALL be the anchor, rather than any rendered title or body text, because the marker is what `render_managed_block` writes per rule and matching on prose would re-derive the renderer's formatting and drift from it.
 The marker line, not the table, SHALL be the record of a finding's state.
 The marker lines SHALL occupy **consecutive lines** — one unbroken block.
 The measured count, the cap in force, and the operator's answer where one was given SHALL be recorded in the panel record on **every** run, including runs at or under the cap, so the record always states the size the panel read.
@@ -843,6 +853,7 @@ The transition SHALL NOT be conditioned on a pull request existing.
 The transition SHALL remain non-blocking: a failure SHALL degrade to a single skipped-with-reason line, and the run SHALL continue and write its state file exactly as it would have.
 The trigger table's existing borderline *ask* rows SHALL keep their current behaviour under `full`.
 The two commits `/myflow-finish` run 1 makes SHALL NOT carry the change name as their scope.
+The two commits `/myflow-finish` run 2 makes SHALL NOT carry the change name as their scope, for the same reason run 1's may not.
 The unfinished-work gate SHALL run **before** this question.
 The verification SHALL be a separate script from the run-1 gate, because it answers a different question at a different point in the run.
 The view queries themselves SHALL continue to filter on an exact project key.
@@ -1051,6 +1062,7 @@ Zero findings SHALL NOT be inferred from a record that never states how many fin
 `scripts/check-contract-budget.sh` SHALL fail when a file it covers exceeds its declared budget.
 `scripts/check-installed-citations.sh` SHALL determine which files are installed by executing `setup.sh` into a sandbox and reading back what appeared — each symlink resolved to its repository-relative source, plus each copied file — rather than by re-implementing the installer's globs or by carrying a written list of installed paths.
 `scripts/check-installed-citations.sh` SHALL follow the reporting discipline `agents-repo-verification` already requires of a corpus-scanning guard: one violation line per finding as `path:line: message`, a verdict line naming the root and the count, and a per-member coverage fragment from `scripts/lib/coverage.sh`.
+`scripts/check-installed-rules.sh` SHALL compare what `setup.sh global` last installed against the always-on rules this checkout declares, and SHALL fail when they have drifted apart.
 `scripts/check-markdown-integrity.py` SHALL parse every `skills/**/*.md` and `rules/*.mdc` file into blocks — fenced code, table, heading, list item, blockquote, paragraph — and SHALL report structural damage that changes how the text reads.
 `scripts/check-references.sh` SHALL, for every backticked `.md` or `.mdc` path that resolves to a real file inside the repository, require that at least one bold token the line **associates** with that path matches a `#`–`####` heading in the referenced file.
 `scripts/check-unfinished-work.sh` and `scripts/check-panel-reproducers.sh` SHALL source that library and SHALL NOT carry local copies of those helpers.
