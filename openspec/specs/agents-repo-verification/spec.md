@@ -359,6 +359,72 @@ guard's scope or adding a suppression marker.
 - **WHEN** a file inside the scanned scope exists but cannot be read
 - **THEN** the guard exits 2 and reports that it cannot answer, rather than reporting the file clean
 
+### Requirement: A guard fails when the installed rule layer is stale
+
+`scripts/check-installed-rules.sh` SHALL compare what `setup.sh global` last installed against the
+always-on rules this checkout declares, and SHALL fail when they have drifted apart.
+
+It exists because a rule can be written, reviewed, merged and archived while remaining unreadable by
+every session. `rules/agent-baseline.md` is installed as a symlink into this repository, so a row
+added to its table takes effect the moment the change merges — naming a
+`~/.claude/rules/<name>.md` that only a later install creates. KAN-202 added
+`commit-scope-is-the-module.mdc` and merged without one; for a day the baseline asserted a rule
+whose pointer dangled and whose text reached no managed block, and a commit landed on a downstream
+`develop` carrying exactly the scope that unread rule prohibits.
+
+It SHALL determine the always-on set by the same frontmatter test `setup.sh`'s own
+`always_on_rules()` applies — a closed leading frontmatter block declaring `alwaysApply: true` —
+because a rule this guard calls always-on that the installer does not would demand a link no install
+creates, leaving the two permanently unsatisfiable together.
+
+It SHALL check four properties, and SHALL name the offending path in each violation:
+
+- Every always-on rule is installed at `<home>/.claude/rules/<name>.md` as a **symlink** that
+  resolves and whose target is **this checkout's** `rules/<name>.mdc`. A copy is a violation because
+  it goes stale on the next edit; a link resolving into a different checkout is a violation because
+  it resolves, so nothing looks broken while the text every agent reads comes from a tree nobody is
+  editing.
+- `<home>/.claude/rules/` carries no rule entry that is no longer always-on here, `agent-baseline.md`
+  excepted, since a retired rule's surviving link still reads as installed.
+- `agent-baseline.md` is installed and resolves, it being the file every subagent dispatch points at.
+- Each installed harness file — `.claude/CLAUDE.md` and `.codex/AGENTS.md` — carries a
+  `<!-- rule: <name>.mdc -->` marker for every always-on rule and for no other. The marker SHALL be
+  the anchor, rather than any rendered title or body text, because the marker is what
+  `render_managed_block` writes per rule and matching on prose would re-derive the renderer's
+  formatting and drift from it.
+
+**An absent install SHALL NOT be a failure.** When `<home>/.claude/rules/` does not exist there is
+nothing for the checkout to be out of date with, and failing would make the guard unrunnable in CI, a
+fresh clone or a container — the unattended places lint runs. It SHALL report that no install was
+found and exit 0. A **partial** install SHALL be a failure: the directory existing is what says an
+install happened, so every rule missing after that is drift.
+
+It SHALL honor `CHECK_INSTALLED_RULES_HOME` as an opt-in override of the install root, so its harness
+can point it at a fixture tree under `TMPDIR`, and SHALL otherwise take no argument and read `$HOME`.
+
+Every violation has one remedy — re-running `./setup.sh global` from this checkout — and the verdict
+line SHALL name it, since a reader who has just been told a link is missing has no other action to
+take.
+
+It SHALL be named in `.myflow/project.md` under `## lint`, and its harness
+`scripts/test-check-installed-rules.sh` under `## test`.
+
+#### Scenario: A newly added rule that was never installed
+
+- **WHEN** `rules/` declares an always-on rule for which `<home>/.claude/rules/` holds no link
+- **THEN** the guard fails, names that rule, and directs the reader to re-run `./setup.sh global`
+
+#### Scenario: A rule installed but never rendered
+
+- **WHEN** an always-on rule is linked into `<home>/.claude/rules/` but its marker is absent from a
+  harness file's managed block
+- **THEN** the guard fails, because no session reads a rule the block does not carry
+
+#### Scenario: No global install on this machine
+
+- **WHEN** `<home>/.claude/rules/` does not exist
+- **THEN** the guard reports that it found no install and exits 0
+
 ### Requirement: A corpus-scanning guard SHALL report what it checked, per member
 
 A guard that discovers its corpus from the tree — rather than being handed a single explicit target —
