@@ -34,9 +34,6 @@ never matched the work.
 The reasoning behind this file lives in `skills/myflow-finish/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## State gate
 
 Accepts **`IN_PROGRESS`**. Run 1 ends at `IN_PROGRESS`; run 2 ends at `FINISHED`.
@@ -50,8 +47,7 @@ At `STARTED` there is nothing to integrate — emit the wrong-state handoff and 
 there — the base-branch resolution, the preflight checks, the removal sequence and their
 rationales live in that one file. This skill carries only what is specific to *executing* it.
 
-Which run happens is decided by one thing: whether the change's branch has already reached the
-base branch. No field records "integration started" — a field could disagree with git.
+No field records "integration started" — a field could disagree with git.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-finish-preflight.sh`, `resolve-base-branch.sh`,
@@ -625,7 +621,7 @@ myflow stage end -command '/myflow-finish' -stage finish.push-archive -outcome c
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
 
-**The archive is never reported as landed until step 10 actually lands it.** On a failed push or PR
+On a failed push or PR
 creation, the `Archive PR` line is the local branch and the exact commands to land it by hand — never
 a claim that the archive merged. A run 2 that **completes step 10** is terminal and names **no** next
 command.

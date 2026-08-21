@@ -3,28 +3,13 @@
 This file is the reasoning behind `skills/myflow-start/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, the wrong-state handoff, and the handoff output shape.
-
 ## State gate
 
 ## Superpowers Basic Workflow (this stage)
 
 ## A. Resolve the change
 
-Follow **Resolution (how `jiraIssue` is decided)** in `skills/myflow-contracts/jira-integration.md`
-exactly; it is canonical and is not restated here.
-
 ## Ask the planning effort, the models, and the review panel roster — creating runs only
-
-What each preset means — which slots each one dispatches, and how the optional, trigger-fired
-slots are handled under each — is defined under **5. The review panel**
-(`skills/myflow-do/SKILL.md`); that section carries the roster table and is the one to read, and is
-not restated here.
-
-The fallback, the mapping, the precedence when both keys are present, and what an unmapped value
-reads as are all **Planning effort** (`skills/myflow-contracts/state-file.md`)'s, and are not
-restated here.
 
 ## B. Basic Workflow #1 — Brainstorming
 
@@ -41,16 +26,6 @@ superpowers:brainstorming's own flow is linear — explore, ask clarifying quest
 approaches, present the design, get approval — and its only loop routes a **correction** back to the
 design. Nothing in it routes a **question** back to the questions, so a question raised *by* an
 answer has nowhere to land. This section is where it lands.
-
-What counts as a planning-stage exchange, the convergence test itself, and why it is one test rather
-than a rule per gate are structure, stated once under **Stage exit — never the command's own
-judgment** (`skills/myflow-contracts/pipeline.md`) and not restated
-here. What is genuinely tuned for this command follows: the two prompts, the threshold, the
-no-hard-cap rule, and why their opposite recommendations are not to be harmonised.
-
-**There is no hard cap.** No round count ends the stage; the rule that only an explicit operator
-answer does is stated once under **Stage exit — never the command's own judgment**
-(`skills/myflow-contracts/pipeline.md`) and not restated here.
 
 **Every planning effort level runs this loop.** A level changes how many questions one round groups
 — one at a time at `detailed`, batched at `low` — and never whether another round opens. A level

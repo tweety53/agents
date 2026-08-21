@@ -138,10 +138,6 @@ disagree, say so in the detail view and name which is which: that disagreement i
 next `/myflow-finish` will stop on, and the operator should see it here rather than discover it
 there.
 
-**A record that is missing (no state recorded) or unreadable is named in this command's own output,
-and the change is omitted from the table.** This command writes nothing — never the store, never
-the on-disk fallback file, never anything else.
-
 ### 3. Render the table
 
 Sort by state order per **States** in `skills/myflow-contracts/pipeline.md` (`STARTED`,

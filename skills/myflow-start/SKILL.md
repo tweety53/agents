@@ -29,9 +29,6 @@ this command registers and is the one to read.
 The reasoning behind this file lives in `skills/myflow-start/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## State gate
 
 Accepts **no change** (creates one) or **`STARTED`** (revises the existing proposal). Ends at

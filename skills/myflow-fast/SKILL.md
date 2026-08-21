@@ -32,9 +32,6 @@ this command registers and is the one to read.
 The reasoning behind this file lives in `skills/myflow-fast/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## State gate
 
 **Read the change's state before marking anything.** A mark that finds no change record creates one
@@ -267,9 +264,6 @@ Re-run this command to fix anything you find, or bare to move on to integrating 
 Next:
 /myflow-fast <name>
 ```
-
-Every other handoff shape — the bare-at-`IN_PROGRESS` integrate handoffs, and `FINISHED` — is
-exactly the cited section's own block; no new shape is needed for either.
 
 ## Guardrails
 
