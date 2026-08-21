@@ -49,6 +49,12 @@ new_tree() {
   printf '<p>artifact</p>\n' > "$STATE_DIR/demo-proposal-artifact.html"
 }
 
+# new_tree_no_ledger / new_tree_no_panel -> new_tree with one canonical record
+# removed, so a case can place its own wrong-path file in its stead. The same
+# fixture as new_tree, one path short of it — not a second fixture shape.
+new_tree_no_ledger() { new_tree; rm -f "$WT/.superpowers/sdd/tasks/progress.md"; }
+new_tree_no_panel() { new_tree; rm -f "$WT/.superpowers/sdd/final-review-panel.md"; }
+
 # run_it -> sets RC and OUT for the change named `demo`
 run_it() {
   set +e
@@ -153,14 +159,216 @@ for missing in ledger panel artifact; do
   run_it
   [ "$RC" -eq 0 ] && pass "missing $missing is not fatal" \
     || fail "missing $missing: rc=$RC out=$OUT"
+  # The ledger and the panel record carry an allowlist of known-wrong paths, so
+  # "absent" means absent from the canonical path AND from every entry in that
+  # allowlist, and the contract calls that outcome MISSING rather than the
+  # ordinary skip. The proposal artifact carries no allowlist and keeps the
+  # skip. Both outcomes are still non-fatal, which is what the RC assertion
+  # above pins. See the rescue section below.
+  case "$missing" in
+    artifact) expected="skipped:" ;;
+    *) expected="MISSING:" ;;
+  esac
   case "$OUT" in
-    *skipped:*) pass "missing $missing is reported" ;;
-    *) fail "missing $missing was not reported: $OUT" ;;
+    *"$expected"*) pass "missing $missing is reported" ;;
+    *) fail "missing $missing was not reported as $expected: $OUT" ;;
   esac
   REMAINING="$(find "$WT/docs/superpowers" -type f 2>/dev/null | wc -l | tr -d ' ' || true)"
   [ "$REMAINING" = "2" ] && pass "missing $missing: the other two records are still preserved" \
     || fail "missing $missing: preserved $REMAINING of the remaining 2 records"
 done
+
+# ===========================================================================
+# SECTION: A record found at a known-wrong path is rescued, not skipped
+# ===========================================================================
+
+# 3b. A record written to a known-wrong path is copied to the CANONICAL
+# destination, one case per allowlist entry, for each of the two records that
+# carry an allowlist.
+#
+# Each case asserts the CONTENT arrives at the destination, not merely that a
+# `rescued:` line was printed: a report of a copy that copied nothing would
+# satisfy a message-only assertion, which is the trap case 1b already guards
+# against for the ordinary copy. The `rescued:` line must also name the wrong
+# path, because the record being safe is only half the outcome — the writer that
+# chose the path is the defect the line exists to make visible.
+for wrong in \
+  ledger:.superpowers/sdd/ledger.md \
+  ledger:.superpowers/sdd/progress.md \
+  ledger:.superpowers/sdd/tasks/ledger.md \
+  panel:.superpowers/sdd/panel.md \
+  panel:.superpowers/sdd/review-panel.md \
+  panel:.superpowers/sdd/final-review.md; do
+  record="${wrong%%:*}"
+  rel="${wrong#*:}"
+  case "$record" in
+    ledger)
+      new_tree_no_ledger
+      DEST_DIR="$WT/docs/superpowers/ledgers"; DEST_GLOB='*-demo.md' ;;
+    panel)
+      new_tree_no_panel
+      DEST_DIR="$WT/docs/superpowers/reviews"; DEST_GLOB='*-demo-panel.md' ;;
+  esac
+  mkdir -p "$(dirname "$WT/$rel")"
+  printf 'rescued %s body\n' "$record" > "$WT/$rel"
+  run_it
+  COPY="$(find "$DEST_DIR" -name "$DEST_GLOB" 2>/dev/null | head -1 || true)"
+  if [ -n "$COPY" ] && grep -q "rescued $record body" "$COPY"; then
+    pass "$record at $rel: the content reaches the canonical destination"
+  else
+    fail "$record at $rel: content did not reach '$COPY': $OUT"
+  fi
+  case "$OUT" in
+    *"rescued: "*"$WT/$rel"*) pass "$record at $rel: the rescue names the wrong path" ;;
+    *) fail "$record at $rel: no rescued: line naming the wrong path: $OUT" ;;
+  esac
+done
+
+# 3c. The allowlist is walked IN ORDER, and the first entry that exists wins.
+# Both bodies are placed in the same tree, so a filesystem-order or glob-based
+# implementation would pick either one; only an ordered walk picks the earlier
+# entry every time. This is the case that stops the implementation being written
+# as an unordered glob over the workspace.
+for record in ledger panel; do
+  case "$record" in
+    ledger)
+      new_tree_no_ledger
+      FIRST=".superpowers/sdd/ledger.md"; SECOND=".superpowers/sdd/progress.md"
+      DEST_DIR="$WT/docs/superpowers/ledgers"; DEST_GLOB='*-demo.md' ;;
+    panel)
+      new_tree_no_panel
+      FIRST=".superpowers/sdd/panel.md"; SECOND=".superpowers/sdd/review-panel.md"
+      DEST_DIR="$WT/docs/superpowers/reviews"; DEST_GLOB='*-demo-panel.md' ;;
+  esac
+  printf 'earlier entry body\n' > "$WT/$FIRST"
+  printf 'later entry body\n' > "$WT/$SECOND"
+  run_it
+  COPY="$(find "$DEST_DIR" -name "$DEST_GLOB" 2>/dev/null | head -1 || true)"
+  if [ -n "$COPY" ] && grep -q 'earlier entry body' "$COPY"; then
+    pass "$record: the earlier allowlist entry is the one rescued"
+  else
+    fail "$record: the allowlist order did not decide: '$COPY' out=$OUT"
+  fi
+  case "$OUT" in
+    *"rescued: "*"$WT/$FIRST"*) pass "$record: the rescue names the earlier allowlist entry" ;;
+    *) fail "$record: the rescue does not name the earlier allowlist entry: $OUT" ;;
+  esac
+done
+
+# ===========================================================================
+# SECTION: A record absent from every known path is MISSING, not skipped
+# ===========================================================================
+
+# 3d. Neither the canonical path nor any allowlist entry exists. The outcome is
+# distinct from the ordinary skip, names every path it tried, and still exits
+# ZERO — non-zero keeps its single meaning of "a copy was attempted and was
+# refused or could not be written", so a caller branching on exit status cannot
+# read an absent record as a failed one.
+for record in ledger panel; do
+  case "$record" in
+    ledger)
+      new_tree_no_ledger
+      CANON="$WT/.superpowers/sdd/tasks/progress.md"
+      TRIED=("$WT/.superpowers/sdd/ledger.md" \
+             "$WT/.superpowers/sdd/progress.md" \
+             "$WT/.superpowers/sdd/tasks/ledger.md") ;;
+    panel)
+      new_tree_no_panel
+      CANON="$WT/.superpowers/sdd/final-review-panel.md"
+      TRIED=("$WT/.superpowers/sdd/panel.md" \
+             "$WT/.superpowers/sdd/review-panel.md" \
+             "$WT/.superpowers/sdd/final-review.md") ;;
+  esac
+  run_it
+  [ "$RC" -eq 0 ] && pass "$record missing everywhere exits zero" \
+    || fail "$record missing everywhere: expected rc 0, rc=$RC out=$OUT"
+  case "$OUT" in
+    *"MISSING: $CANON"*) pass "$record missing everywhere names the canonical path first" ;;
+    *) fail "$record missing everywhere: no MISSING line naming $CANON: $OUT" ;;
+  esac
+  case "$OUT" in
+    *"skipped: $CANON"*) fail "$record missing everywhere was reported as an ordinary skip: $OUT" ;;
+    *) pass "$record missing everywhere is not reported as an ordinary skip" ;;
+  esac
+  NAMED=1
+  for tried in "${TRIED[@]}"; do
+    case "$OUT" in *"$tried"*) : ;; *) NAMED=0 ;; esac
+  done
+  [ "$NAMED" -eq 1 ] && pass "$record missing everywhere names every path it tried" \
+    || fail "$record missing everywhere does not name every path tried: $OUT"
+done
+
+# 3e. The proposal artifact is deliberately NOT subject to the rescue: it has an
+# empty allowlist, so its absence stays the ordinary skip and raises no
+# missing-record alarm. /myflow-fast publishes no proposal artifact by design,
+# and an alarm that fires on every fast run is one nobody reads. This is the
+# case that pins the two-sources-not-three decision.
+new_tree
+rm "$STATE_DIR/demo-proposal-artifact.html"
+run_it
+case "$OUT" in
+  *"skipped: $STATE_DIR/demo-proposal-artifact.html (absent)"*) \
+    pass "an absent proposal artifact keeps the ordinary skip" ;;
+  *) fail "an absent proposal artifact did not keep the ordinary skip: $OUT" ;;
+esac
+case "$OUT" in
+  *MISSING:*) fail "an absent proposal artifact raised a missing-record alarm: $OUT" ;;
+  *) pass "an absent proposal artifact raises no missing-record alarm" ;;
+esac
+
+# 3f. A fallback source is a source, so it passes every protection an ordinary
+# source passes — including Protection 3. A fallback resolving OUTSIDE the
+# worktree is REFUSED: reported, non-zero for that record, and never downgraded
+# to the skip or to MISSING, both of which mean "no copy was attempted". This is
+# the case that proves the rescue did not open a second copy path around the
+# containment checks.
+new_tree_no_ledger
+OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/preserve-test-outside.XXXXXX")"
+TREES+=("$OUTSIDE")
+printf 'PLANTED-SECRET-VALUE\n' > "$OUTSIDE/planted"
+ln -s "$OUTSIDE/planted" "$WT/.superpowers/sdd/ledger.md"
+run_it
+[ -z "$(grep -rl 'PLANTED-SECRET-VALUE' "$WT/docs" 2>/dev/null || true)" ] \
+  && pass "symlinked fallback: the planted content never reaches the repository" \
+  || fail "symlinked fallback: planted content was preserved into the repository: $OUT"
+[ "$RC" -ne 0 ] && pass "symlinked fallback: exits non-zero" \
+  || fail "symlinked fallback: expected non-zero, rc=$RC out=$OUT"
+case "$OUT" in
+  *"preserve-session-records:"*"$WT/.superpowers/sdd/ledger.md"*) \
+    pass "symlinked fallback: the refusal names the fallback path" ;;
+  *) fail "symlinked fallback: the refusal does not name the fallback path: $OUT" ;;
+esac
+case "$OUT" in
+  *MISSING:*) fail "symlinked fallback: a refusal was downgraded to a missing record: $OUT" ;;
+  *) pass "symlinked fallback: a refusal is not downgraded to a missing record" ;;
+esac
+case "$OUT" in
+  *"skipped: $WT/.superpowers/sdd/ledger.md"*) \
+    fail "symlinked fallback: a refusal was downgraded to a skip: $OUT" ;;
+  *) pass "symlinked fallback: a refusal is not downgraded to a skip" ;;
+esac
+# One untrusted fallback must not cost the records that are fine, exactly as an
+# untrusted canonical source does not in case 4c-iii.
+REMAINING="$(find "$WT/docs/superpowers" -type f 2>/dev/null | wc -l | tr -d ' ' || true)"
+[ "$REMAINING" = "2" ] && pass "symlinked fallback: the other two records are still preserved" \
+  || fail "symlinked fallback: preserved $REMAINING of the remaining 2 records"
+
+# 3g. A rescued record reuses the change's existing dated destination, so a
+# rescue is indistinguishable from an ordinary copy to every later reader of the
+# repository — the same assertion case 2 makes for an ordinary re-copy. The
+# pre-placed file carries a fixed past date so the case cannot pass merely
+# because both writes happen to land on the same day.
+new_tree_no_ledger
+mkdir -p "$WT/docs/superpowers/ledgers"
+printf 'ledger body v1\n' > "$WT/docs/superpowers/ledgers/1999-01-01-demo.md"
+printf 'rescued ledger body\n' > "$WT/.superpowers/sdd/ledger.md"
+run_it
+COUNT="$(find "$WT/docs/superpowers/ledgers" -name '*-demo.md' 2>/dev/null | wc -l | tr -d ' ' || true)"
+[ "$COUNT" = "1" ] && pass "a rescue does not duplicate the preserved ledger" \
+  || fail "a rescue made $COUNT ledger files: $OUT"
+grep -q 'rescued ledger body' "$WT/docs/superpowers/ledgers/1999-01-01-demo.md" \
+  && pass "a rescue overwrites the existing dated path" \
+  || fail "a rescue did not overwrite the existing dated path: $OUT"
 
 # ===========================================================================
 # SECTION: Failure is loud — a copy that was attempted and could not be

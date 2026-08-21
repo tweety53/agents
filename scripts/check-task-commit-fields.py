@@ -16,24 +16,134 @@ skipped-not-verified instead of failing the run.
 
 Scope is one task, in one tasks.md, in one worktree, checked against one
 commit (and its parent) — unlike check-task-build-green.py, which scans an
-entire tasks.md's tags in one pass. `check-task-commit-fields.sh` is the
-thin wrapper that resolves WHICH tasks.md and worktree a caller means.
+entire tasks.md's tags in one pass. The one exception is a folded pair,
+below, whose partner is looked up in the same tasks.md.
+`check-task-commit-fields.sh` is the thin wrapper that resolves WHICH
+tasks.md and worktree a caller means.
+
+Folded red tasks
+----------------
+
+A task tagged `**Build:** red` carries `**Squash-with:** Task <N>`, naming
+one or more partners in the same plan, and its commit is folded into that
+one unit's commit before review (see skills/myflow-contracts/build-
+green.md). After the fold the red task has NO commit of its own: its
+declared `Commit:` subject exists nowhere, and one commit carries every
+folded task's files. Checking it against a commit of its own is therefore
+impossible, which is why `resolve_folded_task` resolves the whole fold
+first — and the fold is every red task joined by a shared partner, not one
+red task's own `Squash-with:` list, since two reds naming the same partner
+both fold into that partner's one commit:
+
+  * invoked for the red task -> the PARTNERS' agreed `Commit:` subject,
+    with the UNION of every folded task's `Files:`/`Allowed-collateral:`
+    sets;
+  * invoked for a partner -> the fold's agreed subject, which is its own
+    where it declared one, with that same union — the red task's files AND
+    every SIBLING partner's — so either id reaches one verdict against the
+    folded commit;
+  * a `Squash-with:` value that is not `Task <id>[, <id>...]` -> a
+    violation naming the value, reported from EVERY id in the plan, and
+    nothing else is checked (fix round 6, F16). The whole field is gated
+    before any id is extracted — by lib/plan_grammar.py, the one grammar
+    check-task-build-green.py gates it with too — because a bare id pattern
+    run over free text turns any digit in it into a partner and silently
+    widens the fold's file union (fix round 5, F9). Reported rather than
+    treated as no partners: the two guards read one field, build-green
+    already fails a red task whose `Squash-with:` it cannot parse, and
+    demoting the task to the ordinary path would check it against a
+    `Commit:` subject the fold deleted. Plan-wide rather than from the red
+    alone, because the guard cannot know which commit that task folded into
+    and therefore cannot vouch for any fold in the plan; reported only from
+    the red, the defect was invisible from the very task its free text
+    named, which was told instead that the folded commit's other file was
+    undeclared collateral — true of the commit, and about the wrong field;
+  * a `Squash-with:` naming a task absent from the plan, or a partner that
+    is itself red -> a violation naming it, and nothing else is checked.
+    The partner set is re-validated from a partner's id too, so an invalid
+    fold cannot pass through one. Such an edge joins NOTHING (fix round 6,
+    F15): the named task, and any valid fold it belongs to, stay out of
+    this red's membership set, so one red's broken reference cannot fail a
+    separate and entirely correct folded commit from every id in it. This
+    differs from the ungated value above because here both the named
+    partner and the reason the edge is illegal are known, so the guard
+    knows the fold does not exist; there, nothing is known;
+  * partners declaring DIFFERENT `Commit:` subjects -> a violation, whether
+    they are one red's partners or two joined folds'. One unit folds into
+    one commit, so one subject; disagreement is a plan defect, not a
+    mismatch to blame on the commit. A partner declaring NO `Commit:` field
+    contributes no subject rather than a distinct one, so it never
+    manufactures that disagreement;
+  * NO partner declaring a `Commit:` subject anywhere in the fold -> a
+    violation. The surviving commit's subject would otherwise be checked
+    against nothing and any subject would pass. The question is asked of the
+    whole combined fold, not of one red's own partner list: where any red in
+    the group has a partner declaring a subject, that is the fold's subject
+    and a sibling red whose partners declared none is no defect. This holds
+    inside a fold only: `Commit:` stays optional for an ordinary task;
+  * every other task -> unchanged. The union widens a folded pair, never an
+    ordinary task.
+
+`Tests:` and the declared-scope check are the task's own either way: both
+are about what THIS task declared, not about which commit survived.
 
 Field grammar
 -------------
 
-A task's fields are read from its body the same way check-task-build-
-green.py reads a `**Build:**` tag: the task's body runs from its `###
-<DOTTED_ID> ...` heading to the next line matching `^#{2,3}(?:\\s|$)` or end
-of file. Within that body, a field starts at a line matching
+A task's body runs from its `### <DOTTED_ID> ...` heading to the next line
+matching `^#{2,3}(?:\\s|$)` or end of file, fenced examples excluded and a
+duplicated id resolving to its FIRST heading — all of which is
+lib/plan_grammar.py's `select_task`, not a scan in this file (fix round 9).
 
-    ^\\*\\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral):\\*\\*\\s*(.*)$
+A body that opens a fence and never closes it is a PLAN DEFECT, reported on
+its own by `check_task_commit` and replacing every other check for that
+task (fix round 11, F22). An unclosed fence runs to the end of the block,
+so the fields below it are code — correctly unread here, and shown as code
+by any renderer — but the guard used to report only the consequence: an
+empty `Files:` set, and the commit blamed for touching the very file the
+task declared. `lib/plan_grammar.py`'s `unclosed_fence` is the detection,
+shared so check-task-build-green.py names the same defect instead of
+reporting the task as untagged.
+The dotted-id grammar, the whole of `Squash-with:` and the whole of
+`**Build:**` come from that module too, which check-task-build-green.py
+imports as well — one definition per piece of grammar, rather than a copy
+in each guard held in step by a comment asserting parity (fix round 6, F13;
+that comment had been wrong once already, and the false claim survived four
+review rounds).
+
+`**Build:**` is read from the body by that module's `select_build_tag`: the
+first line that is `**Build:** green` or `**Build:** red` in full. It used
+to be read through FIELD_RE's alternation below, which joined continuation
+lines onto its value and let a later `**Build:**` line overwrite an earlier
+one — so `**Build:** red` followed by `**Build:** green` was green here and
+red in the other guard, and `**Build:** red` followed by an unblanked prose
+line was no tag at all here and red there. Either way one guard resolved the
+fold while this one checked the folded commit against a `Commit:` subject
+the fold had deleted (fix round 9, F20).
+
+Within that body, a field starts at a line matching
+
+    ^\\*\\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build):\\*\\*\\s*(.*)$
 
 and its value continues onto every following non-blank line that does not
 itself start a new field, until a blank line, a new field, or the body
 boundary — this lets a long field (e.g. `Tests:` naming several cases) wrap
 across source lines the way prose in this repository's plans normally does,
 without the wrapped continuation being mistaken for a new field's absence.
+
+`**Squash-with:**` is the ONE exception, and is LINE-SCOPED: its value is
+what stands on its own line, and a following continuation line is not part
+of it. Its grammar is closed and short, so it never needs to wrap; and
+under the joined reading an unrelated prose line placed under it with no
+blank line between silently changed what the field meant — accepted by the
+other guard, which gates one physical line, and rejected here (fix round 6,
+F14). WHICH line in the body is the field is lib/plan_grammar.py's
+`select_squash_with`, called by both guards: the first candidate whose
+value gates, so a non-gating line ahead of it is skipped rather than read
+as the field (fix round 8, F19). A `Squash-with:`-shaped line still
+terminates a preceding field's continuation wherever it stands, which is
+all this guard's own field loop reads it for. See lib/plan_grammar.py's
+docstring for the rule and its reasoning.
 
 `Files:` and `Allowed-collateral:` each name one or more backtick-quoted
 tokens (`` `path/to/file` ``, comma-separated) — the convention every real
@@ -66,9 +176,13 @@ Exit codes:
      or `Baseline:` check that fell back to skipped-not-verified still
      prints its own notice line, but does not affect this exit code).
   1  violations found — one or more of: an undeclared file, a missing
-     declared test, a commit subject mismatch, a `Regression:` revert that
-     did not make its named test fail, or a `Baseline:` count mismatch.
-     Printed one per line as `task <id>: message`.
+     declared test, a commit subject mismatch, a `Squash-with:` value that
+     does not gate as `Task <id>[, <id>...]`, an unresolvable
+     `Squash-with:` partner, a set of partners — or two folds joined by a
+     shared partner — disagreeing about the folded commit's subject, or a
+     fold declaring none at all, a `Regression:` revert that
+     did not make its named test fail, or a `Baseline:` count mismatch. Printed one per line
+     as `task <id>: message`.
   2  invocation error — wrong argument count, the tasks.md cannot be read,
      the task id does not exist in it, or git cannot resolve the commit
      range in the given worktree.
@@ -86,19 +200,41 @@ import re
 import shlex
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, NamedTuple, Optional, Pattern, Tuple
 
-DOTTED_ID = r"\d+(?:\.\d+)*"
-TASK_HEADING_RE = re.compile(rf"^### ({DOTTED_ID})(?:\s|$)")
-BODY_BOUNDARY_RE = re.compile(r"^#{2,3}(?:\s|$)")
-# FIELD_RE recognises every field name this plan's grammar defines, not
-# only the ones this guard checks — `Build:` and `Squash-with:` must still
-# close a preceding field's continuation (see parse_task_fields), even
-# though this guard reads neither of their values itself.
+# The tasks.md grammar this guard shares with check-task-build-green.py is
+# defined once, in a module both import (fix round 6, F13); see that
+# module's docstring for the two drifts a per-guard copy produced, and for
+# why `Squash-with:` is line-scoped. `lib/` is resolved through this file's
+# REAL path, so the import works when the guard is invoked through
+# skills/myflow-do/scripts/ or skills/myflow-fast/scripts/ as well as from
+# the repository root.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+
+from plan_grammar import (
+    DOTTED_ID,
+    FENCE_RE,
+    SQUASH_WITH_FIELD_RE,
+    iter_tasks,
+    select_build_tag,
+    select_squash_with,
+    select_task,
+    unclosed_fence,
+)
+
+# FIELD_RE recognises the fields this guard reads out of a task body. Two
+# names in it carry no value here: `Squash-with:` and `Build:` are matched
+# only so that such a line CLOSES a preceding field's continuation (see
+# parse_task_fields). What either of them SAYS is lib/plan_grammar.py's
+# `select_squash_with` / `select_build_tag`, so that no loop in this file
+# decides it (fix round 8, F19; fix round 9, F20). `Build:` matters here at
+# all because a `Build: red` task's commit is folded into its
+# `Squash-with:` partner's before review, so the fold has to be resolved
+# before any field can be checked (see resolve_folded_task).
 FIELD_RE = re.compile(
-    r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|"
-    r"Squash-with):\*\*\s*(.*)$"
+    r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build)"
+    r":\*\*\s*(.*)$"
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+)\b", re.IGNORECASE)
@@ -135,7 +271,10 @@ TOTAL_COUNT_RE = re.compile(r"^COUNT:\s*(\d+)\s*$", re.MULTILINE)
 # PROJECT_TEST_SECTION_RE / MARKDOWN_HEADING_RE / FENCE_LINE_RE — read the
 # fenced command list under `.myflow/project.md`'s own `## test` heading,
 # the same section `.myflow/project.md`'s own prose documents as the source
-# of truth for this repository's test commands.
+# of truth for this repository's test commands. FENCE_LINE_RE is scoped to
+# that file: it gates the whole physical line on three backticks, which is
+# all `## test`'s own block has ever used. A task body's fences are
+# lib/plan_grammar.py's FENCE_RE instead, everywhere this guard reads one.
 PROJECT_TEST_SECTION_RE = re.compile(r"^## test\s*$", re.IGNORECASE)
 MARKDOWN_HEADING_RE = re.compile(r"^#{1,6}\s")
 FENCE_LINE_RE = re.compile(r"^```")
@@ -159,6 +298,19 @@ class TaskFields:
     allowed_collateral: List[str] = field(default_factory=list)
     commit: Optional[str] = None
     baseline: Optional[Tuple[int, int]] = None
+    build: Optional[str] = None  # "green", "red", or None (no tag)
+    # The raw `Squash-with:` value as written, or None when the field is
+    # absent. Kept so a red task whose field is present but yields no partner
+    # id can be reported as the plan defect it is (see resolve_folded_task),
+    # rather than silently demoted to the ordinary single-commit path.
+    squash_value: Optional[str] = None
+    squash_partners: List[str] = field(default_factory=list)
+    # The 1-based tasks.md line of a fence this task's body opens and never
+    # closes, or None when it closes every fence it opens. Set so that the
+    # swallowed fields below it are reported as the plan defect they are,
+    # rather than as an empty declaration the commit is then blamed for
+    # exceeding (fix round 11, F22).
+    unclosed_fence_line: Optional[int] = None
 
 
 class CheckOutcome(NamedTuple):
@@ -211,19 +363,10 @@ def _parse_test_specs(value: str) -> List[TestSpec]:
 
 def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
     """Find `task_id`'s heading in `lines` and read its declared fields."""
-    body_start: Optional[int] = None
-    body_end = len(lines)
-    for index, line in enumerate(lines):
-        heading_match = TASK_HEADING_RE.match(line)
-        if heading_match and heading_match.group(1) == task_id:
-            body_start = index + 1
-            continue
-        if body_start is not None and BODY_BOUNDARY_RE.match(line):
-            body_end = index
-            break
-
-    if body_start is None:
+    found = select_task(lines, task_id)
+    if found is None:
         raise TaskNotFoundError(f"task {task_id} not found")
+    body = found.lines
 
     fields: Dict[str, List[str]] = {}
     current_name: Optional[str] = None
@@ -234,11 +377,31 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         if current_name is not None:
             fields[current_name] = current_parts
 
-    for line in lines[body_start:body_end]:
-        if FENCE_LINE_RE.match(line):
+    for line in body:
+        if FENCE_RE.match(line):
+            # lib/plan_grammar.py's fence rule, not a local one: CommonMark's
+            # backticks-or-tildes with up to three columns of indent. Gating
+            # this loop on a bare "^```" instead let a `~~~` or an indented
+            # example block stay invisible HERE while every selector this
+            # guard shares with check-task-build-green.sh saw it — so a
+            # `**Files:**` written inside a worked example overwrote the
+            # task's real declaration, and the guard then reported the
+            # declared file as undeclared collateral and passed the example's
+            # (fix round 10, F21).
             in_fence = not in_fence
             continue
         if in_fence:
+            continue
+        if SQUASH_WITH_FIELD_RE.match(line):
+            # A `Squash-with:`-shaped line terminates a preceding field's
+            # continuation — the only thing this loop reads it for. WHICH
+            # such line is the field is not decided here at all: it is
+            # select_squash_with's answer, below, so that no loop in this
+            # file can select a different line from the one
+            # check-task-build-green.py selects (fix round 8, F19).
+            commit_field()
+            current_name = None
+            current_parts = []
             continue
         field_match = FIELD_RE.match(line)
         if field_match:
@@ -273,6 +436,26 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         else None
     )
 
+    # The tag is the first line-gated `**Build:** green|red` in the body,
+    # per lib/plan_grammar.py's select_build_tag — never a value assembled
+    # from FIELD_RE's capture above, which joined continuation lines onto it
+    # and let a later tag line overwrite an earlier one (fix round 9, F20).
+    tag = select_build_tag(body)
+
+    # select_squash_with returns the first candidate whose value GATES, or —
+    # when none gates — the first candidate with `partners=None`. Either of
+    # the latter two shapes leaves this task with no partner, and
+    # resolve_folded_task reports it as the plan defect it is rather than
+    # demoting the task to the ordinary single-commit path.
+    squash = select_squash_with(body)
+    squash_value = None if squash is None else squash.value
+    squash_partners = [] if squash is None else (squash.partners or [])
+
+    fence_offset = unclosed_fence(body)
+    fence_line = (
+        None if fence_offset is None else found.body_start + fence_offset + 1
+    )
+
     return TaskFields(
         id=task_id,
         files=_extract_backtick_tokens(files_value),
@@ -280,7 +463,335 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         allowed_collateral=_extract_backtick_tokens(collateral_value),
         commit=commit_value,
         baseline=baseline_counts,
+        build=tag.kind if tag is not None else None,
+        squash_value=squash_value,
+        squash_partners=squash_partners,
+        unclosed_fence_line=fence_line,
     )
+
+
+def collect_task_ids(lines: List[str]) -> List[str]:
+    """Every task id with a heading in `lines`, in document order — the plan
+    resolve_folded_task searches for a red task naming a given partner."""
+    ids: List[str] = []
+    for task in iter_tasks(lines):
+        if task.id not in ids:
+            ids.append(task.id)
+    return ids
+
+
+def _fold_group(
+    lines: List[str], red_task: TaskFields
+) -> Tuple[List[str], List[str], Optional[str], List[str]]:
+    """Resolve every partner a `Build: red` task's `Squash-with:` names —
+    "one or more other tasks in the same plan", per **The build-green tag**
+    (`skills/myflow-contracts/build-green.md`). Returns `(partner files,
+    partner allowed-collateral, the folded commit's expected subject,
+    violations)`.
+
+    The whole set is ONE unit folding into ONE commit ("whose commit this
+    task's commit folds into" — singular, over a plural set). So every named
+    partner has to declare the SAME `Commit:` subject: two partners naming
+    different subjects cannot both describe the one surviving commit, and
+    that disagreement is a plan defect reported here rather than a subject
+    mismatch blamed on the commit. Taking the first-listed partner's subject
+    and checking the commit against that would instead report a false
+    mismatch whenever the real subject is a later-listed partner's.
+
+    A partner declaring NO `Commit:` field contributes no subject (fix round
+    2, F5/F6). It is skipped rather than counted, so it cannot manufacture a
+    disagreement with a partner that did declare one. Whether the fold ends
+    up with no subject at all is NOT decided here (fix round 4, item 2):
+    this red's partners declaring none is only half the question when
+    another red joined to the same commit supplies one, so
+    `resolve_folded_task` asks it of the combined group and this function
+    simply returns `None` for the subject.
+
+    Whether a partner is missing, itself red, or disagrees about the
+    subject, the violation names the RED task — that is where the defective
+    field is, whichever id the guard was invoked for.
+
+    Scope is ONE red task's own `Squash-with:` list. Where two red tasks
+    share a partner their folds are one combined unit, and it is
+    `resolve_folded_task` that walks every red in that unit and reconciles
+    what each of them returns here (fix round 3, F8)."""
+    files: List[str] = []
+    collateral: List[str] = []
+    subjects: List[str] = []
+    violations: List[str] = []
+    # partner_error: this fold already has a defect in the partner SET
+    # itself — a partner that does not exist, or one that is itself red
+    # (fix round 3, F7). The disagreement check below is about the subjects
+    # the partners declared, which is only a meaningful question once the
+    # set resolved; and a fold with an unresolvable partner reporting a
+    # second violation would name one defect twice. The flag states that
+    # precondition instead of inferring it from `violations` being empty,
+    # which was true only because these are the sole violations that can
+    # precede it. Case 47 pins it: an unresolvable partner alongside two
+    # disagreeing resolvable ones reports the missing partner and nothing
+    # else.
+    partner_error = False
+    for partner_id in red_task.squash_partners:
+        try:
+            partner = parse_task_fields(lines, partner_id)
+        except TaskNotFoundError:
+            violations.append(
+                f"task {red_task.id}: Squash-with: names Task {partner_id}, "
+                "which does not exist in this plan"
+            )
+            partner_error = True
+            continue
+        if partner.build == "red":
+            violations.append(
+                f"task {red_task.id}: Squash-with: names Task {partner_id}, "
+                "which is itself red"
+            )
+            partner_error = True
+            continue
+        files += partner.files
+        collateral += partner.allowed_collateral
+        if partner.commit is not None and partner.commit not in subjects:
+            subjects.append(partner.commit)
+    if not partner_error and len(subjects) > 1:
+        violations.append(
+            f"task {red_task.id}: Squash-with: names partners declaring "
+            "different Commit: subjects "
+            + ", ".join(repr(subject) for subject in subjects)
+            + " — one folded unit is one commit, so one subject"
+        )
+    subject = subjects[0] if len(subjects) == 1 else None
+    return files, collateral, subject, violations
+
+
+def _widen(
+    task: TaskFields,
+    extra_files: List[str],
+    extra_collateral: List[str],
+    commit: Optional[str],
+) -> TaskFields:
+    """The one widening step both of `resolve_folded_task`'s branches use:
+    add the rest of the fold's declared paths to this task's own, and set
+    the subject the surviving commit is expected to carry. Written once so
+    the two branches cannot drift apart."""
+    return replace(
+        task,
+        files=task.files + extra_files,
+        allowed_collateral=task.allowed_collateral + extra_collateral,
+        commit=commit,
+    )
+
+
+def _red_tasks(lines: List[str]) -> List[TaskFields]:
+    """Every `Build: red` task in the plan that carries a `Squash-with:`
+    field at all, in document order — the reds whose folds and whose
+    defective fields both have to be accounted for before any task in this
+    plan can be checked."""
+    return [
+        red
+        for red in (parse_task_fields(lines, other_id) for other_id in
+                    collect_task_ids(lines))
+        if red.build == "red" and red.squash_value is not None
+    ]
+
+
+def _joined_partners(lines: List[str], red: TaskFields) -> List[str]:
+    """The partner ids of `red` that RESOLVE — the named task exists in this
+    plan and is not itself red — and therefore actually join `red`'s commit
+    to theirs.
+
+    An edge that does not resolve is not an edge (fix round 6, F15). It is
+    a plan defect, reported by `_fold_group` against the red task carrying
+    the field; but it names no commit, so it must not pull the named task —
+    nor, transitively, the valid fold that task belongs to — into this red's
+    membership set. Growing the group through such an edge made one red's
+    broken reference fail a separate, entirely valid folded commit from
+    every id in it."""
+    joined: List[str] = []
+    for partner_id in red.squash_partners:
+        try:
+            partner = parse_task_fields(lines, partner_id)
+        except TaskNotFoundError:
+            continue
+        if partner.build == "red":
+            continue
+        joined.append(partner_id)
+    return joined
+
+
+def _fold_reds(
+    lines: List[str], task: TaskFields, reds: List[TaskFields]
+) -> List[str]:
+    """Every red task whose fold folds into the ONE commit `task` belongs to,
+    in document order (fix round 3, F8). `reds` is `_red_tasks(lines)`,
+    already known to name at least one partner each.
+
+    `Squash-with:` is an edge, not a tree. Two red tasks may name the SAME
+    green partner, and each of their commits then folds into that one
+    partner's commit — so both folds, and every task in either, are one
+    combined unit carried by one commit. Resolving only the first red found
+    in document order gave the shared partner's id a narrower file union and
+    a different subject from the red ids: two verdicts on one commit, which
+    is exactly what "either id gives the same verdict" forbids.
+
+    The group is therefore grown to a fixed point: a red belongs if it IS a
+    member or NAMES one through a RESOLVING edge, and admitting it makes
+    those partners members in turn, which may admit further reds. Membership
+    is grown over `_joined_partners`, never over the raw `squash_partners`
+    list (fix round 6, F15). A task that is neither a red with partners nor
+    named by one yields the empty list and is left alone — the union widens
+    a fold, never an ordinary task."""
+    edges = {red.id: _joined_partners(lines, red) for red in reds}
+    members = {task.id}
+    growing = True
+    while growing:
+        growing = False
+        for red in reds:
+            joined = edges[red.id]
+            if red.id not in members and not any(
+                partner in members for partner in joined
+            ):
+                continue
+            reached = {red.id} | set(joined)
+            if not reached <= members:
+                members |= reached
+                growing = True
+    return [red.id for red in reds if red.id in members]
+
+
+def _shared_partner(reds: List[TaskFields]) -> Optional[str]:
+    """The first task named by more than one of `reds` — the join that made
+    their folds one unit, and the task a disagreement between those folds is
+    reported against. `None` when the reds share nobody, which a group of
+    two or more reds cannot be (they are only in one group because they
+    share a partner or because one names the other, and the latter is
+    already a violation); the caller falls back rather than assume it."""
+    seen: List[str] = []
+    for red in reds:
+        for partner in red.squash_partners:
+            if partner in seen:
+                return partner
+            seen.append(partner)
+    return None
+
+
+def resolve_folded_task(
+    lines: List[str], task: TaskFields
+) -> Tuple[TaskFields, List[str]]:
+    """Resolve a folded task against the whole fold its commit carries, per
+    `myflow-task-commit-fields`'s requirement **A folded red task is checked
+    against its partner's commit**. Returns `(task to check, violations found
+    resolving it)`; a non-empty violation list is a plan defect and the caller
+    reports it instead of checking anything.
+
+    After the fold a red task has no commit of its own: its declared
+    `Commit:` subject exists nowhere, and one commit carries every folded
+    task's files. So every task in the fold — the red tasks and their green
+    partners alike — is checked against the fold's agreed `Commit:` subject
+    with the UNION of the whole fold's `Files:`/`Allowed-collateral:` sets.
+    Either id therefore reaches one verdict, invalid folds included: every
+    red in the group is re-validated from every id, so a fold one id rejects
+    cannot pass through another's.
+
+    The fold is `_fold_reds`'s combined group, not one red's partner list
+    (fix round 3, F8): where two reds name the same partner, both commits
+    fold into that partner's one commit. Their partner sets must then agree
+    about that commit's subject exactly as one red's partners must, and a
+    disagreement between the two folds is the same plan defect — reported
+    against the shared task that joined them, and naming the reds, rather
+    than silently taking the first red in document order.
+
+    The no-subject rule is asked of that same combined group (fix round 4,
+    item 2): it fires only when NO red in the group has a partner declaring
+    a `Commit:` subject. A red whose own partners declared none takes the
+    subject a joined red's partner supplied, because there is one commit and
+    therefore one subject.
+
+    A task that neither declares a `Squash-with:` nor is named by a red task
+    in the same plan is returned unchanged."""
+    reds = _red_tasks(lines)
+
+    # A red whose `Squash-with:` value names no partner the grammar admits
+    # is reported from EVERY id in the plan, not only from its own (fix
+    # round 6, F16). The guard cannot know which commit that task folded
+    # into — that is the whole content of the defect — so it cannot know
+    # which folds the plan really has, and no verdict it reaches for any
+    # task in this plan is one it can vouch for. Reported only from the red
+    # itself, the defect was invisible from the task its free text names,
+    # which was instead told that the folded commit's other file was
+    # undeclared collateral: true of the commit, and about the wrong field.
+    #
+    # This is deliberately NOT how an unresolvable EDGE is treated. There
+    # the named partner and the reason the edge is illegal are both known,
+    # so the guard knows the fold does not exist and reports it against the
+    # red task alone (see `_joined_partners`). Here nothing is known.
+    unresolved = [red for red in reds if not red.squash_partners]
+    if unresolved:
+        return task, [
+            f"task {red.id}: Squash-with: value {red.squash_value!r} is not "
+            "`Task <id>[, <id>...]`, so no merge partner can be resolved "
+            "from it"
+            for red in unresolved
+        ]
+
+    fold_reds = _fold_reds(lines, task, reds)
+    if not fold_reds:
+        return task, []
+
+    extra_files: List[str] = []
+    extra_collateral: List[str] = []
+    subjects: List[str] = []
+    violations: List[str] = []
+    for red_id in fold_reds:
+        red = parse_task_fields(lines, red_id)
+        group_files, group_collateral, group_subject, group_violations = _fold_group(
+            lines, red
+        )
+        violations += group_violations
+        # A red's own files, plus its partners' — including this task's own
+        # where it is one of them (a harmless duplicate), its SIBLING
+        # partners', and every task in a fold joined to this one.
+        if red_id != task.id:
+            extra_files += red.files
+            extra_collateral += red.allowed_collateral
+        extra_files += group_files
+        extra_collateral += group_collateral
+        if group_subject is not None and group_subject not in subjects:
+            subjects.append(group_subject)
+
+    # One combined fold is one commit, so it carries exactly one subject.
+    # Both failures — the folds disagreeing, and nobody declaring one at all
+    # — are asked of the COMBINED group (fix round 4, item 2 for the second
+    # of them): a red whose own partners declared no subject is no defect
+    # where a red joined to the same commit supplied one, since that is the
+    # fold's subject. Both are gated the same way `_fold_group` gates its own
+    # disagreement check: a group already carrying an unresolvable partner
+    # has its violation, and what its remaining partners happened to declare
+    # is not a second, separate defect. Both are anchored on the shared task
+    # that joined the folds, where there is one.
+    if not violations and len(subjects) != 1:
+        reds = [parse_task_fields(lines, red_id) for red_id in fold_reds]
+        shared = _shared_partner(reds)
+        anchor = shared if shared is not None else fold_reds[0]
+        if subjects:
+            violations.append(
+                f"task {anchor}: Task {shared or anchor} is folded by Tasks "
+                + ", ".join(fold_reds)
+                + ", whose partners declare different Commit: subjects "
+                + ", ".join(repr(subject) for subject in subjects)
+                + " — one folded unit is one commit, so one subject"
+            )
+        else:
+            violations.append(
+                f"task {anchor}: no partner named by Squash-with: declares "
+                "a Commit: subject in the fold carried by Tasks "
+                + ", ".join(fold_reds)
+                + " — the folded commit's subject would be checked against "
+                "nothing"
+            )
+    if violations:
+        return task, violations
+    subject = subjects[0]
+    return _widen(task, extra_files, extra_collateral, subject), []
 
 
 def run_git(worktree: str, args: List[str]) -> str:
@@ -618,6 +1129,31 @@ def check_task_commit(
     task = parse_task_fields(lines, task_id)
     change_name = os.path.basename(os.path.dirname(os.path.abspath(tasks_md_path)))
 
+    # An unclosed fence in this task's body is reported on its own, before
+    # anything else, and REPLACES every downstream check for it (fix round
+    # 11, F22). CommonMark runs an unclosed fence to the end of the block,
+    # so every field after it is code rather than a declaration: `Files:`
+    # arrives empty, `Commit:` absent, `Build:` and `Squash-with:` gone.
+    # Checking on against that field set does not merely add noise — it
+    # blames the commit for a defect in the plan, reporting the file the
+    # task really did declare as undeclared collateral. The precedent is
+    # the unresolvable fold below: a task whose declaration cannot be read
+    # is one no verdict can be reached for.
+    if task.unclosed_fence_line is not None:
+        return [
+            f"task {task.id}: code fence opened at tasks.md line "
+            f"{task.unclosed_fence_line} is never closed in this task's "
+            "body, so every field below it is inside the fence and was not "
+            "read"
+        ], []
+
+    # A folded pair is resolved before anything is checked; an unresolvable
+    # one is a plan defect reported on its own, since checking a red task
+    # against a commit that is not its own would report every field wrong.
+    folded, squash_violations = resolve_folded_task(lines, task)
+    if squash_violations:
+        return squash_violations, []
+
     resolved_parent = parent_sha or resolve_parent(worktree, commit_sha)
     changed_files = [
         p
@@ -633,9 +1169,12 @@ def check_task_commit(
 
     violations: List[str] = []
     notices: List[str] = []
-    violations += check_files(task, changed_files)
+    # `folded` carries the union file set and the surviving commit's expected
+    # subject; `task` carries what this task itself declared, which is what
+    # Tests: and the declared-scope check are about either way.
+    violations += check_files(folded, changed_files)
     violations += check_tests(task, diff_text)
-    violations += check_commit_subject(task, actual_subject)
+    violations += check_commit_subject(folded, actual_subject)
     violations += check_commit_scope(task, change_name)
 
     for outcome in (

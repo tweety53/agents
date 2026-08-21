@@ -368,6 +368,244 @@ case "$OUT" in
   *) fail "case 17: expected message reported against task 17.1, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 18 (fix round 6, F13): the **Squash-with:** grammar this guard reads
+# now lives in scripts/lib/plan_grammar.py, shared with
+# check-task-commit-fields.py, which used to keep its own copy of it. The
+# two behaviours that split apart there are pinned here against THIS guard,
+# so the shared module cannot be changed for one guard without the other
+# noticing:
+#
+#   * a value that does not gate as `Task <ids>` is not a Squash-with field
+#     at all — a red task carrying one is reported as having none, exactly
+#     as before the grammar moved (case 16's message, reached by a different
+#     route);
+#   * the field is LINE-scoped — a prose line following it, with no blank
+#     line between, is not part of its value, so the partner still resolves.
+# ===========================================================================
+new_fixture
+{
+  printf '### 18.1 Red task whose Squash-with value carries free text\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 18.2 (see step 3)\n\n'
+  printf '### 18.2 Green partner\n\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 18: a Squash-with value that does not gate fails" || fail "case 18: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 18.1 is red with no **Squash-with:** field"*) pass "case 18: an ungated value is reported as no field at all" ;;
+  *) fail "case 18: expected the missing-field message, out=$OUT" ;;
+esac
+
+new_fixture
+{
+  printf '### 18.3 Red task whose Squash-with is followed by prose\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 18.4\n'
+  printf 'The fold is described in the paragraph above.\n\n'
+  printf '### 18.4 Green partner\n\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 18: the field is line-scoped, so a following prose line is not part of its value" || fail "case 18 (line scope): rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 19 (fix round 8, F19): WHICH line is the **Squash-with:** field, when
+# a body carries a non-gating one ahead of a gating one. Field selection now
+# lives in lib/plan_grammar.py's select_squash_with, which both guards call
+# instead of each looping over the body itself; this case pins that the
+# shared selection still skips the non-gating candidate and resolves the
+# partner named by the gating one. The same fixture is asserted against
+# check-task-commit-fields.sh as its own case 57, which used to take the
+# first field-SHAPED line and reach the opposite verdict on this very body.
+# ===========================================================================
+new_fixture
+{
+  printf '### 19.1 Red task whose first Squash-with line does not gate\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 19.2 (see note below)\n'
+  printf '**Squash-with:** Task 19.2\n\n'
+  printf '### 19.2 Green partner named by the gating line\n\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 19: the gating line is the field, so the partner resolves" || fail "case 19: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 19: no output" || fail "case 19: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 20 (fix round 8, F18): this wrapper's OWN missing-grammar check, at
+# runtime — the check its sibling check-task-commit-fields.sh has carried
+# since fix round 6 and this one did not, though the Python guard underneath
+# gained the same lib/plan_grammar.py import in the same round. Mirrors that
+# harness's case 56: a throwaway copy of the guard pair with no lib/ sibling,
+# run against a fixture the shipped guard passes, so both assertions
+# discriminate — without the check the copy reaches python3, whose
+# `from plan_grammar import ...` raises and exits 1 with a traceback rather
+# than 2 with a sentence.
+# ===========================================================================
+new_fixture
+{
+  printf '### 20.1 Clean task\n\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+# Resolved through cd/pwd so the path matches the one the wrapper prints,
+# which it derives the same way — on macOS $TMPDIR is itself a symlink.
+STRIPPED="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/task-build-green-test.XXXXXX")" && pwd)"
+cp "$SCRIPT_DIR/check-task-build-green.sh" "$SCRIPT_DIR/check-task-build-green.py" "$STRIPPED/"
+set +e
+STRIPPED_OUT="$("$STRIPPED/check-task-build-green.sh" "$TASKS_MD" 2>&1)"
+STRIPPED_RC=$?
+set -e
+[ "$STRIPPED_RC" -eq 2 ] && pass "case 20: a guard copy with no lib/ sibling exits 2" || fail "case 20: rc=$STRIPPED_RC out=$STRIPPED_OUT"
+case "$STRIPPED_OUT" in
+  *"shared grammar module not found: $STRIPPED/lib/plan_grammar.py"*) pass "case 20: the message names the missing module path" ;;
+  *) fail "case 20: expected the missing-module path in the message, out=$STRIPPED_OUT" ;;
+esac
+rm -rf "$STRIPPED"
+
+# ===========================================================================
+# Case 21 (fix round 9, F20): WHICH line is the **Build:** tag, when a body
+# carries two. Tag selection now lives in lib/plan_grammar.py's
+# select_build_tag, which both guards call: the FIRST line-gated tag wins,
+# so this task is red and its missing partner is reported. Read
+# last-line-wins it would be green and this plan would pass. The same body
+# is asserted against check-task-commit-fields.sh as its own case 58, where
+# the last-wins reading was what that guard actually did.
+# ===========================================================================
+new_fixture
+{
+  printf '### 21.1 Red task carrying two Build lines\n\n'
+  printf '**Build:** red\n'
+  printf '**Build:** green\n\n'
+  printf '**Squash-with:** Task 21.9\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 21: the first Build line is the tag, so the task is red" || fail "case 21: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 21.1 merges with Task 21.9, which does not exist in this plan"*) pass "case 21: the red task's missing partner is reported" ;;
+  *) fail "case 21: expected the missing-partner message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 22 (fix round 9, F20): the **Build:** tag is LINE-SCOPED. A prose
+# line following the tag with no blank line between is not part of it, so
+# the task is still red. The same body is asserted against
+# check-task-commit-fields.sh as its own case 59, where that line used to be
+# joined onto the tag's value and left the task with no tag at all.
+# ===========================================================================
+new_fixture
+{
+  printf '### 22.1 Red task whose tag line is followed by prose\n\n'
+  printf '**Build:** red\n'
+  printf 'this sentence explains the tag and is not part of it\n\n'
+  printf '**Squash-with:** Task 22.9\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 22: a prose line under the tag does not unset it" || fail "case 22: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 22.1 merges with Task 22.9, which does not exist in this plan"*) pass "case 22: the red task's missing partner is reported" ;;
+  *) fail "case 22: expected the missing-partner message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 23 (fix round 9): a fenced example task heading opens no task, so the
+# defective fold shown inside it is documentation and not a violation.
+# Case 9 pins the same rule for this guard's own body parsing; this body is
+# the one asserted against check-task-commit-fields.sh as its own case 60,
+# where the fenced heading used to open a real task whose ungated
+# `Squash-with:` failed every task in the plan.
+# ===========================================================================
+new_fixture
+{
+  printf '### 23.1 Real task with a worked example in its body\n\n'
+  printf '**Build:** green\n\n'
+  printf 'Example of a fold, shown but never declared:\n\n'
+  printf '```\n'
+  printf '### 23.9 Example red task\n'
+  printf '**Build:** red\n'
+  printf '**Squash-with:** Task 23.8 (see the note)\n'
+  printf '```\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 23: a fenced example heading opens no task" || fail "case 23: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 23: no output" || fail "case 23: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 24 (fix round 9): WHICH task a duplicated id names. Task 24.3's
+# partner lookup resolves against the FIRST heading carrying id 24.1 — the
+# green one — so no "itself red" violation is reported for it, however many
+# later headings reuse that id. The duplicate itself is still reported (case
+# 10's rule). The same body is asserted against
+# check-task-commit-fields.sh as its own case 61, where the id used to
+# resolve to the LAST heading instead.
+# ===========================================================================
+new_fixture
+{
+  printf '### 24.1 First heading for this id\n\n'
+  printf '**Build:** green\n\n'
+  printf '### 24.1 Second heading reusing the id\n\n'
+  printf '**Build:** red\n\n'
+  printf '### 24.3 Red task folding into Task 24.1\n\n'
+  printf '**Build:** red\n'
+  printf '**Squash-with:** Task 24.1\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 24: the duplicate id is still reported" || fail "case 24: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 24.1 is defined more than once (first at line 1)"*) pass "case 24: names the duplicate and first line" ;;
+  *) fail "case 24: expected duplicate-id message, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"task 24.3 merges with Task 24.1, which is itself red"*) fail "case 24: the id resolved to the last heading, not the first, out=$OUT" ;;
+  *) pass "case 24: a duplicated id resolves to its first heading" ;;
+esac
+
+# ===========================================================================
+# Case 25 (fix round 11, F22): a fence a task body OPENS and never CLOSES is
+# a violation of its own, reported INSTEAD of the tag and partner checks it
+# blinded. An unclosed fence runs to the end of the block, so the
+# `**Build:**` tag below it is code and is correctly not read — but calling
+# the task untagged names the consequence and hides the cause. The detection
+# is lib/plan_grammar.py's `unclosed_fence`, and the same body is asserted
+# against check-task-commit-fields.sh as its own case 64, where the
+# swallowed `**Files:**` made the commit be blamed for touching the file the
+# task really did declare.
+# ===========================================================================
+new_fixture
+{
+  printf '### 1 Task whose body opens a fence it never closes\n\n'
+  printf '~~~\n\n'
+  printf '**Build:** green\n'
+  printf '**Files:** `alpha.txt`\n'
+  printf '**Commit:** test: add alpha\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 25: an unclosed fence in a task body fails" || fail "case 25: rc=$RC out=$OUT"
+case "$OUT" in
+  *":3: task 1 opens a code fence here that is never closed"*) pass "case 25: names the task and the line the fence opened on" ;;
+  *) fail "case 25: expected the unclosed-fence violation at line 3, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"has no **Build:** tag"*) fail "case 25: the swallowed tag is still reported as the defect, out=$OUT" ;;
+  *) pass "case 25: the untagged-task noise is replaced, not accompanied" ;;
+esac
+
+# The no-false-positive half: a fence the body CLOSES is not an unclosed one,
+# and the tag above it is read exactly as before.
+new_fixture
+{
+  printf '### 1 Task whose body closes the fence it opens\n\n'
+  printf '**Build:** green\n'
+  printf '**Files:** `alpha.txt`\n'
+  printf '**Commit:** test: add alpha\n\n'
+  printf '~~~\n'
+  printf 'example\n'
+  printf '~~~\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 25: a closed fence is not reported as unclosed" || fail "case 25: rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
