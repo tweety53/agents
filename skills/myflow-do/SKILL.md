@@ -211,6 +211,17 @@ override this section already carries against the same upstream skill. See `desi
 concurrency failures — assertions left red at file seams, an agent idling on another's mid-edit
 compile, corrupted test-result XML — this rule closes.
 
+**`superpowers:subagent-driven-development`'s workspace script writes this plan's ledger to
+`<abs-worktree>/.superpowers/sdd/tasks/progress.md`** — it derives the directory from the plan file's
+basename, and myflow's plan is always `tasks.md`. The ledger is **not** written flat under
+`<abs-worktree>/.superpowers/sdd/` alongside the dispatch-context bundle this section names, or the
+panel record and per-task diffs named in section 5 and the registry; assuming it follows them is the
+pattern-match this statement exists to break —
+upstream calls the flat `<abs-worktree>/.superpowers/sdd/progress.md` "the old flat path" and reads a
+file there as another plan's. The plan-scoped file is what section 7 asserts and what preservation reads: see the
+`SDD ledger` row under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`),
+canonical for it.
+
 Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from
 
 ```bash
@@ -1005,6 +1016,11 @@ myflow stage begin -command '/myflow-do' -stage do.lint-and-test -harness <harne
 Run the `## lint` and `## test` commands from `<project>/.myflow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
 gate — so a non-zero exit blocks this handoff.
+
+**Confirm this run produced a ledger** — `test -f <abs-worktree>/.superpowers/sdd/tasks/progress.md`,
+the path section 4 names — and if it is absent, report that plainly here rather than leaving it to be
+discovered at preservation time or not at all. **Unlike the lint and test exits above, a missing
+ledger never gates or stops the run**; it is reported and the handoff proceeds.
 
 ```bash
 myflow stage end -command '/myflow-do' -stage do.lint-and-test \

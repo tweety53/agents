@@ -25,6 +25,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_GUARD="$SCRIPT_DIR/check-task-commit-fields.py"
+# The Python guard imports the tasks.md grammar it shares with
+# check-task-build-green.py from lib/plan_grammar.py, resolving it through
+# its own real path. It is named here as well, and checked, for two
+# reasons: a Python `import` is invisible to check-guard-symlinks.sh's rule
+# 2, which derives a guard's required siblings by grepping its source for
+# $SCRIPT_DIR/<name> — so without this line the shipped guard would carry a
+# sibling dependency no guard can see — and a module that is missing should
+# say so rather than surface as a traceback.
+GRAMMAR_MODULE="$SCRIPT_DIR/lib/plan_grammar.py"
+
+if [ ! -f "$GRAMMAR_MODULE" ]; then
+  echo "check-task-commit-fields.sh: shared grammar module not found: $GRAMMAR_MODULE" >&2
+  exit 2
+fi
 
 command -v python3 >/dev/null 2>&1 || {
   echo "check-task-commit-fields.sh: python3 not found on PATH — cannot run the guard" >&2

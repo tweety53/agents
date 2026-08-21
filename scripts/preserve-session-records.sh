@@ -8,16 +8,39 @@
 # Every path it touches arrives as an argument, so it runs correctly from any
 # working directory.
 #
-# Prints one line per source: "preserved: <dest>" or "skipped: <src> (absent)".
-# A MISSING SOURCE IS NEVER FATAL. A change may legitimately have no panel
-# record, and a preservation step able to block an integration would be a worse
-# failure than the gap it closes. Exit non-zero when a copy was attempted and
-# could not be written, and when a source or a destination was REFUSED as
+# Prints one line per source, one of four outcomes:
+#   preserved: <dest>                    the source was at its canonical path
+#   rescued: <dest> (found at <path>)    the source was absent from its
+#                                        canonical path and was found at one of
+#                                        the known-wrong paths below, and has
+#                                        been copied to the canonical
+#                                        destination anyway
+#   MISSING: <src> — tried <paths>       a record that should exist for every
+#                                        change was at none of its known paths
+#   skipped: <src> (absent)              a source this change legitimately has
+#                                        none of
+# AN ABSENT SOURCE IS NEVER FATAL, under either of the two outcomes that report
+# one. A change may legitimately have no panel record, and a preservation step
+# able to block an integration would be a worse failure than the gap it closes.
+# A rescue is not fatal either: the record is safe, and only the writer that
+# chose the path is at fault. So both new outcomes EXIT ZERO, and non-zero keeps
+# the single meaning it already had — a copy that was attempted and was refused
+# or could not be written. A caller unable to tell "never there" from "refused"
+# would have to treat both as failures, so visibility is bought with a distinct
+# outcome WORD rather than with the exit status.
+#
+# Exit non-zero when a copy was attempted and could not be written, and when a
+# source or a destination was REFUSED as
 # untrustworthy (see the protections below) — and even then the remaining
 # sources are still attempted, because one bad path must not cost the other
-# records. Every non-zero path names itself on stderr; a `skipped:` line on
-# stdout is the only outcome that is silent, and it is the only one that means
-# nothing was wrong.
+# records. Every non-zero path names itself on stderr. Of the four stdout
+# outcomes, `preserved:` and `skipped:` are the two that mean nothing was
+# wrong. `rescued:` and `MISSING:` exit zero and are on stdout too, but neither
+# means that: a rescue says the record is safe and the writer that chose its
+# path is not, and MISSING says a record that should exist for every change was
+# found nowhere. Both are to be REPORTED to the operator — see the outcome
+# table in Preserving the session records (skills/myflow-contracts/pipeline.md)
+# for what a caller does with each.
 #
 # The destination date is fixed at the FIRST copy: an existing file for this
 # change is reused, so a fix round overwrites in place instead of leaving one
@@ -145,13 +168,47 @@ resolve_file() {
   printf '%s\n' "$dir/${p##*/}"
 }
 
-# preserve <source> <source-root> <dest-dir> <suffix>
+# preserve <source> <source-root> <dest-dir> <suffix> <fallbacks>
 # <suffix> is what follows the change name, e.g. ".md" or "-panel.md".
+# <fallbacks> is a newline-separated, ORDERED list of known-wrong absolute paths
+# to search when <source> is absent; empty for a source that has no allowlist.
+#
+# THE ALLOWLIST IS A LIST OF LITERAL PATHS, matched by name, and deliberately
+# neither of the two alternatives. A glob over the workspace minus a denylist of
+# the pipeline's own artifacts has to track the writer's artifact list, and the
+# two drift the moment an artifact is added — the same defect class in a new
+# place. A check on the record's own first line fails on exactly the case a
+# rescue is for: a record written without the expected header.
 preserve() {
-  local src="$1" src_root="$2" dest_dir="$3" suffix="$4" existing dest dest_real src_real
+  local src="$1" src_root="$2" dest_dir="$3" suffix="$4" fallbacks="${5:-}" \
+    existing dest dest_real src_real fallback tried rescued_from=""
   if [ ! -f "$src" ]; then
-    echo "skipped: $src (absent)"
-    return 0
+    # A source with no allowlist has only the one path, so its absence is the
+    # ordinary skip and nothing is searched.
+    if [ -z "$fallbacks" ]; then
+      echo "skipped: $src (absent)"
+      return 0
+    fi
+    # Walked IN ORDER, stopping at the first hit: two known-wrong paths can both
+    # exist, and which one is preserved must not depend on filesystem order.
+    # `tried` accumulates as the walk goes, so it is complete exactly in the
+    # branch that reports it — the one no `break` was taken out of.
+    tried=""
+    while IFS= read -r fallback; do
+      [ -n "$fallback" ] || continue
+      tried="${tried:+$tried, }$fallback"
+      if [ -f "$fallback" ]; then
+        rescued_from="$fallback"
+        break
+      fi
+    done <<<"$fallbacks"
+    if [ -z "$rescued_from" ]; then
+      echo "MISSING: $src — tried $tried"
+      return 0
+    fi
+    # From here the rescued path IS the source, so every protection below
+    # applies to it unchanged. There is deliberately no second copy path.
+    src="$rescued_from"
   fi
   # Protection 3. The source exists, so from here a refusal is a failure and
   # never a skip — the distinction the caller and both call sites rely on.
@@ -215,20 +272,43 @@ preserve() {
     echo "preserve-session-records: could not write $dest" >&2
     return 1
   fi
-  echo "preserved: $dest"
+  if [ -n "$rescued_from" ]; then
+    echo "rescued: $dest (found at $rescued_from)"
+  else
+    echo "preserved: $dest"
+  fi
 }
 
 # The three sources. The ledger's `tasks/` component is not a coincidence:
 # superpowers derives that directory from the plan file's basename, and under
 # myflow the plan is always `tasks.md`, so `.superpowers/sdd/tasks/progress.md`
-# is stable for every myflow change. The panel record's path is the one
-# skills/myflow-do/SKILL.md writes.
+# is stable for every myflow change. The path is not settled here either: the
+# Temporary artifacts registry's `SDD ledger` row (skills/myflow-contracts/pipeline.md)
+# names the file, and this script reads the path that row states. The panel
+# record's path is the one skills/myflow-do/SKILL.md writes.
+#
+# The two allowlists below are the paths those records have actually been
+# written to, in descending order of how often. They are not a guess at what a
+# writer might do next: a path is added here when a change is found to have used
+# it, and the rescue's whole value is that the `rescued:` line then names the
+# writer that chose it.
+LEDGER_FALLBACKS="$WORKTREE/.superpowers/sdd/ledger.md
+$WORKTREE/.superpowers/sdd/progress.md
+$WORKTREE/.superpowers/sdd/tasks/ledger.md"
+PANEL_FALLBACKS="$WORKTREE/.superpowers/sdd/panel.md
+$WORKTREE/.superpowers/sdd/review-panel.md
+$WORKTREE/.superpowers/sdd/final-review.md"
+
+# The proposal artifact's allowlist is EMPTY, deliberately. /myflow-fast
+# publishes no proposal artifact by design, so a rescue and its MISSING outcome
+# would fire on every fast run — and an alarm that fires on the most-used
+# command is one nobody reads. Its absence stays the ordinary silent skip.
 RC=0
 preserve "$WORKTREE/.superpowers/sdd/tasks/progress.md" "$WORKTREE_REAL" \
-  "$WORKTREE/docs/superpowers/ledgers" ".md" || RC=1
+  "$WORKTREE/docs/superpowers/ledgers" ".md" "$LEDGER_FALLBACKS" || RC=1
 preserve "$WORKTREE/.superpowers/sdd/final-review-panel.md" "$WORKTREE_REAL" \
-  "$WORKTREE/docs/superpowers/reviews" "-panel.md" || RC=1
+  "$WORKTREE/docs/superpowers/reviews" "-panel.md" "$PANEL_FALLBACKS" || RC=1
 preserve "$STATE_DIR/$NAME-proposal-artifact.html" "$STATE_DIR_REAL" \
-  "$WORKTREE/docs/superpowers/artifacts" ".html" || RC=1
+  "$WORKTREE/docs/superpowers/artifacts" ".html" "" || RC=1
 
 exit "$RC"

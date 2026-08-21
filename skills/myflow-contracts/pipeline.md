@@ -184,10 +184,15 @@ caller.
 |---------|---------------|-------------|
 | `skipped: <src> (absent)`, exit 0 | The source does not exist. A change may legitimately have no panel record. | Nothing. Proceed. |
 | `preserved: <dest>`, exit 0 | The record reached the repository at that path. | Nothing. Proceed. |
+| `rescued: <dest> (found at <path>)`, exit 0 | The record was written to a non-canonical path and has been copied to the canonical destination. | **Report it.** The record is safe; the writer that chose the path is not. Proceed. |
+| `MISSING: <canonical> — tried <paths>`, exit 0 | A record that should exist for every change was found at none of its known paths. | **Report it, naming the paths tried.** Proceed with the integration. |
 | A message on stderr, **exit non-zero** | A copy was attempted and refused or failed — an untrusted source or destination path, or a write that could not be made. | **Report it to the operator, with the script's own message.** Then proceed with the integration. |
 
 **A non-zero exit is never silent and never a stop; the remaining sources are still attempted after
-any one failure, and the handoff names which records were preserved and which were not.** See
+any one failure, and the handoff names which records were preserved and which were not.** **Neither
+`rescued:` nor `MISSING:` is non-zero** — non-zero keeps its one meaning, a copy attempted and
+refused or failed, so a caller branching on exit status never reads a rescue or a missing record as
+a failure. See
 **Preserving the session records** (`skills/myflow-contracts/pipeline-rationale.md`) for why.
 
 **Do not harmonise the two orderings for symmetry** — here the preservation call runs before
@@ -389,6 +394,37 @@ API to satisfy it. What is **not** optional is that the naming happens at the st
 command that silently skips it because its harness offers no tool has dropped the requirement, not
 adapted it.
 
+## Artifact brevity
+
+**Every artifact a `/myflow-*` run writes is written brief** — bullets over prose, no preamble, no
+recap, no restatement of what another artifact in the same change already says. It binds
+`proposal.md`, `design.md`, the delta specs, `tasks.md`, the SDD ledger, the review panel record and
+the self-review report.
+
+**Brevity never withholds a fact.** Wording is compressed; a decision, a reason, a measured number,
+an alternative that was ruled out, or a caveat never is. An artifact that got shorter by losing one
+of those is a defect, not a brief artifact.
+
+**Never compressed** — a guard or a contract parses each of these byte for byte:
+
+- a task's `Files:`, `Tests:`, `Regression:`, `Baseline:`, `Commit:`, `Build:` and `Squash-with:`
+  fields;
+- a plan's `verified:` / `unverified:` / `measured:` / `predicted:` provenance tags;
+- a decision's or an open question's `ID:` and `Status:` lines;
+- a delta spec's normative statements and their scenarios;
+- the review panel record's marker blocks and its findings table.
+
+This narrows the "code, commits, docs and specs stay full" carve-out the be-brief rule
+(`rules/be-brief.mdc`) states — for the artifacts named above, and for no other file.
+
+**No length guard and no byte budget measures a change artifact**, and none is to be added: a budget
+on a per-change artifact rewards dropping the facts the paragraph above requires kept. Brevity here
+is a judgment the review panel and the operator make, never a number a script checks.
+
+Stated here rather than in each artifact-writing skill because this file is the one every
+`/myflow-*` command loads before any other step. Four skill-local copies would drift, and whichever
+skill lacked one would silently exempt its own artifacts.
+
 ## IntelliJ commands
 
 Every state that waits on a human must print a copy-paste command in its handoff:
@@ -507,7 +543,7 @@ their command does not load.
 |----------|-----------|----------|-----------|
 | Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
-| SDD ledger | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
+| SDD ledger | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/tasks/progress.md` | preserved at run 1; removed with the worktree |
 | Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if a preserved copy exists |
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |

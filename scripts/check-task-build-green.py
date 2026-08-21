@@ -32,6 +32,16 @@ it is documentation/example text, not structure. This keeps a `tasks.md`
 free to show worked examples of the tag grammar without those examples
 being mistaken for real tasks.
 
+A fence a task body OPENS and never CLOSES is a different matter, and is
+itself a violation (list item 0b below, fix round 11, F22): an unclosed
+fence runs to the end of the block, so the `**Build:**` tag and
+`**Squash-with:**` field below it are code and are correctly not read —
+but reporting the task as untagged names the consequence and hides the
+cause. `lib/plan_grammar.py`'s `unclosed_fence` is the detection, shared
+with check-task-commit-fields.py, which reports the same defect rather
+than blaming the commit for touching a file the swallowed `**Files:**`
+declared.
+
 Parsing model
 -------------
 
@@ -46,12 +56,15 @@ against whichever task was parsed first.
 
 A task's BODY runs from its heading line to the next line (outside any
 fence) matching `^#{2,3}(?:\\s|$)` (a level-2 or level-3 heading, whether or
-not the level-3 one is itself a task heading) or end of file. Within that
-body, the FIRST line (also outside any fence) matching
+not the level-3 one is itself a task heading) or end of file. Splitting a
+file into tasks, and resolving an id to a task, are `lib/plan_grammar.py`'s
+`iter_tasks` and `select_task`. Within that body, the FIRST line (also
+outside any fence) matching
 
     ^\\*\\*Build:\\*\\*\\s+(green|red)\\s*$
 
-is the task's tag. A body with no such line has no tag at all — this
+is the task's tag, and that selection is `lib/plan_grammar.py`'s
+`select_build_tag` (fix round 9, F20). A body with no such line has no tag at all — this
 includes a line that merely looks like an attempt at one (`**Build:**
 yellow`), which is deliberately treated the same as no tag rather than as a
 separate parse-error class: the fixed vocabulary is `green` or `red`, and
@@ -60,16 +73,20 @@ line is. `Build:` no longer carries any inline suffix — a `red` task's
 partner is read from a separate field.
 
 Independently, within that same body, the FIRST line (also outside any
-fence) matching
-
-    ^\\*\\*Squash-with:\\*\\*\\s+Task\\s+([\\d.,\\s]+)\\s*$
-
-is the task's Squash-with field. Its capture group is the raw digit/dot/
-comma/whitespace run after "Task ", from which every dotted-id token is
-extracted the same way `Build:`'s old inline clause used to. A body with no
-such line has no Squash-with field at all — a distinct condition, checked
-only for `red` tasks, from a Squash-with field that is present but names
-zero ids.
+fence) that is a `**Squash-with:**` field whose value gates as `Task
+<id>[, <id>...]` is the task's Squash-with field — a non-gating candidate
+ahead of it is skipped rather than read as the field. The field's shape,
+the gate on its value, and the selection of which line satisfies both, are
+all `lib/plan_grammar.py`'s `select_squash_with`, which
+check-task-commit-fields.py calls too — one grammar and one selection for
+one field, rather than a copy per guard held in step by a comment (fix
+round 6, F13; fix round 8, F19). The
+field is LINE-SCOPED: its value is what stands on that one line, and a
+following prose line is never part of it. A body with no such line has no
+Squash-with field at all — a distinct condition, checked only for `red`
+tasks, from a Squash-with field that is present but names zero ids. A value
+that does not gate (`Task 3 (see step 2)`) is reported as no field, the
+condition it has always been read as here.
 
 Validation, run over every task in document order:
 
@@ -77,6 +94,10 @@ Validation, run over every task in document order:
      `<file>:<this heading's line>: task <id> is defined more than once
      (first at line <first heading's line>)`, reported for every occurrence
      after the first.
+  0b. A task body that opens a fence it never closes →
+     `<file>:<fence line>: task <id> opens a code fence here that is never
+     closed in its body, ...`, reported INSTEAD of checks 1-5 for that
+     task, whose fields the fence swallowed.
   1. Missing **Build:** tag → `<file>:<heading line>: task <id> has no
      **Build:** tag`
   2. `red` with no **Squash-with:** field at all →
@@ -110,48 +131,28 @@ dependency management).
 
 from __future__ import annotations
 
-import re
+import os
 import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-# DOTTED_ID — the dotted task-id grammar ("1", "1.1", "9.9.2", ...), shared
-# by TASK_HEADING_RE and PARTNER_ID_RE so the two never drift apart.
-DOTTED_ID = r"\d+(?:\.\d+)*"
+# Every piece of tasks.md grammar this guard reads is defined once, in a
+# module check-task-commit-fields.py imports too (fix round 6, F13); see
+# that module's docstring for the drifts a per-guard copy produced. `lib/`
+# is resolved through this file's REAL path, so the import works when the
+# guard is invoked through a skill directory's symlink as well as from the
+# repository root. Nothing about the shape of a tasks.md is spelled out
+# below this line — splitting the file into tasks, reading a task's
+# `**Build:**` tag and reading its `**Squash-with:**` field are all calls
+# into that module.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
 
-# TASK_HEADING_RE — opens a new task. Group 1 is the task's id. The id may
-# be followed by more heading text (`### 1.1 Some title`) or nothing at all
-# (`### 1.1` at end of line) — both are recognised task headings.
-TASK_HEADING_RE = re.compile(rf"^### ({DOTTED_ID})(?:\s|$)")
-
-# FENCE_RE — a fenced code block delimiter: three or more backticks or
-# tildes, optionally preceded by up to 3 columns of leading whitespace (per
-# CommonMark). Matching this line toggles fence state; a task heading,
-# **Build:** tag line, or **Squash-with:** field line inside a fence is
-# example text, not real structure.
-FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
-
-# BODY_BOUNDARY_RE — closes the current task's body: any level-2 or level-3
-# heading, whether or not the level-3 one is itself a recognised task
-# heading (a "### Notes" aside inside a task's own body still ends it).
-BODY_BOUNDARY_RE = re.compile(r"^#{2,3}(?:\s|$)")
-
-# BUILD_TAG_RE — the tag vocabulary: a bare `green` or `red`, with no inline
-# suffix. Group "kind" is "green" or "red".
-BUILD_TAG_RE = re.compile(r"^\*\*Build:\*\*\s+(?P<kind>green|red)\s*$")
-
-# SQUASH_WITH_RE — the merge-partner field, separate from the Build tag.
-# Group "partners" captures the raw digit/dot/comma/whitespace run after
-# "Task ".
-SQUASH_WITH_RE = re.compile(
-    r"^\*\*Squash-with:\*\*\s+Task\s+(?P<partners>[\d.,\s]+)\s*$"
+from plan_grammar import (
+    iter_tasks,
+    select_build_tag,
+    select_squash_with,
+    unclosed_fence,
 )
-
-# PARTNER_ID_RE — extracts every dotted-id token out of a Squash-with
-# field's partners clause, so "9.9", "2.1, 3.4" and "2.1 3.4" (comma- or
-# whitespace-separated) all resolve the same way without this guard
-# hand-rolling a splitter.
-PARTNER_ID_RE = re.compile(DOTTED_ID)
 
 
 @dataclass
@@ -164,61 +165,35 @@ class Task:
     tag_line: Optional[int] = None
     squash_line: Optional[int] = None  # None: no **Squash-with:** field
     partners: List[str] = field(default_factory=list)
+    # The line of a fence this task's body opens and never closes, or None
+    # when it closes every fence it opens (fix round 11, F22).
+    fence_line: Optional[int] = None
 
 
 def parse_tasks(lines: List[str]) -> List[Task]:
-    """Split `lines` (1-indexed by position, 0-indexed in the list) into
-    tasks, then resolve each task's **Build:** tag and **Squash-with:**
-    field from its own body.
+    """Split `lines` into tasks, then resolve each task's **Build:** tag and
+    **Squash-with:** field from its own body. Which lines are a task, which
+    line is its tag and which is its field are all lib/plan_grammar.py's.
     """
     tasks: List[Task] = []
-    current: Optional[Task] = None
-    body_start = 0
-
-    def close_body(end_index: int) -> None:
-        if current is None:
-            return
-        in_fence = False
-        for offset, body_line in enumerate(lines[body_start:end_index]):
-            if FENCE_RE.match(body_line):
-                in_fence = not in_fence
-                continue
-            if in_fence:
-                continue
-            lineno = body_start + offset + 1
-            if current.tag_kind is None:
-                m = BUILD_TAG_RE.match(body_line)
-                if m is not None:
-                    current.tag_kind = m.group("kind")
-                    current.tag_line = lineno
-                    continue
-            if current.squash_line is None:
-                m = SQUASH_WITH_RE.match(body_line)
-                if m is not None:
-                    current.squash_line = lineno
-                    current.partners = PARTNER_ID_RE.findall(
-                        m.group("partners")
-                    )
-
-    in_fence = False
-    for index, line in enumerate(lines):
-        if FENCE_RE.match(line):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        heading_match = TASK_HEADING_RE.match(line)
-        if heading_match:
-            close_body(index)
-            current = Task(id=heading_match.group(1), heading_line=index + 1)
-            tasks.append(current)
-            body_start = index + 1
-            continue
-        if BODY_BOUNDARY_RE.match(line):
-            close_body(index)
-            current = None
-
-    close_body(len(lines))
+    for found in iter_tasks(lines):
+        task = Task(id=found.id, heading_line=found.heading_line)
+        tag = select_build_tag(found.lines)
+        if tag is not None:
+            task.tag_kind = tag.kind
+            task.tag_line = found.body_start + tag.offset + 1
+        squash = select_squash_with(found.lines)
+        # A value that does not gate is not a Squash-with field at all — a
+        # red task carrying one is reported as having no field, not as
+        # having an empty one, which is what `partners is None` means here.
+        # Case 18 pins both halves of that against this guard.
+        if squash is not None and squash.partners is not None:
+            task.squash_line = found.body_start + squash.offset + 1
+            task.partners = squash.partners
+        fence_offset = unclosed_fence(found.lines)
+        if fence_offset is not None:
+            task.fence_line = found.body_start + fence_offset + 1
+        tasks.append(task)
     return tasks
 
 
@@ -227,6 +202,12 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
     formatted `file:line: message` violation string per finding, in the
     order described in the module docstring.
     """
+    # This loop does not route through lib/plan_grammar.py's `select_task`,
+    # and the duplication is deliberate (fix round 11, F23): it needs the
+    # FULL index — every id, so the partner lookups below are one dict hit
+    # each — and every duplicate OCCURRENCE, so each one after the first is
+    # reported. `select_task` answers a single lookup and discards both, and
+    # rebuilding either from it costs a pass over the plan per id.
     by_id = {}
     duplicate_violations: List[str] = []
     for task in tasks:
@@ -241,6 +222,18 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
     violations: List[str] = list(duplicate_violations)
 
     for task in tasks:
+        # An unclosed fence REPLACES this task's tag and partner checks (fix
+        # round 11, F22). Every line below the fence is code, so the
+        # `**Build:**` tag and `**Squash-with:**` field the body may well
+        # carry were correctly not read — reporting the task as untagged
+        # would name the consequence and hide the cause.
+        if task.fence_line is not None:
+            violations.append(
+                f"{relfile}:{task.fence_line}: task {task.id} opens a code "
+                "fence here that is never closed in its body, so every "
+                "field below it is inside the fence and was not read"
+            )
+            continue
         if task.tag_kind is None:
             violations.append(
                 f"{relfile}:{task.heading_line}: task {task.id} has no "
