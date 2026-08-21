@@ -3,15 +3,12 @@
 This file is the reasoning behind `skills/myflow-contracts/pipeline.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
-The finish contract lives in `skills/myflow-contracts/finish-contract.md`, which is canonical for it.
-
 ## States
 
 ## Stage exit — never the command's own judgment
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
-harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`) — and are
-not restated here.
+harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`).
 
 ## Command surface
 
@@ -88,10 +85,6 @@ no harness has to gain a task tool to satisfy it.
 
 ### The block each state renders
 
-The block a state hands off is defined in **The block each state renders**
-(`skills/myflow-contracts/handoff-blocks.md`), which is canonical for the three per-state templates,
-the run-only rule and the rendering-selection table.
-
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. An agent
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
@@ -118,7 +111,7 @@ own the tab.
 
 **Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
 against them** — for the reason **Progress visibility** (`pipeline.md`) gives, which answers
-the identical question for the task list and is not restated here. What every harness can do is
+the identical question for the task list. What every harness can do is
 **print two lines of text**, which is why printing is the rule and the measurement is only the
 reason invoking is not. So:
 
@@ -193,9 +186,6 @@ defined; the two call sites point here rather than each describing them.
 
 ## Resolving a change's worktrees
 
-**Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`) is canonical for
-`/myflow-finish`'s own scan-and-resolve procedure and is the fullest example of applying this rule.
-
 ## Temporary artifacts registry
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
@@ -246,12 +236,6 @@ exactly the reason the leftovers are: nothing durable is in there. A project may
 command to list or flush its stale indices; that is the project's tooling, and this row does not
 claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 
-**The workspace row belongs only to a project that declares isolation, and for every other project
-it is a row about nothing — which is why it names no database, no bucket and no service.** A project
-declares the commands that create these resources, that remove them, and that report which of them
-survived; the section holding those declarations is the one
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for.
-
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
 ends at run 2 is checked back by `<agents repo>/scripts/check-cleanup-complete.sh`, whose header explains which
 rows that leaves it reading and why; step 7 of
@@ -277,7 +261,7 @@ URL would leave it advertised and unrepublishable.
 ## Model policy
 
 The field shape, and the rule that an absent key reads as *not recorded*, belong to
-**State file** (`skills/myflow-contracts/state-file.md`) and are not restated here.
+**State file** (`skills/myflow-contracts/state-file.md`).
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/myflow-*` command is required to
@@ -333,8 +317,7 @@ repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the 
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
 The preservation duty itself is stated once, under
-**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`); this section
-depends on it rather than restating it.
+**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`).
 
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
 persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly

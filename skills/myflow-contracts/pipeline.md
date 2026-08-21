@@ -13,9 +13,6 @@ file wins.
 The reasoning behind this file lives in `skills/myflow-contracts/pipeline-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## States
 
 A change is always in exactly one of three states, recorded in its state file.
@@ -502,8 +499,7 @@ hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule
 here would drift from that guard's own dependencies the moment they change.
 
 Each command names, in its own text, the guards *it* can invoke — exactly the guards
-`<skill-dir>/scripts/` carries — and cites this section for the block shape rather than restating
-it.
+`<skill-dir>/scripts/` carries — and cites this section for the block shape.
 
 ## Finish contract
 

@@ -13,7 +13,7 @@ whether the change's branch has already reached the base branch.
 
 Immediately after that line, print these two commands for the operator to paste, per
 **Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
-records why they are printed rather than invoked; do not restate its reasoning here:
+records why they are printed rather than invoked:
 
 ```text
 /rename <change-name>
@@ -34,9 +34,6 @@ never matched the work.
 The reasoning behind this file lives in `skills/myflow-finish/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## State gate
 
 Accepts **`IN_PROGRESS`**. Run 1 ends at `IN_PROGRESS`; run 2 ends at `FINISHED`.
@@ -50,8 +47,7 @@ At `STARTED` there is nothing to integrate — emit the wrong-state handoff and 
 there — the base-branch resolution, the preflight checks, the removal sequence and their
 rationales live in that one file. This skill carries only what is specific to *executing* it.
 
-Which run happens is decided by one thing: whether the change's branch has already reached the
-base branch. No field records "integration started" — a field could disagree with git.
+No field records "integration started" — a field could disagree with git.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-finish-preflight.sh`, `resolve-base-branch.sh`,
@@ -141,12 +137,12 @@ filing a new one otherwise. See **1.0 Check for unfinished work**
 (`skills/myflow-finish/SKILL-rationale.md`) for why the course is labelled this way. What that
 follow-up is titled, the search, the confirmation, what a failed search does, and how it is
 labelled are all
-**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`), and none of it is restated
-here; **a filing that fails is one skipped-with-reason line and the run still continues**, per
+**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`); **a filing that fails is one
+skipped-with-reason line and the run still continues**, per
 **Never blocking** (`skills/myflow-contracts/jira-integration.md`) — the outstanding list still
 reaches the planning commit and the handoff, so the durable record does not depend on the tracker.
 Why **Stop** is the marked recommendation is stated under
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not re-argued here.
+**Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 Close the `finish.unfinished-work-gate` mark opened above, whichever way this gate resolved:
 `completed` on **Continue** or **File or join a Jira follow-up, then continue**, `stopped` on
@@ -230,8 +226,7 @@ commit stages the same two trees in every change, so nothing about it varies.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all stated under
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`) and are not re-argued here — this call
-implements that chain rather than restating it. In short:
+**Git boundaries** (`skills/myflow-contracts/pipeline.md`). In short:
 an empty commit is **skipped, not an error** — a fix that touched only the planning paths, a fix
 that touched only implementation, and a re-run after a rejected push all reach this block with one
 side or both already satisfied — while a commit that FAILS stops the chain and is reported with
@@ -392,7 +387,7 @@ myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness
    else stops run 2 here, with nothing staged, committed, pushed or removed — report the guard's
    own message and leave the change at
    `IN_PROGRESS`. The four exit codes are **Run 2 — the branch is merged**
-   (`skills/myflow-contracts/finish-contract.md`), step 2, and are not restated here.
+   (`skills/myflow-contracts/finish-contract.md`), step 2.
 
    **When the guard is absent**, perform the same positioning by hand, in the same order, and say in
    the handoff that it was done manually — `prepare-archive-branch.sh`'s own header is the authority
@@ -625,7 +620,7 @@ myflow stage end -command '/myflow-finish' -stage finish.push-archive -outcome c
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
 
-**The archive is never reported as landed until step 10 actually lands it.** On a failed push or PR
+On a failed push or PR
 creation, the `Archive PR` line is the local branch and the exact commands to land it by hand — never
 a claim that the archive merged. A run 2 that **completes step 10** is terminal and names **no** next
 command.

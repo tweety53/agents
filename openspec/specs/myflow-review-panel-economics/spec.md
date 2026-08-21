@@ -18,8 +18,7 @@ provider family.
 
 The default SHALL yield to an explicit operator override, and only to that — whether the operator
 recorded a review-panel model in the change's state file or instructed one during the session.
-`myflow-model-policy` is canonical for how such an override is given, recorded and applied; this
-requirement defers to it rather than restating the mechanism.
+`myflow-model-policy` is canonical for how such an override is given, recorded and applied.
 
 **Only the slots that take an override are affected.** Bugbot and Security Review are dispatched by
 `subagent_type` and SHALL still receive no model override, whatever is recorded.

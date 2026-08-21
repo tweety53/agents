@@ -3,28 +3,13 @@
 This file is the reasoning behind `skills/myflow-start/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, the wrong-state handoff, and the handoff output shape.
-
 ## State gate
 
 ## Superpowers Basic Workflow (this stage)
 
 ## A. Resolve the change
 
-Follow **Resolution (how `jiraIssue` is decided)** in `skills/myflow-contracts/jira-integration.md`
-exactly; it is canonical and is not restated here.
-
 ## Ask the planning effort, the models, and the review panel roster — creating runs only
-
-What each preset means — which slots each one dispatches, and how the optional, trigger-fired
-slots are handled under each — is defined under **5. The review panel**
-(`skills/myflow-do/SKILL.md`); that section carries the roster table and is the one to read, and is
-not restated here.
-
-The fallback, the mapping, the precedence when both keys are present, and what an unmapped value
-reads as are all **Planning effort** (`skills/myflow-contracts/state-file.md`)'s, and are not
-restated here.
 
 ## B. Basic Workflow #1 — Brainstorming
 
@@ -42,16 +27,6 @@ approaches, present the design, get approval — and its only loop routes a **co
 design. Nothing in it routes a **question** back to the questions, so a question raised *by* an
 answer has nowhere to land. This section is where it lands.
 
-What counts as a planning-stage exchange, the convergence test itself, and why it is one test rather
-than a rule per gate are structure, stated once under **Stage exit — never the command's own
-judgment** (`skills/myflow-contracts/pipeline.md`) and not restated
-here. What is genuinely tuned for this command follows: the two prompts, the threshold, the
-no-hard-cap rule, and why their opposite recommendations are not to be harmonised.
-
-**There is no hard cap.** No round count ends the stage; the rule that only an explicit operator
-answer does is stated once under **Stage exit — never the command's own judgment**
-(`skills/myflow-contracts/pipeline.md`) and not restated here.
-
 **Every planning effort level runs this loop.** A level changes how many questions one round groups
 — one at a time at `detailed`, batched at `low` — and never whether another round opens. A level
 able to end the loop early would be a way to skip the gate rather than a way to size the thinking
@@ -63,7 +38,7 @@ empty, so opening "another round" here has nothing to explore and, with no hard 
 the test and re-fires the confirm — `empty test → confirm → no answer → another round → empty test →
 confirm`, without end. **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`)
 already names this exact failure mode for its own interactive ask — "a session that cannot ask at
-all" — and gives it a terminating outcome rather than a retry; cited rather than restated here.
+all" — and gives it a terminating outcome rather than a retry.
 
 **`3` is a tuned value, and this file is the only place it
 is written** — the contract and the pipeline carry the shape of the bound, never the number, so it
@@ -78,8 +53,7 @@ The confirm recommends *moving on* precisely because it is unreachable while
 this command holds an unanswered question. The offer recommends *another round* for the mirror
 reason: it is reachable only while this command genuinely holds one. That is the same shape as the
 **Stop** recommendation at the unfinished-work gate of `/myflow-finish` run 1, whose reasoning is
-stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`) and is not
-re-argued here.
+stated under **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 ## C. Create the change and its artifacts
 

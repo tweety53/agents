@@ -157,7 +157,7 @@ field is how it gets erased.
   **carries it forward verbatim**. It governs `/myflow-start`'s own reasoning depth and nothing
   else — no command derives behaviour from it, and the review panel's breadth is never scaled from
   it. The levels, and which of them is offered as the recommendation, are stated once under
-  **Planning effort** (`state-file.md`) below and are deliberately not repeated here.
+  **Planning effort** (`state-file.md`) below.
 - `models` — an object carrying `implementation`, `reviewPanel` and `panelFix`, each naming the
   model chosen for that role, or `null` where none was chosen. Written only by `/myflow-start`, on
   the run that **creates** the change; every other command **carries it forward verbatim**. Its
@@ -206,9 +206,8 @@ field is how it gets erased.
   `light`, `standard` or `full`. Written only by `/myflow-start`, on the run that **creates** the
   change; every other command **carries it forward verbatim**. Its live consumer is `/myflow-do`,
   which selects the panel's required slots and the per-task review's shape from it.
-  `skills/myflow-do/SKILL.md` is canonical for what each preset means, and this file does not
-  restate it. The field is top-level rather than nested under `models` because a roster is not a
-  model.
+  `skills/myflow-do/SKILL.md` is canonical for what each preset means. The field is top-level rather
+  than nested under `models` because a roster is not a model.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
   that a fix must be committed and pushed rather than merely staged.

@@ -3,10 +3,6 @@
 This file is the reasoning behind `skills/myflow-fast/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, the wrong-state handoff, git boundaries, and the handoff output
-shape.
-
 ## State gate
 
 ## No state file — brainstorm into implementation

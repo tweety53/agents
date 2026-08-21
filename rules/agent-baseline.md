@@ -4,10 +4,6 @@ This is the one file a dispatched agent has to read. It carries **one line per r
 that rule's own file** — never a copy of the rule, so there is nothing here to drift out of sync with
 the source.
 
-It exists because `~/.claude/CLAUDE.md` is injected into a main session's system prompt and **is not
-inherited by agents that session dispatches**, nor by the agents those agents dispatch. The prompt is
-the only channel.
-
 ## Propagate this
 
 You are subject to these rules, and so is anything you dispatch. Include these two sentences verbatim

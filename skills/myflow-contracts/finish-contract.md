@@ -114,11 +114,11 @@ that finds a candidate asks the operator to confirm the join before writing to i
 confirmation files a new follow-up instead, and a search that *fails* files nothing and says so. Each
 is one line and none of them stops the run or changes the answer already given. That file is
 canonical for all of it — including the ordering of a join's three writes and what a partial one
-reports — and none of it is restated here.
+reports.
 
 **What the operator integrated over is recorded where a transcript is not**: the outstanding list
 goes into the message of the commit that carries the planning artifacts, and into run 1's handoff.
-The signals that produce that list are the script's own and are deliberately not restated here.
+The signals that produce that list are the script's own.
 
 Only then ask, **before any git action**, how the branch should land:
 

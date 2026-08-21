@@ -33,6 +33,21 @@
 # a failure: the directory existing is what says an install happened, and
 # every rule missing from it after that is drift.
 #
+# A LINKED WORKTREE IS NOT THE INSTALLED CHECKOUT EITHER. `setup.sh global`
+# links into whichever checkout it was run from, and its own closing note says
+# to install from a stable main checkout because links into a worktree break
+# when that worktree is removed. So every rule in an apply worktree resolves to
+# the main checkout, not to this tree, and rule 1 would report all of them as
+# pointing at the wrong place — failing `## lint` in every apply worktree, which
+# is exactly where a `/myflow-*` change runs its lint. That is a false alarm
+# about a correct install, not drift. This guard detects a linked worktree by
+# `.git` being a file rather than a directory, reports it, and exits 0.
+#
+# The skip applies only when CHECK_INSTALLED_RULES_HOME is unset. That override
+# means a caller is deliberately pointing the guard at a fixture home, and wants
+# the real comparison run against it; short-circuiting there would make the
+# harness unable to test anything from inside a worktree, which is where it runs.
+#
 # Four rules, each reported with the path and what to do:
 #
 #   1. Every always-on rule in `rules/` has `<home>/.claude/rules/<name>.md`,
@@ -109,6 +124,11 @@ mapfile -t ALWAYS_ON < <(always_on_rules)
 if [ "${#ALWAYS_ON[@]}" -eq 0 ]; then
   echo "check-installed-rules: $RULES_SRC declares no always-on rule — refusing to report an empty install as clean" >&2
   exit 1
+fi
+
+if [ -z "${CHECK_INSTALLED_RULES_HOME:-}" ] && [ -f "$REPO_ROOT/.git" ]; then
+  printf 'INSTALLED-RULES-WORKTREE: %s is a linked worktree — the install tracks the main checkout, nothing to check here\n' "$REPO_ROOT"
+  exit 0
 fi
 
 if [ ! -d "$RULES_DIR" ]; then

@@ -14,7 +14,7 @@ exception below.
 
 Immediately after that line, print these two commands for the operator to paste, per
 **Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
-records why they are printed rather than invoked; do not restate its reasoning here:
+records why they are printed rather than invoked:
 
 ```text
 /rename <change-name>
@@ -32,9 +32,6 @@ is allowed to be ticked, so the progress view and the file never disagree.
 
 The reasoning behind this file lives in `skills/myflow-do/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
-
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
@@ -344,12 +341,7 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
 
 overwriting the same path. The bundle is rebuilt at the start of every dispatching stage, never
 gathered once per run: a fix documented under section 3 edits `proposal.md` and `tasks.md`, and a
-run-scoped bundle would leave every later dispatch reading a plan that no longer exists. A non-zero
-exit — including the guard being absent — is reported, and dispatching proceeds with the prompt shape
-this stage used before this capability existed; the bundle never gates a run. **Confirm the bundle
-was actually written** — `test -f <abs-worktree>/.superpowers/sdd/dispatch-context.md` — and report
-plainly if it is not, per section 4's rule above; the missing bundle still never gates or stops the
-run.
+run-scoped bundle would leave every later dispatch reading a plan that no longer exists.
 
 **Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
 the field is absent or null. It names the preset in force for this run, per
@@ -376,8 +368,7 @@ check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
 Exit 0 proceeds. Exit 1 puts the choice to the operator, shaped per **Operator prompts**
-(`skills/myflow-contracts/operator-prompts.md`) — that section is canonical for the mechanics, not
-restated here:
+(`skills/myflow-contracts/operator-prompts.md`) — that section is canonical for the mechanics:
 
 > **The panel diff measured `<count>`, over the `<cap>` cap. How should this proceed?**
 > - **Proceed with the panel anyway** *(default, recommended)*
@@ -654,7 +645,7 @@ words, slot names and prose padding stripped out — not the sentence itself, so
 rewording of the same sentence still reduces to the same phrase. Two reviewers describing the same
 defect at the same file:line, in different words, are the same identity; two different defects at
 the same file:line are not. This is the one place the identity is defined; every rule below that
-keys off it cites this paragraph rather than restating it.
+keys off it cites this paragraph.
 
 **Worked example, on a compound note.** F20's Note reads: "swapping the two `comm` directions
 mislabels every finding and still passes all 20 cases, because the assertions match on the
@@ -843,11 +834,7 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
 ```
 
 overwriting the same path — the plan may have changed since this stage's own start, per section 3's
-fix documentation. A non-zero exit — including the guard being absent — is reported, and dispatching
-proceeds with the prompt shape used before this capability existed; the bundle never gates a run.
-**Confirm the bundle was actually written** — `test -f
-<worktree>/.superpowers/sdd/dispatch-context.md` — and report plainly if it is not, per section 4's
-rule above; the missing bundle still never gates or stops the run.
+fix documentation.
 
 **Carry each surviving finding to the fix subagent as a structured block, not a bare restatement of
 its prose.** For every finding in the union above, carry its `F<n>`, the slot that raised it, its
@@ -991,7 +978,7 @@ the registry's `Claimed cache index | /myflow-do, by probing, when it exports th
 variables` row (`skills/myflow-contracts/pipeline.md`) — before carrying the exported lines forward
 into `## lint` and `## test` below.
 
-**When the script cannot be located**, apply the same rules by hand — do not restate them here — from
+**When the script cannot be located**, apply the same rules by hand from
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) and
 **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`), and say in the handoff
 that the validation and export were performed manually and why. See
@@ -1069,7 +1056,7 @@ failed** — report it with the script's own stderr message and continue committ
 
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
-(`skills/myflow-contracts/pipeline.md`), which this call implements rather than restates. The empty
+(`skills/myflow-contracts/pipeline.md`). The empty
 case is ordinary here — a fix round that touched neither `<project>/openspec/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 

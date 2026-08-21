@@ -99,7 +99,7 @@ been followed.
 gitignored, in a worktree `/myflow-finish` run 2 removes — but it SHALL be preserved into the
 repository before that happens, so it serves the operator and the review panel during the change and
 remains answerable afterwards. The preservation duty itself belongs to `myflow-finish-cleanup`; this
-requirement depends on it rather than restating it.
+requirement depends on it.
 
 The `unknown (agent-defined)` value exists for the same reason it always did, and durability SHALL
 NOT weaken it. Slots the panel dispatches by `subagent_type` resolve their model from their own

@@ -6,9 +6,6 @@ the contract. If a rule below and a skill ever disagree, this file wins.
 The reasoning behind this file lives in `skills/myflow-contracts/jira-integration-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 **Jira is a projection of pipeline state, never a source of it and never a gate.** myflow reads
 and writes it through the Atlassian MCP tools available to the session (`getJiraIssue`,
 `getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`). There is no Jira CLI on
