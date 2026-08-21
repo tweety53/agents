@@ -12,10 +12,16 @@ task's work with a **`Task-Id: <n>` trailer**, where `<n>` is the task's dotted 
 `tasks.md` heading, **before** the task is dispatched for review.
 
 **The trailer is what identifies the task; the subject follows the project's own commit
-convention.** Where that convention has a scope, the task's dotted id SHALL be the scope — so a
-project using Conventional Commits writes `fix(<n>): <short subject>` or `feat(<n>): <short
-subject>`, with the type chosen to describe the change. A project with no stated convention MAY use
-`task(<n>): <short subject>`.
+convention.** Where that convention has a scope, the scope SHALL name the **module or area** the
+commit moved, per **A commit's scope names the module, never the change or the task**
+(`openspec/specs/myflow-commit-scope/spec.md`), and the subject SHALL reproduce the task's declared
+`**Commit:**` field. The task's dotted id SHALL NOT be the scope.
+
+This paragraph previously required the opposite — `fix(<n>): <short subject>`, the dotted id as the
+scope. `myflow-commit-scope` later prohibited exactly that shape and
+`scripts/check-task-commit-fields.py`'s `check_commit_scope` enforces the prohibition, so the two
+specs disagreed and the guard sided against this one. Corrected here, since the trailer was always
+the machine-readable half and the subject is the half that gives way.
 
 **No project's commit validation is ever weakened or bypassed to satisfy this requirement.** A
 repository that rejects a subject type is stating its convention, which this requirement defers to;
@@ -26,8 +32,8 @@ always been the machine-readable half, so the subject is the half that gives way
 #### Scenario: A finished task is committed before review
 
 - **WHEN** an implementer finishes a task's RED-GREEN-REFACTOR cycle
-- **THEN** it commits the task's changes with a `Task-Id: <n>` trailer and a subject its project's
-  own convention accepts, scoped to `<n>` where that convention has a scope
+- **THEN** it commits the task's changes with a `Task-Id: <n>` trailer and the subject its task's
+  declared `**Commit:**` field states, whose scope names a module and never the task id
 - **AND** only after that commit exists is the task dispatched for review
 
 #### Scenario: The project's convention rejects the subject
