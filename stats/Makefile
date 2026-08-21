@@ -1,4 +1,4 @@
-.PHONY: test web-test web-build build up down ui-test-up ui-test-down check-uitest-overrides
+.PHONY: test web-test web-build build up down restart ui-test-up ui-test-down check-uitest-overrides
 
 # Runs the Go test suite. Tests that need the compose stack's PostgreSQL
 # skip themselves with a clear message when it is not running.
@@ -51,6 +51,79 @@ up:
 
 down:
 	docker compose down
+
+# Rebuilds and restarts the LIVE stack: the myflow-postgres container and the
+# myflowd daemon on its default port. `up`/`down` above manage the container
+# alone; this is the whole-stack equivalent, for when the daemon is running
+# stale code.
+#
+# `build` is a PREREQUISITE, not a recipe step, and the ordering is the point:
+# Make runs it to completion before the recipe's first line, so a broken SPA
+# build or a Go compile error fails with the running daemon still up and
+# serving. Stopping first and building second would turn every failed build
+# into unplanned downtime.
+#
+# NO PIDFILE, deliberately. The live daemon is usually started by hand
+# (`./bin/myflowd` from a terminal), so a pidfile this target wrote would be
+# absent exactly when it is needed. The port is the authority instead: whatever
+# holds $(LIVE_PORT) IS the live daemon, which is also why a stale pidfile
+# cannot send this `kill` somewhere else. That matters here for the same reason
+# the `override` rules below matter for the UI-test stack -- a `kill` driven by
+# a caller-nameable file is the hazard; a `kill` driven by "who holds this
+# port" has no such handle. $(LIVE_PORT) is still `override` so it cannot be
+# repointed at another service's port from the command line.
+#
+# The daemon is started with nohup and detached: the operator's own foreground
+# run dies with their terminal, and this target is invoked from wherever, so a
+# child of `make` would die when Make exits. Its output goes to $(LIVE_LOG)
+# rather than the terminal for the same reason.
+#
+# A DETACHED LIVE DAEMON HARVESTS TRANSCRIPTS UNATTENDED. It scans the real
+# MYFLOW_TRANSCRIPTS_DIR every 5s (harvestInterval, cmd/myflowd/main.go) and
+# writes into the live database -- during this repo's own development an agent
+# left running that way harvested 2,961 transcript offsets before anyone
+# noticed (see .myflow/project.md's `## run` section). That is the intended
+# behaviour of the live stack, not a defect, but it is why this target restarts
+# the live daemon rather than silently starting one that was never running:
+# see the "was not running" branch below, which says so instead of assuming
+# the operator wanted a daemon.
+override LIVE_PORT := 4173
+override LIVE_BIN := bin/myflowd
+override LIVE_LOG := /tmp/myflow-live.log
+
+restart: build
+	@pid="$$(lsof -ti tcp:$(LIVE_PORT) -sTCP:LISTEN 2>/dev/null | head -1)"; \
+	if [ -n "$$pid" ]; then \
+		echo "restart: stopping myflowd $$pid on :$(LIVE_PORT)"; \
+		kill "$$pid" 2>/dev/null; \
+		for i in $$(seq 1 30); do \
+			kill -0 "$$pid" 2>/dev/null || break; \
+			sleep 1; \
+		done; \
+		if kill -0 "$$pid" 2>/dev/null; then \
+			echo "restart: myflowd $$pid did not exit within 30s -- still holding :$(LIVE_PORT)" >&2; \
+			exit 1; \
+		fi; \
+	else \
+		echo "restart: nothing was listening on :$(LIVE_PORT) -- starting a daemon that was not previously running"; \
+	fi
+	# Both, and in this order, on purpose: `up -d` is what creates the
+	# container when it is absent (`restart` alone errors there), and
+	# `restart` is what guarantees a fresh process when it was already up
+	# (`up -d` alone is a no-op there). Neither covers both cases.
+	docker compose up -d
+	docker compose restart
+	go build -o $(LIVE_BIN) ./cmd/myflowd
+	@nohup ./$(LIVE_BIN) >> $(LIVE_LOG) 2>&1 & \
+	echo "restart: started myflowd (pid $$!), logging to $(LIVE_LOG)"
+	@echo "restart: waiting for myflowd to answer on :$(LIVE_PORT)"
+	@for i in $$(seq 1 60); do \
+		curl -sf http://127.0.0.1:$(LIVE_PORT)/api/v1/changes >/dev/null 2>&1 && \
+			{ echo "restart: ready on http://127.0.0.1:$(LIVE_PORT)"; exit 0; }; \
+		sleep 1; \
+	done; \
+	echo "restart: myflowd did not answer on :$(LIVE_PORT) within 60s -- see $(LIVE_LOG)" >&2; \
+	exit 1
 
 # The UI-test stack: a database and a daemon instance separate from the
 # live ones, for ad-hoc UI testing from the main checkout (see
