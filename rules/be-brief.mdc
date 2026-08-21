@@ -68,7 +68,7 @@ facts of the same shape across the same fields.
 ## Length follows content
 
 A one-line answer needs one line. A design decision with three real trade-offs needs room for all
-three. Brevity means no wasted words, never a withheld fact.
+three.
 
 ## Never compress
 
@@ -77,11 +77,6 @@ matters. Anything ambiguous in short form. A correction, a caveat, or a reason s
 wrong is always worth the words.
 
 ## Subagents
-
-A fresh subagent starts from an empty context. It does not read the global rules file, this file, or
-anything established earlier in the parent conversation — it sees only its system prompt and the
-dispatch prompt it was handed. So this rule reaches it in exactly one way: the parent writes it into
-the prompt. Nothing else propagates it.
 
 This is one of the rules `~/.claude/rules/agent-baseline.md` carries, so a dispatch that includes the
 baseline pointer already binds the agent to it at any depth. State it directly in the dispatch too —

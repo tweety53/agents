@@ -1,7 +1,6 @@
 # myflow project configuration — agents
 
-Read by globally installed myflow skills. Every key is optional; anything absent is
-auto-detected from the repository instead.
+Read by globally installed myflow skills.
 
 ## apps
 
@@ -105,9 +104,7 @@ the already-running `myflow-postgres` compose stack, with `stats/internal/web/di
 `stats/` existed; adding the Go and SPA suites moves it from "close" to "reliably over" for a single
 invocation. Split the run across more than one invocation (the guard tests as one call,
 `cd stats && go test ./...` as a second, `cd stats/web && npm test` as a third) or raise the tool
-timeout, rather than reading a timeout here as one of these commands failing. This note cites no
-count of the list on purpose: a written count goes stale the first time a command is added to it,
-and nothing here checks it against the list above.
+timeout, rather than reading a timeout here as one of these commands failing.
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for

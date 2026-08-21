@@ -22,10 +22,6 @@ Lint and formatter commands are project-specific. Resolve them from the project'
 4. **Verify before completion** — Run the project's configured lint commands (see `<project>/.myflow/project.md`) before claiming work is done.
 5. **Auto-fix first** — Run the project's configured auto-format/auto-fix command for formatting issues before manual fixes.
 
-## Documented exceptions
-
-Pre-approved suppressions and config deviations live in the project's contributor documentation (e.g. `CONTRIBUTING.md`). Do not expand that list without user approval.
-
 ## Examples
 
 ```

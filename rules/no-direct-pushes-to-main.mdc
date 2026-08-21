@@ -35,8 +35,7 @@ in every project, regardless of plan.
 
 ## Where server-side protection exists
 
-If a repo's branch protection *is* configured — paid plan, org account — that is the primary
-enforcement. This rule is the fallback for when it is not, and still applies underneath it. Do not
+Do not
 treat a configured ruleset as licence to stop checking; treat a missing one as the case this rule
 was written for.
 

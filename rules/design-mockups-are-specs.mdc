@@ -31,17 +31,10 @@ typos included, unless told otherwise.
 ## No unrequested improvements
 
 Do not "fix" alignment, rebalance whitespace, substitute a different component, modernise the
-styling, or swap the palette because something looks off. If the mockup appears wrong, say so and
-build it as drawn unless the user agrees to change it.
+styling, or swap the palette because something looks off.
 
 The instinct to improve is the failure mode here. A mockup that looks slightly wrong is usually
 either deliberate or already agreed with someone you are not talking to.
-
-## Tokens serve the mockup, not the reverse
-
-Reuse the project's existing design tokens and components where they already match the mockup's
-values. Introduce new ones when the mockup demands values the system does not have — do not bend the
-mockup to fit the tokens.
 
 ## Ask rather than invent
 
@@ -57,8 +50,7 @@ up, ask — do not guess, and do not silently pick a default. Typical gaps:
 - Exact assets or icon sets.
 - Which real data feeds which element.
 
-Batch the questions and ask them before building where possible; ask mid-build the moment a genuine
-blocker appears. Where a gap is small and clearly answered by an established convention already in
+Where a gap is small and clearly answered by an established convention already in
 the codebase, follow that convention and say so.
 
 ## Verify visually before claiming it is done

@@ -41,11 +41,7 @@ surface for a defect to hide in.
 
 **Correctness, security and stated requirements always win.** This governs the space where several
 correct designs exist and one is smaller — it is never licence to under-build or ignore a real
-constraint. When the simple version genuinely won't do, say why in one sentence and build the one
-that works.
-
-**Noticing is the moment to act.** If what you're building has outgrown the requirement, cut it back
-now rather than finishing and refactoring after.
+constraint.
 
 ## The incident behind it
 
