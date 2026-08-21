@@ -141,11 +141,6 @@ and each command's own stage sequence is spelled out in its own `SKILL.md` under
 repository directly — it is not copied by `<agents repo>/setup.sh` into any project, so it is not cited here as a
 source of record.
 
-Each command ends in the state named after it. **The human gate is a property of the state**, so
-no command exists whose only job is to record that a review happened — there is no `*-done`
-command. `/myflow-do` emits both the staged diff and the run instructions, so reviewing and
-testing are one sitting. **Every command is re-entrant, and a fix never moves the state.**
-
 Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load
 `skills/myflow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
@@ -158,25 +153,14 @@ change relevant to that state is used automatically; if there are multiple, you'
 **No command takes a flag.** The only argument is the change name; anything else is reported
 rather than ignored.
 
-**Model:** `/myflow-start` → **Opus** (brainstorming/design benefits from stronger reasoning).
-Every other command's **session** → **Sonnet**, and **every review-panel reviewer runs on the
-panel's model — Sonnet by default** — regardless of the parent model, the default being what a
-change may override by recording its own panel model. In Claude Code the *session* model is
-enforced via `model:` frontmatter on each command; Cursor and Codex don't support per-command model
-selection yet, so switch manually.
-
-**The implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest
-available model — named explicitly on each dispatch rather than inherited. Frontmatter cannot set
-a subagent's model, so this rule is carried by the dispatch itself and recorded, per dispatch, in
-the SDD ledger. It deliberately overrides superpowers:subagent-driven-development's "least
-powerful model that can handle each role". See "Model policy" in
+**Model:** See "Model policy" in
 `skills/myflow-contracts/pipeline.md`, which is canonical.
 
 | Command | What it does |
 |---------|-------------|
 | `/myflow-start <name>` | **Asks the planning effort level once**, on the run that creates the change — the three levels and which of them is the default are defined under **Planning effort** in State file (`skills/myflow-contracts/state-file.md`) and are deliberately not repeated here — it sizes the thinking inside the gates and never the gates themselves; that same run also asks which model implements the change, which one the review panel runs on and which one applies panel fixes, the three roles and their defaults being stated once under **Model policy** (`skills/myflow-contracts/pipeline.md`) and deliberately not repeated here; it also asks which review-panel roster the panel runs under — `light`, `standard` or `full`, `light` the default — defined under **5. The review panel** (`skills/myflow-do/SKILL.md`) and deliberately not repeated here; a revision round reuses the recorded level, models and roster instead of asking again. Its stages, in order, begin at **A. Resolve the change** (`skills/myflow-start/SKILL.md`) and are deliberately not repeated here; the run ends at `state: STARTED`. Re-run at `STARTED` to revise the plan, republishing to the **same** URL |
 | *(gate)* | **You** read the proposal artifact |
-| `/myflow-do <name>` | Implements the change under SDD + TDD behind a **review panel** sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots on the panel's model, Sonnet by default, per **5. The review panel** (`skills/myflow-do/SKILL.md`), which is canonical for what each preset means — which hands off only at **zero open findings at any severity**, and **stages the implementation, excluding the planning paths** `<project>/openspec/` and `<project>/docs/superpowers/`. Its stages, in order, begin at **1. Load context and validate the plan** (`skills/myflow-do/SKILL.md`) and are deliberately not repeated here; the run ends at `state: IN_PROGRESS`. Re-run to fix — a fix leaves the state unchanged. **No commits**, unless a `prUrl` is already recorded, in which case the fix is committed and pushed to that branch as two commits, implementation first |
+| `/myflow-do <name>` | Implements the change under SDD + TDD behind a **review panel** sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots on the panel's model, Sonnet by default, per **5. The review panel** (`skills/myflow-do/SKILL.md`), which is canonical for what each preset means — which hands off only at **zero open findings at any severity**. Its stages, in order, begin at **1. Load context and validate the plan** (`skills/myflow-do/SKILL.md`) and are deliberately not repeated here; the run ends at `state: IN_PROGRESS`. Re-run to fix — a fix leaves the state unchanged |
 | *(gate)* | **You** review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | Which run happens is `<agents repo>/scripts/check-finish-preflight.sh`'s verdict, taken once per worktree in the resolved set — `RUN1`, `RUN2` from every worktree, or `REFUSE`, which stops and asks you rather than guessing; an empty resolved set is never a vacuous `RUN2` either, per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`). Verdict `RUN1` integrates the branch — asking first how it should land, the choices being open a PR *(default)*, merge and push, or handle it manually — and stops at `IN_PROGRESS`. Verdict `RUN2`, reached once the branch has merged, archives the change, removes what the pipeline created, and ends at `state: FINISHED`. The stages of run 1, in order, begin at **Run 1 — integrate**, and the stages of run 2 begin at **Run 2 — archive and clean up** (both `skills/myflow-finish/SKILL.md`), and are deliberately not repeated here; which artifact is removed, when, and on what condition is likewise stated once under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`). **Runs no tests, linters or coverage check** |
 | `/myflow-fast <name>` | Composite command: chains `/myflow-start`'s brainstorming (fully interactive, unchanged) directly into `/myflow-do`'s implementation and review panel on a creating run, and chains `/myflow-finish`'s run 1 into run 2 when the landing route is merge-and-push, with no operator action between the chained stages. Accepts **no state** (creates the change) or **`IN_PROGRESS`** — an argument at `IN_PROGRESS` is fix instructions, a bare invocation asks how to land the branch. Publishes no proposal artifact. Its stages, in order, are cited by section in `skills/myflow-fast/SKILL.md` and are deliberately not repeated here; a creating or fix run ends at `state: IN_PROGRESS` — a fix leaves the state unchanged. A bare invocation ends at `state: IN_PROGRESS` or `state: FINISHED`, depending on the route chosen. Re-run to fix or to integrate |

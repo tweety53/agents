@@ -51,13 +51,7 @@ agents-data/
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in
-its own frontmatter. `setup.sh global` installs whichever rules declare `alwaysApply: true`,
-and only those. Every other rule is **opt-in**: it is never installed globally, and a project
-adopts it by naming it in the `## standards` section of its own `.myflow/project.md`. A
-per-project install (`cursor`, `claude-code`, `codex`, `all`) then renders every opt-in rule
-that project named into a managed block in **that project's own `CLAUDE.md` and `AGENTS.md`**
-— the same delimiters and the same inlining as the global block, so the rule text actually
-loads for the harness instead of merely being referenced. The tree above is an illustrative
+its own frontmatter. The tree above is an illustrative
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
 **Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, `/myflow-fast`
@@ -69,7 +63,7 @@ snapshot of today's set, not the definition; read the frontmatter to be sure.
 Each command ends in the state named after it, and **the human gate is a property of the state** —
 which is why no command exists whose only job is to record that a review happened. `/myflow-do`
 emits both the staged diff and the run instructions, so reviewing and testing are one sitting.
-Every command is re-entrant, and a fix never moves the state. **No command takes a flag.**
+Every command is re-entrant, and a fix never moves the state.
 
 `/myflow-finish` runs **twice**: once to integrate the branch (open a PR by default, merge and
 push, or leave it to you), and again once the branch is merged, to sync delta specs, archive and
@@ -448,7 +442,7 @@ cd /path/to/other-project
 ./path/to/agents-data/setup.sh cursor
 ```
 
-This symlinks `agents-data/skills/` into `.cursor/skills/`, the always-on rules from `agents-data/rules/` into `.cursor/rules/`, and `agents-data/commands/` into `.cursor/commands/`. If the project's `.myflow/project.md` names any opt-in rule, that rule's text is also rendered into the managed block in the project's `CLAUDE.md` and `AGENTS.md`.
+This symlinks `agents-data/skills/` into `.cursor/skills/`, the always-on rules from `agents-data/rules/` into `.cursor/rules/`, and `agents-data/commands/` into `.cursor/commands/`.
 
 ---
 
@@ -510,10 +504,7 @@ discovers skills natively when the Superpowers Codex plugin is installed. It rea
 writes into `~/.claude/CLAUDE.md` — the always-on rule text, between
 `<!-- myflow:begin -->` / `<!-- myflow:end -->` — because that block is Codex's only global
 rule layer. This happens on every `global` install, whether or not you also run a
-Codex-specific install; your own content outside the delimiters is left alone. Note the
-global install gives Codex the **rules** but not skills or commands (nothing is installed
-under `~/.codex/`) — see "Where a Codex session gets its rules" in `AGENTS.md` for the
-workaround.
+Codex-specific install; your own content outside the delimiters is left alone.
 
 **Step 1 — Install Superpowers for Codex**
 
@@ -594,13 +585,13 @@ degraded but the OpenSpec-specific steps still work.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** `/myflow-start` → Opus (enforced via frontmatter in Claude Code; switch manually in Cursor/Codex, which don't support per-command model selection yet). Every other command's **session** → Sonnet, and **every review-panel reviewer runs on the panel's model — Sonnet by default** — regardless of the parent model, a change being free to record its own panel model. The **implementer subagents `/myflow-do` dispatches run on Opus** — or the harness's strongest model — named explicitly at dispatch, since frontmatter sets a session's model and cannot set a subagent's; each dispatch's model is recorded in the SDD ledger. See "Model policy" in `skills/myflow-contracts/pipeline.md`.
+**Model:** See "Model policy" in `skills/myflow-contracts/pipeline.md`.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|
 | `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design-approval gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | You | Read the proposal artifact |
-| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots, with Security, Adversarial and extra lenses staying conditional under every preset — which hands off only at **zero open findings at any severity**, and stages the diff — `git add` excluding the planning paths — with the run instructions carried in the handoff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. Commits only when a PR is already open. |
+| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots, with Security, Adversarial and extra lenses staying conditional under every preset — which hands off only at **zero open findings at any severity**. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
 | *(gate)* | You | Review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
 | `/myflow-fast <name>` | `myflow-fast` | Composite command: chains `/myflow-start`'s brainstorming (fully interactive, unchanged) directly into `/myflow-do`'s implementation and review panel with no gate in between, and chains `/myflow-finish`'s run 1 into run 2 when the chosen landing route is merge and push. Accepts no state (creates the change) or `IN_PROGRESS` — an argument at `IN_PROGRESS` is fix instructions, a bare invocation asks how to land the branch. Publishes no proposal artifact. A creating or fix run ends at `IN_PROGRESS` — a fix leaves the state unchanged; a bare invocation ends at `IN_PROGRESS` or `FINISHED`, depending on the route chosen. Re-run to fix or to integrate. |
@@ -632,10 +623,6 @@ $EDITOR skills/myflow-do/SKILL.md   # or any rule / command / skill
 There is no importer, no sync hook, and no rsync from a project checkout. A project's
 `.cursor/` or `.claude/` tree is an *install target* fed from here; never edit an
 installed copy expecting it to travel back.
-
-Because `setup.sh` installs **symlinks**, editing an existing skill or command takes effect
-in the next session with no re-run. Re-run `./setup.sh global` when you **add** or **remove**
-a skill, command, or rule — that is when the set of links changes.
 
 **Rules are the exception — every rule's text is copied somewhere, not linked.** Treat every
 edit to `rules/*.mdc` as requiring a re-install, and note that the two kinds re-install with
