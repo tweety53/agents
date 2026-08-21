@@ -146,8 +146,9 @@ hand like a guard-script one. The list is cited by count nowhere in this file, d
 written count went stale the first time a guard was added to it, and the same sentence would go
 stale again on the next.
 
-**`check-contract-budget.sh` is a ratchet, not a target.** It fails when a file under
-`skills/myflow-contracts/`, or a `skills/*/SKILL.md` or `skills/*/SKILL-rationale.md`, outgrows the
+**`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
+file — every one under `skills/`, `rules/`, `openspec/specs/`, `commands/`, `commands-claude/`,
+`.myflow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
 budget declared for it in the guard's own `budgets()` table, or carries no budget at all. The table
 is keyed on the path relative to the repository root, not on the bare basename, because every skill
 directory has a file literally named `SKILL.md` and a basename key would collide across skills. Each
@@ -165,8 +166,8 @@ and diffs the output after its last against it, and resolves any difference by r
 sentence rather than by accepting the new inventory. Unlike every other guard here it writes its
 payload to stdout (its file and sentence counts go to stderr), so a lint run sees roughly a
 thousand lines from it and no verdict line. It resolves the corpus through
-`scripts/lib/owned-corpus.sh`, which `check-contract-budget.sh` will call once its own widening
-lands, so the two guards cannot disagree about which files this repository owns.
+`scripts/lib/owned-corpus.sh`, which `check-contract-budget.sh` calls too, so the two guards
+cannot disagree about which files this repository owns.
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
