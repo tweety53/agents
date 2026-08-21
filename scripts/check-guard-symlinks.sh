@@ -10,7 +10,7 @@
 # tree under TMPDIR without touching this repository — never set it for a
 # normal invocation.
 #
-# Four rules, each reported by name with the offending path and line:
+# Five rules, each reported by name with the offending path and line:
 #
 #   1. Every entry under skills/*/scripts/ is a symlink, it resolves, and its
 #      target is relative — an absolute target would bake this machine's
@@ -34,6 +34,22 @@
 #      number of levels above itself. "Shipped" is read from rule 1's own scan
 #      rather than a hardcoded guard list, so a newly shipped guard is covered
 #      the moment it is symlinked in.
+#   5. No skill directory carries a symlink directly at its own top level —
+#      `skills/<skill>/scripts/` is the only place a skill's symlinks may
+#      live, which rule 1 already validates; this rule closes the placement
+#      rule 1 does not reach. `scripts/` itself is a directory, never a
+#      symlink, so it is not a hit here, and a symlink INSIDE scripts/ is
+#      rule 1's business, not this one's — this rule never re-reports what
+#      rule 1 already governs. It exists for a file a skill's text names but
+#      does not carry — most concretely `engineering-principles.md` and the
+#      reviewer-prompt files, which `skills/myflow-do/SKILL.md` resolves
+#      BESIDE ITSELF, in `skills/myflow-do/` — which is resolved by reading
+#      where the text says it lives, never by symlinking a copy into the
+#      running command's own skill directory: that symlink makes a wrong
+#      reading of the resolution rule work, which is what keeps the wrong
+#      reading alive. Prose already said so once and a session created three
+#      such symlinks anyway, roughly five hours later, in
+#      `skills/myflow-fast/`.
 #
 # Prints one violation line per finding (`path:line: message`), then the
 # verdict:
@@ -180,6 +196,29 @@ while IFS= read -r skill_dir; do
   basename -- "$skill_dir" >> "$SKILL_NAMES_FILE"
 done < "$COMMAND_SKILLS_FILE"
 
+# ALL_SKILL_DIRS_FILE — every directory directly under skills/, WITHOUT the
+# 'myflow-contracts' exclusion COMMAND_SKILLS_FILE applies above. That
+# exclusion is correct for rules 1-4 and for coverage, which are about
+# *command* skills and their scripts/ directories — myflow-contracts SHALL
+# NOT carry a scripts/ directory of its own (task 3's resolution rule), so
+# it is rightly out of that scan. Rule 5's own requirement is about EVERY
+# skill directory's own top level, myflow-contracts included: excluding it
+# from rule 5's scan set left a symlink placed directly under
+# skills/myflow-contracts/ invisible to this guard entirely (pass 2,
+# finding D). This file is used by rule 5 alone — it must never widen what
+# rules 1-4 or coverage treat as a command skill.
+ALL_SKILL_DIRS_FILE="$WORK/all_skill_dirs"
+if ! find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d -print 2>"$WORK/find_err" | sort > "$ALL_SKILL_DIRS_FILE"; then
+  echo "check-guard-symlinks: could not enumerate $SKILLS_DIR" >&2
+  cat "$WORK/find_err" >&2
+  exit 2
+fi
+if [ -s "$WORK/find_err" ]; then
+  echo "check-guard-symlinks: error while scanning $SKILLS_DIR" >&2
+  cat "$WORK/find_err" >&2
+  exit 2
+fi
+
 # ---------------------------------------------------------------------------
 # GUARD_SET_FILE — every basename that exists directly under the repository's
 # real scripts/ directory (a file OR a directory, so "lib" counts). This is
@@ -313,6 +352,45 @@ VIOEOF
     fi
   done < "$REAL_TARGETS_FILE"
 fi
+
+# ===========================================================================
+# RULE 5 — no skill directory carries a symlink directly at its own top
+# level. Scanned over ALL_SKILL_DIRS_FILE (pass 2, finding D) — every skill
+# directory, myflow-contracts included — NEVER COMMAND_SKILLS_FILE: this
+# rule's own requirement is about placement inside "the only place a
+# skill's symlinks may live" for EVERY skill directory, not only command
+# skills, and COMMAND_SKILLS_FILE excludes myflow-contracts specifically
+# because rules 1-4 and coverage are about command-skill scripts/
+# directories, which myflow-contracts SHALL NOT carry at all. Only the
+# skill directory's own top level is listed here (mindepth 1, maxdepth 1) —
+# an entry named "scripts" is always a directory, never a symlink, so it is
+# never a hit, and anything under scripts/ itself is out of this loop's
+# reach entirely and stays rule 1's to validate (which still scans
+# COMMAND_SKILLS_FILE only, unchanged).
+# ===========================================================================
+while IFS= read -r skill_dir; do
+  [ -n "$skill_dir" ] || continue
+
+  top_entries_file="$WORK/top_entries"
+  if ! find "$skill_dir" -mindepth 1 -maxdepth 1 -print 2>"$WORK/find_err" | sort > "$top_entries_file"; then
+    echo "check-guard-symlinks: could not list $skill_dir" >&2
+    cat "$WORK/find_err" >&2
+    exit 2
+  fi
+  if [ -s "$WORK/find_err" ]; then
+    echo "check-guard-symlinks: error while listing $skill_dir" >&2
+    cat "$WORK/find_err" >&2
+    exit 2
+  fi
+
+  while IFS= read -r top_entry; do
+    [ -n "$top_entry" ] || continue
+    if [ -L "$top_entry" ]; then
+      top_target="$(readlink -- "$top_entry")"
+      violation "$top_entry" 0 "symlink directly under a skill directory (target '$top_target') — every symlink a skill carries must sit under skills/<skill>/scripts/, never at the skill directory's own top level (rule 5)"
+    fi
+  done < "$top_entries_file"
+done < "$ALL_SKILL_DIRS_FILE"
 
 # ===========================================================================
 # RULE 3 — no skill text carries a repository-relative scripts/<name> path in

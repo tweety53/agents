@@ -487,6 +487,101 @@ is_refused() {
   return 1
 }
 
+# is_real_impl_commit <PLAN_PARENT> — true iff PLAN_SHA's first parent
+# qualifies as the implementation commit (pass 2, finding G). Reads globals
+# REPO_ROOT (set above) and PLAN_SUBJECT_RE_NEW / PLAN_SUBJECT_RE_OLD /
+# ARCHIVE_SUBJECT_RE (assigned once, just before this function's caller).
+# Extracted so a future added condition does not have to be threaded into an
+# already-long inline `if` — each condition below was added in response to a
+# real, demonstrated bug and is kept exactly as it was, comments included.
+# THREE OF THESE FOUR CONDITIONS ARE DELIBERATELY DEAD TODAY. Mutation
+# testing confirms PARENT_TOUCHES_OUTSIDE alone decides every case
+# reachable through this pipeline's own commits: dropping the merge gate,
+# any one subject rejection, or all four together fails no test. That is
+# the documented, expected state -- NOT a coverage gap, and NOT a licence
+# to delete them. Each is retained as a named guard against a specific,
+# plausible future edit to code this function does not control:
+#
+#   - the merge gate guards this function's OWN diff-tree call below.
+#     Adding -m, -c or --cc to it -- the natural way to extend merge or
+#     root-commit handling later -- would make diff-tree report real paths
+#     for a merge commit, at which point a merge could satisfy
+#     PARENT_TOUCHES_OUTSIDE and this gate becomes load-bearing again.
+#   - the plan-subject rejections guard against a change to
+#     commit-split.sh's staging order or exclusion pathspec letting the
+#     plan commit's `git add -A` pick up a file outside the planning
+#     trees. They also guard a collision this very change created: the
+#     planning subject is now the fixed literal
+#     "chore(openspec): plan and session records", IDENTICAL across every
+#     change, so a skipped implementation commit can leave PLAN_PARENT
+#     pointing at a DIFFERENT change's planning commit, with no name left
+#     in the subject to tell them apart.
+#   - the archive-subject rejection guards against a change to run 2's
+#     archive step touching a path outside openspec/.
+#
+# Every one of those guarantees lives in another file, with no test
+# coupling this function to it, so a future edit there would silently
+# reactivate the confident-wrong-answer failure this function exists to
+# prevent. Do not delete these on the strength of a mutation pass alone.
+is_real_impl_commit() {
+  local PLAN_PARENT="$1"
+  local PARENT_SUBJECT
+  PARENT_SUBJECT="$(git -C "$REPO_ROOT" log -1 --format='%s' "$PLAN_PARENT" 2>/dev/null || true)"
+
+  # Non-merge: commit-split.sh's own commits always carry exactly one
+  # parent. "${PLAN_PARENT}^2" resolving at all means a second parent
+  # exists, i.e. PLAN_PARENT is a merge commit.
+  local PARENT_IS_MERGE=0
+  if git -C "$REPO_ROOT" rev-parse --verify -q "${PLAN_PARENT}^2" >/dev/null 2>&1; then
+    PARENT_IS_MERGE=1
+  fi
+
+  # Touches at least one path outside the planning paths — what
+  # commit-split.sh guarantees of a real implementation commit, and
+  # what an unrelated commit that merely happens to sit just ahead of
+  # the plan commit (a merge, or anything else) is not guaranteed to
+  # do. Skipped entirely for a merge commit, which is refused on its
+  # own above regardless of what it touches.
+  #
+  # Resolved via `git diff-tree --no-commit-id --name-only -r --root`,
+  # NOT `git diff --name-only "${PLAN_PARENT}^..${PLAN_PARENT}"`: the
+  # latter fails with "fatal: ambiguous argument" when PLAN_PARENT is
+  # the repository's own root commit (a root commit has no `^` parent
+  # to diff against), and the `2>/dev/null` on that call swallowed the
+  # failure silently, leaving PARENT_TOUCHES_OUTSIDE at its default 0
+  # and dropping a genuine implementation commit — a wrong answer
+  # produced by a silenced error, the same failure class this file
+  # keeps getting bitten by. `--root` makes diff-tree diff a root
+  # commit against the empty tree instead of erroring, while leaving a
+  # normal (non-root) commit's diff against its actual parent
+  # unchanged, so one form is correct for both cases.
+  local PARENT_TOUCHES_OUTSIDE=0
+  if [ "$PARENT_IS_MERGE" -eq 0 ] \
+    && git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r --root "$PLAN_PARENT" 2>/dev/null \
+      | grep -Ev '^(openspec/|docs/superpowers/)' | grep -q .; then
+    PARENT_TOUCHES_OUTSIDE=1
+  fi
+
+  # The repeated "$PARENT_IS_MERGE" -eq 0 check below is a deliberate,
+  # redundant no-op: PARENT_TOUCHES_OUTSIDE can only be 1 when that same
+  # condition already held above, so this line's copy can never itself
+  # flip the outcome (confirmed by mutation testing — removing it here
+  # alone changes nothing). Kept anyway as defence-in-depth against a
+  # future edit to the PARENT_TOUCHES_OUTSIDE computation above that
+  # stops implying PARENT_IS_MERGE=0 — without this copy, such an edit
+  # would silently let a merge commit's parent become IMPL_SHA. See the
+  # block above this function for why the subject rejections below are
+  # likewise dead today and likewise kept.
+  if [ "$PARENT_IS_MERGE" -eq 0 ] \
+    && [ "$PARENT_TOUCHES_OUTSIDE" -eq 1 ] \
+    && [[ ! "$PARENT_SUBJECT" =~ $PLAN_SUBJECT_RE_NEW ]] \
+    && [[ ! "$PARENT_SUBJECT" =~ $PLAN_SUBJECT_RE_OLD ]] \
+    && [[ ! "$PARENT_SUBJECT" =~ $ARCHIVE_SUBJECT_RE ]]; then
+    return 0
+  fi
+  return 1
+}
+
 REFUSED=()
 
 LEDGER_FILE=""
@@ -533,51 +628,123 @@ if [ "$ARCHIVED_PATH_INVALID" -eq 0 ]; then
   fi
 fi
 
-# The three commits: the implementation commit and the "plan and session
-# records" commit (finish run 1's own two-commit chain, per Git boundaries
-# in skills/myflow-contracts/pipeline.md), plus the archive commit.
-# Resolved by walking git log for the most recent commit matching
-# each subject shape, never by a fixed commit count back from HEAD, so this
-# still finds the right commits regardless of how much history has landed
-# since. Grep is anchored on the subject line; NAME's only regex metacharacter
-# a real allowlisted name can carry is '.', escaped below.
+# The three commits: the implementation commit and the planning commit
+# (finish run 1's own two-commit chain, per Git boundaries in
+# skills/myflow-contracts/pipeline.md), plus the archive commit.
 #
-# This --max-count=5 grep-and-exclude approach assumes at most a small number
-# of intervening commits between the implementation commit and the archive
-# commit; a change with several /myflow-do fix-round commits may not resolve
-# to exactly the "first" implementation commit. Accepted as low-impact: this
-# git log content is advisory input to a reasoning pass, not load-bearing.
+# PLAN_SHA is resolved by PATH **AND** SUBJECT SHAPE together (pass 2,
+# finding E): the plan commit is the most recent commit that both (a)
+# touched THIS change's own openspec/changes/<name>/ directory and (b)
+# carries a plan-commit subject — PLAN_SUBJECT_RE_NEW, the module-scope
+# convention's fixed literal "chore(openspec): plan and session records",
+# or PLAN_SUBJECT_RE_OLD, either wording finish run 1 used before that
+# rename. Path alone is not commit-specific: verified directly, a LATER
+# commit that merely touches the same directory (e.g. a typo fix landed
+# after archiving) outranks the real planning commit by recency and wins a
+# path-only `head -1`, making the real planning commit disappear from the
+# bundle entirely. Subject alone is not change-specific either, since the
+# module-scope convention made every change's planning commit read the
+# identical literal subject (a subject-only match can return a DIFFERENT
+# change's planning commit). Together they are both.
+#
+# Only the LIVE pathspec (openspec/changes/<name>/) is searched (pass 2,
+# finding F) — NOT ALSO the archived location
+# (openspec/changes/archive/<date>-<name>/, where run 2 later moves it):
+# `git log -- <path>` filters each commit by its OWN historical tree, so
+# the live pathspec alone finds the planning commit even after run 2's
+# `git mv` renames the directory — verified directly. A second, archived
+# pathspec earned nothing and only widened what a later, unrelated commit
+# touching the archived directory could match instead — exactly finding
+# E's own reproduction. Combined with the subject filter above, the prior
+# archive-shape EXCLUSION grep (needed only when path-only matching could
+# select the archive commit itself) is now unnecessary too: the archive
+# commit's own subject never matches a plan subject, so it was never a
+# candidate under the new filter in the first place.
+#
+# IMPL_SHA is then DERIVED from PLAN_SHA, never searched for independently:
+# commit-split.sh makes the implementation commit and the planning commit
+# BACK TO BACK, in that order, so the implementation commit is the planning
+# commit's first parent. Either commit is skipped, not failed, when nothing
+# is staged (commit-split.sh's own header) — when the implementation commit
+# was skipped, the planning commit's parent is not one, and accepting it
+# anyway is a confident wrong answer waiting to happen (pass 2, finding G:
+# verified, a merge commit — "Merge pull request #42 from someone/some-
+# other-change" — was reported as this change's own implementation commit,
+# since it matched none of the three reserved subject shapes this guard
+# used to check alone). The parent is now accepted as IMPL_SHA only when it
+# is BOTH a non-merge commit (exactly one parent — every commit-split.sh
+# commit is) AND touches at least one path outside openspec/ and
+# docs/superpowers/ (what a real implementation commit is guaranteed to do,
+# per commit-split.sh's own boundary, and what some unrelated commit
+# sitting just ahead of the plan commit is not), on top of the existing
+# reserved-subject-shape rejections. This is still a heuristic, not a
+# certainty — a hand-crafted commit could still slip past it — but it
+# closes the "anything not named is accepted" gap the merge-commit case
+# exploited.
+#
+# There is deliberately NO subject-only fallback for a change finished
+# before this landed. One was tried and removed: it assumed a pre-KAN-202
+# planning commit's own historical tree "may not even touch"
+# openspec/changes/<name>/, which is false — that IS commit-split.sh's own
+# planning commit, in either era, so it always touches that path. Verified
+# directly against this repository's own archived history: the planning
+# commits for kan-201-, kan-209-, kan-102- and kan-236- all resolve through
+# the PRIMARY path+subject query above, because PLAN_SUBJECT_RE_OLD is
+# already one of that query's --grep alternatives and the live pathspec
+# matches. A subject-only, no-path-filter fallback was therefore
+# unreachable for any genuine historical commit — the only way to reach it
+# was a commit carrying an old-era subject while touching no path at all,
+# which is not what a real planning commit looks like; it was only ever
+# exercised by a test fixture built with `git commit --allow-empty` and
+# nothing staged.
+#
+# ARCHIVE_SHA is UNCHANGED by any of this: run 2's archive commit has always
+# used, and still uses, `chore(<name>): ... archive ...` — a subject grep
+# stays exact and change-specific there, so it is left exactly as it was.
+# NAME's only regex metacharacter a real allowlisted name can carry is '.',
+# escaped below.
+#
+# ARCHIVE_SUBJECT_RE / PLAN_SUBJECT_RE_NEW / PLAN_SUBJECT_RE_OLD are each
+# assigned ONCE, immediately below, and reused at every site that needs
+# one of these shapes (pass 2, finding H) — each was previously hand-copied
+# at several call sites, which this file's own comments already warned had
+# to be kept in sync by hand; assigning once removes the chance to drift.
+#
 GITLOG_CONTENT=""
 if [ -n "$REPO_ROOT" ]; then
   NAME_RE="$(printf '%s' "$NAME" | sed 's/\./\\./g')"
-  ARCHIVE_SHA="$(git -C "$REPO_ROOT" log -E --grep="^chore\(${NAME_RE}\): .*archive" \
+
+  ARCHIVE_SUBJECT_RE="^chore\\(${NAME_RE}\\): .*archive"
+  PLAN_SUBJECT_RE_NEW='^chore\(openspec\): plan and session records'
+  PLAN_SUBJECT_RE_OLD="^chore\\(${NAME_RE}\\): plan(, test guide and| and) session records"
+
+  ARCHIVE_SHA="$(git -C "$REPO_ROOT" log -E --grep="$ARCHIVE_SUBJECT_RE" \
     --max-count=1 --format='%H' 2>/dev/null || true)"
-  # The alternation matches both the current subject ("plan and session
-  # records") and the subject finish run 1 used before it was renamed
-  # ("plan, test guide and session records"), so changes committed under
-  # either wording keep resolving. Do not drop the old branch: doing so
-  # would leave a pre-rename change's plan commit unmatched here while
-  # IMPL_SHA's own exclusion below (which must stay in sync with this
-  # grep) still needs it — see that comment for the resulting failure mode.
+
+  # PLAN_SHA: path AND subject shape together (findings E, F above). Only
+  # the LIVE pathspec is searched; --grep is repeated deliberately — git
+  # ORs multiple --grep patterns together by default (no --all-match) — so
+  # either the new fixed literal or an old-era wording qualifies, whichever
+  # this particular commit carries.
+  PLAN_PATH_LIVE="openspec/changes/$NAME"
   PLAN_SHA="$(git -C "$REPO_ROOT" log -E \
-    --grep="^chore\(${NAME_RE}\): plan(, test guide and| and) session records" \
-    --max-count=1 --format='%H' 2>/dev/null || true)"
-  # Excluded only when the SUBJECT matches the same dedicated archive-commit
-  # shape ARCHIVE_SHA itself searches for above — never a bare substring
-  # check for "archive" — so a genuine implementation commit that happens to
-  # mention "archive" (e.g. "feat(name): archive stale records") is not
-  # wrongly excluded from IMPL_SHA candidacy.
-  # This exclusion must stay in sync with PLAN_SHA's --grep above, alternation
-  # for alternation: the plan commit is always the most recent chore(...) commit
-  # ahead of the implementation commit, so if a wording matches PLAN_SHA but is
-  # missing here, this exclusion fails to filter it out, `head -1` picks the
-  # plan commit itself (it outranks the true implementation commit by recency),
-  # and IMPL_SHA resolves to the plan commit too — a wrong answer, not a
-  # missing one, since the implementation commit is then never reached at all.
-  IMPL_SHA="$(git -C "$REPO_ROOT" log -E --grep="^(feat|fix|chore)\(${NAME_RE}\): " \
-    --max-count=5 --format='%H %s' 2>/dev/null \
-    | grep -Ev "^[0-9a-f]+ chore\(${NAME_RE}\): plan(, test guide and| and) session records|^[0-9a-f]+ chore\(${NAME_RE}\): .*archive" \
-    | head -1 | cut -d' ' -f1 || true)"
+    --grep="$PLAN_SUBJECT_RE_NEW" --grep="$PLAN_SUBJECT_RE_OLD" \
+    --max-count=1 --format='%H' \
+    -- "$PLAN_PATH_LIVE" 2>/dev/null || true)"
+
+  # IMPL_SHA derived from PLAN_SHA's first parent (finding G): accepted
+  # only when that parent is a non-merge commit touching at least one path
+  # outside openspec/ and docs/superpowers/, and its subject matches none
+  # of the three reserved plan-/archive-shapes above. Anything else
+  # resolves NOTHING rather than a confident wrong answer. The four
+  # conditions themselves live in is_real_impl_commit, defined above.
+  IMPL_SHA=""
+  if [ -n "$PLAN_SHA" ]; then
+    PLAN_PARENT="$(git -C "$REPO_ROOT" rev-parse "${PLAN_SHA}^" 2>/dev/null || true)"
+    if [ -n "$PLAN_PARENT" ] && is_real_impl_commit "$PLAN_PARENT"; then
+      IMPL_SHA="$PLAN_PARENT"
+    fi
+  fi
 
   for sha in "$IMPL_SHA" "$PLAN_SHA" "$ARCHIVE_SHA"; do
     if [ -n "$sha" ]; then

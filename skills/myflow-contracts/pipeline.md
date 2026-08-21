@@ -151,11 +151,17 @@ cases this guards against and why it is a chain rather than `set -e`.
 git -C <abs-worktree> reset -q -- openspec/ docs/superpowers/ \
   && git -C <abs-worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/' \
   && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "<type>(<name>): <what the implementation does>"; } \
+       || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \
   && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "chore(<name>): plan and session records"; }
+       || git -C <abs-worktree> commit -m "chore(openspec): plan and session records"; }
 ```
+
+`<module>` is derived from the reshaped diff — the module carrying the change's substance, or a
+broader area where it spans several, never a list. That is the same rule `/myflow-start`'s
+writing-plans stage applies to each task's `**Commit:**` field. The
+planning message is a **fixed literal**, never derived — every planning commit stages the same two
+trees in every change, so there is nothing about it that varies.
 
 **A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report
 git's own output and stop.** See **Git boundaries** (`skills/myflow-contracts/pipeline-rationale.md`)

@@ -104,6 +104,19 @@ BACKTICK_RE = re.compile(r"`([^`]+)`")
 CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+)\b", re.IGNORECASE)
 BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 
+# check_commit_scope's grammar: a declared Commit: subject is
+# `<type>(<scope>): <rest>` or the Conventional Commits breaking-change form
+# `<type>(<scope>)!: <rest>`; a subject with no parenthesised scope before
+# the first colon (or `!:`) has no scope at all (SUBJECT_SCOPE_RE then does
+# not match). The optional `!` (pass 2, finding A) must sit between the
+# closing paren and the colon, or a subject like
+# `feat(kan-202-commit-split-and-module-scopes)!: add alpha` bypassed the
+# scope check entirely — a real, valid Conventional Commits shape this
+# guard has to see. TASK_ID_SCOPE_RE reuses DOTTED_ID: a scope that is
+# nothing but digits and dots is a task id, never a module.
+SUBJECT_SCOPE_RE = re.compile(r"^[A-Za-z]+\(([^)]*)\)!?:")
+TASK_ID_SCOPE_RE = re.compile(rf"^{DOTTED_ID}$")
+
 # The minimal contract this guard requires of a project's `## test` command
 # in order to verify Regression:/Baseline: at all — not a real test-runner
 # protocol, just what these two checks need out of it. A project whose
@@ -323,6 +336,88 @@ def check_commit_subject(task: TaskFields, actual_subject: str) -> List[str]:
     ]
 
 
+# _LEADING_KEY_RE: a Jira key is `<letters>-<digits>` — never digits alone —
+# at the very start of the change name (per skills/myflow-contracts/
+# jira-integration.md's own `[A-Z]{2,10}-\d+` shape and this repository's
+# "Change naming" convention, `<key>-<slug>`; matched case-insensitively
+# here since check_commit_scope's own comparison is, per finding B).
+_LEADING_KEY_RE = re.compile(r"^[A-Za-z]+-\d+")
+
+
+def _leading_jira_key(change_name: str) -> Optional[str]:
+    """The change name's leading Jira key, e.g. `kan-202` from
+    `kan-202-commit-split-and-module-scopes`. A change name that does not
+    begin with `<letters>-<digits>` at all has no key and this returns
+    `None` (pass 2, finding C — the prior implementation returned the name
+    up through its first ALL-DIGIT hyphen segment, which both over-matched
+    a plain `<word>-<year>`-shaped module name and, worse, could not tell
+    that shape apart from a real key at all).
+
+    A leading `<letters>-<digits>` match is itself ambiguous, not a key,
+    when the text immediately following it is ANOTHER `<letters>-<digits>`
+    pair — e.g. `release-2026-kan-450-cleanup`, where `release-2026` and
+    `kan-450` are equally plausible candidates and nothing here can tell
+    which one (if either) is the real Jira key; per the same "does not
+    begin with one has no key" rule, this returns `None` rather than guess.
+    A single unambiguous match, e.g. `kan-202` in
+    `kan-202-commit-split-and-module-scopes` (followed by `commit-split`,
+    which is not itself a `<letters>-<digits>` pair), is returned as-is.
+    """
+    match = _LEADING_KEY_RE.match(change_name)
+    if not match:
+        return None
+    key = match.group(0)
+    remainder = change_name[len(key):]
+    if remainder.startswith("-") and _LEADING_KEY_RE.match(remainder[1:]):
+        return None
+    return key
+
+
+def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
+    """Fail when the **declared** `Commit:` field's scope — parsed out of
+    `task.commit`, never the real commit's subject, per myflow-commit-
+    scope's requirement — equals the change name, the change name's bare
+    Jira key, or a dotted/numeric task id. A field with no scope, or any
+    other scope, passes: there is no vocabulary of legal module names to
+    maintain.
+
+    The change-name and Jira-key comparisons are case-insensitive (pass 2,
+    finding B): a declared scope of `feat(KAN-202): ...` against change
+    `kan-202-...` is the shape a human is *most* likely to type, since Jira
+    keys are conventionally written uppercase, and a case-sensitive compare
+    let it straight through. The task-id comparison is deliberately left
+    case-sensitive: `TASK_ID_SCOPE_RE` only ever matches a scope that is
+    digits and dots (`^\\d+(?:\\.\\d+)*$`), which carries no letters at all,
+    so case does not apply to it.
+    """
+    if task.commit is None:
+        return []
+    match = SUBJECT_SCOPE_RE.match(task.commit)
+    if not match:
+        return []
+    scope = match.group(1)
+    if not scope:
+        return []
+    scope_lower = scope.lower()
+    if scope_lower == change_name.lower():
+        return [
+            f"task {task.id}: declared Commit: scope {scope!r} names the "
+            "change, not a module"
+        ]
+    jira_key = _leading_jira_key(change_name)
+    if jira_key is not None and scope_lower == jira_key.lower():
+        return [
+            f"task {task.id}: declared Commit: scope {scope!r} names the "
+            "change's Jira key, not a module"
+        ]
+    if TASK_ID_SCOPE_RE.match(scope):
+        return [
+            f"task {task.id}: declared Commit: scope {scope!r} is a task "
+            "id, not a module"
+        ]
+    return []
+
+
 def read_single_test_command(worktree: str) -> Optional[str]:
     """Read `<worktree>/.myflow/project.md`'s `## test` section and return
     its one command line, or `None` when the section is absent, empty, or
@@ -521,6 +616,7 @@ def check_task_commit(
     with open(tasks_md_path, "r", encoding="utf-8") as handle:
         lines = handle.read().splitlines()
     task = parse_task_fields(lines, task_id)
+    change_name = os.path.basename(os.path.dirname(os.path.abspath(tasks_md_path)))
 
     resolved_parent = parent_sha or resolve_parent(worktree, commit_sha)
     changed_files = [
@@ -540,6 +636,7 @@ def check_task_commit(
     violations += check_files(task, changed_files)
     violations += check_tests(task, diff_text)
     violations += check_commit_subject(task, actual_subject)
+    violations += check_commit_scope(task, change_name)
 
     for outcome in (
         check_regression(task, worktree, commit_sha),

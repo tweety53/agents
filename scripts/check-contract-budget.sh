@@ -69,7 +69,7 @@ budgets() {
   cat <<'EOF'
 skills/myflow-contracts/SKILL.md 7615
 skills/myflow-contracts/build-green.md 4557
-skills/myflow-contracts/finish-contract.md 40724
+skills/myflow-contracts/finish-contract.md 51126
 skills/myflow-contracts/handoff-blocks-rationale.md 14465
 skills/myflow-contracts/handoff-blocks.md 16746
 skills/myflow-contracts/jira-followups.md 44651

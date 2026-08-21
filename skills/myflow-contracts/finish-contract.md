@@ -137,10 +137,12 @@ collapses every per-task and fixup commit `/myflow-do` made on the branch back i
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
 
-All three routes first commit the work, in **two** commits and never one: the implementation, then
-the `<project>/openspec/` planning artifacts and the session records preserved
-under `<project>/docs/superpowers/` (the SDD ledger, the review panel record, and the proposal artifact
-source). The records are copied out of the gitignored worktree before staging, by
+All three routes first commit the work, in **two** commits and never one: the implementation,
+subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
+reshaped diff carries, then the `<project>/openspec/` planning artifacts and the session records
+preserved under `<project>/docs/superpowers/` (the SDD ledger, the review panel record, and the
+proposal artifact source), subject the fixed literal `chore(openspec): plan and session records`.
+The records are copied out of the gitignored worktree before staging, by
 `preserve-session-records.sh <worktree> <name> <state-dir>`.
 
 Those two planning paths are cleared from the index before the first `add` and excluded from it by
@@ -149,7 +151,8 @@ for the same reason: an exclusion cannot retract what an earlier step staged, an
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
 picks the two paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
 failure rule and the symlink case — is the chain **Git boundaries** (`pipeline.md`) gives, and is
-not written out a second time here.
+not written out a second time here; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
+call site and `/myflow-do`'s PR-exception path.
 
 | Route | Then |
 |-------|------|
