@@ -194,6 +194,32 @@ absence to be discovered at preservation time or not at all.
 - **THEN** the existing preserved file is overwritten in place
 - **AND** no second dated copy is created
 
+#### Scenario: A destination outside the worktree is refused, not followed
+
+- **WHEN** one of the destination directories under `docs/superpowers/` resolves outside the worktree
+- **THEN** nothing is written through it, the refusal is reported as a failure rather than a skip, and
+  the remaining records are still preserved
+
+#### Scenario: A source outside its own root is refused, not read
+
+- **WHEN** one of the three sources resolves outside the root it belongs to — the worktree for the
+  records taken from it, the state directory for the artifact source
+- **THEN** its content is not copied into the repository, the refusal is reported as a failure rather
+  than a skip, and the remaining records are still preserved
+
+#### Scenario: A change name that is not one plain component is rejected
+
+- **WHEN** the copy is invoked with a change name containing a path separator or a glob metacharacter
+- **THEN** it is rejected before any directory is created or any file is written
+- **AND** no other change's preserved record is read or overwritten
+
+#### Scenario: An unobservable model stays unobserved
+
+- **WHEN** a preserved ledger contains a slot dispatched by agent type, whose model the dispatcher
+  never read
+- **THEN** that entry records `unknown (agent-defined)`
+- **AND** preservation does not substitute a guess
+
 #### Scenario: The handoff says the ledger is absent
 
 - **WHEN** a run reaches its handoff with no ledger at the canonical path
