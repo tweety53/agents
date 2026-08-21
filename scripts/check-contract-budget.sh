@@ -89,7 +89,7 @@ skills/myflow-do/SKILL.md 89566
 skills/myflow-fast/SKILL-rationale.md 3490
 skills/myflow-fast/SKILL.md 24613
 skills/myflow-finish/SKILL-rationale.md 8100
-skills/myflow-finish/SKILL.md 39965
+skills/myflow-finish/SKILL.md 40283
 skills/myflow-start/SKILL-rationale.md 8984
 skills/myflow-start/SKILL.md 36888
 skills/myflow-status/SKILL.md 22551

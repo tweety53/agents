@@ -418,11 +418,14 @@ myflow stage begin -command '/myflow-finish' -stage finish.commit-archive -harne
    [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
      && git -C <main-checkout> add -A \
      && { git -C <main-checkout> diff --cached --quiet \
-          || git -C <main-checkout> commit -m "chore(<name>): archive"; }
+          || git -C <main-checkout> commit -m "chore(openspec): archive change, sync delta specs"; }
    ```
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS` — `git -C <main-checkout>` fixes the directory, never the branch.
+
+   The subject is the fixed literal shown, scope included, per **Finish run 2's two commits carry
+   module scopes** (`<agents repo>/openspec/specs/myflow-commit-scope/spec.md`).
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.commit-archive -outcome completed <name>
@@ -561,8 +564,11 @@ transitions nothing — the change is not done.
    [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
      && git -C <main-checkout> add -- docs/self-review/<name>-self-review.md \
      && { git -C <main-checkout> diff --cached --quiet \
-          || git -C <main-checkout> commit -m "docs(<name>): self-review report"; }
+          || git -C <main-checkout> commit -m "docs(self-review): <name> self-review report"; }
    ```
+
+   The subject is the fixed literal shown, scope included, per **Finish run 2's two commits carry
+   module scopes** (`<agents repo>/openspec/specs/myflow-commit-scope/spec.md`).
 
    A branch mismatch reports the branch found and stops this commit, and so does a commit that FAILS
    (hook rejection) — reported with git's own output either way. The change stays `FINISHED`

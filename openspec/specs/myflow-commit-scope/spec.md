@@ -3,8 +3,8 @@
 ## Purpose
 
 What a commit's scope names across every message the myflow pipeline produces — the
-per-task subjects declared in `tasks.md` and the two messages finish run 1 writes — and what it may
-never name.
+per-task subjects declared in `tasks.md`, the two messages finish run 1 writes, and the two finish
+run 2 writes — and what it may never name.
 
 ## Requirements
 
@@ -78,6 +78,35 @@ The two commits `/myflow-finish` run 1 makes SHALL NOT carry the change name as 
   `chore(openspec): plan and session records`. It is fixed rather than derived because every
   planning commit stages the same two trees in every change, so a derived value would compute a
   constant.
+
+### Requirement: Finish run 2's two commits carry module scopes
+
+The two commits `/myflow-finish` run 2 makes SHALL NOT carry the change name as their scope, for the
+same reason run 1's may not. Both are fixed literals, because each stages the same trees in every
+change and a derived scope would therefore compute a constant.
+
+- The **archive** commit's message SHALL be the fixed literal
+  `chore(openspec): archive change, sync delta specs`. It stages the archived change dir and the
+  delta-synced specs, both under `openspec/`.
+- The **self-review report** commit's message SHALL be
+  `docs(self-review): <name> self-review report`. It stages one file under `docs/self-review/`, so
+  that directory is the area it moved; the change name appears in the subject's description, which
+  names the report rather than a module and is therefore not a scope.
+
+Naming these literals here is what keeps `skills/myflow-finish/SKILL.md`'s two commit shells from
+drifting back to a change-name scope — the drift this requirement exists to close, having reached
+production in KAN-244, KAN-245 and KAN-253 while the run 1 requirement above was already in force.
+
+#### Scenario: The archive commit names openspec, not the change
+
+- **WHEN** run 2 commits the archived change dir and the synced delta specs
+- **THEN** the subject is `chore(openspec): archive change, sync delta specs`, carrying no change
+  name in its scope
+
+#### Scenario: The self-review commit names the report directory
+
+- **WHEN** run 2 commits `docs/self-review/<name>-self-review.md`
+- **THEN** the subject's scope is `self-review`, and `<name>` appears only in the description
 
 Every site that states either message SHALL state it this way: `pipeline.md`'s Git-boundaries chain,
 `finish-contract.md`'s two-commit section, and both `commit-split.sh` call sites.
