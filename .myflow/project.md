@@ -92,6 +92,7 @@ scripts/test-check-stage-mark-calls.sh
 scripts/test-check-self-review-report.sh
 scripts/test-lib-coverage.sh
 scripts/test-check-installed-citations.sh
+scripts/test-check-installed-rules.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
@@ -130,6 +131,7 @@ scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
 scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
+scripts/check-installed-rules.sh
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b
@@ -189,6 +191,15 @@ other guard above does and exits identically regardless of what change, if any, 
 the only guard in this list that shells out to the installer rather than only reading files already
 on disk, which costs it real time; see the runtime note under `## test`, next to the entry its
 harness added there.
+
+**`check-installed-rules.sh` is the one guard in this list that reads outside the repository.**
+It compares the always-on rules this checkout declares against what `setup.sh global` last installed
+under `$HOME` — the symlinks in `~/.claude/rules/` and the per-rule markers in the two managed
+blocks — because a rule can merge and stay unreadable by every session, which is how KAN-202's
+commit-scope rule spent a day with a dangling pointer. It still runs against a bare tree and takes no
+change-in-flight state, so it belongs here for `check-installed-citations.sh`'s reason. A machine
+with no global install is not a failure: it reports `INSTALLED-RULES-NONE` and exits 0, which is what
+keeps it runnable in CI and a fresh clone. A partial install is a failure.
 
 **Every guard in the list is currently expected to exit 0.** `check-workspace-isolation.sh` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its
