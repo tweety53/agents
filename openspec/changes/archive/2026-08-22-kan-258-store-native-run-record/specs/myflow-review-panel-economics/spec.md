@@ -43,11 +43,14 @@ current findings rather than the union of every round's.
 - **THEN** a row for it exists in the panel record carrying its `F<n>` identifier, the slot,
   severity, location and note, and its state is on its marker line rather than in the row
 
-#### Scenario: An identifier naming two findings is refused at the write
+#### Scenario: An identifier naming two findings counts as outstanding
 
 - **WHEN** a second finding is recorded for a change under an identifier that change already uses
-- **THEN** the write is refused by the store's constraint rather than producing a record that counts
-  as outstanding on a later read
+- **THEN** the write is refused by the store's constraint, so the record can no longer be rendered
+  with two rows sharing one identifier
+- **AND** were such a record to reach the guard by any other route, it still counts as outstanding
+  and the reused identifier is still named — the rule is unchanged, the write is simply refused
+  earlier
 
 #### Scenario: The table's shape does not change any count
 

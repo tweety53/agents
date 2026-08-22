@@ -50,12 +50,13 @@ run 1, so that stage runs already recorded under that key remain valid.
 - **THEN** the SDD ledger is present in the repository at its rendered path
 - **AND** a reader can still determine which model implemented each task, with no daemon running
 
-#### Scenario: An empty record is reported, not fatal, and not ambiguous
+#### Scenario: A missing source is skipped, not fatal
 
 - **WHEN** a change has no review panel finding in the store
 - **THEN** the absence is reported in the run's output as "no rows for this change"
 - **AND** the integration proceeds and the remaining records are still rendered
-- **AND** that report cannot also mean a record was written somewhere that was not read
+- **AND** that report cannot also mean a record was written somewhere that was not read — which is
+  what the file-copy step it replaces could never distinguish
 
 #### Scenario: A fix round refreshes rather than duplicates
 
@@ -64,12 +65,21 @@ run 1, so that stage runs already recorded under that key remain valid.
 - **THEN** the existing rendered files are overwritten in place
 - **AND** no second dated copy is created for the same change
 
-#### Scenario: A destination outside the repository is refused, not followed
+#### Scenario: A destination outside the worktree is refused, not followed
 
 - **WHEN** one of the destination directories under `docs/superpowers/` resolves outside the
-  repository root
+  repository root the render was given
 - **THEN** nothing is written through it, the refusal is reported as a failure rather than as an empty
   record, and the remaining records are still rendered
+
+#### Scenario: A source outside its own root is refused, not read
+
+- **WHEN** the one remaining copied source — the proposal artifact beside the state file — resolves
+  outside the state directory it belongs to
+- **THEN** its content is not copied into the repository, the refusal is reported as a failure rather
+  than as an absence, and the remaining records are still rendered
+- **AND** the rendered records have no source path to escape through at all, because they are read
+  from the store rather than from a file
 
 #### Scenario: A change name that is not one plain component is rejected
 

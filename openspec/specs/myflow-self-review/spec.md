@@ -61,17 +61,16 @@ the later per-finding and rating asks.
 <state-dir> [<repo-root>]` to assemble the self-review input bundle before any reasoning pass runs.
 The script SHALL collect, without performing any judgement:
 
-- the SDD ledger, `docs/superpowers/ledgers/<YYYY-MM-DD>-<name>.md` — date-prefixed, exactly as
-  `scripts/preserve-session-records.sh` writes it; the date is not known in advance, so the script
-  SHALL locate it the same way that script locates an existing destination: a digit-anchored search
-  for a file ending `-<name>.md` under `docs/superpowers/ledgers/`
+- the SDD ledger, `docs/superpowers/ledgers/<YYYY-MM-DD>-<name>.md` — date-prefixed, exactly as the
+  record renderer writes it; the date is not known in advance, so the script SHALL locate it by its
+  own digit-anchored search for a file ending `-<name>.md` under `docs/superpowers/ledgers/`
 - the review-panel record, `docs/superpowers/reviews/<YYYY-MM-DD>-<name>-panel.md` — located the
   same way, searching for a file ending `-<name>-panel.md`
 - `tasks.md` from the archived change
 - `git log --stat` covering the change's two finish-run-1 commits and the archive commit
 
-A source that does not exist SHALL be reported as `skipped: <src> (absent)` on stdout, matching
-`preserve-session-records.sh`'s own `skipped:`/`preserved:` vocabulary, and gathering SHALL continue
+A source that does not exist SHALL be reported as `skipped: <src> (absent)` on stdout, in the
+script's own `skipped:`/`refused:` outcome vocabulary, and gathering SHALL continue
 with the remaining sources — a change may legitimately have no panel record. The script SHALL exit 2
 on an invocation error (a missing argument or an invalid change name); otherwise it SHALL always
 exit 0 — a missing source is never a pass/fail determination and never changes the exit code.
