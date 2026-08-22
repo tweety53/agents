@@ -312,8 +312,12 @@ here. Add exactly the guardrails specific to this skill:
   the SDD ledger at the `finish.preserve-sessions` step — and `finish.commit-two` commits them, so
   what check 4 lists is build output
   plus the per-review diffs the **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`)
-  already declares worktree-lifetime. **Checks 1, 2, 3 and 5 remain gates** — a failure in any of
-  them still stops cleanup with no worktree touched — and check 4 turning up something genuinely
+  already declares worktree-lifetime. **Checks 1, 2, 3, 5 and 6 remain gates** — a failure in any of
+  them still stops cleanup with no worktree touched. Check 6, the live-process check, is named in
+  that list explicitly because it is the one this override could plausibly be read as reaching: a
+  live process is not a preserved record, and an unattended run is the case most likely to orphan
+  one, so `HELD:` and the guard's exit 2 both stop `/myflow-fast` exactly as they stop
+  `/myflow-finish`. Check 4 turning up something genuinely
   irreplaceable and *unpreserved* (a gitignored `.env`, a local override, a `.dev-state`) is not this
   override's case: stop and ask, exactly as the contract requires.
 - **No flags.** The only argument is the optional change name or description on a creating run, or
