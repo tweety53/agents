@@ -53,7 +53,7 @@ set -euo pipefail
 # unconditional-assertions requirement says must be refused. Under `LC_ALL=C`
 # the same value is correctly rejected. `export LC_ALL=C` for the whole
 # script — matching check-panel-reproducers.sh's precedent, not
-# preserve-session-records.sh's enumerated allowlist — because this script
+# check-cleanup-complete.sh's enumerated allowlist — because this script
 # invokes no downstream project-supplied command whose own locale must be
 # preserved: everything after this line is git plumbing and shell builtins,
 # so pinning the locale here costs nothing outside this file.

@@ -1,0 +1,36 @@
+-- 0011_dispatch_agent_id.sql: the harness's own identifier for the subagent
+-- a dispatch dispatched, so that concurrently dispatched slots can be told
+-- apart when their attribution intervals overlap.
+--
+-- A review panel dispatches its slots at once against one parent session,
+-- so their dispatch windows overlap and an interval alone cannot say which
+-- dispatch a sidechain record inside the overlap belongs to. Before this
+-- column, every record in the overlap was credited to whichever slot
+-- started last: the change's total stayed correct, but its split across
+-- slots -- which is exactly what a per-dispatch cost record is for -- did
+-- not. Transcript records already carry an agentId that separates them
+-- cleanly; there was simply no column to match it against.
+--
+-- It is a NEW file rather than an edit to 0010_run_records.sql, which is
+-- already applied to real databases. Migrations here are tracked by
+-- filename with no checksum, so editing an applied one would leave an
+-- existing database silently diverged from a freshly migrated one, with
+-- nothing anywhere reporting the difference.
+--
+-- Nullable, and it stays nullable: Cursor and Codex expose no subagent
+-- identifier at all, so a dispatch recorded without one is the ordinary
+-- case on two of the three supported harnesses rather than a degraded or
+-- legacy row. NULL means "the harness reported none" and never matches
+-- another NULL during attribution -- the matching rule lives in
+-- bestDispatchWindow (internal/harvest/attribute.go), which reaches the
+-- interval rule unchanged whenever either side is absent.
+--
+-- THERE IS DELIBERATELY NO INDEX ON agent_id. Nothing queries by it: no SQL
+-- in this repository carries an `agent_id` predicate, because the matching
+-- happens in Go, in bestDispatchWindow, over the row set
+-- DispatchWindowsForSession has already fetched by session token. An index
+-- here would be charged on every dispatch insert and never read -- EXPLAIN
+-- on that query plans a hash semi join over a sequential scan and references
+-- no agent_id index, which is what established this rather than a guess. Add
+-- one only alongside a query that would use it.
+ALTER TABLE dispatches ADD COLUMN agent_id TEXT;

@@ -51,8 +51,8 @@ No field records "integration started" — a field could disagree with git.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-finish-preflight.sh`, `resolve-base-branch.sh`,
-`prepare-archive-branch.sh`, `check-unfinished-work.sh`, `preserve-session-records.sh`,
-`commit-split.sh`, `check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
+`prepare-archive-branch.sh`, `check-unfinished-work.sh`, `commit-split.sh`,
+`check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
 `skills/myflow-finish/scripts/`. A complete set prints nothing; any absence prints that section's
 block once, and the run continues under each guard's own hand-run fallback.
 
@@ -191,18 +191,29 @@ tree, uncommitted, so the branch carries no history for the two-commit chain bel
 that chain then commits from this reshaped state exactly as it always has.
 
 All three routes commit — implementation, the `<project>/openspec/` planning
-artifacts, and the session records preserved under `<project>/docs/superpowers/` — as **two** commits, never
+artifacts, and the session records under `<project>/docs/superpowers/` — as **two** commits, never
 one.
 
-**Preserve the session records first.** Run
-`preserve-session-records.sh <worktree> <name> <state-dir>` before staging, so the SDD ledger,
-the review panel record and the proposal artifact source are committed with the change — in the
-planning commit, beside the plan they describe — rather than lost with the worktree that holds them.
-A source that does not exist is reported and skipped — never a failure, and never a reason
-to stop the integration. **A non-zero exit means a copy was attempted and refused or failed:** report
-it with the script's own stderr message and continue the integration, per the outcome table under
-**Preserving the session records** in `skills/myflow-contracts/pipeline.md`. Say in the handoff
-which records were preserved and which were not.
+**Render the ledger first.** Run it before staging, so the SDD ledger is committed with the change —
+in the planning commit, beside the plan it describes — rather than left only in a store the
+repository's readers may not have running:
+
+```bash
+myflow record render -change <name> -kind ledger -repo <worktree>
+```
+
+The review panel record needs no call here: `/myflow-do` renders it at panel close, into the same
+`<project>/docs/superpowers/` tree and from the same rows. **A change with no dispatch rows reports
+`MISSING: ledger` and exits 0** — never a failure, and never a reason to stop the integration.
+**A non-zero exit means a destination was refused or could not be written:** report it with the
+command's own stderr message and continue the integration, per the outcome table under **Rendering
+the session records** in `skills/myflow-contracts/pipeline.md`. Say in the handoff which records
+were rendered and which were not.
+
+**The stage key stays `finish.preserve-sessions`, deliberately.** Only what the stage invokes has
+changed; renaming the key would invalidate every stage run already recorded under it and force a
+matching edit to `<agents repo>/README.md`'s Level 1 table, which
+`<agents repo>/stats/internal/stages/names_test.go` parses.
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.preserve-sessions -outcome completed <name>

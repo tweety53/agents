@@ -31,6 +31,14 @@
 # prevent: a branch merged over unfinished work because nothing was written
 # down.
 #
+# THE PANEL RECORD IS READ WHERE IT IS RENDERED — `docs/superpowers/reviews/`,
+# resolved by panel_record_path in scripts/lib/panel-record.sh, whose comment is
+# canonical for the anchoring and for why this guard no longer reads
+# `.superpowers/sdd/final-review-panel.md`. That file still exists and is still
+# worktree-lifetime, but it is the pass log, not a findings record: it carries
+# no `findings-total:` line, so a guard reading it would report every change
+# OUTSTANDING.
+#
 # Both signals are counted independently and reported together on the one
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.
@@ -64,8 +72,8 @@ set -euo pipefail
 # are COLLATING ranges. On bash 3.2 the change name `démo` is rejected by the
 # allowlist below under `LC_ALL=C` and ACCEPTED under `en_US.UTF-8` — so without
 # this line the guard's accepted input set changes with the operator's
-# environment, and this copy of preserve-session-records.sh's Protection 1
-# diverges from that one under some locales and not others. It also pins
+# environment, and this copy of the change-name allowlist diverges from
+# check-cleanup-complete.sh's under some locales and not others. It also pins
 # `[[:space:]]`, `sort`'s ordering and `tr`'s ranges to bytes, which costs
 # nothing and removes the question. test-check-unfinished-work.sh case 8e-i
 # asserts the allowlist behaves identically under both locales.
@@ -103,10 +111,11 @@ fi
 # glob metacharacter reaches the `case` patterns and the `find` filter further
 # down.
 #
-# The rule is preserve-session-records.sh's Protection 1, character for
-# character, and its comment there is canonical for why each hazard is in it —
-# including the incident where `*` in a name "matched and overwrote a DIFFERENT
-# change's preserved record". THE `case` BLOCK ITSELF STAYS DUPLICATED, on
+# The rule is records.Destination's Protection 1
+# (stats/internal/records/render.go), character for character, and that
+# function's comment is canonical for why each hazard is in it — including the
+# incident where `*` in a name "matched and overwrote a DIFFERENT change's
+# preserved record". THE `case` BLOCK ITSELF STAYS DUPLICATED, on
 # purpose, in this file and in check-panel-reproducers.sh: both harnesses
 # assert the same rejected shapes, which is what keeps the two copies from
 # drifting apart silently, and a six-line containment check gains nothing
@@ -132,13 +141,14 @@ fi
 #
 # THE ALLOWED CHARACTERS ARE ENUMERATED RATHER THAN WRITTEN AS RANGES, and here
 # that is belt AND braces rather than the fix: `export LC_ALL=C` above already
-# makes this copy byte-wise, for the reasons stated there. The enumeration is
-# what the other two copies need — one of them runs a project-supplied command
+# makes this copy byte-wise, for the reasons stated there. The enumeration is what
+# the other copy needs — check-cleanup-complete.sh runs a project-supplied command
 # and so cannot export a locale at all — and this copy takes it so the rule stays
-# identical character for character across the three, which is the property both
+# identical character for character across both, which is the property both
 # harnesses assert and the only thing keeping them from drifting.
-# preserve-session-records.sh's Protection 1 is canonical for the measurement and
-# the reasoning. The accepted set is unchanged.
+# check-cleanup-complete.sh's own Protection 1 comment is canonical for the
+# measurement and the reasoning; it took that role from the record-copying script
+# this repository has since retired. The accepted set is unchanged.
 case "$NAME" in
   [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
   | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
@@ -152,7 +162,10 @@ if [ ! -d "$WORKTREE" ]; then
   exit 2
 fi
 
-PANEL="$WORKTREE/.superpowers/sdd/final-review-panel.md"
+# The change name has passed the allowlist above before it reaches the glob
+# inside panel_record_path, which is the order records.Destination validates in
+# too: a name carrying a metacharacter never becomes part of a pattern.
+PANEL="$(panel_record_path "$WORKTREE" "$NAME")"
 CHANGES="$WORKTREE/openspec/changes"
 PRIMARY_PLAN="$CHANGES/$NAME/tasks.md"
 
@@ -330,8 +343,8 @@ fi
 # does not match — a blockquoted table, an indented one — makes the two lists
 # differ, which is OUTSTANDING. The coupling to the table's shape is one
 # anchored pattern, and it fails in the safe direction.
-if [ ! -f "$PANEL" ]; then
-  add "no review panel record at $PANEL"
+if [ -z "$PANEL" ]; then
+  add "no review panel record for '$NAME' under $WORKTREE/$PANEL_RECORD_DIR — the rendered record is named <YYYY-MM-DD>-$NAME-panel.md"
 else
   M_ANCHORED="$(count_matching "$PANEL" '^finding-status: F[0-9]+ ')" || unreadable "$PANEL"
   M_NAMED="$(count_matching "$PANEL" 'finding-status:')" || unreadable "$PANEL"

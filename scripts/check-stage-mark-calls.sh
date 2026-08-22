@@ -2,7 +2,8 @@
 # check-stage-mark-calls.sh — every `myflow stage begin` in a skill must carry
 # a session token and a harness, the session token must be a literal, and the harness must
 # NOT be — the two required flags are wrong in opposite directions, and this
-# script rejects both.
+# script rejects both. Every `myflow record dispatch` must carry a literal
+# session token too, for the same reason and by the same two checks.
 #
 # Usage: scripts/check-stage-mark-calls.sh [path ...]          # dirs or files
 #
@@ -29,6 +30,29 @@
 # `stats/cmd/myflow/stage.go`'s `validateSessionToken` rejects at the CLI, and
 # `internal/api/stages.go`'s `validateSessionTokenShape` rejects again at the store,
 # as defence in depth.
+#
+# `myflow record dispatch` IS SCANNED FOR THE SESSION-TOKEN RULES TOO
+# (KAN-258). The record verb takes `-session-token` for precisely the reason
+# `stage begin` does: the daemon finds that literal token in the calling
+# session's own transcript and binds the dispatch row to the session that
+# wrote it. A substituted value there lands in every transcript as the same
+# unexpanded string and so discriminates between no two sessions — the whole
+# mechanism, silently gone. A guard that enforced the literal on one verb and
+# not the other would be a guard with a hole, and the record verb's call
+# sites are numerous (four in `skills/myflow-do/SKILL.md` alone). So both
+# session-token rules — the flag is present, and its value is a literal —
+# are applied to `myflow stage begin` and `myflow record dispatch` alike.
+#
+# The other rules stay with the verb that owns them. `-harness` is a `stage
+# begin` flag and `record dispatch` has none (a dispatch row inherits its
+# harness from the stage run it belongs to), so requiring one on a record
+# call would demand a flag the CLI would reject. The guessed-change-name
+# rule likewise stays on `stage begin`, whose begin handler is the one that
+# bootstraps a change row from a name it has never seen.
+#
+# Only `myflow record dispatch` is scanned: `record finding`, `record
+# status`, `record render` and `record journal-count` take no session token
+# at all, so there is nothing on them for these rules to say.
 #
 # `-harness` FAILS THE OPPOSITE WAY: a value that IS a literal is the defect.
 # These skill files are one source installed into `~/.claude/skills/`,
@@ -92,7 +116,7 @@
 # physical lines alone would miss `-session-token`/`-harness` written on a
 # continuation line, which is precisely how these calls are written today.
 #
-# Exit codes: 0 every `stage begin` call is compliant; 1 at least one
+# Exit codes: 0 every scanned call is compliant; 1 at least one
 # violation was found; 2 the guard cannot answer at all (a bad path, or an
 # awk/grep failure — never read as "no findings").
 set -uo pipefail
@@ -122,45 +146,54 @@ for t in "${TARGETS[@]}"; do
   [[ -e "$t" ]] || die "no such file or directory: $t"
 done
 
-# assemble_calls <file> — print one line per `stage begin` invocation found in
-# <file>, as "<start-line>\t<joined command text>", continuation lines folded
-# in. Reads a real file's physical lines with awk, one pass, no shell loop
-# over its content (a shell `while read` would mangle a backslash the same
-# way the continuation logic here has to preserve deliberately).
+# assemble_calls <file> — print one line per checked invocation found in
+# <file>, as "<start-line>\t<verb>\t<joined command text>", continuation
+# lines folded in. Two verbs are checked, `stage begin` and `record
+# dispatch`; the verb is carried through so the rules below can be applied
+# per verb rather than re-derived from the command text. Reads a real file's
+# physical lines with awk, one pass, no shell loop over its content (a shell
+# `while read` would mangle a backslash the same way the continuation logic
+# here has to preserve deliberately).
 assemble_calls() {
   local file="$1"
   awk '
-    BEGIN { instage = 0; buf = ""; startline = 0 }
+    BEGIN { incall = 0; buf = ""; startline = 0; verb = "" }
     function stripcr(s) { sub(/\r$/, "", s); return s }
     {
       line = stripcr($0)
-      if (instage) {
+      if (incall) {
         buf = buf " " line
         if (line ~ /\\[[:space:]]*$/) {
           sub(/\\[[:space:]]*$/, "", buf)
           next
         }
-        printf "%d\t%s\n", startline, buf
-        instage = 0
+        printf "%d\t%s\t%s\n", startline, verb, buf
+        incall = 0
         buf = ""
         next
       }
+      verb = ""
       if (line ~ /^[[:space:]]*myflow stage begin([[:space:]]|\\|$)/) {
+        verb = "myflow stage begin"
+      } else if (line ~ /^[[:space:]]*myflow record dispatch([[:space:]]|\\|$)/) {
+        verb = "myflow record dispatch"
+      }
+      if (verb != "") {
         if (line ~ /\\[[:space:]]*$/) {
-          instage = 1
+          incall = 1
           startline = NR
           buf = line
           sub(/\\[[:space:]]*$/, "", buf)
           next
         }
-        printf "%d\t%s\n", NR, line
+        printf "%d\t%s\t%s\n", NR, verb, line
       }
     }
     END {
       # A file ending mid-continuation is a malformed fixture/skill, not a
       # silently dropped call -- report it as its own finding downstream by
       # emitting what was gathered rather than swallowing it.
-      if (instage) printf "%d\t%s\n", startline, buf
+      if (incall) printf "%d\t%s\t%s\n", startline, verb, buf
     }
   ' "$file"
 }
@@ -198,7 +231,7 @@ guess_placeholder() {
 # KAN-197 FIX ROUND, F1 — the corpus is narrowed to the members CAPABLE of
 # carrying a `stage begin` call, not every Markdown file under skills/. Before
 # this fix the scan glob was '*.md', which reached 33 files while only a
-# SKILL.md or pipeline.md can ever hold a stage-mark invocation (a contract
+# SKILL.md or pipeline.md can ever hold a checked invocation (a contract
 # doc, a rationale file or a reviewer-prompt file structurally cannot) — so 28
 # of 33 declared entries were declared not because their zero was meaningful
 # but because they were never candidates, and every new rationale or
@@ -210,9 +243,11 @@ guess_placeholder() {
 # test-check-stage-mark-calls.sh's mutation case for the check.
 #
 # EXPECTED-ZERO FILES — after narrowing, only two SKILL.md files under
-# skills/ genuinely carry no `stage begin` call site of their own (measured
-# 2026-08-18 by grepping each directly against this guard's own
-# call-detection pattern), plus myflow-status/SKILL.md declared separately
+# skills/ genuinely carry no checked call site of their own — neither a
+# `stage begin` nor a `record dispatch` (measured 2026-08-18 for `stage
+# begin` and re-measured 2026-08-22 for `record dispatch`, by grepping each
+# directly against this guard's own call-detection pattern), plus
+# myflow-status/SKILL.md declared separately
 # below with its own by-contract reason. Each gets its OWN one-line
 # justification for WHY its zero is legitimate by design (KAN-197 F2),
 # not a shared string attesting only to how the zero was measured.
@@ -224,8 +259,8 @@ EXPECTED_ZERO_FILES=(
   "skills/openspec-explore/SKILL.md"
 )
 EXPECTED_ZERO_REASONS=(
-  "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage of its own"
-  "a thinking-partner exploration mode with no implementation or verification stage to mark — the same reason check-guard-symlinks.sh declares it expected-zero"
+  "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"
+  "a thinking-partner exploration mode with no implementation or verification stage to mark and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
 )
 
 # declare_expected_zeros — called ONLY for the guard's own default, full-
@@ -249,7 +284,7 @@ declare_expected_zeros() {
   done
   # myflow-status marks nothing BY CONTRACT, not merely as a measured fact
   # like the files above: it is a read-only status report, and a stage mark
-  # it wrote would record work nobody did. Declared with its own reason
+  # or a dispatch record it wrote would record work nobody did. Declared with its own reason
   # rather than folded into the generic list, per this task's own note.
   if ! coverage_declare "skills/myflow-status/SKILL.md" \
     "read-only status report; writes no stage marks by contract — a mark here would record work nobody did"; then
@@ -266,7 +301,7 @@ fi
 for target in "${TARGETS[@]}"; do
   if [[ -d "$target" ]]; then
     # KAN-197 F1: narrowed to the two filenames capable of ever carrying a
-    # `stage begin` call — see the corpus comment above EXPECTED_ZERO_FILES.
+    # checked call — see the corpus comment above EXPECTED_ZERO_FILES.
     FILES=()
     while IFS= read -r -d '' f; do
       FILES+=("$f")
@@ -296,7 +331,7 @@ for target in "${TARGETS[@]}"; do
   for f in "${FILES[@]:-}"; do
     [[ -n "${f:-}" ]] || continue
     file_checked=0
-    while IFS=$'\t' read -r lineno cmd; do
+    while IFS=$'\t' read -r lineno verb cmd; do
       [[ -n "$lineno" ]] || continue
       CHECKED=$((CHECKED + 1))
       file_checked=$((file_checked + 1))
@@ -304,18 +339,24 @@ for target in "${TARGETS[@]}"; do
       has_session_token=1
       if ! printf '%s' "$cmd" | grep -qE -- '(^|[[:space:]])-session-token([[:space:]]|=)'; then
         has_session_token=0
-        printf '%s:%s: `myflow stage begin` carries no -session-token -- required so the daemon can later bind this stage run to the session that marked it (design.md, "bind after the fact, by a correlator the caller writes")\n' "$f" "$lineno"
+        printf '%s:%s: `%s` carries no -session-token -- required so the daemon can later bind this record to the session that wrote it (design.md, "bind after the fact, by a correlator the caller writes")\n' "$f" "$lineno" "$verb"
         VIOLATIONS=$((VIOLATIONS + 1))
       fi
 
+      # `-harness` is a `stage begin` flag and `myflow record dispatch` has
+      # none: a dispatch row inherits its harness from the stage run it
+      # belongs to, so requiring one here would demand a flag the CLI would
+      # reject. The rule is applied to the verb that takes it, not to every
+      # scanned call.
       has_harness=1
-      if ! printf '%s' "$cmd" | grep -qE -- '(^|[[:space:]])-harness([[:space:]]|=)'; then
+      if [[ "$verb" == "myflow stage begin" ]] \
+        && ! printf '%s' "$cmd" | grep -qE -- '(^|[[:space:]])-harness([[:space:]]|=)'; then
         has_harness=0
         printf '%s:%s: `myflow stage begin` carries no -harness -- required so a recorded run states which harness marked it\n' "$f" "$lineno"
         VIOLATIONS=$((VIOLATIONS + 1))
       fi
 
-      if [[ "$has_harness" -eq 1 ]]; then
+      if [[ "$verb" == "myflow stage begin" && "$has_harness" -eq 1 ]]; then
         harness="$(harness_value "$cmd")"
         if [[ ! "$harness" =~ ^\<[^\<\>]+\>$ ]]; then
           printf '%s:%s: -harness %q is a hardcoded literal, not a placeholder -- this skill source is one file installed into `~/.claude/skills/`, `~/.cursor/skills/` and `~/.codex/skills/` alike, so a fixed value mislabels every harness but the one it names; write a bracketed placeholder (e.g. -harness <harness>) that the agent fills in with the harness actually running the command\n' "$f" "$lineno" "$harness"
@@ -343,17 +384,19 @@ for target in "${TARGETS[@]}"; do
         esac
       fi
 
-      guess="$(guess_placeholder "$cmd")"
+      guess=""
+      [[ "$verb" == "myflow stage begin" ]] && guess="$(guess_placeholder "$cmd")"
       if [[ -n "$guess" ]]; then
         printf '%s:%s: `stage begin` names a guess, not a resolved change (%s) -- a mark writes, so a guessed name bootstraps a change row that outlives the run; wait until the change name is resolved before marking\n' "$f" "$lineno" "$guess"
         VIOLATIONS=$((VIOLATIONS + 1))
       fi
     done < <(assemble_calls "$f")
-    # KAN-197 coverage: how many `stage begin` calls this guard actually
-    # found and checked IN THIS FILE, per scripts/lib/coverage.sh — distinct
-    # from CHECKED above, which is the corpus-wide total. A file the glob
-    # reaches but which carries no `stage begin` call at all is "nothing was
-    # checked here," visible even on a run that goes on to report clean.
+    # KAN-197 coverage: how many checked calls — `stage begin` and `record
+    # dispatch` together — this guard actually found IN THIS FILE, per
+    # scripts/lib/coverage.sh; distinct from CHECKED above, which is the
+    # corpus-wide total. A file the glob reaches but which carries no checked
+    # call at all is "nothing was checked here," visible even on a run that
+    # goes on to report clean.
     #
     # KAN-197 F8: the return is checked rather than ignored. This guard runs
     # under `set -uo pipefail` with no `-e`, so an unchecked failure here
@@ -368,8 +411,8 @@ for target in "${TARGETS[@]}"; do
   unset FILES
 done
 
-# COVERAGE — per-file count of `stage begin` calls this guard actually
-# found, via scripts/lib/coverage.sh. A file whose coverage is zero and is
+# COVERAGE — per-file count of the calls this guard actually found, via
+# scripts/lib/coverage.sh. A file whose coverage is zero and is
 # not in EXPECTED_ZERO_FILES above is folded into the ordinary violation
 # count here, exactly as check-references.sh and check-guard-symlinks.sh do
 # it — never a separate exit status.
@@ -382,11 +425,11 @@ if ! coverage_verdict_out="$(coverage_verdict)"; then
 fi
 
 if [[ "$VIOLATIONS" -gt 0 ]]; then
-  echo "check-stage-mark-calls: $VIOLATIONS violation(s) across $CHECKED \`stage begin\` call(s) checked" >&2
+  echo "check-stage-mark-calls: $VIOLATIONS violation(s) across $CHECKED call site(s) checked" >&2
   exit 1
 fi
 
-echo "✓ Stage-mark-calls guard: clean ($CHECKED \`stage begin\` call(s) checked)"
+echo "✓ Stage-mark-calls guard: clean ($CHECKED call site(s) checked)"
 coverage_frag="$(coverage_report)"
 [[ -n "$coverage_frag" ]] && printf '  %s\n' "$coverage_frag"
 exit 0

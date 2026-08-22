@@ -38,9 +38,11 @@ stated under **Git boundaries** (`skills/myflow-contracts/pipeline.md`), which `
 too. What is specific to this gate is *whose* staging it retracts: the operator may have run their
 own `git add -A` while reviewing, and the excluding `add` cannot take those paths back out.
 
-`<agents repo>/scripts/preserve-session-records.sh` still runs **before** the first `add`, unchanged:
-`<project>/docs/superpowers/` is one of the excluded paths, so its files are picked up by the second staging
-pass. The second `add` carries no pathspec, which is what makes it pick them up.
+**The ledger render and the proposal-artifact copy both run before the first `add`**, for the reason
+that position has always held here: `<project>/docs/superpowers/` is one of the excluded paths, so what
+they write is picked up by the second staging pass. The second `add` carries no pathspec, which is what
+makes it pick them up. What used to run in that position was a copy script; the records now live in the
+store and are rendered from it, but nothing about the position changed with them.
 
 The planning artifacts were hidden from the review diff, not from the commit.
 

@@ -10,7 +10,10 @@
 // into the same "*.journal" stream -- see cmd/myflow/stage.go's
 // stageJournalPath doc comment) is replayed the same way, through
 // api.ApplyBeginStageMark/ApplyEndStageMark rather than a second
-// implementation of what a mark does.
+// implementation of what a mark does. A third sibling file, the run-record
+// journal ("*.journal.record", cmd/myflow/record.go's recordJournalPath),
+// is walked by the same loop and decoded by a third decoder -- see
+// replayRecordFile.
 //
 // Nothing here reconstructs the monotonic-write rule: internal/store's
 // PutChange already refuses a write that would move a record backwards, in
@@ -26,7 +29,9 @@
 // the entry's own content -- an invalid state, an unresolvable project
 // bootstrap -- and a body that fails to decode at all. A stage-mark entry's
 // equivalent guard is api.IsDefinitiveMarkOutcome -- see its own doc
-// comment for what counts as definitive for a mark.
+// comment for what counts as definitive for a mark, and
+// isDefinitiveRecordOutcome for what counts as definitive for a record
+// write.
 package reconcile
 
 import (
@@ -46,6 +51,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -61,6 +67,17 @@ type ChangeStore interface {
 // real store satisfies the interface this package actually depends on.
 var _ ChangeStore = (*store.Store)(nil)
 
+// This package declares no record-store interface of its own. It used to:
+// exactly the three write methods a journalled record entry can replay
+// into, narrower than api.RecordStore because replay never reads a record
+// back. That is still true, and it is now api.RecordWriter's job to say so
+// -- once applyRecordEntry started going through api.ApplyDispatchRecord
+// and friends (so that replay and the live route cannot validate a record
+// differently), those functions had to take *some* interface, and a second
+// declaration of the identical method set here would be the drift that
+// reuse exists to prevent. Reconciler takes api.RecordWriter, exactly as it
+// already takes api.StageStore rather than restating that one.
+
 // stageJournalSuffix is appended to a change's ordinary journal path by
 // cmd/myflow/stage.go's stageJournalPath -- this package's own copy of
 // that literal, for the same reason internal/client keeps its own literal
@@ -71,33 +88,43 @@ var _ ChangeStore = (*store.Store)(nil)
 // tests) pins that the two literals agree.
 const stageJournalSuffix = ".stage"
 
+// recordJournalSuffix is appended to a change's ordinary journal path by
+// cmd/myflow/record.go's recordJournalPath, and is this package's own copy
+// of that literal for exactly the reason stageJournalSuffix is one: the
+// CLI is a main package, so the two sides agree on a string constant
+// rather than sharing a package.
+const recordJournalSuffix = ".record"
+
 // Result totals one Run's outcome across every journal file it visited --
-// both the state journal ("*.journal") and the stage-mark journal
-// ("*.journal.stage").
+// the state journal ("*.journal"), the stage-mark journal
+// ("*.journal.stage") and the run-record journal ("*.journal.record").
 type Result struct {
-	// Journals is how many journal files (of either kind) Run found under
+	// Journals is how many journal files (of any kind) Run found under
 	// its root, whether or not any of them had pending entries.
 	Journals int
-	// Applied is how many entries the store accepted -- a state write, or
-	// a stage mark ApplyBeginStageMark/ApplyEndStageMark recorded
-	// successfully.
+	// Applied is how many entries the store accepted -- a state write, a
+	// stage mark ApplyBeginStageMark/ApplyEndStageMark recorded
+	// successfully, or a record write the store took.
 	Applied int
 	// Refused is how many entries reached a definitive-but-not-accepted
 	// outcome (api.IsDefinitiveChangeOutcome for a state entry,
-	// api.IsDefinitiveMarkOutcome for a stage mark) -- a stale or
+	// api.IsDefinitiveMarkOutcome for a stage mark,
+	// isDefinitiveRecordOutcome for a record write) -- a stale or
 	// duplicate state entry, an invalid state or unresolvable project
 	// bootstrap, a body that fails to decode at all, an undocumented stage
-	// name, or an end mark with no open run left to close -- retired
+	// name, an end mark with no open run left to close, or a record write
+	// naming a change or a finding the store does not hold -- retired
 	// exactly as an accepted one is (see the package doc comment).
 	Refused int
 }
 
 // Reconciler replays every journal file under Root into Store.
 type Reconciler struct {
-	store      ChangeStore
-	stageStore api.StageStore
-	root       string
-	logger     *slog.Logger
+	store       ChangeStore
+	stageStore  api.StageStore
+	recordStore api.RecordWriter
+	root        string
+	logger      *slog.Logger
 
 	// mu serializes Run: a startup replay and a reconnect-triggered replay
 	// can fire at (or near) the same instant, and retirePrefix's
@@ -109,12 +136,17 @@ type Reconciler struct {
 }
 
 // New builds a Reconciler that replays journal files found under root
-// (typically fallback.StateRoot()) into cs (state) and ss (stage marks).
-// logger may be nil, in which case log output specific to reconciliation
-// (a partial trailing journal line, an unresolvable stage mark, for
-// instance) is simply not emitted -- Run and Watch still work.
-func New(cs ChangeStore, ss api.StageStore, root string, logger *slog.Logger) *Reconciler {
-	return &Reconciler{store: cs, stageStore: ss, root: root, logger: logger}
+// (typically fallback.StateRoot()) into cs (state), ss (stage marks) and
+// rs (run records). logger may be nil, in which case log output specific
+// to reconciliation (a partial trailing journal line, an unresolvable
+// stage mark, for instance) is simply not emitted -- Run and Watch still
+// work.
+//
+// Every store is required rather than optional: a nil one would make a
+// whole journal kind silently unreplayed, which is the failure the record
+// journal exists to prevent, not one it can afford to reintroduce.
+func New(cs ChangeStore, ss api.StageStore, rs api.RecordWriter, root string, logger *slog.Logger) *Reconciler {
+	return &Reconciler{store: cs, stageStore: ss, recordStore: rs, root: root, logger: logger}
 }
 
 // Run walks r.root for every "*.journal" file, replaying each one's
@@ -154,13 +186,19 @@ func (r *Reconciler) Run(ctx context.Context) (Result, error) {
 			return nil
 		}
 
-		// A stage-mark journal ("*.journal.stage") is recognised first --
-		// it does *not* match the plain "*.journal" suffix below (it ends
-		// in ".stage"), which is exactly why cmd/myflow/stage.go's
-		// stageJournalPath chose that shape: the two entry kinds are
+		// A suffixed journal ("*.journal.stage", "*.journal.record") is
+		// recognised first -- neither matches the plain "*.journal" suffix
+		// below, which is exactly why cmd/myflow's stageJournalPath and
+		// recordJournalPath chose that shape: the three entry kinds are
 		// walked by this one loop, but never fed to the same decoder. See
 		// the package doc comment.
 		switch {
+		case strings.HasSuffix(path, ".journal"+recordJournalSuffix):
+			result.Journals++
+			applied, refused, rerr := r.replayRecordFile(ctx, path)
+			result.Applied += applied
+			result.Refused += refused
+			return rerr
 		case strings.HasSuffix(path, ".journal"+stageJournalSuffix):
 			result.Journals++
 			applied, refused, rerr := r.replayStageFile(ctx, path)
@@ -550,6 +588,169 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 		return err
 	default:
 		return fmt.Errorf("unknown stage mark kind %q", body.Kind)
+	}
+}
+
+// recordJournalBody mirrors cmd/myflow/record.go's own recordJournalBody
+// exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status",
+// "request":<the records.Dispatch, records.DispatchEnd, records.Finding or
+// status request that was journalled>}. It is a second declaration of the same wire shape for the
+// same reason stageMarkJournalBody is one: cmd/myflow is a main package
+// and cannot be imported. The two field names here and record.go's
+// ".journal"+".record" suffix are the two literals that must stay in step
+// across that boundary; the request shapes themselves are internal/records'
+// own exported types, which is the contract both sides really share.
+type recordJournalBody struct {
+	Kind    string          `json:"kind"`
+	Request json.RawMessage `json:"request"`
+}
+
+// recordStatusRequest mirrors cmd/myflow/record.go's own type of the same
+// name: the wire PATCH carries the ref in its URL and only the status in
+// its body, so the journalled request carries both and a replay resolves
+// the write from what it reads rather than from a route this package would
+// have to encode a second time.
+type recordStatusRequest struct {
+	Ref    string `json:"ref"`
+	Status string `json:"status"`
+}
+
+// errRecordEntryDecodeFailed wraps any failure to make sense of a record
+// journal entry's body -- an envelope that does not decode, a request that
+// does not decode as the shape its Kind names, or a Kind naming none of the
+// three writes `myflow record` performs. It is the record journal's
+// counterpart to errChangeEntryDecodeFailed, and it is definitive for the
+// identical reason: a body that fails to decode now will fail identically
+// on every future replay, so retiring it is what stops one bad entry from
+// permanently blocking every valid entry queued behind it.
+//
+// This is the opposite of replayStageFile's treatment of an equivalent
+// failure, which stops rather than retires. The difference is deliberate:
+// a stage mark's replay closes an *open* run, so discarding one silently
+// leaves a run that can never be closed, whereas a record write is a leaf
+// -- nothing later depends on it -- and blocking the file behind it costs
+// strictly more than dropping it loudly.
+var errRecordEntryDecodeFailed = errors.New("reconcile: record journal entry body does not decode as a record write")
+
+// replayRecordFile replays the pending entries of the single run-record
+// journal file at path -- a "*.journal.record" file, cmd/myflow/record.go's
+// recordJournalPath -- against r.recordStore, in file order, retiring
+// every entry isDefinitiveRecordOutcome reports a definitive outcome for.
+//
+// File order is load bearing here in a way it is not for a state entry: a
+// dispatch's seq is allocated in the order the store sees it, and a status
+// write replayed before the finding it updates would be refused as a ref
+// the change holds nothing under. replayJournalFile walks entries strictly
+// in order, which is what makes that safe.
+//
+// It is what makes a journalled "dispatch-end" safe too, and that one is
+// not merely tidier for being ordered: an end replayed before the begin it
+// closes finds no row and is left queued rather than retired
+// (isDefinitiveRecordOutcome), so file order is what turns "eventually"
+// into "on this pass".
+func (r *Reconciler) replayRecordFile(ctx context.Context, path string) (applied, refused int, err error) {
+	return r.replayJournalFile(ctx, path, "record", r.applyRecordEntry, isDefinitiveRecordOutcome)
+}
+
+// applyRecordEntry decodes e.Body as a recordJournalBody and applies it
+// through the same three api.ApplyRecord* functions internal/api's own
+// record handlers call for a live write, so replay can never implement
+// "what a record write does" differently from the handler that serves it.
+// This is replayFile's relationship to api.DecodeChangeBody and
+// replayStageFile's to api.ApplyBeginStageMark, for the third journal kind.
+//
+// Going through them rather than straight to the store is what carries the
+// required-field checks into replay. Skipping those checks was defensible
+// only as long as cmd/myflow/record.go was the sole producer of this file
+// and made them before journalling -- but nothing structural holds that,
+// and the columns migration 0010 declares NOT NULL are all satisfied by an
+// empty string. A hand-edited or corrupted entry carrying "role":"" would
+// have inserted a row with an empty role, returned nil, and been retired as
+// a success: silent corruption of the record this change exists to make
+// trustworthy. The rule is stated once, in the package that owns it.
+func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) error {
+	var body recordJournalBody
+	if err := json.Unmarshal(e.Body, &body); err != nil {
+		return fmt.Errorf("%w: decode envelope: %v", errRecordEntryDecodeFailed, err)
+	}
+
+	switch body.Kind {
+	case "dispatch":
+		var in records.Dispatch
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode dispatch: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyDispatchRecord(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "dispatch-end":
+		var in records.DispatchEnd
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode dispatch end: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyDispatchEnd(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "finding":
+		var in records.Finding
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode finding: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, _, err := api.ApplyFindingRecord(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "status":
+		var in recordStatusRequest
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode status: %v", errRecordEntryDecodeFailed, err)
+		}
+		return api.ApplyFindingStatus(ctx, r.recordStore, e.Project, e.Name, in.Ref, in.Status)
+	default:
+		return fmt.Errorf("%w: unknown record write kind %q", errRecordEntryDecodeFailed, body.Kind)
+	}
+}
+
+// isDefinitiveRecordOutcome reports whether applyRecordEntry's result is a
+// *definitive* answer -- success, or a refusal that will not change on
+// retry -- as opposed to a transient failure a later replay might resolve
+// differently.
+//
+// The split is the one cmd/myflow/record.go already draws for a live write,
+// carried over to an entry that is already on disk: a write the daemon
+// would answer 400 or 404 for is refused identically forever, so leaving it
+// queued would grow the journal without ever making progress. That covers a
+// body that does not decode, a change the store has never heard of, and a
+// finding ref no row exists under. Everything else -- a dropped connection,
+// a context cancellation, ErrTooManyDispatchSeqCollisions (contention the
+// daemon itself answers 503 for) -- is left for the next Run.
+//
+// store.ErrDispatchNotFound is deliberately among that "everything else",
+// and it is the one 404 here that is NOT definitive. A dispatch end names
+// its row by the key its begin carried, so "no such dispatch" has an
+// entirely ordinary transient cause: the begin was journalled too and is
+// still queued -- ahead of this entry in this file, or in a pass that has
+// not happened yet. Retiring the end would leave the window that begin
+// opened open forever, which is precisely the defect the end call exists to
+// prevent; leaving it queued costs one entry and resolves itself the moment
+// the begin lands. This is the mirror of store.ErrFindingNotFound above,
+// which really is a typo with no second cause.
+func isDefinitiveRecordOutcome(err error) bool {
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, errRecordEntryDecodeFailed):
+		return true
+	case errors.Is(err, api.ErrInvalidRecord):
+		// A body missing a field the row cannot be read without -- the
+		// daemon answers 400 for the identical body on the live route, and
+		// will answer it again on every future replay. Retiring it is the
+		// same call errRecordEntryDecodeFailed above gets, for the same
+		// reason: leaving it queued would block every valid entry behind
+		// it forever without ever making progress.
+		return true
+	case errors.Is(err, store.ErrChangeNotFound):
+		return true
+	case errors.Is(err, store.ErrFindingNotFound):
+		return true
+	default:
+		return false
 	}
 }
 

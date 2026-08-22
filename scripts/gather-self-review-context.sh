@@ -9,16 +9,22 @@
 # <archived-change-path> is the ARCHIVED change directory
 # (openspec/changes/archive/<date>-<name>/), never a worktree path — by the
 # time step 9 runs, run 2 has already removed the worktree. <state-dir> is
-# accepted for CLI parity with this script's usage line and with
-# preserve-session-records.sh's own <worktree> <name> <state-dir> shape; none
-# of the four sources below currently read from it. <repo-root> is OPTIONAL
+# accepted for CLI parity with this script's usage line and with the
+# <worktree> <name> <state-dir> shape the /myflow-finish record helper took
+# when this script was written — that helper has since been retired and its
+# work moved into `myflow record render`, but the argument stays for callers
+# that already pass it; none of the four sources below currently read from
+# it. <repo-root> is OPTIONAL
 # (KAN-239): see the dedicated NOTE below for what it is, why it exists, and
 # why accepting it does not weaken this script's trust argument.
 #
 # Prints one bundle to stdout: a header line naming which sources were found
 # vs. skipped, an explicit "skipped: <src> (absent)" line per missing source
-# (1-3) — matching preserve-session-records.sh's own skipped:/preserved:
-# vocabulary — and each found source's content under its own subheading.
+# (1-3) — one distinct OUTCOME WORD per source on stdout rather than a
+# distinct exit status, which is the convention the pipeline's own record
+# steps follow; see the outcome table under **Rendering the session records**
+# (`skills/myflow-contracts/pipeline.md`) — and each found source's content
+# under its own subheading.
 # Exits 2 on a missing argument, an invalid change name, or a malformed
 # <repo-root> (a malformed invocation, in every case); otherwise ALWAYS exits
 # 0 — a missing source is never fatal, since a change may legitimately have
@@ -133,7 +139,7 @@
 #      run 1 used before the rename ("plan, test guide and session records")
 #      are matched, so changes committed before the rename keep resolving.
 #
-# NOTE on sources 1 and 2: preserve-session-records.sh writes these under
+# NOTE on sources 1 and 2: `myflow record render` writes these under
 # docs/superpowers/{ledgers,reviews}/ with a LEADING DATE, e.g.
 # "2026-08-01-demo.md", never literally "<name>.md" — this script's messages
 # still name the source using the plain "<name>.md" / "<name>-panel.md" form,
@@ -145,15 +151,17 @@
 # NOTE on the "skipped:" stream: the design doc originally said stderr; this
 # was corrected to stdout to match the delta spec
 # (openspec/changes/kan-23-myflow-self-review/specs/myflow-self-review/spec.md,
-# which has always said stdout) and to mirror preserve-session-records.sh's
-# own convention of printing "skipped:" on stdout, since this script's own
+# which has always said stdout) and to match the pipeline's own convention of
+# printing every outcome word on stdout — `myflow record render` prints
+# `rendered:`, `MISSING:` and `journalled:` there — since this script's own
 # bundle is a single stdout document by design.
 #
-# THE CHANGE-NAME ALLOWLIST mirrors preserve-session-records.sh's own: one
-# leading alphanumeric, then letters, digits, '.', '_' and '-'. A name
-# containing '/' or a glob metacharacter must not be used to build a path or
-# to build the `find -name` pattern used to locate the dated ledger/panel
-# files, for the same reasons that script's header states.
+# THE CHANGE-NAME ALLOWLIST mirrors records.Destination's own
+# (stats/internal/records/render.go): one leading alphanumeric, then letters,
+# digits, '.', '_' and '-'. A name containing '/' or a glob metacharacter must
+# not be used to build a path or to build the `find -name` pattern used to
+# locate the dated ledger/panel files, for the same reasons that function's
+# comment states.
 set -euo pipefail
 
 # within_root <resolved-path> <root> -> the path-boundary test, sourced from
@@ -406,8 +414,9 @@ GITLOG_LABEL="git log --stat"
 
 # find_dated <dir> <suffix> — the most recent "<date>-<name><suffix>" file
 # under <dir>, or empty. Anchored digit-by-digit exactly as
-# preserve-session-records.sh's own search is: a bare "*-${NAME}${suffix}"
-# would also match a DIFFERENT change whose name ends in this one.
+# records.existingDatedFile's own search is (stats/internal/records/render.go,
+# datedFilePrefix): a bare "*-${NAME}${suffix}" would also match a DIFFERENT
+# change whose name ends in this one.
 find_dated() {
   local dir="$1" suffix="$2"
   [ -n "$dir" ] && [ -d "$dir" ] || return 0
@@ -417,8 +426,9 @@ find_dated() {
 }
 
 # resolve_file <path> — print <path> with every symlink resolved, both on the
-# final component and on each directory component. Ported verbatim from
-# preserve-session-records.sh's own helper of the same name: `readlink -f`
+# final component and on each directory component. Ported verbatim from the
+# helper of the same name in the record-copying script this repository has
+# since retired: `readlink -f`
 # would do this in one call on GNU but is not portable to the BSD readlink
 # macOS ships, so the final component is walked here and the directory
 # components are left to `cd -P`. Fails on a symlink loop rather than
@@ -447,8 +457,9 @@ resolve_file() {
   printf '%s\n' "$dir/${p##*/}"
 }
 
-# check_boundary <candidate> <root> — Protections 2/3 ported from
-# preserve-session-records.sh: a candidate file under a tracked, PR-editable
+# check_boundary <candidate> <root> — the READ half of the path-boundary pair
+# this script inherited from the record-copying step, kept after that step
+# became a render: a candidate file under a tracked, PR-editable
 # directory (docs/superpowers/ledgers/, docs/superpowers/reviews/, or
 # <archived-change-path>/tasks.md) may be a symlink planted to make `cat`
 # read an arbitrary file outside the repository. Resolve it and verify the

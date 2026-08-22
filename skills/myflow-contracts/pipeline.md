@@ -171,31 +171,24 @@ name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bar
 which puts the planning artifacts into the implementation commit — the one outcome this split
 exists to prevent — so the fix belongs in the repository, by making the path a real directory.
 
-## Preserving the session records
+## Rendering the session records
 
 `/myflow-do` reads this table on its `prUrl` commit path, and `/myflow-finish` reads it in
-run 1; the invocation of `<agents repo>/scripts/preserve-session-records.sh` itself is described by each
-caller.
+run 1; the invocation of `myflow record render` itself is described by each caller.
 
 | Outcome | What it means | What you do |
 |---------|---------------|-------------|
-| `skipped: <src> (absent)`, exit 0 | The source does not exist. A change may legitimately have no panel record. | Nothing. Proceed. |
-| `preserved: <dest>`, exit 0 | The record reached the repository at that path. | Nothing. Proceed. |
-| `rescued: <dest> (found at <path>)`, exit 0 | The record was written to a non-canonical path and has been copied to the canonical destination. | **Report it.** The record is safe; the writer that chose the path is not. Proceed. |
-| `MISSING: <canonical> — tried <paths>`, exit 0 | A record that should exist for every change was found at none of its known paths. | **Report it, naming the paths tried.** Proceed with the integration. |
-| A message on stderr, **exit non-zero** | A copy was attempted and refused or failed — an untrusted source or destination path, or a write that could not be made. | **Report it to the operator, with the script's own message.** Then proceed with the integration. |
+| `rendered: <dest>`, exit 0 | The record was written to that path from the store's rows. | Nothing. Proceed. |
+| `MISSING: <kind> — no rows for <change>`, exit 0 | The store holds no rows of that kind for this change. | **Report it.** It means no record exists, never that one was written elsewhere. Proceed. |
+| `journalled: <kind>`, exit 0 | The store could not be reached, so nothing was rendered. | **Report it, naming the kind.** Proceed with the integration. |
+| A message on stderr, **exit non-zero** | A destination was refused or could not be written. | **Report it, with the command's own message.** Then proceed. |
 
-**A non-zero exit is never silent and never a stop; the remaining sources are still attempted after
-any one failure, and the handoff names which records were preserved and which were not.** **Neither
-`rescued:` nor `MISSING:` is non-zero** — non-zero keeps its one meaning, a copy attempted and
-refused or failed, so a caller branching on exit status never reads a rescue or a missing record as
-a failure. See
-**Preserving the session records** (`skills/myflow-contracts/pipeline-rationale.md`) for why.
-
-**Do not harmonise the two orderings for symmetry** — here the preservation call runs before
-staging; in `/myflow-do` it runs after. See **Preserving the session records**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why the asymmetry is what keeps preserved
-records out of the staged-only path.
+**A non-zero exit is never silent and never a stop; the remaining kinds are still attempted after
+any one failure, and the handoff names which records were rendered and which were not.** **Neither
+`MISSING:` nor `journalled:` is non-zero** — non-zero keeps its one meaning, a destination refused or
+a write that failed, so a caller branching on exit status never reads an empty record, or an
+unreachable store, as a failure. See **Preserving the session records**
+(`skills/myflow-contracts/pipeline-rationale.md`) — which keeps its former name — for why.
 
 ## Progress visibility
 
@@ -477,7 +470,7 @@ directory searched, and the install command, then the run continues:
   <skill-dir>/scripts/
     check-finish-preflight.sh
     check-unfinished-work.sh
-    preserve-session-records.sh
+    check-cleanup-complete.sh
 These checks will be performed BY HAND.
 Re-run ./setup.sh global to install them.
 ```
@@ -538,10 +531,11 @@ their command does not load.
 | Artifact | Created by | Location | Removed by |
 |----------|-----------|----------|-----------|
 | Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Panel record | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` | preserved at run 1; removed with the worktree |
-| SDD ledger | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/tasks/progress.md` | preserved at run 1; removed with the worktree |
+| Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
+| SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
+| Rendered ledger and panel record | `myflow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
 | Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Proposal artifact source | `/myflow-start` | the state directory | run 2, only if a preserved copy exists |
+| Proposal artifact source | `/myflow-start` | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
@@ -562,12 +556,18 @@ never left unaccounted for on the grounds that something probably removes it. Se
 artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for the incident that
 established this.
 
-**Where the proposal artifact source comes from, and why its row is conditional.** `/myflow-start`
-writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish to the same
-URL, and the preserved copy its row requires lives under `<project>/docs/superpowers/artifacts/`. No preserved
-copy → leave the file and say so. The deletion is disclosed the same way the worktree removal is.
-See **Temporary artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for why the
-row is conditional.
+**Where the proposal artifact source comes from, and what produces the copy its row tests.**
+`/myflow-start` writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish
+to the same URL, and the preserved copy its row requires lives under
+`<project>/docs/superpowers/artifacts/`. **Finish run 1 is what puts it there**, by copying it before
+it stages — see **Run 1 — the branch is not merged**
+(`skills/myflow-contracts/finish-contract.md`), which is canonical for that copy, for the change-name
+and containment checks it makes first, and for the skip when a change published no artifact. The
+condition is therefore reachable in both directions: a change whose artifact run 1 copied is deleted
+at run 2, and a `/myflow-fast` change, which publishes none, is not. No preserved copy → leave the
+file and say so. The deletion is disclosed the same way the worktree removal is. See **Temporary
+artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for why the row is
+conditional.
 
 **The workspace row belongs only to a project that declares isolation, and for every other project
 it is a row about nothing — which is why it names no database, no bucket and no service.** A project
@@ -690,13 +690,18 @@ never a guess. Slots dispatched by `subagent_type` (Bugbot, Security Review) res
 from their own agent definition, which the dispatcher does not read; writing a plausible slug for
 them puts an unmeasured value into the audit trail.
 
-**This record outlives the change: the ledger is preserved under `<project>/docs/superpowers/ledgers/` at run
-1, before the worktree carrying `<abs-worktree>/.superpowers/sdd/` is removed.** See **Model policy**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why, and **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`) for the preservation duty itself.
+**This record outlives the change, because it is a row in the store rather than a file in a
+worktree.** Each dispatch is written as it closes, and the store's rows are the terminal record — no
+worktree removal reaches them. The ledger rendered under `<project>/docs/superpowers/ledgers/` at
+run 1 is a readable copy of those rows, for a reader with no daemon running; it is not the record.
+**Rows also make the question answerable across changes, by query** — which model ran a given role,
+over every change the store holds — where a preserved file answered it only for the one change whose
+file you opened. See **Model policy** (`skills/myflow-contracts/pipeline-rationale.md`) for why, and
+**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`) for the render
+duty itself.
 
 **A persisting record must not fill in `unknown (agent-defined)` on the way into the repository** —
-no preservation step invents a model slug. See **Model policy**
+neither the write into the store nor the render out of it invents a model slug. See **Model policy**
 (`skills/myflow-contracts/pipeline-rationale.md`) for why.
 
 - **Claude Code**: the **session** model is enforced via `model: opus` / `model: sonnet` in each

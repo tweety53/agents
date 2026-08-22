@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
-# check-panel-reproducers.sh <worktree>
+# check-panel-reproducers.sh <worktree> <change-name>
+#
+# THE CHANGE NAME IS A SECOND ARGUMENT because the record is no longer at a
+# fixed path. It is rendered to `docs/superpowers/reviews/<date>-<change>-panel.md`
+# — one file per change in a directory shared by every change — so naming the
+# worktree alone no longer names a record. panel_record_path in
+# scripts/lib/panel-record.sh resolves it, and that function's comment is
+# canonical for the anchored match and for why this guard no longer reads
+# `.superpowers/sdd/final-review-panel.md`: that file survives as the pass log,
+# which carries no marker block at all.
 #
 # Every finding in a panel record must declare how it was reproduced, so that
 # /myflow-do can run that command and require it to FAIL before dispatching a
@@ -18,7 +27,8 @@
 #      well-formed finding-reproducer: line, and reproducers-total equals
 #      their number
 #   1  violations found; each is reported on stderr
-#   2  cannot answer at all — no worktree, no record, unreadable record
+#   2  cannot answer at all — no worktree, no change name, a change name
+#      outside the allowlist, no record, unreadable record
 set -euo pipefail
 
 export LC_ALL=C
@@ -56,7 +66,31 @@ fi
 source "$SCRIPT_DIR/lib/panel-record.sh"
 
 WORKTREE="${1:-}"
+NAME="${2:-}"
 [[ -n "$WORKTREE" && -d "$WORKTREE" ]] || { echo "check-panel-reproducers: not a directory: ${WORKTREE:-<missing>}" >&2; exit 2; }
+[[ -n "$NAME" ]] || { echo "usage: check-panel-reproducers.sh <worktree> <change-name>" >&2; exit 2; }
+
+# CONTAINMENT, identical to check-unfinished-work.sh's own Protection 1. The
+# change name arrives from a pull-request-editable state file and is
+# concatenated into the record path below, so the same hazards apply here:
+# `../../../planted` reads a record outside the worktree entirely, and a glob
+# metacharacter reaches panel_record_path's `case` pattern.
+#
+# THE `case` BLOCK IS DUPLICATED, on purpose, in this guard and in
+# check-unfinished-work.sh, whose own comment is canonical for the reasoning and
+# for the measurement behind enumerating the characters rather than writing them
+# as ranges. Both harnesses assert the same rejected shapes, which is what keeps
+# the two copies from drifting apart silently, and a six-line containment check
+# gains nothing from being centralized. `export LC_ALL=C` above already makes
+# this copy byte-wise; the enumeration keeps it character for character the same
+# rule as the other copies.
+case "$NAME" in
+  [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
+  | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
+    echo "check-panel-reproducers: change name '$NAME' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'" >&2
+    exit 2
+    ;;
+esac
 # Canonicalise to an absolute path before it is ever concatenated into a
 # grep argument. A worktree argument that is a RELATIVE path beginning with
 # `-` (`scripts/check-panel-reproducers.sh -dashy`, run from the directory
@@ -83,12 +117,14 @@ WORKTREE="${1:-}"
 # which `set -e` does not act on, so the guard's own exit 2 and message run
 # instead.
 WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducers: worktree vanished before it could be resolved: ${WORKTREE}" >&2; exit 2; }
-PANEL="$WORKTREE/.superpowers/sdd/final-review-panel.md"
-# `-f` as well as `-r`: `-r` alone is true of a DIRECTORY, so
-# `mkdir -p .../final-review-panel.md` (a directory sitting where the record
-# should be) was read as a readable record and fell through every check
-# below to REPRODUCERS-OK at exit 0.
-[[ -f "$PANEL" && -r "$PANEL" ]] || { echo "check-panel-reproducers: no readable panel record at $PANEL" >&2; exit 2; }
+PANEL="$(panel_record_path "$WORKTREE" "$NAME")"
+# `-f` as well as `-r`: `-r` alone is true of a DIRECTORY, so a directory
+# sitting where the record should be was read as a readable record and fell
+# through every check below to REPRODUCERS-OK at exit 0. panel_record_path
+# already skips a directory entry — mirroring records.existingDatedFile — so
+# such a path arrives here as the empty string; the `-f` stays as the second
+# half of that same refusal rather than as a duplicate of it.
+[[ -n "$PANEL" && -f "$PANEL" && -r "$PANEL" ]] || { echo "check-panel-reproducers: no readable panel record for '$NAME' under $WORKTREE/$PANEL_RECORD_DIR — the rendered record is named <YYYY-MM-DD>-$NAME-panel.md" >&2; exit 2; }
 
 VIOLATIONS=()
 add() { VIOLATIONS+=("$1"); }

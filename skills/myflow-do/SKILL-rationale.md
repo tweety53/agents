@@ -244,12 +244,12 @@ this command is *whose* staging it retracts (an implementer subagent's own `git 
 resumed with a dirty index) and why `git reset -- <paths>` is the tool:
 it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
 the way `git rm --cached` would, and succeeds when a path is absent — which `<project>/docs/superpowers/` is
-on every run that has not preserved records yet, and where `git restore --staged` would refuse the
-whole command and unstage nothing.
+on every run that has rendered no record into it yet, and where `git restore --staged` would refuse
+the whole command and unstage nothing.
 
 The outcome table under
-**Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all
-three outcomes.
+**Rendering the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all four
+outcomes.
 
 The template's third git state — committed and pushed with no PR — is one `/myflow-do` never emits
 and `/myflow-status` does; the pairing is canonical under **The block each state renders**
@@ -264,7 +264,7 @@ field added here and not there is drift the moment `/myflow-status <name>` regen
 state.
 
 That ordering is what
-makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
+makes a fix round raised after a PR is open refresh the rendered records rather than leave them a
 round stale.
 
 ## Guardrails

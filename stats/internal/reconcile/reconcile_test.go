@@ -64,7 +64,7 @@ func TestReplayAppliesPendingEntries(t *testing.T) {
 
 	appendEntry(t, root, "proj-apply", "chg-apply", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -118,7 +118,7 @@ func TestStaleEntryCannotRegressFinished(t *testing.T) {
 	// must refuse this, not the timestamp.
 	appendEntry(t, root, "proj-stale", "chg-stale", "IN_PROGRESS", "2026-08-13T13:00:00Z", "myflow-do")
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -157,7 +157,7 @@ func TestReplayRetiresRefusedEntries(t *testing.T) {
 	// lost.
 	appendEntry(t, root, "proj-refuse", "chg-refuse", "IN_PROGRESS", "2026-08-13T10:00:00Z", "myflow-do")
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -205,7 +205,7 @@ func TestReplayRetiresInvalidStateEntryAndAppliesEntryBehindIt(t *testing.T) {
 	appendEntry(t, root, "proj-badstate", "chg-badstate", "BOGUS_STATE", "2026-08-13T10:00:00Z", "myflow-do")
 	appendEntry(t, root, "proj-badstate", "chg-badstate", "IN_PROGRESS", "2026-08-13T10:05:00Z", "myflow-do")
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -250,7 +250,7 @@ func TestReplayRetiresUndecodableEntryAndAppliesEntryBehindIt(t *testing.T) {
 	}
 	appendEntry(t, root, "proj-undecodable", "chg-undecodable", "IN_PROGRESS", "2026-08-13T10:05:00Z", "myflow-do")
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -290,7 +290,7 @@ func TestInterruptedReplayResumesWithoutDuplicating(t *testing.T) {
 	appendEntry(t, root, "proj-interrupt", "chg-b", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
 
 	wrapped := &injectingStore{inner: st, failName: "chg-b", failsRemaining: 1}
-	rec := reconcile.New(wrapped, nopStageStore{}, root, nil)
+	rec := reconcile.New(wrapped, nopStageStore{}, nopRecordStore{}, root, nil)
 
 	result, err := rec.Run(ctx)
 	if err != nil {
@@ -476,7 +476,7 @@ func TestReconcilerRunSerializesConcurrentCalls(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 		return nil
 	}}
-	rec := reconcile.New(fs, nopStageStore{}, root, nil)
+	rec := reconcile.New(fs, nopStageStore{}, nopRecordStore{}, root, nil)
 
 	var wg sync.WaitGroup
 	results := make([]reconcile.Result, 2)
@@ -536,7 +536,7 @@ func TestRetirePreservesEntryAppendedDuringReplay(t *testing.T) {
 		return nil
 	}
 
-	rec := reconcile.New(fs, nopStageStore{}, root, nil)
+	rec := reconcile.New(fs, nopStageStore{}, nopRecordStore{}, root, nil)
 	result, err := rec.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run (first pass): %v", err)
@@ -586,7 +586,7 @@ func TestPartialTrailingJournalLineIsIgnored(t *testing.T) {
 	}
 
 	fs := &fakeStore{}
-	rec := reconcile.New(fs, nopStageStore{}, root, nil)
+	rec := reconcile.New(fs, nopStageStore{}, nopRecordStore{}, root, nil)
 	result, err := rec.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -650,7 +650,7 @@ func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
 		return nil
 	}
 
-	rec := reconcile.New(fs, nopStageStore{}, root, nil)
+	rec := reconcile.New(fs, nopStageStore{}, nopRecordStore{}, root, nil)
 
 	stopRetirer := make(chan struct{})
 	var retirerErrs []error

@@ -34,9 +34,9 @@ pass() { printf 'ok: %s\n' "$1"; }
 # including on a failed assertion. An indexed array, not a space-separated
 # string: sandbox paths come from mktemp under TMPDIR, which may contain
 # spaces, and word-splitting a string would leak every sandbox whose path
-# split and `rm -rf` the fragments. Same hazard
-# scripts/test-preserve-session-records.sh's header names; bash 3.2 has
-# indexed arrays, only associative arrays are unavailable.
+# split and `rm -rf` the fragments. Same hazard every harness under scripts/
+# names in its own header; bash 3.2 has indexed arrays, only associative
+# arrays are unavailable.
 TREES=()
 cleanup() {
   [ "${#TREES[@]}" -eq 0 ] && return 0

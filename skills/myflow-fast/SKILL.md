@@ -237,6 +237,15 @@ Every handoff shape this skill prints is exactly the cited section's own block, 
 the `IN_PROGRESS`-with-no-artifact case, the one shape none of the three cited skills already print,
 since none of them skips the artifact.
 
+**Produce its `Records:` count the same way `/myflow-do` does**, per **7. Verify, stage, and hand
+off** (`skills/myflow-do/SKILL.md`) — one call per affected worktree, before the block is printed:
+
+```bash
+myflow record journal-count -change <name> -C <abs-worktree>
+```
+
+Render what it printed, `unknown` included, and never derive the journal's path by hand.
+
 ```
 ## Implementation staged — review and test
 
@@ -247,6 +256,7 @@ implementation <model>, review panel <model>, panel fixes <model> · roster <pre
 **Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots>;
 optional: <selected, or "none — no triggers fired">
 **Staged:** N/N tasks · staged and uncommitted
+**Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 
 Worktree:   <absolute worktree path>
@@ -264,6 +274,12 @@ Re-run this command to fix anything you find, or bare to move on to integrating 
 Next:
 /myflow-fast <name>
 ```
+
+**The `Records` line is printed on every run of this branch, journalled or not.** Its three
+alternatives above are this command's enumeration of the placeholder the line carries under
+**The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`), which is canonical
+for it — including why a run that journalled nothing still prints it, and why the count is read
+from the change's record journal rather than remembered from the run.
 
 ## Guardrails
 
@@ -291,8 +307,10 @@ here. Add exactly the guardrails specific to this skill:
   override of the disclosure ask in **Worktree cleanup**
   (`skills/myflow-contracts/finish-contract.md`), `/myflow-fast` only; `/myflow-finish` still asks.
   The reason it is safe here is that the records worth keeping are already out of the worktree by
-  this point: `finish.preserve-sessions` copies the panel record and the SDD ledger into
-  `<project>/docs/superpowers/`, and `finish.commit-two` commits them, so what check 4 lists is build output
+  this point: neither is a worktree file any more — both are rows in the store, rendered into
+  `<project>/docs/superpowers/` by `myflow record render`, the panel record when the panel closed and
+  the SDD ledger at the `finish.preserve-sessions` step — and `finish.commit-two` commits them, so
+  what check 4 lists is build output
   plus the per-review diffs the **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`)
   already declares worktree-lifetime. **Checks 1, 2, 3 and 5 remain gates** — a failure in any of
   them still stops cleanup with no worktree touched — and check 4 turning up something genuinely

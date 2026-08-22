@@ -38,4 +38,12 @@ func TestNewTranscriptWatcherWiresBinderAndPricer(t *testing.T) {
 	if !w.HasSessionTokenBinder() {
 		t.Error("watcher has no session-token binder: cmd/myflowd built it without harvest.WithSessionTokenBinder -- no stage run can ever be bound")
 	}
+	// KAN-258 extends this test to the second attribution pass rather than
+	// writing a second one: the defect it guards against is identical --
+	// a Watcher constructed without harvest.WithDispatchAttribution
+	// harvests every transcript exactly as before and leaves every
+	// dispatch's metrics bag empty forever, with nothing failing.
+	if !w.HasDispatchAttribution() {
+		t.Error("watcher has no dispatch attribution: cmd/myflowd built it without harvest.WithDispatchAttribution -- no dispatch would ever be charged for the usage it caused")
+	}
 }

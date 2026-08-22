@@ -67,7 +67,6 @@ scripts/test-check-plan-provenance.sh
 scripts/test-check-finish-preflight.sh
 scripts/test-commit-split.sh
 scripts/test-prepare-workspace.sh
-scripts/test-preserve-session-records.sh
 scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
@@ -185,13 +184,13 @@ so a declaration is validated where it is read, in whichever repository holds it
 stays because this repository's own configuration is one more configuration worth checking, and
 because it keeps the guard runnable from a bare tree.
 
-**`check-finish-preflight.sh`, `preserve-session-records.sh`, `check-unfinished-work.sh` and
-`check-cleanup-complete.sh` are deliberately not lint steps.** All four are `/myflow-finish` helpers
-that need a change in flight and a real worktree, a repository or a state directory passed in as
-arguments; they answer a question about one change, not about the state of the repository's text. A
-lint step that cannot run against a bare tree would fail on every unrelated invocation, so the
-omission is a decision, not an oversight. They are covered instead by their harnesses under
-`## test`. `check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
+**`check-finish-preflight.sh`, `check-unfinished-work.sh` and `check-cleanup-complete.sh` are
+deliberately not lint steps.** All three are `/myflow-finish` helpers that need a change in flight
+and a real worktree, a repository or a state directory passed in as arguments; they answer a
+question about one change, not about the state of the repository's text. A lint step that cannot run
+against a bare tree would fail on every unrelated invocation, so the omission is a decision, not an
+oversight. They are covered instead by their harnesses under `## test`.
+`check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
 `run-reproducer.sh` are excluded for the same reason: they are `/myflow-do` helpers that likewise
 need a change in flight and a worktree passed in, so they are covered by their own harnesses under
 `## test` instead.
