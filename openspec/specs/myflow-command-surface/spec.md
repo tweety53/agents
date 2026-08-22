@@ -32,9 +32,10 @@ run the suggested command instead.
 ### Requirement: Git actions are bounded by state
 
 `/myflow-start` SHALL perform no git actions beyond writing planning artifacts. `/myflow-do` SHALL
-create or resume a worktree and stage with `git add`, and SHALL commit and push **only** when the
-state file already records a `prUrl`. `/myflow-finish` SHALL commit, push, open a PR or merge on
-its first run. On its second run it SHALL commit the archive on `chore/archive-<name>`, remove
+create or resume a worktree and **commit each task as it finishes**, per **Each task commits after
+finishing, before review** (`openspec/specs/myflow-task-commits/spec.md`); it SHALL **push** only
+when the state file already records a `prUrl`. `/myflow-finish` SHALL commit, push, open a PR or
+merge on its first run. On its second run it SHALL commit the archive on `chore/archive-<name>`, remove
 worktrees, branches and the remote branch, and — after self-review has committed its report onto
 that same branch — push `chore/archive-<name>` and open a pull request against the base branch.
 
@@ -46,30 +47,39 @@ it pushes the change branch, merges it into the base branch, and pushes that —
 not touch it: that route is one of three the operator explicitly chooses between, and it is not the
 unasked-for direct push run 2 used to perform.
 
-No command other than `/myflow-finish`, and `/myflow-do` when a PR is already open, SHALL create a
-commit.
+`/myflow-do` and `/myflow-finish` are the only commands that SHALL create a commit. `/myflow-do`
+commits every task; what a recorded `prUrl` changes is whether those commits are **pushed**, not
+whether they exist.
 
-Every staging pass `/myflow-do` performs SHALL exclude the paths the review diff excludes, so the
-staging area holds implementation only. `/myflow-finish` SHALL stage those paths on its first run
+An earlier version of this requirement said `/myflow-do` commits only when a PR is already open.
+That was true before per-task commits existed and became false when they landed, leaving this spec
+contradicting both `myflow-task-commits` and **Git boundaries**
+(`skills/myflow-contracts/pipeline.md`) — the table the pipeline actually follows. The wording is
+corrected here rather than in those two, because they describe what the pipeline does and this one
+did not.
+
+Every commit `/myflow-do` makes SHALL exclude the paths the review diff excludes, so an
+implementation commit holds implementation only. `/myflow-finish` SHALL stage those paths on its first run
 and commit them **separately** from the implementation, implementation first.
 
 `/myflow-do`'s commit-and-push exception SHALL make the same two commits, so a fix pushed to an open
 PR keeps its code commits free of planning artifacts.
 
-#### Scenario: A fix before integration stays staged
+#### Scenario: A fix before integration is committed but not pushed
 
 - **WHEN** `/myflow-do` completes for a change at `IN_PROGRESS` with no `prUrl` recorded
-- **THEN** the changes are staged and uncommitted, and `git status` shows them as staged
+- **THEN** the fix is committed in the worktree
+- **AND** nothing is pushed, merged, or opened as a pull request
 
 #### Scenario: A fix after integration reaches the PR
 
 - **WHEN** `/myflow-do` completes for a change whose state file records a `prUrl`
 - **THEN** the fix is committed and pushed to the PR branch as two commits, implementation first
 
-#### Scenario: Staging holds implementation only
+#### Scenario: An implementation commit holds implementation only
 
-- **WHEN** `/myflow-do` stages at the end of any run
-- **THEN** no path under `openspec/` or `docs/superpowers/` is staged
+- **WHEN** `/myflow-do` commits at the end of any run
+- **THEN** no path under `openspec/` or `docs/superpowers/` is in that commit
 
 #### Scenario: Finish commits both, in order
 

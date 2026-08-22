@@ -110,9 +110,9 @@
 # skills, not `scripts/`, so a guard and the library it sources always travel
 # together in this repository — see that review's Disposition section for the
 # full reasoning, carried forward here rather than re-litigated. Left
-# genuinely single-file, out of this change's scope: preserve-session-records.sh
-# and gather-self-review-context.sh, which are copied into OTHER projects'
-# own tooling standalone and cannot assume any sibling travels with them.
+# genuinely single-file, out of this change's scope: gather-self-review-context.sh,
+# which is copied into OTHER projects' own tooling standalone and cannot assume
+# any sibling travels with it.
 #
 # A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
 # known limitation rather than an oversight. This guard carries no fence
@@ -126,9 +126,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # resolve_file — sourced from lib/resolve-file.sh; see that file's header for
-# why this guard, unlike preserve-session-records.sh and
-# gather-self-review-context.sh, may source a sibling instead of carrying its
-# own copy. "One level above $SCRIPT_DIR" is NOT enough to derive the
+# why this guard, unlike gather-self-review-context.sh, may source a sibling
+# instead of carrying its own copy. "One level above $SCRIPT_DIR" is NOT enough to derive the
 # repository root, because this script is now reachable from more than one
 # directory — its real home at <repo>/scripts/, and a skills/<name>/scripts/
 # symlink a command skill carries it under (prepare-workspace.sh's own call
@@ -641,8 +640,8 @@ for ROOT in "$@"; do
       # The `Variable`, which a run EXPORTS. The shape is the one the contract
       # states, and the ranges are written out rather than as `[[:alpha:]]`
       # because a character class is exactly the construct that starts meaning
-      # something else in another locale — the same reasoning
-      # preserve-session-records.sh Protection 1 records for its enumerated set.
+      # something else in another locale — the same reasoning the Protection 1
+      # comment in check-cleanup-complete.sh records for its enumerated set.
       var = trimcell(cells[2])
       if (var == "") {
         violation(lineno, "resource row: the Variable cell is empty — a row with no variable carries nothing, so the row is dropped")

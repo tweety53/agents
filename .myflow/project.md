@@ -1,7 +1,6 @@
 # myflow project configuration — agents
 
-Read by globally installed myflow skills. Every key is optional; anything absent is
-auto-detected from the repository instead.
+Read by globally installed myflow skills.
 
 ## apps
 
@@ -68,7 +67,6 @@ scripts/test-check-plan-provenance.sh
 scripts/test-check-finish-preflight.sh
 scripts/test-commit-split.sh
 scripts/test-prepare-workspace.sh
-scripts/test-preserve-session-records.sh
 scripts/test-check-unfinished-work.sh
 scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
@@ -93,6 +91,7 @@ scripts/test-check-self-review-report.sh
 scripts/test-lib-coverage.sh
 scripts/test-check-installed-citations.sh
 scripts/test-check-installed-rules.sh
+scripts/test-check-normative-inventory.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
@@ -104,9 +103,7 @@ the already-running `myflow-postgres` compose stack, with `stats/internal/web/di
 `stats/` existed; adding the Go and SPA suites moves it from "close" to "reliably over" for a single
 invocation. Split the run across more than one invocation (the guard tests as one call,
 `cd stats && go test ./...` as a second, `cd stats/web && npm test` as a third) or raise the tool
-timeout, rather than reading a timeout here as one of these commands failing. This note cites no
-count of the list on purpose: a written count goes stale the first time a command is added to it,
-and nothing here checks it against the list above.
+timeout, rather than reading a timeout here as one of these commands failing.
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
@@ -132,6 +129,7 @@ scripts/check-guard-symlinks.sh
 scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
+scripts/check-normative-inventory.sh
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b
@@ -147,8 +145,9 @@ hand like a guard-script one. The list is cited by count nowhere in this file, d
 written count went stale the first time a guard was added to it, and the same sentence would go
 stale again on the next.
 
-**`check-contract-budget.sh` is a ratchet, not a target.** It fails when a file under
-`skills/myflow-contracts/`, or a `skills/*/SKILL.md` or `skills/*/SKILL-rationale.md`, outgrows the
+**`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
+file — every one under `skills/`, `rules/`, `openspec/specs/`, `commands/`, `commands-claude/`,
+`.myflow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
 budget declared for it in the guard's own `budgets()` table, or carries no budget at all. The table
 is keyed on the path relative to the repository root, not on the bare basename, because every skill
 directory has a file literally named `SKILL.md` and a basename key would collide across skills. Each
@@ -156,6 +155,18 @@ budget is the size its file had when the change that added its row landed, plus 
 edits pass and a real section addition trips it, forcing a deliberate edit to the table rather than a
 silent regrowth of a file every `/myflow-*` command loads. Raising a budget is the correct response
 to a genuine addition; narrowing the guard's scope or deleting a row is not.
+
+**`check-normative-inventory.sh` reports a set rather than a verdict.** It prints every sentence in
+this repository's owned Markdown that carries `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole
+word — one per line, whitespace-normalised, sorted — and its exit codes are only `0` the inventory
+printed and `2` it cannot answer. It has no violation code deliberately: comparing two inventories
+is the caller's act, so a change that edits prose in bulk captures the output before its first edit
+and diffs the output after its last against it, and resolves any difference by restoring the
+sentence rather than by accepting the new inventory. Unlike every other guard here it writes its
+payload to stdout (its file and sentence counts go to stderr), so a lint run sees roughly a
+thousand lines from it and no verdict line. It resolves the corpus through
+`scripts/lib/owned-corpus.sh`, which `check-contract-budget.sh` calls too, so the two guards
+cannot disagree about which files this repository owns.
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
@@ -173,13 +184,13 @@ so a declaration is validated where it is read, in whichever repository holds it
 stays because this repository's own configuration is one more configuration worth checking, and
 because it keeps the guard runnable from a bare tree.
 
-**`check-finish-preflight.sh`, `preserve-session-records.sh`, `check-unfinished-work.sh` and
-`check-cleanup-complete.sh` are deliberately not lint steps.** All four are `/myflow-finish` helpers
-that need a change in flight and a real worktree, a repository or a state directory passed in as
-arguments; they answer a question about one change, not about the state of the repository's text. A
-lint step that cannot run against a bare tree would fail on every unrelated invocation, so the
-omission is a decision, not an oversight. They are covered instead by their harnesses under
-`## test`. `check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
+**`check-finish-preflight.sh`, `check-unfinished-work.sh` and `check-cleanup-complete.sh` are
+deliberately not lint steps.** All three are `/myflow-finish` helpers that need a change in flight
+and a real worktree, a repository or a state directory passed in as arguments; they answer a
+question about one change, not about the state of the repository's text. A lint step that cannot run
+against a bare tree would fail on every unrelated invocation, so the omission is a decision, not an
+oversight. They are covered instead by their harnesses under `## test`.
+`check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
 `run-reproducer.sh` are excluded for the same reason: they are `/myflow-do` helpers that likewise
 need a change in flight and a worktree passed in, so they are covered by their own harnesses under
 `## test` instead.

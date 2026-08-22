@@ -3,9 +3,6 @@
 This file is the reasoning behind `skills/myflow-do/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, the
-command→state transition table, git boundaries, and the handoff output shape.
-
 ## State gate
 
 ## Superpowers Basic Workflow
@@ -24,9 +21,7 @@ empty-set stop could ever fire on the ordinary shape of a first run.
 
 Why the workspace id is computed fresh in this step, rather than carried over from an earlier one:
 
-**Then compute this worktree's workspace id from the change name.** The derivation is stated once
-under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), which is canonical
-for it — do not restate it here, and do not re-derive it by hand. Compute it once per run, on a fix
+Compute it once per run, on a fix
 run exactly as on the first: the derivation is deterministic, so a later run reproduces the same id
 rather than reading one back, which is why nothing about it is written to the state file. Two later
 steps consume that one value — section 6 resolves the run instructions' URLs from it, and section 7
@@ -42,10 +37,6 @@ is never archived alone — it goes with its parent.
 ## 4. Execute (SDD + TDD)
 
 ## 5. The review panel
-
-It names the preset in force for this run, per
-**State file** (`skills/myflow-contracts/state-file.md`), which is canonical for the field's shape,
-its values and the absent-key rule.
 
 Why no preset moves the handoff bar: a preset able to lower it would be a way to skip review, not a
 way to size the panel's reading.
@@ -127,7 +118,7 @@ class an operator can silently ignore.
 
 ### Optional slot selection
 
-**Borderline → ask**, with **include** as the default. A reviewer too many costs tokens; one too
+A reviewer too many costs tokens; one too
 few costs a defect.
 
 ### Panel re-runs
@@ -248,24 +239,17 @@ project can differ. `/myflow-finish` stages and commits them separately, so noth
 leaving them unstaged here.
 
 **The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
-stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`) and is not re-derived
-here. What is specific to this command is *whose* staging it retracts (an implementer subagent's own
-`git add`, or a worktree resumed with a dirty index) and why `git reset -- <paths>` is the tool:
+stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`). What is specific to
+this command is *whose* staging it retracts (an implementer subagent's own `git add`, or a worktree
+resumed with a dirty index) and why `git reset -- <paths>` is the tool:
 it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
 the way `git rm --cached` would, and succeeds when a path is absent — which `<project>/docs/superpowers/` is
-on every run that has not preserved records yet, and where `git restore --staged` would refuse the
-whole command and unstage nothing.
+on every run that has rendered no record into it yet, and where `git restore --staged` would refuse
+the whole command and unstage nothing.
 
 The outcome table under
-**Preserving the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all
-three outcomes.
-
-Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `prUrl` and `reviewPanelRoster` forward
-verbatim, per the carry-forward rule in **State file** (`skills/myflow-contracts/state-file.md`),
-which is canonical for what a write must re-emit.
-
-That same carry-forward rule, which is canonical and is not restated here, is what governs the
-planning-effort field's mapped-level carry-forward.
+**Rendering the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all four
+outcomes.
 
 The template's third git state — committed and pushed with no PR — is one `/myflow-do` never emits
 and `/myflow-status` does; the pairing is canonical under **The block each state renders**
@@ -280,7 +264,7 @@ field added here and not there is drift the moment `/myflow-status <name>` regen
 state.
 
 That ordering is what
-makes a fix round raised after a PR is open refresh the preserved records rather than leave them a
+makes a fix round raised after a PR is open refresh the rendered records rather than leave them a
 round stale.
 
 ## Guardrails

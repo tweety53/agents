@@ -15,9 +15,6 @@ bucket inside the shared object store. See **The workspace id**
 (`skills/myflow-contracts/workspace-isolation-rationale.md`) for why duplicating whole services per
 workspace was not the design taken instead.
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## The workspace id
 
 **An apply worktree has a workspace id; the main checkout has none.** The id is derived from the

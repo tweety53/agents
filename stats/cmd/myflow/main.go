@@ -27,6 +27,11 @@ commands:
   state list          enumerate every change the store holds for this project
   stage begin <name>  record the start of one documented pipeline stage
   stage end <name>    record the end, outcome and metrics of a stage
+  record dispatch     record one subagent dispatch of a change's run record
+  record finding      record one review-panel finding, or replace it
+  record status       set one recorded finding's status
+  record render       render a change's run record from the store
+  record journal-count  count a change's record writes still pending in the journal
   journal flush        replay every pending journal entry into the store
 `
 
@@ -51,6 +56,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runState(ctx, args[1:], stdin, stdout, stderr)
 	case "stage":
 		return runStage(ctx, args[1:], stdout, stderr)
+	case "record":
+		return runRecord(ctx, args[1:], stdout, stderr)
 	case "journal":
 		return runJournal(ctx, args[1:], stdout, stderr)
 	default:

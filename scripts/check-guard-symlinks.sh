@@ -158,9 +158,8 @@ violation() {
 
 # resolve_file <path> -> prints the path's resolved PHYSICAL location on
 # stdout. Sourced from lib/resolve-file.sh rather than defined here — see
-# that file's header for why this guard, unlike preserve-session-records.sh
-# and gather-self-review-context.sh, may safely source a sibling instead of
-# carrying its own copy.
+# that file's header for why this guard, unlike gather-self-review-context.sh,
+# may safely source a sibling instead of carrying its own copy.
 source "$SCRIPT_DIR/lib/resolve-file.sh"
 
 # coverage_record / coverage_declare / coverage_report / coverage_verdict —

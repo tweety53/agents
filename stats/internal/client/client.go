@@ -20,6 +20,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // maxResponseBytes caps a response body this client will read, matching
@@ -418,23 +420,9 @@ func (c *Client) BeginStage(ctx context.Context, in BeginStageRequest) (BeginSta
 		Stage:            in.Stage,
 		StartedAt:        in.StartedAt.UTC().Format(time.RFC3339Nano),
 	}
-	reqBody, err := json.Marshal(wire)
-	if err != nil {
-		return BeginStageResult{}, fmt.Errorf("%w: encode request: %v", ErrUnavailable, err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.stagesBeginURL(), bytes.NewReader(reqBody))
-	if err != nil {
-		return BeginStageResult{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	respBody, status, fromDaemon, err := c.do(req)
+	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesBeginURL(), wire)
 	if err != nil {
 		return BeginStageResult{}, err
-	}
-	if !fromDaemon {
-		return BeginStageResult{}, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
 	}
 
 	switch status {
@@ -469,23 +457,9 @@ func (c *Client) EndStage(ctx context.Context, in EndStageRequest) (BeginStageRe
 		Outcome:    in.Outcome,
 		Metrics:    in.Metrics,
 	}
-	reqBody, err := json.Marshal(wire)
-	if err != nil {
-		return BeginStageResult{}, fmt.Errorf("%w: encode request: %v", ErrUnavailable, err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.stagesEndURL(), bytes.NewReader(reqBody))
-	if err != nil {
-		return BeginStageResult{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	respBody, status, fromDaemon, err := c.do(req)
+	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesEndURL(), wire)
 	if err != nil {
 		return BeginStageResult{}, err
-	}
-	if !fromDaemon {
-		return BeginStageResult{}, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
 	}
 
 	switch status {
@@ -504,6 +478,51 @@ func (c *Client) EndStage(ctx context.Context, in EndStageRequest) (BeginStageRe
 	default:
 		return BeginStageResult{}, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
 	}
+}
+
+// sendJSON marshals body as req's JSON payload, builds the request for
+// method/url and executes it through send.
+//
+// It is the prologue every bodied call to the daemon shares -- marshal,
+// build, set Content-Type, execute, refuse an answer that is not the
+// daemon's -- stated once. BeginStage, EndStage and every record write hand-
+// rolled a copy of it, and the copies had already drifted: the record path
+// and the stage path did not agree on what a 409 meant, a difference that
+// was invisible precisely because the two prologues were read as separate
+// code rather than as one contract with two callers.
+//
+// What it deliberately does NOT share is the status mapping. A stage mark's
+// vocabulary (ErrUndocumentedStage, ErrRefused) and a record write's
+// (ErrRecordRejected) are genuinely different answers to genuinely
+// different questions, so each caller switches on the status it is given
+// rather than being handed a classifier parameterised by an error set only
+// one of them uses.
+func (c *Client) sendJSON(ctx context.Context, method, url string, body any) ([]byte, int, error) {
+	reqBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: encode request: %v", ErrUnavailable, err)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return c.send(req)
+}
+
+// send executes req through do and refuses any answer that does not carry
+// the daemon header, whatever its status -- a look-alike server on the
+// configured port is not a store, and reading its answer as one is the
+// failure the header exists to prevent.
+func (c *Client) send(req *http.Request) ([]byte, int, error) {
+	respBody, status, fromDaemon, err := c.do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	if !fromDaemon {
+		return nil, 0, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
+	}
+	return respBody, status, nil
 }
 
 // do executes req and returns its body, status and whether the response
@@ -525,4 +544,180 @@ func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool
 		return nil, 0, false, fmt.Errorf("%w: read response body: %v", ErrUnavailable, err)
 	}
 	return body, resp.StatusCode, fromDaemon, nil
+}
+
+// --- run records ----------------------------------------------------------
+
+// ErrRecordRejected means the daemon answered and refused a record write
+// because the call itself was wrong -- a missing required field, a body
+// that did not decode. Like ErrRefused and ErrNotFound, this is the store
+// answering, so it is deliberately not wrapped in ErrUnavailable: a
+// journalled replay of the identical call would be refused identically,
+// and the never-block guarantee covers a store that cannot be reached, not
+// a call that cannot be right.
+var ErrRecordRejected = errors.New("client: store rejected the record write")
+
+func (c *Client) recordsURL(project, change string) string {
+	return c.baseURL + "/api/v1/records/" + url.PathEscape(project) + "/" + url.PathEscape(change)
+}
+
+// RecordDispatch opens one subagent dispatch's record for project/change --
+// the first of the two calls that record a dispatch, sent as it starts
+// rather than as it ends -- and returns the row the daemon stored, carrying
+// the id and the seq it allocated -- neither of which the caller could know, and the seq being
+// what a rendered record and a finding's DispatchSeq name the dispatch by.
+//
+// On any outcome other than the daemon answering 201 it returns an error
+// wrapping ErrRecordRejected (400: the call is wrong), ErrNotFound (404:
+// no such change), or ErrUnavailable for everything else, transport
+// failures included. A response of any status that does not carry the
+// daemon header is ErrUnavailable regardless of its status code, exactly
+// as every other method here treats one -- see daemonHeaderName's doc
+// comment.
+func (c *Client) RecordDispatch(ctx context.Context, project, change string, in records.Dispatch) (records.Dispatch, error) {
+	var out records.Dispatch
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/dispatches", in,
+		map[int]bool{http.StatusCreated: true}, &out)
+	if err != nil {
+		return records.Dispatch{}, err
+	}
+	return out, nil
+}
+
+// EndDispatch closes the dispatch project/change recorded under
+// in.SessionToken and in.Key, writing its commit, its outcome and its end
+// instant, and returns the row as it now stands.
+//
+// It is the second of the two calls that record one dispatch. The first
+// exists so the row -- and therefore the attribution window -- is there
+// while the dispatch is still running; this one exists so the window closes
+// (records.DispatchEnd carries the whole reasoning).
+//
+// A key the change holds no dispatch under is ErrNotFound (404). That is
+// the one record answer the CLI journals rather than reports, because it is
+// genuinely retryable here: the `begin` this call closes may still be
+// sitting in the same journal ahead of it. See RecordDispatch's doc comment
+// for how every other outcome is classified.
+func (c *Client) EndDispatch(ctx context.Context, project, change string, in records.DispatchEnd) (records.Dispatch, error) {
+	var out records.Dispatch
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/dispatches/end", in,
+		map[int]bool{http.StatusOK: true}, &out)
+	if err != nil {
+		return records.Dispatch{}, err
+	}
+	return out, nil
+}
+
+// RecordFinding records one review-panel finding for project/change, or
+// replaces the one already recorded under the same ref, and returns the
+// row the daemon stored together with which of the two it did.
+//
+// Both of the daemon's success codes are success here: 201 when the write
+// inserted and 200 when it replaced, and created is that distinction --
+// the daemon's answer to "did this ref exist already", which no caller can
+// work out for itself. `myflow record finding` prints "recorded: F<n>" on
+// an insert and "updated: F<n>" on a replace, so a panel run can tell a
+// finding it has just raised from one a fix round restated. See
+// RecordDispatch's doc comment for how every other outcome is classified.
+func (c *Client) RecordFinding(ctx context.Context, project, change string, in records.Finding) (out records.Finding, created bool, err error) {
+	status, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/findings", in,
+		map[int]bool{http.StatusCreated: true, http.StatusOK: true}, &out)
+	if err != nil {
+		return records.Finding{}, false, err
+	}
+	return out, status == http.StatusCreated, nil
+}
+
+// SetFindingStatus rewrites one finding's status and nothing else -- the
+// whole of what a fix round changes about a finding it has resolved. A ref
+// the change holds no finding under is ErrNotFound, never ErrUnavailable:
+// the daemon answered, and journalling a mistyped ref would queue a replay
+// that can never succeed. See RecordDispatch's doc comment for how every
+// other outcome is classified.
+func (c *Client) SetFindingStatus(ctx context.Context, project, change, ref, status string) error {
+	body := findingStatusWireRequest{Status: status}
+	_, err := c.writeRecord(ctx, http.MethodPatch,
+		c.recordsURL(project, change)+"/findings/"+url.PathEscape(ref), body,
+		map[int]bool{http.StatusNoContent: true}, nil)
+	return err
+}
+
+// GetRunRecord fetches project/change's whole derived record: its
+// dispatches in seq order and its findings in the order their refs' digits
+// spell, which is the order the renderer reads them in. A change that
+// exists and holds no rows is an empty record and no error; only a change
+// the store has never heard of is ErrNotFound, so "this change has no
+// findings" can never be read as "this change does not exist".
+func (c *Client) GetRunRecord(ctx context.Context, project, change string) (records.Run, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.recordsURL(project, change), nil)
+	if err != nil {
+		return records.Run{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return records.Run{}, err
+	}
+	var out records.Run
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.Run{}, err
+	}
+	return out, nil
+}
+
+// findingStatusWireRequest is the body PATCH .../findings/{ref} carries:
+// the one column a fix round rewrites.
+type findingStatusWireRequest struct {
+	Status string `json:"status"`
+}
+
+// writeRecord sends body as JSON through sendJSON and classifies the answer
+// through classifyRecordResponse. The record methods differ only in their
+// URL, their method, which status codes mean success and what they decode
+// into, so they share this one path rather than five copies of the same
+// classification.
+//
+// It returns the status the daemon answered with, so a method whose success
+// codes carry meaning of their own -- RecordFinding's 201-versus-200 -- can
+// read it, and a method whose do not can discard it. The status is
+// meaningful only when the returned error is nil.
+func (c *Client) writeRecord(ctx context.Context, method, url string, body any, success map[int]bool, out any) (int, error) {
+	respBody, status, err := c.sendJSON(ctx, method, url, body)
+	if err != nil {
+		return 0, err
+	}
+	return classifyRecordResponse(respBody, status, success, out)
+}
+
+// classifyRecordResponse maps one record route's answer onto this package's
+// error vocabulary and decodes the body into out, which may be nil for a
+// response with no body. It returns the status the daemon answered with
+// alongside that mapping; the status is meaningful only when the returned
+// error is nil.
+//
+// 400 and 409 are both ErrRecordRejected, and 409 is listed explicitly
+// rather than left to the default. No record route answers 409 today, but
+// the default is ErrUnavailable, which the CLI journals for a later replay
+// -- and a conflict is the store having been reached and having refused,
+// exactly the answer that must never be queued for a replay that would be
+// refused identically forever. The stage path maps its own 409 to
+// ErrRefused; the two vocabularies differ, but neither may now resolve a
+// conflict as a transport failure by omission.
+func classifyRecordResponse(respBody []byte, status int, success map[int]bool, out any) (int, error) {
+	switch {
+	case success[status]:
+		if out == nil {
+			return status, nil
+		}
+		if err := json.Unmarshal(respBody, out); err != nil {
+			return 0, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+		}
+		return status, nil
+	case status == http.StatusBadRequest, status == http.StatusConflict:
+		return 0, fmt.Errorf("%w: %s", ErrRecordRejected, string(respBody))
+	case status == http.StatusNotFound:
+		return 0, fmt.Errorf("%w: %s", ErrNotFound, string(respBody))
+	default:
+		return 0, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
 }

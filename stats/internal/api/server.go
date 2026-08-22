@@ -263,15 +263,16 @@ func rejectEncodedSlash(next http.Handler) http.Handler {
 //
 // logger may be nil, in which case slog.Default() is used.
 //
-// cs, ss and sts are accepted as three separate interfaces, per
+// cs, ss, sts and rs are accepted as four separate interfaces, per
 // go-interface-design (each handler depends on exactly the methods it
 // calls), even though every real caller passes the same *store.Store for
-// all three -- it satisfies ChangeStore, StageStore and StatsStore alike.
+// all four -- it satisfies ChangeStore, StageStore, StatsStore and
+// RecordStore alike.
 //
 // opts is variadic and, absent WithSPA, changes nothing about the mux this
 // function has always built -- see WithSPA's own doc comment for why the
 // SPA route is opt-in here rather than a fixed part of every Server.
-func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, logger *slog.Logger, opts ...Option) (*Server, error) {
+func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs RecordStore, logger *slog.Logger, opts ...Option) (*Server, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("api: %w", err)
 	}
@@ -287,6 +288,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, logge
 	h := &changeHandler{store: cs, logger: logger}
 	sh := &stageHandler{store: ss, logger: logger}
 	sth := &statsHandler{store: sts, logger: logger}
+	rh := &recordHandler{store: rs, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
 	mux.HandleFunc("GET /api/v1/changes/{project}/{name}", h.get)
@@ -296,6 +298,11 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, logge
 	mux.HandleFunc("GET /api/v1/stage-runs", sth.listStageRuns)
 	mux.Handle("GET /api/v1/stats/{view}", http.TimeoutHandler(http.HandlerFunc(sth.view), statsWriteTimeout, statsTimeoutMessage))
 	mux.HandleFunc("GET /api/v1/models", sth.listModels)
+	mux.HandleFunc("GET /api/v1/records/{project}/{change}", rh.runRecord)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", rh.recordFinding)
+	mux.HandleFunc("PATCH /api/v1/records/{project}/{change}/findings/{ref}", rh.setFindingStatus)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("no such API route: %s %s", r.Method, r.URL.Path))
 	})
@@ -466,7 +473,13 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusUnprocessableEntity, err.Error()
 	case errors.Is(err, store.ErrPricingNotFound):
 		return http.StatusUnprocessableEntity, err.Error()
+	case errors.Is(err, store.ErrFindingNotFound):
+		return http.StatusNotFound, err.Error()
+	case errors.Is(err, store.ErrDispatchNotFound):
+		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrTooManyAttemptCollisions):
+		return http.StatusServiceUnavailable, err.Error()
+	case errors.Is(err, store.ErrTooManyDispatchSeqCollisions):
 		return http.StatusServiceUnavailable, err.Error()
 	default:
 		if logger != nil {

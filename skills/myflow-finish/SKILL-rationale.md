@@ -3,9 +3,6 @@
 This file is the reasoning behind `skills/myflow-finish/SKILL.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
-**Load `skills/myflow-contracts/pipeline.md` first** — it is canonical for the states, git
-boundaries, the finish contract, and the handoff output shape.
-
 ## State gate
 
 ## Deciding which run this is
@@ -22,10 +19,6 @@ copy that can drift.
 
 The signals that make a change outstanding are the script's own and are not restated here — a second
 list of them would drift from the one that is actually run.
-
-What each verdict means, and what each course below does, is canonical under
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`); this section is how it is
-executed.
 
 Asking the landing question first and only then reporting unfinished work would make the operator
 choose a route for a branch they have not yet been told is incomplete.
@@ -45,14 +38,11 @@ stated under **Git boundaries** (`skills/myflow-contracts/pipeline.md`), which `
 too. What is specific to this gate is *whose* staging it retracts: the operator may have run their
 own `git add -A` while reviewing, and the excluding `add` cannot take those paths back out.
 
-**A non-zero exit means a copy was attempted and refused or failed:** report
-it with the script's own stderr message and continue the integration, per the outcome table under
-**Preserving the session records** in `skills/myflow-contracts/pipeline.md`, which is canonical
-for all three outcomes.
-
-`<agents repo>/scripts/preserve-session-records.sh` still runs **before** the first `add`, unchanged:
-`<project>/docs/superpowers/` is one of the excluded paths, so its files are picked up by the second staging
-pass. The second `add` carries no pathspec, which is what makes it pick them up.
+**The ledger render and the proposal-artifact copy both run before the first `add`**, for the reason
+that position has always held here: `<project>/docs/superpowers/` is one of the excluded paths, so what
+they write is picked up by the second staging pass. The second `add` carries no pathspec, which is what
+makes it pick them up. What used to run in that position was a copy script; the records now live in the
+store and are rendered from it, but nothing about the position changed with them.
 
 The planning artifacts were hidden from the review diff, not from the commit.
 
@@ -87,29 +77,6 @@ and pushed*. On the other two routes nothing this run did put the branch onto th
 merge is genuinely still ahead.
 
 # Run 2 — archive and clean up
-
-every rule the worktree half carries — the gating checks, the ignored-file disclosure, the
-removal sequence, and the remote deletion with its already-gone case — is canonical in
-**Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`). Neither is restated here.
-
-Carry `artifactUrl`, `jiraIssue`, `planningEffort`, `models`,
-`reviewPanelRoster` and `prUrl` forward — the planning effort as the **mapped level under
-`planningEffort`** when the file recorded it under the retired key, per the carry-forward rule in
-**State file** (`skills/myflow-contracts/state-file.md`), which is canonical and is not restated
-here.
-
-The procedure — skippable per run with running it the default, gathering
-input via a script rather than an inline re-read, one combined reasoning pass across all four
-angles plus the rating, the per-finding filing ask, and the report path — is canonical under
-**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
-requirement to change first when that procedure changes is
-**Requirement: Self-review runs only after FINISHED is written**
-(`<agents repo>/openspec/specs/myflow-self-review/spec.md`) — a citation `finish-contract.md` already carries,
-not restated here.
-
-Labelling a filed issue and handling a filing failure follow **Labels on issues the pipeline
-creates** and **Never blocking** (`skills/myflow-contracts/jira-integration.md`) verbatim — not
-restated here.
 
    The inner `{ commit && push; }` grouping matters: without it, `&&`/`||` at equal precedence
    parse left-to-right as `(diff --quiet || commit) && push`, which runs `push` unconditionally

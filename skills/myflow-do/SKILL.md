@@ -14,7 +14,7 @@ exception below.
 
 Immediately after that line, print these two commands for the operator to paste, per
 **Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
-records why they are printed rather than invoked; do not restate its reasoning here:
+records why they are printed rather than invoked:
 
 ```text
 /rename <change-name>
@@ -32,9 +32,6 @@ is allowed to be ticked, so the progress view and the file never disagree.
 
 The reasoning behind this file lives in `skills/myflow-do/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
-
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
@@ -87,8 +84,8 @@ openspec instructions apply --change "<name>" --json
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-panel-diff-size.sh`,
 `check-panel-reproducers.sh`, `check-task-commit-fields.sh`, `check-unfinished-work.sh`,
-`commit-split.sh`, `gather-dispatch-context.sh`, `plan-dispatch-bundles.sh`, `prepare-workspace.sh`,
-`preserve-session-records.sh` and `run-reproducer.sh` — is present in `skills/myflow-do/scripts/`.
+`commit-split.sh`, `gather-dispatch-context.sh`, `plan-dispatch-bundles.sh`, `prepare-workspace.sh`
+and `run-reproducer.sh` — is present in `skills/myflow-do/scripts/`.
 A complete set prints nothing; any absence prints that section's block once, and the run continues
 under each guard's own hand-run fallback.
 
@@ -211,16 +208,57 @@ override this section already carries against the same upstream skill. See `desi
 concurrency failures — assertions left red at file seams, an agent idling on another's mid-edit
 compile, corrupted test-result XML — this rule closes.
 
-**`superpowers:subagent-driven-development`'s workspace script writes this plan's ledger to
-`<abs-worktree>/.superpowers/sdd/tasks/progress.md`** — it derives the directory from the plan file's
-basename, and myflow's plan is always `tasks.md`. The ledger is **not** written flat under
-`<abs-worktree>/.superpowers/sdd/` alongside the dispatch-context bundle this section names, or the
-panel record and per-task diffs named in section 5 and the registry; assuming it follows them is the
-pattern-match this statement exists to break —
-upstream calls the flat `<abs-worktree>/.superpowers/sdd/progress.md` "the old flat path" and reads a
-file there as another plan's. The plan-scoped file is what section 7 asserts and what preservation reads: see the
-`SDD ledger` row under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`),
-canonical for it.
+**The parent records each dispatch in two calls — one as it goes out, one as it comes back.
+Nothing in this run writes a ledger file.** Immediately before dispatching, run
+
+```bash
+myflow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
+  -key task-<n>-implementer -session-token mf-<literal-token> -started-at <ts>
+```
+
+and as soon as that dispatch reports back, before the next one goes out, run
+
+```bash
+myflow record dispatch end -change <name> -key task-<n>-implementer \
+  -session-token mf-<literal-token> -commit <sha> -outcome completed -ended-at <ts>
+```
+
+**Both calls are required, and `begin` must go out BEFORE the dispatch does.** The harvester
+commits the transcript offset it has consumed every few seconds and never re-reads behind it, so
+each transcript record is offered to cost attribution exactly once — at the tick that consumed it.
+A dispatch row that appears only at the close was therefore missing for every tick that ran while
+the subagent worked, and all of that usage was dropped or credited to an unrelated earlier
+dispatch. A dispatch runs for minutes; a tick is seconds. Symmetrically, a row never closed is an
+open attribution window, and an open window goes on claiming its successors' tokens forever.
+
+`-key` is this dispatch's own literal label, unique within the run its `-session-token` names. It
+is what `end` closes and what makes a replayed write land on one row rather than two, so **write it
+as a literal and reuse the identical string in both calls** — `task-<n>-implementer` for an
+implementer, and the analogous form for each role below. `-role` is one of `implementer`,
+`reviewer`, `panel-fix` or `red-partner`; `-task` is the task's dotted id from its `tasks.md`
+heading, omitted for a dispatch that ran against no single task; `-started-at` and `-ended-at` are
+that dispatch's own start and end, RFC 3339. **`-session-token` takes a literal, never a shell
+substitution**, exactly as every `myflow stage` call above it does, and both halves take the same
+one.
+
+**The model named here is the recorded intent Model policy requires**, not a figure derived after
+the fact — see **Model policy** (`skills/myflow-contracts/pipeline.md`), canonical for it. Name the
+model the dispatch was actually given. **A slot whose model the dispatcher cannot read records the
+literal `unknown (agent-defined)` and never a guess**: a slot dispatched by `subagent_type` resolves
+its model from an agent definition this pipeline does not read, and a plausible-looking slug written
+for it puts an unmeasured value into the audit trail.
+
+**A record write never blocks.** An unreachable store journals the intent, prints one warning line
+and exits 0, so **never branch on this command's exit code as a signal about the record** — its only
+non-zero exits are caller mistakes (a missing required flag, an unrecognised `-role`, a
+`-session-token` carrying a substitution). What makes a journalled write visible is the handoff's
+`Records:` line, defined once under **The block each state renders**
+(`skills/myflow-contracts/handoff-blocks.md`).
+
+The rows are the record; the SDD ledger is a rendering of them, written into
+`<project>/docs/superpowers/ledgers/` by `myflow record render` at finish run 1. See the `SDD ledger`
+and `Rendered ledger and panel record` rows under **Temporary artifacts registry**
+(`skills/myflow-contracts/pipeline.md`), canonical for both.
 
 Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from
 
@@ -252,6 +290,18 @@ partner task has its own commit, fold the red task's commit into it using the sa
 fixup-and-autosquash mechanism used for fix rounds (see "Panel re-runs" below): `git commit
 --fixup=<partner-task-sha>` followed by `git rebase --autosquash`, where `<partner-task-sha>` is the
 green partner's own commit — the one named by the red task's `Squash-with:` field.
+
+**A `Build: red` task's own dispatch records `-role red-partner`, not `implementer`.** That role
+exists to mark exactly this case: a dispatch whose work ends up carrying no commit of its own,
+because it was folded into the green partner's. Record it as a pair like any other, with `-task`
+its own dotted id and the end call's `-commit` the green partner's sha as it stands after the fold:
+
+```bash
+myflow record dispatch begin -change <name> -task <n> -role red-partner -model <m> \
+  -key task-<n>-red-partner -session-token mf-<literal-token> -started-at <ts>
+myflow record dispatch end -change <name> -key task-<n>-red-partner \
+  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts>
+```
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
@@ -310,10 +360,12 @@ failure would.
 working tree. If a fix round folds a fixup into that commit, via `git commit --fixup=<task-sha>`
 followed by `git rebase --autosquash` (see "Panel re-runs" below), the
 range still resolves as `<task-base>..<task-sha>`, now pointing at the rewritten, fixup-folded
-commit. Ledger line: `Task N: complete (commit <sha7>, review clean, model: <model>, review:
-<combined|spec+quality>)` — **record the model and the per-task review shape on every dispatch**,
-implementer and reviewer alike, so both the model and the shape choice are auditable after the
-fact. Mark a checkbox `[x]` only after its task passes spec **and** quality review.
+commit. **Record the reviewer's dispatch too** — `-role reviewer`, the same `-task <n>`, and its own
+`-model` — so implementer and reviewer alike leave a row. Nothing writes a ledger line by hand: the
+model is each row's own `-model` field, and the per-task review shape is read off the rows
+themselves, one reviewer row where a combined reviewer ran and two under `full`, so no second
+statement of it can disagree with them. Mark a checkbox `[x]` only after its task passes spec **and**
+quality review.
 
 **The per-task review's shape depends on `reviewPanelRoster`.** Under `light` and `standard`, a
 **single** combined reviewer per task covers spec compliance and code quality together, dispatched
@@ -344,12 +396,7 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
 
 overwriting the same path. The bundle is rebuilt at the start of every dispatching stage, never
 gathered once per run: a fix documented under section 3 edits `proposal.md` and `tasks.md`, and a
-run-scoped bundle would leave every later dispatch reading a plan that no longer exists. A non-zero
-exit — including the guard being absent — is reported, and dispatching proceeds with the prompt shape
-this stage used before this capability existed; the bundle never gates a run. **Confirm the bundle
-was actually written** — `test -f <abs-worktree>/.superpowers/sdd/dispatch-context.md` — and report
-plainly if it is not, per section 4's rule above; the missing bundle still never gates or stops the
-run.
+run-scoped bundle would leave every later dispatch reading a plan that no longer exists.
 
 **Read `reviewPanelRoster` from the state file before selecting slots**, defaulting to `light` when
 the field is absent or null. It names the preset in force for this run, per
@@ -376,8 +423,7 @@ check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
 Exit 0 proceeds. Exit 1 puts the choice to the operator, shaped per **Operator prompts**
-(`skills/myflow-contracts/operator-prompts.md`) — that section is canonical for the mechanics, not
-restated here:
+(`skills/myflow-contracts/operator-prompts.md`) — that section is canonical for the mechanics:
 
 > **The panel diff measured `<count>`, over the `<cap>` cap. How should this proceed?**
 > - **Proceed with the panel anyway** *(default, recommended)*
@@ -411,7 +457,48 @@ parent-model inheritance and no economy tier. See **5. The review panel**
 
 Slots 1 and 4 are dispatched by `subagent_type` and carry their own agent definitions — pass them
 **no** model override, whatever `models.reviewPanel` records, and record `unknown (agent-defined)`
-for them in the ledger. Every other slot, slot 3 included, names its model explicitly.
+as their dispatch row's `-model`. Every other slot, slot 3 included, names its model explicitly.
+
+**Every slot's dispatch is recorded, exactly as section 4 records an implementer's.** The panel is
+where most of a run's dispatches happen, so a panel that recorded none of its own would leave the
+audit trail describing a minority of the run. The same pair per slot — `begin` before the slot is
+dispatched, `end` at its close, and for the same reasons section 4 gives:
+
+```bash
+myflow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
+  -agent-id <id> -key panel-<round>-<slot> -session-token mf-<literal-token> -started-at <ts>
+myflow record dispatch end -change <name> -key panel-<round>-<slot> \
+  -session-token mf-<literal-token> -outcome completed -ended-at <ts>
+```
+
+`-slot` is the slot's own name from the table above — `Primary`, `Bugbot`, `Principles`,
+`Code review (low)`, `Security`, `Adversarial`, `Lens B` or `Lens C` — so the rows themselves say
+which slots ran, and nothing has to state it a second time. `-role` is `reviewer` for every one of
+them, and `-task` is omitted: a panel slot reads the whole diff and runs against no single task.
+`-started-at` and `-ended-at` are that slot's own start and end, RFC 3339. `-key` is
+`panel-<round>-<slot>`, the same literal in both halves. **`-session-token` takes a literal, never a
+shell substitution**, exactly as the `myflow stage begin` that opened this stage does, and both
+halves take the same one.
+
+**`-model` is recorded intent here too, per Model policy.** A slot the dispatcher named a model for
+records that model; **slots 1 and 4, dispatched by `subagent_type`, record the literal
+`unknown (agent-defined)` and never a plausible-looking slug**, for the reason the paragraph above
+gives. Slot 3 names its real model, and the fallback reviewer that replaces it where the harness
+offers no `code-review` skill does too.
+
+**`-agent-id` carries the harness's own identifier for the dispatched subagent, where the harness
+reports one, and is omitted where it does not.** This is the flag's whole reason for existing: the
+panel dispatches its slots concurrently against one parent session, so their time windows overlap,
+and the window rule alone credits every record in the overlap to whichever slot started last.
+Two of the three supported harnesses expose no id at all — a dispatch recorded without one is
+ordinary, not degraded, and its cost is attributed by its own window instead. **Never invent one.**
+An absent id means *not reported* and never matches another absent id, so a placeholder would pair
+two unrelated slots together.
+
+**Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
+printed — `recorded: dispatch <seq>` — into each of that slot's `myflow record finding` calls as
+`-dispatch-seq <seq>`. Every panel finding names the dispatch that raised it; a finding left without
+one is a finding **no single dispatch raised**, and that is the only thing the absence ever means.
 
 **Every slot the panel dispatches must supply, per finding, a reproducer**: a runnable command that
 demonstrates the defect, or the literal exemption form `none — <reason>`. Carry this requirement on
@@ -438,9 +525,9 @@ Slot 3, the `light` preset's third required slot, is a `general-purpose` subagen
 `<abs-worktree>/.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
 surface the parent does not read, tell the subagent to return its findings **in its report back**
 rather than leaving them wherever the skill itself displays them, as ordinary `F<n>` rows and marker
-lines like every other slot's. Because the dispatcher names the model explicitly, the ledger records
-that real model for this slot and never `unknown (agent-defined)`, which is reserved for slots
-dispatched by `subagent_type`.
+lines like every other slot's. Because the dispatcher names the model explicitly, this slot's
+dispatch row records that real model and never `unknown (agent-defined)`, which is reserved for
+slots dispatched by `subagent_type`.
 
 **Where the harness offers no `code-review` skill**, the slot becomes a `general-purpose` reviewer
 on `models.reviewPanel`, briefed to report high-confidence defects only, and the panel record names
@@ -461,7 +548,7 @@ reason. It is not an advisory note outside the findings table.
 
 The brief applies wherever Bugbot is dispatched, and nowhere else — no other slot acquires it, and
 it adds no slot to any preset. Carrying it on the dispatch prompt changes neither Bugbot's
-`subagent_type` dispatch nor its `unknown (agent-defined)` ledger entry.
+`subagent_type` dispatch nor the `unknown (agent-defined)` its dispatch row records.
 
 Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
@@ -495,8 +582,56 @@ non-negotiable here.
 
 **No two principle reviewers may share a lens.**
 
-**Every finding is recorded twice: as a row for the reader, and as a marker line for the guard.**
-The panel record is `<abs-worktree>/.superpowers/sdd/final-review-panel.md`. Write the table:
+**Every finding is a row in the store. The panel record is rendered from those rows, and no part of
+it is written by hand.** As each slot raises a finding, record it — one call, as it is raised:
+
+```bash
+myflow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
+  -location <file:line> -status open -reproducer <command | none — reason> \
+  -dispatch-seq <seq> -note <the finding>
+```
+
+`-dispatch-seq` is the seq the raising slot's own `myflow record dispatch begin` call printed,
+which is another reason that call comes before the dispatch rather than after it. A `begin` that
+fell back to the journal printed no seq — the store allocates it, and no store was reached — so
+omit `-dispatch-seq` in that case rather than guessing a number. `-round` is `0` for the initial panel and `1..n` for a fix round. `-ref`
+is unique within the change and the store's own constraint enforces it, so **a reused identifier is
+refused at the write rather than found later on a read**; the command prints `recorded: F<n>` on
+the insert and `updated: F<n>` when it replaced an existing row, which is how a finding just raised
+is told from one a fix round restated. **A fix round updates the finding it resolved rather than
+appending a second row:**
+
+```bash
+myflow record status -change <name> -ref F<n> -status fixed
+```
+
+**`-status` carries the whole status text the marker line shows**, so a withdrawal passes its
+reason with it — `-status 'withdrawn <the operator's reason>'` — because the reason is checked for
+on that same line and a withdrawal with nothing after the status does not clear the gate it appears
+to.
+
+**Render the record when the panel closes** — the point this section ends at, with every slot's
+result clean and no finding open — before any guard reads it:
+
+```bash
+myflow record render -change <name> -kind panel -repo <abs-worktree>
+```
+
+**A panel that raised nothing still renders**, declaring `findings-total: 0`. There is no
+skip-the-render-when-there-were-no-findings shortcut, and adding one is the exact defect this
+sentence exists to prevent: zero findings is a declaration and clears, where an unwritten record is
+silence and reads as outstanding. The render's own outcome words, and what to do with each, are the
+table under **Rendering the session records** (`skills/myflow-contracts/pipeline.md`), canonical for
+them.
+
+**Every rule about the record's format below is unchanged, and every one of them now binds the
+renderer rather than the agent.** They are stated here because they are the contract the record must
+satisfy, not because anybody types them: `<agents repo>/stats/internal/records/render.go` is the
+only writer, and the guards read exactly what they read before. **Do not delete a format rule on the grounds that
+nobody hand-writes the record any more** — deleting one removes the only statement of what the
+renderer owes the guard, and the guard then fails on records nothing produces incorrectly.
+
+The record carries a findings table, one row per finding, each beginning with its identifier:
 
 | ID | Slot | Severity | Location | Note |
 |---|---|---|---|---|
@@ -509,19 +644,26 @@ findings-total: 1
 finding-status: F1 fixed
 ```
 
-Do not quote the marker format inside the record itself — a validly-formatted marker written as an
-example inside prose or a fenced block reads the same as a real one.
+The marker format is never quoted inside the record itself — a validly-formatted marker written as
+an example inside prose or a fenced block reads the same as a real one. The renderer honours this by
+neutralising any marker label a finding's note or location happens to carry, on the way out only:
+the store keeps the slot's own words verbatim, because a note is evidence and the rendering is what
+can be regenerated.
 
 **The reproducer each finding's slot supplied gets a marker block of its own**, separate from the
 `finding-status:` block above — the two are kept apart because `<agents repo>/scripts/check-unfinished-work.sh`
 requires the `finding-status:` lines to occupy one unbroken span, and interleaving the two blocks
-would break that. Write one `reproducers-total: <n>` count line and one `finding-reproducer: F<n>
-<command | none — reason>` line per finding:
+would break that. The record carries one `reproducers-total: <n>` count line and one
+`finding-reproducer: F<n> <command | none — reason>` line per finding:
 
 ```
 reproducers-total: 1
 finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 ```
+
+A finding recorded with no reproducer renders the `none — <reason>` exemption form rather than no
+line at all: `check-panel-reproducers.sh` requires exactly one reproducer line per finding, and an
+omitted line is reported as a missing one.
 
 The same rule against quoting the format inside the record applies to this block as well.
 
@@ -543,13 +685,14 @@ human-readable form; the list below is not repeated here as a parse grammar:
 - Each `F<n>` names **one** finding. A reused identifier is reported on each side separately.
 - The marker lines sit on **consecutive lines**, one unbroken block.
 - `findings-total: <n>` appears **exactly once** and equals the number of marker lines. A panel that
-  raised nothing writes `findings-total: 0` and carries no markers.
+  raised nothing renders `findings-total: 0` and carries no markers.
 
-**The table carries no status column, on purpose.** A finding's state is written once, on its
-marker line. To read a finding's state, look up its `F<n>` in the marker block.
+**The table carries no status column, on purpose.** A finding's state is one column of its row and
+is rendered once, on its marker line. To read a finding's state, look up its `F<n>` in the marker
+block.
 
 **A `withdrawn` marker's reason is checked for being there at all.** A withdrawal is the operator's
-decision at the panel's handback, not a status a run may write for itself. Fix subagents write
+decision at the panel's handback, not a status a run may write for itself. Fix subagents record
 `fixed` when they fixed it, and leave `open` when they did not — including when they believe the
 finding is wrong, which belongs in the note and in the report back, never in the status.
 
@@ -654,7 +797,7 @@ words, slot names and prose padding stripped out — not the sentence itself, so
 rewording of the same sentence still reduces to the same phrase. Two reviewers describing the same
 defect at the same file:line, in different words, are the same identity; two different defects at
 the same file:line are not. This is the one place the identity is defined; every rule below that
-keys off it cites this paragraph rather than restating it.
+keys off it cites this paragraph.
 
 **Worked example, on a compound note.** F20's Note reads: "swapping the two `comm` directions
 mislabels every finding and still passes all 20 cases, because the assertions match on the
@@ -667,8 +810,14 @@ theme is the root cause alone: **swapped `comm` directions**.
 **Before dispatching the fix subagent**, run
 
 ```bash
-check-panel-reproducers.sh <worktree>
+check-panel-reproducers.sh <worktree> <change>
 ```
+
+**The change name is the second argument** because the record the guard reads is the one `myflow
+record render -kind panel` wrote, at `<worktree>/docs/superpowers/reviews/<date>-<change>-panel.md`
+— one file per change in a directory every change shares, so a worktree alone no longer names a
+record. `<abs-worktree>/.superpowers/sdd/final-review-panel.md` is the pass log, carries no marker
+block, and is read by neither panel guard.
 
 Exit 0 proceeds. Exit 1 covers two classes, handled differently. A **missing or malformed field** —
 no `finding-reproducer:` line for some `F<n>`, a bad `reproducers-total:` count — is a
@@ -843,11 +992,7 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
 ```
 
 overwriting the same path — the plan may have changed since this stage's own start, per section 3's
-fix documentation. A non-zero exit — including the guard being absent — is reported, and dispatching
-proceeds with the prompt shape used before this capability existed; the bundle never gates a run.
-**Confirm the bundle was actually written** — `test -f
-<worktree>/.superpowers/sdd/dispatch-context.md` — and report plainly if it is not, per section 4's
-rule above; the missing bundle still never gates or stops the run.
+fix documentation.
 
 **Carry each surviving finding to the fix subagent as a structured block, not a bare restatement of
 its prose.** For every finding in the union above, carry its `F<n>`, the slot that raised it, its
@@ -877,6 +1022,23 @@ and — when this pass bounced any finding — each bounced finding's defect ide
 theme, as defined above) together with the reproducer output it carried back to its raising slot.
 A pass that bounced nothing states that plainly rather than omitting the field.
 
+**The fix subagent's own dispatch is recorded too, with `-role panel-fix`** — the same pair, naming
+the model `models.panelFix` resolved to:
+
+```bash
+myflow record dispatch begin -change <name> -role panel-fix -model <m> \
+  -key panel-fix-<round> -session-token mf-<literal-token> -started-at <ts>
+myflow record dispatch end -change <name> -key panel-fix-<round> \
+  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts>
+```
+
+`-commit` is the task commit the fixup was folded into, since the fix leaves no commit of its own;
+`-task` is omitted where the pass carried findings against more than one task, and given where it
+carried them against one. `-agent-id` goes on the same terms as a panel slot's — where the harness
+reports one, never invented. **Recording this dispatch is what keeps the fix round inside the run's
+audit trail**: it runs on the strongest of the three roles' models, so a panel that recorded every
+slot and not its fixer would understate precisely the dispatch that costs the most.
+
 A minor finding blocks the handoff exactly as a critical one does. When fix rounds do not converge,
 the run hands back to the operator, who resolves the disagreement — including by marking a finding
 `withdrawn` with a reason. **The handback is an actual prompt, not a claim that one happened.** When a finding survives its
@@ -889,9 +1051,10 @@ fixer's reason for disputing it, and named options — shape per Operator prompt
 > - **Withdraw it — I'll give the reason** — the reason is recorded on the finding's marker line
 > - **Stop the run and hand it back to me**
 
-Only that answer writes `withdrawn`, and only with the reason the operator gives. Nothing else in
-the run may write it: the guard reads a `withdrawn` marker with nothing after the status as
-outstanding, so a withdrawal with no stated reason does not clear the gate it appears to.
+Only that answer records `withdrawn`, and only with the reason the operator gives, carried in the
+`-status` text so the reason lands on the marker line. Nothing else in the run may record it: the
+guard reads a `withdrawn` marker with nothing after the status as outstanding, so a withdrawal with
+no stated reason does not clear the gate it appears to.
 
 ```bash
 myflow stage end -command '/myflow-do' -stage do.review-panel -outcome completed <name>
@@ -991,7 +1154,7 @@ the registry's `Claimed cache index | /myflow-do, by probing, when it exports th
 variables` row (`skills/myflow-contracts/pipeline.md`) — before carrying the exported lines forward
 into `## lint` and `## test` below.
 
-**When the script cannot be located**, apply the same rules by hand — do not restate them here — from
+**When the script cannot be located**, apply the same rules by hand from
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) and
 **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`), and say in the handoff
 that the validation and export were performed manually and why. See
@@ -1017,10 +1180,21 @@ Run the `## lint` and `## test` commands from `<project>/.myflow/project.md` (au
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
 gate — so a non-zero exit blocks this handoff.
 
-**Confirm this run produced a ledger** — `test -f <abs-worktree>/.superpowers/sdd/tasks/progress.md`,
-the path section 4 names — and if it is absent, report that plainly here rather than leaving it to be
-discovered at preservation time or not at all. **Unlike the lint and test exits above, a missing
-ledger never gates or stops the run**; it is reported and the handoff proceeds.
+**Confirm this run recorded a ledger** — there is no file to test for, so ask the store, by
+rendering the ledger this run's dispatch rows produce:
+
+```bash
+myflow record render -change <name> -kind ledger -repo <abs-worktree>
+```
+
+Read the outcome word, not the exit code. `rendered: <dest>` is the ordinary case. **`MISSING:
+ledger — no rows for <name>` means this run recorded no dispatch at all**, and it is reported
+plainly here, at this call site, rather than being discovered at finish run 1 or not at all — the
+whole point of asking now. `journalled: ledger` and a non-zero exit are reported the same way, with
+the command's own message. **Unlike the lint and test exits above, none of these gates or stops the
+run**; each is reported and the handoff proceeds. The outcome words and what to do with each are the
+table under **Rendering the session records** (`skills/myflow-contracts/pipeline.md`), canonical for
+them.
 
 ```bash
 myflow stage end -command '/myflow-do' -stage do.lint-and-test \
@@ -1051,7 +1225,7 @@ sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so 
 commits `<project>/openspec/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
 and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
 only — and in this order — run
-`preserve-session-records.sh <worktree> <name> <state-dir>`; then
+`myflow record render -change <name> -kind all -repo <worktree>`; then
 `commit-split.sh <worktree> <name> "<impl-msg>" "chore(openspec): plan and session records"`;
 then push the branch, which carries whatever that call committed along with every task and fixup
 commit accumulated since the PR was opened. `<impl-msg>` covers the one case a task or fixup commit
@@ -1062,14 +1236,17 @@ derived — `fix(<module>): <what changed since the last task commit>`, `<module
 those edits touch. See **7. Verify, stage, and
 hand off** (`skills/myflow-do/SKILL-rationale.md`) for why that ordering matters.
 
-The preservation script overwrites in place; it never creates a second dated copy. A source that does
-not exist is reported and skipped; **a non-zero exit means a copy was attempted and refused or
-failed** — report it with the script's own stderr message and continue committing the fix. See
-**Preserving the session records** (`skills/myflow-contracts/pipeline.md`).
+The render overwrites in place; the date is fixed at a change's first render, so a fix round refreshes
+the same file rather than leaving one dated copy per round. `MISSING: <kind>` means the store holds
+no rows of that kind and nothing was written — report it, and never read it as a record written
+somewhere else. **A non-zero exit means a destination was refused or could not be written** — report
+it with the command's own stderr message, and continue committing the fix; the remaining kind is
+still attempted after any one failure. See **Rendering the session records**
+(`skills/myflow-contracts/pipeline.md`), canonical for every outcome.
 
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
-(`skills/myflow-contracts/pipeline.md`), which this call implements rather than restates. The empty
+(`skills/myflow-contracts/pipeline.md`). The empty
 case is ordinary here — a fix round that touched neither `<project>/openspec/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 
@@ -1092,12 +1269,25 @@ Read the planning effort through the retired-key fallback, not from `planningEff
 myflow stage end -command '/myflow-do' -stage do.write-in-progress -outcome completed <name>
 ```
 
+**Produce the handoff's `Records:` count before printing the block**, one call per affected
+worktree:
+
+```bash
+myflow record journal-count -change <name> -C <abs-worktree>
+```
+
+It prints one decimal count, or `unknown` where no count could be produced, and exits 0 either way.
+Render what it printed — never a hand-derived path, never a substituted number for `unknown`. The
+line's three alternatives are defined once under **The block each state renders**
+(`skills/myflow-contracts/handoff-blocks.md`).
+
 ```
 ## Implementation committed — review and test
 
 **Change:** <name>
 **Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots, per the table under **5. The review panel**>; optional: <selected, or "none — no triggers fired">
 **Staged:** N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
+**Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
@@ -1123,6 +1313,12 @@ commit-range diff reads either one. The merge base comes from this worktree's en
 file's `worktrees` map. The template's third git state — committed and pushed with no PR — is one
 `/myflow-do` never emits and `/myflow-status` does — see **The block each state renders**
 (`skills/myflow-contracts/handoff-blocks.md`).
+
+**The `Records` line is printed whether or not anything was journalled**, and its three alternatives
+above are this command's enumeration of the placeholder the line carries under **The block each
+state renders** (`skills/myflow-contracts/handoff-blocks.md`), canonical for it — including why a
+run that journalled nothing still prints the line, and why the count is read from the change's
+record journal rather than remembered from the run.
 
 The pre-edit description line is present only on a fix run that synced the description in section
 **3**, and reproduces that text without summarising or reflowing it. A run that wrote nothing omits

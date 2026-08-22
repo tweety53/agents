@@ -525,9 +525,9 @@ run_guard "" "" ""
 #     a path, a ref name and a `-d` test. `../../nonexistent-decoy` made every
 #     row answer "already gone" and the guard reported COMPLETE while the real
 #     change directory and artifact source were still there. The allowlist is
-#     preserve-session-records.sh's Protection 1; these are the same shapes
-#     test-check-unfinished-work.sh rejects, asserted here too so the two copies
-#     of the rule cannot drift apart in silence.
+#     records.Destination's Protection 1 (stats/internal/records/render.go);
+#     these are the same shapes test-check-unfinished-work.sh rejects, asserted
+#     here too so the two copies of the rule cannot drift apart in silence.
 for bad_name in "../../nonexistent-decoy" "demo*" "demo/../demo" ".hidden" "demo?x"; do
   new_fixture
   run_guard "$REPO" "$bad_name" "$STATE"
@@ -1045,14 +1045,15 @@ SH
     #     outside `A-Za-z` and the name was refused before the workspace row was
     #     reached, while under `en_US.UTF-8` it collated INSIDE and the name was
     #     admitted. This case asserted both halves and endorsed neither, on the
-    #     grounds that the allowlist is preserve-session-records.sh's Protection 1
-    #     character for character and forking it here was a decision for whoever
-    #     owned all three guards. That decision was taken: all three now enumerate
-    #     the allowed characters instead of ranging over them, a literal list has
+    #     grounds that the allowlist was one rule character for character across
+    #     every guard carrying it, and forking it here was a decision for whoever
+    #     owned them all. That decision was taken: each of them now enumerates the
+    #     allowed characters instead of ranging over them, a literal list has
     #     no endpoints for a collation order to reorder, and the accepted set is
     #     what the range form accepted under `LC_ALL=C` — so the split is closed
-    #     rather than merely visible. preserve-session-records.sh's Protection 1
-    #     carries the measurement.
+    #     rather than merely visible. check-cleanup-complete.sh's own Protection 1
+    #     comment carries the measurement; it took that role from the
+    #     record-copying script this repository has since retired.
     #
     #     THE ASSERTION IS THAT THE ANSWER NO LONGER DEPENDS ON THE ENVIRONMENT,
     #     which is why it is a loop over the same locales case 20 uses and not a

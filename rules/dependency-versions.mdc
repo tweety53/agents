@@ -34,7 +34,7 @@ project already pins pre-releases deliberately.
 
 ## When the lookup is inconclusive
 
-Ask the user to confirm the version before proceeding. Inconclusive includes: sources disagreeing,
+Inconclusive includes: sources disagreeing,
 no clear stable line, a project that has forked or been renamed, or a major version whose migration
 cost you cannot assess from the release notes.
 

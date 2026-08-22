@@ -7,9 +7,6 @@ prints in its own skill and cites this file as the definition.
 
 This file is **canonical** for everything in it.
 
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
-
 ## Handoff blocks
 
 ### The block each state renders
@@ -92,7 +89,7 @@ Next:
 **Both the decisions count and the open-questions count render `none` when zero — never `0` — by
 the missing-rather-than-dropped rule above.** The entry shape, the immutable ID and the never-delete
 rule the open-questions count reads through are stated once under **Open questions**
-(`skills/myflow-start/SKILL.md`) and are not repeated here. `Jira` on the line below is `(run-only)`;
+(`skills/myflow-start/SKILL.md`). `Jira` on the line below is `(run-only)`;
 `Recorded` is not. See **Why the open-questions count is on-disk, not run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`) and **Why the `Jira` line is run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
@@ -105,6 +102,7 @@ rule the open-questions count reads through are stated once under **Open questio
 **Change:** <name>
 **Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired">
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
+**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
 **Guards:** (run-only) <all present, or how many were missing and checked by hand>
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
@@ -131,6 +129,36 @@ Next:
 run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
 per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
 that run ever has, since no regeneration re-runs the check.
+
+**`Records` is on-disk, not `(run-only)`, and it is printed whether or not anything was
+journalled.** It counts the change's record writes — every dispatch and every finding — that are
+still sitting in the journal because the store could not be reached. **The number comes from one
+command, and from nowhere else:**
+
+```bash
+myflow record journal-count -change <name> -C <worktree>
+```
+
+**Never derive the journal's path and count its lines by hand.** The command prints one decimal
+count on stdout — or the single word `unknown` where no count could be produced — and exits 0
+either way, because it exists to make this line honest and must never become the reason the line
+does not print. `unknown` is rendered as the third alternative above, exactly as it comes: a count
+that failed is not zero, and reporting it as zero would turn a filesystem problem into a claim that
+every write reached the store.
+
+The file it counts is `<name>.journal.record`. `<agents repo>/stats/internal/reconcile` replays exactly three journals
+beside the fallback file: `<name>.journal`, the one **State file**
+(`skills/myflow-contracts/state-file.md`) calls simply *the journal*; `<name>.journal.stage`, the
+stage marks'; and `<name>.journal.record`, this one. An absent journal counts `0`, and a change
+whose writes all reached the store renders the *all writes reached the store* alternative rather
+than dropping the line. That is why the line is on-disk: `/myflow-status <name>` runs the same
+command and regenerates the same line rather than omitting it.
+
+**A run that journalled nothing still prints the line, and that is the whole point.** A record
+write never blocks — it journals, warns once and exits 0 — so nothing else in the run marks one that
+fell back. A line printed only when something went wrong is indistinguishable from a line nobody
+printed, and the operator would read the silence as a clean run. **This line reports; it does not
+gate**: a journalled write leaves the state, the diff and the next command exactly as they were.
 
 **`Run it:` is on-disk, not `(run-only)`.** The commands it lists are resolved from the worktree
 and the project's own configuration — not remembered from the run that printed them — so
@@ -176,11 +204,6 @@ Next:
 
 **`Route` and `Outstanding` are `(run-only)`.** See **Why `Route` and `Outstanding` are run-only**
 (`skills/myflow-contracts/handoff-blocks-rationale.md`).
-
-**`Guards` is `(run-only)` too, for the same kind of reason `Panel` above is.** It reports what
-that run's own start-of-run guard presence check found in `<skill-dir>/scripts/`,
-per **Guard presence check** (`skills/myflow-contracts/pipeline.md`) — a value only
-that run ever has, since no regeneration re-runs the check.
 
 **Which rendering `/myflow-status` regenerates.** **Merge status decides it whenever the merge
 status is known**, and the command already has that answer: it runs the merge-status test in its own

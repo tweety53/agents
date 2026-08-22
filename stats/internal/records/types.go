@@ -1,0 +1,142 @@
+// Package records holds the wire shape of a change's derived run record --
+// every subagent dispatch and every review-panel finding -- shared by the
+// store, the API, the client and (from this change's renderer) the Markdown
+// rendering. It holds data and rendering, nothing else, and imports only
+// encoding/json and time so that every layer above can depend on it without
+// dragging a database or an HTTP client with it.
+package records
+
+import (
+	"encoding/json"
+	"time"
+)
+
+// Dispatch is one recorded subagent dispatch: the SDD ledger's row, the
+// task -> commit -> model record and the per-dispatch cost bag, which are
+// three views of the same row rather than three records.
+//
+// ID is the row's own identifier, allocated by the store and returned on
+// the recorded row. It is what MergeDispatchMetrics is keyed by, so the
+// harvester's attribution pass can name the row it is merging into without
+// a query of its own; a caller that has not recorded the dispatch yet
+// leaves it zero.
+//
+// Seq is the dispatch's append order within its change, allocated by the
+// store rather than supplied by the caller; a value sent on the way in is
+// ignored and the allocated one comes back. Seq, not ID, is the identifier
+// a rendered record and a finding's own DispatchSeq refer to: it is stable
+// per change and readable, where the row id is the store's private
+// bookkeeping.
+//
+// Key is the dispatcher's own label for this dispatch, unique within the
+// run its SessionToken names. It is what makes recording a dispatch
+// idempotent and what DispatchEnd closes the row by, and both properties
+// need the same thing of it: a value a *replay* reproduces exactly. The
+// caller writes it as a literal, and the journalled request carries that
+// literal, so a write replayed after a lost response arrives carrying the
+// identical key and updates the row the first attempt inserted rather
+// than inserting a second row for one logical dispatch. Seq cannot serve
+// this purpose -- the store allocates it, so a caller whose write was
+// journalled has never seen one.
+//
+// An empty Key is "not labelled": the store's uniqueness is enforced over
+// (change, session token, key), and SQL's NULLs-distinct rule means an
+// unlabelled row conflicts with nothing, including another unlabelled
+// row. Such a row can be inserted but never deduplicated and never closed
+// by DispatchEnd, which is why `myflow record dispatch begin` requires
+// the flag.
+//
+// AgentID is the harness's own identifier for the subagent this dispatch
+// dispatched, where the harness exposes one. It is what separates two
+// dispatches whose attribution intervals overlap -- a review panel's
+// slots, dispatched at once against one session -- since the interval
+// alone cannot say which of them a record inside the overlap belongs to.
+//
+// It is optional, and its absence is ordinary rather than degraded:
+// Cursor and Codex expose no such identifier at all, so on two of the
+// three supported harnesses every dispatch is recorded without one and
+// attribution falls back to the interval rule, which remains correct for
+// dispatches that do not overlap. An absent value is "" and means "not
+// reported"; it never matches another absent value.
+//
+// Model is recorded intent, written by the dispatcher -- the literal
+// `unknown (agent-defined)` where a slot resolves its own model from an
+// agent definition the dispatcher cannot read, never a plausible-looking
+// slug. Metrics is derived instead: the harvester attributes it from the
+// harness transcript afterwards, so no agent is ever asked to report its
+// own token consumption.
+type Dispatch struct {
+	ID           int64           `json:"id"`
+	AgentID      string          `json:"agentId,omitempty"`
+	Seq          int             `json:"seq"`
+	Key          string          `json:"key,omitempty"`
+	StageRunID   *int64          `json:"stageRunId,omitempty"`
+	TaskID       string          `json:"taskId,omitempty"`
+	Role         string          `json:"role"`
+	Slot         string          `json:"slot,omitempty"`
+	Model        string          `json:"model"`
+	CommitSHA    string          `json:"commitSha,omitempty"`
+	Outcome      string          `json:"outcome,omitempty"`
+	SessionToken string          `json:"sessionToken,omitempty"`
+	StartedAt    time.Time       `json:"startedAt"`
+	EndedAt      *time.Time      `json:"endedAt,omitempty"`
+	Metrics      json.RawMessage `json:"metrics,omitempty"`
+	Notes        string          `json:"notes,omitempty"`
+}
+
+// DispatchEnd is the closing half of a dispatch's record: the three facts
+// that are knowable only once the dispatch has finished, plus the identity
+// of the row they close.
+//
+// A dispatch is recorded in two calls, not one. The row has to exist while
+// the dispatch is still running, because the harvester commits its
+// transcript offset every few seconds and never re-reads past it: usage
+// harvested before the row existed has no window to be attributed to, and
+// is dropped or credited to an unrelated earlier dispatch. So `begin`
+// writes what is known at the start and `end` writes what is known at the
+// close -- see the `dispatch-begin-and-end` decision in this change's
+// design.md.
+//
+// The row is named by SessionToken and Key rather than by Seq, for the
+// reason Dispatch.Key gives: a `begin` whose response was lost never
+// returned a seq to the caller, and an end that could not name its row
+// would leave the window open forever.
+//
+// EndedAt is required. It is the whole point of the call: an open window
+// (a NULL ended_at) goes on claiming later usage, so a dispatch that never
+// closes keeps stealing its successors' tokens.
+type DispatchEnd struct {
+	SessionToken string    `json:"sessionToken"`
+	Key          string    `json:"key"`
+	CommitSHA    string    `json:"commitSha,omitempty"`
+	Outcome      string    `json:"outcome,omitempty"`
+	EndedAt      time.Time `json:"endedAt"`
+}
+
+// Finding is one review-panel finding. Ref is unique per change, not per
+// round: a fix round updates the row's Status in place, so a change's
+// findings never accumulate a second row for the same reference.
+//
+// DispatchSeq names the dispatch that raised the finding, by that
+// dispatch's Seq within the same change -- the identifier a caller has,
+// where the store's own row id is not. It is nil for a finding no single
+// dispatch raised, which is a legitimate case rather than a missing value.
+type Finding struct {
+	Ref         string `json:"ref"`
+	DispatchSeq *int   `json:"dispatchSeq,omitempty"`
+	Round       int    `json:"round"`
+	Slot        string `json:"slot"`
+	Severity    string `json:"severity"`
+	Location    string `json:"location,omitempty"`
+	Note        string `json:"note"`
+	Status      string `json:"status"`
+	Reproducer  string `json:"reproducer,omitempty"`
+}
+
+// Run is one change's whole derived record: its dispatches in seq order
+// and its findings in ref order.
+type Run struct {
+	Change     string     `json:"change"`
+	Dispatches []Dispatch `json:"dispatches"`
+	Findings   []Finding  `json:"findings"`
+}

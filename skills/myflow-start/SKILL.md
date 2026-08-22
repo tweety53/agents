@@ -12,7 +12,7 @@ intertwined with OpenSpec artifact creation. **No code is written and no worktre
 
 Immediately after that line, print these two commands for the operator to paste, per
 **Handoff output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and
-records why they are printed rather than invoked; do not restate its reasoning here:
+records why they are printed rather than invoked:
 
 ```text
 /rename <change-name>
@@ -28,9 +28,6 @@ this command registers and is the one to read.
 
 The reasoning behind this file lives in `skills/myflow-start/SKILL-rationale.md`; **a
 `/myflow-*` run never loads it.**
-
-Every citation below is canonical at its target. Never restate its content here and never act on
-a remembered version of it — read it fresh each time it is needed.
 
 ## State gate
 
@@ -138,7 +135,7 @@ accepts is the optional change name, and anything else is still reported rather 
 
 Record the answer for the state write in section F. The levels and what they may change are defined
 under **Planning effort** (`skills/myflow-contracts/state-file.md`) — that section carries the
-operational table and is the one to read; do not restate it here.
+operational table and is the one to read.
 
 Then ask **three more, one per model role**, each as its own question with its default marked as the
 recommendation:
@@ -158,8 +155,7 @@ recommendation:
 Record all three for the state write in section F, as `implementation`, `reviewPanel` and
 `panelFix`. The roles, their defaults, why the panel-fix default is not Sonnet, and how a recorded
 choice relates to a session instruction are defined under
-**Model policy** (`skills/myflow-contracts/pipeline.md`) — that section is the one to read; do not
-restate it here.
+**Model policy** (`skills/myflow-contracts/pipeline.md`) — that section is the one to read.
 
 Then ask a **fourth question**, for the review panel roster:
 
@@ -554,8 +550,7 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
 - **Never** end the stage on this command's own judgment, and never leave brainstorming holding a
   question the operator was never asked — the rule is stated once under
   **Stage exit — never the command's own judgment**
-  (`skills/myflow-contracts/pipeline.md`); its tuned exits are **Convergence** in section **B**, and
-  neither is restated here.
+  (`skills/myflow-contracts/pipeline.md`); its tuned exits are **Convergence** in section **B**.
 - **Never** let a planning effort level end the loop early. A level may group more questions into
   one round; it may never decide that no further round opens.
 - **Never** ask for an approval in open prose. Offer named options, mark the recommended one, and

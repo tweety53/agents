@@ -3,6 +3,15 @@
 # fixtures under a sandboxed TMPDIR and asserts the guard's verdict and exit
 # status. Never touches the real repository tree.
 #
+# THE PANEL RECORD LIVES AT ITS RENDERED PATH, `docs/superpowers/reviews/
+# <YYYY-MM-DD>-<change>-panel.md`, and group 13 below is what holds the guard to
+# it. The record used to be hand-written into `.superpowers/sdd/
+# final-review-panel.md`, which is now the PASS LOG and carries no marker block
+# at all — so a guard that still read it, or that fell back to it when the
+# rendered record was absent, would report every change OUTSTANDING at finish
+# run 1. Group 13 asserts both halves: the rendered record IS read, and the sdd
+# path is NOT, in either direction.
+#
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
 # contract in openspec/specs/myflow-finish-cleanup/spec.md — the requirement
 # "Run 1 refuses to integrate silently over unfinished work", which lives in
@@ -133,12 +142,29 @@ assert_reason() {
   esac
 }
 
+# REVIEWS is the directory the panel record is RENDERED into, relative to a
+# worktree, and SDD_PANEL is the pass log the guard must NOT read. Both are
+# written out here rather than derived from the guard's own variables, so that a
+# guard that started reading the wrong one fails these cases instead of moving
+# the fixtures with it.
+REVIEWS='docs/superpowers/reviews'
+SDD_PANEL='.superpowers/sdd/final-review-panel.md'
+
 # new_fixture -> sets WT to a worktree holding a fully finished change named
-# "demo": every plan item checked, no open finding.
+# "demo": every plan item checked, no open finding. PANEL is that fixture's
+# rendered panel record, at the dated path the renderer writes and the guard
+# resolves.
+#
+# THE SDD PATH IS STILL CREATED, EMPTY. It is the worktree-lifetime pass log,
+# and it exists in every real worktree the guard runs against; leaving it out of
+# the fixture would make "the guard does not read it" an untested claim in a
+# tree where the file was absent anyway. The cases below that plant content
+# there are what turn it into an assertion.
 new_fixture() {
   WT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
   SANDBOXES+=("$WT")
-  mkdir -p "$WT/openspec/changes/demo" "$WT/.superpowers/sdd"
+  mkdir -p "$WT/openspec/changes/demo" "$WT/.superpowers/sdd" "$WT/$REVIEWS"
+  PANEL="$WT/$REVIEWS/2026-01-01-demo-panel.md"
   printf -- '- [x] 1.1 done\n' > "$WT/openspec/changes/demo/tasks.md"
   write_panel 1 fixed
 }
@@ -172,7 +198,7 @@ write_panel() {
       i=$((i + 1))
       printf 'finding-status: F%d %s\n' "$i" "$status"
     done
-  } > "$WT/.superpowers/sdd/final-review-panel.md"
+  } > "$PANEL"
 }
 
 # 1. The whole point of the CLEAR verdict: a finished change is not interrupted.
@@ -332,7 +358,7 @@ new_fixture
   printf '|---|---|---|---|---|\n'
   printf '| F1 | Adversarial | Critical | grep -c foo | bar | hidden behind a pipe | and | another |\n'
   printf '\nfindings-total: 1\nfinding-status: F1 open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "unescaped pipes in a row cannot hide its finding"
 assert_reason "1 open finding(s)" "a row full of pipes is still one counted finding"
@@ -348,7 +374,7 @@ new_fixture
   printf '|---|---|---|---|---|---|\n'
   printf '| F1 | app.py:12 | Critical | Security | fixed | a stale cell from the retired format |\n'
   printf '\nfindings-total: 1\nfinding-status: F1 open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a reordered header cannot hide a finding"
 assert_reason "1 open finding(s)" "column order no longer decides whether a finding counts"
@@ -363,7 +389,7 @@ new_fixture
   printf 'F1 | Security | Critical | app.py:12 | no leading pipe |\n'
   printf '| F2 | Lens C | Important | b.sh:3 | and everything below it |\n'
   printf '\nfindings-total: 2\nfinding-status: F1 open\nfinding-status: F2 open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a row missing its leading pipe is OUTSTANDING"
 assert_reason "2 open finding(s)" "no finding below a pipe-less row is lost"
@@ -381,7 +407,7 @@ new_fixture
   printf '\n## Appendix\n\n'
   printf '| F2 | Security | Critical | app.py:12 | parked under a heading |\n'
   printf '\nfindings-total: 2\nfinding-status: F1 fixed\nfinding-status: F2 open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a detached row and a stray line change nothing"
 assert_reason "1 open finding(s)" "a detached row is counted once, from its marker"
@@ -396,7 +422,7 @@ new_fixture
   printf '> |---|---|---|---|---|\n'
   printf '> | F1 | Security | Critical | app.py:12 | quoted away |\n'
   printf '\nfindings-total: 1\nfinding-status: F1 open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a blockquoted findings table is OUTSTANDING"
 assert_reason "do not name the same findings" "a blockquoted table names the correspondence signal"
@@ -413,7 +439,7 @@ for loc in C en_US.UTF-8; do
     printf '| F1 | Security | Critical | app.py:12 | zero width inside |\n'
     printf '\nfindings-total: 1\n'
     printf 'finding-status: F1 fi\xe2\x80\x8bxed\n'
-  } > "$WT/.superpowers/sdd/final-review-panel.md"
+  } > "$PANEL"
   run_guard_in "$loc" "$WT" demo
   assert_verdict "OUTSTANDING:" "a zero-width character in the status is OUTSTANDING (LC_ALL=$loc)"
   assert_reason "none of open, fixed or withdrawn" "a zero-width status names its signal (LC_ALL=$loc)"
@@ -434,7 +460,7 @@ new_fixture
   printf '  finding-status: F1 open\n'
   printf '> finding-status: F2 open\n'
   printf 'finding-status: open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "markers that do not begin their line are OUTSTANDING"
 assert_reason "3 line(s) naming finding-status:" "every malformed marker line is counted"
@@ -466,7 +492,7 @@ assert_reason "none of open, fixed or withdrawn" "an upper-case status names its
 #     marker block and no declared total is outstanding however clean its prose.
 new_fixture
 printf '# Panel\n\nEverything was fine, honestly.\n' \
-  > "$WT/.superpowers/sdd/final-review-panel.md"
+  > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a panel record with no marker block is OUTSTANDING"
 assert_reason "does not declare a findings total" "a silent panel record names its signal"
@@ -476,7 +502,7 @@ assert_reason "does not declare a findings total" "a silent panel record names i
 #     an absence — which is exactly the distinction case 4n turns on.
 new_fixture
 printf '# Panel\n\nNo slot raised a finding.\n\nfindings-total: 0\n' \
-  > "$WT/.superpowers/sdd/final-review-panel.md"
+  > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "a record that declares zero findings is CLEAR"
 
@@ -485,15 +511,15 @@ assert_verdict "CLEAR:" "a record that declares zero findings is CLEAR"
 #     checksum is outstanding rather than ignored.
 new_fixture
 write_panel 1 fixed
-grep -v '^findings-total:' "$WT/.superpowers/sdd/final-review-panel.md" > "$WT/panel.tmp"
-mv "$WT/panel.tmp" "$WT/.superpowers/sdd/final-review-panel.md"
+grep -v '^findings-total:' "$PANEL" > "$WT/panel.tmp"
+mv "$WT/panel.tmp" "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "markers with no declared total are OUTSTANDING"
 assert_reason "does not declare a findings total" "a missing total names its signal"
 
 new_fixture
 write_panel 1 fixed
-printf 'findings-total: 1\n' >> "$WT/.superpowers/sdd/final-review-panel.md"
+printf 'findings-total: 1\n' >> "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a total declared twice is OUTSTANDING"
 assert_reason "more than once" "a duplicated total names its signal"
@@ -546,7 +572,7 @@ new_fixture
   printf '\nfindings-total: 2\n'
   printf 'finding-status: F1 fixed\n'
   printf 'finding-status: F1 fixed\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a duplicated marker identifier is OUTSTANDING"
 assert_reason "do not name the same findings" "a duplicated identifier names the correspondence signal"
@@ -554,7 +580,7 @@ assert_reason "do not name the same findings" "a duplicated identifier names the
 new_fixture
 write_panel 2 fixed fixed
 printf '| F9 | Lens C | Minor | z.sh:1 | fixed | a row nobody marked |\n' \
-  >> "$WT/.superpowers/sdd/final-review-panel.md"
+  >> "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a findings row with no marker is OUTSTANDING"
 assert_reason "do not name the same findings" "an unmarked row names the correspondence signal"
@@ -576,7 +602,7 @@ new_fixture
   printf '\nfindings-total: 2\n'
   printf 'finding-status: F1 fixed\n'
   printf 'finding-status: F1 fixed\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "an identifier reused on both sides is OUTSTANDING"
 assert_reason "reuses identifier(s) F1" "a reused identifier is named"
@@ -585,9 +611,9 @@ assert_reason "reuses identifier(s) F1" "a reused identifier is named"
 #     carrying the same duplicate. The marker block alone, then the table alone.
 new_fixture
 write_panel 3 fixed fixed fixed
-grep -v '^finding-status: F3 ' "$WT/.superpowers/sdd/final-review-panel.md" > "$WT/panel.tmp"
+grep -v '^finding-status: F3 ' "$PANEL" > "$WT/panel.tmp"
 { cat "$WT/panel.tmp"; printf 'finding-status: F1 fixed\n'; } \
-  > "$WT/.superpowers/sdd/final-review-panel.md"
+  > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "an identifier reused in the marker block alone is OUTSTANDING"
 assert_reason "marker block reuses identifier(s) F1" "the marker block's duplicate is named"
@@ -595,7 +621,7 @@ assert_reason "marker block reuses identifier(s) F1" "the marker block's duplica
 new_fixture
 write_panel 2 fixed fixed
 printf '| F1 | Lens C | Minor | z.sh:1 | a second row reusing F1 |\n' \
-  >> "$WT/.superpowers/sdd/final-review-panel.md"
+  >> "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "an identifier reused in the table alone is OUTSTANDING"
 assert_reason "findings table reuses identifier(s) F1" "the table's duplicate is named"
@@ -614,7 +640,7 @@ new_fixture
   printf 'finding-status: F13 fixed\n'
   printf 'finding-status: F7 fixed\n'
   printf 'finding-status: F2 fixed\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "sparse, out-of-order but distinct identifiers are CLEAR"
 
@@ -625,7 +651,7 @@ assert_verdict "CLEAR:" "sparse, out-of-order but distinct identifiers are CLEAR
 new_fixture
 write_panel 1 fixed
 printf '\nWrite them like this:\n\n```\nfinding-status: F7 fixed\n```\n' \
-  >> "$WT/.superpowers/sdd/final-review-panel.md"
+  >> "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a marker quoted inside a fence is counted, not ignored"
 
@@ -646,7 +672,7 @@ new_fixture
   printf '\nfindings-total: 2\n'
   printf 'finding-status: F1 fixed\n'
   printf '```\nfinding-status: F2 fixed\n```\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a fenced marker cannot stand in for a missing one"
 assert_reason "must be one unbroken block" "a broken marker block names its signal"
@@ -661,9 +687,9 @@ assert_verdict "CLEAR:" "three markers on consecutive lines are CLEAR"
 
 new_fixture
 write_panel 3 fixed fixed fixed
-grep -v '^finding-status: F2 ' "$WT/.superpowers/sdd/final-review-panel.md" > "$WT/panel.tmp"
+grep -v '^finding-status: F2 ' "$PANEL" > "$WT/panel.tmp"
 { cat "$WT/panel.tmp"; printf '\nfinding-status: F2 fixed\n'; } \
-  > "$WT/.superpowers/sdd/final-review-panel.md"
+  > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a marker parked away from the block is OUTSTANDING"
 assert_reason "must be one unbroken block" "a detached marker names the contiguity signal"
@@ -676,13 +702,13 @@ assert_reason "must be one unbroken block" "a detached marker names the contigui
 #     fix that simply ignores the total cannot pass.
 new_fixture
 printf '| F1 |\r\n| F2 |\r\n\r\nfindings-total: 2\r\nfinding-status: F1 fixed\r\nfinding-status: F2 fixed\r\n' \
-  > "$WT/.superpowers/sdd/final-review-panel.md"
+  > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "a CRLF record with a correct checksum is CLEAR"
 
 new_fixture
 printf '| F1 |\r\n| F2 |\r\n\r\nfindings-total: 3\r\nfinding-status: F1 fixed\r\nfinding-status: F2 fixed\r\n' \
-  > "$WT/.superpowers/sdd/final-review-panel.md"
+  > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "the checksum still runs on a CRLF record"
 assert_reason "declares findings-total: 3" "the CRLF checksum names the declared total"
@@ -698,7 +724,7 @@ new_fixture
   printf 'finding-status: F1 open\n'
   printf '\x00stray byte from a bad merge\n'
   printf 'finding-status: F2 open\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a record with a NUL byte is still counted"
 assert_reason "2 open finding(s)" "a NUL byte does not stop the open findings being counted"
@@ -718,7 +744,7 @@ new_fixture
   printf '\x00stray byte from a bad merge\n'
   printf '\nfindings-total: 1\n'
   printf 'finding-status: F1 fixed\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "the identifier check still runs on a record with a NUL byte"
 assert_reason "do not name the same findings" "a NUL byte does not void the identifier check"
@@ -735,7 +761,7 @@ new_fixture
   printf '| 3 | Security | conditional | yes | path handling, still open questions |\n'
   printf '\n## Convergence\n\n'
   printf '| Defect | Slots |\n|---|---|\n| Parser fails open | Security, Adversarial |\n'
-} >> "$WT/.superpowers/sdd/final-review-panel.md"
+} >> "$PANEL"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "the record's other tables are not read as findings"
 
@@ -782,17 +808,17 @@ fi
 # 6. A missing file is outstanding, never clear. This is the failure the whole
 #    requirement exists to prevent: silence is not clearance.
 new_fixture
-rm "$WT/.superpowers/sdd/final-review-panel.md"
+rm "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a missing panel record is OUTSTANDING, not CLEAR"
 assert_reason "no review panel record" "a missing panel record names its signal"
 
 # 8e. The change name is PR-controlled — it reaches here from a state file
 #     anyone able to open a pull request can edit — and it is concatenated into
-#     every path above. The allowlist is preserve-session-records.sh's
-#     Protection 1, and these cases are the same shapes that script's own
-#     harness rejects, asserted here so the two copies cannot drift apart in
-#     silence. Without it `../../../planted/clear` reads a plan outside the
+#     every path above. The allowlist is records.Destination's Protection 1
+#     (stats/internal/records/render.go), and these cases are the same shapes
+#     test-check-cleanup-complete.sh rejects, asserted here so the two copies
+#     cannot drift apart in silence. Without it `../../../planted/clear` reads a plan outside the
 #     worktree entirely and reports CLEAR for a change that has none.
 for bad_name in "../../../planted/clear" "demo*" "demo/../demo" ".hidden" "demo?x"; do
   new_fixture
@@ -812,7 +838,7 @@ done
 #     `démo` is REJECTED under LC_ALL=C and ACCEPTED under en_US.UTF-8. A guard
 #     whose accepted input set changes with the operator's environment is the same
 #     defect class as a status compared by collation, and this copy of the
-#     allowlist would then diverge from preserve-session-records.sh's under one
+#     allowlist would then diverge from check-cleanup-complete.sh's under one
 #     locale and not the other. The guard pins the locale for its whole run; this
 #     case is what proves the pin is load-bearing rather than decorative.
 for loc in C en_US.UTF-8; do
@@ -841,16 +867,21 @@ done
 #     onto "$WT/openspec/changes/" by the guard, lands exactly on
 #     "$PLANTED/openspec/changes/clear" — a change with a fully-ticked
 #     tasks.md. The panel record is read from $WT's own fixture (already
-#     CLEAR via new_fixture's write_panel), never from $PLANTED: PANEL is
-#     built from $WORKTREE alone and never from $NAME, so a second panel
-#     record planted under $PLANTED would be unreachable by construction and
-#     is not planted here.
+#     CLEAR via new_fixture's write_panel), never from $PLANTED: the change
+#     name reaches the panel path only as a filename component matched
+#     literally against the entries of $WORKTREE's own reviews directory
+#     (panel_record_path), and no name containing "/" can equal a directory
+#     entry's basename — so a second panel record planted under $PLANTED would
+#     be unreachable by construction and is not planted here.
 #
 #     Proved by mutation, not merely asserted: temporarily deleting the
-#     allowlist `case` block at check-unfinished-work.sh:112-118 and
-#     re-running this suite turns this case's verdict from a name-shape
-#     rejection into an actual "CLEAR: ..." read from outside the worktree —
-#     confirming the allowlist is what stops it, not the path shape.
+#     allowlist `case` block from check-unfinished-work.sh and re-running this
+#     suite turns this case's exit 2 into an exit 0 carrying a verdict line
+#     built from a plan read OUTSIDE the worktree — confirming the allowlist
+#     is what stops it, not the path shape. Both assertions below fail on that
+#     mutation: the plan signal is the half the traversal reaches, so the
+#     verdict is OUTSTANDING rather than CLEAR once the panel path stops
+#     resolving too, and a verdict at all is the failure.
 new_fixture
 PLANTED="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-planted.XXXXXX")"
 SANDBOXES+=("$PLANTED")
@@ -910,14 +941,17 @@ case "$ERR" in
   *) fail "missing library: stderr does not name panel-record.sh: $ERR" ;;
 esac
 
-# 12. The pass log's fix-mutation: lines are inert to this guard (KAN-209).
-#     A fix round records what it mutated in the pass log entry, in the same
-#     file this guard reads for a different purpose. The lines are placed
-#     OUTSIDE the marker block on purpose: one between two markers would split
-#     the unbroken run cases 4s-0 and 4s-0b assert on, and one shaped like a
-#     table row would enter the row-identifier set the 4q/4r subgroup compares
-#     against the markers. This case is what makes that placement a checked
-#     property of the guard rather than a claim in a design document.
+# 12. A fix round's fix-mutation: lines are inert to this guard (KAN-209).
+#     A fix round records what it mutated in the pass log entry, which is now a
+#     SEPARATE file this guard does not read at all — case 13b covers that
+#     separation directly. These cases keep asserting the harder direction: the
+#     lines are inert even written into the record itself, where they are placed
+#     OUTSIDE the marker block on purpose, because one between two markers would
+#     split the unbroken run cases 4s-0 and 4s-0b assert on, and one shaped like
+#     a table row would enter the row-identifier set the 4q/4r subgroup compares
+#     against the markers. Asserting them here rather than only in the pass log
+#     keeps the guard's own inertness a checked property rather than a
+#     consequence of which file the lines happen to be in.
 #
 #     The CLEAR fixture below carries TWO closed markers, not one: with only
 #     one marker there is no "between two markers" for a misplaced line to
@@ -926,7 +960,7 @@ esac
 #     CLEAR: assertion — one splits the unbroken run, the other unbalances
 #     the row/marker identifier comparison.
 add_pass_log() {
-  cat >> "$WT/.superpowers/sdd/final-review-panel.md" <<'PASSLOG'
+  cat >> "$PANEL" <<'PASSLOG'
 
 ### Pass 2 — targeted
 
@@ -940,7 +974,7 @@ new_fixture
 write_panel 2 fixed fixed
 add_pass_log
 run_guard "$WT" demo
-assert_verdict "CLEAR:" "fix-mutation: lines in the pass log leave a clear record clear"
+assert_verdict "CLEAR:" "fix-mutation: lines leave a clear record clear"
 
 new_fixture
 write_panel 2 open fixed
@@ -963,7 +997,7 @@ new_fixture
   printf 'finding-status: F1 fixed\n'
   printf 'fix-mutation: scripts/check-thing.sh — reverted the delimiter — case 4 failed\n'
   printf 'finding-status: F2 fixed\n'
-} > "$WT/.superpowers/sdd/final-review-panel.md"
+} > "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a fix-mutation: line between two markers is OUTSTANDING"
 assert_reason "must be one unbroken block" "a fix-mutation: line splitting the marker block names the contiguity signal"
@@ -980,10 +1014,84 @@ write_panel 2 fixed fixed
   printf '\n### Pass 2 — targeted\n\n'
   printf '| F9 | scripts/check-thing.sh | reverted the delimiter | case 4 failed |\n'
   printf 'fix-mutations-total: 1\n'
-} >> "$WT/.superpowers/sdd/final-review-panel.md"
+} >> "$PANEL"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a fix-mutation: line shaped like a table row is OUTSTANDING"
 assert_reason "do not name the same findings" "a row-shaped fix-mutation: line names the row/marker correspondence signal"
+
+# --- 13. THE RECORD IS READ WHERE IT IS RENDERED, AND ONLY THERE ---
+#
+# Every case above already proves the rendered record is read: new_fixture
+# writes nothing anywhere else. This group proves the other half — that the
+# guard does not ALSO read, or fall back to, the pass log at
+# .superpowers/sdd/final-review-panel.md — and that the rendered record is
+# resolved by an ANCHORED match rather than by a loose glob.
+#
+# Without 13a and 13b a guard that silently fell back to the sdd path would pass
+# this whole suite while reading a file nothing writes: every change would read
+# OUTSTANDING at finish run 1, and no case here would say so.
+
+# 13a. A perfectly clear record at the OLD path, and nothing at the new one, is
+#     no record at all. This is the fallback, asserted directly.
+new_fixture
+mv "$PANEL" "$WT/$SDD_PANEL"
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "a record at the old sdd path only is OUTSTANDING"
+assert_reason "no review panel record" "a record at the old sdd path only names the missing-record signal"
+
+# 13b. The other direction, which a fallback alone would not catch: a guard that
+#     read BOTH files and unioned them would pass 13a and still let the pass log
+#     contribute findings. An OPEN finding written into the sdd path, beside a
+#     CLEAR rendered record, must count for nothing.
+new_fixture
+write_panel 1 fixed
+{
+  printf '| ID | Slot | Severity | Location | Note |\n'
+  printf '|---|---|---|---|---|\n'
+  printf '| F7 | Lens B | Critical | a.sh:7 | still open in the pass log |\n'
+  printf '\nfindings-total: 1\n'
+  printf 'finding-status: F7 open\n'
+} > "$WT/$SDD_PANEL"
+run_guard "$WT" demo
+assert_verdict "CLEAR:" "an open finding in the pass log does not reach the verdict"
+
+# 13c. THE MATCH IS ANCHORED ON THE CHANGE NAME. `*-demo-panel.md` also matches
+#     `2026-01-01-other-demo-panel.md`, another change's record sitting in the
+#     same directory — reading it would answer this change's question with that
+#     change's findings. The renderer's own comment records the write-side half
+#     of this incident, where a loose match overwrote a different change's
+#     record.
+new_fixture
+mv "$PANEL" "$WT/$REVIEWS/2026-01-01-other-demo-panel.md"
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "another change's dated record is not this change's record"
+assert_reason "no review panel record" "another change's dated record names the missing-record signal"
+
+# 13d. AND ANCHORED ON THE DATE. A file named `demo-panel.md` with no date
+#     prefix is not a rendered record — the renderer never writes one — and a
+#     match that accepted it would accept whatever else a pull request put in
+#     that directory under that name.
+new_fixture
+mv "$PANEL" "$WT/$REVIEWS/demo-panel.md"
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "an undated demo-panel.md is not a rendered record"
+
+# 13e. WHICH DATED FILE IS READ IS DETERMINISTIC, and it is the same one
+#     records.existingDatedFile returns: the earliest, its `sort.Strings` on the
+#     matching names followed by `found[0]`. A change has one rendered record —
+#     the date is fixed at the first render and a fix round overwrites in place
+#     — so two of them means something already went wrong, and the guard reading
+#     a DIFFERENT one from the renderer would hide an open finding behind a file
+#     nothing updates. The open finding is written to the earlier date, so a
+#     guard that took the later one reads CLEAR.
+new_fixture
+write_panel 1 open
+mv "$PANEL" "$WT/$REVIEWS/2026-01-01-demo-panel.md"
+PANEL="$WT/$REVIEWS/2026-02-02-demo-panel.md"
+write_panel 1 fixed
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "the earliest dated record is the one read"
+assert_reason "1 open finding" "the earliest dated record's open finding reaches the verdict"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
