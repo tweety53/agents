@@ -42,17 +42,41 @@ type Window struct {
 	EndedAt   *time.Time
 }
 
-// contains reports whether ts falls inside w's half-open attribution
-// interval [StartedAt, EndedAt) -- see Window's own doc comment for why
-// the end is exclusive.
-func (w Window) contains(ts time.Time) bool {
-	if ts.Before(w.StartedAt) {
+// intervalContains reports whether ts falls inside the half-open
+// attribution interval [startedAt, endedAt), with a nil endedAt meaning the
+// interval is still open and so contains every instant at or after its
+// start.
+//
+// THIS IS THE ONLY STATEMENT OF THAT RULE, and it is shared by both window
+// grains on purpose rather than by coincidence. Window.contains and
+// DispatchWindow.contains were byte-for-byte identical, including the
+// open-interval case, and the two must agree: an open stage window and an
+// open dispatch window are the same claim about the same transcript, and a
+// correction applied to one grain but not the other would leave attribution
+// answering the same question two ways. Elsewhere in this file duplication
+// is defended (bestDispatchWindow says why it is not bestWindow), because
+// those two rules genuinely differ. This one does not differ at all.
+//
+// The end is exclusive so that a record timestamped exactly on the seam
+// between two back-to-back windows resolves to exactly one of them -- the
+// one that is starting. Window's own doc comment carries the full reasoning
+// and the convention it inherits from; DispatchWindow's says why the case
+// is if anything more routine at that grain.
+func intervalContains(startedAt time.Time, endedAt *time.Time, ts time.Time) bool {
+	if ts.Before(startedAt) {
 		return false
 	}
-	if w.EndedAt != nil && !ts.Before(*w.EndedAt) {
+	if endedAt != nil && !ts.Before(*endedAt) {
 		return false
 	}
 	return true
+}
+
+// contains reports whether ts falls inside w's half-open attribution
+// interval [StartedAt, EndedAt) -- see Window's own doc comment for why
+// the end is exclusive, and intervalContains for the rule itself.
+func (w Window) contains(ts time.Time) bool {
+	return intervalContains(w.StartedAt, w.EndedAt, ts)
 }
 
 // WindowSource answers which stage windows exist for a session -- both
@@ -409,17 +433,7 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 		return deltas, nil
 	}
 
-	bySession := make(map[string][]Record)
-	var sessionOrder []string
-	for _, r := range records {
-		if r.SessionID == "" {
-			continue
-		}
-		if _, ok := bySession[r.SessionID]; !ok {
-			sessionOrder = append(sessionOrder, r.SessionID)
-		}
-		bySession[r.SessionID] = append(bySession[r.SessionID], r)
-	}
+	bySession, sessionOrder := groupBySession(records, func(Record) bool { return true })
 
 	for _, sessionID := range sessionOrder {
 		windows, err := a.windows.WindowsForSession(ctx, sessionID)
@@ -453,6 +467,44 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 	}
 
 	return deltas, nil
+}
+
+// groupBySession indexes records by session id, keeping only those keep
+// accepts and skipping any record with no session at all -- a record whose
+// session is unknown belongs to no window by definition. It returns the
+// index together with the order the sessions were first seen, so the caller
+// iterates deterministically rather than over Go's randomised map order.
+//
+// BOTH ATTRIBUTION PASSES BUILD SUCH AN INDEX, and this is where the two
+// share the building of it. What they deliberately do NOT share is the
+// *pass*: Attributor.Attribute indexes every record and
+// DispatchAttributor.Attribute indexes the sidechain ones, and a review of
+// this change asked whether the second could reuse the first's work rather
+// than walking the batch again (F11).
+//
+// It could only do so by being handed the first pass's index instead of the
+// batch, and that is a worse arrangement than the walk it saves. Each
+// Attribute is documented and tested as a pure computation over a slice of
+// records -- callable alone, in either order, with no state carried between
+// them -- and the two are wired independently by Watcher precisely because
+// the dispatch grain must not be able to change what the stage grain
+// records. Threading a shared, pre-grouped structure between them would
+// couple their signatures to each other and to their call order, to save
+// one O(n) walk over a batch that is already being decoded, filtered and
+// summed several times over. The redundant walk is kept, knowingly.
+func groupBySession(records []Record, keep func(Record) bool) (map[string][]Record, []string) {
+	bySession := make(map[string][]Record)
+	var sessionOrder []string
+	for _, r := range records {
+		if r.SessionID == "" || !keep(r) {
+			continue
+		}
+		if _, ok := bySession[r.SessionID]; !ok {
+			sessionOrder = append(sessionOrder, r.SessionID)
+		}
+		bySession[r.SessionID] = append(bySession[r.SessionID], r)
+	}
+	return bySession, sessionOrder
 }
 
 // bestWindow returns the window among windows whose interval contains ts,
@@ -515,6 +567,216 @@ func bestWindow(windows []Window, ts time.Time) (Window, bool) {
 			(w.StartedAt.Equal(best.StartedAt) && w.Attempt > best.Attempt) {
 			best = w
 			found = true
+		}
+	}
+	return best, found
+}
+
+// DispatchWindow is one recorded subagent dispatch's identity and
+// attribution interval, the dispatch-grain counterpart of Window above.
+//
+// It carries no session id, deliberately. The session a dispatch belongs to
+// is the *dispatching* session -- the parent's, since a subagent's
+// sidechain records are written into its dispatcher's transcript, and a
+// dispatch has no session of its own to name -- and that session is already
+// the argument DispatchWindowsForSession was asked for. Repeating it on
+// every returned window would be a field with one writer, no production
+// reader, and a standing invitation to filter on it a second time.
+//
+// The interval is half-open, [StartedAt, EndedAt), for exactly the reason
+// Window's own doc comment gives, and the case is if anything more
+// routine here: a review panel's slots run back to back with no gap, so a
+// record timestamped on the seam between two dispatches is an ordinary
+// occurrence rather than an edge one. It resolves to the dispatch that is
+// *starting*. EndedAt nil means the dispatch is still open.
+//
+// There is no Attempt field: a dispatch is recorded once and never
+// superseded, so the tie Window.Attempt exists to break has no analogue
+// at this grain.
+//
+// AgentID is the harness's own identifier for the subagent this dispatch
+// dispatched, as the dispatcher recorded it. It is what separates two
+// dispatches whose intervals overlap -- a review panel's slots, dispatched
+// at once against one session -- which no interval can do by itself. It is
+// empty whenever the harness exposed none: Cursor and Codex expose none at
+// all, so that is the ordinary case on two of the three supported
+// harnesses rather than a legacy or degraded one, and an empty value means
+// "not reported" and never matches another empty one.
+type DispatchWindow struct {
+	DispatchID int64
+	AgentID    string
+	StartedAt  time.Time
+	EndedAt    *time.Time
+}
+
+// contains reports whether ts falls inside w's half-open attribution
+// interval [StartedAt, EndedAt) -- DispatchWindow's own doc comment
+// explains why the end is exclusive, and intervalContains carries the rule
+// this and Window.contains both defer to.
+func (w DispatchWindow) contains(ts time.Time) bool {
+	return intervalContains(w.StartedAt, w.EndedAt, ts)
+}
+
+// DispatchWindowSource answers which dispatch windows exist for a
+// session -- a sibling of WindowSource rather than a kind discriminator on
+// Window, so each consumer-side interface stays one method and this
+// package keeps importing nothing from internal/store (design.md, "Cost
+// attribution"). Like WindowSource, it answers with closed dispatches as
+// well as open ones: a harvest batch routinely lags behind the mark that
+// closed a dispatch, and a record written inside [StartedAt, EndedAt)
+// really was that dispatch's spend regardless of when the row was closed.
+//
+// The daemon wires a real implementation backed by
+// store.Store.DispatchWindowsForSession (cmd/myflowd/main.go).
+type DispatchWindowSource interface {
+	DispatchWindowsForSession(ctx context.Context, sessionID string) ([]DispatchWindow, error)
+}
+
+// DispatchAttributor is the second, independent attribution pass: it
+// assigns transcript records to dispatch windows and computes each
+// dispatch's own token delta. It changes nothing about what Attributor
+// records -- the two are different grains over the same usage, not a
+// double count (design.md, "Cost attribution") -- and, like Attributor,
+// it never writes anywhere.
+type DispatchAttributor struct {
+	windows DispatchWindowSource
+}
+
+// NewDispatchAttributor builds a DispatchAttributor over windows.
+func NewDispatchAttributor(windows DispatchWindowSource) *DispatchAttributor {
+	return &DispatchAttributor{windows: windows}
+}
+
+// Attribute assigns every *sidechain* record in records to the dispatch
+// window matching its session and, among those, the one bestDispatchWindow
+// selects -- the window recording the record's own agent id where one is
+// reported on both sides, and otherwise the window whose interval contains
+// its timestamp. It returns one TokenDelta per touched dispatch, keyed by
+// the dispatch row's id.
+//
+// Only sidechain records are attributed here, and they land in the
+// Sidechain bucket alone. A dispatching session's own main-thread tokens
+// are the *parent's* cost -- the stage run it is running under already
+// records them, through the first pass -- so charging them to a subagent
+// that merely happened to be open at the time would both overstate the
+// dispatch and describe the parent's own thinking as someone else's. A
+// returned TokenDelta therefore always carries a zero Main bucket; it is
+// kept in the shape rather than dropped so that dispatches.metrics has
+// the same "tokens" shape stage_runs.metrics does, which is what lets
+// every reader of that bag (pricing included) read either one unchanged.
+//
+// It returns TokenDelta rather than Delta because a delta is all this
+// pass computes: Delta's per-model and per-agentId breakdowns are the
+// stage grain's way of splitting a run across the several models and
+// several subagents it spans, and a dispatch is by definition one
+// subagent running under one recorded model -- the row's own `model`
+// column already states it, as recorded intent. Returning a Delta with
+// three of its four fields permanently unset would advertise breakdowns
+// that never arrive.
+//
+// Like Attributor.Attribute, this is a pure computation over records and
+// whatever DispatchWindowsForSession answers, and records whose session
+// or timestamp matches no window are silently not attributed. Unlike it,
+// the deltas it produces are not committed atomically with the batch's
+// offset -- see Watcher's own doc comment on the second pass for what
+// that costs and why it is accepted.
+func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]TokenDelta, error) {
+	deltas := make(map[int64]TokenDelta)
+	if len(records) == 0 {
+		return deltas, nil
+	}
+
+	// Filtering to sidechain records here, rather than inside the
+	// attribution loop below, is what keeps a session whose batch carries
+	// no sidechain records at all from costing a
+	// DispatchWindowsForSession query.
+	bySession, sessionOrder := groupBySession(records, func(r Record) bool { return r.IsSidechain })
+
+	for _, sessionID := range sessionOrder {
+		windows, err := a.windows.DispatchWindowsForSession(ctx, sessionID)
+		if err != nil {
+			return nil, fmt.Errorf("harvest: dispatch windows for session %s: %w", sessionID, err)
+		}
+		for _, r := range bySession[sessionID] {
+			w, ok := bestDispatchWindow(windows, r.AgentID, r.Timestamp)
+			if !ok {
+				continue
+			}
+			d := deltas[w.DispatchID]
+			d.Sidechain.add(r.Usage)
+			deltas[w.DispatchID] = d
+		}
+	}
+
+	return deltas, nil
+}
+
+// bestDispatchWindow returns the dispatch window a record belongs to:
+// among the windows whose interval contains ts, the one whose AgentID is
+// the record's own, and failing that the one with the latest StartedAt.
+//
+// The agent id comes first because the interval cannot answer the case the
+// dispatch grain exists for. A review panel dispatches its slots at once
+// against one parent session, so their intervals overlap and every
+// sidechain record inside the overlap looks equally like all of them --
+// the change's total would stay right while its split across the slots,
+// which is what a per-dispatch cost record is for, went to whichever slot
+// started last. The transcript already labels each record with the
+// subagent that produced it, so where a dispatch recorded the same label
+// the two identify each other outright and no interval is consulted.
+//
+// The interval rule underneath is not a legacy path and is not going away.
+// Cursor and Codex expose no subagent identifier at all, so on two of the
+// three supported harnesses every dispatch is recorded without one, and
+// the interval remains exactly correct for dispatches that do not overlap
+// -- which is every dispatch outside a panel.
+//
+// An empty agent id on either side is "not reported", never a value: it
+// matches nothing, including another empty one. Two dispatches that both
+// reported none are not thereby the same dispatch, and a record that
+// reported none has said nothing about which of them it belongs to, so
+// both fall through to the interval rule rather than being paired off by
+// their shared absence.
+//
+// "Whichever started last" is undefined at an exact StartedAt tie -- After
+// is false in both directions -- so the tie is broken by the lower
+// DispatchID, stated here rather than left to the order the windows arrive
+// in. It is the same order DispatchWindowsForSession returns its rows in
+// (ORDER BY d.started_at, d.id), so the two agree; but this function does
+// not depend on that, because a rule that holds only for one caller's
+// query plan is not a rule. A tie is ordinary rather than exotic here: a
+// panel's slots are dispatched together and -started-at is written at
+// seconds resolution.
+//
+// This is written out rather than folded into bestWindow, deliberately.
+// bestWindow's tie-break reads Window.Attempt, which has no dispatch
+// analogue at all (DispatchWindow's own doc comment says why), so serving
+// both callers would mean a shared helper parameterised by a field only
+// one of them has -- the wrong abstraction, more expensive than the eight
+// lines it would save. views/RunDetail.tsx's RunPanel records the same
+// reasoning for its own duplication.
+func bestDispatchWindow(windows []DispatchWindow, agentID string, ts time.Time) (DispatchWindow, bool) {
+	var (
+		best        DispatchWindow
+		found       bool
+		matchedByID bool
+	)
+	for _, w := range windows {
+		if !w.contains(ts) {
+			continue
+		}
+		byID := agentID != "" && w.AgentID == agentID
+		switch {
+		case byID && !matchedByID:
+			// The first window identified by the record's own agent id
+			// displaces any the interval alone had selected.
+			best, found, matchedByID = w, true, true
+		case byID == matchedByID:
+			if !found || w.StartedAt.After(best.StartedAt) ||
+				(w.StartedAt.Equal(best.StartedAt) && w.DispatchID < best.DispatchID) {
+				best = w
+				found = true
+			}
 		}
 	}
 	return best, found

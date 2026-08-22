@@ -43,6 +43,72 @@
 # the call site since that part is not shared knowledge.
 PANEL_RECORD_TOTAL_DIGITS='(0|[1-9][0-9]{0,14})'
 
+# PANEL_RECORD_DIR — the directory, relative to a worktree, that the review
+# panel record is RENDERED into. It is `records.renderKinds`'s `panel` entry
+# (stats/internal/records/render.go) expressed for the shell, and the two are
+# the same fact: `myflow record render -kind panel` writes the file, and the
+# two guards below read it.
+#
+# THE GUARDS USED TO READ `.superpowers/sdd/final-review-panel.md` INSTEAD, and
+# that is now the wrong file. Once a change's findings became rows in the store,
+# nothing writes a findings table or a marker block into the sdd path any more:
+# it survives as the pass log alone — the mode, the slots, the diff path, the
+# `fix-mutation:` lines and the bounces — and it carries no `findings-total:`
+# line at all. A guard left reading it would have reported every change
+# OUTSTANDING at finish run 1 and failed every fix round.
+#
+# THE RECORD IS IN ONE PLACE, NOT TWO. Rendering to both paths was considered
+# and rejected: it would put the same record where two copies can disagree,
+# which is the defect the move into the store exists to remove, and
+# docs/superpowers/reviews/ is where finish run 1 commits it from in any case.
+# The pass log is NOT a second copy of it — it is a different record, of a
+# different thing, and stays where it is.
+PANEL_RECORD_DIR='docs/superpowers/reviews'
+
+# panel_record_path <worktree> <change> — the change's rendered review panel
+# record inside <worktree>, or empty when the change has none. Never fails on a
+# missing directory: "no record" is an answer both callers act on themselves.
+#
+# THE MATCH IS ANCHORED AT BOTH ENDS, and that is the whole of this function.
+# `records.existingDatedFile` resolves the same file with the regexp
+# `^[0-9]{4}-[0-9]{2}-[0-9]{2}-` + QuoteMeta(change + "-panel.md") + `$`, and
+# the `case` pattern below is that expression character for character: four
+# digits, two, two, then the change name and the suffix LITERALLY — `"$change"`
+# is quoted inside the pattern, so a metacharacter in it could not be a
+# wildcard even if the caller's own allowlist had not already rejected one. A
+# looser `*-<change>-panel.md` would also match a DIFFERENT change whose name
+# ends in this one — `2020-01-01-other-demo-panel.md` for the change `demo` —
+# and that is not hypothetical: the renderer's own comment records `*` in a
+# name matching and overwriting a different change's record. A guard reading
+# the wrong change's findings is the same defect on the read side.
+#
+# THE EARLIEST DATE WINS, matching existingDatedFile's `sort.Strings` on the
+# matching names followed by `found[0]`. The date is fixed at a change's FIRST
+# render and a fix round overwrites in place, so more than one dated file for
+# one change means something went wrong; the two sides agreeing on WHICH one to
+# read is what keeps the guard reading the file the renderer writes. Bash
+# expands a glob in sorted order and this guard's `LC_ALL=C` makes that order
+# bytewise, so the first match encountered is that file.
+panel_record_path() {
+  local worktree="$1" change="$2" dir f base
+  dir="$worktree/$PANEL_RECORD_DIR"
+  [ -d "$dir" ] || return 0
+  for f in "$dir"/*-panel.md; do
+    # A glob that matched nothing expands to itself, and a directory sitting
+    # where a record should be is not a record — `existingDatedFile` skips an
+    # entry whose IsDir() is true for the same reason.
+    [ -f "$f" ] || continue
+    base="${f##*/}"
+    case "$base" in
+      [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-"$change"-panel.md)
+        printf '%s\n' "$f"
+        return 0
+        ;;
+    esac
+  done
+  return 0
+}
+
 # count_matching <file> <ere> — the number of lines of <file> matching <ere>.
 count_matching() {
   local file="$1" ere="$2" out rc=0

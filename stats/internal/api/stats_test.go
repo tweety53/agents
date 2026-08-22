@@ -291,7 +291,7 @@ var _ api.StatsStore = (*statsFake)(nil)
 func newStatsTestServer(t *testing.T, sts api.StatsStore) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, nil)
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -1099,7 +1099,7 @@ func TestNegativeLimitAtHTTPBoundaryIsRejected(t *testing.T) {
 	t.Run("changes", func(t *testing.T) {
 		fs := newFakeStore()
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, fs, fs, fs, nil)
+		srv, err := api.New(cfg, fs, fs, fs, fs, nil)
 		if err != nil {
 			t.Fatalf("api.New: %v", err)
 		}
@@ -1334,10 +1334,17 @@ func newIntegrationStore(t *testing.T) *store.Store {
 	return st
 }
 
+// newIntegrationTestServer wires a server whose every store dependency is
+// the real, migrated *store.Store the caller already holds -- the record
+// store included. It used to pass a fake for that one, which meant the
+// records routes were the only routes this harness could not exercise
+// against Postgres at all, for no reason beyond the order the parameters
+// were added in: *store.Store satisfies api.RecordStore, and a compile-time
+// assertion in internal/api already says so.
 func newIntegrationTestServer(t *testing.T, st *store.Store) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, st, st, st, nil)
+	srv, err := api.New(cfg, st, st, st, st, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

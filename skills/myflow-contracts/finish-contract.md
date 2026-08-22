@@ -140,10 +140,61 @@ that chain then commits from this reshaped state exactly as it always has.
 All three routes first commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
 reshaped diff carries, then the `<project>/openspec/` planning artifacts and the session records
-preserved under `<project>/docs/superpowers/` (the SDD ledger, the review panel record, and the
-proposal artifact source), subject the fixed literal `chore(openspec): plan and session records`.
-The records are copied out of the gitignored worktree before staging, by
-`preserve-session-records.sh <worktree> <name> <state-dir>`.
+under `<project>/docs/superpowers/` (the SDD ledger and the review panel record), subject the fixed
+literal `chore(openspec): plan and session records`. The ledger is rendered from the store before
+staging, by:
+
+```bash
+myflow record render -change <name> -kind ledger -repo <abs-repo-root>
+```
+
+`<abs-repo-root>` is the apply worktree's own root — the tree this run is committing from, never the
+main checkout. The panel record is already under that path: `/myflow-do` renders it at panel close,
+from the same rows. Act on the command's outcome word per the table under **Rendering the session
+records** (`pipeline.md`), which is canonical for it and is deliberately not restated here.
+
+**The proposal artifact source is copied here, not rendered.** It is not a record: `/myflow-start`
+wrote it to the state directory and it was never in the store, so `myflow record render` — which
+renders from the store's rows — has no business with it. Run 1 copies it directly, in this same step
+and for the same reason the ledger is rendered here: the second `add` below carries no pathspec, so
+a copy written under `<project>/docs/superpowers/` before staging lands in the planning commit and
+reaches the base branch with it.
+
+```bash
+mkdir -p "<project>/docs/superpowers/artifacts"   # only after the checks below
+cp "<state-dir>/<name>-proposal-artifact.html" \
+   "<project>/docs/superpowers/artifacts/<YYYY-MM-DD>-<name>.html"
+```
+
+- **Validate `<name>` against `^[A-Za-z0-9][A-Za-z0-9._-]*$` before either path is built.** It is the
+  rule `records.Destination` (`<agents repo>/stats/internal/records/render.go`) carries, for the
+  reason its own comment states: a glob metacharacter in a name once matched and overwrote a
+  *different* change's preserved copy. A name that fails is a caller mistake — report it and copy
+  nothing.
+- **The destination directory must resolve inside the repository root before anything is written
+  through it.** `<project>/docs/superpowers/artifacts/` is a tracked, pull-request-editable path: a
+  symlink there puts the copy outside the repository, and run 1 commits and pushes what it wrote.
+  This is `records.Destination`'s second protection, and it applies to a `cp` for the same reason.
+- **The source path must resolve inside the state directory it belongs to, checked before the copy
+  runs.** Resolve `<state-dir>/<name>-proposal-artifact.html` following every symlink at every path
+  component, and require the result to stay under `<state-dir>`. A source resolving anywhere else is
+  **refused and reported**, never silently skipped — a refusal is not an absence, and reporting one
+  as the other hides a planted path as a change that simply had no artifact to copy. This is the
+  write-side half of the boundary pair `check_boundary`
+  (`<agents repo>/scripts/gather-self-review-context.sh`) applies on the read side, and it is the
+  one protection the retired copying script carried that an inline `cp` does not inherit: `cp`
+  follows a symlinked source, so a stale or planted state directory puts arbitrary content under
+  `<project>/docs/superpowers/artifacts/`, which run 1 then commits and pushes.
+- **Reuse an existing `<project>/docs/superpowers/artifacts/<date>-<name>.html`** rather than writing
+  a second dated file, so a re-run overwrites in place — the rule `records.Destination` applies to
+  the rendered records, applied here to the copy.
+- **A change with no artifact at that source is skipped and said so, never failed.** Every
+  `/myflow-fast` run is such a change: it publishes no proposal artifact, so there is nothing to
+  copy and nothing wrong.
+
+This copy is what makes the `Proposal artifact source` row in **Temporary artifacts registry**
+(`pipeline.md`) reachable at all: its run-2 deletion is conditional on a preserved copy existing, and
+this step is what produces one.
 
 Those two planning paths are cleared from the index before the first `add` and excluded from it by
 pathspec — the same clearing pass **Git boundaries** (`pipeline.md`) gives `/myflow-do`, and

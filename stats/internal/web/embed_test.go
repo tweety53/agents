@@ -12,6 +12,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 	"github.com/tweety53/agents/stats/internal/web"
 )
@@ -136,7 +137,7 @@ func TestApiPathsAreNotSwallowedBySpaFallback(t *testing.T) {
 	}
 
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fakeStore{}, fakeStore{}, fakeStore{}, nil, api.WithSPA(spaHandler))
+	srv, err := api.New(cfg, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, nil, api.WithSPA(spaHandler))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -310,8 +311,8 @@ func extractModuleScriptSrc(t *testing.T, html string) string {
 	return rest[:end]
 }
 
-// fakeStore satisfies api.ChangeStore, api.StageStore and api.StatsStore
-// all at once with the minimum this test needs: an empty, successful
+// fakeStore satisfies api.ChangeStore, api.StageStore, api.StatsStore and
+// api.RecordStore all at once with the minimum this test needs: an empty, successful
 // change listing, and every other method returning
 // store.ErrChangeNotFound / an empty result, none of which this test's
 // two directions ever reach. No database is needed -- these tests are
@@ -398,4 +399,30 @@ func (fakeStore) AllRecordedRunsUnmeasured(context.Context, store.Period, *strin
 // this file's fakeStore never exercises project resolution at all.
 func (fakeStore) ProjectKeysByDisplayName(context.Context, string) ([]string, error) {
 	return nil, nil
+}
+
+// The api.RecordStore methods are here for the same reason
+// AllRecordedRunsUnmeasured's own doc comment gives: api.New gained a
+// fourth store parameter for the run-record routes, and every implementer
+// must keep compiling -- this file's fakeStore never exercises a record
+// route, whose paths sit under /api/v1/records/ and are reached by neither
+// of this test's two directions.
+func (fakeStore) EndDispatch(context.Context, string, string, records.DispatchEnd) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
+}
+
+func (fakeStore) RecordDispatch(context.Context, string, string, records.Dispatch) (records.Dispatch, error) {
+	return records.Dispatch{}, nil
+}
+
+func (fakeStore) UpsertFinding(context.Context, string, string, records.Finding) (records.Finding, bool, error) {
+	return records.Finding{}, false, nil
+}
+
+func (fakeStore) SetFindingStatus(context.Context, string, string, string, string) error {
+	return nil
+}
+
+func (fakeStore) RunRecord(context.Context, string, string) (records.Run, error) {
+	return records.Run{}, nil
 }

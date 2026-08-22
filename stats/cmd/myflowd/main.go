@@ -125,7 +125,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	srv, err := api.New(cfg, st, st, st, logger, api.WithSPA(spaHandler))
+	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler))
 	if err != nil {
 		// A non-loopback MYFLOWD_HOST lands here: refused before any
 		// listener is opened, per config.Config.Validate.
@@ -136,7 +136,7 @@ func run(logger *slog.Logger) error {
 	// above has already confirmed connectivity via its own ping, so this
 	// is exactly the "at startup" half of design.md's "Availability and
 	// reconciliation". The "on reconnect" half is Watch, started below.
-	reconciler := reconcile.New(st, st, fallback.StateRoot(), logger)
+	reconciler := reconcile.New(st, st, st, fallback.StateRoot(), logger)
 	startupResult, startupErr := reconciler.Run(ctx)
 	logReconcileResult(logger, "startup", startupResult, startupErr)
 
@@ -219,7 +219,17 @@ func run(logger *slog.Logger) error {
 // returned nil and no stage run was ever bound, despite tasks 1-6 all
 // working and 329 Go tests staying green throughout.
 func newTranscriptWatcher(root string, st *store.Store, attributor *harvest.Attributor, logger *slog.Logger) *harvest.Watcher {
-	return harvest.NewWatcher(root, st, attributor, logger, harvest.WithPricer(st), harvest.WithSessionTokenBinder(st))
+	// KAN-258: the second, dispatch-grain attribution pass runs beside the
+	// first over the same batch (design.md, "Cost attribution"). st
+	// satisfies both halves of it directly -- DispatchWindowsForSession
+	// returns harvest.DispatchWindow, and MergeDispatchMetrics matches
+	// harvest.DispatchMetricsSink -- so, like HarvestSink and Pricer,
+	// neither needs an adapter (compile-time checks below).
+	return harvest.NewWatcher(root, st, attributor, logger,
+		harvest.WithPricer(st),
+		harvest.WithSessionTokenBinder(st),
+		harvest.WithDispatchAttribution(harvest.NewDispatchAttributor(st), st),
+	)
 }
 
 // storeWindowSource adapts *store.Store to harvest.WindowSource: the one
@@ -260,10 +270,16 @@ func (s storeWindowSource) WindowsForSession(ctx context.Context, sessionID stri
 // interface explains why), so this is a guard against that drifting
 // silently, not a type this file otherwise needs.
 var (
-	_ harvest.HarvestSink    = (*store.Store)(nil)
-	_ harvest.WindowSource   = storeWindowSource{}
-	_ harvest.Pricer         = (*store.Store)(nil)
-	_ sweep.AbandonedSweeper = (*store.Store)(nil)
+	_ harvest.HarvestSink  = (*store.Store)(nil)
+	_ harvest.WindowSource = storeWindowSource{}
+	_ harvest.Pricer       = (*store.Store)(nil)
+	// Unlike storeWindowSource above, the dispatch-grain window source
+	// needs no adapter: store.DispatchWindowsForSession already answers in
+	// harvest.DispatchWindow, its own doc comment explaining why the type
+	// crosses that way round.
+	_ harvest.DispatchWindowSource = (*store.Store)(nil)
+	_ harvest.DispatchMetricsSink  = (*store.Store)(nil)
+	_ sweep.AbandonedSweeper       = (*store.Store)(nil)
 )
 
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure

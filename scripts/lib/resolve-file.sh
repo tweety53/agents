@@ -13,31 +13,28 @@
 # reach it, is what stops that drift from happening a second time.
 #
 # "SAFELY REACH IT" IS THE OPERATIVE PHRASE, and not every guard carrying a
-# copy of this function qualifies. scripts/preserve-session-records.sh keeps
-# its own inline copy — untouched by this file — because a guard reached
-# only by hand-copying a single file into an unrelated project's own tooling
-# cannot assume a sibling `lib/` travels with it; a guard shipped through the
-# farm can, because the farm already symlinks `lib` as a directory beside
-# every guard that needs it (KAN-73's design.md, "The guard-to-skill map") —
-# the identical argument KAN-153's F7 accepted for check-unfinished-work.sh
+# copy of this function qualifies. A guard reached only by hand-copying a
+# single file into an unrelated project's own tooling cannot assume a
+# sibling `lib/` travels with it; a guard shipped through the farm can,
+# because the farm already symlinks `lib` as a directory beside every guard
+# that needs it (KAN-73's design.md, "The guard-to-skill map") — the
+# identical argument KAN-153's F7 accepted for check-unfinished-work.sh
 # sourcing scripts/lib/panel-record.sh, on the evidence that setup.sh
 # distributes skills, not scripts/, so a guard and the library it sources
-# always travel together in this repository. preserve-session-records.sh
-# DOES ship through the farm too (skills/myflow-do/scripts/,
-# skills/myflow-fast/scripts/ and skills/myflow-finish/scripts/ all carry
-# it, each alongside its own `lib` symlink), so it qualifies under this same
-# criterion and staying uninlined here is a gap, not a deliberate exemption
-# — out of this change's scope to close, since none of this change's own
-# callers exercise that script. scripts/gather-self-review-context.sh
-# previously kept its own inline copy of resolve_file too, on the same
-# false premise that it did not ship through the farm; it now sources
-# lib/within-root.sh for within_root, but still carries its own inline
+# always travel together in this repository.
+#
+# ONE INLINE COPY IS LEFT, and it is a gap rather than a deliberate
+# exemption. scripts/gather-self-review-context.sh carries its own
 # resolve_file (a differently-shaped, non-hardened variant than this file's
-# own — see that script's header), left untouched here since this change's
-# scope was the within_root duplication, not resolve_file's. Follow-up
-# question, still open: whether preserve-session-records.sh's and
-# gather-self-review-context.sh's own resolve_file copies should ever join
-# this file.
+# own — see that script's header), on the same false premise that it did
+# not ship through the farm; it does, and it already sources
+# lib/within-root.sh for within_root. It was left untouched when that
+# within_root duplication was closed, because that was the scope of the
+# change which closed it. Follow-up question, still open: whether that copy
+# should ever join this file. A second file used to be named here for the
+# same gap — the session-record copy script, deleted with the records it
+# copied when those moved into the store — so the question now stands over
+# one file rather than two.
 #
 # Not meant to be executed directly — a caller sources it and calls
 # resolve_file; it sets no `set -euo pipefail` of its own and relies on the

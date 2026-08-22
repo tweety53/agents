@@ -189,7 +189,7 @@ func TestReplayAppliesPendingStageMarks(t *testing.T) {
 	appendStageMark(t, root, "proj-stage-replay", "chg-1", "begin", begin)
 	appendStageMark(t, root, "proj-stage-replay", "chg-1", "end", end)
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -244,7 +244,7 @@ func TestStageEndReplayWithNoOpenRunRetiresCleanly(t *testing.T) {
 	}
 	appendStageMark(t, root, "proj-stage-noopen", "chg-1", "end", end)
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -282,7 +282,7 @@ func TestUndocumentedStageMarkReplayRetiresAsRefused(t *testing.T) {
 	}
 	appendStageMark(t, root, "proj-stage-undoc", "chg-1", "begin", begin)
 
-	rec := reconcile.New(st, st, root, nil)
+	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -375,7 +375,7 @@ func TestStageReplayInterruptedResumesWithoutDuplicating(t *testing.T) {
 	})
 
 	wrapped := &injectingStageStore{inner: st, failChangeName: "chg-b", failsRemaining: 1}
-	rec := reconcile.New(st, wrapped, root, nil)
+	rec := reconcile.New(st, wrapped, st, root, nil)
 
 	result1, err := rec.Run(ctx)
 	if err != nil {

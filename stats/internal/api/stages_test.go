@@ -231,7 +231,7 @@ var _ api.StageStore = (*fakeStore)(nil)
 func newStageTestServer(t *testing.T, fs *fakeStore) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fs, fs, fs, nil)
+	srv, err := api.New(cfg, fs, fs, fs, fs, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

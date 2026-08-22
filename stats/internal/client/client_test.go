@@ -14,6 +14,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/api"
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/config"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -857,6 +858,32 @@ func (stubStageStore) AllRecordedRunsUnmeasured(context.Context, store.Period, *
 	return false, errStageStoreNotImplemented
 }
 
+// stubStageStore also stands in as api.RecordStore, for the same reason it
+// stands in as api.StatsStore above: api.New requires one, and this file's
+// only test that builds a real *api.Server exercises the change endpoints
+// alone, never a record route.
+func (stubStageStore) RecordDispatch(context.Context, string, string, records.Dispatch) (records.Dispatch, error) {
+	return records.Dispatch{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) EndDispatch(context.Context, string, string, records.DispatchEnd) (records.Dispatch, error) {
+	return records.Dispatch{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) UpsertFinding(context.Context, string, string, records.Finding) (records.Finding, bool, error) {
+	return records.Finding{}, false, errStageStoreNotImplemented
+}
+
+func (stubStageStore) SetFindingStatus(context.Context, string, string, string, string) error {
+	return errStageStoreNotImplemented
+}
+
+func (stubStageStore) RunRecord(context.Context, string, string) (records.Run, error) {
+	return records.Run{}, errStageStoreNotImplemented
+}
+
+var _ api.RecordStore = stubStageStore{}
+
 // ProjectKeysByDisplayName is here for the same reason
 // AllRecordedRunsUnmeasured's own doc comment gives: api.StatsStore (and
 // api.ChangeStore, which inMemoryChangeStore implements separately) gained
@@ -894,7 +921,7 @@ var _ api.StatsStore = stubStageStore{}
 func TestClientAgreesWithRealDaemonOverDaemonHeader(t *testing.T) {
 	cs := newInMemoryChangeStore()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	apiServer, err := api.New(cfg, cs, stubStageStore{}, stubStageStore{}, nil)
+	apiServer, err := api.New(cfg, cs, stubStageStore{}, stubStageStore{}, stubStageStore{}, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

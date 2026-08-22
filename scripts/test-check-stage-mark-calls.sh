@@ -549,6 +549,71 @@ case "$OUT" in
   *) fail "case 27: expected coverage_record's own already-recorded message, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 28 (KAN-258): a `myflow record dispatch` call site carrying a session
+# token that is a command substitution is rejected and named. `record
+# dispatch` takes `-session-token` for exactly the reason `stage begin` does
+# — the daemon finds the literal token in the calling session's own
+# transcript — so a substitution here is the same defect, recorded
+# identically by every caller and discriminating between no two sessions.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow record dispatch -change <name> -task 3 -role implementer -model opus \
+  -commit abc1234 -outcome completed -session-token "mf-$(date +%s)" -started-at <ts>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 28: a substituted session token on \`record dispatch\` is caught" \
+  || fail "case 28: rc=$RC out=$OUT"
+case "$OUT" in
+  *'command substitution'*) pass "case 28: the finding names the substitution shape" ;;
+  *) fail "case 28: expected a substitution finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 29 (KAN-258): the same call site carrying a literal token passes, and
+# is counted — a `record dispatch` call is a checked call site in its own
+# right, so a file carrying one and no `stage begin` is a covered member
+# rather than an undeclared zero.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow record dispatch -change <name> -task 3 -role implementer -model opus \
+  -commit abc1234 -outcome completed -session-token mf-abc123 -started-at <ts>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 29: a literal session token on \`record dispatch\` passes" \
+  || fail "case 29: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$FIXTURE_FILE 1"*) pass "case 29: the breakdown counts the \`record dispatch\` call site" ;;
+  *) fail "case 29: expected the breakdown to show '$FIXTURE_FILE 1', out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 30 (KAN-258): `-session-token` omitted entirely from a `record
+# dispatch` call site is caught. The flag is required by `myflow record
+# dispatch`'s own usage block, and a call site that omits it writes a
+# dispatch row no session can ever be bound to.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE_FILE" <<'EOF'
+```bash
+myflow record dispatch -change <name> -role reviewer -slot Primary -model sonnet \
+  -outcome completed -started-at <ts>
+```
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 30: a \`record dispatch\` with no -session-token is caught" \
+  || fail "case 30: rc=$RC out=$OUT"
+case "$OUT" in
+  *"carries no -session-token"*) pass "case 30: the finding names the missing flag" ;;
+  *) fail "case 30: expected a -session-token finding, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

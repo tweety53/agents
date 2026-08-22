@@ -110,8 +110,11 @@
 # registry-row-checked: Proposal artifact source
 # registry-row-checked: Workspace database and bucket
 # registry-row-not-checked: Per-task and review diffs — removed with the worktree
-# registry-row-not-checked: Panel record — removed with the worktree
-# registry-row-not-checked: SDD ledger — removed with the worktree
+# registry-row-not-checked: Panel record — lives in the store; nothing removes it
+# registry-row-not-checked: SDD ledger — lives in the store; nothing removes it
+# registry-row-not-checked: Rendered ledger and panel record — committed and
+#   archived with the change, so nothing removes them and there is nothing for
+#   this guard to find gone
 # registry-row-not-checked: Dispatch context bundle — removed with the worktree
 # registry-row-not-checked: Archive branch — nothing in this pipeline removes it;
 #   run 2 is terminal and the pull request it opens outlives the run, so there is
@@ -245,8 +248,11 @@ sanitize_display() {
 # the guard reports COMPLETE while the real change directory and artifact source
 # are still sitting there — a confirmed cleanup that removed nothing.
 #
-# The rule is preserve-session-records.sh's Protection 1, character for
-# character, and its comment there is canonical for why each hazard is in it.
+# The rule is records.Destination's Protection 1 (stats/internal/records/render.go),
+# character for character, and that function's comment is canonical for why each
+# hazard is in it — the `/` that was blocked only by an accident of string
+# concatenation, and the glob metacharacter that once matched and overwrote a
+# DIFFERENT change's preserved record.
 # THE COPY IS DELIBERATE, for the reason recorded at the same place in
 # check-unfinished-work.sh: these guards are single-file by design and are
 # copied into projects one at a time, so a sourced helper would make a guard
@@ -258,14 +264,31 @@ sanitize_display() {
 # this guard tests the ones it was asked about.
 #
 # THE ALLOWED CHARACTERS ARE ENUMERATED RATHER THAN WRITTEN AS RANGES because a
-# bracket range is a COLLATING range: the same patterns spelled `A-Za-z0-9`
-# admitted `écho`, `İstanbul` and `Ａbc` under `en_US.UTF-8` and refused all
-# three under `LC_ALL=C`, on this machine. preserve-session-records.sh's
-# Protection 1 carries the measurement and the reasoning, including why the fix
-# is an enumeration rather than `export LC_ALL=C` — which HERE would be exported
-# into the project's own `survivors` command below, changing the locale a
-# project's tooling runs under. The accepted set is unchanged from what the range
-# form accepted under `LC_ALL=C`.
+# bracket range is a COLLATING range, not a byte range, so what it admits is
+# whatever the ambient locale's collation puts between the two endpoints.
+# MEASURED on bash 3.2 (Darwin 25.5.0) against the previous spelling
+# `[!A-Za-z0-9]* | *[!A-Za-z0-9._-]*`: the names `écho`, `İstanbul`, `ﬀoo`, `ⅰx`,
+# `Ａbc` and `ⅹ` were all refused under `LC_ALL=C` and `ru_RU.UTF-8`, and every one
+# of them was ADMITTED under `en_US.UTF-8`, `de_DE.UTF-8` and `tr_TR.UTF-8`. A
+# containment gate whose accepted set changes with the operator's environment is
+# not a containment gate.
+#
+# A LITERAL LIST HAS NO ENDPOINTS, so there is nothing for a collation order to
+# reorder: membership is membership in every locale. That is why the fix is the
+# enumeration and NOT `export LC_ALL=C`, which check-unfinished-work.sh does carry
+# for reasons of its own — HERE it would be EXPORTED into the project's own
+# `survivors` command below, changing the locale a project's tooling runs under.
+# The enumeration touches nothing outside these two patterns and needs no
+# environment at all. The accepted set is unchanged from what the range form
+# accepted under `LC_ALL=C`. The `-` stays LAST in the second pattern, where a
+# bracket expression reads it as a literal rather than as the start of a range.
+#
+# THIS COMMENT IS CANONICAL for that measurement and that reasoning, and the other
+# copies of the rule cite it. It was Protection 1 of the record-copying script
+# this repository has since retired, along with the session records it copied; of
+# the copies that survive, this is the one where the enumeration is the fix rather
+# than belt and braces, so the reasoning moved here rather than going with the
+# script.
 case "$NAME" in
   [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
   | *[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)

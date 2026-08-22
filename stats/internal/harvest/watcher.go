@@ -93,6 +93,24 @@ type HarvestSink interface {
 	CommitHarvestBatch(ctx context.Context, transcriptPath string, expectedOffset int64, expectedFound bool, newOffset int64, deltas map[int64]json.RawMessage) (applied bool, err error)
 }
 
+// DispatchMetricsSink is where the second attribution pass's per-dispatch
+// deltas are merged -- one call per dispatch a batch touched, keyed by the
+// dispatch row's own id (DispatchAttributor.Attribute returns exactly that
+// key).
+//
+// The patch is additive: the harvester sends a batch's *delta*, never a
+// cumulative total, so an implementation must add numeric leaves onto
+// whatever it already holds rather than replacing them, exactly as
+// CommitHarvestBatch's stage-run patches do. store.Store.MergeDispatchMetrics
+// (whose signature already matches this interface exactly, no adapter
+// needed) merges through jsonb_deep_add for that reason.
+//
+// Defined here, at the consumer, per go-interface-design, like every other
+// interface in this file: internal/harvest never imports internal/store.
+type DispatchMetricsSink interface {
+	MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error
+}
+
 // Pricer prices one stage run's already-committed metrics -- called only
 // after a harvest batch's CommitHarvestBatch call has reported the batch
 // actually applied (RunOnce, below), never from inside that commit's own
@@ -181,6 +199,14 @@ type Watcher struct {
 	logger        *slog.Logger
 	pricer        Pricer
 	sessionTokens SessionTokenBinder
+
+	// dispatchAttributor and dispatchMetrics are the second attribution
+	// pass (design.md, "Cost attribution"), configured together by
+	// WithDispatchAttribution or not at all: a Watcher built without that
+	// option attributes stage runs exactly as it did before this pass
+	// existed, the same additive shape WithPricer established.
+	dispatchAttributor *DispatchAttributor
+	dispatchMetrics    DispatchMetricsSink
 
 	// tokenCycles counts, per session token, how many RunOnce cycles have
 	// searched for that token without finding a unique match yet.
@@ -283,6 +309,31 @@ func WithPricer(p Pricer) WatcherOption {
 // established.
 func WithSessionTokenBinder(binder SessionTokenBinder) WatcherOption {
 	return func(w *Watcher) { w.sessionTokens = binder }
+}
+
+// WithDispatchAttribution configures the Watcher to run the second,
+// dispatch-grain attribution pass beside the first: the same batch of
+// records the stage pass reads is attributed again against a's dispatch
+// windows, and each touched dispatch's delta is merged into sink.
+//
+// The attributor and the sink are one option rather than two because
+// neither is any use without the other -- an attributor with nowhere to
+// write computes deltas that are discarded, and a sink with nothing
+// computing for it is never called -- so a Watcher can never be
+// half-configured for this pass.
+func WithDispatchAttribution(a *DispatchAttributor, sink DispatchMetricsSink) WatcherOption {
+	return func(w *Watcher) {
+		w.dispatchAttributor = a
+		w.dispatchMetrics = sink
+	}
+}
+
+// HasDispatchAttribution reports whether this Watcher was configured with
+// WithDispatchAttribution. See HasPricer's doc comment for why this exists
+// and why cmd/myflowd's wiring test asserts the constructed value rather
+// than main.go's source text.
+func (w *Watcher) HasDispatchAttribution() bool {
+	return w.dispatchAttributor != nil && w.dispatchMetrics != nil
 }
 
 // HasPricer reports whether this Watcher was configured with WithPricer.
@@ -469,6 +520,15 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 		}
 		touchedFiles++
 
+		// The second, dispatch-grain attribution pass over the very same
+		// records, in the same batch -- deliberately here, after
+		// CommitHarvestBatch has reported the batch applied, never before
+		// it. A batch withheld, refused or lost to a concurrent harvester
+		// is one this cycle will read again from the same offset, and
+		// merging its dispatch deltas now would add them a second time
+		// when it does.
+		w.attributeDispatches(ctx, records, path)
+
 		// Once this batch has actually committed, decide whether this
 		// path needs a future backfill visit (F4): hasMeta true means
 		// descriptors just landed for real, real content, so any
@@ -542,6 +602,46 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 	w.resolveSessionTokens(ctx, pendingSessionTokens, matchedSessions)
 
 	return touchedFiles, nil
+}
+
+// attributeDispatches runs the second attribution pass over one batch's
+// records and merges each touched dispatch's delta into the configured
+// sink. A Watcher built without WithDispatchAttribution does nothing here.
+//
+// Every failure is logged and stepped over, never returned: the first
+// pass has already committed this batch atomically by the time this runs,
+// and there is nothing left for a failure here to protect. Its cost is
+// real and worth stating plainly -- a merge that fails loses that batch's
+// dispatch figures for good, because the offset has already moved past
+// the records they were computed from. That asymmetry is accepted rather
+// than overlooked: stage-run attribution is the figure every existing
+// aggregation reads, and making its commit wait on a second write would
+// put the established grain at the mercy of the new one. A dispatch's
+// bag is refilled by the next batch inside the same window in the
+// ordinary case, and a dispatch that ends before one arrives is left
+// understated rather than wrong -- a whole stage run's usage would be
+// neither.
+func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
+	if !w.HasDispatchAttribution() {
+		return
+	}
+
+	deltas, err := w.dispatchAttributor.Attribute(ctx, records)
+	if err != nil {
+		w.warn("harvest: attribute dispatch windows failed, this batch's dispatch figures are lost", "path", path, "error", err)
+		return
+	}
+
+	for dispatchID, tokens := range deltas {
+		patch, err := json.Marshal(MetricsPatch{Tokens: tokens})
+		if err != nil {
+			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
+			continue
+		}
+		if err := w.dispatchMetrics.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
+			w.warn("harvest: merge dispatch metrics failed, this batch's figures for it are lost", "path", path, "dispatch_id", dispatchID, "error", err)
+		}
+	}
 }
 
 // maybeBackfillDispatchMeta is called from RunOnce's "nothing new to

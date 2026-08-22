@@ -93,7 +93,7 @@ func runJournalFlush(ctx context.Context, args []string, stdout, stderr io.Write
 	}
 	defer st.Close()
 
-	reconciler := reconcile.New(st, st, *root, slog.New(slog.NewTextHandler(stderr, nil)))
+	reconciler := reconcile.New(st, st, st, *root, slog.New(slog.NewTextHandler(stderr, nil)))
 	result, err := reconciler.Run(ctx)
 	if err != nil {
 		fmt.Fprintf(stderr, "myflow: journal flush: %v\n", err)
