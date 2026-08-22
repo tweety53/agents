@@ -32,10 +32,12 @@ and one this repository's own panel record has already made once. A record that 
 stronger reason to leave an unobserved entry unobserved, not a weaker one. No rendering step SHALL
 fill such a value in on the way out of the store either.
 
-#### Scenario: A dispatch record is written for a completed task
+#### Scenario: A ledger entry is written for a completed task
 
 - **WHEN** an implementer task completes and its dispatch is recorded
 - **THEN** that record names the model the implementer ran on
+- **AND** the ledger entry a reader sees is a rendering of that record, not a separately authored
+  line that could disagree with it
 
 #### Scenario: A slot's model is not knowable to the dispatcher
 

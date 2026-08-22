@@ -8,10 +8,10 @@ TBD - created by archiving change kan-10-myflow-economical-updates. Update Purpo
 `.myflow/project.md` SHALL exist in this repository and SHALL declare `## apps`, `## test`,
 `## lint`, `## standards`, `## jira`, and `## workspace isolation`. `## test` SHALL name
 `scripts/test-setup.sh`, `scripts/test-check-references.sh`,
-`scripts/test-check-plan-provenance.sh`, `scripts/test-check-finish-preflight.sh` and
-`scripts/test-preserve-session-records.sh`. `## lint` SHALL name `scripts/check-vocabulary.sh`,
-`scripts/check-references.sh` and `scripts/check-plan-provenance.sh`, and SHALL state explicitly
-that no auto-fix command exists for the non-Go half of the repository.
+`scripts/test-check-plan-provenance.sh` and `scripts/test-check-finish-preflight.sh`. `## lint`
+SHALL name `scripts/check-vocabulary.sh`, `scripts/check-references.sh` and
+`scripts/check-plan-provenance.sh`, and SHALL state explicitly that no auto-fix command exists for
+the non-Go half of the repository.
 
 `## lint` SHALL name every guard that **scans the repository tree** and can therefore run at any
 time. A check that requires context no tree scan provides — a branch, a worktree, a resolved base ref
