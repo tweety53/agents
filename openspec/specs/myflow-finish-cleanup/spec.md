@@ -324,6 +324,16 @@ The script that performed the file copy, and its test harness, SHALL be removed 
 wrapper. The pipeline stage that invoked it SHALL keep its existing stage key and its position in
 run 1, so that stage runs already recorded under that key remain valid.
 
+The implementation skill SHALL assert the ledger's presence before it hands off, and SHALL report
+plainly when it is absent. That assertion SHALL NOT gate the run: it exists so that a run producing no
+ledger says so at the point the record must exist, rather than leaving the absence to be discovered at
+integration or not at all.
+
+The assertion SHALL be the render's own report — the outcome word saying the store holds no dispatch
+rows for this change — read at its call site, never a test for a file at a path. A path-based
+assertion could only ever answer whether a file was written where the asserting skill expected it,
+which is the ambiguity retiring the copy step removed.
+
 #### Scenario: The ledger survives the change
 
 - **WHEN** a change is integrated and later archived, and its worktree is removed
@@ -380,6 +390,13 @@ run 1, so that stage runs already recorded under that key remain valid.
 - **WHEN** the reference and symlink guards run after the retirement
 - **THEN** the copying script and its test harness are absent, and no skill, contract, guard-presence
   list or installer names either of them
+
+#### Scenario: The handoff says the ledger is absent
+
+- **WHEN** a run reaches its handoff having recorded no dispatch, so the store holds no ledger rows
+  for the change
+- **THEN** the absence is reported at the point it is checked, as the render's own outcome word
+- **AND** the run is not blocked by that report
 
 ### Requirement: Run 2 removes the proposal artifact source
 

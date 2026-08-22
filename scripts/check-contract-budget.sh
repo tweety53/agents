@@ -116,6 +116,7 @@ commands/myflow-start.md 2178
 commands/myflow-status.md 1981
 commands/opsx-explore.md 9288
 openspec/specs/agents-repo-verification/spec.md 33525
+openspec/specs/myflow-artifact-economy/spec.md 3412
 openspec/specs/myflow-base-branch-resolution/spec.md 12796
 openspec/specs/myflow-build-green/spec.md 4181
 openspec/specs/myflow-citation-roots/spec.md 19301
@@ -137,12 +138,13 @@ openspec/specs/myflow-planning-gate/spec.md 15748
 openspec/specs/myflow-progress-visibility/spec.md 5351
 openspec/specs/myflow-review-panel-economics/spec.md 71648
 openspec/specs/myflow-review-panel-roster/spec.md 11918
+openspec/specs/myflow-run-record/spec.md 20658
 openspec/specs/myflow-run-telemetry/spec.md 30260
 openspec/specs/myflow-self-review/spec.md 30591
 openspec/specs/myflow-state-machine/spec.md 14270
 openspec/specs/myflow-state-store/spec.md 9801
 openspec/specs/myflow-stats-views/spec.md 23658
-openspec/specs/myflow-task-commit-fields/spec.md 7400
+openspec/specs/myflow-task-commit-fields/spec.md 33148
 openspec/specs/myflow-task-commits/spec.md 6668
 openspec/specs/myflow-ui-test-stack/spec.md 7435
 openspec/specs/myflow-workspace-isolation/spec.md 15100
