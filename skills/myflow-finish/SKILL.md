@@ -52,9 +52,9 @@ No field records "integration started" — a field could disagree with git.
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-finish-preflight.sh`, `resolve-base-branch.sh`,
 `prepare-archive-branch.sh`, `check-unfinished-work.sh`, `commit-split.sh`,
-`check-cleanup-complete.sh` and `gather-self-review-context.sh` — is present in
-`skills/myflow-finish/scripts/`. A complete set prints nothing; any absence prints that section's
-block once, and the run continues under each guard's own hand-run fallback.
+`check-cleanup-complete.sh`, `check-worktree-processes.sh` and `gather-self-review-context.sh` — is
+present in `skills/myflow-finish/scripts/`. A complete set prints nothing; any absence prints that
+section's block once, and the run continues under each guard's own hand-run fallback.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
 worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read of the state file's

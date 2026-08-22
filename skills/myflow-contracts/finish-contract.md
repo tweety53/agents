@@ -504,7 +504,7 @@ and the snippet it verifies must not disagree, or the wrong one gets copied next
 Which worktrees those are, and the `git worktree list --porcelain` scan that finds them when
 the state file's map is absent or empty, are **Resolving a change's worktrees** above.
 
-For each worktree, run **all four** checks before removing anything:
+For each worktree, run **every** check below before removing anything:
 
 ```bash
 # 1. no uncommitted tracked changes — must be empty
@@ -547,7 +547,31 @@ git -C "$WT" ls-files --others --ignored --exclude-standard
 
 # 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a
 #    bounded wait — 60 seconds — and treat a timeout as a FAILED check.
+
+# 6. no process is still running FROM this worktree. Runs whether or not `## stop` is declared,
+#    and whatever that command exited: a project that declares no stop command can still have a
+#    stack running from its worktree, and a stop command that exits 0 is not evidence that it
+#    worked. Verifying that is the whole of what this check adds.
+check-worktree-processes.sh "$WT"
 ```
+
+**Check 6 is a gate, and both of its bad outcomes are failures.** `HELD:` names each process
+holding the worktree, and exit 2 says the guard could not answer at all — the scanning tool is
+absent, or the worktree path is not readable. Neither is a pass: an inability that proceeded to
+removal would be the failure this check exists to prevent, arrived at more quietly. On either, stop
+at `IN_PROGRESS`, leave every worktree alone, and report each pid, its working directory, and the
+command that reaches it:
+
+```bash
+ps -o pid,command -p <pid>
+```
+
+**There is no confirmation to proceed past check 6**, unlike check 4's disclosure. That disclosure
+is safe to confirm because the operator can see what is at stake and decide; a live process is
+different in kind. Confirming it destroys the only records that can reach the process afterwards,
+and the resulting orphan holds ports shared across every workspace — which is how this incident
+reached the operator both times it happened. The remedy is to clear the process and re-run, while
+the worktree still exists and the project's own stop command can still read what it started.
 
 **Check 4 is a disclosure, not a gate.** When it lists anything, **stop and show the list**, and
 ask for explicit confirmation before removing that worktree. Do not try to classify the entries as
@@ -558,9 +582,9 @@ Empty list → proceed without asking.
 (`skills/myflow-fast/SKILL.md`) state that override and why it is safe there: that command reports
 what `--force` will destroy and proceeds, having already preserved and committed the records worth
 keeping before it reaches cleanup. The override is named here too, so two files cannot silently
-disagree about a step that destroys files. It reaches nothing else — checks 1, 2, 3 and 5 stay gates
-under every command, and an irreplaceable **unpreserved** entry still stops the run and asks, under
-`/myflow-fast` as much as here.
+disagree about a step that destroys files. It reaches nothing else — checks 1, 2, 3, 5 and 6 stay
+gates under every command, and an irreplaceable **unpreserved** entry still stops the run and asks,
+under `/myflow-fast` as much as here.
 
 Then, and only then:
 
@@ -583,7 +607,7 @@ git -C "$REPO" worktree prune
 - **`git branch -d`, never `-D`.** It must be free to refuse an unmerged branch.
 - **An already-removed worktree is success**, not an error.
 - **Any failed check leaves every worktree alone** and reports why. There is no partial cleanup.
-  This includes check 4: a `## stop` command that **exits non-zero, is not found, or has to be
+  This includes check 5: a `## stop` command that **exits non-zero, is not found, or has to be
   interrupted** is a *failed* check, not an absent one — only an undeclared key is skipped. Give it
   a bounded wait rather than letting it hang the run.
 - **Verify each removal actually succeeded** before writing state. If any `git worktree remove`
@@ -626,5 +650,6 @@ fi
 The stack-stopped check reads the optional `## stop` key from `<project>/.myflow/project.md` —
 see **Project configuration** in `skills/myflow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
-the other two.
+the other checks — check 6 among them, which is what makes an undeclared `## stop` key survivable:
+a project that declares nothing to stop is still checked for a process running from its worktree.
 
