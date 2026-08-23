@@ -80,12 +80,16 @@ state-file contract SHALL carry the field's shape and SHALL NOT restate what a p
 - **THEN** the panel dispatches Primary, Bugbot and Principles as its required slots, exactly as it
   did before this capability existed
 
-### Requirement: The light preset's third slot invokes the harness's code-review skill
+### Requirement: The light preset's third slot is a general-purpose reviewer
 
 Under the `light` preset, the third required slot SHALL be **Code review (low)**: a
 `general-purpose` subagent, dispatched on the model recorded under `models.reviewPanel` and
-defaulting to Sonnet, instructed to invoke the harness's `code-review` skill at effort `low`
-against the panel's diff in the worktree and to return its findings **in its report back**.
+defaulting to Sonnet, briefed to report high-confidence defects only against the panel's diff in the
+worktree. It SHALL NOT invoke a skill.
+
+The slot's name SHALL remain `Code review (low)`. It is the value `myflow record dispatch begin
+-slot` writes into the store, and keeping it leaves dispatch rows written before this change
+comparable with rows written after it.
 
 Because the dispatcher names the model, the SDD ledger SHALL record that model for this slot and
 SHALL NOT record `unknown (agent-defined)` — that value is reserved for slots dispatched by
@@ -94,15 +98,15 @@ SHALL NOT record `unknown (agent-defined)` — that value is reserved for slots 
 Its findings SHALL be recorded exactly as any other slot's: an `F<n>` row in the findings table and
 a marker line in the marker block. This requirement SHALL NOT change the panel record's format.
 
-Where the harness offers no `code-review` skill, the slot SHALL become a `general-purpose` reviewer
-on the panel model, briefed to report high-confidence defects only, and the panel record SHALL name
-the substitution. The slot SHALL NOT be dropped, and the panel SHALL NOT fall back to two required
-slots: an unavailable harness skill is not a way to weaken review.
+Because the slot invokes no skill, there SHALL be no harness-availability condition on it and no
+substitution for the panel record to name. The panel SHALL NOT fall back to two required slots on
+any account.
 
 #### Scenario: The slot is dispatched with a named model
 
 - **WHEN** the panel dispatches Code review (low)
 - **THEN** it is a `general-purpose` subagent given `models.reviewPanel` explicitly
+- **AND** it is given no skill to invoke
 - **AND** the ledger line for it records that model rather than `unknown (agent-defined)`
 
 #### Scenario: Its findings are ordinary findings
@@ -111,11 +115,11 @@ slots: an unavailable harness skill is not a way to weaken review.
 - **THEN** the panel record carries an `F<n>` row and a marker line for it, in the same format every
   other slot's findings use
 
-#### Scenario: An unavailable skill substitutes rather than drops
+#### Scenario: The slot's shape does not depend on the harness
 
-- **WHEN** the harness offers no `code-review` skill
-- **THEN** a `general-purpose` reviewer briefed for high-confidence defects runs in its place
-- **AND** the panel record names the substitution
+- **WHEN** the panel dispatches Code review (low) under any harness
+- **THEN** it is the same `general-purpose` reviewer in each
+- **AND** the panel record names no substitution, because none was made
 - **AND** the panel still has three required slots
 
 ### Requirement: The lighter presets offer conditional slots instead of auto-including them
