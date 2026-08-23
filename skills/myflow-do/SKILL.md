@@ -457,7 +457,7 @@ parent-model inheritance and no economy tier. See **5. The review panel**
 | 0 | **Primary** — plan alignment + code quality | **always** | `models.reviewPanel` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
 | 1 | **Bugbot** — defect hunt | `standard`, `full` | its own | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, + the mutation-testing brief below |
 | 2 | **Principles** | **always** | `models.reviewPanel` | general-purpose + [principles-reviewer-prompt.md](principles-reviewer-prompt.md), `[LENS]` = **Merged** |
-| 3 | **Code review (low)** | `light` | `models.reviewPanel` | general-purpose + the harness's `code-review` skill at effort `low`, against `final-review.diff` |
+| 3 | **Code review (low)** | `light` | `models.reviewPanel` | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
 | 4 | **Security** | conditional | its own | `subagent_type: security-review`, same shape as Bugbot |
 | 5 | **Adversarial** | conditional | `models.reviewPanel` | general-purpose + [adversarial-reviewer-prompt.md](adversarial-reviewer-prompt.md) |
 | 6+ | **Principles lens B / lens C** | conditional | `models.reviewPanel` | same template, `[LENS]` = **Lens B — simplicity & state** or **Lens C — robustness & ops** |
@@ -490,8 +490,7 @@ halves take the same one.
 **`-model` is recorded intent here too, per Model policy.** A slot the dispatcher named a model for
 records that model; **slots 1 and 4, dispatched by `subagent_type`, record the literal
 `unknown (agent-defined)` and never a plausible-looking slug**, for the reason the paragraph above
-gives. Slot 3 names its real model, and the fallback reviewer that replaces it where the harness
-offers no `code-review` skill does too.
+gives. Slot 3 names its real model.
 
 **`-agent-id` carries the harness's own identifier for the dispatched subagent, where the harness
 reports one, and is omitted where it does not.** This is the flag's whole reason for existing: the
@@ -525,21 +524,53 @@ Slots dispatched by `subagent_type` (Bugbot, Security) receive it as prompt text
 already receive the reproducer requirement and the mutation-testing brief — no agent definition is
 edited to carry it.
 
+### No forking, and a wall-clock ceiling on every slot
+
+**No panel slot SHALL be dispatched onto a skill or agent that forks its own background agent.** The
+parent dispatcher never observes a forked agent's completion, so a slot dispatched that way cannot
+report through the panel's contract: its findings land on a surface the panel does not read, or they
+never arrive at all, and either way the slot neither returns a result nor reliably ends. The repair
+is to dispatch that slot on a shape that reports back to the dispatcher directly. **Never drop the
+slot** — *No preset moves the handoff bar*, earlier in this section, already forbids it.
+
+**Every panel slot SHALL carry a 15-minute wall-clock ceiling from its dispatch.** The dispatcher
+SHALL NOT block indefinitely on a slot's completion notification; it tracks each in-flight slot's
+elapsed time and enforces the ceiling itself, so a slot emitting output while making no progress is
+still bounded. This is stated against the mechanism, not against one harness's tool — the same form
+**Progress visibility** (`skills/myflow-contracts/pipeline.md`) uses — so no harness has to gain a
+particular tool to satisfy it; a dispatcher waiting on a notification alone has dropped the
+requirement rather than adapted it.
+
+On a breach, in order:
+
+1. Stop the slot.
+2. Close its dispatch row: `myflow record dispatch end … -outcome timed-out`.
+3. Record the breach in the panel record, naming the slot and its elapsed time.
+4. Re-dispatch that one slot once. Other slots are unaffected.
+
+A second breach of the same slot is never resolved silently. Stop and put it to the operator, shape
+per **Operator prompts** (`skills/myflow-contracts/operator-prompts.md`):
+
+> **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
+> - **Re-dispatch it again**
+> - **Proceed without the slot**
+> - **Stop the run** *(default, recommended)* — ends at `IN_PROGRESS` with the implementation
+>   committed on the branch
+
+A timed-out slot raises no finding, consumes no fix round, and is not a clean result for the final
+pass. Where the operator chooses to proceed without it, the panel record names that slot as **not
+run** — distinct from a slot the operator declined and from a slot whose trigger never fired, both of
+which **Optional slot selection**, below, already distinguishes.
+
 ### Code review (low)
 
-Slot 3, the `light` preset's third required slot, is a `general-purpose` subagent on
-`models.reviewPanel`, told to invoke the harness's `code-review` skill at effort `low` against
-`<abs-worktree>/.superpowers/sdd/final-review.diff` in the worktree. Because the skill reports through a host
-surface the parent does not read, tell the subagent to return its findings **in its report back**
-rather than leaving them wherever the skill itself displays them, as ordinary `F<n>` rows and marker
-lines like every other slot's. Because the dispatcher names the model explicitly, this slot's
-dispatch row records that real model and never `unknown (agent-defined)`, which is reserved for
-slots dispatched by `subagent_type`.
-
-**Where the harness offers no `code-review` skill**, the slot becomes a `general-purpose` reviewer
-on `models.reviewPanel`, briefed to report high-confidence defects only, and the panel record names
-the substitution. The slot is never dropped on that account, and the panel never falls back to two
-required slots: an unavailable harness feature is not a way to weaken review.
+Slot 3, the `light` preset's third required slot, is unconditionally a `general-purpose` subagent on
+`models.reviewPanel`, briefed to report high-confidence defects only against
+`<abs-worktree>/.superpowers/sdd/final-review.diff` in the worktree. It invokes no skill, so there is
+no harness-availability condition on it and nothing for the panel record to name as a substitution.
+Its findings are ordinary `F<n>` rows and marker lines, exactly like every other slot's. Because the
+dispatcher names the model explicitly, this slot's dispatch row records that real model and never
+`unknown (agent-defined)`, which is reserved for slots dispatched by `subagent_type`.
 
 ### Bugbot's mutation-testing brief
 

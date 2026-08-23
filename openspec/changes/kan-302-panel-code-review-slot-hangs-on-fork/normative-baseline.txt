@@ -1,0 +1,1258 @@
+"Creates" SHALL be determined by the absence of the change's state file, not by any inference about the operator or the conversation.
+"Creates" SHALL be determined by the absence of the state file, exactly as the planning-effort question determines it.
+"The state file", wherever this specification and its siblings use the term, SHALL denote that record rather than a particular storage medium: which medium holds it is governed by `myflow-state-store` alone, and no requirement about the pipeline's states depends on the answer.
+"Which changes ran a task on a given model" SHALL be a question the store can answer across changes, which is what distinguishes a recorded policy from a policy that merely left a trail somewhere.
+### Requirement: A command SHALL report a missing guard once, at the start of the run
+### Requirement: A corpus-scanning guard SHALL report what it checked, per member
+### Requirement: A guard SHALL NOT derive a repository root from a fixed depth above itself
+### Requirement: A guard a command invokes SHALL be reachable from that command's installed skill
+### Requirement: A skill directory SHALL carry symlinks only under its `scripts/` directory
+### Requirement: Zero coverage SHALL be declared or SHALL be a violation
+**A `stage begin` mark MUST carry `-session-token` and `-harness`.**
+**A backtick span whose content begins `<!--` is an HTML comment, and SHALL be skipped whole** — emitting no tokens at all — rather than word-split with its fragments excluded afterwards.
+**A command SHALL be recognised as a mark by the invocation it performs, not by where that invocation sits in the command text.**
+**A dirty working tree SHALL be refused wherever it is found — on `<base>` as well as off it.**
+**A fix round SHALL update an existing finding's row rather than append a second one.**
+**A folded line SHALL group values of one kind — on-disk or run-only — and never both.**
+**A guard handed an explicit single target is not in scope** and SHALL NOT be required to report a count.
+**A join SHALL NOT echo the joined issue's pre-edit description into the handoff.**
+**A join SHALL be idempotent under retry, and each of its three writes SHALL be guarded separately.**
+**A leftover, and a verification that could not be performed, SHALL both block the `FINISHED` write.**
+**A mechanical no-loss check SHALL NOT be substituted for the ledger.**
+**A partial match SHALL be a defined outcome, not a rounding.**
+**A period that cannot be read as a valid range SHALL fall back to the default**, rather than being partially applied or rendering an empty view.
+**A preset covering all recorded history SHALL resolve to a concrete lower bound**, because the server requires both bounds and rejects an open range.
+**A rendered record SHALL be named to match the archive it joins**, not to a convention of its own.
+**A resolved base belongs to the worktree it was resolved in, and SHALL NOT be reused across worktrees.**
+**A resolved set that is still empty SHALL stop the run rather than pass it.**
+**A service that is not running SHALL be reported and skipped, not failed.**
+**A skipped append SHALL NOT skip the retitle or the label union.**
+**A state file that is missing or unparseable SHALL be reported and skipped, never rebuilt from inference.**
+**A survivor SHALL be established by asking, never inferred from the removal's exit code.**
+**An ID SHALL be unique across `## Decisions` and `## Open questions` together, not merely within its own section** — the two are one namespace, because `answered by <decision-id>` reaches from one into the other.
+**An absent install SHALL NOT be a failure.**
+**An application whose port is fixed outside the declaring project's own repository is not isolated, and SHALL be recorded as a stated limitation rather than left to be discovered.**
+**An empty map SHALL be treated exactly as an absent one, and never as "there are no worktrees".**
+**Authored artifacts SHALL NOT move.**
+**Before dispatching the fix subagent**, `/myflow-do` SHALL run each supplied, constrained reproducer command through `scripts/run-reproducer.sh <worktree> <reproducer-command-line>`, with the worktree as the reproducer's working directory, under a bounded wait of **20 seconds** plus a **2-second** SIGTERM-to-SIGKILL grace — the grace matching `scripts/check-cleanup-complete.sh`'s own `SURVIVORS_KILL_GRACE`, the 20-second bound being this rule's own number rather than that script's 60-second `SURVIVORS_TIMEOUT`, since a reproducer is one short-lived check under test rather than a wait for a whole cleanup pass.
+**Bounce accounting SHALL key off defect identity — file:line plus theme — never off the finding's `F<n>` identifier.**
+**Brevity SHALL NOT withhold a fact.**
+**Carrying it SHALL NOT change which view the URL selects.**
+**Each bounce SHALL be recorded in the panel record's pass log entry, keyed by the finding's defect identity and carrying the reproducer output that was returned to the raising slot**, so that a run resumed after an interruption can see that a finding has already had its bounce and goes to the operator instead of bouncing it again.
+**Each producing skill SHALL cite that definition at the block it carries.**
+**Every command that reads the level SHALL perform that fallback**, not read `planningEffort` alone: a compatibility read promised in prose and implemented in no consumer reports a file that recorded a real level as having recorded none, which is the one outcome the exception exists to prevent.
+**Every skill that dispatches with such a file SHALL carry it in its own directory**, as a relative symlink to the one canonical copy — the rule `skills/*/scripts/` already follows for guards, for the same reason: one file, reachable by a stable path, with no second copy to drift.
+**Every token — the path and every argument — SHALL be resolved against the worktree and required to pass the same containment test** the `## standards` entry resolution already applies: normalize `..`, `.`
+**Every trigger in that set SHALL discriminate between fixes in the repository it runs in.**
+**Every** structural element both guards read out of a `tasks.md` SHALL be defined in that same single place, pattern **and** selection: which lines open a task, which task an id names, where a task's body ends, which line is its `**Build:**` tag, and which line is its `**Squash-with:**` field.
+**It SHALL be split where its reasoning is separable from its rules** — where a passage can be lifted whole, leaving behind a rule an agent can still act on, without the surrounding procedure losing anything it needs.
+**Level 1** SHALL be one row per command, listing its stages in order with the human gates marked, and SHALL mark which stages carry a level-2 expansion.
+**Level 2** SHALL expand the stages that themselves hide substructure.
+**Merge status SHALL be retained**, because it is local git and it is what splits the `IN_PROGRESS` row's next-command answer between integrating and archiving.
+**Once the fix subagent reports, /myflow-do SHALL re-run every dispatched finding's reproducer** under the same constraints and SHALL require it now to exit **0**.
+**One refusal is exempt**, and only one: a dispatch's closing write naming a key the store holds no dispatch under SHALL be journalled and replayed rather than refused.
+**Related fields SHALL be folded onto one line, and no field SHALL be dropped.**
+**Reporting the zero without failing SHALL NOT satisfy this requirement.**
+**Rule extraction is not permitted where the whole passage is core**, and SHALL NOT be used to shorten a passage that carries no argument.
+**Run 2 SHALL NOT push the base branch.**
+**Such a file SHALL NOT be core/appendix split merely because it is large.**
+**THEN** the registry is incomplete and SHALL be corrected rather than the artifact left unaccounted for
+**Targeted** mode SHALL be unchanged; it is already scoped to the agents that raised findings plus the integration check.
+**That check SHALL match on the change and the items, and SHALL NOT be scoped to the current date.**
+**The `PR` column SHALL NOT report whether a pull request is open, merged or closed.**
+**The comparison SHALL be per item, by membership over the union of every `## From <KEY>` section carrying this change's key — never equality of the whole list, and never the mere existence of such a section.**
+**The disqualifying condition is "no path the finding named", and the two clauses SHALL be read together rather than the first alone.**
+**The finish contract SHALL live in `finish-contract.md`**, which is canonical for it: the preflight signals, both runs' procedures, base-branch resolution and worktree cleanup are reachable only from `/myflow-finish`, and `pipeline.md` is read by every command.
+**The format SHALL NOT be altered by this move, and the record's location SHALL move with it.**
+**The guard script that validates the panel record SHALL itself reject a runnable reproducer line that is not this bare-path shape**, at exit 1, naming the violated shape — the constraint SHALL NOT live in prose alone.
+**The index is the inventory, and this requirement SHALL NOT enumerate the directory's contents.**
+**The marker contract SHALL NOT be altered by the move into the store, and the record's location SHALL move with it.**
+**The panel record SHALL always be written when a panel closes, even when the panel raised nothing.**
+**The panel-fix default is the strongest available model, and SHALL NOT be lowered by this capability.**
+**The partial-join report SHALL also name what the append did**, that being independent of which later write failed: the whole list appended, only the absent ones appended, or the items already recorded from an earlier attempt.
+**The passing re-run alone SHALL NOT close a finding: the fix's diff SHALL also touch at least one path the finding named.**
+**The per-state handoff block templates SHALL live in `handoff-blocks.md`**, which is canonical for them: only `/myflow-status` needs the full set, every producing command carrying just the one block it prints, and `pipeline.md` is read by every command.
+**The pre-edit Jira description SHALL never be folded and never be dropped.**
+**The question this record answers SHALL be answerable by query, not only by reading.**
+**The read the assertion is made against SHALL be taken immediately before the write**, never one taken earlier in the run.
+**The record SHALL be rendered to one location, not two.**
+**The record SHALL be rendered when the panel closes**, before any guard reads it — not at integration.
+**The second edit SHALL be a deletion, never a substitution.**
+**The session token MUST be a literal, written directly into the command — never a shell substitution.**
+**The signal size is paired with SHALL be `adds a new file`, and SHALL NOT restate the other risk signals in this set.**
+**The size clause SHALL be an amplifier and SHALL NOT be an independent trigger.**
+**The table SHALL be regenerated once, as the last action of a change that alters any covered file.**
+**The table SHALL be rendered from the store's finding rows, never hand-written.**
+**The worktree path SHALL NOT be a column.**
+**This repository holds a runnable application**, so `## apps` SHALL describe it alongside the skills-and-rules half that has no port and no URL, and the `## workspace isolation` section SHALL declare the resources an apply worktree runs against its own copy of.
+**Uniqueness SHALL be enforced by the store's own constraint on the finding's reference within its change**, so a duplicate is refused at the write rather than detected at the read.
+**WHEN** a passage carries a SHALL, SHALL NOT, MUST or MUST NOT sentence
+**WHEN** a trim removes a paragraph containing a SHALL sentence
+**When the script is absent** — a harness whose repository does not carry it — the same checks SHALL be performed by hand, in the same order, and the handoff SHALL say the positioning was done manually.
+**Which line** in a task's body is that field SHALL be decided in that same single place, by one function both guards call, and neither guard SHALL keep a selection loop of its own.
+**`/myflow-status` SHALL perform no state-file write of any kind.**
+**`file:line` is the finding's recorded location taken verbatim from the findings table; `theme` is the finding's Note reduced to the shortest defect noun phrase within it, with severity words, slot names and prose padding stripped — a reworded restatement of the same defect at the same file:line reduces to the same theme, and this reduction SHALL be defined once and cited, not restated, by every rule keyed on it.**
+**`run-reproducer.sh` SHALL launch the reproducer in a process group of its own**, so that a descendant which re-parents away from it remains findable and killable by group membership rather than by parentage.
+**`state-self-heal.md` SHALL NOT exist.**
+A **normative sentence** SHALL be one containing `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole word.
+A **partial** install SHALL be a failure: the directory existing is what says an install happened, so every rule missing after that is drift.
+A CommonMark inline code span SHALL NOT delimit a quotation: a number written inside backticks is an ordinary numeric claim and SHALL be reported.
+A `**Build:**` tag SHALL be **line-scoped**, and a task's tag SHALL be the **first** non-fenced line that is `**Build:** green` or `**Build:** red` in full, in both guards.
+A `**Commit:**` field carrying no scope at all SHALL pass — a scope is optional, and only a present-and-wrong scope fails.
+A `**Squash-with:**` field SHALL be **line-scoped**.
+A `**Squash-with:**` field naming a task that does not exist in the same plan SHALL fail the guard — that is a plan defect, and resolving against a missing partner would silently widen the file set to nothing.
+A `**Squash-with:**` field's whole value SHALL be gated as `Task <id>[, <id>...]`
+A `/myflow-*` command SHALL check, once at the start of its run, that every guard it can invoke is present in its own `scripts/` directory.
+A `green` tag SHALL mean the project builds and this task's own verification command can run, given only the state left by the preceding tasks.
+A `red` tag SHALL mean this task alone does not leave a green build, and its `Squash-with:` field SHALL name the merge partner — the tag itself no longer carries the partner inline.
+A `stage begin` SHALL close every still-open stage run that carries the same session token and started no later than the new run, recording `superseded` as that run's outcome and the new run's own start instant as its end.
+A `withdrawn` marker with nothing after the status SHALL count as outstanding: the reason is part of the state, and a status nothing checks is the escape hatch this bar exists to close.
+A `|` inside a cell therefore needs no escaping and SHALL NOT change how any finding is counted.
+A bare observation with no concrete change implied SHALL NOT appear as an option.
+A begin mark carrying a start instant earlier than an open run's SHALL leave that run open — a replayed mark closes only what it genuinely preceded.
+A bounce SHALL NOT close, soften or expire the finding it concerns.
+A bounce SHALL be accounted as a **guard-class** failure and not as a review finding, following the accounting already required of `check-task-commit-fields.sh`: it SHALL NOT consume one of the review loop's fix-round slots, and SHALL NOT advance the escalation ladder's count of rounds already run.
+A branch that genuinely reached the base branch has nothing left to commit; uncommitted tracked changes or untracked-unignored files at this point SHALL refuse run 2.
+A budget row SHALL be written only after the change's normative-sentence inventory has been shown unchanged for that file's group, so a bad trim is not locked in by the ratchet that follows it.
+A bundle gathered once per run SHALL NOT be reused across those points.
+A caller SHALL NOT branch on the record command's exit code as a signal about the record: a write that could not reach the store still exits 0.
+A caller SHALL NOT distinguish the two by matching stderr text.
+A change SHALL record a **review panel roster preset** in its state file, under the top-level key `reviewPanelRoster`, whose value SHALL be exactly one of `light`, `standard` or `full`.
+A change name SHALL be required to be a single plain path component before any directory is touched.
+A change recording a `prUrl` SHALL show its number; the detail view SHALL say where to look for its state.
+A change that affects more than one repository SHALL be stored as **one** change record, never as one record per repository.
+A change that edits prose across the corpus SHALL capture the inventory before its first edit and after its last, and SHALL require the two to be byte-identical.
+A change to the levels or the default SHALL be made here first and carried into that table; the two SHALL NOT be allowed to disagree.
+A change's **derived** records — every subagent dispatch and every review-panel finding — SHALL be recorded in the stats store.
+A change's `specs/` directory SHALL NOT be scanned.
+A check that requires context no tree scan provides — a branch, a worktree, a resolved base ref — SHALL NOT be named in `## lint`, because a lint step that cannot run outside a change would fail on every unrelated invocation.
+A cited path beginning with the literal `<agents repo>/` SHALL have that prefix stripped before the path is resolved, so a citation that names this checkout explicitly is checked exactly as the same citation was checked before it carried a root.
+A command SHALL NOT emit a mark naming a change name it has not yet resolved — a best guess, a bare issue key awaiting its slug, or any other stand-in for a name the run is still working out.
+A command SHALL NOT fail, stall, or alter its behaviour because the daemon or the database is unreachable.
+A command that both gates on a change's state and marks its own stages SHALL read that state **before** emitting its first mark.
+A command's entry SHALL NOT be prose describing the command as a whole, because a command whose entry is one sentence can only ever record one stage and its per-stage statistics answer nothing.
+A conditional slot that raised an open finding SHALL still block the handoff whether or not it re-runs, and not re-running a slot SHALL NOT close, soften or expire any finding it has already raised.
+A conditional slot whose trigger did not fire SHALL NOT be re-run, and its previous pass's result SHALL stand, recorded in the panel record as not re-run because its subject was unchanged.
+A contract carrying both rules and the reasoning behind them SHALL be split into a core and a rationale appendix, per **A contract file separates its normative core from its rationale** (`openspec/specs/myflow-contract-economy/spec.md`).
+A correlator SHALL be generated fresh per run.
+A covered file with no budget entry SHALL be a failure, so a file added later cannot silently escape the ratchet.
+A derived database name SHALL be safe to use **unquoted**, because a call site that omits quoting must not be able to break on it.
+A difference SHALL be resolved by restoring the sentence, never by accepting the new inventory.
+A directory total SHALL NOT stand in for the files under it, since one file may balloon while another shrinks with the total unchanged.
+A dispatch SHALL NOT be instructed that the bundle is its only permitted planning source.
+A dispatch SHALL carry a caller-written key, unique within the run its session token names, and the two calls SHALL name the same row by it rather than by the store-allocated append order — which a caller whose opening write was journalled has never been told.
+A dispatch SHALL therefore record the harness's own identifier for the subagent it dispatched, where the harness exposes one, and attribution SHALL prefer that identifier over the interval.
+A dispatch row's model, role, task and slot SHALL be **recorded intent**, written by the dispatcher.
+A dispatch the store never measured SHALL be rendered as unavailable rather than as zero, exactly as an unmeasured stage run already is, so that the absence of a measurement stays distinguishable from a measurement of nothing.
+A dispatch whose end instant is absent SHALL be treated as still running, so a dispatch that is never closed SHALL NEVER stop being a candidate for later usage.
+A dispatch whose model the dispatcher could not observe SHALL still record `unknown (agent-defined)`; durability SHALL NOT be a reason to fill such an entry with a plausible value.
+A dispatch's task, its role, the model it ran on, the commit it produced and the tokens it spent SHALL be recorded as **one row**, not as separate records in separate places.
+A display name matching **exactly one** project SHALL resolve to that project's key.
+A display name matching **more than one** SHALL be rejected with a client error that names the ambiguity and lists the candidate keys; it SHALL NOT be resolved to any one of them, because a filter whose value means two projects is not a filter, and choosing silently answers a question the caller did not ask.
+A failed assertion SHALL make no write at all and SHALL emit the standard skipped-with-reason line.
+A failed creation, a failed join or a partial join SHALL degrade exactly as every other Jira write does — one `⚠ Jira: skipped — <reason>` or partial-join line, with the run continuing and writing its state as it would have.
+A failed mark SHALL degrade exactly as a failed state write does: one warning line, a journal entry, and the run continues.
+A failed push, or a failed pull-request creation, SHALL be reported with the underlying command's own output and SHALL NOT move the change off `FINISHED`.
+A failure SHALL NOT be retried in a loop, SHALL NOT roll anything back, and SHALL NOT abort the run.
+A failure inside self-review SHALL be reported and SHALL NOT reopen the change or move its state.
+A fence a task body **opens and never closes** SHALL be reported as a plan defect of its own, naming the task and the line the fence opened on, and SHALL **replace** — not accompany — every check whose input that fence swallowed.
+A field named in a filter, a sort or a search SHALL be resolved through a fixed mapping from accepted names to stored fields.
+A file SHALL be required to satisfy both, and the rule's text SHALL NOT leave them reading as alternatives.
+A file `setup.sh` installs or copies SHALL NOT carry a path citation whose root is unstated.
+A file carrying the retired `effort` key SHALL be read as recording the equivalent level rather than as unparseable, and SHALL be rewritten under `planningEffort` on the next write it receives.
+A file describing a removal SHALL point at the registry rather than restate it.
+A file it cannot find SHALL count as outstanding rather than as clear.
+A file that is missing or unparseable SHALL be named in the command's own output and skipped, never rebuilt from inference.
+A file the pipeline loads on a run — a contract under `skills/myflow-contracts/`, or a `SKILL.md` a `/myflow-*` command reads — that carries both rules and the reasoning behind them SHALL be split into two files: a **core** at the original path, and a **rationale appendix** beside it, named by appending `-rationale` before the extension.
+A filed issue SHALL carry every label on the change's linked issue, plus `AI-generated`, **plus the label naming the angle that produced it** from the table above, and SHALL link to that issue when one exists, per **Labels on issues the pipeline creates** (`skills/myflow-contracts/jira-integration.md`).
+A filing failure SHALL degrade to the standard `⚠ Jira: skipped — <reason>` line and SHALL NOT stop self-review, per **Never blocking** (`skills/myflow-contracts/jira-integration.md`).
+A finding recorded `none — <reason>` SHALL be dispatched without a run: the rule binds findings claiming a mechanical defect, and a principles, prose or naming finding has no runnable check to demand.
+A finding recorded as filed SHALL name an issue key.
+A finding whose reproducer passed SHALL be **bounced once** to the slot that raised it, carrying the reproducer's passing output.
+A finding's reference SHALL be unique **per change**, not per round.
+A finished change SHALL NOT leave the archive move uncommitted in the working tree.
+A fix round SHALL update an existing finding's status in place rather than appending a second row for the same reference, so the record of a change's findings SHALL NEVER be cumulative.
+A fix round that changes only prose or markdown has no executable behaviour to mutate and SHALL record the exemption form rather than recording nothing.
+A fix whose diff, for a given finding, touches only the reproducer's own target and no path the finding named SHALL NOT be treated as a fix; the finding stays open and goes to the operator through the handback prompt, carrying that fact as the reason.
+A fold in which **no** partner declares a `**Commit:**` subject at all SHALL fail the guard, naming the red task.
+A guard SHALL NOT compute a repository root as a fixed number of levels above its own directory.
+A guard SHALL NOT read the panel record from `<worktree>/.superpowers/sdd/final-review-panel.md`, and SHALL NOT fall back to it when the rendered record is absent.
+A guard SHALL fail when a plan contains an untagged fenced code block or an untagged numeric claim, reporting `file:line`.
+A guard SHALL resolve it by an **anchored** match on both the date prefix and the change name — the same rule the renderer applies when it reuses an existing dated file — so that one change's record can never be read as another's, and SHALL read the same file the renderer would write.
+A guard failure on any of these SHALL send the task back to the same implementer rather than counting as a review finding.
+A guard script SHALL parse `tasks.md` and fail the run when: a task has no `**Build:**` tag; a task is tagged `red` with no `**Squash-with:**` field; a named `Squash-with:` partner does not exist in the plan, or is not itself tagged `green`; or a `red` chain never resolves to `green` before the plan's last task.
+A guard that cannot source the library SHALL exit 2 — it cannot answer — and SHALL NOT continue with a reduced set of checks.
+A guard that discovers its corpus from the tree — rather than being handed a single explicit target — SHALL report, in its verdict line, how many items it checked **for each member of that corpus**, and SHALL name every member whose count is zero.
+A guard that resolves a sibling from its own directory — a shared library, a `.py` companion, another guard — SHALL have that sibling symlinked beside it in every skill directory carrying it.
+A guard that resolves the record from a change name SHALL validate that name against the allowlist the renderer applies — one leading letter or digit, then letters, digits, `.`, `_` and `-` — before the name is used to resolve any path, and SHALL refuse with its own cannot-answer status rather than reach a verdict when the name is outside it.
+A guard that runs during implementation SHALL find a current record to read.
+A guard wrapper whose Python half imports that shared module SHALL check the module is present and exit 2 naming its path, rather than letting a missing module surface as an import traceback and exit
+A handoff SHALL contain what actually happened in one to three lines, the absolute paths of anything the operator needs to open, and the next command.
+A harness that exposes no such identifier SHALL NOT be degraded: attribution falls back to the interval rule, which remains correct for dispatches that do not overlap.
+A join SHALL append the new items to the joined issue's description under a dated `## From <KEY>` heading, creating that heading if absent, and SHALL leave everything preceding it byte-for-byte unchanged.
+A join makes up to three writes and SHALL make them in this order: append the items, then retitle, then union the labels.
+A key SHALL NOT be reused for a different stage.
+A key SHALL be declared rather than derived from the name.
+A key not matching that shape SHALL be shown **unchanged** — a key derived some other way stays readable rather than losing its last segment to a pattern that was never about it.
+A kind the store holds no rows of SHALL be reported and SHALL NOT fail the run: a change may legitimately have no panel record, and a step able to block an integration would be a worse failure than the gap it closes.
+A later round that answers the question SHALL set that entry's status to `answered by <decision-id>` and SHALL add the corresponding decision entry.
+A ledger row whose destination cannot be found, and a diff deletion with no row, SHALL each be a finding.
+A level MAY change how many questions are grouped into a round — one at a time at `detailed`, batched at `low` — and SHALL NOT change whether another round opens.
+A level-2 expansion SHALL state **structure** and SHALL cite the owning file for **tuned thresholds**.
+A line carrying one SHALL lose the carve-out entirely.
+A line containing a `<` ANYWHERE ON IT SHALL therefore lose the carve-out entirely, whether or not the `<` opens a construct, whether or not that construct closes, and whether or not any delimiter sits inside it.
+A line that names `finding-status:` without being a marker line — indented, inside a blockquote, missing its `F<n>` identifier, or written into prose — SHALL count as outstanding rather than be skipped.
+A lower level MAY group questions into fewer rounds and MAY batch related questions into one prompt; it SHALL NOT convert a question into an assumption.
+A lower level SHALL mean fewer rounds of questions and coarser grouping, never a gate that does not run.
+A main checkout on any other branch with a **clean** working tree SHALL be switched to `<base>` and fast-forwarded.
+A main checkout that is already on `<base>` with a **clean** working tree SHALL be fast-forwarded and used.
+A mark SHALL NEVER block, delay, or alter the stage it marks.
+A mark SHALL NOT cause the state it is about to be gated on to come into existence.
+A mark SHALL identify its stage by key; the interface SHALL present the name.
+A marker line SHALL begin at the first character of its line and SHALL read exactly:
+A marker line written anywhere else in the record, including inside a fenced example, SHALL count as outstanding.
+A member whose coverage is zero and which is **absent** from that set SHALL be a violation: named, with its reason, and a non-zero exit.
+A member's presence in that set SHALL be a written declaration in the guard, never inferred from the tree.
+A meta file that is absent or unreadable SHALL NOT prevent the dispatch's tokens from being attributed.
+A metric that could not be measured SHALL be recorded as absent or explicitly unavailable, and SHALL NEVER be recorded as zero.
+A metrics key path SHALL be validated against a syntax rule and then supplied as a bound value, never as interpolated text.
+A minor finding SHALL block the handoff exactly as a critical one does.
+A name absent from that mapping SHALL be rejected with an error naming the field and the accepted alternatives.
+A name carrying a path separator or a glob metacharacter SHALL be rejected outright, because the search for an already-rendered file is anchored on the name and a metacharacter in it would let one change adopt and overwrite another change's rendered record.
+A newly created database SHALL start **empty** and be brought up to date by the project's normal migration and seeding path — the same path a fresh machine takes — rather than by copying an existing database.
+A non-zero exit SHALL keep its single existing meaning — a write attempted and refused or failed — so a caller branching on exit status never reads an empty record as a failure.
+A non-zero exit from any of them SHALL be treated as a failing verification that blocks the `IN_PROGRESS` handoff.
+A non-zero exit from the resolver SHALL make that worktree's merge status **inconclusive** — the same disposition its existing steps give a git failure or an unresolvable base ref — and SHALL NOT stop the report.
+A number carrying neither SHALL NOT appear in the plan at all.
+A number that is **quoted rather than asserted** is not a claim, and SHALL NOT require a tag.
+A numeric claim SHALL carry `measured:` or `predicted:`.
+A numeric transition identifier SHALL NEVER be hardcoded.
+A panel fix round SHALL mutation-prove every **executable** behaviour its fix changes, not only the test cases the round adds.
+A partner that is itself tagged `red` SHALL fail for the same reason `check-task-build-green.py` already fails it.
+A passage may be removed; it SHALL NOT be reworded to say the same thing in fewer words, because a normative sentence re-said differently is a changed requirement that no guard detects, while a deletion is visible in a diff and provable against the normative inventory.
+A path resolving outside it SHALL be refused: reported as a failure of that one render, distinctly from the report of an empty record, while the remaining records are still rendered.
+A per-repository breakdown SHALL be available on request, and SHALL NOT be the default shape.
+A period containing no stage runs SHALL return an empty result, never an error.
+A plan's fenced code blocks and numeric claims SHALL carry a tag recording how the claim was established.
+A preset sizes how much reading the panel does; it SHALL NOT be a way to skip review.
+A project that declares no such section SHALL behave exactly as it does today, everywhere, including in apply worktrees.
+A project's database reset and seed tasks SHALL default to the workspace's own database when run from an apply worktree, and to the project default when run from the main checkout.
+A prompt's option text SHALL NOT be relied on to carry that explanation.
+A question still open when the brainstorming stage ends SHALL be recorded in the change's `design.md` under `## Open questions`, beside `## Decisions`, one entry per question, carrying the question, an immutable kebab-case **ID**, a **Status** of `open`, why it is open, and what it affects.
+A record SHALL be attached to the change by the store's own `change_id`, never by a filesystem path.
+A record carrying no `agentId` — a message from the parent session itself — SHALL contribute to the whole-run total and to its model's breakout, and SHALL create no dispatch entry.
+A record declaring a total more than once, or declaring one that is not a plain count, SHALL likewise count as outstanding.
+A record that exists only in the session transcript SHALL NOT satisfy this requirement.
+A record whose metrics lack the key being sorted on SHALL order as *absent*, distinct from a record whose metric is recorded as zero.
+A record whose only author is a mark's own side effect SHALL NOT satisfy a state gate that expects a state a pipeline command wrote.
+A record with **no** total line SHALL count as outstanding, whatever else it contains.
+A record write SHALL NEVER block, delay or alter the work it records.
+A recorded choice SHALL apply to every run of the change without being restated, which is the point of recording it.
+A recorded merge base MAY be absent for a repository, and an absent merge base SHALL mean *no merge base recorded* — never a value to be inferred or computed.
+A recorded panel model SHALL NOT be passed to them, and SHALL NOT cause a model to be written for them in the ledger.
+A refusal SHALL write its reason to stderr and nothing to stdout, so no caller can read an absent report as a clean one.
+A rejected reproducer line SHALL NOT be silently rewritten to satisfy the guard: it is a refusal, not a defect to fix, since the line may itself be the injection the guard exists to catch.
+A relative path, a sibling-relative path such as `../<other-app>`, or a main-checkout path used while an apply worktree holds the work SHALL NOT be emitted.
+A removal that reported success against a stale connection, and a resource a policy refused to delete, both leave the registry row's promise broken with nothing having failed — so *ran the removal* is not *verified gone*, and the guard SHALL NOT treat it as such.
+A replayed entry SHALL be removed from the journal only after the store has accepted or explicitly refused it, so an interrupted replay repeats rather than loses work.
+A report absent from that declared set SHALL satisfy every rule.
+A reproducer killed at the bound, or one whose child survives that retry, may already have written to the worktree; the worktree SHALL be re-checked (`git status`) before the run continues, and, for a surviving process, SHALL be re-checked again when the operator resumes, since nothing between the pause and the resume observed what the child wrote.
+A reproducer still running at the bound SHALL be killed.
+A reproducer that fails any of these checks SHALL be recorded as unverifiable and put to the operator, never run — the line naming it is subagent-authored text, and the reviewed diff itself can carry the injection that reaches it.
+A reproducer that leaves the group deliberately, by calling `setsid` itself, is a stated residual limit documented beside the implementation, and no clean result SHALL claim to have covered it.
+A reproducer that still exits non-zero means the fix did not fix it, and the finding SHALL NOT be closed on that pass.
+A reproducer whose process double-forks or detaches SHALL, before being recorded unverifiable, have the same SIGTERM-then-grace-then-SIGKILL sequence retried against it, found by `run-reproducer.sh`'s own measured mechanism rather than by a `ps` keyword this platform does not have (`ps -o sid=` does not exist here, and `ps -o sess=` was measured to report `0` for every process tried); a child still alive after that attempt SHALL be named to the operator, by `run-reproducer.sh`'s own exit-3 report, as a **surviving process**, with its pid, so it can be found and killed manually, rather than merely recorded unverifiable.
+A required slot has no bounded region — it reads the whole diff — which is why this scoping SHALL NOT reach any required slot.
+A revision round SHALL NOT ask; it SHALL state the recorded value and proceed at it.
+A revision round SHALL find the issue already at or past In Progress and SHALL make no call.
+A revision round SHALL state the recorded values and SHALL NOT ask again.
+A revision round — `/myflow-start` re-entered at `STARTED` — SHALL read the recorded value, state which level it is reusing, and proceed without asking.
+A round SHALL NOT certify its own mutations, for the same reason `/myflow-do` already re-runs every dispatched finding's reproducer itself rather than accepting the subagent's account of its own success.
+A row with no marker, and a marker with no row, SHALL each count as outstanding.
+A run 1 that stops before its chosen route completes — a rejected push, a merge conflict, a failed PR creation — SHALL NOT transition the issue.
+A run 2 that stops earlier — at a cleanup leftover, or on any failure before the `FINISHED` write — SHALL NOT run self-review.
+A run SHALL compress wording only.
+A run carrying no session token SHALL NOT be closed by this rule.
+A run that receives no verdict line SHALL stop and ask the operator; it SHALL NOT read missing output as either verdict, and SHALL check the exit code as well as the line.
+A run that was recorded and never attributed SHALL NOT be presented the same way as a period with no runs.
+A run whose record writes all reached the store SHALL say so rather than omitting the line, so that its absence can never be mistaken for a clean run.
+A run whose record writes all reached the store SHALL say so, so that the line's absence can never be mistaken for a clean run — the failure this reporting exists to close is precisely one that leaves no trace.
+A section that is wholly normative SHALL leave its appendix heading **present with no body**, rather than absent — the same missing-rather-than-dropped rule this pipeline applies to handoff fields, and what makes it visible that a section was examined rather than skipped.
+A sentence carrying a SHALL can be deleted with every one of them green — which is the failure mode a corpus-wide trim risks, and the reason this guard is a precondition of one.
+A session instruction SHALL take precedence over a recorded choice for the run in which it is given, and SHALL be recorded with the dispatch exactly as before — it is the narrower and later of the two.
+A skill directory SHALL NOT contain a symlink directly under `skills/<skill>/`.
+A skill or contract SHALL name an invoked guard by **basename**.
+A skill that dispatches implementers SHALL state the override rather than leaving the two guidances to be reconciled at dispatch time.
+A skill that names a file **beside itself** — a reviewer prompt, a principles list, anything a dispatch hands to a subagent — SHALL resolve it against **the running command's own skill directory**, exactly as **Guard resolution** (`skills/myflow-contracts/pipeline.md`) already resolves a named guard.
+A skill's `scripts/` directory SHALL hold relative symlinks into it, tracked in version control, so that the installer's existing whole-directory symlink carries them with no installer step of its own and no second copy exists to drift.
+A skill's `stage begin` call sites SHALL be checked mechanically for a change argument written as a placeholder that names a guess, alongside the existing checks on that call's session token and harness.
+A skill's block SHALL carry the same **folded lines**, the same fields within each folded line and the same order as the template; it MAY enumerate, in place of a placeholder, the literal alternatives its own command writes, and that enumeration SHALL stay within the value space the placeholder describes.
+A slot the operator declined SHALL be recorded as declined rather than as untriggered.
+A source that does not exist SHALL be reported as `skipped: <src> (absent)` on stdout, in the script's own `skipped:`/`refused:` outcome vocabulary, and gathering SHALL continue with the remaining sources — a change may legitimately have no panel record.
+A source that resolves outside the repository via a symlink SHALL be reported as `refused: <src> (resolves outside the repository)` on stdout instead of `skipped:` — a refusal is never reported as an absence — and SHALL NOT be read; the script SHALL still exit 0 for this case.
+A stage run SHALL be identified by change, command, stage and attempt number together.
+A stage run SHALL record the repository it ran in when it ran in exactly one, and SHALL record no repository when it belongs to the change as a whole.
+A stage run left open by a dropped end mark therefore costs its own stage's measurement and nothing beyond it: it SHALL NOT absorb usage that a later window of the same session also contains.
+A stage run whose recorded metrics carry no model SHALL NOT match any model restriction, and the response SHALL report how many runs were excluded on that ground, so an unmeasured run is distinguishable from a run measured as belonging to another model.
+A stage run's monetary cost SHALL be stored alongside the token counts it was derived from and the version of the pricing data used to derive it, so that history remains stable when displayed and can be recomputed when prices change.
+A stage that left nothing open SHALL record none, leaving the section empty rather than inventing entries — the rule `## Decisions` already carries.
+A stage whose run ends without an end mark SHALL be closed by the daemon after its session has been silent past a timeout, with an outcome recording that it was abandoned.
+A state already stored SHALL NEVER be moved backwards by a journal entry recording an earlier state, regardless of that entry's timestamp.
+A state file carrying the retired `effort` key SHALL be read as recording the equivalent level — `medium` as `default`, `high` as `detailed`, `low` as `low` — and SHALL NOT be treated as unparseable.
+A state file that **does not carry the key at all** SHALL be read as "not recorded" and SHALL NOT be treated as unparseable.
+A state-directory file that cannot be read SHALL be reported and skipped from the union, and SHALL NOT be silently dropped without being named.
+A stop SHALL end the run at `IN_PROGRESS` with the implementation intact, exactly as a fix round does; it SHALL NOT discard work.
+A supplied `<repo-root>` failing any of those SHALL be an invocation error, exit 2 — the same class as a missing argument or an invalid change name.
+A surviving mutant SHALL be raised as an ordinary finding — an `F<n>` row in the findings table and a marker line in the marker block — and SHALL block the handoff under the existing zero-open-findings bar until a test is added or the operator withdraws the finding with a reason.
+A surviving mutation found by this requirement SHALL NOT be raised as a new finding and SHALL NOT consume an additional panel pass; this is deliberately a different disposition from a surviving mutant Bugbot reports, because the round already has the changed behaviour in hand and a finding would spend a full round re-discovering it.
+A task heading, `**Build:**` tag or `**Squash-with:**` field inside a fenced code block SHALL open no task and be read as no field, in **both** guards.
+A task id carrying more than one heading SHALL resolve to its **first** heading, in both guards.
+A task tagged `Build: red` SHALL additionally carry `**Squash-with:** Task <N>`, naming the green task its commit folds into.
+A task tagged `Build: red` SHALL have its commit folded into its `Squash-with:` partner's commit via the same fixup-and-autosquash mechanism used for fix rounds, rather than remaining a separate commit on the branch.
+A task tagged `red` SHALL additionally carry a `**Squash-with:** Task <N>` field (defined in `myflow-task-commit-fields`), where `<N>` names the task whose commit this task's commit folds into.
+A task with no `**Files:**` field SHALL be a reported failure rather than a guess.
+A task's `**Allowed-collateral:**` glob SHALL NOT contribute to the join.
+A time range and the filter controls SHALL live once in the interface's own chrome and scope every panel shown beneath them, so no two panels on a dashboard can be showing different periods or different filters at the same moment.
+A token carrying no `/` SHALL be classified as a citation only when it resolves to a real file at the agents-repository root.
+A total outside that bound SHALL be reported as not a plain count, through whichever disposition that guard's own contract defines for a defect it can read.
+A trigger set SHALL be checked for this on every edit — a condition that can never fire independently is as much a defect as one that always fires.
+A trusted repository root SHALL be `<repo-root>` when supplied, and otherwise SHALL be derived from the script's own process working directory via `git rev-parse --git-common-dir` (never `--show-toplevel`, which returns a *worktree's* root rather than the main repository's when run inside one) — and in neither case from `<archived-change-path>` itself, since that would trust the very path being validated.
+A value matching **none** SHALL be passed through unchanged, yielding no rows exactly as an unknown key does today.
+A value outside the three SHALL read as `light` and SHALL NOT make the file unparseable.
+A value that does not gate SHALL be reported from **every** task id in the plan, not only from the red task carrying it.
+A value that does not gate SHALL fail the guard, naming the value.
+A value under the retired key **outside those three** SHALL be read as *not recorded*, and SHALL NOT make the file unparseable.
+A view whose rows are not stage runs SHALL reject a model restriction rather than accept and ignore it, so a control that cannot apply is never silently inert.
+A violation SHALL be fixed by repairing the text — closing the span, restoring the blockquote marker, completing the sentence, supplying what the colon promised — and never by narrowing the guard's scope or adding a suppression marker.
+A workspace id SHALL be derived from the **full** change name: a readable prefix followed by a four-hexadecimal-character digest of that name.
+A write SHALL be refused when it would move the record backwards **in either dimension**: to a state earlier in the pipeline than the stored one, or — at the same state — to an earlier recorded instant.
+A writer SHALL NOT be required to know which other values exist under a shared parent in order to avoid destroying them.
+After **every** planning-stage exchange — a round of clarifying questions, the approval of a design section, and the operator's review of the written spec — the command SHALL determine whether it now holds a question its inputs do not answer.
+After an implementer finishes a task (RED-GREEN-REFACTOR complete), it SHALL commit that task's work with a **`Task-Id: <n>` trailer**, where `<n>` is the task's dotted id from its `tasks.md` heading, **before** the task is dispatched for review.
+After removing what it removes, `/myflow-finish` SHALL verify, by running a script, that every registry row whose lifetime ends at run 2 is in fact gone, and SHALL report anything still present rather than assuming removal succeeded.
+After the archive is committed and pushed, `/myflow-finish` SHALL remove every worktree belonging to the change.
+After the delta-spec sync and the archive move, `/myflow-finish` SHALL commit the resulting changes on the archive branch `chore/archive-<name>` that the positioning step put the main checkout on, and SHALL NOT push at this point — the push is the final step of run 2, per **Requirement: Run 2 pushes the archive branch and opens its pull request**.
+After the push, run 2 SHALL restore the main checkout to `<base>`.
+After the report and the filing asks, self-review SHALL ask the operator to rate the run on a 1 (rough) to 5 (excellent) scale.
+Alongside the table, the review panel record SHALL carry one **marker line** per finding.
+An **absent** `reviewPanelRoster` SHALL read as `light` rather than making the file unparseable, and SHALL NOT trigger a migration pass over existing state files.
+An **unresolvable partner reference SHALL join nothing.**
+An absent identifier SHALL mean "not reported" and SHALL NEVER match another absent identifier.
+An absent repository on a stage run SHALL mean *the whole unit of work*, and SHALL NOT be read as an unknown or missing repository.
+An absent service means there is nothing to remove at that moment, and the run SHALL continue to `FINISHED` — matching how the existing project-supplied stop check already treats an unreachable stack.
+An agent cannot drive a harness's autocomplete — nothing lets a running session prefill the operator's input — so the last-line convention together with a small command surface SHALL be the whole mechanism.
+An angle that is silent SHALL NOT be treated as an angle that yielded nothing: the two are indistinguishable to a reader, and that is how a write-only angle passes unnoticed.
+An angle that produced no findings SHALL carry an explicit none-marker in place of finding lines.
+An angle that produces none SHALL say so **explicitly**, the way `## Decisions` and `## Open questions` are present-but-empty rather than absent.
+An appendix SHALL carry the same `##` and `###` headings as its core, in the same order.
+An apply worktree SHALL receive its own isolated resources without the operator requesting them, and the main checkout SHALL receive the project's declared defaults.
+An entry SHALL NEVER be deleted or rewritten once recorded.
+An entry SHALL move to in-progress when its step begins and to completed when that step finishes, so the count line distinguishes done, in progress and open at every point in the run.
+An entry in that section SHALL be resolved under the same rule the project configuration contract already applies to the same kind of entry, and an entry that fails SHALL be reported by name and dropped rather than repaired.
+An entry the pipeline **executes** SHALL be treated as the project's other declared commands are, which carry no path containment: isolating a path inside an arbitrary command means parsing a shell command, and a parser that is wrong about one entry reports the wrong thing about all of them.
+An entry the pipeline **reads as a file** SHALL be contained exactly as the contract's existing path entries are.
+An entry whose value the pipeline **substitutes into** SHALL have its shape validated — the tokens it may carry, and no others.
+An existing `<archive-branch>` that is descended from `origin/<base>` SHALL be reused rather than refused, so that a run 2 which stopped after this step can be re-run.
+An exit of **2** SHALL stop the run rather than being read as under the cap.
+An expansion SHALL NOT reproduce a table another file owns.
+An explicit operator instruction given in the same session SHALL still override a named field, recorded with the dispatch exactly as any other operator override is.
+An explicitly passed address SHALL take precedence over the environment variable, which SHALL take precedence over the built-in default.
+An identifier carried by two marker lines SHALL count as outstanding on its own, and SHALL be reported even when the findings table repeats the same identifier — the two lists agreeing is not evidence that either is right.
+An identifier used by more than one row SHALL count as outstanding: two findings sharing one identifier share one recorded state, and the second one's state is then unrecorded.
+An implementer given a plan SHALL treat a block tagged `unverified:` as a hypothesis: establish the real behaviour before writing code against it, and report what was found.
+An instruction MAY be given in either of two ways, and both SHALL be honoured: as a model choice recorded in the change's state file by `/myflow-start`'s creating run, or as an instruction given in the session.
+An issue already at or past the target SHALL NOT be transitioned.
+An issue any `/myflow-*` command files as a **follow-up** SHALL be titled `<KEY> follow-up`, where `<KEY>` is the change's linked Jira issue.
+An issue at any status outside that set SHALL NOT be a join candidate, and no question SHALL be asked about it — the run simply files a new follow-up.
+An issue key followed by a unit word SHALL NOT be read as a numeric claim.
+An override is a deliberate, recorded decision for one change, not an inheritance path — which is what "no slot SHALL inherit the parent model" continues to forbid.
+An unbounded search SHALL NOT be performed, so that a harness which will never produce the evidence costs a bounded amount of work rather than a permanent one.
+Angle 5 SHALL cover both **records** — which artifacts the pipeline writes to files today would be better held in the stats daemon's database and queryable across runs — and **logic** — which derivation work now performed by a Bash guard or by the agent itself could move into the `myflow` CLI or the daemon.
+Another project's pre-existing documentation SHALL NOT be subject to the clause.
+Any configuration a run generates for the applications SHALL derive every application URL from that workspace's port block.
+Any other value SHALL count as outstanding: a different case such as `Open`, one of the three with commentary after it such as `open (needs discussion)`, an empty value, and a value carrying a zero-width or other invisible character are none of the three, and none of them SHALL be read as closed.
+Any step that iterates a change's resolved worktree set SHALL therefore resolve the base once per worktree, inside that iteration — never once, before the loop, from whichever worktree came first.
+Any task that moves, evicts or extracts prose from a file the pipeline loads SHALL emit a ledger table in its own output, before its diff reaches the review panel.
+Anything but exit `0` SHALL stop run 2 before the archive move, with nothing staged, committed, pushed or removed.
+App roots SHALL be resolved from `git worktree list` or the state file's `worktrees` keys.
+As its final step, after `FINISHED` is written and after self-review has committed its report onto the archive branch, run 2 SHALL push `chore/archive-<name>` and open a pull request against `<base>`.
+At `IN_PROGRESS` the name is resolved before the gate in every path — an argument names the change, and a bare invocation resolves it from names that already exist — so those marks SHALL fire where the gate runs.
+At the location each moved section previously occupied, `rules/myflow-manual-review.mdc` SHALL retain a `##` heading, one sentence naming what the contract governs, and the exact path of the contracts file that now holds it.
+Attribution SHALL be idempotent: re-reading a transcript SHALL NOT double-count usage already attributed.
+Attribution to dispatch rows SHALL be a second, independent pass.
+Because the decision needs block structure as well as token shape, the classifier SHALL be implemented in Python behind a thin shell wrapper, following the precedent `scripts/check-plan-provenance.py` set and `.myflow/project.md` records, rather than as a hand-rolled shell pattern.
+Because the dispatcher names the model, the SDD ledger SHALL record that model for this slot and SHALL NOT record `unknown (agent-defined)` — that value is reserved for slots dispatched by `subagent_type`, whose agent definitions the dispatcher does not read.
+Because the third assertion is unconditional, every consumer SHALL pass an **apply worktree** as the resolver's directory argument — where `HEAD` is the change's own branch by construction — and never the main checkout, where the base branch may legitimately be the one checked out.
+Because the underlying operation replaces the whole description, the payload SHALL be asserted before every such write to contain the description just read as an **exact prefix**, byte for byte, and to be **strictly longer** than it.
+Before a section is moved out on the grounds that one command needs it, every citation **into** that section SHALL be resolved, and any passage a **different** command genuinely depends on SHALL be hoisted into the core first.
+Before any prompt fires, self-review SHALL explain **each** finding in the message body, stating three things: what was observed, what breaks because of it, and what the fix would be.
+Before appending, the pipeline SHALL check whether the joined issue already carries this change's items and, if it carries all of them, SHALL skip the append.
+Before committing anything, every route SHALL first reshape the branch: `git reset --soft` to the recorded merge base, collapsing every per-task and fixup commit `/myflow-do` made back into the working tree.
+Before creating a follow-up, the pipeline SHALL search the project for an existing pipeline-filed follow-up and, on a match, SHALL **confirm the newest match with the operator** before writing to it.
+Before dispatching the next implementer into a worktree, the parent SHALL have received the previous implementer's commit sha for that worktree.
+Before it asks how the branch should land, and before any git action, `/myflow-finish` SHALL determine whether the change carries unfinished work, by running a script rather than by asserting it in prose.
+Before syncing or archiving, `/myflow-finish` SHALL confirm that the branch actually reached the base branch.
+Before the delta-spec sync and the archive move, `/myflow-finish` run 2 SHALL put the main checkout on an archive branch named `chore/archive-<name>`, cut from a base branch that has been fast-forwarded to `origin/<base>`.
+Before writing `final-review.diff` and dispatching any slot, `/myflow-do` SHALL measure the branch's changed-line count — insertions plus deletions across committed work and the unstaged working tree, the same body of text the panel will read — and SHALL compare it against a **cap**, defaulting to **2000** changed lines.
+Behaviour that a flag previously selected SHALL either be asked at invocation (the integration choice), derived from the current state, or fixed at the single sensible default.
+Binding SHALL be attempted for a bounded period, after which the stage run SHALL be left unattributed.
+Binding SHALL be permitted to complete after the mark is recorded, because the evidence that identifies the session may not exist at the moment the mark is made.
+Both checks SHALL be explicit in the renderer, never an incidental consequence of how a path is assembled.
+Both defaults SHALL yield to an explicit operator instruction, in either direction — raising the panel to a stronger model, or lowering an implementer for genuinely mechanical work.
+Both routes that commit SHALL then produce **two** commits from that reshaped state: the implementation first, then the change's planning artifacts and session records.
+Both rules SHALL apply to all three files: the asymmetry this specification draws is between how a block is tagged and whether a number may appear at all, never between which files each rule reads.
+Both shapes SHALL exist because the two callers ask different questions: a duplicate-identifier check reads a list that retains duplicates, and a set-comparison check reads one that does not.
+Both the command that ends in a state and `/myflow-status <name>` SHALL render the operator's handoff from that template.
+Both whole-line vetoes SHALL be coarse, and the angle-bracket veto SHALL be the coarsest rule that states the property: it may ask only whether a `<` is present, never what the `<` is part of or where that part ends.
+Bringing up the UI-test stack SHALL discard the previous session's contents and recreate the test database from migrations before seeding it.
+Budgets SHALL be declared as a path-to-maximum-bytes table **inside the script**.
+Budgets SHALL be per file.
+Bugbot and Security Review are dispatched by `subagent_type` and SHALL still receive no model override, whatever is recorded.
+Bundles SHALL be dispatched in the order of each bundle's lowest task id, so a plan whose tasks are ordered by dependency stays ordered.
+Bundling SHALL NOT change the commit-per-task model: an implementer handed a bundle still makes one commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task still folds into the commit its `**Squash-with:**` field names.
+Changing any shared control SHALL re-request the affected panels from the server rather than narrowing rows already fetched, so what is displayed is always the server's answer for the controls as they currently read.
+Choosing to stop SHALL leave the change at `IN_PROGRESS` with no git action performed.
+Cleanup rules SHALL NOT be stated in more than one place.
+Committing per task SHALL NOT change `/myflow-do`'s boundary against push, merge, or PR creation: those remain `/myflow-finish`'s responsibility exclusively, on every run — first run and fix run alike.
+Conflicts SHALL resolve by `updatedAt`, with the monotonic-state rule as the tiebreaker.
+Content that a surviving skill delegates to a removed skill SHALL be inlined into the surviving skill **before** the removed skill is deleted.
+Counting commits ahead of the base branch SHALL NOT be used as a signal.
+Coverage SHALL NOT be limited to files the pipeline loads per run.
+Dispatches into **different** worktrees SHALL remain free to run concurrently.
+Each SHALL be asked as its own question, with the default named and marked as the recommendation.
+Each SHALL exit 0.
+Each SHALL resolve to the project's declared default value when the id is empty.
+Each `/myflow-*` skill SHALL emit a begin mark when a stage starts and an end mark when it finishes, naming the command, the stage, and the change.
+Each angle SHALL produce zero or more findings.
+Each appendix section SHALL hold only the reasoning belonging to the core section of the same name.
+Each budget SHALL be the size the file actually has when the change declaring it lands, **plus 25%**.
+Each contract's existing hand-run fallback still governs what happens at the call site, and the handoff SHALL say that those checks were run manually.
+Each corpus-scanning guard SHALL carry an explicit set of corpus members that legitimately check nothing.
+Each dispatch row SHALL carry: the change, the stage run it belongs to where one is known, its append order within the change, the task id where the role runs against a task, the role, the panel slot where the role is a panel slot, the model, the commit sha, the outcome, the run's session token, the start instant, the end instant, and a metrics bag.
+Each failure SHALL be reported by name.
+Each finding SHALL be recorded as a single line naming, in a fixed form, the label of the angle that produced it, the finding itself, and its disposition — the issue key when it was filed, or an explicit declined marker when it was not:
+Each item SHALL be normalised before comparison by stripping its list bullet, trimming, and collapsing internal whitespace runs, and compared exactly thereafter.
+Each mutation SHALL alter **one** mechanism.
+Each option SHALL state what will happen if it is chosen, so the choice can be made without reading the surrounding text.
+Each pipeline command SHALL end in the state named after it, so the state names and the command names are the same vocabulary.
+Each pipeline command SHALL load exactly one skill, and that skill's directory SHALL be named after the command: `skills/myflow-start/`, `skills/myflow-do/`, `skills/myflow-finish/`.
+Each removal SHALL be *remove-or-move if present*, so a step whose artifact is already gone is a success rather than an error, and run 2 stays re-entrant.
+Each review-panel finding SHALL be one row carrying the change, the dispatch that raised it, its reference, the round it was raised in, the slot, the severity, the location, the note, its status and its reproducer.
+Each review-panel slot's dispatch prompt SHALL name the absolute path of `<worktree>/.superpowers/sdd/dispatch-context.md` and SHALL state that the slot need not go looking for the change's proposal, design, plan, delta specs or engineering principles.
+Each rewritten passage SHALL still carry a per-move ledger row naming `README.md` as its destination.
+Early rounds SHALL open without asking.
+Escalation SHALL remain a coverage decision and never a waiver: a targeted re-run SHALL still dispatch no fewer than two slots, and handoff SHALL still require zero open findings at any severity from every slot that has run.
+Every URL SHALL be the one this worktree resolved from its workspace id, never the project's declared base; a project declaring no workspace isolation resolves nothing and its declared URLs are printed unchanged.
+Every `/myflow-*` command SHALL end its output with the next command to run, on its own line, bare and copy-pasteable, with no prose, formatting or content after it.
+Every `/myflow-*` command SHALL read and write that record through a CLI that speaks HTTP to the daemon, and SHALL NOT read or write the database directly.
+Every `stage begin` SHALL carry a correlator identifying the session it was made in, and the harness it ran under.
+Every artifact a `/myflow-*` run writes SHALL be written brief — bullets over prose, no preamble, no recap, and no restatement of what another artifact in the same change already says.
+Every citation SHALL use the named-section form `scripts/check-references.sh` verifies, so a cited section that is renamed or removed fails the guard rather than rotting.
+Every command SHALL exist in both `commands/` and `commands-claude/` with the same name and a description that agrees with the skill it points at.
+Every commit `/myflow-do` makes SHALL exclude the paths the review diff excludes, so an implementation commit holds implementation only.
+Every commit message the pipeline produces or prescribes SHALL, where it carries a Conventional Commits scope, name the **module or area inside the repository** that the commit moved — `finish-contract`, `gather-self-review-context`, `stages`, `openspec`, `scripts`.
+Every commit run 2 makes after the positioning step — the archive commit and the self-review report alike — SHALL be made on `chore/archive-<name>`, and SHALL assert that branch rather than assume it: naming the directory with `git -C <main-checkout>` fixes the directory and not the branch.
+Every destination the render writes to SHALL be required to resolve inside the repository root.
+Every dispatch prompt that names the bundle SHALL state that the dispatch may open any file the bundle names, and that it MUST still read the actual diff and the actual code it is reviewing or changing.
+Every documented stage SHALL have a key that is unique across the whole pipeline and a human-readable name.
+Every endpoint accepting a `project` parameter SHALL accept either the full project key or a display name, so that a value read off the screen is a value the interface accepts.
+Every failure path — no linked issue, integration unreachable, transition rejected, target transition name not offered, issue not found — SHALL degrade to exactly one `⚠ Jira: skipped — <reason>` line, after which the command SHALL continue and write its state exactly as it would have.
+Every fenced code block in a plan SHALL carry `verified:` or `unverified:`.
+Every guard script a `/myflow-*` command invokes SHALL be reachable from the skill directory that command's own skill occupies, at `<skill-dir>/scripts/<name>`, in every harness the installer targets.
+Every helper SHALL distinguish `grep`'s exit 1 ("no match", which is an answer) from an exit of 2 or more (a real error, which is a refusal), and SHALL propagate the latter to its caller rather than returning a count of zero.
+Every helper SHALL pass `--` before the path, so a record path beginning with `-` is never read as an option.
+Every helper SHALL pass `-a` to `grep`, so a record carrying a stray NUL byte cannot put `grep` into binary mode where it reports "no match" whatever the file contains.
+Every implementer dispatch in section 4 SHALL carry a `REQUIRED SUB-SKILL` instruction naming `superpowers:systematic-debugging`, to be invoked when a test fails for a reason RED-GREEN-REFACTOR did not plan, before the implementer writes a fix.
+Every level SHALL run brainstorming, SHALL hold the design approval gate, SHALL run writing-plans, and SHALL leave `tasks.md` at plan quality rather than a scaffold.
+Every numeric field these guards read from a record SHALL bound the digit run it accepts, so that the two guards agree on what a well-formed total is.
+Every other character of a moved passage SHALL be unchanged.
+Every other check SHALL apply unchanged.
+Every other command SHALL carry the field forward verbatim, exactly as it carries `jiraIssue`, `planningEffort` and `models`.
+Every other command SHALL carry the recorded values forward verbatim, as it does the linked Jira issue.
+Every other file SHALL cite that statement rather than restate it.
+Every path a `/myflow-*` command prints — in handoffs, in IntelliJ open commands, and in run instructions — SHALL be absolute.
+Every path in them SHALL be absolute, resolved from `git worktree list` or the state file's `worktrees` keys.
+Every path that seeds or destroys the UI-test database SHALL verify that its target names the test database, and SHALL refuse with a reported reason otherwise.
+Every place in the pipeline that needs the base branch SHALL obtain it from the resolver rather than re-deriving it: the preflight's `<base-ref>` argument, `/myflow-finish` run 1's merge-and-push route, run 2's archive commit, and `/myflow-status`'s merge-status ancestor test.
+Every preset SHALL dispatch exactly three required slots, and no preset SHALL reduce that number.
+Every restatement of this condition in a skill or contract SHALL carry both clauses; a restatement that carries only the first is a defect in the restatement, not a narrowing of the requirement.
+Every review-panel slot SHALL run on **Sonnet** by default.
+Every round that changes a finding's state SHALL rewrite that finding's marker line in the same edit as its table row, so that the record's state and its rendering are written together.
+Every sentence of the original file SHALL land in exactly one of the two resulting files, byte-for-byte unchanged.
+Every site that states either message SHALL state it this way: `pipeline.md`'s Git-boundaries chain, `finish-contract.md`'s two-commit section, and both `commit-split.sh` call sites.
+Every skill that dispatches or describes the review panel SHALL state that all slots run on Sonnet, and SHALL agree with the roster and trigger table in `skills/myflow-do/SKILL.md`, which is canonical for the panel.
+Every slot the panel dispatches SHALL be required, in its dispatch prompt, to supply for each finding it raises either a **runnable command** that demonstrates the defect, or the literal exemption form `none — <reason>`.
+Every statement in the repository asserting that `/myflow-status` invokes no guard or carries no `scripts/` directory SHALL be corrected — including `check-guard-symlinks.sh`'s `declare_if_present "myflow-status"` call, whose declared zero would otherwise be false once the skill's required set is non-empty.
+Every symlink a skill carries SHALL sit under `skills/<skill>/scripts/`, where **A guard a command invokes SHALL be reachable from that command's installed skill** already governs it.
+Every view SHALL accept a project filter and SHALL also support aggregation across projects, because the state directory is already keyed per project and more than one project uses the pipeline.
+Every view SHALL present a change spanning several repositories as a single row aggregating the whole unit of work.
+Every violation has one remedy — re-running `./setup.sh global` from this checkout — and the verdict line SHALL name it, since a reader who has just been told a link is missing has no other action to take.
+Exit **1** SHALL cover two distinct classes, handled differently by the caller: a **missing or malformed field** (no `finding-reproducer:` line for some `F<n>`, a malformed `reproducers-total:` count) is a record-completeness defect and the missing field is added before any fix is dispatched; a **rejected reproducer shape** (a command carrying a shell metacharacter, an absolute path, a `..`
+Exit 0 SHALL mean clean, 1 SHALL mean violations were found, and 2 SHALL mean the guard cannot answer at all — an unreadable root, an installer run that failed, or a file it needed to read and could not.
+Exit `3` SHALL be distinct from exit `2` so a caller can print the finish contract's no-remote message — *"this repository has no remote, so there is nothing to push to or merge into"* — rather than a base-branch failure, which sends the operator debugging the wrong thing.
+Filing SHALL follow the labelling rules for issues the pipeline creates.
+Free prose SHALL NOT be the record of a finding's state.
+From `IN_PROGRESS` it SHALL leave the state exactly as it found it.
+From a threshold round onward, `/myflow-start` SHALL NOT open a round silently: it SHALL show what is still open and what it would ask, and offer the round as a named choice with **another round** as the recommended option.
+Handoff SHALL require zero open findings at any severity under every preset, and a minor finding SHALL block exactly as a critical one does.
+Having asked once, the run SHALL proceed to completion without a further interruption.
+Identity and lifecycle fields — project, change, command, stage, attempt, timestamps and outcome — SHALL remain typed columns.
+If either assertion fails — including a read that was truncated, elided, or returned in a form that cannot be reproduced verbatim — no write SHALL be made and one skipped-with-reason line SHALL be emitted instead.
+If it nevertheless fails to compile or behave as described, the implementer SHALL report that rather than contorting the code to match it.
+If that slot's second reproducer also passes, the run SHALL stop and put the finding to the operator through the existing handback prompt — take another round, withdraw it with a reason, or stop the run — and SHALL NOT dispatch it silently.
+If the append fails, the retitle and the label union SHALL NOT be attempted and the outcome is a failed join.
+If the append succeeds and a later write fails, the outcome SHALL be reported as a **partial join**, naming which write failed — never as a success, because a silently failed label union produces exactly the invisibility the union exists to prevent.
+If the merge is not verified, run 2 SHALL NOT happen — the command falls to run 1 behaviour or reports what is outstanding, and archives nothing.
+Immediately after `/myflow-do` commits a task, and before that task is dispatched for review, a guard SHALL check the task's declared fields against the actual commit:
+Immediately after `FINISHED` is written, run 2 SHALL invoke self-review as step 9.
+Implementer subagents dispatched by `/myflow-do` SHALL run on Opus, or the harness's strongest available model.
+In particular a position SHALL NOT be derived from Jira's `statusCategory`, which groups a custom `TO DO URGENT` with `In Progress` under `indeterminate` — an inference that would report such an issue as already at In Progress and freeze the board at that status for the whole change.
+In the panel's **Full** escalation mode, `/myflow-do` SHALL re-run every **required** slot against the rewritten `final-review.diff`, and SHALL re-run a **conditional** slot — Security, Adversarial, or an extra principles lens — only when that slot's own row in the optional-slot trigger table still fires against the fix diff.
+Invoking a guard makes `/myflow-status` subject to the same rules every other command skill follows, per **A guard a command invokes SHALL be reachable from that command's installed skill** (`openspec/specs/myflow-contract-distribution/spec.md`).
+Isolation SHALL NOT be opt-in.
+It SHALL NOT add a slot to any preset and SHALL NOT change any preset's required set.
+It SHALL NOT be a lint step — it needs a worktree for a change in flight — and SHALL be covered by its own test harness.
+It SHALL NOT be a list.
+It SHALL NOT be counted as a distinct subject: an absent field disagrees with nothing, and counting it fails a fold in which only one subject was ever declared.
+It SHALL NOT be derived from Jira's `statusCategory`.
+It SHALL NOT be derived from the digest.
+It SHALL NOT be recorded as an advisory note outside the findings table: a second class of finding that nothing enforces would sit beside a bar that enforces every other one.
+It SHALL NOT be stated as "the directory you are reading this file from", and SHALL NOT hardcode one harness's installed path.
+It SHALL NOT be the record a tool counts: no tool reads its column order, its header, its cell boundaries, or where it begins and ends.
+It SHALL NOT be treated as a containment failure: the prefix is a lexical marker, not a traversal out of the repository root.
+It SHALL NOT be treated as naming no partner: the two guards read one field, `check-task-build-green.py` already fails a red task whose `**Squash-with:**` it cannot parse, and a red task demoted to the ordinary single-commit path would be checked against a `**Commit:**` subject the fold deleted.
+It SHALL NOT change the exit code or the failure count on that account.
+It SHALL NOT change what the existing stage-run attribution records, and the two SHALL be understood as different grains over the same usage rather than a double count.
+It SHALL NOT drop a decision, a reason, a measured number, an alternative that was ruled out, or a caveat in order to be shorter — a shorter artifact that has lost a fact is a defect, not a brief artifact.
+It SHALL NOT extend to what the SPA should display.
+It SHALL NOT give a path relative to a repository root: such a path resolves only when the project being worked on is this repository, which is the one case that never needs the guard shipped.
+It SHALL NOT have a violation exit code: it reports a set, and comparing two sets is the caller's act.
+It SHALL NOT introduce a mutation-testing framework, and no mutation score SHALL be computed.
+It SHALL NOT normalise anything else — case, punctuation and wording are the content being protected.
+It SHALL NOT reach task implementation, the red-task-partner's fixups, or guard changes generally.
+It SHALL NOT read back a stored copy of the text a previous run emitted, and no command SHALL store one.
+It SHALL NOT record a guess.
+It SHALL NOT restate the argument.
+It SHALL NOT restate the plan, enumerate completed internal steps, or repeat content available at a path it just gave.
+It SHALL also happen on `/myflow-do`'s commit path — the case where a pull request already exists and a fix is committed and pushed — so a fix round raised after integration refreshes the records rather than leaving them stale.
+It SHALL also name the shared context bundle.
+It SHALL be a bare path to a file that already exists inside the worktree, naming a script or test target, optionally followed by plain arguments.
+It SHALL be argument-free and self-scoped from its own location, like `check-references.sh` and `check-vocabulary.sh`, with an opt-in environment override for its own test harness alone.
+It SHALL be argument-free and self-scoped from its own location, with an opt-in environment override for its own test harness alone, like the guards beside it.
+It SHALL be covered by its own test harness.
+It SHALL be covered by its own test harness.
+It SHALL be left unresolved and therefore unchecked, exactly as any other path that does not resolve to a real file.
+It SHALL be named in `.myflow/project.md` under `## lint`, and its harness `scripts/test-check-installed-rules.sh` under `## test`.
+It SHALL be named in `.myflow/project.md` under `## lint`, and its harness `scripts/test-check-markdown-integrity.sh` SHALL be named under `## test`.
+It SHALL be named in `.myflow/project.md` under `## lint`, and its harness `scripts/test-check-normative-inventory.sh` under `## test`.
+It SHALL be offered as named options with `light` marked as the recommendation, never as open prose.
+It SHALL be rewritten under `planningEffort` on the next write that file receives, with no migration pass and no announced correction.
+It SHALL be written in Python 3 using the standard library only, following the precedent set by `scripts/check-plan-provenance.py`, because the classification it performs is block structure and not a line pattern.
+It SHALL check four properties, and SHALL name the offending path in each violation:
+It SHALL cover **every** `*.md` and `*.mdc` file this repository owns — `skills/`, `rules/`, `openspec/specs/`, `commands/`, `commands-claude/`, `.myflow/` and the repository root — and SHALL exclude `node_modules/`, `.superpowers/`, `openspec/changes/archive/` and `docs/superpowers/`.
+It SHALL determine the always-on set by the same frontmatter test `setup.sh`'s own `always_on_rules()` applies — a closed leading frontmatter block declaring `alwaysApply: true` — because a rule this guard calls always-on that the installer does not would demand a link no install creates, leaving the two permanently unsatisfiable together.
+It SHALL exit **0** at or under the cap, **1** over it, and **2** when it cannot answer at all — a path that is not a worktree, an unresolvable merge base, or a cap that is not a number.
+It SHALL exit **0** when every scanned file is clean, **1** when violations are found, each reported with its line, and **2** when it cannot answer at all — an unreadable file, an argument it does not accept, or a scope root that does not exist.
+It SHALL exit `2` rather than report a clean run when its root is unset-but-empty, is not a directory, or contains no Markdown at all.
+It SHALL fail the task when that scope is the change name, the change name's bare Jira key, or a dotted or numeric task id, per **A commit's scope names the module, never the change or the task** (`myflow-commit-scope`).
+It SHALL honor `CHECK_INSTALLED_RULES_HOME` as an opt-in override of the install root, so its harness can point it at a fixture tree under `TMPDIR`, and SHALL otherwise take no argument and read `$HOME`.
+It SHALL measure **bytes**, not lines and not tokens — deterministic, and dependent on no tokenizer.
+It SHALL normalise each sentence's internal whitespace to single spaces and strip surrounding whitespace, so a reflowed paragraph does not read as a changed requirement.
+It SHALL open the pull request via a PR CLI when one is usable for the host, and otherwise SHALL print the forge's create-PR URL and ask whether it was opened — the same shape run 1's pull-request route already uses.
+It SHALL own the wrapped fetch, both resolution paths (`refs/remotes/origin/HEAD`, then `git remote show origin`), the name validation, and all three assertions.
+It SHALL print one line per bundle naming that bundle's task ids, and SHALL exit **0** when bundles were computed, **1** when a task carries no `**Files:**` field — naming that task — and **2** when it cannot answer at all.
+It SHALL print one sentence per line, **sorted**, so its output is comparable with `diff` between two runs and is independent of file order.
+It SHALL read `none` when no question is open, by the same missing-rather-than-dropped rule the other fields follow.
+It SHALL read the marker block through anchored patterns and SHALL NOT parse the findings table.
+It SHALL record the recommended defaults directly: `sonnet` for `models.implementation`, `models.reviewPanel` and `models.panelFix`, and `light` for `reviewPanelRoster`.
+It SHALL refuse a covered path that is a symlink rather than following it, before reading it.
+It SHALL report each violation as `file:line: <signal>: <what is wrong>`, and SHALL detect exactly these four signals:
+It SHALL report that no install was found and exit 0.
+It SHALL scan the same corpus `scripts/check-contract-budget.sh` covers, resolved the same way, so the two cannot disagree about which files this repository owns.
+It SHALL state what it believes settled and ask the operator whether anything is still unclear, offering named options with **moving on** as the recommended one, and SHALL end the stage at this prompt only on an answer that chooses to move on.
+It SHALL take an optional project root, defaulting to this repository, so it runs against a bare tree and can be named in `## lint`.
+It SHALL then continue.
+It prints every sentence in this repository's owned Markdown that carries `SHALL`, `SHALL NOT`, `MUST` or `MUST NOT` as a whole word — one per line, whitespace-normalised, sorted — and its exit codes are only `0` the inventory printed and `2` it cannot answer.
+Iteration order, row identity and insertion order SHALL NOT decide the outcome.
+Its `SKILL.md` SHALL carry a real **Check guard presence.**
+Its duty SHALL be discharged by the render, invoked directly.
+Its exit codes SHALL be `0` every file within budget, `1` a file over budget or missing an entry, `2` the guard cannot answer at all.
+Its exit codes SHALL be `0` the inventory printed, and `2` it cannot answer at all — an unreadable file or a scope root that does not exist.
+Its exit codes SHALL be:
+Its findings SHALL be recorded exactly as any other slot's: an `F<n>` row in the findings table and a marker line in the marker block.
+Its token figures SHALL be **derived**, attributed from the harness transcript by the same mechanism that already attributes usage to a stage run.
+Main-thread and subagent usage SHALL accumulate separately, so a dispatching command's own cost is distinguishable from the cost of what it dispatched.
+Manual entry of an arbitrary range SHALL remain available, and entering one SHALL clear the indication that a preset is active, since the range is then no longer that preset's.
+Matched double quotes SHALL be the whole delimiter set.
+Measured values SHALL be stored in a schema-flexible structure, so that recording a new metric requires writing a new key and never a database migration.
+Neither guard's exit-code contract, reported output, nor observable behaviour SHALL change as a result.
+Neither route SHALL mix the two, and neither SHALL leave any of `/myflow-do`'s per-task commits on the final branch.
+No `/myflow-*` command SHALL accept any flag.
+No `/myflow-*` command SHALL load one as part of a run, and no skill SHALL instruct an agent to load one.
+No agent SHALL be asked to report its own token consumption, because two of the three supported harnesses write no transcript and the figure would be absent or guessed there.
+No artifact SHALL record what the human ran or whether they ran it.
+No command SHALL derive behaviour from it beyond `/myflow-start`'s own reasoning depth.
+No command SHALL write a state earlier than the one it read.
+No field SHALL record where a fix was raised.
+No file SHALL be written for them and none SHALL be committed.
+No guard SHALL be added to measure an artifact's length: brevity is a judgment, and a byte budget on a per-change artifact would reward dropping the facts the paragraph above requires kept.
+No label SHALL be invented.
+No mutation-testing framework SHALL be added, adopted or executed by this requirement, and no mutation score SHALL be computed.
+No other command SHALL transition the issue.
+No part of a query SHALL be constructed by interpolating caller-supplied text into a query identifier position.
+No passage SHALL be summarised, reworded, merged, or authored afresh.
+No placeholder identifier SHALL be fabricated for it.
+No preset SHALL change the escalation ladder, the fix-round rules, the panel record's format, the marker-line rules, or the operator handback.
+No rendering step SHALL fill such a value in on the way out of the store either.
+No roster preset SHALL change the bar at which `/myflow-do` hands off.
+No separate `*-fix` command SHALL exist for either.
+No separate command SHALL exist for producing either surface, and no state SHALL exist between implementation and finishing.
+No skill SHALL instruct an agent to author the table, and no run SHALL maintain a hand-written table alongside the rows — one source, so the two cannot disagree.
+No skill SHALL instruct an agent to hand-write either of them, and no run SHALL write both a file and a store row for the same record — one source, so two cannot disagree.
+No skill SHALL invent a stage name absent from that list, so the vocabulary recorded in the store and the vocabulary in the documentation are one list rather than two that can drift.
+No skill, contract or guard-presence list SHALL name it.
+No skill, contract, or other guard SHALL carry a second copy of that sequence, whether as executable code or as a fenced block a run is expected to retype.
+No slot SHALL inherit the parent model, and no slot SHALL resolve a model from the parent's provider family.
+No state write, commit, push, pull request, merge or archive SHALL depend on a Jira call succeeding.
+No third checkbox marker SHALL be introduced into `tasks.md` to carry an in-progress state.
+No workspace id SHALL be recorded in the state file, and no session SHALL coordinate with another to obtain one.
+Nothing in the pipeline SHALL read them back: they are an instruction to the operator, not a record, and no guard SHALL derive a signal from them.
+On `OUTSTANDING` the run SHALL show the breakdown and offer the operator exactly three courses: continue and integrate anyway; stop so the work can be finished; or file a tracker issue carrying the outstanding items and then continue.
+On a change spanning several repositories, run 2 SHALL proceed only when every recorded worktree returns the same merged verdict.
+On a complete set it SHALL print nothing.
+On a creating run, where the name does not exist until the Jira key resolves into `<key>-<slug>`, the `begin` and `end` pair SHALL fire back to back at the point the name is fixed, before the resolve-change stage's own marks — the same shape `/myflow-start` section A already requires of its creating run, and for the same reason.
+On a harness that writes no machine-readable transcript, token metrics SHALL be marked unavailable while state, marks and wall-clock duration are still recorded.
+On a mismatch a command SHALL stop, report the actual state, the states it expects and the command to run instead, and SHALL ask for an explicit override whose default and recommended answer is to run the suggested command instead.
+On an exit of **1**, `/myflow-do` SHALL put the choice to the operator as named options — proceeding with the panel anyway as the default and recommended answer, and stopping so the change can be split as the alternative.
+On any absence it SHALL print exactly one block, naming every missing guard, the directory searched, and the command that installs them, and stating that the affected checks will be performed by hand.
+On any other state it SHALL emit the same wrong-state handoff every other pipeline command emits, naming the actual state, the states `/myflow-fast` expects, and asking for an explicit override before proceeding.
+On any refusal it SHALL write the reason to stderr and **nothing to stdout** — an empty stdout SHALL never be readable as a resolved base.
+On any store failure the CLI SHALL journal the intent, print one warning line, and exit 0 — the same guarantee a state write and a stage mark already give.
+On any store failure — daemon down, database down, timeout, or a non-2xx response — the CLI SHALL write the state to the local on-disk JSON path, append the intent to a journal file, print exactly one warning line, and **exit 0**.
+On entering step 9, `/myflow-finish` SHALL ask:
+On its first run `/myflow-finish` SHALL ask, **before performing any git action**, how the branch should be landed:
+On its second run it SHALL commit the archive on `chore/archive-<name>`, remove worktrees, branches and the remote branch, and — after self-review has committed its report onto that same branch — push `chore/archive-<name>` and open a pull request against the base branch.
+On success it SHALL write the base branch name to stdout and nothing else, so a caller may use it directly in a command substitution.
+On the first join the issue's title SHALL become `myflow follow-up`, because it no longer belongs to the single source its original title named; a title already reading `myflow follow-up` SHALL be left as it is, **and so SHALL one naming the joining change's own key**, which still names the only source the issue has and matches the search either way.
+On the run that creates a change, `/myflow-fast` SHALL NOT ask the planning-effort, model, or review-panel-roster questions `/myflow-start` asks interactively.
+Once a correlator is bound to a session, every later mark carrying it SHALL bind immediately, without repeating the work that established the binding.
+Once bound, usage SHALL be attributed exactly as it is for a stage run whose session was known from the start; binding SHALL introduce no second attribution path.
+Once the OpenSpec artifacts are created, `/myflow-fast` SHALL continue, within the same invocation and without requiring a further command from the operator, into `/myflow-do`'s SDD+TDD implementation and review panel, exactly as `/myflow-do` runs them.
+Only an explicit **No** SHALL skip the remainder of step 9.
+Only an explicit confirmation SHALL join it; anything else SHALL file a new follow-up instead.
+Only an explicit yes SHALL transition it; anything else SHALL leave the status untouched and emit one skipped-with-reason line.
+Only when all three writes are satisfied SHALL the run report that nothing was written.
+Per-dispatch cost SHALL be derived through the same pricing path every other cost figure uses, applied to the dispatch's own recorded model.
+Per-task and per-fix-round review SHALL read `git diff <task-base>..<task-sha>` (or the autosquashed result of it) directly.
+Planning effort SHALL NOT become a command argument: the only argument any `/myflow-*` command accepts remains the optional change name, and anything else is still reported rather than interpreted.
+Presets that do not dispatch Bugbot SHALL NOT acquire the mutation reading by another route, and this requirement SHALL NOT add a slot to any preset.
+Proceeding past it SHALL change nothing about the panel's roster, its slots, its escalation ladder, or the requirement of zero open findings at any severity.
+Prose SHALL NOT be the only countermeasure: `skills/myflow-do/SKILL.md` already states in terms that symlinking a file in is the wrong fix, and a session created three such symlinks in `skills/myflow-fast/` roughly five hours after that sentence was committed.
+Prose explaining **why** a rule exists is not a second copy and SHALL be kept.
+Prose that describes **this repository's own** lint and test guards is not an invocation, and SHALL name the guard as `<agents repo>/scripts/<name>` rather than by a bare repository-relative path.
+Re-invoking a pipeline command SHALL be the supported way to revise its output.
+Re-running `/myflow-start` for a change already at `STARTED` SHALL apply the convergence test to what the operator's feedback reopened, and to whatever that opens in turn.
+Re-running a command SHALL record a new attempt rather than overwrite the previous one, so the record of a fix round is preserved.
+Recognition SHALL NOT be satisfied by a command that merely mentions a correlator.
+Recommending *another round* SHALL be correct at this prompt because the offer is reachable only while the command genuinely holds unanswered questions — the same reasoning that makes **Stop** the recommendation at `/myflow-finish` run 1's unfinished-work gate.
+Recommending *move on* SHALL be correct at this prompt precisely because the prompt is unreachable while the command holds an unanswered question.
+Recording a metric SHALL combine the new values with the existing ones **recursively**: where both hold an object under the same key, their contents SHALL be merged rather than one replacing the other, and only a non-object value SHALL replace what was there.
+Records other than the ledger and the panel record SHALL NOT be rendered.
+Removal SHALL NOT happen without the preservation copy existing, because the recorded `artifactUrl` remains in the terminal state file indefinitely and deleting the only source that could republish it would leave a URL advertised and unrepublishable.
+Rendering SHALL NOT change what the ledger may contain.
+Reporting "no rows" for it SHALL NOT be treated as equivalent to writing a record that declares zero findings: the guard reading that record treats silence as outstanding, so an unwritten record would report a clean change as unfinished.
+Reports written before this requirement existed SHALL be **declared by name, with a reason**, in the guard's own source, exactly as a legitimately-zero corpus member is declared under **Requirement: Zero coverage SHALL be declared or SHALL be a violation** (`openspec/specs/agents-repo-verification/spec.md`).
+Resolution SHALL happen on the server, where the set of projects is known.
+Results SHALL be paginated, and every ordering SHALL be made total by a unique tiebreaker so that paging through a result set shows each row exactly once.
+Rewording SHALL NOT split that stage's recorded history.
+Rewording the line SHALL be offered as a remedy wherever adding a tag is offered, because a tag written for a number that was already correctly quoted is a false statement of provenance.
+Run 2 SHALL NOT merge anything into the base branch, and SHALL NOT commit the archive on the base branch itself.
+Run 2 SHALL NOT push to `<base>` at any point.
+Run 2 SHALL therefore be re-entrant: every removal step is performed only if its artifact is still present, an artifact already gone SHALL count as success rather than as an error, and an already-archived change directory SHALL mean the sync-and-archive step is skipped rather than repeated.
+Run 2's terminal `## Finished` block SHALL carry one additional line:
+Scoping SHALL be what makes the loop usable on a revision: a revision round exists because most of the proposal was right, and re-asking answered questions would make the cheap path expensive enough that operators stop taking it.
+Self-review SHALL NOT be able to prevent the `FINISHED` write, since it never runs before that write succeeds, and a failure inside it SHALL NOT move the change off `FINISHED`.
+Self-review SHALL NOT be able to prevent, delay, or undo the `FINISHED` write.
+Self-review SHALL NOT push.
+Self-review SHALL answer all **five** angles below in a single reasoning pass, fed the gathered bundle plus the live session's own context — never as five separate subagent dispatches:
+Self-review SHALL write `docs/self-review/<name>-self-review.md`, containing the five-section report, the rating, and which findings were filed versus declined, then commit it on the archive branch `chore/archive-<name>` in the main checkout — the branch run 2's positioning step put that checkout on, and the same branch the archive commit already sits on.
+Settled parts of the plan SHALL NOT be re-brainstormed.
+Signal 1 SHALL be evaluated before signal 2.
+Signal 3 SHALL be evaluated after signal 2, because a dirty unmerged worktree is the ordinary state at `IN_PROGRESS` and SHALL yield run 1 rather than a refusal.
+Silence, a stalled prompt, or a session that cannot ask SHALL run self-review rather than skip it, since nothing external is written before the later per-finding and rating asks.
+Single quotes and apostrophes SHALL NOT delimit a quotation either, because prose apostrophes are unpaired by nature and admitting them would make pairing meaningless.
+Slots dispatched by `subagent_type` (Bugbot, Security Review) carry their own agent definitions and SHALL NOT be given a model override.
+Slots dispatched by `subagent_type` SHALL receive this requirement as prompt text, the way the mutation-testing brief already reaches Bugbot; no agent definition is edited to carry it.
+Slots the panel spawns directly — the primary reviewer, the principles reviewer, the adversarial reviewer, and any extra principle lens — SHALL pass Sonnet explicitly.
+Source excerpts around a finding's `file:line` SHALL NOT be inlined into the dossier.
+Starting the applications in a workspace SHALL create that workspace's database and bucket if they do not exist, and SHALL report having done so the first time, so the side effect is visible rather than silent.
+Surviving prose SHALL state only that every slot runs on Sonnet, and SHALL NOT describe per-slot tier reasoning, provider detection, or a fallback slug.
+Survivor detection SHALL consult the process group alongside the descendant walk, and cleanup SHALL signal the group before falling back to that walk.
+Task **completion** SHALL remain recorded by `tasks.md`'s checkbox alone; the store SHALL NOT become a second source of completion state, and no guard SHALL read completion from it.
+That SHALL hold for **every** field a guard reads out of a task body — `**Files:**`, `**Commit:**` and the rest — and **what counts as a fence SHALL be the shared grammar module's one definition**: CommonMark's three-or-more backticks or tildes, preceded by up to three columns of indent.
+That assertion SHALL NOT gate the run: it exists so that a run producing no ledger says so at the point the record must exist, rather than leaving the absence to be discovered at integration or not at all.
+That block SHALL be separate from the `finding-status:` block, whose lines are required to occupy one unbroken span; interleaving the two SHALL NOT be done.
+That failure SHALL be reported only when the partners are otherwise valid, so a fold whose partner is missing or itself red reports that one defect rather than two.
+That handback is the existing human gate and SHALL NOT be turned into a routine way to defer findings.
+That key SHALL make the opening write **idempotent**: the same dispatch recorded twice SHALL be one row, so a write replayed after a lost response cannot double-count one dispatch's cost.
+That report SHALL be distinguishable from every failure outcome, and — unlike the file-copy step this replaces — it SHALL mean unambiguously that no record exists, never that one exists somewhere that was not read.
+That route SHALL show, per stage run, the command and stage it belongs to, its attempt number, its outcome, its wall-clock duration, and every metric the run's metrics bag actually carries — and SHALL apply the absence-is-never-zero rule to each of them individually, so an unmeasured metric on an otherwise measured run reads as unavailable rather than as zero.
+The "and nothing more" bound is load-bearing: `openspec/specs/x.md` and `openspec/changes/<name>/` SHALL remain reportable
+The **archive** commit's message SHALL be the fixed literal `chore(openspec): archive change, sync delta specs`.
+The **core SHALL gain a statement of the rule** the original carried, together with whatever operative detail the rule cannot be followed without, and a citation to the appendix heading now holding the argument.
+The **format** a guard parses SHALL be unchanged — the labels, their anchoring at the first character of the line, the one-unbroken-span placement of the `finding-status:` block, the separate reproducer block, and the declared totals — and a guard SHALL reach the same verdict on a rendered record that it reaches on a hand-written one carrying the same findings.
+The **implementation** commit's scope SHALL be derived from the reshaped diff — the module carrying the change's substance, or a broader area where it spans several.
+The **location** a guard reads SHALL be the path the record is rendered to, `<worktree>/docs/superpowers/reviews/<YYYY-MM-DD>-<change>-panel.md`.
+The **main checkout** SHALL have no workspace id.
+The **original passage SHALL move to the appendix byte-for-byte unchanged**, subject to the same two permitted edits above and no more.
+The **parent** SHALL perform the mutations, after the fix subagent reports.
+The **planning** commit's message SHALL be the fixed literal `chore(openspec): plan and session records`.
+The **self-review report** commit's message SHALL be `docs(self-review): <name> self-review report`.
+The **store** SHALL record the model used for each subagent dispatch, implementer and reviewer alike, alongside the task or slot it ran.
+The ID SHALL be assigned once and SHALL NOT change, because it is the match key a later round uses.
+The LEXICAL and REAL paths SHALL be compared for exact equality.
+The LEXICAL path SHALL sit exactly one path segment past `<trusted-repository-root>/openspec/changes/archive/` — no deeper nesting, no shallower, checked as a real path boundary rather than a string prefix.
+The SDD ledger SHALL record which shape ran for each task, so the choice is auditable after the fact.
+The SDD ledger and the review panel record SHALL be **generated output**.
+The SDD ledger and the review panel record SHALL be **rendered from the store** into the repository, so that they are readable there without a running daemon and survive the worktree's removal.
+The UI-test stack SHALL be seeded with a committed fixture covering the states and quantities the application's views display, so that bringing it up yields a populated interface rather than an empty one.
+The `## standards` entries resolved for the principles slot SHALL NOT be carried in the bundle.
+The `## workspace isolation` section SHALL record, in the prose beside its tables, which resources this repository has deliberately not isolated, so that an absent row reads as a decision rather than an oversight.
+The `**Squash-with:**` grammar SHALL be defined in **exactly one place**, and both guards that read the field SHALL import that definition rather than each carrying a copy of it.
+The `<change>` argument of a stage mark SHALL be a resolved change name.
+The `IN_PROGRESS` handoff SHALL name how many record writes for the change are still sitting in the journal, so that a record which did not reach the store is visible to the operator at the gate they actually read.
+The `IN_PROGRESS` handoff block SHALL carry one line naming how many of this change's record writes are still sitting in the journal because the store could not be reached.
+The `gh pr list` probe SHALL NOT be performed.
+The `git merge-base` path SHALL remain reachable on its own, because it is the only merge evidence available on a non-GitHub forge.
+The `unknown (agent-defined)` value exists for the same reason it always did, and durability SHALL NOT weaken it.
+The absolute path SHALL still appear in the detail view rendered when a change name is given, where the absolute-path requirement binds it.
+The absolute path of `engineering-principles.md` SHALL be passed to the gather script by its caller and SHALL NOT be re-derived inside the script.
+The accepted states SHALL be: `/myflow-start` — none or `STARTED`; `/myflow-do` — `STARTED` or `IN_PROGRESS`; `/myflow-finish` — `IN_PROGRESS`; `/myflow-fast` — none or `IN_PROGRESS`; `/myflow-status` — any.
+The angle label on a finding line SHALL match the section the line sits under.
+The answer SHALL be written to a `planningEffort` field in the change's state file by `/myflow-start`, and SHALL be carried forward verbatim by every other command, exactly as `jiraIssue` is.
+The answer SHALL never be remembered between runs and never inferred from anything else.
+The append order SHALL be unique per change, and the constraint enforcing it SHALL be the race detector: two concurrent writes that compute the same next value SHALL collide, and the loser SHALL retry rather than silently overwrite the winner.
+The application instance itself SHALL NOT carry this restriction — serving the live database is its ordinary purpose.
+The assertion SHALL be the render's own report — the outcome word saying the store holds no dispatch rows for this change — read at its call site, never a test for a file at a path.
+The authoritative home of a change's state record SHALL be a PostgreSQL database owned by a long-running daemon.
+The bootstrap itself SHALL remain unchanged.
+The bound SHALL be low enough that no recorded data falls below it.
+The branch SHALL be the only thing that decides which run happens; no field records "integration started".
+The brief SHALL be carried by the dispatch prompt rather than by the agent definition.
+The bundle SHALL NOT be rebuilt per dispatch.
+The bundle SHALL carry, in order, the change's `proposal.md`, `design.md`, `tasks.md`, every delta spec under the change's `specs/` directory, and the content of `engineering-principles.md`.
+The bundle SHALL state, in its header, the instant it was generated and the git sha of the worktree's `HEAD`, so any reader can establish which state of the tree the bundle describes.
+The cache index SHALL be chosen by probing which indices are in use and claiming a free one, and SHALL be recorded for the duration of that run.
+The cap SHALL NOT move the handoff bar.
+The carve-out SHALL be recognised on a single line only, and SHALL fail closed: it may only ever remove a finding, and only where the number is demonstrably enclosed.
+The change name SHALL be derived from the `tasks.md` path the guard was given, which is already `<worktree>/openspec/changes/<name>/tasks.md`; the check SHALL NOT require a new argument.
+The change's project key SHALL identify the project whose state directory owns the record, and SHALL NOT be read as the list of affected repositories.
+The check SHALL run before any statement is issued against the target.
+The check is a report and SHALL NOT be a gate.
+The chosen level SHALL govern only how much reasoning `/myflow-start` spends on its own brainstorming and plan enrichment.
+The clause SHALL name exactly two subjects:
+The clause SHALL name what is never cut: any normative sentence, any exit-code contract, any ordering constraint, any scenario, any worked example, and any recorded reason a rejected alternative was rejected.
+The clause SHALL permit **deletion** and SHALL NOT permit **paraphrase**.
+The clause SHALL state brevity as **non-repetition**: a file states a thing once and does not restate what another file states canonically.
+The clause naming `a guard's behaviour` SHALL replace the earlier clause naming `a public contract`, which did not discriminate in a repository whose product is contracts.
+The closing call SHALL record the end instant.
+The colour SHALL be one fixed value for every command and every change, signifying only that a pipeline command owns the tab, and SHALL be one the harness accepts.
+The command SHALL NOT infer one and SHALL instead show the operator the issue key, the current status and the intended target, and ask whether to transition.
+The command-line client SHALL resolve its default daemon address from the environment, so that one exported variable directs an entire session at the test stack.
+The commands SHALL come from the project's own `.myflow/project.md` — its `## run` section where the project has a runnable application, and its `## lint` and `## test` sections where it has none.
+The commit SHALL assert the branch rather than assume it: naming the directory with `git -C <main-checkout>` fixes the directory and not the branch, which is what stranded the reports for KAN-197 and KAN-200 on an already-merged archive branch.
+The concept SHALL be called **planning effort** wherever it is named to an operator, so the question says what the level governs rather than leaving "effort" to be read as the effort of the whole change.
+The confirmation SHALL rest on three signals, evaluated in this order, and SHALL be performed by an executable check rather than by prose an agent follows:
+The contract SHALL record why these are printed rather than invoked, so a later reader does not treat the printing as an oversight to correct:
+The control SHALL indicate which preset, if any, matches the current period, so the active range is legible without comparing two timestamps.
+The control SHALL offer a way back to the default period, and that control SHALL be present only while the current period differs from the default.
+The convention SHALL be stated once as an always-on rule at `rules/commit-scope-is-the-module.mdc`, declaring `alwaysApply: true` and marking a core excerpt, so `setup.sh` renders that core into every managed `CLAUDE.md` block and installs the full text at `~/.claude/rules/`.
+The convergence test, the confirm, the soft bound and the open-questions record SHALL apply at every planning effort level.
+The correlator SHALL be a literal value written by the calling command — never a value produced by expansion at execution time, which would be recorded identically for every caller and so identify nothing.
+The correlator SHALL identify a **session**, not a mark: one correlator is generated per command run and passed on every mark that run makes.
+The count is what separates the two, and it SHALL be present on a **passing** run: a fact visible only when something is already broken cannot reveal a rule that was never doing anything.
+The created issue SHALL be linked to the change's issue when one exists.
+The daemon SHALL expose a statistics API in which every view accepts a start and an end instant, and SHALL perform the period restriction in the query rather than returning unbounded data for a client to filter.
+The daemon SHALL read Claude Code session transcripts and attribute each assistant message's recorded usage, model and reasoning effort to the open stage window whose session matches and whose interval contains the message's timestamp.
+The daemon SHALL replay journal entries at startup and whenever it regains a database connection.
+The daemon SHALL serve its user interface and its API bound to the loopback interface only, and SHALL NOT require credentials.
+The dangling-promise signal SHALL be defined by that structural rule alone and SHALL NOT key on phrases such as "see … for why" or "the reason is".
+The dashboard SHALL open on a default period of the preceding 30 days ending at the present instant, and that default SHALL be asserted by a test rather than left as incidental behaviour.
+The decision SHALL then be recorded as **one multi-select prompt per angle**, listing that angle's findings, defaulting to filing none of them.
+The default SHALL yield to an explicit operator override, and only to that — whether the operator recorded a review-panel model in the change's state file or instructed one during the session.
+The derivation SHALL be deterministic — the same change name always yields the same id — so that two sessions that never communicate cannot produce the same id for different changes, or different ids for the same change.
+The destination date SHALL be fixed at the **first** render for a change: an existing rendered file for that change SHALL be reused, so a fix round overwrites in place rather than leaving one dated duplicate per round.
+The destination path for a change SHALL be fixed at the first render and reused on every later render, so repeated runs overwrite in place rather than accumulating one dated file per round.
+The detection SHALL live in the shared grammar module, so both guards name the same defect.
+The diff a command presents for review at `IN_PROGRESS` SHALL exclude paths under `openspec/` and `docs/superpowers/`.
+The dispatch entry SHALL carry its token figures with the descriptors omitted rather than guessed, consistent with the rule that an absent value is never recorded as a value.
+The dispatch prompt SHALL state that these locations were established by the slot that raised them and are not to be re-derived.
+The dispatch that repairs panel findings SHALL carry, for every surviving finding, that finding's identifier, the slot that raised it, its severity, its `file:line` taken verbatim from the findings table's Location column, its theme, the text of its `finding-reproducer:` line, and any bounce recorded against its defect identity.
+The display name SHALL be derived by removing a trailing `-` followed by exactly eight lowercase hexadecimal characters.
+The distinction is only meaningful when the period has been changed, so a default period SHALL NOT carry the explanation — under the default, empty means empty.
+The documented stage list SHALL name discrete stages for every command that marks them.
+The earlier call position SHALL NOT make any state write depend on a Jira call succeeding.
+The exclusion SHALL be achieved by **not staging** those paths, not by filtering them out of a display command.
+The exemption SHALL use the `none — <reason>` literal form the record already uses for `finding-reproducer:`, so the record carries one exemption shape rather than two.
+The extracted content SHALL live in `skills/myflow-contracts/`, one file per contract.
+The field SHALL be a record and the default for a revision round.
+The file SHALL continue to live outside the repository at `/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json`, resolved via `--git-common-dir`, and SHALL never be staged, committed or archived.
+The filing ask SHALL cover the findings of **every** angle, not only the problems angle.
+The final pass SHALL show a non-stale clean result for every slot in the run's roster.
+The findings table's identifiers and the marker lines' identifiers SHALL name the same findings.
+The fix round SHALL NOT close, and `/myflow-do` SHALL NOT reach the handoff, while an executable behaviour the round changed carries neither a `fix-mutation:` line nor an exemption.
+The fix subagent SHALL name the executable behaviours its fix changed; the parent SHALL then mutate each one and establish that an existing test fails.
+The fixture SHALL be expressed against the application's own persistence types rather than as raw statements, so that a schema change breaks the fixture's build rather than leaving it to fail silently at load time or, worse, to load into a shape the views render wrongly.
+The flags `automerge`, `skip-review`, `skip-manual-test`, `skip-propose`, `propose-only`, `checkpoint`, `commit-during-apply` and `full-panel` SHALL NOT exist.
+The following SHALL NOT be compressed, because a guard or a contract parses them byte for byte:
+The full key SHALL remain reachable from every surface that shows a display name: as the row identity, as the link target where the surface links, and as a tooltip on the named element.
+The gather script SHALL exit 2 on a malformed invocation — a missing argument, a change name outside the allowlist, or a path that does not resolve where it was required to — and SHALL otherwise always exit 0, reporting a source it could not find as skipped rather than as a failure.
+The gather script SHALL validate each path it is given by normalizing it lexically, resolving it semantically, and refusing any divergence between the two, so that a symlink anywhere between the trusted root and the leaf is refused rather than followed.
+The group SHALL be established without a shell ever seeing the reproducer line — the argv vector SHALL pass through untouched — so the direct-exec guarantee above is preserved.
+The grouping SHALL be computed by a script rather than by eye.
+The guard SHALL NOT attempt to verify that a `green` tag is true.
+The guard SHALL NOT classify as a citation:
+The guard SHALL NOT infer that a report predates the rule from the report's own content — a marker a new report can forget to write is a mechanism for passing without being checked, which is the outcome the declaration exists to prevent.
+The guard SHALL NOT offer a mode that rewrites the table from current sizes: a regenerate command makes regeneration the path of least resistance, and a ratchet whose bound is recomputed on demand does not ratchet.
+The guard SHALL NOT parse HTML in order to make this decision.
+The guard SHALL additionally check the **declared** `**Commit:**` field's own scope, independently of whether the real commit matches it.
+The guard SHALL check only that provenance is **stated**, never whether it is true.
+The guard SHALL classify each backticked token before judging it, and SHALL NOT treat every token containing a `/` as a citation.
+The guard SHALL refuse to run `setup.sh` unless both `HOME` and the target project directory lie inside the sandbox directory that run created, adopting `scripts/test-setup.sh`'s existing refusal rather than restating it.
+The guard SHALL report per-member coverage and SHALL exit 0 when clean, 1 when it finds violations, and 2 when it cannot answer at all — the exit-code contract every guard in this repository carries.
+The guard SHALL resolve the **whole** combined fold — every red task reachable through a shared partner, and every partner of each — from **every** id in it, so that the union and the agreed subject do not depend on which id the guard was invoked for.
+The guard SHALL verify `**Regression:**` by temporarily reverting the task's commit, running the named test, confirming it fails, and un-reverting; and SHALL verify `**Baseline:**` by running the project's `## test` command at the task's parent commit and at the task's own commit, comparing the counts to the declared `before=<N> after=<N>`.
+The guard is a ratchet against regrowth and SHALL NOT be a target a split can fail against; a target-first budget creates pressure to push normative text into an appendix to make a number.
+The guard's scope SHALL be a change's `tasks.md`, `design.md` and `proposal.md`, excluding archived changes.
+The handoff SHALL instead report the issue key, its status, any title change, and the section this run appended.
+The handoff SHALL then name the unpushed archive branch and print the exact commands to complete the landing by hand, and SHALL NOT report the archive as landed.
+The harness SHALL likewise be the harness the command is actually running under, never a fixed value written into shared command text, since one source is installed into several harnesses.
+The harness's task list SHALL NOT be read back by any command, guard or contract as evidence of what was done.
+The harvester SHALL read each transcript line's `agentId` field and SHALL attribute every assistant message carrying one to that dispatch, in addition to the whole-run total and the per-model breakout it already produces.
+The helpers that read a review panel record's marker lines — counting matching lines, extracting matching text, and collecting finding identifiers — SHALL be defined **once**, in a sourced library, and SHALL NOT be reimplemented in any guard that needs them.
+The human gate SHALL be a property of the state rather than a separate stage: `STARTED` means the proposal awaits reading, `IN_PROGRESS` means the staged diff awaits the human's review and the run, `FINISHED` is terminal.
+The identifier SHALL be the **first** cell of every row and SHALL read `F<n>`, where `<n>` is a decimal number **unique within the record**.
+The implementation skill SHALL assert the ledger's presence before it hands off, and SHALL report plainly when it is absent.
+The in-progress count SHALL come from the harness's task list alone, which no run persists.
+The instruction SHALL be recorded with the dispatch it governs.
+The instructions SHALL NOT be given an application-shaped structure a project does not have.
+The instructions SHALL carry no checkboxes, no completion state and no record of what the operator did.
+The instructions SHALL name, for each thing in scope, the command that starts or exercises it.
+The interface SHALL NOT reconstruct the mapping from whichever rows it happens to be showing — a project with no rows in the selected period is absent from the interface and present in the store, so a client-side mapping would be wrong exactly when a filter is most needed.
+The interface SHALL be served by the same process that serves the API, so the two cannot reach different versions.
+The interface SHALL distinguish three states rather than two: a period in which nothing was recorded, a run that was recorded but received no measurement, and a value measured as zero.
+The interface SHALL present each view as a dashboard composed of panels, where a panel is one self-contained result with its own heading, rather than as a single undivided table per page.
+The interface SHALL provide a route that opens a single change and shows every stage run recorded against it, so the cost of one unit of work is readable without reading an aggregate that spans other changes.
+The joined issue's labels SHALL be unioned with the labels the new follow-up would have carried — without this, an issue holding a second change's outstanding work is invisible to anyone filtering by that change's labels.
+The journal SHALL reuse the existing journal-append mechanism and its file naming convention, and the reconciler SHALL replay record entries alongside the entries it already replays.
+The ledger render SHALL happen during `/myflow-finish` run 1, before it stages the work, so the records land in the same commit as the implementation they describe and reach the base branch with it.
+The level SHALL NOT be read as an instruction by `/myflow-do` or `/myflow-finish`.
+The level names SHALL say what they mean to an operator choosing between them: `default` is what a change gets unless there is a reason to differ, and `detailed` describes the work done rather than a position on a scale whose endpoints are not shown.
+The line SHALL be defined **once**, in the contract that defines the block, so that every command rendering an `IN_PROGRESS` handoff carries it.
+The line SHALL be present whether or not any write was journalled.
+The linked key SHALL live in the state file's `jiraIssue` field, SHALL be resolved only by `/myflow-start`, and SHALL be carried forward verbatim by every other command.
+The list of excluded paths SHALL be fixed in the contract rather than configured per project.
+The mapping SHALL be by **enumerated name**, never by inference.
+The marker SHALL be the anchor, rather than any rendered title or body text, because the marker is what `render_managed_block` writes per rule and matching on prose would re-derive the renderer's formatting and drift from it.
+The marker line, not the table, SHALL be the record of a finding's state.
+The marker lines SHALL occupy **consecutive lines** — one unbroken block.
+The measured count, the cap in force, and the operator's answer where one was given SHALL be recorded in the panel record on **every** run, including runs at or under the cap, so the record always states the size the panel read.
+The measurement SHALL be performed by a script taking the worktree, the merge base, and an optional cap.
+The metrics bag's existing `tokens.main`, `tokens.sidechain` and `models.<model>` keys SHALL keep their current meaning and SHALL continue to be written exactly as before, so that every existing aggregation reads unchanged and a stage run recorded before this capability existed is not retroactively wrong.
+The model SHALL be named explicitly at dispatch, never left to inheritance.
+The names mapped onto the To Do position SHALL be stated **once** in `skills/myflow-contracts/jira-integration.md`, and every other site needing that set SHALL cite it rather than enumerate it a second time.
+The new run's insert and the closing of what it supersedes SHALL be one atomic write: either both land or neither does.
+The number of marker lines SHALL equal `<n>`; a disagreement in either direction SHALL count as outstanding, and SHALL be reported with both numbers so the record can be corrected rather than guessed at.
+The one declared subject SHALL be what the surviving commit is checked against from **every** id in the fold, the non-declaring partner's included — a partner whose own field is absent takes the fold's agreed subject rather than checking against nothing, since one verdict from either id is required above.
+The one real copy of each guard SHALL remain at the repository's root `scripts/` directory.
+The only argument any command takes SHALL be the optional change name.
+The only non-zero exit SHALL be a caller mistake — which is a defect in the call, fixed by correcting the call rather than worked around.
+The open-questions count SHALL be derived from the change's `design.md` — the entries under `## Open questions` whose status is still `open` — and SHALL therefore be **regenerable rather than run-only**: it is read from an artifact on disk, exactly as the decisions count is, so `/myflow-status <name>` renders it rather than omitting it.
+The opening call SHALL NOT be deferred to the close.
+The operational table the commands read — the same three levels rendered as the per-level behaviour `/myflow-start` follows — SHALL live in one place, the **Planning effort** section of `skills/myflow-contracts/state-file.md`, and SHALL follow this requirement rather than restate it as a second source.
+The operator SHALL NOT be asked how to land a branch and only then told that the branch carries unfinished work.
+The operator SHALL have the explanation in front of them before the decision is recorded, because a filed issue is durable and already on the board — an explanation that arrives after the filing describes something the operator did not agree to.
+The order SHALL be **four positions** — To Do, then In Progress, then In Review, then Done — and each position SHALL be identified by the names mapped onto it.
+The panel record SHALL carry the reproducers in a marker block of their own — one `reproducers-total: <n>` count line and one `finding-reproducer: F<n> <command | none — reason>` line per finding.
+The panel record's own render SHALL happen earlier, at panel close; that firing point belongs to `myflow-run-record` and this requirement does not restate it.
+The panel's existing escalation ladder SHALL remain the termination guarantee: when fix rounds do not converge, the run hands back to the operator, who resolves the disagreement — including by marking a finding `withdrawn` with a reason.
+The parent SHALL record each fix round's mutations in the pass log entry it already writes in `.superpowers/sdd/final-review-panel.md`, one line per executable behaviour the round changed, followed by a declared count:
+The parent's labels exist by construction; `AI-generated` SHALL be applied only because it is already in use in the project.
+The pass log entry's own definition (mode, agents, reason, diff path read) SHALL be amended to name this bounce field explicitly, so that a pass which recorded a bounce is not left pointing at a field the log's definition never described.
+The path-containment refusal that protects a scanned file — refusing a symlink, a path escaping the changes directory, or a non-regular file — SHALL apply to every file the guard scans, not only to `tasks.md`.
+The period SHALL be carried in the page's URL, so that reloading preserves it and the URL identifies the range someone else would see.
+The period control SHALL offer presets for the ranges an operator picks routinely, and selecting one SHALL set both bounds together.
+The pipeline itself — the state definitions, the command→state transition table, the mismatch handoff, git boundaries per state, and the finish contract — SHALL NOT appear in that file, nor SHALL the three contract sections (State file, Project configuration, Jira integration).
+The pipeline stage that invoked it SHALL keep its existing stage key and its position in run 1, so that stage runs already recorded under that key remain valid.
+The pipeline stage that performed the preservation SHALL keep its stage key and its position in the run, so that stage runs already recorded under that key remain valid and the documented stage table needs no edit.
+The pipeline's temporary and preserved artifacts SHALL be listed in a single registry in the canonical pipeline contract, each row naming what creates the artifact, where it lives, and what removes it.
+The positioning SHALL be performed by a guard, `prepare-archive-branch.sh <main-checkout> <base> <archive-branch>`, rather than by prose, for the same reason `check-finish-preflight.sh` owns the run-1-versus-run-2 verdict: the decision sits in front of an irreversible step.
+The pre-edit description SHALL be echoed verbatim into the handoff on any run that writes it, so the transcript is the recovery path.
+The presence of the field SHALL be enforced by a script taking the worktree, exiting **0** when every `F<n>` named in the `finding-status:` block has exactly one well-formed `finding-reproducer:` line and `reproducers-total` equals the number of those lines, **1** when violations are found, each reported with its line, and **2** when it cannot answer at all.
+The preset SHALL be asked once, by `/myflow-start`, on the run that **creates** the change — the same run that asks the planning effort and the three model roles, and determined the same way: the state file does not exist.
+The project's test command SHALL be unaffected by this capability.
+The push SHALL carry both the archive commit and the self-review report, so there is no window in which the archive pull request is merged while the report is still unwritten.
+The query surface SHALL allow filtering, sorting and free-text search across the recorded fields of both changes and stage runs — including the change's project, name, state, branch, linked issue, planning effort and roster, and the stage run's command, stage, attempt, harness, outcome, timings and repository — **and** across keys within the metrics structure, addressed by key path.
+The question SHALL be asked interactively, in the same way `/myflow-finish` asks how a branch should land.
+The rating SHALL be recorded only in the self-review report file, never in the state file.
+The reconciler SHALL replay journal entries for one change in the order they were written, which is what resolves the pair.
+The record SHALL NOT be read by a guard script.
+The record SHALL NOT quote the marker format inside itself.
+The record SHALL be keyed by project and change name together, so two projects may hold a change of the same name without collision.
+The record SHALL carry the same fields the state file carried — `state`, `branch`, `worktrees`, `artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `reviewPanelRoster`, `prUrl`, `updatedAt`, `updatedBy` — and SHALL be governed by the same closed-schema rule, the same monotonic-state rule, and the same carry-forward rule the state file contract already states.
+The record SHALL carry the set of affected repositories, each with its own root and its own recorded merge base.
+The record SHALL distinguish that outcome from a slot that was re-run and from a slot whose trigger never fired at all.
+The record SHALL therefore never be cumulative, and a record's finding count SHALL always describe the change's current findings rather than the union of every round's.
+The recorded questions SHALL reach the published proposal artifact, so that stopping with something open is visible at the gate the operator reads rather than held only in the session transcript.
+The refusal SHALL name both the branch found and the branch required.
+The refusal's own message SHALL be what the detail view reports.
+The regenerated block SHALL carry, for the change's current state:
+The registry SHALL cover the per-task and review diffs, the review panel record, the session ledger, the proposal artifact source, each worktree, the local branch, the remote branch, the change directory, and the state file.
+The relation SHALL be transitive: three tasks A, B and C where A and B share a path and B and C share a different path SHALL form one bundle.
+The render SHALL report one outcome per kind: that the record was rendered and where; that the store holds no rows of that kind; or that the write was journalled because the store was unreachable.
+The rendered record SHALL carry the same marker blocks, in the same format, that the guard reading it parses today.
+The renderer SHALL NOT emit a marker label inside prose, a table cell, or a fenced block, since a validly-formatted marker written as an example reads the same as a real one.
+The renderer SHALL validate the change name against an allowlist of the characters a real change name uses, and SHALL require the destination to be contained within the repository root.
+The renderer SHALL write into the repository directly.
+The renderer that produces the review panel record from the store SHALL emit the total line and the marker lines exactly as the requirements governing them specify — same labels, same anchoring at the first character of the line, same one-unbroken-span placement for the `finding-status:` block, and the reproducer block kept separate from it.
+The repository SHALL carry a guard that checks every report under `docs/self-review/` against the report shape above: all five angle sections present; each section carrying either at least one finding line or the none-marker; each finding line parseable, with its angle label matching its section and a filed finding naming an issue key.
+The repository SHALL carry exactly one implementation of base-branch resolution: `resolve-base-branch.sh`, invoked by basename per **Guard resolution** (`skills/myflow-contracts/pipeline.md`).
+The repository set SHALL be written in the same transaction as the change itself, and SHALL follow the same whole-object rule the record's own fields follow: a repository absent from a write is removed from the set.
+The repository's own lint SHALL report such a symlink by path and target, and fail.
+The requirement SHALL be satisfied by whichever mechanism the harness provides, and SHALL NOT name one harness's tool as the only means.
+The resolution is therefore made by reading each citation, and the change that moves a section SHALL name them individually rather than asserting that the guard passed.
+The resolved name SHALL be validated before it is printed: it arrives from the remote and flows into refs and git commands, so a value that is empty, begins with `-`, or carries a character outside `[A-Za-z0-9._/-]` SHALL be refused rather than printed.
+The resolver SHALL assert, in this order: the current branch is not detached; the resolved base is non-empty; and the resolved base differs from the current branch.
+The retired `myflow-state-advance` skill SHALL NOT appear alongside it in any of those indexes, and neither SHALL the removed `myflow-info` skill.
+The review panel SHALL check the table against the diff **in both directions**: every deletion in the diff SHALL have a row, and every row's destination SHALL exist.
+The review panel record SHALL be rendered at panel close, before any guard reads it — not at finish run 1.
+The review panel record SHALL carry every finding raised in a table, one row per finding, with columns for the finding's identifier, the slot that raised it, its severity, its location, and a note.
+The review panel record SHALL carry exactly one **total line**, beginning at the first character of its line and reading:
+The route SHALL be reachable by selecting a change from the live state board, not by URL entry alone.
+The route that shows one change's stage runs SHALL let a stage run be expanded to show the dispatches it made, one row per dispatch, carrying that dispatch's description, agent type, model, token total and cost, ordered by cost descending.
+The route's summary totals SHALL come from the server's own aggregation over the whole change, not from summing the stage runs the interface currently holds, so a change whose stage runs exceed one page is never summarised from a subset of them.
+The row SHALL be written in two calls: one as the dispatch **starts**, carrying everything known then, and one as it **finishes**, carrying the commit, the outcome and the end instant.
+The rule SHALL be stated in `skills/myflow-contracts/pipeline.md`, which every `/myflow-*` command loads before any other step, so that it reaches every run without each skill carrying its own copy.
+The rule's frontmatter `description` SHALL name the three states, not the retired twelve stages.
+The run SHALL end at `IN_PROGRESS` with the same staged-diff-plus-run-instructions handoff `/myflow-do` produces — the operator's checkpoint for this invocation is that review, not a pre-implementation confirm.
+The run SHALL name what remains and leave the change at `IN_PROGRESS`.
+The run instructions SHALL be printed rather than written to a file, per **The `IN_PROGRESS` handoff carries run instructions** in `myflow-handoff-output`.
+The runs SHALL be matched by session token, not by session id, since a session id is bound after the fact and is routinely absent when a mark is written.
+The runtime guard SHALL therefore resolve a red task's checks against the **partner's** commit rather than against a commit of its own:
+The same SHALL hold for the fallback state directory.
+The same prompt SHALL require the slot to read the review diff itself.
+The same resolution SHALL apply when the guard is invoked for the **partner**, so that checking either task id against the folded commit gives the same verdict.
+The scope SHALL NOT be the change name, the change's Jira key, or a task id.
+The script SHALL NOT be a lint step.
+The script SHALL NOT be a lint step: it needs a worktree and a merge base for a change in flight, the same reason `check-finish-preflight.sh` and `check-unfinished-work.sh` are already excluded from lint.
+The script SHALL be run once per worktree recorded in the state file's `worktrees` map.
+The script SHALL collect, without performing any judgement:
+The script SHALL exit 2 on an invocation error (a missing argument or an invalid change name); otherwise it SHALL always exit 0 — a missing source is never a pass/fail determination and never changes the exit code.
+The script SHALL print exactly one verdict line — `CLEAR` when no signal fires, or `OUTSTANDING` with a per-signal breakdown — and SHALL exit non-zero **with no verdict line** when it cannot read the worktree.
+The script SHALL refuse to read any path that normalizes outside the repository root, SHALL decide that from the path's **shape** before any existence test so the verdict does not depend on what is on the machine, and SHALL treat such a reference as a **failure** rather than a note — a clean exit means every reference was checked.
+The script SHALL report every failure as `file:line` and exit non-zero.
+The script SHALL take a `tasks.md` path, and with no argument SHALL resolve every non-archived change's `tasks.md`, the same resolution `check-task-build-green.sh` already performs.
+The script SHALL take no arguments and SHALL own its scan set in a single `DEFAULT_TARGETS` definition, matching the contract of the repository's other guards.
+The script that copied session records out of a worktree into the repository SHALL be removed, together with its test harness.
+The script that performed the file copy, and its test harness, SHALL be removed rather than kept as a wrapper.
+The second kind SHALL NOT be journalled, for the same reason it exits non-zero: the store was reached and refused, so a replay would be refused identically, forever.
+The section 5 fix-subagent dispatch, which receives the union of surviving review findings, SHALL carry an instruction naming `superpowers:systematic-debugging` for any finding confirmed as a real defect, before the fix subagent writes a fix for it.
+The selection rule, and what the remaining one-way `prUrl` limitation costs, are stated in **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) and SHALL NOT be restated here, so there is only one place to correct when they change.
+The separation SHALL isolate the logical resources — the database, the application port, the transcript source and the fallback state directory — rather than duplicating the database service that holds them.
+The set SHALL be cited from that single statement rather than enumerated a second time here, so the two sites cannot disagree.
+The set SHALL be the keys of the state file's `worktrees` map; when that is **absent or empty**, it SHALL be found by scanning `git worktree list` in each affected repository for branch `openspec/<name>`.
+The set of installed **roots** SHALL be the first path segment of each derived source path.
+The set of models offered SHALL be the set actually recorded in the period being viewed, obtained from the server rather than assumed or hard-coded, so a model this build has never heard of still appears once it has been used.
+The set of rows the verification checks SHALL be derived from the registry rather than restated independently of it, and the derivation SHALL be checkable in both directions: a registry row the verification accounts for nowhere, and an accounted-for row the registry no longer carries, SHALL each be a failure.
+The shape of the handoff block for each state SHALL be defined in exactly one place — `skills/myflow-contracts/handoff-blocks.md` — as a per-state template.
+The shared change name resolution used by every `/myflow-*` command SHALL enumerate open changes from the union of `openspec list --json` and the names of the files in the project's state directory (`/Users/tweety53/Agents/myflow/state/<project-key>/*.json`), minus any name whose `openspec/changes/<name>/` directory has reached `archive/`.
+The shared service containers, their host ports, and the container-runtime configuration that declares them SHALL NOT be changed.
+The slot SHALL NOT be dropped, and the panel SHALL NOT fall back to two required slots: an unavailable harness skill is not a way to weaken review.
+The source SHALL be preserved into the repository alongside the other session records at run 1, and the copy beside the state file SHALL be removed during run 2, in the same disclosed cleanup sequence as the worktree removal.
+The stage SHALL end while a question is still held only on an explicit operator answer — declining the round offer named under **Rounds are softly bounded — later ones are offered, not taken** below, which records what remains open rather than settling it — and never because this test itself concluded the stage was done.
+The stage names SHALL be those in **Level 1 — the stages of each command** (`README.md`).
+The state SHALL be held in a **state record** whose authoritative home is the store defined by `myflow-state-store`, and whose on-disk JSON form is the fallback journal that store contract defines.
+The state file SHALL contain `state`, `branch`, `worktrees`, `artifactUrl`, `jiraIssue`, `planningEffort`, `models`, `reviewPanelRoster`, `prUrl`, `updatedAt` and `updatedBy`, and SHALL NOT contain `gates`, `tested`, `originStage`, `REVIEWED_TREE`, `fastPath`, separate `worktree` and `MERGE_BASE` fields, or `effort`.
+The state-file contract SHALL carry the field's shape and SHALL NOT restate what a preset means.
+The state-gate marks SHALL carry a resolved change name.
+The statistics surface SHALL accept a model restriction on every view that aggregates stage runs, applied where the query runs rather than by discarding results after they are returned.
+The statistics surface SHALL provide these views, each answering the question named against it:
+The steps registered SHALL be:
+The stub SHALL NOT claim authority over text it no longer contains.
+The surviving commit's subject SHALL be required to match the **partner's** declared `**Commit:**` field.
+The table SHALL NOT carry a status column.
+The table SHALL be **hand-maintained**.
+The table SHALL carry exactly these columns, in this order:
+The table SHALL carry one row per removed passage, with these four columns:
+The task's dotted id SHALL NOT be the scope.
+The task's identity is carried by the `Task-Id: <n>` trailer, and the subject SHALL follow the plan's declared `**Commit:**` field.
+The test SHALL NOT be satisfied by the command recording a question **pre-emptively** — to dodge asking one the operator has not seen; a question recorded that way is still held.
+The test stack SHALL be created by the project's normal migration and seeding path, never by copying the live database.
+The test stack's transcript source SHALL be separate from the live one.
+The third assertion is what makes the `HEAD@{upstream}` class of misresolution impossible rather than merely unlikely, and it SHALL NOT be skippable — by a flag, an environment variable, or any other mode.
+The threshold SHALL be a tuned value stated in `skills/myflow-start/SKILL.md`, not in this requirement, so it can move without amending the contract.
+The token delta computed for a stage run SHALL carry a per-dispatch breakout keyed by `agentId`, written into the stage run's metrics bag under `dispatches.<agentId>`, and built the same way the per-model breakout is built.
+The transition SHALL NOT be conditioned on a pull request existing.
+The transition SHALL remain non-blocking: a failure SHALL degrade to a single skipped-with-reason line, and the run SHALL continue and write its state file exactly as it would have.
+The trigger table's existing borderline *ask* rows SHALL keep their current behaviour under `full`.
+The two commits `/myflow-finish` run 1 makes SHALL NOT carry the change name as their scope.
+The two commits `/myflow-finish` run 2 makes SHALL NOT carry the change name as their scope, for the same reason run 1's may not.
+The unfinished-work gate SHALL run **before** this question.
+The verification SHALL be a separate script from the run-1 gate, because it answers a different question at a different point in the run.
+The view queries themselves SHALL continue to filter on an exact project key.
+The workspace id SHALL derive a database name, an object-store bucket name, and a block of application ports.
+The workspace's database and bucket SHALL each have a row in the pipeline's temporary artifacts registry, and `/myflow-finish` run 2 SHALL remove them.
+The write SHALL append a dated bullet under an `## Added during implementation` heading, creating that heading once at the end of the description when absent.
+The write SHALL be governed by the same pre-write assertion every description write in this capability carries: the payload contains the description just read as an exact prefix, and is strictly longer than it.
+The zero-open-findings bar SHALL be untouched.
+There SHALL be no hard cap: no round count SHALL end the stage on the command's own authority.
+There SHALL be no intermediate copy in a worktree, and no step that copies a rendered record from one path to another.
+There SHALL be no mapping from a parent provider family to an economy tier, because there is no longer more than one tier.
+There SHALL therefore be no path for two components to disagree about, and "the store holds no rows of this kind for this change" SHALL be a distinct, reportable value from "a record exists somewhere that was not read".
+These lines SHALL be written in the pass log entry and SHALL NOT be written inside the marker block.
+They SHALL NOT be authored as files in a worktree.
+They SHALL NOT be copied out of a working directory, because neither is authored as a file in one.
+They SHALL NOT replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch actually ran on.
+They SHALL be printed at the **start** of the run rather than in the handoff, because labelling a tab is useful before a long run rather than after it.
+They carry their own agent definitions, take no model override from any mechanism, and SHALL continue to record `unknown (agent-defined)`.
+This SHALL NOT be read as contradicting the plan-wide report above.
+This SHALL NOT be reported as a misconfiguration.
+This SHALL NOT increase the number of interactive Jira questions the pipeline may ask.
+This SHALL be **one test applied after every exchange**, not a separate rule per gate.
+This SHALL be a definition of what **non-stale** means for a slot with a bounded subject, not a waiver of the requirement that the final pass show a non-stale clean result for every slot in the roster.
+This SHALL be reasoned mutation testing performed by the reviewer.
+This SHALL be recorded in the pass log this section already requires, and SHALL NOT be a third marker block or a new guard requirement.
+This SHALL hold at every planning effort level.
+This SHALL hold for **both** wrappers: an import is invisible to the sibling-derivation the symlink guard performs by grepping a guard's source, so a wrapper without the check also ships a sibling dependency nothing can see.
+This SHALL hold inside a fold only: `**Commit:**` remains optional for an ordinary task, and tightening it there would reach every task in every plan rather than the folded ones this requirement governs.
+This SHALL narrow the "code, commits, docs and specs stay full" carve-out that the be-brief rule states, for the artifacts named above and for no other file.
+This breakout SHALL be additive.
+This exemption SHALL NOT apply to a **general-purpose** slot: a general-purpose slot that supplies nothing SHALL be recorded as its own open finding rather than as `none — not supplied by <slot>`, since the pipeline fully controls that slot's prompt and it has no third-party excuse for the omission.
+This explain-before-filing rule SHALL bind every filing ask the pipeline offers, not only self-review's — `/myflow-finish` run 1's follow-up filing included.
+This is the round's own completeness condition, checked where the parent writes the record; it SHALL NOT be expressed as a new class of finding and SHALL NOT add a gate to the handoff sequence.
+This key set SHALL be the authoritative list of worktrees for a change spanning more than one repository, and a `null` value SHALL be read exactly as a missing merge base is — never as a licence to infer one.
+This mechanical rejection SHALL extend to a path token or argument that is **absolute** or that carries a **`..`
+This narrows the window and SHALL NOT be described as closing it: a compare-and-swap requires the tracker to reject a write whose field moved underneath it, which the available tooling does not offer.
+This posture SHALL be at least as strong as the Jira contract's "never a gate", because a state write ends every command: a write that could fail the run would strand a change at an unwritten state with its work already done.
+This reporting SHALL NOT make a record write blocking.
+This repository's guards — `scripts/check-vocabulary.sh`, `scripts/check-references.sh`, `scripts/test-check-references.sh` and `scripts/test-setup.sh` — SHALL be the project's `## lint` and `## test` commands in `.myflow/project.md`, run during `/myflow-do` as part of implementing and verifying the work.
+This requirement SHALL NOT add a view.
+This requirement SHALL NOT add one, and SHALL NOT extend an existing guard to parse these lines.
+This requirement SHALL NOT change the commit-per-task model, the per-task review shape, or require invoking the skill on an ordinary expected RED step.
+This requirement SHALL NOT change the commit-per-task model, the per-task review shape, the review panel, or the handoff bar.
+This requirement SHALL NOT change the panel record's format.
+This requirement SHALL NOT change the reproducer verification that precedes dispatch, the re-run-and-materiality condition that closes a finding, the bounce accounting, the operator handback, or the model the fix subagent runs on.
+This requirement SHALL NOT change the review panel's roster, escalation ladder, fix-round accounting, or the zero-open-findings handoff bar.
+This requirement SHALL NOT change which slots a roster dispatches, that slots are dispatched separately and never merged into one prompt, the model each slot runs on, the reproducer each finding must carry, or the zero-open-findings handoff bar.
+This requirement SHALL bind a fix round's own changes and nothing else.
+This requirement SHALL bind every roster preset, including one that dispatches no Bugbot.
+This requirement SHALL explicitly override `superpowers:subagent-driven-development`'s parallel dispatch guidance and `superpowers:dispatching-parallel-agents` wherever the tasks in question share a worktree.
+This requirement SHALL govern every site that files a follow-up.
+This resolution SHALL be defined once, in the shared `## Change name resolution` section every `/myflow-*` command reads, so no command's enumeration can drift from another's.
+Those commands determine their own depth; in particular the review panel's breadth is decided by its own escalation triggers and SHALL NOT be scaled from this field.
+Those exclusions SHALL be structural rather than a list of paths, so a file added inside an excluded tree needs no edit to the guard.
+Those stages SHALL be:
+Those two SHALL be re-attempted whenever they are not yet satisfied — the retitle is self-guarding by title comparison and a label union is idempotent — and the outcome SHALL continue to be reported as a **partial join** until both are.
+Three levels SHALL exist — `low`, `default` and `detailed` — with `default` the level offered as the recommendation.
+Three vetoes SHALL enforce that, each able only to withdraw the carve-out and never to grant it:
+Token metrics SHALL be derived from the harness's own session transcript, not from values an agent supplies about itself.
+Transitions SHALL be resolved by reading the issue's available transitions and matching the target **by name**, case-insensitively, allowing the usual spellings.
+Two joined folds declaring **different** `**Commit:**` subjects SHALL fail as one plan defect, reported naming the shared task that joined them and the red tasks that disagree.
+Two partners naming different subjects cannot both describe the one surviving commit, so the guard SHALL report that disagreement as a plan defect rather than take the first-listed partner's subject and report the commit as a mismatch;
+Two signals SHALL count as unfinished:
+Two tasks SHALL join the same bundle when they declare any common path.
+UI testing of the stats application SHALL run against a database and an application instance separate from the ones holding recorded data.
+Under `full`, a fired trigger SHALL auto-include its slot, which is the behaviour in force before this capability existed.
+Under `full`, the spec-compliance and code-quality reviewers SHALL both run, which is the behaviour in force before this capability existed.
+Under `light` and `standard`, `/myflow-do` SHALL evaluate the conditional-slot trigger table against the panel diff unchanged, and SHALL then present every slot whose trigger fired in **one** multi-select prompt, naming each slot and the trigger that fired it, with including all of them the recommended answer.
+Under `light` and `standard`, the per-task review `/myflow-do` runs during subagent-driven development SHALL be a **single** combined reviewer per task, covering spec compliance and code quality together, dispatched on the model recorded under `models.reviewPanel`.
+Under the `light` preset, the third required slot SHALL be **Code review (low)**: a `general-purpose` subagent, dispatched on the model recorded under `models.reviewPanel` and defaulting to Sonnet, instructed to invoke the harness's `code-review` skill at effort `low` against the panel's diff in the worktree and to return its findings **in its report back**.
+Updating the period SHALL NOT add a history entry per change, so returning to the previous page does not require stepping back through every range the operator tried.
+What the core gained SHALL be **quoted in the per-move ledger** alongside the appendix passage it replaces, so it is checked against that passage rather than taken on trust.
+When `/myflow-start` reaches a question its inputs do not answer — scope, decomposition, where a requirement belongs, which of two behaviours was meant — it SHALL put that question to the operator rather than pick an answer and proceed.
+When `<archived-change-path>` fails validation for any of these reasons (no enclosing repository found, the path does not resolve to the expected `openspec/changes/archive/<leaf>` shape, or the lexical and real resolutions diverge), the script SHALL treat the invocation the same invalid- invocation way: print a distinct `note:` line, report every source `skipped:`, and still exit 0 — never resolve a symlink and use its target as a trust boundary.
+When a `/myflow-*` command creates a tracker issue, that issue SHALL be labelled with every label carried by the change's linked issue, plus `AI-generated`.
+When a change has a linked issue, `/myflow-start` SHALL move it to **In Progress**, `/myflow-finish` SHALL move it to **In Review** on its first run and to **Done** after the archive is written.
+When a review finding requires a code change to an already-committed task, the fix SHALL be committed with `git commit --fixup=<task-sha>` and immediately folded into the task's commit via `git rebase --autosquash`, before the next review pass reads the diff.
+When it is omitted, the trusted repository root SHALL be derived exactly as before, from the script's own process working directory.
+When it is supplied, it SHALL become the trusted repository root, and SHALL first be validated by the same tests `<archived-change-path>` receives: it SHALL be an absolute path, its lexically-collapsed form and its symlink-resolved form SHALL be identical, and it SHALL be the root of a git repository.
+When no merge base is recorded for a worktree, the outcome SHALL be a refusal that reports what is known and asks the operator, never an inferred verdict.
+When the change has no linked issue, the created issue SHALL carry `AI-generated` alone.
+When the convergence test comes back empty, `/myflow-start` SHALL NOT silently proceed.
+When the key or the file is absent, the stack-stopped check SHALL be skipped rather than failed, and cleanup SHALL proceed on the strength of the other two checks.
+When the operator chooses merge-and-push at the integrate question, `/myflow-fast` SHALL run `/myflow-finish`'s run 1 (merge, push) and, within the same invocation and without a further command from the operator, continue into run 2 (archive, delta-spec sync, worktree and branch removal, Jira transition), ending at `FINISHED`.
+When the operator chooses open PR or manual, `/myflow-fast` SHALL stop after run 1 completes, printing the same handoff `/myflow-finish` run 1 prints, because each of those routes requires an action outside this command's control (an external merge, or the operator's own manual steps) before archiving can happen.
+When the operator chooses to integrate anyway, the outstanding list SHALL appear both in run 1's handoff and in the message of the commit that carries the change's planning artifacts, so the repository's history answers whether anything was known to be unfinished when the change merged.
+When the project's `## test` command cannot target a named test, or does not report a parseable count, the corresponding check SHALL report **skipped, not verified** rather than failing the run.
+When they are equal the branch has no commits of its own, and run 2 SHALL NOT happen whatever any ancestor test says.
+Where a commit spans several modules, the scope SHALL name the one carrying the change's substance, or a broader area covering them.
+Where a contract section's rules are reachable from exactly one command, that section SHALL be moved whole — its rules **and** its reasoning together — into a file of its own, so that every other command stops loading it.
+Where a core passage names a term, a count, or a fact that only a moved passage defines, the moved passage SHALL stay in the core: an appendix is never loaded at runtime, so a core reader would otherwise meet an undefined term.
+Where a file carries **both** keys, `planningEffort` SHALL win.
+Where a finding's note or location contains text that would form such a label, the renderer SHALL neutralise it rather than emit it verbatim.
+Where a guard needs a repository root and was given none, it SHALL derive it from its own **resolved physical** location, so that the answer does not depend on which path it was invoked through.
+Where a harvested transcript is a subagent transcript, the harvester SHALL read the sibling meta file alongside it for that dispatch's agent type, description, model and spawn depth, and SHALL record them with the dispatch's token figures.
+Where a moved section previously declared itself canonical over the skills that reference it, that declaration SHALL move into the contracts file and be reworded to name the contracts file as canonical.
+Where a mutation survives — no existing test fails — the round SHALL add the test that catches it before the round closes.
+Where a project's tests already obtain an isolated database by other means, that mechanism SHALL be left exactly as it is, and the pipeline's verification step SHALL NOT change.
+Where a red task names a partner that does not exist in the plan or is itself `red`, that reference SHALL be reported against the red task carrying it, and the named task — together with any valid fold that task belongs to — SHALL stay out of the red task's fold membership.
+Where a single revert would change state that more than one check reads, the round SHALL split it into surgical mutations, one per mechanism.
+Where a skill instructs a subagent to read a contract file, it SHALL give the **absolute** installed path — not a repo-relative `skills/…` path, which does not open from a project worktree — and SHALL instruct the agent to **stop and report** rather than proceed if the file cannot be read.
+Where a slot **dispatched by `subagent_type`** supplies nothing at all, the parent SHALL record `none — not supplied by <slot>` and SHALL dispatch the finding unverified, so the omission is visible in the record rather than indistinguishable from a verified instruction.
+Where a transcript message's timestamp falls inside more than one stage window of the same session, the daemon SHALL attribute it to the window with the latest start instant.
+Where a view covers a period before telemetry existed, it SHALL state that no data was recorded for that span rather than rendering it as measured zero cost.
+Where a view returns no rows and the period is not the default, the empty state SHALL say the period may be the reason and SHALL offer the return to the default.
+Where a violation is reported on a line whose carve-out was withdrawn by a veto, the guard SHALL also report which veto fired, what would resolve it, and where the contract is.
+Where both keys are present, `planningEffort` SHALL win; a value outside the mapped three SHALL read as "not recorded" and SHALL NOT make the file unparseable.
+Where every run in a period is unattributed, the interface SHALL say so, so that a misconfiguration in recording is distinguishable from a genuinely quiet period.
+Where one command runs a stage another command defines, both SHALL record the same key, so runs of the same stage under different commands are directly comparable.
+Where recognition admits a command that only reproduces a mark's text without performing it, that SHALL be documented rather than left implicit — **a false negative here is silent and total, while a false positive is narrow and, where two sessions match, already refused by the ambiguity rule.**
+Where some of this change's items are already recorded and others are not, the pipeline SHALL append **only the absent ones**, under a new dated section rather than by editing an existing one, and SHALL report that it did so.
+Where that convention has a scope, the scope SHALL name the **module or area** the commit moved, per **A commit's scope names the module, never the change or the task** (`openspec/specs/myflow-commit-scope/spec.md`), and the subject SHALL reproduce the task's declared `**Commit:**` field.
+Where the delimiters of a class do not all pair on a line, that class SHALL yield no region on that line — not merely ignore the unpaired delimiter.
+Where the dispatcher cannot know the model — a slot dispatched by `subagent_type`, which carries its own agent definition — the record SHALL carry `unknown (agent-defined)`.
+Where the gather script cannot be located, `/myflow-do` SHALL report its absence through the existing guard presence check and SHALL dispatch with the prompt shape it would have used before this capability existed.
+Where the harness offers no `code-review` skill, the slot SHALL become a `general-purpose` reviewer on the panel model, briefed to report high-confidence defects only, and the panel record SHALL name the substitution.
+Where the harness offers no task-list mechanism, a pipeline command SHALL print the equivalent block in its output instead: a count line naming how many tasks are done, in progress and open, followed by one line per task marked as done or not done.
+Where the interval rule is reached and two intervals begin at the same instant, the winner SHALL be resolved by a stated, reproducible rule rather than by whichever row a query happened to return first.
+Where the map is absent or empty *and* the scan finds no worktree on the change's branch in any affected repository, that is a state the pipeline cannot explain and SHALL be reported to the operator, never treated as a completed removal.
+Where the mechanism that establishes the group is unavailable at run time, the run SHALL refuse — recorded **unverifiable** and put to the operator — and SHALL NOT fall back to an ungrouped exec, since an ungrouped exec is the exact condition in which the survivor goes unseen.
+Where the panel dispatches Bugbot, its dispatch prompt SHALL include a mutation-testing brief: for each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a boundary, remove a branch — and establish whether an existing test fails as a result.
+Where two such windows start at the same instant, the higher attempt SHALL win.
+Wherever a `/myflow-*` command asks the operator to approve something or to choose between courses of action, it SHALL present named options to select from, with the recommended option named as such.
+Wherever the interface names a project for a human to read, it SHALL show the project's **display name** — the project key with its derivation suffix removed — and SHALL NOT show the raw key.
+Whether the human re-reviews or re-tests after a fix SHALL be their decision.
+Which optional slots were included, which were excluded, and why, SHALL be recorded as it is today, under every preset.
+While it holds one, it SHALL open another round rather than proceed to approaches, to the design, or out of the stage, **on the command's own judgment**.
+With no linked issue it SHALL be titled `myflow follow-up`.
+Work that does **not** depend on the answer SHALL still be done rather than held behind it, and the question SHALL be put at the point the answer is first needed.
+Writing it to both the rendered destination and the worktree state directory SHALL NOT be done: two copies of one record can disagree, which is the defect the move into the store exists to remove.
+Zero findings SHALL NOT be inferred from a record that never states how many findings it has: a panel that raised no finding says so with `findings-total: 0`, which is a declaration and clears, where silence is not.
+[ ] # \ ' " ``), a leading `-` on the path token specifically (not on every token — `script.sh --strict` SHALL NOT be rejected on that account), or a URL SHALL NOT be run.
+`## lint` SHALL name `scripts/check-vocabulary.sh`, `scripts/check-references.sh` and `scripts/check-plan-provenance.sh`, and SHALL state explicitly that no auto-fix command exists for the non-Go half of the repository.
+`## lint` SHALL name every guard that **scans the repository tree** and can therefore run at any time.
+`## test` SHALL name `scripts/test-setup.sh`, `scripts/test-check-references.sh`, `scripts/test-check-plan-provenance.sh` and `scripts/test-check-finish-preflight.sh`.
+`**Commit:**` — the commit's actual subject line SHALL match the declared one.
+`**Commit:**` — the red task's own declared subject SHALL NOT be required to match.
+`**Files:**` — `git diff --name-only <parent>..<task-sha>` SHALL be a subset of the declared files, or covered by the `**Allowed-collateral:**` glob when present.
+`**Files:**` — the subset test SHALL be taken against the **union** of the red task's declared files and its partner's, since one commit now carries both.
+`**Tests:**` — each declared test name SHALL exist in the commit's diff.
+`.myflow/project.md` SHALL exist in this repository and SHALL declare `## apps`, `## test`, `## lint`, `## standards`, `## jira`, and `## workspace isolation`.
+`.myflow/project.md` SHALL support an optional `## stop` section naming the command that stops the project's local stack.
+`/myflow-do` SHALL NOT hand off while any finding in the panel record has status `open`, regardless of severity.
+`/myflow-do` SHALL NOT transition the issue at any time, including on a fix run.
+`/myflow-do` SHALL NOT use `skills/myflow-do/scripts/checkpoint` or `skills/myflow-do/scripts/uncommitted-review-package`; both scripts are removed.
+`/myflow-do` SHALL advance the state only from `STARTED` to `IN_PROGRESS`.
+`/myflow-do` SHALL create or resume a worktree and **commit each task as it finishes**, per **Each task commits after finishing, before review** (`openspec/specs/myflow-task-commits/spec.md`); it SHALL **push** only when the state file already records a `prUrl`.
+`/myflow-do` SHALL escalate a panel re-run from **Targeted** to **Full** automatically, without asking and stating the reason in the panel record, when any of the following holds:
+`/myflow-do` SHALL gather this change's planning context into a single bundle at `<worktree>/.superpowers/sdd/dispatch-context.md` before dispatching any subagent, and SHALL produce it with a script rather than by hand, so that every dispatch in a stage is given demonstrably identical inputs.
+`/myflow-do` SHALL group the plan's unchecked tasks into **bundles** by the overlap of their declared `**Files:**` sets, and SHALL dispatch one implementer per bundle rather than one per `tasks.md` checkbox.
+`/myflow-do` SHALL keep at most **one** implementer subagent in flight against a given worktree at any moment.
+`/myflow-do` SHALL produce **both** the staged implementation diff **and** the run instructions in its handoff, in the same run, so that the human reviews the diff and runs the apps at a single stop.
+`/myflow-do` SHALL rebuild the bundle at the start of the stage that dispatches implementers, at the start of the stage that dispatches the review panel, and before each fix round, writing to the same path each time.
+`/myflow-do` SHALL replace its `NO-COMMITS` implementer dispatch clause with a `COMMIT-PER-TASK` clause.
+`/myflow-do` SHALL select the review panel's required slots from the recorded preset:
+`/myflow-do` SHALL therefore stage with those paths excluded, and its handoff SHALL present the staged diff with no filter of its own.
+`/myflow-do` and `/myflow-finish` are the only commands that SHALL create a commit.
+`/myflow-do` re-run at `IN_PROGRESS` SHALL apply a fix in the existing worktree.
+`/myflow-do`'s COMMIT-PER-TASK instruction SHALL NOT name the task id as the scope.
+`/myflow-do`'s commit-and-push exception SHALL make the same two commits, so a fix pushed to an open PR keeps its code commits free of planning artifacts.
+`/myflow-do`'s handoff SHALL carry the instructions for running whatever the change put in scope, printed in the handoff itself.
+`/myflow-fast` SHALL NOT stop for a separate explicit design-approval confirm after the design is presented — it SHALL proceed directly into artifact creation once the design has been presented, unless the operator raises an objection during that presentation.
+`/myflow-fast` SHALL accept no state (creating a change) or `IN_PROGRESS`.
+`/myflow-fast` SHALL skip publishing the proposal HTML artifact that `/myflow-start` publishes, because the operator who answers the brainstorming questions is present in the same session that produces the design.
+`/myflow-fast`'s state gate SHALL read the change's state before marking, using whatever name the invocation gives it — an argument, or a best guess on a run that has not yet resolved one.
+`/myflow-fast`, invoked bare (no argument) for a change at `IN_PROGRESS`, SHALL proceed to the integrate question — open PR, merge and push, or manual — exactly as `/myflow-finish` run 1 asks it.
+`/myflow-fast`, invoked for a change at `IN_PROGRESS` with an argument, SHALL treat that argument as fix instructions and resume the worktree exactly as re-running `/myflow-do` at `IN_PROGRESS` does today, leaving the state unchanged.
+`/myflow-fast`, invoked with no existing state file, SHALL run `/myflow-start`'s brainstorming stage's clarifying questions and design presentation interactively, one question at a time, exactly as `/myflow-start` runs them, with no auto-answering.
+`/myflow-finish` SHALL NOT run tests, linters, or a spec-coverage check before opening a PR or merging.
+`/myflow-finish` SHALL account for that file rather than leaving its fate to whether an operator noticed it.
+`/myflow-finish` SHALL branch on whether the change's branch has already reached the base branch.
+`/myflow-finish` SHALL commit, push, open a PR or merge on its first run.
+`/myflow-finish` SHALL invoke `scripts/gather-self-review-context.sh <archived-change-path> <name> <state-dir> [<repo-root>]` to assemble the self-review input bundle before any reasoning pass runs.
+`/myflow-finish` SHALL run it before the stack-stopped check.
+`/myflow-finish` SHALL stage and commit the excluded paths in a separate commit from the implementation, so nothing is lost by leaving them unstaged earlier.
+`/myflow-finish` SHALL stage those paths on its first run and commit them **separately** from the implementation, implementation first.
+`/myflow-finish` SHALL transition the issue to In Review at the end of a **successful** first run, independently of how the branch landed — pull request, merge and push, or handled manually.
+`/myflow-finish` run 2 SHALL resolve the base before worktree cleanup removes that worktree.
+`/myflow-finish` run 2 SHALL run self-review as its step 9, immediately after step 8 (write `FINISHED`) succeeds, and only then.
+`/myflow-info` SHALL NOT exist.
+`/myflow-start` SHALL ask three questions on the run that **creates** a change — one per model role — and SHALL record the answers in the change's state file.
+`/myflow-start` SHALL ask which planning effort to apply on the run that **creates** a change, and SHALL NOT ask again on any later run for that change.
+`/myflow-start` SHALL perform no git actions beyond writing planning artifacts.
+`/myflow-start` SHALL run this guard, when the project declares one, before publishing the proposal artifact — the same point at which the plan-provenance guard runs — and SHALL fix any hit before publishing.
+`/myflow-start` SHALL transition the issue to In Progress **immediately after the issue key is resolved**, before brainstorming produces any artifact — so the board reflects the work while a long planning run is in flight.
+`/myflow-start` and `/myflow-do` SHALL be the only commands that write the issue description, and only when the run added scope the issue does not already describe.
+`/myflow-start` re-run at `STARTED` SHALL revise the proposal and republish the artifact to the same URL.
+`/myflow-start`'s brainstorming stage SHALL iterate rather than pass once.
+`/myflow-start`'s writing-plans stage SHALL tag every task in `tasks.md` with `**Build:** green` or `**Build:** red`.
+`/myflow-start`'s writing-plans stage SHALL tag every task in `tasks.md` with `**Files:**`, `**Tests:**`, `**Regression:**`, `**Baseline:**`, and `**Commit:**`, alongside the existing `**Build:**` tag.
+`/myflow-start`'s writing-plans stage SHALL write each task's `**Commit:**` field with a scope derived from the paths in that same task's `**Files:**` field, per **A commit's scope names the module, never the change or the task**.
+`/myflow-start`, `/myflow-do` and `/myflow-finish` SHALL print, immediately after their announcement line, two commands for the operator to paste: `/rename <change-name>` and `/color` with a single fixed colour.
+`/myflow-start`, `/myflow-do` and `/myflow-finish` SHALL register their steps with the harness's task-list mechanism at the start of a run, and SHALL keep each entry's status current as the run proceeds, so the harness's live progress view — a task count line and one line per task — renders throughout.
+`/myflow-status <name>` SHALL regenerate the block from the state file and the artifacts on disk.
+`/myflow-status` SHALL NOT print them.
+`/myflow-status` SHALL surface the recorded preset, and SHALL name the default as the default when nothing is recorded.
+`/myflow-status` is read-only and SHALL register nothing.
+`/myflow-status` with no argument SHALL render its table from each change's state file plus local git, and SHALL make no network call.
+`/opsx:explore` and `skills/openspec-explore/` SHALL be kept, because it is a thinking mode with no myflow equivalent that touches no state.
+`/opsx:propose`, `/opsx:apply`, `/opsx:archive`, `/opsx:sync-specs` and `/opsx:update` SHALL be removed together with their skills.
+`<archived-change-path>` SHALL ALSO be resolved semantically, following every symlink at every path component.
+`<archived-change-path>` SHALL be normalized into an absolute, lexically-collapsed path — `.`
+`<archived-change-path>` SHALL be validated by resolving it TWICE, independently, and comparing the two results, rather than by a bounded, fixed-depth series of individual symlink checks:
+`<base>` SHALL be whatever `resolve-base-branch.sh` printed for the apply worktree, never a guess and never derived from the currently checked-out branch.
+`<status>` SHALL be one of exactly three values — `open`, `fixed`, or `withdrawn` — compared **byte for byte**, never through the collating sequence of whatever locale a tool happens to run under.
+`FINISHED` is terminal — no command acts on a change at that state — so a change written `FINISHED` over a known leftover leaves that leftover recorded only in the session transcript, which this capability's own requirement on recording unfinished work SHALL NOT accept.
+`README.md` SHALL carry the pipeline's state diagram and, beneath it, a two-level stage table, as prose written for a human reader rather than for a command.
+`TO DO URGENT` SHALL map to the To Do position.
+`be-brief.mdc`'s existing sentence exempting written files SHALL be reworded to state **completeness** — every requirement, scenario, exit code and worked example present — so the two are readable as the separate properties they are.
+`check-unfinished-work.sh`'s `findings-total` pattern SHALL accept `(0|[1-9][0-9]{0,14})`, the bound `check-panel-reproducers.sh` already applies to `reproducers-total`.
+`docs/self-review/<name>-self-review.md` SHALL carry one section per angle, all five present, in the order the angle table states.
+`full` SHALL reproduce the roster in force before this capability existed.
+`models` SHALL be an object carrying `implementation`, `reviewPanel` and `panelFix`, each naming the model chosen for that role.
+`myflow-contracts` SHALL appear in the skill index of `CLAUDE.md`, `AGENTS.md`, and `README.md`, described as the on-demand contract definitions.
+`pipeline.md` SHALL be canonical for the three states, the command→state transition table and git boundaries.
+`planningEffort` SHALL carry the level chosen for the change's planning.
+`planningEffort` SHALL remain exempt from being named among the unrecovered fields so the announcement's shape is unchanged.
+`planningEffort`, `models` and `reviewPanelRoster` SHALL each read as "not recorded" when absent, rather than making the file unparseable.
+`prUrl` SHALL NOT be cleared by any command.
+`resolve-base-branch.sh <dir>` SHALL take exactly one argument, the directory to resolve in.
+`reviewPanelRoster` SHALL carry the review panel roster preset chosen for the change.
+`rules/agent-baseline.md`'s rule table SHALL carry a matching row, so the convention reaches dispatched agents at every depth.
+`rules/be-brief.mdc` SHALL carry a clause governing written prose, alongside the clause it already carries for what an agent says.
+`rules/myflow-manual-review.mdc` SHALL contain only what an agent needs in order to recognise that myflow governs the work and to know where the rest lives: the state diagram, the instruction to load `skills/myflow-contracts/pipeline.md` before acting, and the table of narrower contracts.
+`run-reproducer.sh`'s own exit code SHALL be read as its documented contract: **0** demonstrates the defect and clears the finding for dispatch; **1** means the reproducer exited 0 and demonstrates nothing, so the instruction built on it cannot be verified as a fix and the finding SHALL NOT be dispatched to the fixer on that pass; **2** is a refusal — the command line failed a containment or shape check and was never executed at all — recorded **unverifiable** and put to the operator; **3** is a timeout or a detached survivor — the reproducer was killed at the bound and SHALL be recorded **unverifiable** and put to the operator, never read as either a pass or a fail, since a timeout is not an exit; **4** means the run cannot answer at all and is handled like an unreadable record.
+`scripts/check-cleanup-complete.sh` SHALL carry a marker line for the row and report a survivor as a leftover.
+`scripts/check-contract-budget.sh` SHALL fail when a file it covers exceeds its declared budget.
+`scripts/check-installed-citations.sh` SHALL determine which files are installed by executing `setup.sh` into a sandbox and reading back what appeared — each symlink resolved to its repository-relative source, plus each copied file — rather than by re-implementing the installer's globs or by carrying a written list of installed paths.
+`scripts/check-installed-citations.sh` SHALL follow the reporting discipline `agents-repo-verification` already requires of a corpus-scanning guard: one violation line per finding as `path:line: message`, a verdict line naming the root and the count, and a per-member coverage fragment from `scripts/lib/coverage.sh`.
+`scripts/check-installed-rules.sh` SHALL compare what `setup.sh global` last installed against the always-on rules this checkout declares, and SHALL fail when they have drifted apart.
+`scripts/check-markdown-integrity.py` SHALL parse every `skills/**/*.md` and `rules/*.mdc` file into blocks — fenced code, table, heading, list item, blockquote, paragraph — and SHALL report structural damage that changes how the text reads.
+`scripts/check-normative-inventory.sh` SHALL print every normative sentence in this repository's owned Markdown, so a change that edits prose in bulk can prove it dropped none of them.
+`scripts/check-references.sh` SHALL, for every backticked `.md` or `.mdc` path that resolves to a real file inside the repository, require that at least one bold token the line **associates** with that path matches a `#`–`####` heading in the referenced file.
+`scripts/check-unfinished-work.sh` and `scripts/check-panel-reproducers.sh` SHALL source that library and SHALL NOT carry local copies of those helpers.
+`scripts/lib/panel-record.sh` SHALL export:
+`setup.sh` SHALL NOT require an edit: `always_on_rules()` already discovers a rule from its frontmatter.
+`setup.sh` SHALL install `skills/myflow-contracts/` into every harness skill directory through the existing `install_skills` path, with no installer changes beyond what that path already does.
+`skills/myflow-contracts/SKILL.md` SHALL be an index that names each file and states when it is needed, and SHALL NOT restate the contract bodies.
+`skills/myflow-contracts/` is never a running command and SHALL NOT carry a `scripts/` directory.
+`skills/myflow-contracts/pipeline.md` SHALL NOT carry either, and no other file in this repository SHALL carry a second copy of either.
+`skills/myflow-contracts/pipeline.md` SHALL state, once, that a named guard resolves to `<the running command's own skill directory>/scripts/<name>`.
+`skills/myflow-do/SKILL.md` SHALL remain canonical for the panel, and SHALL carry this table.
+`skills/myflow-do/SKILL.md`'s Superpowers Basic Workflow table SHALL carry a row naming `superpowers:systematic-debugging` at step 7, stating that it applies to an unexpected test failure during implementation (one RED-GREEN-REFACTOR did not plan) and to a review-panel finding confirmed as a real defect.
+`superseded` SHALL be distinct from `abandoned`: an abandoned run is one the daemon closed after its session went silent, and the rework-rate view reads that outcome directly; a superseded run is one whose end mark never came, discovered by the next mark of the same session.
+`tasks.md` SHALL remain the single source of truth for a plan's completion state.
+`withdrawn` SHALL be followed by the reason the finding was retracted, on the same line.
+`worktrees` SHALL be an object keyed by the **absolute path** of each affected worktree, whose value is that worktree's merge base, or `null` where no merge base is recorded for that path.
+component that would desync a purely lexical walk from the real filesystem — means a symlink sat somewhere between the trusted repository root and the leaf, and the invocation SHALL be refused: never used to derive anything — the repository root, the `tasks.md` trust boundary, or any other downstream path.
+every named partner SHALL declare the **same** `**Commit:**` subject.
+myflow SHALL expose `/myflow-start`, `/myflow-do` and `/myflow-finish` as pipeline commands, `/myflow-fast` as the composite command that chains their stage content across state transitions that carry no human gate, and `/myflow-status` as the only read-only command.
+myflow SHALL track a change in exactly one of three states: `STARTED`, `IN_PROGRESS`, `FINISHED`.
+paragraph naming `resolve-base-branch.sh`, and `skills/myflow-status/scripts/` SHALL exist and carry a relative symlink to it.
+path segment**: the guard SHALL check this lexically, on the text of the line, and SHALL NOT resolve the token against a filesystem to do it — the record may be read in a context where the worktree that wrote it is absent — so it rejects only the shapes that cannot be contained inside any worktree; the dispatch-time containment test above, run by `run-reproducer.sh` against the worktree that actually exists at dispatch time, resolves the shapes that can be.
+segment that escapes only through a symlink is still caught; an argument that fails containment (for example `../../../etc/passwd`) SHALL make the reproducer unverifiable exactly as a failing path does.
+segment, a leading `-` on its path token, a URL, or a NUL byte) is a refusal, recorded **unverifiable** and put to the operator exactly like a failed dispatch-time containment check, and SHALL NOT be silently rewritten to satisfy the guard.
+the SDD ledger, `docs/superpowers/ledgers/<YYYY-MM-DD>-<name>.md` — date-prefixed, exactly as the record renderer writes it; the date is not known in advance, so the script SHALL locate it by its own digit-anchored search for a file ending `-<name>.md` under `docs/superpowers/ledgers/`
+the partner set SHALL be re-validated when the guard is invoked for a partner, not only for the red task, so a fold the red task's id rejects cannot pass through a partner's id.
+the union SHALL span every task in the fold — the red task and all its partners — whichever id the guard is invoked for, so a partner is never blamed for a **sibling** partner's declared file;
+— SHALL NOT be the mechanism by which an approval gate is passed.

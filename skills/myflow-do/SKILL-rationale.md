@@ -91,19 +91,48 @@ line that governs: the machine's direction is protected — a marker reading `op
 cell says — but nothing protects a reader who sees `fixed` in the table and believes it. State the
 fact once. To read a finding's state, look up its `F<n>` in the marker block.
 
+### No forking, and a wall-clock ceiling on every slot
+
+- Why 15 minutes: the observed good run returned in 2.5 minutes, the harness's stall watchdog is
+  600s and did not fire, and the hung slot ran 4 hours.
+<!-- measured: KAN-295 panel rounds 3-4 and the re-dispatch after round 4; see proposal.md -->
+- Why one automatic retry before asking: the ticket's own evidence is a re-dispatch returning in 2.5
+  minutes, so a retry usually clears it, and an operator interrupt for that is a worse trade.
+<!-- measured: KAN-295, the re-dispatch that followed round 4 -->
+- Why the ceiling is not a guard script: a script has no handle on an in-flight subagent and could
+  only read a timestamp the agent itself writes, which is the agent enforcing it with extra steps.
+- Why not the harness's own stall watchdog: round 4 is the evidence it does not fire on a slot
+  emitting output, and myflow does not configure three harnesses' watchdogs.
+- Why panel dispatches only: implementers are serialised per worktree and report a commit sha, so a
+  hang there is visible by a different route, and widening the rule to them would be speculative.
+
 ### Code review (low)
 
-Why the light preset's third slot is the harness's `code-review` skill rather than a narrowed
-Superpowers reviewer: a narrowed Superpowers reviewer is the same reviewer slot 0 already runs, so
-the panel would carry two readings from one reviewer rather than a genuinely different check. The
-harness's `code-review` skill is a distinct lens the panel does not otherwise get, which is what a
-lighter roster is trading Bugbot's defect hunt for.
+Why the light preset's third slot was the harness's built-in review skill rather than a narrowed
+Superpowers reviewer, until KAN-295: a narrowed Superpowers reviewer is the same reviewer slot 0
+already runs, so the panel would carry two readings from one reviewer rather than a genuinely
+different check. The harness's skill was a distinct lens the panel did not otherwise get, which is
+what a lighter roster was trading Bugbot's defect hunt for.
 
-Why an unavailable skill substitutes rather than drops: dropping the slot would make a missing
-harness feature a silent way to weaken review — the panel's required-slot count would depend on
-what the operator's harness happens to ship, rather than on the roster the operator chose. Falling
-back to Bugbot instead of a substitute reviewer would silently convert the operator's `light` choice
-into `standard`, which is not what the operator recorded.
+What KAN-295 found: the skill forks its own background agent, and the parent panel dispatcher never
+observes that inner agent's completion, so the slot cannot report through the panel's contract.
+Observed three times:
+
+- **Round 3** — the inner agent bypassed the slot, returning its findings *directly to the session*.
+  The slot itself stalled and was killed by the harness's stall watchdog with no result.
+  It had run 39 minutes; the findings it delivered numbered 6; the watchdog's threshold is 600s.
+<!-- measured: KAN-295 panel round 3 -->
+- **Round 4** — the slot ran with no result and the stall watchdog never fired, because the slot
+  kept emitting output while making no progress, so it sat alive and useless and the notification
+  the dispatcher was waiting on never arrived. It was caught only because the operator asked
+  whether it was stuck. Elapsed: **4 hours**.
+<!-- measured: KAN-295 panel round 4 -->
+- **Re-dispatched on the documented fallback** — a plain `general-purpose` reviewer doing the same
+  checks, no skill — it returned `PANEL-SLOT-CLEAN` in **2.5 minutes**.
+<!-- measured: KAN-295, the re-dispatch that followed round 4 -->
+
+Why the concern that motivated the skill — that a narrowed Superpowers reviewer duplicates slot 0's
+reading — did not survive: a duplicated reading that returns beats a distinct lens that does not.
 
 ### Bugbot's mutation-testing brief
 
