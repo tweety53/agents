@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1253,9 +1254,36 @@ type crossedTokenRun struct {
 	startedAt    time.Time
 }
 
+// noopGiveUpAndAmbiguityRecorder is the shared no-op stand-in for the four
+// SessionTokenBinder methods (task 6, tasks.md) that record give-ups and
+// dispatch-grain ambiguity -- RecordSessionTokenGiveUp, PersistedGiveUps,
+// MarkDispatchesUnattributedByID and MarkDispatchesUnattributed. Embedded
+// by both fakeSessionTokenStore and togglableSessionTokenBinder below,
+// neither of whose own tests drives a give-up or an ambiguity, so both
+// need these four to exist only to keep satisfying the widened
+// harvest.SessionTokenBinder, never to record anything.
+type noopGiveUpAndAmbiguityRecorder struct{}
+
+func (noopGiveUpAndAmbiguityRecorder) RecordSessionTokenGiveUp(_ context.Context, _, _ string, _ time.Time) error {
+	return nil
+}
+
+func (noopGiveUpAndAmbiguityRecorder) PersistedGiveUps(_ context.Context) ([]harvest.GiveUp, error) {
+	return nil, nil
+}
+
+func (noopGiveUpAndAmbiguityRecorder) MarkDispatchesUnattributedByID(_ context.Context, _ []int64, _ string, _ int) error {
+	return nil
+}
+
+func (noopGiveUpAndAmbiguityRecorder) MarkDispatchesUnattributed(_ context.Context, _, _ string, _ int) error {
+	return nil
+}
+
 // fakeSessionTokenStore implements both harvest.SessionTokenBinder and
 // harvest.WindowSource over the same in-memory runs map.
 type fakeSessionTokenStore struct {
+	noopGiveUpAndAmbiguityRecorder
 	runs map[int64]*crossedTokenRun
 }
 
@@ -1396,6 +1424,61 @@ type countingSessionTokenBinder struct {
 	stageRunID   int64
 	bound        map[int64]string
 	bindCalls    int
+
+	// giveUpState is this fake's own upserted give-up state, keyed by
+	// token, reproducing RecordSessionTokenGiveUp's real upsert semantics
+	// (store.Store.RecordSessionTokenGiveUp's own doc comment, giveups.go:
+	// retries starts at 0 on a token's first recording and rises by one
+	// on every later one). A test that wants to simulate "already given
+	// up once before, in a prior process" seeds this directly, so the
+	// very next call this fake receives increments from that seed rather
+	// than from zero.
+	giveUpState map[string]*harvest.GiveUp
+	// giveUpCalls is one entry per RecordSessionTokenGiveUp call, in call
+	// order, snapshotting giveUpState's value for that token right after
+	// the call -- what the tests below assert reasons, tokens and retry
+	// counts against.
+	giveUpCalls []harvest.GiveUp
+
+	// seededGiveUps is what PersistedGiveUps returns -- a test simulating
+	// a binder already holding a persisted give-up (task 5's own words,
+	// tasks.md) sets this before building the Watcher.
+	seededGiveUps         []harvest.GiveUp
+	persistedGiveUpsCalls int
+
+	// unattributedCalls is one entry per MarkDispatchesUnattributedByID
+	// call, in call order.
+	unattributedCalls []unattributedCall
+
+	// unattributedTokenCalls is one entry per MarkDispatchesUnattributed
+	// (the token form) call, in call order. unattributedTokenErr, when
+	// set, is what every such call returns -- TestGiveUpStampsItsOwnDispatches'
+	// "stamp failure never blocks the give-up" subtest uses it to prove a
+	// stamp error is reported and never stops RecordSessionTokenGiveUp's
+	// own outcome from standing.
+	unattributedTokenCalls []unattributedTokenCall
+	unattributedTokenErr   error
+}
+
+// unattributedCall is one MarkDispatchesUnattributedByID call's
+// arguments, predicted from store.Store.MarkDispatchesUnattributedByID
+// (records.go) -- ids, not a session token, since a dispatch-grain
+// ambiguity names specific rows (task 6's own corrections, tasks.md).
+type unattributedCall struct {
+	ids        []int64
+	reason     string
+	candidates int
+}
+
+// unattributedTokenCall is one MarkDispatchesUnattributed call's
+// arguments -- the token form (task 6.1, tasks.md, "stamp the dispatches
+// of a session that never bound"), keyed by session token rather than by
+// dispatch id, since a give-up leaves every dispatch of that session
+// uncosted, not just specific rows.
+type unattributedTokenCall struct {
+	token      string
+	reason     string
+	candidates int
 }
 
 func (c *countingSessionTokenBinder) UnresolvedSessionTokens(_ context.Context) (map[int64]string, error) {
@@ -1421,6 +1504,53 @@ func (c *countingSessionTokenBinder) BindSession(_ context.Context, sessionToken
 	}
 	c.bound[c.stageRunID] = sessionID
 	return 1, nil
+}
+
+// RecordSessionTokenGiveUp reproduces store.Store.RecordSessionTokenGiveUp's
+// own upsert: a token recorded for the first time starts at retries 0; a
+// token already in giveUpState increments it, exactly as the store's own
+// `ON CONFLICT ... retries = retries + 1` does (giveups.go).
+func (c *countingSessionTokenBinder) RecordSessionTokenGiveUp(_ context.Context, token, reason string, _ time.Time) error {
+	if c.giveUpState == nil {
+		c.giveUpState = map[string]*harvest.GiveUp{}
+	}
+	g, ok := c.giveUpState[token]
+	if !ok {
+		g = &harvest.GiveUp{Token: token}
+		c.giveUpState[token] = g
+	} else {
+		g.Retries++
+	}
+	g.Reason = reason
+	c.giveUpCalls = append(c.giveUpCalls, *g)
+	return nil
+}
+
+// PersistedGiveUps returns seededGiveUps, recording that it was called --
+// what TestPersistedGiveUpIsRetriedOnStart and TestRetryStillBounded
+// assert against to prove a fresh Watcher actually reads persisted
+// give-ups rather than merely happening to retry by coincidence of a
+// fresh in-memory map.
+func (c *countingSessionTokenBinder) PersistedGiveUps(_ context.Context) ([]harvest.GiveUp, error) {
+	c.persistedGiveUpsCalls++
+	return c.seededGiveUps, nil
+}
+
+// MarkDispatchesUnattributedByID records its call rather than doing
+// anything with ids, reason or candidates -- this fake is never asked to
+// answer a later read of them, only to prove they were passed.
+func (c *countingSessionTokenBinder) MarkDispatchesUnattributedByID(_ context.Context, ids []int64, reason string, candidates int) error {
+	c.unattributedCalls = append(c.unattributedCalls, unattributedCall{ids: ids, reason: reason, candidates: candidates})
+	return nil
+}
+
+// MarkDispatchesUnattributed records its call (the token form, task 6.1)
+// and returns unattributedTokenErr, letting a test simulate a stamp
+// failure without that failure ever reaching RecordSessionTokenGiveUp's
+// own outcome.
+func (c *countingSessionTokenBinder) MarkDispatchesUnattributed(_ context.Context, token, reason string, candidates int) error {
+	c.unattributedTokenCalls = append(c.unattributedTokenCalls, unattributedTokenCall{token: token, reason: reason, candidates: candidates})
+	return c.unattributedTokenErr
 }
 
 var _ harvest.SessionTokenBinder = (*countingSessionTokenBinder)(nil)
@@ -1711,6 +1841,7 @@ func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
 // from before the binder existed, and only later-written bytes were ever
 // scanned against the newly-pending token.
 type togglableSessionTokenBinder struct {
+	noopGiveUpAndAmbiguityRecorder
 	sessionToken string
 	stageRunID   int64
 	pending      bool
@@ -2009,5 +2140,649 @@ func TestEchoedMarkExampleIsAnAcceptedResidual(t *testing.T) {
 	}
 	if binder.bound[404] != "session-echoer" {
 		t.Fatalf("bound session = %q, want session-echoer", binder.bound[404])
+	}
+}
+
+// fakeDispatchMetricsSink is DispatchMetricsSink's minimal in-memory
+// stand-in for TestAmbiguousDispatchIsStamped below -- it only needs to
+// prove whether a merge happened, not to reproduce jsonb_deep_add's own
+// merge semantics the way fakeHarvestSink does for the stage grain.
+type fakeDispatchMetricsSink struct {
+	merged map[int64]int // dispatchID -> call count
+}
+
+func (s *fakeDispatchMetricsSink) MergeDispatchMetrics(_ context.Context, dispatchID int64, _ json.RawMessage) error {
+	if s.merged == nil {
+		s.merged = map[int64]int{}
+	}
+	s.merged[dispatchID]++
+	return nil
+}
+
+var _ harvest.DispatchMetricsSink = (*fakeDispatchMetricsSink)(nil)
+
+// TestGiveUpIsPersisted is task 5 steps 1 and 2 (tasks.md): both of
+// resolveSessionTokens' give-up branches -- case 0, the bounded window
+// exhausted, and the default branch, the token matched more than one
+// session -- must persist the give-up through the binder before this
+// Watcher's own in-memory gaveUpTokens set stops it searching, and each
+// branch's reason must be its own, not a shared string reused for both
+// (design.md's "say plainly where cost could not be attributed" needs the
+// two failures told apart, not merged into one).
+//
+// Reverting task 6 leaves the give-up in memory only: neither subtest's
+// RecordSessionTokenGiveUp assertion has anything to pass against, since
+// nothing in watcher.go calls it yet.
+func TestGiveUpIsPersisted(t *testing.T) {
+	var exhaustedReason, ambiguousReason string
+
+	t.Run("bounded window exhausted", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-never-appears-persisted"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 501}
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+		// 60 empty cycles: nothing to find, so the give-up bound
+		// (maxSessionTokenResolutionCycles, watcher.go) is reached on the
+		// last of these -- the same drive
+		// TestSessionTokenStopsBeingScannedAfterBoundedGiveUp already
+		// uses for the in-memory-only half of this behaviour.
+		for i := range 60 {
+			if _, err := w.RunOnce(context.Background()); err != nil {
+				t.Fatalf("RunOnce (cycle %d): %v", i, err)
+			}
+		}
+
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times after the bounded window, want exactly 1: %v", len(binder.giveUpCalls), binder.giveUpCalls)
+		}
+		if got := binder.giveUpCalls[0].Token; got != token {
+			t.Fatalf("persisted give-up token = %q, want %q", got, token)
+		}
+		exhaustedReason = binder.giveUpCalls[0].Reason
+		if exhaustedReason == "" {
+			t.Fatalf("persisted give-up reason is empty, want a reason naming the bounded window")
+		}
+
+		// One more cycle must not persist the give-up again: the
+		// in-memory gaveUpTokens set is what stops this same process
+		// re-searching within one run (task 6 step 2, tasks.md); the
+		// store is only what survives the process, not what is
+		// re-written every idle cycle after.
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (extra cycle): %v", err)
+		}
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times after an extra cycle, want still 1", len(binder.giveUpCalls))
+		}
+	})
+
+	t.Run("ambiguous", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-ambiguous-persisted"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 502}
+
+		writeMark := func(name, sessionID string) {
+			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
+			if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+		}
+		writeMark("one.jsonl", "session-one")
+		writeMark("two.jsonl", "session-two")
+
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times for the ambiguous token, want exactly 1: %v", len(binder.giveUpCalls), binder.giveUpCalls)
+		}
+		if got := binder.giveUpCalls[0].Token; got != token {
+			t.Fatalf("persisted give-up token = %q, want %q", got, token)
+		}
+		ambiguousReason = binder.giveUpCalls[0].Reason
+		if ambiguousReason == "" {
+			t.Fatalf("persisted give-up reason is empty, want a reason naming the ambiguity")
+		}
+	})
+
+	if exhaustedReason != "" && ambiguousReason != "" && exhaustedReason == ambiguousReason {
+		t.Fatalf("both give-up reasons are %q -- the exhausted-window and ambiguous-match cases must persist distinct reasons, not a shared one", exhaustedReason)
+	}
+}
+
+// TestGiveUpStampsItsOwnDispatches is task 6.1 (tasks.md, "Stamp a
+// given-up session's own dispatches"): task 6 wired the give-up itself
+// into RecordSessionTokenGiveUp and a dispatch-grain ambiguity into
+// MarkDispatchesUnattributedByID, but left nothing stamping the
+// dispatches of a session that gave up -- the "cost unattributed --
+// session never bound" state task 8 renders had no producer at all.
+// Both of resolveSessionTokens' give-up branches must call
+// MarkDispatchesUnattributed (the token form) immediately after
+// RecordSessionTokenGiveUp, carrying that branch's own reason -- a
+// session that never bound leaves every one of its dispatches uncosted,
+// which the token form expresses; the id form (MarkDispatchesUnattributedByID)
+// names specific rows for a narrower, dispatch-grain ambiguity and is not
+// a substitute for it.
+func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
+	t.Run("bounded window exhausted", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-never-appears-stamped"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 801}
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+		for i := range 60 {
+			if _, err := w.RunOnce(context.Background()); err != nil {
+				t.Fatalf("RunOnce (cycle %d): %v", i, err)
+			}
+		}
+
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times, want exactly 1: %v", len(binder.giveUpCalls), binder.giveUpCalls)
+		}
+		if len(binder.unattributedTokenCalls) != 1 {
+			t.Fatalf("MarkDispatchesUnattributed called %d times, want exactly 1: %v", len(binder.unattributedTokenCalls), binder.unattributedTokenCalls)
+		}
+		got := binder.unattributedTokenCalls[0]
+		if got.token != token {
+			t.Fatalf("stamped token = %q, want %q", got.token, token)
+		}
+		if got.reason != binder.giveUpCalls[0].Reason {
+			t.Fatalf("stamped reason = %q, want %q (the same reason the give-up itself recorded)", got.reason, binder.giveUpCalls[0].Reason)
+		}
+	})
+
+	t.Run("ambiguous", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-ambiguous-stamped"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 802}
+
+		writeMark := func(name, sessionID string) {
+			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
+			if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+		}
+		writeMark("one.jsonl", "session-one")
+		writeMark("two.jsonl", "session-two")
+
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times, want exactly 1: %v", len(binder.giveUpCalls), binder.giveUpCalls)
+		}
+		if len(binder.unattributedTokenCalls) != 1 {
+			t.Fatalf("MarkDispatchesUnattributed called %d times, want exactly 1: %v", len(binder.unattributedTokenCalls), binder.unattributedTokenCalls)
+		}
+		got := binder.unattributedTokenCalls[0]
+		if got.token != token {
+			t.Fatalf("stamped token = %q, want %q", got.token, token)
+		}
+		if got.reason != binder.giveUpCalls[0].Reason {
+			t.Fatalf("stamped reason = %q, want %q (the same reason the give-up itself recorded)", got.reason, binder.giveUpCalls[0].Reason)
+		}
+		if got.candidates != 2 {
+			t.Fatalf("stamped candidates = %d, want 2 (the two sessions this token matched)", got.candidates)
+		}
+	})
+
+	t.Run("stamp failure never blocks the give-up", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-stamp-fails"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 803}
+		binder.unattributedTokenErr = errors.New("stamp store outage")
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		var logBuf bytes.Buffer
+		logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), logger, harvest.WithSessionTokenBinder(binder))
+
+		for i := range 60 {
+			if _, err := w.RunOnce(context.Background()); err != nil {
+				t.Fatalf("RunOnce (cycle %d): %v", i, err)
+			}
+		}
+
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times despite the stamp erroring, want exactly 1: a stamp failure must never block the give-up itself from being recorded: %v", len(binder.giveUpCalls), binder.giveUpCalls)
+		}
+		if len(binder.unattributedTokenCalls) != 1 {
+			t.Fatalf("MarkDispatchesUnattributed called %d times, want exactly 1 even though it errored", len(binder.unattributedTokenCalls))
+		}
+		if !strings.Contains(logBuf.String(), "stamp unattributed dispatches failed") || !strings.Contains(logBuf.String(), "stamp store outage") {
+			t.Fatalf("log output = %q, want it to report both the stamp failure and the injected error: a stamp failure that is silently dropped is not \"never blocks\" -- the run continuing is only half of that guarantee, the failure being visible is the other half", logBuf.String())
+		}
+
+		// The give-up stands even though its stamp failed: one more cycle
+		// must not re-record either call -- w.gaveUpTokens still stops
+		// this process re-searching a token it has already given up on,
+		// stamp error or not.
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (extra cycle): %v", err)
+		}
+		if len(binder.giveUpCalls) != 1 {
+			t.Fatalf("RecordSessionTokenGiveUp called %d times after an extra cycle, want still 1", len(binder.giveUpCalls))
+		}
+		if len(binder.unattributedTokenCalls) != 1 {
+			t.Fatalf("MarkDispatchesUnattributed called %d times after an extra cycle, want still 1", len(binder.unattributedTokenCalls))
+		}
+	})
+}
+
+// TestPersistedGiveUpBindsFromAFullyConsumedTranscript is task 6.2
+// (tasks.md, "bind a retried token by scanning, not by waiting for new
+// bytes") -- the gap task 12's own live restart measured, which none of
+// task 5's or task 6's own tests caught because their fake binder and
+// fresh sink both start every transcript at offset 0: the real defect
+// only shows once a transcript's harvest_offsets already sits at that
+// file's own EOF -- kan-302's own measured state -- *before* the token
+// that transcript's mark carries is retried. matchSessionTokens
+// (watcher.go) only ever scans bytes newly read this cycle, so nothing
+// in the ordinary path can find a mark sitting behind an offset that will
+// never move again.
+//
+// Every subtest here pre-seeds the fake sink's own offset for a
+// transcript to that file's exact size (os.Stat), reproducing "already
+// fully consumed" directly rather than driving 60+ real RunOnce cycles
+// to get there.
+func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
+	t.Run("binds", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-consumed-retry"
+		const stageRunID = int64(901)
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: stageRunID}
+		binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+
+		path := filepath.Join(dir, "consumed.jsonl")
+		// The mark and this same line's own usage arrive together, the
+		// ordinary shape Claude Code flushes a turn in (RunOnce's own doc
+		// comment, "withholding a batch that revealed a sessionToken") --
+		// carrying real usage here, alongside a real open window for the
+		// session this mark identifies, is what makes the property-1
+		// assertions below meaningful: a wrongly-attributing scan would
+		// have somewhere to attribute these 1000+500 tokens to, not merely
+		// nowhere to put them.
+		line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-consumed","message":{"model":"claude-opus-5","usage":{"input_tokens":1000,"output_tokens":500},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token ` + token + `"}}]}}` + "\n"
+		if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat %s: %v", path, err)
+		}
+
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+			"session-consumed": {{
+				StageRunID: stageRunID,
+				SessionID:  "session-consumed",
+				StartedAt:  time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
+			}},
+		}}
+		sink := newFakeHarvestSink()
+		// Simulate a prior process having already fully harvested this
+		// transcript, before this token's give-up was ever persisted:
+		// harvest_offsets for path is already at EOF.
+		sink.offsets[path] = info.Size()
+
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+
+		if binder.persistedGiveUpsCalls != 1 {
+			t.Fatalf("PersistedGiveUps called %d times, want exactly 1", binder.persistedGiveUpsCalls)
+		}
+		if binder.bindCalls != 1 {
+			t.Fatalf("bindCalls = %d, want 1: a persisted give-up whose mark sits behind the harvest offset must still bind", binder.bindCalls)
+		}
+		if binder.bound[stageRunID] != "session-consumed" {
+			t.Fatalf("bound session for stage run %d = %q, want session-consumed", stageRunID, binder.bound[stageRunID])
+		}
+
+		// Property 1 ("never re-attribute usage"): the scan must produce
+		// no usage records and must not move harvest_offsets. commitCount
+		// staying 0 proves CommitHarvestBatch was never called at all --
+		// stronger than checking totals, which could stay zero merely
+		// because nothing happened to be wired up to receive them.
+		if sink.commitCount != 0 {
+			t.Fatalf("commitCount = %d, want 0: binding a retried token must never attribute or commit this transcript's usage a second time", sink.commitCount)
+		}
+		gotOffset, found, err := sink.GetHarvestOffset(context.Background(), path)
+		if err != nil {
+			t.Fatalf("GetHarvestOffset: %v", err)
+		}
+		if !found || gotOffset != info.Size() {
+			t.Fatalf("harvest offset for %s = (%d, %v), want (%d, true) unchanged", path, gotOffset, found, info.Size())
+		}
+		if _, ok := sink.totals[stageRunID]; ok {
+			t.Fatalf("stage run %d has a committed token total, want none: this transcript's usage must never be attributed by this scan", stageRunID)
+		}
+	})
+
+	t.Run("ambiguous still refuses", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-consumed-ambiguous"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 902}
+		binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+
+		writeConsumed := func(name, sessionID string) string {
+			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
+			p := filepath.Join(dir, name)
+			if err := os.WriteFile(p, []byte(line), 0o644); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+			return p
+		}
+		one := writeConsumed("one.jsonl", "session-one")
+		two := writeConsumed("two.jsonl", "session-two")
+
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		for _, p := range []string{one, two} {
+			info, err := os.Stat(p)
+			if err != nil {
+				t.Fatalf("stat %s: %v", p, err)
+			}
+			sink.offsets[p] = info.Size() // both already fully consumed
+		}
+
+		var logBuf bytes.Buffer
+		logger := slog.New(slog.NewTextHandler(&logBuf, nil))
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), logger, harvest.WithSessionTokenBinder(binder))
+
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+
+		if binder.bindCalls != 0 {
+			t.Fatalf("bindCalls = %d, want 0: a retried token whose marks sit in two already-consumed transcripts must still refuse to bind", binder.bindCalls)
+		}
+		if !strings.Contains(logBuf.String(), "more than one session") {
+			t.Fatalf("log output = %q, want a message reporting the ambiguity", logBuf.String())
+		}
+	})
+
+	t.Run("mention only never binds even behind the offset", func(t *testing.T) {
+		dir := t.TempDir()
+		const token = "mf-consumed-mention-only"
+		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 903}
+		binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+
+		path := filepath.Join(dir, "mentioned.jsonl")
+		line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-mentioning","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"grep '` + token + `' /tmp/dispatch.log"}}]}}` + "\n"
+		if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat %s: %v", path, err)
+		}
+
+		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+		sink := newFakeHarvestSink()
+		sink.offsets[path] = info.Size() // already consumed, like the real mark's own transcript would be
+
+		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce: %v", err)
+		}
+		if binder.bindCalls != 0 {
+			t.Fatalf("bindCalls = %d, want 0: a command that only mentions the token, even behind the offset, must never bind it (KAN-172 F4)", binder.bindCalls)
+		}
+	})
+}
+
+// TestPersistedGiveUpIsRetriedOnStart is task 5 step 3 (tasks.md), the
+// kan-302 recovery case: a token a prior process gave up on, whose
+// binder now reports it through PersistedGiveUps, must be searched for
+// again once a fresh Watcher's first cycle reads that persisted state --
+// and, its transcript now carrying the mark, must bind.
+//
+// The PersistedGiveUps-was-called assertion is what makes this test
+// genuinely exercise the recovery path rather than pass by coincidence:
+// a fresh Watcher's own in-memory gaveUpTokens starts empty regardless of
+// any persisted state, so "it binds" alone would not distinguish
+// deliberate recovery from an accident of construction. Reverting task 6
+// fails the call-count assertion first, because nothing in watcher.go
+// calls PersistedGiveUps at all.
+func TestPersistedGiveUpIsRetriedOnStart(t *testing.T) {
+	dir := t.TempDir()
+	const token = "mf-recovered"
+	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 601}
+	binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+
+	path := filepath.Join(dir, "recovered.jsonl")
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-recovered","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token ` + token + `"}}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if binder.persistedGiveUpsCalls != 1 {
+		t.Fatalf("PersistedGiveUps called %d times, want exactly 1: a fresh Watcher must read the persisted give-ups at start so this token re-enters the pending set instead of relying on an empty in-memory map by accident", binder.persistedGiveUpsCalls)
+	}
+	if binder.bindCalls != 1 {
+		t.Fatalf("bindCalls = %d, want 1: the persisted give-up's token must be searched for again now that its mark exists", binder.bindCalls)
+	}
+	if binder.bound[601] != "session-recovered" {
+		t.Fatalf("bound session for stage run 601 = %q, want session-recovered", binder.bound[601])
+	}
+}
+
+// TestRetryStillBounded is task 5 step 4 (tasks.md): a token retried
+// after a restart, whose transcript still carries no mark, must give up
+// again after the same bounded window as the first attempt -- not loop
+// forever now that it has already been retried once -- and that second
+// give-up's retries figure must rise from whatever the persisted state
+// already recorded.
+func TestRetryStillBounded(t *testing.T) {
+	dir := t.TempDir()
+	const token = "mf-retried-and-still-missing"
+	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 701}
+	binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
+	// giveUpState is seeded to match seededGiveUps: this token has
+	// already been recorded twice before this test's own retry (retries:
+	// 1 -- store.Store.RecordSessionTokenGiveUp's own doc comment,
+	// giveups.go, "retries starts at 0 on the first recording"), so the
+	// retry this test drives is its third recording and must land at
+	// retries: 2.
+	binder.giveUpState = map[string]*harvest.GiveUp{
+		token: {Token: token, Reason: "session-never-bound", Retries: 1},
+	}
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), nil, harvest.WithSessionTokenBinder(binder))
+
+	// A fresh bounded window, exactly as long as the first attempt's own
+	// (task 6 step 3, tasks.md, "w.tokenCycles starts fresh") --
+	// maxSessionTokenResolutionCycles, 60 (watcher.go). Checkpointing one
+	// cycle short of the bound, before driving the final cycle, pins the
+	// window's actual *length* rather than only its upper bound: an
+	// implementation that seeded a retried token's own cycle counter from
+	// somewhere other than zero -- from the persisted retries figure, say
+	// -- could give up well before cycle 60 and still pass a check that
+	// only asserted "has given up by cycle 60".
+	for i := range 59 {
+		if _, err := w.RunOnce(context.Background()); err != nil {
+			t.Fatalf("RunOnce (cycle %d): %v", i, err)
+		}
+	}
+	if binder.persistedGiveUpsCalls != 1 {
+		t.Fatalf("PersistedGiveUps called %d times, want exactly 1 (at start): a token retried across a restart must still be searched for on one fresh bounded window, not re-read on every cycle", binder.persistedGiveUpsCalls)
+	}
+	if len(binder.giveUpCalls) != 0 {
+		t.Fatalf("RecordSessionTokenGiveUp called %d times after 59 of the retry's 60 cycles, want 0: the retry's bounded window must be exactly as long as the first attempt's, not shorter", len(binder.giveUpCalls))
+	}
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (cycle 60): %v", err)
+	}
+	if len(binder.giveUpCalls) != 1 {
+		t.Fatalf("RecordSessionTokenGiveUp called %d times after the retry's own bounded window, want exactly 1: %v", len(binder.giveUpCalls), binder.giveUpCalls)
+	}
+	if got := binder.giveUpCalls[0].Retries; got != 2 {
+		t.Fatalf("retry's give-up retries = %d, want 2: this is the token's third recording, and retries rises by one on every recording after the first (giveups.go)", got)
+	}
+
+	// The retry is itself bounded exactly as the first attempt was: one
+	// more cycle beyond this second window must not persist a third
+	// give-up.
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce (extra cycle): %v", err)
+	}
+	if len(binder.giveUpCalls) != 1 {
+		t.Fatalf("RecordSessionTokenGiveUp called %d times after an extra cycle, want still 1", len(binder.giveUpCalls))
+	}
+}
+
+// TestAmbiguousDispatchIsStamped is task 5 step 5 (tasks.md): where the
+// dispatch-grain second pass's bestDispatchWindow (attribute.go) refuses
+// to attribute a record because it matched more than one dispatch by
+// agent id -- the identity pass's own ambiguous case,
+// TestDispatchDuplicateAgentIDAttributesToNeither's scenario in
+// attribute_test.go, driven here through a real Watcher rather than
+// Attribute directly -- the Watcher must stamp every candidate as
+// unattributed with the ambiguity's reason and candidate count, and must
+// never merge dispatch metrics for a record it refused to attribute.
+func TestAmbiguousDispatchIsStamped(t *testing.T) {
+	dir := t.TempDir()
+	binder := &countingSessionTokenBinder{}
+
+	dispatchWindows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {
+			panelWindow(t, 1, "agent-one", "2026-01-01T00:10:00Z"),
+			panelWindow(t, 2, "agent-one", "2026-01-01T00:10:00.5Z"),
+		},
+	}}
+	dispatchSink := &fakeDispatchMetricsSink{}
+
+	line := fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:10:30Z","sessionId":%q,"isSidechain":true,"agentId":"agent-one","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"output_tokens":1}}}`+"\n", mainSessionID)
+	if err := os.WriteFile(filepath.Join(dir, "panel.jsonl"), []byte(line), 0o644); err != nil {
+		t.Fatalf("write panel.jsonl: %v", err)
+	}
+
+	stageWindows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(stageWindows), nil,
+		harvest.WithSessionTokenBinder(binder),
+		harvest.WithDispatchAttribution(harvest.NewDispatchAttributor(dispatchWindows), dispatchSink))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if len(dispatchSink.merged) != 0 {
+		t.Fatalf("dispatch metrics merged = %v, want none: two dispatches recording the same agent id is ambiguous, and an ambiguous record must not attribute to either", dispatchSink.merged)
+	}
+	if len(binder.unattributedCalls) != 1 {
+		t.Fatalf("MarkDispatchesUnattributedByID called %d times, want exactly 1: %v", len(binder.unattributedCalls), binder.unattributedCalls)
+	}
+	got := binder.unattributedCalls[0]
+	if got.reason == "" {
+		t.Fatalf("unattributed reason is empty, want a reason naming the ambiguity")
+	}
+	if got.candidates != 2 {
+		t.Fatalf("unattributed candidates = %d, want 2 (the two dispatches the record's agent id matched)", got.candidates)
+	}
+	if !reflect.DeepEqual(got.ids, []int64{1, 2}) {
+		t.Fatalf("unattributed ids = %v, want [1 2] -- the ambiguity names specific dispatch rows, not the session token", got.ids)
+	}
+}
+
+// TestDispatchThatAttributedIsNeverStampedUnattributed is the regression
+// test for review finding F2 (this change's own review panel):
+// TestAmbiguousDispatchIsStamped above only ever drives a batch whose
+// ambiguous candidates receive no tokens at all, so it never caught a
+// dispatch that is *both* merged with real tokens *and* named in the same
+// batch's ambiguous stamp -- contradicting task 6 step 4's own words, "Do
+// not stamp a dispatch that attributed."
+//
+// The two panel windows below share agent id "agent-one", exactly as
+// TestAmbiguousDispatchIsStamped's do, so a record carrying that id is
+// ambiguous between dispatch 1 and dispatch 2 regardless of its own
+// timestamp (bestDispatchWindow's identity pass ignores the interval
+// entirely, attribute.go). This batch adds a second, sidechain record
+// besides that one: no agent id at all, timestamped at 00:10:00.2 --
+// inside dispatch 1's own interval but before dispatch 2's opens at
+// 00:10:00.5 -- so the interval pass (bestDispatchWindow's fallback)
+// attributes it cleanly to dispatch 1 alone, in the very same batch that
+// also reports [1, 2] as ambiguous. Dispatch 1 must receive its merged
+// tokens and must never appear in the unattributed stamp; dispatch 2,
+// which this batch attributed nothing to, is the only one left to stamp
+// -- still carrying the ambiguity's own full candidate count (2), not the
+// filtered id count (1).
+func TestDispatchThatAttributedIsNeverStampedUnattributed(t *testing.T) {
+	dir := t.TempDir()
+	binder := &countingSessionTokenBinder{}
+
+	dispatchWindows := &fakeDispatchWindowSource{bySession: map[string][]harvest.DispatchWindow{
+		mainSessionID: {
+			panelWindow(t, 1, "agent-one", "2026-01-01T00:10:00Z"),
+			panelWindow(t, 2, "agent-one", "2026-01-01T00:10:00.5Z"),
+		},
+	}}
+	dispatchSink := &fakeDispatchMetricsSink{}
+
+	ambiguousLine := fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:10:30Z","sessionId":%q,"isSidechain":true,"agentId":"agent-one","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"output_tokens":1}}}`+"\n", mainSessionID)
+	cleanLine := fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:10:00.2Z","sessionId":%q,"isSidechain":true,"message":{"model":"claude-opus-5","usage":{"input_tokens":99,"output_tokens":7}}}`+"\n", mainSessionID)
+	if err := os.WriteFile(filepath.Join(dir, "panel.jsonl"), []byte(ambiguousLine+cleanLine), 0o644); err != nil {
+		t.Fatalf("write panel.jsonl: %v", err)
+	}
+
+	stageWindows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(stageWindows), nil,
+		harvest.WithSessionTokenBinder(binder),
+		harvest.WithDispatchAttribution(harvest.NewDispatchAttributor(dispatchWindows), dispatchSink))
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if dispatchSink.merged[1] != 1 {
+		t.Fatalf("dispatch 1 merged = %d, want 1: the clean record's tokens must still reach the sink", dispatchSink.merged[1])
+	}
+
+	for _, call := range binder.unattributedCalls {
+		for _, id := range call.ids {
+			if id == 1 {
+				t.Fatalf("dispatch 1 stamped unattributed (%+v) despite receiving real tokens in the same batch -- task 6 step 4: %q", call, "Do not stamp a dispatch that attributed")
+			}
+		}
+	}
+
+	if len(binder.unattributedCalls) != 1 {
+		t.Fatalf("MarkDispatchesUnattributedByID called %d times, want exactly 1 (for dispatch 2 alone): %v", len(binder.unattributedCalls), binder.unattributedCalls)
+	}
+	got2 := binder.unattributedCalls[0]
+	if !reflect.DeepEqual(got2.ids, []int64{2}) {
+		t.Fatalf("unattributed ids = %v, want [2] -- dispatch 1 attributed in this batch and must be filtered out of the stamp", got2.ids)
+	}
+	if got2.candidates != 2 {
+		t.Fatalf("unattributed candidates = %d, want 2 -- the true size of the ambiguity, not the filtered id count", got2.candidates)
 	}
 }

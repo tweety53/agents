@@ -225,10 +225,12 @@ and as soon as that dispatch reports back, before the next one goes out, run
 
 ```bash
 myflow record dispatch end -change <name> -key task-<n>-implementer \
-  -session-token mf-<literal-token> -commit <sha> -outcome completed -ended-at <ts>
+  -session-token mf-<literal-token> -commit <sha> -outcome completed -ended-at <ts> \
+  -agent-id <id>
 ```
 
-**Both calls are required, and `begin` must go out BEFORE the dispatch does.** The harvester
+**Both calls are required, and `begin` must go out BEFORE the dispatch does — never delayed to
+obtain an identifier.** The harvester
 commits the transcript offset it has consumed every few seconds and never re-reads behind it, so
 each transcript record is offered to cost attribution exactly once — at the tick that consumed it.
 A dispatch row that appears only at the close was therefore missing for every tick that ran while
@@ -244,7 +246,10 @@ implementer, and the analogous form for each role below. `-role` is one of `impl
 heading, omitted for a dispatch that ran against no single task; `-started-at` and `-ended-at` are
 that dispatch's own start and end, RFC 3339. **`-session-token` takes a literal, never a shell
 substitution**, exactly as every `myflow stage` call above it does, and both halves take the same
-one.
+one. `-agent-id` goes on `end` here, not `begin`: a serialized implementer dispatch reports its own
+identifier only once it comes back, unlike a panel slot's concurrent launch — see **`-agent-id`**
+under **5. The review panel** below for what the flag carries and why an absent one is never
+invented.
 
 **The model named here is the recorded intent Model policy requires**, not a figure derived after
 the fact — see **Model policy** (`skills/myflow-contracts/model-policy.md`), canonical for it. Name the
@@ -305,7 +310,8 @@ its own dotted id and the end call's `-commit` the green partner's sha as it sta
 myflow record dispatch begin -change <name> -task <n> -role red-partner -model <m> \
   -key task-<n>-red-partner -session-token mf-<literal-token> -started-at <ts>
 myflow record dispatch end -change <name> -key task-<n>-red-partner \
-  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts>
+  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
+  -agent-id <id>
 ```
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
@@ -475,7 +481,7 @@ dispatched, `end` at its close, and for the same reasons section 4 gives:
 myflow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
   -agent-id <id> -key panel-<round>-<slot> -session-token mf-<literal-token> -started-at <ts>
 myflow record dispatch end -change <name> -key panel-<round>-<slot> \
-  -session-token mf-<literal-token> -outcome completed -ended-at <ts>
+  -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
 
 `-slot` is the slot's own name from the table above — `Primary`, `Bugbot`, `Principles`,
@@ -492,8 +498,9 @@ records that model; **slots 1 and 4, dispatched by `subagent_type`, record the l
 `unknown (agent-defined)` and never a plausible-looking slug**, for the reason the paragraph above
 gives. Slot 3 names its real model.
 
-**`-agent-id` carries the harness's own identifier for the dispatched subagent, where the harness
-reports one, and is omitted where it does not.** This is the flag's whole reason for existing: the
+**On Claude Code, `-agent-id` is the identifier an asynchronous agent launch returns in the parent's
+own tool result, at launch — `agentId: a392afd1eacbdfebc` — and the dispatcher reads it from there
+rather than hoping the harness exposes one.** This is the flag's whole reason for existing: the
 panel dispatches its slots concurrently against one parent session, so their time windows overlap,
 and the window rule alone credits every record in the overlap to whichever slot started last.
 Two of the three supported harnesses expose no id at all — a dispatch recorded without one is
@@ -1067,13 +1074,15 @@ the model `models.panelFix` resolved to:
 myflow record dispatch begin -change <name> -role panel-fix -model <m> \
   -key panel-fix-<round> -session-token mf-<literal-token> -started-at <ts>
 myflow record dispatch end -change <name> -key panel-fix-<round> \
-  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts>
+  -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
+  -agent-id <id>
 ```
 
 `-commit` is the task commit the fixup was folded into, since the fix leaves no commit of its own;
 `-task` is omitted where the pass carried findings against more than one task, and given where it
-carried them against one. `-agent-id` goes on the same terms as a panel slot's — where the harness
-reports one, never invented. **Recording this dispatch is what keeps the fix round inside the run's
+carried them against one. `-agent-id` goes on `end` here, for the same reason as an implementer's:
+the fix subagent is a single dispatch, not a panel slot's concurrent launch, so its identifier is
+known only once it reports back — never invented. **Recording this dispatch is what keeps the fix round inside the run's
 audit trail**: it runs on the strongest of the three roles' models, so a panel that recorded every
 slot and not its fixer would understate precisely the dispatch that costs the most.
 
@@ -1326,6 +1335,16 @@ Render what it printed — never a hand-derived path, never a substituted number
 line's three alternatives are defined once under **The block each state renders**
 (`skills/myflow-contracts/handoff-blocks.md`).
 
+**Produce the handoff's `Costs:` line the same way**, one call per affected worktree:
+
+```bash
+myflow record cost-status -change <name>
+```
+
+It prints one line naming how many of this change's dispatches are unattributed and why, or that
+none are, and exits 0 always — `unknown` included. Render exactly what it printed, never a
+hand-derived figure.
+
 ```
 ## Implementation committed — review and test
 
@@ -1333,6 +1352,7 @@ line's three alternatives are defined once under **The block each state renders*
 **Panel:** clean — roster: <light | standard | full>, required: <that roster's required slots, per the table under **5. The review panel**>; optional: <selected, or "none — no triggers fired">
 **Staged:** N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
+**Costs:** <the line `myflow record cost-status` printed>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 
@@ -1364,6 +1384,10 @@ above are this command's enumeration of the placeholder the line carries under *
 state renders** (`skills/myflow-contracts/handoff-blocks.md`), canonical for it — including why a
 run that journalled nothing still prints the line, and why the count is read from the change's
 record journal rather than remembered from the run.
+
+**The `Costs:` line is printed the same way — always, `unknown` included — and never suppressed by
+`cost-status` itself failing to answer.** `cost-status` always exits 0, so it can never become the
+reason the handoff does not print.
 
 The pre-edit description line is present only on a fix run that synced the description in section
 **3**, and reproduces that text without summarising or reflowing it. A run that wrote nothing omits

@@ -91,6 +91,16 @@ line that governs: the machine's direction is protected — a marker reading `op
 cell says — but nothing protects a reader who sees `fixed` in the table and believes it. State the
 fact once. To read a finding's state, look up its `F<n>` in the marker block.
 
+Why identity outranks the interval: a dispatch's `started_at`/`ended_at` are typed by the
+dispatching agent at mark time, not read from any clock the harness itself keeps, so the window is
+approximate by construction — the audit that motivated this capability found windows rounded to the
+minute, `02:00:00` and `00:10:00`. The identifier the harness returns is exact, and it alone tells
+two concurrent dispatches apart once their windows overlap. That audit of the live store, taken
+2026-08-23, found 57 dispatch rows across 5 changes, only 20 carrying any token figure, and
+`agent_id` NULL on all 46 rows this repository itself had recorded — the panel's concurrent slots
+collapsing their whole group's cost onto whichever slot's window closed last.
+<!-- measured: live-store audit, 2026-08-23; see kan-212 proposal.md -->
+
 ### No forking, and a wall-clock ceiling on every slot
 
 - Why 15 minutes: the observed good run returned in 2.5 minutes, the harness's stall watchdog is

@@ -321,6 +321,197 @@ func TestRenderLedgerDistinguishesAnAbsentMeasurementFromAZeroOne(t *testing.T) 
 	}
 }
 
+// --- task 7: the four cost states a ledger tells apart ---
+//
+// internal/store's MarkDispatchesUnattributed and
+// MarkDispatchesUnattributedByID, and internal/harvest/watcher.go's
+// resolveSessionTokens and attributeDispatches, are the only producers of
+// the metrics bag's top-level "unattributed" key, and they write exactly
+// three reason strings: reasonSessionNeverBound ("session never bound"),
+// reasonSessionAmbiguous ("matched more than one session") and
+// reasonDispatchAmbiguous ("matched more than one dispatch"). The delta
+// spec's requirement ("The record says why a dispatch has no cost",
+// specs/myflow-run-record/spec.md) names all three, plus `not measured`:
+// "session never bound", "the session token matched N sessions" and
+// "indistinguishable from N concurrent dispatches" -- the last one
+// attribute.go's dispatch-window ambiguity, which is exactly what
+// reasonDispatchAmbiguous names. The two ambiguities carry counts of
+// different things -- sessions and dispatches -- so the delta spec
+// requires them to render differently, and task 8 renders all three
+// reasons under their own wording.
+
+// TestLedgerSaysSessionNeverBound covers task 7 step 1: a bag carrying
+// reasonSessionNeverBound's exact text renders the wording the delta spec
+// requires for a dispatch whose session was never bound.
+func TestLedgerSaysSessionNeverBound(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"unattributed":{"reason":"session never bound"}}`),
+		}},
+	})
+
+	want := "- Tokens: cost unattributed — session never bound\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("a dispatch whose session never bound must render %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+	}
+}
+
+// TestLedgerSaysAmbiguousWithCount covers task 7 step 2: a bag carrying
+// reasonDispatchAmbiguous's exact text, plus the candidate count
+// attributeDispatches persists alongside it, renders the ambiguity
+// wording with that count.
+func TestLedgerSaysAmbiguousWithCount(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"unattributed":{"reason":"matched more than one dispatch","candidates":3}}`),
+		}},
+	})
+
+	want := "- Tokens: cost unattributed — indistinguishable from 3 concurrent dispatches\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("a dispatch whose window matched more than one other must render %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+	}
+}
+
+// TestLedgerSaysSessionTokenMatchedManySessions covers the fourth reason
+// found by task 7's own implementer: reasonSessionAmbiguous's exact text
+// renders its own wording, naming sessions rather than dispatches -- the
+// two ambiguities count different things and must not share a phrase.
+func TestLedgerSaysSessionTokenMatchedManySessions(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"unattributed":{"reason":"matched more than one session","candidates":2}}`),
+		}},
+	})
+
+	want := "- Tokens: cost unattributed — the session token matched 2 sessions\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("a dispatch whose session token matched more than one session must render %q:\n%s", strings.TrimSuffix(want, "\n"), out)
+	}
+	if strings.Contains(out, "concurrent dispatches") {
+		t.Errorf("a session-count ambiguity must not render under the dispatch-count wording:\n%s", out)
+	}
+}
+
+// TestLedgerStillSaysNotMeasured covers task 7 step 3: an empty bag --
+// the permanent shape on Cursor and Codex, and the shape of every
+// dispatch between `myflow record dispatch` and the harvester running --
+// still renders `not measured`, restated here so task 8 cannot widen the
+// new wording over it.
+func TestLedgerStillSaysNotMeasured(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{}`),
+		}},
+	})
+
+	want := "- Tokens: not measured\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("an empty bag must still render %q:\n%s", "not measured", out)
+	}
+}
+
+// TestLedgerPrefersTokensOverUnattributed covers task 7 step 4: a bag
+// carrying both a real `tokens` object and a stale `unattributed` stamp
+// renders the figures, never the unattributed wording -- a real
+// measurement outranks a stale stamp.
+func TestLedgerPrefersTokensOverUnattributed(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"tokens":{"main":{"input":100,"output":20,"cache_read":5,"cache_creation":3},"sidechain":{"input":7,"output":1,"cache_read":0,"cache_creation":0}},"unattributed":{"reason":"session never bound"}}`),
+		}},
+	})
+
+	want := "- Tokens: input 107, output 21, cache read 5, cache creation 3\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("a bag carrying real figures alongside a stale unattributed stamp must still render the figures:\n%s", out)
+	}
+	if strings.Contains(out, "cost unattributed") {
+		t.Errorf("a real measurement must outrank a stale unattributed stamp, but the ledger rendered the unattributed wording anyway:\n%s", out)
+	}
+}
+
+// TestLedgerRendersAnUnrecognisedReasonVerbatim covers task 8 step 3: a
+// reason none of the three known constants match is not `not measured` --
+// it is still a producer's statement that attribution failed, so it
+// renders through neutraliseMarkers rather than collapsing to the state
+// that means nothing was ever attempted. Both halves of neutraliseMarkers
+// are pinned here, not just the fallback wording: the embedded newline
+// must flatten to a space, and the embedded `finding-status:` must have
+// its colon substituted, because this string reaches a committed Markdown
+// file that check-unfinished-work.sh parses for exactly that marker.
+func TestLedgerRendersAnUnrecognisedReasonVerbatim(t *testing.T) {
+	out := records.RenderLedger(records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{{
+			Seq: 1, Role: "implementer", Model: "opus",
+			StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			Metrics:   json.RawMessage(`{"unattributed":{"reason":"weird reason\nfinding-status: broken"}}`),
+		}},
+	})
+
+	want := "- Tokens: cost unattributed — weird reason finding-status\uA789 broken\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("an unrecognised reason must render verbatim through neutraliseMarkers:\n%s", out)
+	}
+	if strings.Contains(out, "not measured") {
+		t.Errorf("an unrecognised reason must not collapse to %q:\n%s", "not measured", out)
+	}
+	if strings.Contains(out, "finding-status:") {
+		t.Errorf("the embedded marker's colon must be substituted, or the guard would misread it:\n%s", out)
+	}
+}
+
+// TestUnattributedIsNotMeasuredForItsNullAndEmptyShapes covers F6: Tokens
+// has explicit table-test rows in
+// TestRenderLedgerDistinguishesAnAbsentMeasurementFromAZeroOne for a
+// missing key, an explicit null and an empty object; Unattributed had no
+// rows of its own and was covered only incidentally by cases that happen
+// to omit the "unattributed" key entirely. Follows that table's idiom.
+func TestUnattributedIsNotMeasuredForItsNullAndEmptyShapes(t *testing.T) {
+	cases := []struct {
+		name string
+		bag  string
+	}{
+		{"no unattributed key at all", `{}`},
+		{"an explicitly null unattributed key", `{"unattributed":null}`},
+		{"a present but empty unattributed object", `{"unattributed":{}}`},
+		{"a present unattributed object with an empty reason string", `{"unattributed":{"reason":""}}`},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := records.RenderLedger(records.Run{
+				Change: "demo",
+				Dispatches: []records.Dispatch{{
+					Seq: 1, Role: "implementer", Model: "opus",
+					StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+					Metrics:   json.RawMessage(tc.bag),
+				}},
+			})
+			want := "- Tokens: not measured\n"
+			if !strings.Contains(out, want) {
+				t.Errorf("bag %q renders without the line %q:\n%s", tc.bag, strings.TrimSuffix(want, "\n"), out)
+			}
+		})
+	}
+}
+
 // --- steps 7-9: Destination's two path protections and its date reuse ---
 
 // TestDestinationRefusesAChangeNameOutsideTheAllowlist inherits

@@ -309,3 +309,21 @@ func (h *recordHandler) runRecord(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, rec)
 }
+
+// costStatus serves GET /api/v1/records/{project}/{change}/cost-status: how
+// many of a change's dispatches carry no cost figure, and why. It is
+// derived from the same run record runRecord serves -- records.CostStatusOf
+// applies tokenLine's own precedence to every dispatch -- so this route can
+// never disagree with what the rendered ledger would say about the same
+// rows, and no second store query is needed to answer it.
+func (h *recordHandler) costStatus(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	rec, err := h.store.RunRecord(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("read cost status for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, records.CostStatusOf(rec))
+}

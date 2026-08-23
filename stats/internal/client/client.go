@@ -665,6 +665,30 @@ func (c *Client) GetRunRecord(ctx context.Context, project, change string) (reco
 	return out, nil
 }
 
+// GetCostStatus fetches project/change's cost-status: how many of its
+// dispatches carry no cost figure yet, and why. Unlike `myflow record
+// journal-count`, this genuinely contacts the store -- only the store can
+// answer a question about what it holds -- so it is classified exactly as
+// GetRunRecord's own read is, ErrNotFound (404, no such change) or
+// ErrUnavailable for everything else, transport failures and a response
+// missing the daemon header included.
+func (c *Client) GetCostStatus(ctx context.Context, project, change string) (records.CostStatus, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.recordsURL(project, change)+"/cost-status", nil)
+	if err != nil {
+		return records.CostStatus{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return records.CostStatus{}, err
+	}
+	var out records.CostStatus
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.CostStatus{}, err
+	}
+	return out, nil
+}
+
 // findingStatusWireRequest is the body PATCH .../findings/{ref} carries:
 // the one column a fix round rewrites.
 type findingStatusWireRequest struct {

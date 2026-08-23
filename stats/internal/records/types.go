@@ -7,6 +7,7 @@
 package records
 
 import (
+	"bytes"
 	"encoding/json"
 	"time"
 )
@@ -105,12 +106,23 @@ type Dispatch struct {
 // EndedAt is required. It is the whole point of the call: an open window
 // (a NULL ended_at) goes on claiming later usage, so a dispatch that never
 // closes keeps stealing its successors' tokens.
+//
+// AgentID may be recorded here instead of at Dispatch.AgentID's own opening
+// call: on Claude Code the harness reports a subagent's identifier only
+// once the dispatch has actually launched, so `begin` cannot always carry
+// it. It is optional for the same reason it is optional on Dispatch, and an
+// EMPTY AgentID means "not given here", never "clear the one begin
+// recorded" -- ApplyDispatchEnd's implementations set the column only when
+// this is non-empty, so an end that omits it leaves whatever begin already
+// captured untouched. A NON-EMPTY AgentID that names a different identifier
+// than begin recorded overwrites it: end's value wins on conflict.
 type DispatchEnd struct {
 	SessionToken string    `json:"sessionToken"`
 	Key          string    `json:"key"`
 	CommitSHA    string    `json:"commitSha,omitempty"`
 	Outcome      string    `json:"outcome,omitempty"`
 	EndedAt      time.Time `json:"endedAt"`
+	AgentID      string    `json:"agentId,omitempty"`
 }
 
 // Finding is one review-panel finding. Ref is unique per change, not per
@@ -139,4 +151,57 @@ type Run struct {
 	Change     string     `json:"change"`
 	Dispatches []Dispatch `json:"dispatches"`
 	Findings   []Finding  `json:"findings"`
+}
+
+// CostStatus is the wire shape GET .../cost-status answers: how many of a
+// change's dispatches carry no cost figure, and, for those that do not,
+// why -- one count per raw reason a producer stamped
+// (internal/harvest/watcher.go's resolveSessionTokens and
+// internal/store's MarkDispatchesUnattributed /
+// MarkDispatchesUnattributedByID). It exists so `myflow record cost-status`
+// can state a change's cost honestly, at a handoff, without deriving the
+// figure by hand -- see that command's own doc comment.
+//
+// Reasons is keyed by the reason string verbatim, the same value
+// tokenLine (render.go) switches on -- never its rendered prose -- since
+// this is a machine-readable count, not a line meant for the ledger.
+type CostStatus struct {
+	Unattributed int            `json:"unattributed"`
+	Reasons      map[string]int `json:"reasons"`
+}
+
+// CostStatusOf summarises r's dispatches into a CostStatus, applying
+// exactly the precedence tokenLine (render.go) applies to one dispatch at
+// a time: a dispatch carrying a real "tokens" figure is measured, never
+// unattributed, even where it also carries a stale "unattributed" stamp --
+// MarkDispatchesUnattributed's own doc comment explains why that
+// contradiction is possible and why the measurement wins. Only a dispatch
+// with no "tokens" key and a non-empty "unattributed.reason" counts.
+//
+// It reuses dispatchMetrics and unattributed (render.go) rather than
+// re-declaring the bag's shape a second time here: the two read the same
+// wire fact -- does this dispatch have a cost figure, and if not, why --
+// for two different purposes, and a second declaration of it would be
+// exactly the drift Single Source of Truth exists to prevent.
+func CostStatusOf(r Run) CostStatus {
+	reasons := map[string]int{}
+	unattributedCount := 0
+	for _, d := range r.Dispatches {
+		if len(bytes.TrimSpace(d.Metrics)) == 0 {
+			continue
+		}
+		var m dispatchMetrics
+		if err := json.Unmarshal(d.Metrics, &m); err != nil {
+			continue
+		}
+		if m.Tokens != nil {
+			continue
+		}
+		if m.Unattributed == nil || m.Unattributed.Reason == "" {
+			continue
+		}
+		unattributedCount++
+		reasons[m.Unattributed.Reason]++
+	}
+	return CostStatus{Unattributed: unattributedCount, Reasons: reasons}
 }

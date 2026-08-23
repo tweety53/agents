@@ -1053,7 +1053,7 @@ func TestDispatchWindowAttributesSidechainUsage(t *testing.T) {
 	}}
 	a := harvest.NewDispatchAttributor(windows)
 
-	deltas, err := a.Attribute(context.Background(), records)
+	deltas, _, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1109,7 +1109,7 @@ func TestDispatchWindowIgnoresMainThreadUsage(t *testing.T) {
 	}}
 	a := harvest.NewDispatchAttributor(windows)
 
-	deltas, err := a.Attribute(context.Background(), records)
+	deltas, _, err := a.Attribute(context.Background(), records)
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1161,7 +1161,7 @@ func TestDispatchAttributionLeavesStageAttributionUnchanged(t *testing.T) {
 	dispatches := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 		bySession: map[string][]harvest.DispatchWindow{mainSessionID: {dispatchWindow(t, 77)}},
 	})
-	if _, err := dispatches.Attribute(context.Background(), records); err != nil {
+	if _, _, err := dispatches.Attribute(context.Background(), records); err != nil {
 		t.Fatalf("dispatch Attribute: %v", err)
 	}
 
@@ -1205,7 +1205,7 @@ func TestRecordOutsideEveryDispatchWindowIsNotAttributed(t *testing.T) {
 	}}
 	a := harvest.NewDispatchAttributor(windows)
 
-	deltas, err := a.Attribute(context.Background(), sidechainRecords(t))
+	deltas, _, err := a.Attribute(context.Background(), sidechainRecords(t))
 	if err != nil {
 		t.Fatalf("Attribute: %v", err)
 	}
@@ -1239,7 +1239,7 @@ func TestDispatchWindowIntervalIsHalfOpen(t *testing.T) {
 			bySession: map[string][]harvest.DispatchWindow{mainSessionID: order},
 		})
 
-		deltas, err := a.Attribute(context.Background(), sidechainRecords(t))
+		deltas, _, err := a.Attribute(context.Background(), sidechainRecords(t))
 		if err != nil {
 			t.Fatalf("order %v: Attribute: %v", order, err)
 		}
@@ -1303,7 +1303,7 @@ func attributeInEveryOrder(t *testing.T, windows []harvest.DispatchWindow, recor
 		a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
 			bySession: map[string][]harvest.DispatchWindow{mainSessionID: order},
 		})
-		deltas, err := a.Attribute(context.Background(), records)
+		deltas, _, err := a.Attribute(context.Background(), records)
 		if err != nil {
 			t.Fatalf("order %v: Attribute: %v", dispatchIDs(order), err)
 		}
@@ -1381,10 +1381,14 @@ func TestConcurrentSlotsAreSeparatedByAgentID(t *testing.T) {
 // dispatch row records -- a subagent dispatched by something other than
 // the pipeline, or a record harvested before this column existed -- and
 // the interval rule must still place it, unchanged and without complaint.
+// The windows are non-overlapping (kan-212's identity-beats-interval pass 2
+// is ambiguous rather than tie-broken wherever two windows both contain the
+// record, so a fallback case must give the interval pass exactly one
+// candidate to prove the fallback itself, not the ambiguity rule).
 func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
 	windows := []harvest.DispatchWindow{
-		panelWindow(t, 1, "agent-slot-a", "2026-01-01T00:10:00Z"),
-		panelWindow(t, 2, "agent-slot-b", "2026-01-01T00:10:00.5Z"),
+		{DispatchID: 1, AgentID: "agent-slot-a", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:15Z"))},
+		{DispatchID: 2, AgentID: "agent-slot-b", StartedAt: mustParse(t, "2026-01-01T00:10:15Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 	}
 	records := []harvest.Record{
 		sidechainRecord(t, "agent-nobody-recorded", "2026-01-01T00:10:30Z", 7),
@@ -1392,7 +1396,7 @@ func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
 
 	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
 		if got := deltas[2].Sidechain.Input; got != 7 {
-			t.Errorf("dispatch 2 input = %v, want 7 -- no agent id matches, so the window rule places it on the window that started last", got)
+			t.Errorf("dispatch 2 input = %v, want 7 -- no agent id matches, so the interval pass places it on the one window that contains it", got)
 		}
 		if got := deltas[1].Sidechain.Input; got != 0 {
 			t.Errorf("dispatch 1 input = %v, want 0", got)
@@ -1407,21 +1411,26 @@ func TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule(t *testing.T) {
 // absent id is "" meaning "not reported" -- never a value that matches
 // another absent one.
 //
-// Both subtests are built so that treating "" as a match changes the
-// answer: the window carrying no agent id is the one that started
-// *earlier*, so an implementation that lets ""=="" win would pull the
-// record onto it and away from the window the interval rule places it on.
+// Both subtests use non-overlapping windows, for the same reason
+// TestRecordAgentIDMatchingNoDispatchFallsBackToTheWindowRule does: two
+// windows both containing the record is the ambiguous case
+// (TestDispatchAmbiguousOverlapAttributesToNone), not this one. Each is
+// still built so that treating "" as a match would change the answer: the
+// window carrying no agent id is the one that would be reached by an
+// identifier comparison first, so an implementation that lets ""=="" win
+// would pull the record onto it and away from the window the interval rule
+// alone would place it on.
 func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
 	t.Run("a record with no agent id does not match a dispatch with none", func(t *testing.T) {
 		windows := []harvest.DispatchWindow{
-			panelWindow(t, 1, "", "2026-01-01T00:10:00Z"),
-			panelWindow(t, 2, "agent-slot-b", "2026-01-01T00:10:00.5Z"),
+			{DispatchID: 1, AgentID: "", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:15Z"))},
+			{DispatchID: 2, AgentID: "agent-slot-b", StartedAt: mustParse(t, "2026-01-01T00:10:15Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		}
 		records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 4)}
 
 		attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
 			if got := deltas[2].Sidechain.Input; got != 4 {
-				t.Errorf("dispatch 2 input = %v, want 4 -- two absent agent ids are not a match, so the window rule decides", got)
+				t.Errorf("dispatch 2 input = %v, want 4 -- two absent agent ids are not a match, so the interval pass decides", got)
 			}
 			if got := deltas[1].Sidechain.Input; got != 0 {
 				t.Errorf("dispatch 1 input = %v, want 0 -- an absent agent id means \"not reported\", never \"matches the empty agent id\"", got)
@@ -1431,8 +1440,8 @@ func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
 
 	t.Run("a dispatch with no agent id is still reachable by the window rule", func(t *testing.T) {
 		windows := []harvest.DispatchWindow{
-			panelWindow(t, 1, "agent-slot-a", "2026-01-01T00:10:00Z"),
-			panelWindow(t, 2, "", "2026-01-01T00:10:00.5Z"),
+			{DispatchID: 1, AgentID: "agent-slot-a", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:10:15Z"))},
+			{DispatchID: 2, AgentID: "", StartedAt: mustParse(t, "2026-01-01T00:10:15Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 		}
 		records := []harvest.Record{sidechainRecord(t, "agent-unrelated", "2026-01-01T00:10:30Z", 6)}
 
@@ -1444,36 +1453,98 @@ func TestDispatchWithNoAgentIDReceivesRecordsByTheWindowRule(t *testing.T) {
 	})
 }
 
-// TestSameInstantDispatchWindowsResolveTheSameWayEveryTime is the
-// dispatch-grain counterpart of TestSameInstantWindowsFallBackToHighestAttempt.
-// At an exact StartedAt tie "whichever started last" is not a rule at all
-// -- the After comparison is false in both directions -- so before the
-// tie-break was stated, the winner was whichever row the windows query
-// happened to return first, and DispatchWindowsForSession's ORDER BY
-// carried no secondary key to make even that reproducible.
-//
-// It is a real detector rather than a single run that happens to pick the
-// right window: three windows tie on the same instant and every one of
-// the six orderings of them is checked, so an implementation that resolves
-// the tie by input order is caught by at least four of the six on every
-// run, deterministically. Repeating one ordering would prove nothing --
-// the old behaviour is perfectly stable for a fixed input order, and
-// unstable only across them.
-func TestSameInstantDispatchWindowsResolveTheSameWayEveryTime(t *testing.T) {
-	const tied = "2026-01-01T00:10:00Z"
+// TestDispatchIdentityBeatsInterval is the kan-286 case: -ended-at is typed
+// by the dispatching agent, so a record legitimately falls outside a window
+// that is approximate by construction. A record whose agent id matches a
+// dispatch must attribute to it even when the record's own timestamp falls
+// outside that dispatch's interval entirely.
+func TestDispatchIdentityBeatsInterval(t *testing.T) {
 	windows := []harvest.DispatchWindow{
-		panelWindow(t, 11, "", tied),
-		panelWindow(t, 12, "", tied),
-		panelWindow(t, 13, "", tied),
+		{
+			DispatchID: 1,
+			AgentID:    "agent-one",
+			StartedAt:  mustParse(t, "2026-01-01T10:00:00Z"),
+			EndedAt:    ptrTime(mustParse(t, "2026-01-01T10:05:00Z")),
+		},
+	}
+	records := []harvest.Record{
+		sidechainRecord(t, "agent-one", "2026-01-01T10:07:00Z", 42),
+	}
+
+	a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
+		bySession: map[string][]harvest.DispatchWindow{mainSessionID: windows},
+	})
+	deltas, _, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[1].Sidechain.Input; got != 42 {
+		t.Errorf("dispatch 1 input = %v, want 42 -- the record's agent id matches this dispatch even though its timestamp falls two minutes outside the dispatch's own interval", got)
+	}
+}
+
+// TestDispatchDuplicateAgentIDAttributesToNeither is the identity pass's own
+// ambiguous case: two dispatches recording the same agent id, with a record
+// carrying that id landing inside both windows. A tie broken by interval or
+// by row order would reintroduce the same silent misattribution this change
+// removes, one layer down -- so the returned map must be empty, not resolved
+// by either fallback.
+func TestDispatchDuplicateAgentIDAttributesToNeither(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		panelWindow(t, 1, "agent-one", "2026-01-01T00:10:00Z"),
+		panelWindow(t, 2, "agent-one", "2026-01-01T00:10:00.5Z"),
+	}
+	records := []harvest.Record{
+		sidechainRecord(t, "agent-one", "2026-01-01T00:10:30Z", 5),
+	}
+
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
+		if len(deltas) != 0 {
+			t.Fatalf("deltas = %v, want empty: two dispatches record the same agent id, so the identity pass is ambiguous and must not fall back to the interval or to row order", deltas)
+		}
+	})
+}
+
+// TestDispatchAmbiguousOverlapAttributesToNone is the kan-295 case in
+// miniature: three windows with byte-identical intervals and no agent id on
+// either side, so the identity pass finds no candidate and the interval pass
+// finds three. The returned map must be empty -- not that the
+// latest-started window wins, which is exactly the silent misattribution
+// this change removes.
+func TestDispatchAmbiguousOverlapAttributesToNone(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 21, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 22, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 23, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
 	}
 	records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 3)}
 
 	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
-		if len(deltas) != 1 {
-			t.Fatalf("deltas = %v, want exactly one dispatch charged", deltas)
-		}
-		if got := deltas[11].Sidechain.Input; got != 3 {
-			t.Errorf("dispatch 11 input = %v, want 3 -- an exact tie is broken by the lowest dispatch id, the same order DispatchWindowsForSession returns", got)
+		if len(deltas) != 0 {
+			t.Fatalf("deltas = %v, want empty: three windows contain the record and none carries an agent id, so the interval pass is ambiguous too -- not that the latest-started window wins", deltas)
 		}
 	})
+}
+
+// TestDispatchNonOverlappingIntervalStillAttributes is the guard against
+// over-correcting: the interval rule is the fallback, not a legacy path. A
+// single containing window with no agent id on either side still attributes
+// -- it is the only rule available on Cursor and Codex, and it is exactly
+// correct wherever windows do not overlap.
+func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 31, StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+	}
+	records := []harvest.Record{sidechainRecord(t, "", "2026-01-01T00:10:30Z", 9)}
+
+	a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
+		bySession: map[string][]harvest.DispatchWindow{mainSessionID: windows},
+	})
+	deltas, _, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if got := deltas[31].Sidechain.Input; got != 9 {
+		t.Errorf("dispatch 31 input = %v, want 9 -- one containing window with no agent id on either side must still attribute", got)
+	}
 }

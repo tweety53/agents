@@ -259,16 +259,29 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 // rather than a silent no-op -- see the CLI's own classification for why
 // that is a *retryable* answer for this one write and not a definitive one,
 // the begin it closes possibly still sitting in the journal ahead of it.
+//
+// agent_id is written only when in.AgentID is non-empty, via
+// COALESCE($8, d.agent_id) rather than a plain assignment: `begin` may
+// already have recorded a real identifier for this row, and on Claude Code
+// the harness reports one only once the dispatch has launched, so `end`
+// has to be able to carry it too. A plain `SET agent_id = $8` would clear
+// that identifier on every ordinary end call that omits it -- destroying
+// the very thing this parameter exists to capture -- since nullIfEmpty
+// turns "" into SQL NULL and COALESCE is what lets a NULL argument here
+// mean "leave the column as it is" instead of "set it to NULL". Where
+// in.AgentID names a different identifier than `begin` already recorded,
+// end's value wins: this call has no notion of a conflict, only of
+// "supplied" versus "omitted".
 func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = $7
+		SET commit_sha = $5, outcome = $6, ended_at = $7, agent_id = COALESCE($8, d.agent_id)
 		FROM changes c
 		WHERE c.id = d.change_id AND c.project_key = $1 AND c.name = $2
 		  AND d.session_token = $3 AND d.dispatch_key = $4
 		RETURNING `+qualifiedDispatchColumns("d"),
 		projectKey, change, in.SessionToken, in.Key,
-		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt,
+		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -431,6 +444,100 @@ func (s *Store) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patc
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, dispatchID)
+	}
+	return nil
+}
+
+// MarkDispatchesUnattributed stamps every dispatch recorded under token
+// with the reason its session's cost could not be attributed --
+// RecordSessionTokenGiveUp's dispatch-grain counterpart
+// (0013_session_token_giveups.sql). Zero dispatches under token is not an
+// error: a give-up can be recorded before any dispatch under that token
+// was ever written.
+//
+// The stamp merges via the jsonb "||" operator, not jsonb_deep_add: || is a
+// top-level, non-recursive merge, so it replaces the whole "unattributed"
+// key wholesale while leaving "tokens" and every other sibling key
+// untouched -- an existing tokens figure survives, exactly as it did under
+// jsonb_deep_add, so a dispatch that was measured and then had its session
+// given up is still not resolved by destroying the measurement.
+// unattributed.candidates is a snapshot fact, not a delta: this method
+// fires again on a retried give-up still ambiguous after a restart, and a
+// repeat stamp with the same candidates count must leave it unchanged
+// rather than summing it, which is exactly what jsonb_deep_add did instead
+// (F18, review panel round 1) -- "||" is idempotent under an identical
+// repeat stamp, and a later stamp with a different reason replaces the
+// stale reason and candidates together rather than merging them.
+//
+// candidates is included in the payload only when positive -- it names how
+// many sessions an ambiguous match was torn between, and is meaningless
+// for a give-up that never found a candidate at all. A non-positive value
+// omits the key entirely rather than writing a 0 that would read as a
+// measurement.
+func (s *Store) MarkDispatchesUnattributed(ctx context.Context, token, reason string, candidates int) error {
+	unattributed := map[string]any{"reason": reason}
+	if candidates > 0 {
+		unattributed["candidates"] = candidates
+	}
+	patch, err := json.Marshal(map[string]any{"unattributed": unattributed})
+	if err != nil {
+		return fmt.Errorf("store: marshal unattributed patch for session token %s: %w", token, err)
+	}
+
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE dispatches SET metrics = metrics || $2::jsonb WHERE session_token = $1
+	`, token, patch); err != nil {
+		return fmt.Errorf("store: mark dispatches unattributed for session token %s: %w", token, err)
+	}
+	return nil
+}
+
+// MarkDispatchesUnattributedByID stamps exactly the dispatches named by
+// ids with the reason their cost could not be attributed -- the
+// dispatch-grain second pass's own ambiguity counterpart of
+// MarkDispatchesUnattributed above, added beside it rather than in place
+// of it (task 6's own corrections, tasks.md): the two reasons have
+// genuinely different scopes. MarkDispatchesUnattributed stamps every
+// dispatch under a session token, which is correct only for "session
+// never bound" -- every dispatch of that session really is uncosted. A
+// dispatch-grain ambiguity (bestDispatchWindow, internal/harvest,
+// attribute.go) names specific rows -- the candidates a record's agent id
+// or timestamp could not tell apart -- and stamping every dispatch under
+// their shared session would also stamp siblings that attributed
+// correctly. Zero ids is a no-op, not an error: nothing to stamp is not a
+// failure.
+//
+// The stamp merges via the jsonb "||" operator, for the same reason
+// MarkDispatchesUnattributed's own does: a dispatch that was measured and
+// then found ambiguous is a contradiction this method must not resolve by
+// destroying the measurement, so an existing "tokens" key survives the
+// merge untouched alongside the new "unattributed" key -- and a repeat
+// stamp for the same candidate set, which a multi-minute review panel
+// round produces on every 5s harvest cycle that still sees it, leaves
+// candidates unchanged instead of summing it (F18, review panel round 1).
+//
+// candidates is included in the payload only when positive, for the same
+// reason MarkDispatchesUnattributed's own is: a non-positive value omits
+// the key entirely rather than writing a 0 that would read as a
+// measurement.
+func (s *Store) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64, reason string, candidates int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	unattributed := map[string]any{"reason": reason}
+	if candidates > 0 {
+		unattributed["candidates"] = candidates
+	}
+	patch, err := json.Marshal(map[string]any{"unattributed": unattributed})
+	if err != nil {
+		return fmt.Errorf("store: marshal unattributed patch for dispatch ids %v: %w", ids, err)
+	}
+
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE dispatches SET metrics = metrics || $2::jsonb WHERE id = ANY($1)
+	`, ids, patch); err != nil {
+		return fmt.Errorf("store: mark dispatches unattributed by id %v: %w", ids, err)
 	}
 	return nil
 }

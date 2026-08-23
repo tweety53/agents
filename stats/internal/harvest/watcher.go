@@ -169,8 +169,26 @@ const maxDispatchMetaBackfillCycles = maxSessionTokenResolutionCycles
 // like WindowSource, HarvestSink and Pricer above: internal/harvest never
 // imports internal/store, so this package is testable against a fake with
 // no PostgreSQL required. The daemon wires a real implementation backed by
-// *store.Store, whose UnresolvedSessionTokens and BindSession methods are
-// written to match this interface exactly.
+// *store.Store, whose UnresolvedSessionTokens, BindSession,
+// RecordSessionTokenGiveUp, PersistedGiveUps and
+// MarkDispatchesUnattributedByID methods are written to match this
+// interface exactly -- widened by task 6 (tasks.md,
+// kan-212-persist-per-dispatch-cost-tokens-model-and-role) to carry the
+// give-up half of that change alongside the binding half it already
+// carried.
+//
+// GiveUp is declared here, in internal/harvest, rather than in
+// internal/store -- store.Store.PersistedGiveUps returns it directly, with
+// no adapter, exactly as store.Store.DispatchWindowsForSession already
+// returns DispatchWindow. The dependency runs store -> harvest, never the
+// reverse, which is what keeps TestHarvestNeedsNoDatabase true even as
+// this interface grows.
+//
+// Widened again by task 6.1 (tasks.md) to add MarkDispatchesUnattributed,
+// the token form: task 6 stamped a dispatch-grain ambiguity by id
+// (MarkDispatchesUnattributedByID) but left the give-up itself stamping
+// nothing, so the "session never bound" state task 8 renders had no
+// producer.
 type SessionTokenBinder interface {
 	// UnresolvedSessionTokens returns every stage run id and its session
 	// token for which no session has yet been bound.
@@ -183,7 +201,82 @@ type SessionTokenBinder interface {
 	// updated; zero, with no error, is not a failure -- see
 	// store.Store.BindSession's own doc comment.
 	BindSession(ctx context.Context, sessionToken string, sessionID string) (bound int64, err error)
+	// RecordSessionTokenGiveUp persists that this Watcher has stopped
+	// searching for token, with reason naming why and at the instant it
+	// gave up -- resolveSessionTokens' own two give-up branches call this
+	// before setting w.gaveUpTokens, so a token abandoned by this process
+	// is still discoverable, and re-attemptable, by a later one
+	// (design.md, "The abandoned-token set is persisted, and retried on
+	// restart"). See store.Store.RecordSessionTokenGiveUp's own doc
+	// comment for the upsert semantics: a token recorded a second time
+	// updates rather than duplicates, and its retries count rises.
+	RecordSessionTokenGiveUp(ctx context.Context, token, reason string, at time.Time) error
+	// PersistedGiveUps returns every session token this Watcher's store
+	// has ever given up on, across every process that has ever run
+	// against it. seedPersistedGiveUps reads this exactly once, on this
+	// Watcher's first cycle, so a token a prior process abandoned is
+	// searched for again -- kan-302's recovery path: a transcript that
+	// now carries the mark a prior process never found binds on this
+	// process's own bounded window.
+	PersistedGiveUps(ctx context.Context) ([]GiveUp, error)
+	// MarkDispatchesUnattributedByID stamps exactly the dispatches named
+	// by ids with the reason their cost could not be attributed, and how
+	// many candidates could not be told apart. attributeDispatches calls
+	// this for the dispatch-grain second pass's own ambiguous outcome
+	// (DispatchAttributor.Attribute's AmbiguousDispatch) -- by dispatch
+	// id, not by session token, because the candidates are specific rows
+	// and stamping every dispatch under their shared session would also
+	// stamp siblings that attributed correctly.
+	MarkDispatchesUnattributedByID(ctx context.Context, ids []int64, reason string, candidates int) error
+	// MarkDispatchesUnattributed stamps every dispatch recorded under
+	// token with the reason its session's cost could not be attributed,
+	// and, when positive, how many candidates an ambiguous match could
+	// not tell apart -- resolveSessionTokens' own two give-up branches
+	// call this immediately after RecordSessionTokenGiveUp, with that
+	// branch's own reason (task 6.1, tasks.md, "stamp the dispatches of
+	// a session that never bound"). Distinct from
+	// MarkDispatchesUnattributedByID above, and not a substitute for it:
+	// a session that never bound leaves every one of its dispatches
+	// uncosted, which this token form expresses by stamping the whole
+	// session at once; a dispatch-grain ambiguity concerns specific
+	// rows, which the id form expresses by naming exactly those rows and
+	// none of their attributed siblings.
+	MarkDispatchesUnattributed(ctx context.Context, token, reason string, candidates int) error
 }
+
+// GiveUp is one persisted record of a session token this Watcher (or an
+// earlier process sharing its store) searched for and could not resolve --
+// the token, why, and how many times the search has come back to it.
+// store.Store.PersistedGiveUps and store.Store.RecordSessionTokenGiveUp
+// are written to return and accept this shape exactly (its own doc
+// comment on 0013_session_token_giveups.sql has the schema).
+type GiveUp struct {
+	Token   string
+	Reason  string
+	Retries int
+}
+
+// reasonSessionNeverBound and reasonSessionAmbiguous are the two distinct
+// reasons resolveSessionTokens persists a session-token give-up under
+// (task 6, tasks.md, "each with its own distinct reason") -- case 0, the
+// bounded window exhausted with no match at all, and the default branch,
+// the token matched more than one session. Naming them apart is what lets
+// PersistedGiveUps' caller -- and, eventually, a future reader of
+// session_token_giveups.reason -- tell a token that never appeared from
+// one that appeared twice, which are different failures kan-302's own
+// investigation needs told apart.
+const (
+	reasonSessionNeverBound = "session never bound"
+	reasonSessionAmbiguous  = "matched more than one session"
+	// reasonDispatchAmbiguous is what attributeDispatches persists for a
+	// dispatch-grain ambiguity (DispatchAttributor.Attribute's
+	// AmbiguousDispatch) -- distinct from either session-token reason
+	// above, since this failure is not about a session ever binding at
+	// all: it is two or more already-bound dispatches that a record's
+	// agent id or timestamp could not tell apart (bestDispatchWindow's
+	// own doc comment, attribute.go).
+	reasonDispatchAmbiguous = "matched more than one dispatch"
+)
 
 // Watcher periodically scans a transcripts root for *.jsonl files and
 // harvests whatever bytes are new since each one's last committed offset,
@@ -236,6 +329,38 @@ type Watcher struct {
 	// assumption this struct's other fields already rely on.
 	tokenCycles  map[string]int
 	gaveUpTokens map[string]bool
+
+	// seededGiveUps reports whether seedPersistedGiveUps has already run
+	// (task 6, tasks.md, "seed the pending set from PersistedGiveUps at
+	// start"): it must read PersistedGiveUps exactly once, on this
+	// Watcher's first cycle, never on every cycle -- TestRetryStillBounded
+	// and TestPersistedGiveUpIsRetriedOnStart both pin the call count at
+	// exactly 1 across many RunOnce calls. A failed read leaves this
+	// false, so the next cycle tries again rather than abandoning
+	// recovery for this process's whole lifetime -- the same "log and
+	// retry next cycle" discipline every other store call in this file
+	// follows.
+	seededGiveUps bool
+
+	// retriedTokens holds every token seedPersistedGiveUps' single read of
+	// PersistedGiveUps ever returned -- populated there, alongside
+	// seededGiveUps, and never anywhere else (task 6.2, tasks.md, "bind a
+	// retried token by scanning, not by waiting for new bytes"). It is
+	// what scanRetriedTokens (below) gates its own extra, whole-file
+	// reads on: a token this process is trying for the first time is
+	// still being written to a live transcript, so waiting for new bytes
+	// (matchSessionTokens, the ordinary path) is both correct and cheap
+	// for it; only a *retried* give-up's own marks are provably behind an
+	// offset that will never move for them again (harvest_offsets already
+	// sits at that transcript's own EOF, by definition of having given up
+	// once already), which is the one case worth paying for a read
+	// proportional to every transcript on disk. Membership here is never
+	// revoked once a token binds or gives up again -- the set stays tiny
+	// (bounded by how many give-ups this store has ever persisted) and
+	// pendingSessionTokens already stops offering a bound or re-given-up
+	// token to scanRetriedTokens at all, so a stale entry here costs
+	// nothing.
+	retriedTokens map[string]bool
 
 	// pendingDispatchMeta remembers, per subagent transcript path whose
 	// most recently committed batch carried dispatch tokens but no
@@ -368,6 +493,7 @@ func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *s
 		logger:              logger,
 		tokenCycles:         make(map[string]int),
 		gaveUpTokens:        make(map[string]bool),
+		retriedTokens:       make(map[string]bool),
 		pendingDispatchMeta: make(map[string]map[int64]string),
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
@@ -599,9 +725,94 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 		}
 	}
 
+	w.scanRetriedTokens(files, pendingSessionTokens, matchedSessions)
 	w.resolveSessionTokens(ctx, pendingSessionTokens, matchedSessions)
 
 	return touchedFiles, nil
+}
+
+// scanRetriedTokens looks for a persisted give-up's own mark invocation
+// in bytes harvest_offsets has already read past -- task 6.2's fix for
+// the gap task 12's own live restart measured (tasks.md, "bind a retried
+// token by scanning, not by waiting for new bytes"): matchSessionTokens
+// (above) only ever sees the Bash commands newly read from a transcript
+// this cycle, and a give-up's own transcript has, by definition, already
+// been fully harvested by the time it gave up -- kan-302's own measured
+// state, harvest_offsets already sitting at that file's full 3,147,539
+// bytes. A plain retry that only waits for new bytes searches a stream
+// that will never grow and gives up again, permanently, for exactly the
+// transcripts that matter: every one belonging to a run that has already
+// finished.
+//
+// Gated on w.retriedTokens -- populated once, at seedPersistedGiveUps,
+// from exactly the tokens PersistedGiveUps returned -- rather than on
+// every still-pending token: an ordinary, never-before-given-up token's
+// transcript is still being written, so waiting for new bytes is both
+// correct and cheap for it, and paying for a whole-file read of every
+// transcript on disk on its behalf would buy nothing. Only a retried
+// give-up's marks are provably behind an offset that will never move for
+// them again, which is the one case this extra read is worth its own
+// cost -- "the scan is work proportional to the transcripts on disk, so
+// gate it on there actually being pending tokens the newly-read batches
+// did not match" (tasks.md, task 6.2, step 4), narrowed here to the
+// tokens that can structurally never resolve any other way. filtering
+// out a token matched already (len(matched[token]) > 0) keeps a token the
+// ordinary path already found this same cycle from paying for this scan
+// too.
+//
+// Reads with ReadAllCommands (transcript.go), never ReadNewRecords or
+// w.attributor.Attribute: no Record is ever produced from these bytes,
+// so there is nothing here that could be attributed, and harvest_offsets
+// for path is neither read nor written by this call -- property 1,
+// "never re-attribute usage" (tasks.md, task 6.2's own "non-negotiable
+// properties").
+//
+// The per-token cycle bound (maxSessionTokenResolutionCycles,
+// resolveSessionTokens) is untouched by this method: a retried token
+// this scan still cannot find still counts a cycle in w.tokenCycles on
+// every RunOnce, exactly as before, and still gives up again once that
+// bound is reached -- a token whose marks genuinely are not on disk
+// anywhere rescans on a bounded schedule, not forever.
+//
+// isSessionMarkCommand -- reached the same way the ordinary path reaches
+// it, through matchSessionTokens -- is what keeps the
+// mention-versus-invocation distinction (matchSessionTokens' own doc
+// comment, KAN-172 finding F4) and the ambiguity rule identical on this
+// path: a diagnostic grep for a retried token sitting in these very
+// already-consumed bytes still does not bind it
+// (TestPersistedGiveUpBindsFromAFullyConsumedTranscript's own "mention
+// only" subtest), and a token whose genuine marks turn out to sit in two
+// transcripts still refuses to bind rather than picking one (that test's
+// own "ambiguous" subtest) -- this new path reads exactly the
+// already-read-past region F4's live reproduction did, so admitting
+// anything looser than a real mark invocation here would walk straight
+// back into that bug.
+func (w *Watcher) scanRetriedTokens(files []string, pending map[int64]string, matched map[string]map[string]bool) {
+	if len(w.retriedTokens) == 0 {
+		return
+	}
+	toScan := make(map[int64]string, len(pending))
+	for stageRunID, token := range pending {
+		if !w.retriedTokens[token] {
+			continue
+		}
+		if len(matched[token]) > 0 {
+			continue // already found via this cycle's newly-read bytes
+		}
+		toScan[stageRunID] = token
+	}
+	if len(toScan) == 0 {
+		return
+	}
+
+	for _, path := range files {
+		commands, err := ReadAllCommands(path)
+		if err != nil {
+			w.warn("harvest: scan transcript for a retried session token failed, will retry", "path", path, "error", err)
+			continue
+		}
+		w.matchSessionTokens(toScan, commands, matched)
+	}
 }
 
 // attributeDispatches runs the second attribution pass over one batch's
@@ -621,12 +832,24 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 // ordinary case, and a dispatch that ends before one arrives is left
 // understated rather than wrong -- a whole stage run's usage would be
 // neither.
+//
+// Where DispatchAttributor.Attribute reports an ambiguity -- a record
+// whose agent id or timestamp matched more than one dispatch -- this
+// stamps every candidate as unattributed (task 6, tasks.md, "do not
+// stamp a dispatch that attributed"), through
+// SessionTokenBinder.MarkDispatchesUnattributedByID rather than
+// dispatchMetrics: the stamp is store bookkeeping about a dispatch's
+// metrics bag, the same shape RecordSessionTokenGiveUp and
+// PersistedGiveUps already are, not a token delta. A Watcher configured
+// with WithDispatchAttribution but no WithSessionTokenBinder has nowhere
+// to write the stamp and skips it -- the ambiguity is still correctly
+// left uncredited either way, only the reason goes unrecorded.
 func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
 	if !w.HasDispatchAttribution() {
 		return
 	}
 
-	deltas, err := w.dispatchAttributor.Attribute(ctx, records)
+	deltas, ambiguous, err := w.dispatchAttributor.Attribute(ctx, records)
 	if err != nil {
 		w.warn("harvest: attribute dispatch windows failed, this batch's dispatch figures are lost", "path", path, "error", err)
 		return
@@ -640,6 +863,44 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 		}
 		if err := w.dispatchMetrics.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
 			w.warn("harvest: merge dispatch metrics failed, this batch's figures for it are lost", "path", path, "dispatch_id", dispatchID, "error", err)
+		}
+	}
+
+	if w.sessionTokens == nil {
+		return
+	}
+	for _, a := range ambiguous {
+		// Filter out any candidate this very call already merged real
+		// tokens for above: DispatchAttributor.Attribute computes deltas
+		// and ambiguous independently, per record, so the same batch can
+		// legitimately attribute one record to a dispatch cleanly while a
+		// different record's agent id remains ambiguous between that same
+		// dispatch and another one (bestDispatchWindow's identity pass
+		// matches on AgentID alone, ignoring the record's own timestamp,
+		// so two windows sharing an AgentID make every id-carrying record
+		// ambiguous across both regardless of which one it actually falls
+		// in). Stamping an attributed dispatch unattributed here would
+		// contradict task 6 step 4's own words, "Do not stamp a dispatch
+		// that attributed" -- so a candidate already present in deltas is
+		// dropped from the stamp, never merely overwritten by it.
+		//
+		// candidates is still the ambiguity's full, unfiltered size
+		// (len(a.DispatchIDs)), not len(ids): what a stamped dispatch
+		// could not be told apart from is a fact about that record's
+		// identity match, unchanged by whether a sibling candidate
+		// happened to attribute something else in this same batch.
+		var ids []int64
+		for _, id := range a.DispatchIDs {
+			if _, attributed := deltas[id]; attributed {
+				continue
+			}
+			ids = append(ids, id)
+		}
+		if len(ids) == 0 {
+			continue
+		}
+		if err := w.sessionTokens.MarkDispatchesUnattributedByID(ctx, ids, reasonDispatchAmbiguous, len(a.DispatchIDs)); err != nil {
+			w.warn("harvest: mark dispatches unattributed failed", "path", path, "dispatch_ids", ids, "error", err)
 		}
 	}
 }
@@ -769,6 +1030,7 @@ func (w *Watcher) pendingSessionTokens(ctx context.Context) map[int64]string {
 	if w.sessionTokens == nil {
 		return nil
 	}
+	w.seedPersistedGiveUps(ctx)
 	all, err := w.sessionTokens.UnresolvedSessionTokens(ctx)
 	if err != nil {
 		w.warn("harvest: list unresolved session tokens failed, will retry", "error", err)
@@ -782,6 +1044,44 @@ func (w *Watcher) pendingSessionTokens(ctx context.Context) map[int64]string {
 		pending[stageRunID] = sessionToken
 	}
 	return pending
+}
+
+// seedPersistedGiveUps reads every give-up this Watcher's binder has ever
+// persisted, once, on this Watcher's first cycle (task 6, tasks.md, "seed
+// the pending set from PersistedGiveUps at start") -- kan-302's recovery
+// path: a token an earlier process abandoned is searched for again once
+// this process starts, since its transcript may carry the mark by now.
+//
+// Clearing each returned token from w.gaveUpTokens is defensive rather
+// than load-bearing today -- w.gaveUpTokens starts empty on every new
+// Watcher, so nothing has set an entry before this first call runs -- but
+// it keeps the seeded set's actual membership correct by construction
+// rather than by the accident of call order.
+//
+// w.tokenCycles is never touched here: it too starts empty, so a
+// retried token gets a fresh bounded window of exactly
+// maxSessionTokenResolutionCycles, the same as the first attempt (task 6,
+// tasks.md, "the retry is bounded exactly as the first attempt is").
+//
+// w.seededGiveUps guards this to exactly one call across this Watcher's
+// whole lifetime, successful call included -- a failed read leaves it
+// false, so the next cycle tries again, the same "log and retry next
+// cycle" discipline every other store call in this file follows, rather
+// than abandoning recovery for this process's whole lifetime.
+func (w *Watcher) seedPersistedGiveUps(ctx context.Context) {
+	if w.seededGiveUps {
+		return
+	}
+	giveUps, err := w.sessionTokens.PersistedGiveUps(ctx)
+	if err != nil {
+		w.warn("harvest: list persisted give-ups failed, will retry", "error", err)
+		return
+	}
+	for _, g := range giveUps {
+		delete(w.gaveUpTokens, g.Token)
+		w.retriedTokens[g.Token] = true
+	}
+	w.seededGiveUps = true
 }
 
 // matchSessionTokens scans commands -- the Bash commands newly read from one
@@ -973,6 +1273,16 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			}
 			w.warn("harvest: session token unresolved after the bounded window, giving up",
 				"stage_run_ids", stageRunIDs, "cycles", w.tokenCycles[sessionToken])
+			if err := w.sessionTokens.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionNeverBound, time.Now()); err != nil {
+				w.warn("harvest: persist give-up failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
+				continue
+			}
+			// A stamp failure here must never block the give-up already
+			// recorded above (task 6.1, tasks.md, step 4): it is logged
+			// and this branch still proceeds to mark the token given up.
+			if err := w.sessionTokens.MarkDispatchesUnattributed(ctx, sessionToken, reasonSessionNeverBound, 0); err != nil {
+				w.warn("harvest: stamp unattributed dispatches failed", "stage_run_ids", stageRunIDs, "session_token", sessionToken, "error", err)
+			}
 			w.gaveUpTokens[sessionToken] = true
 			delete(w.tokenCycles, sessionToken)
 
@@ -1002,6 +1312,16 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			}
 			w.warn("harvest: session token matched more than one session, refusing to bind",
 				"stage_run_ids", stageRunIDs, "sessions", sessionIDs)
+			if err := w.sessionTokens.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionAmbiguous, time.Now()); err != nil {
+				w.warn("harvest: persist give-up failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
+				continue
+			}
+			// Same never-block guarantee as the case 0 branch above: a
+			// stamp failure here is logged, never a reason to undo the
+			// give-up already recorded.
+			if err := w.sessionTokens.MarkDispatchesUnattributed(ctx, sessionToken, reasonSessionAmbiguous, len(sessions)); err != nil {
+				w.warn("harvest: stamp unattributed dispatches failed", "stage_run_ids", stageRunIDs, "session_token", sessionToken, "error", err)
+			}
 			w.gaveUpTokens[sessionToken] = true
 			delete(w.tokenCycles, sessionToken)
 		}
