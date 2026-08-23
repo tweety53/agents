@@ -5,7 +5,7 @@
 # with two deliberate reads, both for the same reason: the thing under test is
 # the guard's agreement with a canonical file, and a fixture copy of that file
 # would be a third place for the same rule to drift.
-#   - the registry-coupling case reads skills/myflow-contracts/pipeline.md;
+#   - the registry-coupling case reads skills/myflow-contracts/artifacts-registry.md;
 #   - the workspace-id case reads skills/myflow-contracts/workspace-isolation.md
 #     and RUNS the derivation block it carries, asserting the guard's own id
 #     against it byte for byte.
@@ -581,7 +581,7 @@ PATH="$OLD_PATH"
 assert_no_verdict "a failed worktree listing"
 
 # 14. The five rows this guard checks are DERIVED from the registry in
-#     skills/myflow-contracts/pipeline.md, and a derivation nothing checks is a
+#     skills/myflow-contracts/artifacts-registry.md, and a derivation nothing checks is a
 #     copy waiting to go stale: a registry row added later whose lifetime ends
 #     at run 2 would go unchecked and this guard would confirm a cleanup that
 #     left it behind. The guard therefore declares, in `registry-row-checked:`
@@ -594,7 +594,7 @@ assert_no_verdict "a failed worktree listing"
 #     registry, and a fixture copy of it would be a third place for the same
 #     list to drift.
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REGISTRY_FILE="$REPO_ROOT/skills/myflow-contracts/pipeline.md"
+REGISTRY_FILE="$REPO_ROOT/skills/myflow-contracts/artifacts-registry.md"
 if [ ! -f "$REGISTRY_FILE" ]; then
   fail "registry coupling: $REGISTRY_FILE not found — the guard's rows have nothing to be derived from"
 else
@@ -1396,7 +1396,7 @@ assert_not_out "workspace" "a repository declaring no isolation stays silent abo
 # an infinite loop — and a hang there strands an already-merged change short of
 # FINISHED with nobody watching. The project-supplied `## stop` command is
 # already given a bounded wait for exactly this reason; see **Worktree cleanup**
-# (`skills/myflow-contracts/pipeline.md`).
+# (`skills/myflow-contracts/finish-contract.md`).
 #
 # WHY A TIMEOUT IS A SKIP HERE AND A FAILED CHECK THERE. A `## stop` timeout has
 # no fallback: an un-stopped stack is a reason not to remove a worktree, and

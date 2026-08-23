@@ -239,7 +239,7 @@ project can differ. `/myflow-finish` stages and commits them separately, so noth
 leaving them unstaged here.
 
 **The `reset` is what enforces the rule; without it the `add` only assumes it** — the reason is
-stated once under **Git boundaries** (`skills/myflow-contracts/pipeline.md`). What is specific to
+stated once under **Git boundaries** (`skills/myflow-contracts/git-boundaries.md`). What is specific to
 this command is *whose* staging it retracts (an implementer subagent's own `git add`, or a worktree
 resumed with a dirty index) and why `git reset -- <paths>` is the tool:
 it touches the index only, restores a tracked path to its `HEAD` entry instead of staging a deletion
@@ -248,7 +248,7 @@ on every run that has rendered no record into it yet, and where `git restore --s
 the whole command and unstage nothing.
 
 The outcome table under
-**Rendering the session records** (`skills/myflow-contracts/pipeline.md`) is canonical for all four
+**Rendering the session records** (`skills/myflow-contracts/session-records.md`) is canonical for all four
 outcomes.
 
 The template's third git state — committed and pushed with no PR — is one `/myflow-do` never emits

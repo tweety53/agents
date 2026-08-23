@@ -566,6 +566,8 @@ EXPECTED_ZERO_REVIEWER_PROMPTS=(
 EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name"
 
 EXPECTED_ZERO_RATIONALE_DOCS=(
+  "skills/myflow-contracts/git-boundaries-rationale.md"
+  "skills/myflow-contracts/worktree-resolution-rationale.md"
   "skills/myflow-fast/SKILL-rationale.md"
   "skills/openspec-explore/SKILL.md"
 )

@@ -237,7 +237,7 @@ restart may be kept there.
 **This pipeline releases nothing at finish, and the claimed index has a registry row saying so.**
 See **The cache index** (`skills/myflow-contracts/workspace-isolation-rationale.md`) for why run 2
 cannot know which index to sweep. What that leaves behind and why it is acceptable are stated once
-under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`).
+under **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`).
 **A project whose claim is visible can do better than the pipeline
 can**, and the ceiling above is the reason to: releasing the claim in its own `remove` command,
 reporting a claim that outlived cleanup through `survivors`, and listing every claim on the machine
@@ -322,7 +322,7 @@ by copying an existing database. See **Creation and cleanup**
 
 **At finish, the resources are removed.** Each is a temporary artifact and therefore has a row
 naming what creates it, where it lives and what removes it, in **Temporary artifacts registry**
-(`skills/myflow-contracts/pipeline.md`). What performs the removal is the command the project
+(`skills/myflow-contracts/artifacts-registry.md`). What performs the removal is the command the project
 declares for it, given the workspace id so the teardown targets this change's resources rather than
 the project's defaults. **Which command that is belongs to the project, not to this contract** — a
 project names its create and remove commands in its own configuration, per **Project configuration**

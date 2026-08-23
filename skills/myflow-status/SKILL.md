@@ -90,9 +90,12 @@ Reading `.planningEffort` alone would report a file that recorded a real level a
 none, which is the one outcome the retired-key exception exists to prevent. The value that comes
 back is the raw one; mapping it to a level is section 3's job, below.
 
+**Load `skills/myflow-contracts/worktree-resolution.md`** before resolving the merge-status report
+below.
+
 **Merge status** decides whether the next `/myflow-finish` integrates or archives. It is answered
 once per worktree in the set resolved per **Resolving a change's worktrees**
-(`skills/myflow-contracts/pipeline.md`) — never a raw read of the record's `worktrees` map,
+(`skills/myflow-contracts/worktree-resolution.md`) — never a raw read of the record's `worktrees` map,
 which a `{}` or absent map would make a loop over its keys report on nothing. Per that same
 section, a resolved set that comes back empty is never a vacuous pass: say so in this change's
 detail view — **merge status: unknown, no worktree recorded** — rather than silently omitting the

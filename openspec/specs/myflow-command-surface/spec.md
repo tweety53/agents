@@ -54,7 +54,7 @@ whether they exist.
 An earlier version of this requirement said `/myflow-do` commits only when a PR is already open.
 That was true before per-task commits existed and became false when they landed, leaving this spec
 contradicting both `myflow-task-commits` and **Git boundaries**
-(`skills/myflow-contracts/pipeline.md`) — the table the pipeline actually follows. The wording is
+(`skills/myflow-contracts/git-boundaries.md`) — the table the pipeline actually follows. The wording is
 corrected here rather than in those two, because they describe what the pipeline does and this one
 did not.
 

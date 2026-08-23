@@ -30,7 +30,7 @@ pipeline itself. The pipeline is one file, loaded on demand:
 
 **States** and **State transitions** (`skills/myflow-contracts/pipeline.md`) — **load that file
 first**, before any other step of any `/myflow-*` command. It is canonical for the state
-definitions, the command→state transition table, the wrong-state handoff, git boundaries, the
+definitions, the command→state transition table, the wrong-state handoff, the
 handoff output shape. The finish contract itself lives in
 `skills/myflow-contracts/finish-contract.md`, which is canonical for it and is loaded by
 `/myflow-finish` alone.

@@ -101,6 +101,9 @@ myflow stage end -command '/myflow-do' -stage do.load-context -outcome completed
 
 ## 2. Isolate the workspace (first run only)
 
+**Load `skills/myflow-contracts/artifacts-registry.md`** — the worktree and branch this step
+creates are rows in it.
+
 **This stage runs, and is marked, on a first run only** — its own name in the Level 1 table carries
 `*(first run only)*`. A fix run resumes the existing worktree instead, per section 3 below, and
 marks nothing here:
@@ -119,7 +122,7 @@ On a fix run, resume the existing worktree. **Never create a second one.**
 
 **This run's resolved worktree set — the set section 7's guard iterates — is the worktree just
 created or resumed above, plus any additional worktree this change affects.** Per **Resolving a
-change's worktrees** (`skills/myflow-contracts/pipeline.md`), how a command resolves the set beyond
+change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`), how a command resolves the set beyond
 reading the state file's map is that command's own; this is `/myflow-do`'s, and it is non-empty by
 construction on every ordinary run — section 7's empty-set stop is for the genuinely anomalous case
 where this step produced no worktree at all. See **2. Isolate the workspace (first run only)**
@@ -171,6 +174,8 @@ myflow stage end -command '/myflow-do' -stage do.document-fix -outcome completed
 ```
 
 ## 4. Execute (SDD + TDD)
+
+**Load `skills/myflow-contracts/model-policy.md`** before dispatching an implementer, below.
 
 ```bash
 myflow stage begin -command '/myflow-do' -stage do.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
@@ -242,7 +247,7 @@ substitution**, exactly as every `myflow stage` call above it does, and both hal
 one.
 
 **The model named here is the recorded intent Model policy requires**, not a figure derived after
-the fact — see **Model policy** (`skills/myflow-contracts/pipeline.md`), canonical for it. Name the
+the fact — see **Model policy** (`skills/myflow-contracts/model-policy.md`), canonical for it. Name the
 model the dispatch was actually given. **A slot whose model the dispatcher cannot read records the
 literal `unknown (agent-defined)` and never a guess**: a slot dispatched by `subagent_type` resolves
 its model from an agent definition this pipeline does not read, and a plausible-looking slug written
@@ -258,7 +263,7 @@ non-zero exits are caller mistakes (a missing required flag, an unrecognised `-r
 The rows are the record; the SDD ledger is a rendering of them, written into
 `<project>/docs/superpowers/ledgers/` by `myflow record render` at finish run 1. See the `SDD ledger`
 and `Rendered ledger and panel record` rows under **Temporary artifacts registry**
-(`skills/myflow-contracts/pipeline.md`), canonical for both.
+(`skills/myflow-contracts/artifacts-registry.md`), canonical for both.
 
 Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from
 
@@ -328,7 +333,7 @@ myflow record dispatch end -change <name> -key task-<n>-red-partner \
 defaulting to Opus (or the harness's strongest available model) when that field is absent or null.
 Name it explicitly — never by omission, which silently inherits the parent's model. This
 **overrides** subagent-driven-development's "least powerful model that can handle each role"
-guidance; see **Model policy** in `skills/myflow-contracts/pipeline.md` for why. The panel's slots
+guidance; see **Model policy** in `skills/myflow-contracts/model-policy.md` for why. The panel's slots
 default to Sonnet — the two rules differ on purpose.
 
 **Guard the commit before dispatching review.** As soon as the implementer reports the task's
@@ -379,6 +384,8 @@ myflow stage end -command '/myflow-do' -stage do.sdd-tdd -outcome completed <nam
 ```
 
 ## 5. The review panel
+
+**Load `skills/myflow-contracts/model-policy.md`** before dispatching a panel slot, below.
 
 ```bash
 myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -621,7 +628,7 @@ myflow record render -change <name> -kind panel -repo <abs-worktree>
 skip-the-render-when-there-were-no-findings shortcut, and adding one is the exact defect this
 sentence exists to prevent: zero findings is a declaration and clears, where an unwritten record is
 silence and reads as outstanding. The render's own outcome words, and what to do with each, are the
-table under **Rendering the session records** (`skills/myflow-contracts/pipeline.md`), canonical for
+table under **Rendering the session records** (`skills/myflow-contracts/session-records.md`), canonical for
 them.
 
 **Every rule about the record's format below is unchanged, and every one of them now binds the
@@ -1016,7 +1023,7 @@ as a real defect — as opposed to a style or principles nit — the fix subagen
 under `models.panelFix`**, defaulting to Opus
 (or the harness's strongest available model) when that field is absent or null — deliberately not
 the panel's own default, for the reason stated under
-**Model policy** in `skills/myflow-contracts/pipeline.md`. Record every pass in
+**Model policy** in `skills/myflow-contracts/model-policy.md`. Record every pass in
 `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why, the diff path they read,
 and — when this pass bounced any finding — each bounced finding's defect identity (file:line plus
 theme, as defined above) together with the reproducer output it carried back to its raising slot.
@@ -1104,6 +1111,9 @@ myflow stage end -command '/myflow-do' -stage do.run-instructions -outcome compl
 
 ## 7. Verify, stage, and hand off
 
+**Load `skills/myflow-contracts/worktree-resolution.md`** before resolving this run's worktree set,
+below.
+
 This section carries four of the Level 1 table's stages, marked one at a time as each opens and
 closes rather than all at once, per **Stage marks** (`skills/myflow-contracts/pipeline.md`).
 
@@ -1124,7 +1134,7 @@ prepare-workspace.sh <worktree>
 once per worktree in this run's resolved set — the same set section 2 resolved, non-empty by
 construction — never a raw read of the state file's `worktrees` map, which reads as `{}` or absent
 on every first run, before this run's own section-7 write, and would make this check pass having
-examined nothing. Per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`),
+examined nothing. Per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`),
 report an empty resolved set and do not proceed to validate a worktree the state file cannot name;
 see section 2 above for why that stop is the anomalous case. Run this **before anything else below
 this line.**
@@ -1180,6 +1190,8 @@ Run the `## lint` and `## test` commands from `<project>/.myflow/project.md` (au
 absent) and show the output. **Nothing runs them later** — `/myflow-finish` has no verification
 gate — so a non-zero exit blocks this handoff.
 
+**Load `skills/myflow-contracts/session-records.md`** before reading the render outcome below.
+
 **Confirm this run recorded a ledger** — there is no file to test for, so ask the store, by
 rendering the ledger this run's dispatch rows produce:
 
@@ -1193,7 +1205,7 @@ plainly here, at this call site, rather than being discovered at finish run 1 or
 whole point of asking now. `journalled: ledger` and a non-zero exit are reported the same way, with
 the command's own message. **Unlike the lint and test exits above, none of these gates or stops the
 run**; each is reported and the handoff proceeds. The outcome words and what to do with each are the
-table under **Rendering the session records** (`skills/myflow-contracts/pipeline.md`), canonical for
+table under **Rendering the session records** (`skills/myflow-contracts/session-records.md`), canonical for
 them.
 
 ```bash
@@ -1220,6 +1232,8 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 > only confirms nothing slipped in, it does not stage anything itself. See **7. Verify, stage, and
 > hand off** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
+**Load `skills/myflow-contracts/git-boundaries.md`** before committing below.
+
 **The one push exception.** Every task and fixup commit already sits on the branch, unpushed, per
 sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so this run also
 commits `<project>/openspec/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
@@ -1242,11 +1256,11 @@ no rows of that kind and nothing was written — report it, and never read it as
 somewhere else. **A non-zero exit means a destination was refused or could not be written** — report
 it with the command's own stderr message, and continue committing the fix; the remaining kind is
 still attempted after any one failure. See **Rendering the session records**
-(`skills/myflow-contracts/pipeline.md`), canonical for every outcome.
+(`skills/myflow-contracts/session-records.md`), canonical for every outcome.
 
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
-(`skills/myflow-contracts/pipeline.md`). The empty
+(`skills/myflow-contracts/git-boundaries.md`). The empty
 case is ordinary here — a fix round that touched neither `<project>/openspec/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 
