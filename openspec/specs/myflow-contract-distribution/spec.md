@@ -16,10 +16,14 @@ were all absent from the list that claimed to be exhaustive. What is required in
 index and the directory agree in both directions: every file present is named in `SKILL.md`, and
 every file `SKILL.md` names is present.
 
-`pipeline.md` SHALL be canonical for the three states, the command→state transition table and git
-boundaries. **The finish contract SHALL live in `finish-contract.md`**, which is canonical for it:
-the preflight signals, both runs' procedures, base-branch resolution and worktree cleanup are
-reachable only from `/myflow-finish`, and `pipeline.md` is read by every command.
+`pipeline.md` SHALL be canonical for the three states and the command→state transition table.
+**Git boundaries SHALL live in `git-boundaries.md`**, which is canonical for it: the git actions
+each command may take, by state and condition, and the guarded two-commit chain are reachable only
+from `/myflow-do`, `/myflow-finish` and `/myflow-fast`, and `pipeline.md` is read by every command,
+including `/myflow-start` and `/myflow-status`, neither of which commits. **The finish contract
+SHALL live in `finish-contract.md`**, which is canonical for it: the preflight signals, both runs'
+procedures, base-branch resolution and worktree cleanup are reachable only from `/myflow-finish`,
+and `pipeline.md` is read by every command.
 
 **The per-state handoff block templates SHALL live in `handoff-blocks.md`**, which is canonical for
 them: only `/myflow-status` needs the full set, every producing command carrying just the one block
@@ -44,6 +48,13 @@ directory a catch-all whose index and budget guard then have to police files tha
 - **WHEN** `skills/myflow-contracts/` is listed and `SKILL.md` is read
 - **THEN** every `.md` file in the directory other than `SKILL.md` is named in the index
 - **AND** every file the index names is present in the directory
+
+#### Scenario: Git boundaries is indexed and attributed to its consuming commands
+
+- **WHEN** the index is read
+- **THEN** `git-boundaries.md` is named
+- **AND** it is stated to be loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`, and not
+  by `/myflow-start` or `/myflow-status`
 
 #### Scenario: The finish contract is indexed and attributed to one command
 
@@ -74,6 +85,11 @@ directory a catch-all whose index and budget guard then have to police files tha
 - **WHEN** `/myflow-start` or `/myflow-do` runs
 - **THEN** it loads `pipeline.md`
 - **AND** it does not load `finish-contract.md`
+
+#### Scenario: A start or status run does not load git boundaries
+
+- **WHEN** `/myflow-start` or `/myflow-status` runs
+- **THEN** it does not load `git-boundaries.md`, since neither command commits
 
 #### Scenario: A producing command does not load the handoff blocks
 
@@ -429,7 +445,6 @@ run manually. A guard is never skipped for want of the script.
   of those guards
 - **THEN** it performs that check by hand without printing the block again
 
-
 ### Requirement: A skill directory SHALL carry symlinks only under its `scripts/` directory
 
 A skill directory SHALL NOT contain a symlink directly under `skills/<skill>/`. Every symlink a
@@ -464,3 +479,4 @@ file in is the wrong fix, and a session created three such symlinks in
 
 - **WHEN** every entry directly under `skills/<skill>/` is a regular file or a directory
 - **THEN** this requirement reports nothing
+
