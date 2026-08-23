@@ -47,6 +47,9 @@ At `STARTED` there is nothing to integrate — emit the wrong-state handoff and 
 there — the base-branch resolution, the preflight checks, the removal sequence and their
 rationales live in that one file. This skill carries only what is specific to *executing* it.
 
+**Load `skills/myflow-contracts/worktree-resolution.md`** too — the preflight verdict below and run
+2's removal both resolve the worktree set through the procedure it and the finish contract define.
+
 No field records "integration started" — a field could disagree with git.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
@@ -178,6 +181,8 @@ myflow stage end -command '/myflow-finish' -stage finish.landing-question -outco
 
 ## 1.2 Commit the staged work
 
+**Load `skills/myflow-contracts/git-boundaries.md`** before either commit below.
+
 ```bash
 myflow stage begin -command '/myflow-finish' -stage finish.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
@@ -194,6 +199,8 @@ All three routes commit — implementation, the `<project>/openspec/` planning
 artifacts, and the session records under `<project>/docs/superpowers/` — as **two** commits, never
 one.
 
+**Load `skills/myflow-contracts/session-records.md`** before rendering, below.
+
 **Render the ledger first.** Run it before staging, so the SDD ledger is committed with the change —
 in the planning commit, beside the plan it describes — rather than left only in a store the
 repository's readers may not have running:
@@ -207,7 +214,7 @@ The review panel record needs no call here: `/myflow-do` renders it at panel clo
 `MISSING: ledger` and exits 0** — never a failure, and never a reason to stop the integration.
 **A non-zero exit means a destination was refused or could not be written:** report it with the
 command's own stderr message and continue the integration, per the outcome table under **Rendering
-the session records** in `skills/myflow-contracts/pipeline.md`. Say in the handoff which records
+the session records** in `skills/myflow-contracts/session-records.md`. Say in the handoff which records
 were rendered and which were not.
 
 **The stage key stays `finish.preserve-sessions`, deliberately.** Only what the stage invokes has
@@ -237,7 +244,7 @@ commit stages the same two trees in every change, so nothing about it varies.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all stated under
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`). In short:
+**Git boundaries** (`skills/myflow-contracts/git-boundaries.md`). In short:
 an empty commit is **skipped, not an error** — a fix that touched only the planning paths, a fix
 that touched only implementation, and a re-run after a rejected push all reach this block with one
 side or both already satisfied — while a commit that FAILS stops the chain and is reported with
@@ -360,6 +367,8 @@ been merged, a run stopped at a run-2 cleanup leftover most often. See **1.5 Sta
 
 # Run 2 — archive and clean up
 
+**Load `skills/myflow-contracts/artifacts-registry.md`** — every removal below is a row in it.
+
 Follow **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 2 for the full
 procedure. In outline, and stopping at the first step that fails, each numbered step below is
 bracketed by its own mark per **Stage marks** (`skills/myflow-contracts/pipeline.md`), using that
@@ -418,7 +427,7 @@ myflow stage begin -command '/myflow-finish' -stage finish.commit-archive -harne
 
 4. **Commit the archive** on `chore/archive-<name>` in the main checkout — no push here; step 10
    below carries it. Assert the branch in the same guarded `&&` chain rather than assuming it,
-   mirroring the shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already documents:
+   mirroring the shape **Git boundaries** (`skills/myflow-contracts/git-boundaries.md`) already documents:
 
    ```bash
    [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
@@ -455,7 +464,7 @@ myflow stage begin -command '/myflow-finish' -stage finish.cleanup -harness <har
    **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`);
    see **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
 6. **Remove the proposal artifact source** from the state directory, on the condition its row in
-   **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) gives.
+   **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`) gives.
 
 Steps 5 and 6 together are the Level 1 table's one `cleanup` stage:
 
@@ -563,7 +572,7 @@ transitions nothing — the change is not done.
    none-marker instead — plus the rating — and commit it on `chore/archive-<name>` **in the main
    checkout**, never the removed worktree, asserting the branch rather than assuming it and **not
    pushing here** — step 10 below pushes it in the same PR as the archive commit — as one guarded
-   commit mirroring the shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already
+   commit mirroring the shape **Git boundaries** (`skills/myflow-contracts/git-boundaries.md`) already
    documents:
 
    ```bash
@@ -675,7 +684,7 @@ Next:
   workaround that puts the plan into the implementation commit.
 - **Never** merge the change branch in run 2; run 2's step 1, "Verify the merge", already proved it.
 - **Never** state a cleanup rule here. Which artifact is removed, when, and on what condition is
-  **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`); how it is removed is
+  **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`); how it is removed is
   **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`). A second copy is the one
   that goes stale, and a stale copy of a removal rule deletes the wrong thing.
 - **Never** report a cleanup as done without the verdict that says so, and **never write `FINISHED`

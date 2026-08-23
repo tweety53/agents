@@ -137,6 +137,8 @@ Record the answer for the state write in section F. The levels and what they may
 under **Planning effort** (`skills/myflow-contracts/state-file.md`) — that section carries the
 operational table and is the one to read.
 
+**Load `skills/myflow-contracts/model-policy.md`** before asking the three questions below.
+
 Then ask **three more, one per model role**, each as its own question with its default marked as the
 recommendation:
 
@@ -155,7 +157,7 @@ recommendation:
 Record all three for the state write in section F, as `implementation`, `reviewPanel` and
 `panelFix`. The roles, their defaults, why the panel-fix default is not Sonnet, and how a recorded
 choice relates to a session instruction are defined under
-**Model policy** (`skills/myflow-contracts/pipeline.md`) — that section is the one to read.
+**Model policy** (`skills/myflow-contracts/model-policy.md`) — that section is the one to read.
 
 Then ask a **fourth question**, for the review panel roster:
 
@@ -534,7 +536,7 @@ one. See **Description sync** (`skills/myflow-contracts/jira-integration.md`).
   preset still hands off only at zero open findings at any severity.
 - **Never** write code, create a worktree, or create a branch.
 - **Never** commit anything. Stage the planning artifacts and leave the commit to `/myflow-finish`,
-  per **Git boundaries** (`skills/myflow-contracts/pipeline.md`).
+  per **Git boundaries** (`skills/myflow-contracts/git-boundaries.md`).
 - **Never** let a Jira call block, delay, or alter the proposal — one skipped-with-reason line.
   **Exactly one carve-out is reachable from this command**, and it is
   **Unrecognised statuses** (`skills/myflow-contracts/jira-integration.md`): a single yes/no when

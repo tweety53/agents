@@ -5,7 +5,7 @@ category: myflow
 description: Fast — brainstorm, implement, and integrate in one command, pausing only at the human gates
 ---
 
-**Model:** keep this **session** on Sonnet (or your default). See "Model policy" in `skills/myflow-contracts/pipeline.md`, which is canonical. Cursor doesn't yet support a per-command model frontmatter field, so the session setting is a recommendation rather than an enforced switch — but the subagent models are set at dispatch time and apply in every harness.
+**Model:** keep this **session** on Sonnet (or your default). See "Model policy" in `skills/myflow-contracts/model-policy.md`, which is canonical. Cursor doesn't yet support a per-command model frontmatter field, so the session setting is a recommendation rather than an enforced switch — but the subagent models are set at dispatch time and apply in every harness.
 
 Use the **myflow-fast** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 

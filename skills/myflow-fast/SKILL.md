@@ -24,6 +24,23 @@ records why they are printed rather than invoked:
 
 **Load `skills/myflow-contracts/pipeline.md` first.**
 
+**Load `skills/myflow-contracts/worktree-resolution.md`** too — whichever branch is running, its
+worktree-set steps resolve the set through it exactly as `/myflow-do`'s workspace-isolation gate,
+`/myflow-finish`'s preflight verdict and run 2 removal, and `/myflow-status`'s merge-status report
+do.
+
+**Load `skills/myflow-contracts/session-records.md`** too — the implementation branch's ledger-render
+step and the integrate branch's run-1 render both read its outcome table.
+
+**Load `skills/myflow-contracts/git-boundaries.md`** too — every branch that stages or commits does
+so under it.
+
+**Load `skills/myflow-contracts/artifacts-registry.md`** too — the implementation branch creates
+rows in it and the archive-and-cleanup branch removes them.
+
+**Load `skills/myflow-contracts/model-policy.md`** too — the creating branch's model questions and
+the implementation branch's implementer and panel dispatches both read it.
+
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per
 **Progress visibility** (`skills/myflow-contracts/pipeline.md`) — that section names which steps
@@ -219,7 +236,7 @@ recommended defaults directly, with no `AskUserQuestion` prompt: `planningEffort
 
 An explicit session instruction naming a different value for one of these fields still overrides
 that field — the recorded value is the operator's, not the default — with the override recorded
-alongside its dispatch exactly as **Model policy** (`skills/myflow-contracts/pipeline.md`) already
+alongside its dispatch exactly as **Model policy** (`skills/myflow-contracts/model-policy.md`) already
 permits for any operator override.
 
 ## State write and handoff
@@ -311,7 +328,7 @@ here. Add exactly the guardrails specific to this skill:
   `<project>/docs/superpowers/` by `myflow record render`, the panel record when the panel closed and
   the SDD ledger at the `finish.preserve-sessions` step — and `finish.commit-two` commits them, so
   what check 4 lists is build output
-  plus the per-review diffs the **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`)
+  plus the per-review diffs the **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`)
   already declares worktree-lifetime. **Checks 1, 2, 3, 5 and 6 remain gates** — a failure in any of
   them still stops cleanup with no worktree touched. Check 6, the live-process check, is named in
   that list explicitly because it is the one this override could plausibly be read as reaching: a

@@ -20,7 +20,7 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 
 | File | Load it when you need to |
 |------|--------------------------|
-| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, git boundaries, the handoff output shape, IntelliJ commands, and preserving the session records |
+| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, IntelliJ commands, guard resolution and stage marks |
 | [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution, resolving a change's worktrees, and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
 | [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/myflow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
@@ -30,6 +30,11 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
+| [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, and the guarded two-commit chain that enforces the split between implementation and planning artifacts. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |
+| [model-policy.md](model-policy.md) | Which model each role runs on, their defaults, how an override applies, and per-harness enforcement. **Loaded by `/myflow-start`, `/myflow-do` and `/myflow-fast`** |
+| [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/myflow-do`, `/myflow-finish` run 2 and `/myflow-fast`** |
+| [session-records.md](session-records.md) | The outcome table for `myflow record render`, and what each outcome means for the caller. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |
+| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/myflow-do`, `/myflow-finish`, `/myflow-status` and `/myflow-fast`** |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins — and a skill should **point at** these files rather than restate them, because a second
@@ -45,6 +50,11 @@ nothing checks it:
 | Appendix | Holds the reasoning behind |
 |----------|----------------------------|
 | [pipeline-rationale.md](pipeline-rationale.md) | [pipeline.md](pipeline.md) |
+| [git-boundaries-rationale.md](git-boundaries-rationale.md) | [git-boundaries.md](git-boundaries.md) |
+| [model-policy-rationale.md](model-policy-rationale.md) | [model-policy.md](model-policy.md) |
+| [artifacts-registry-rationale.md](artifacts-registry-rationale.md) | [artifacts-registry.md](artifacts-registry.md) |
+| [session-records-rationale.md](session-records-rationale.md) | [session-records.md](session-records.md) |
+| [worktree-resolution-rationale.md](worktree-resolution-rationale.md) | [worktree-resolution.md](worktree-resolution.md) |
 | [handoff-blocks-rationale.md](handoff-blocks-rationale.md) | [handoff-blocks.md](handoff-blocks.md) |
 | [jira-integration-rationale.md](jira-integration-rationale.md) | [jira-integration.md](jira-integration.md) |
 | [project-configuration-rationale.md](project-configuration-rationale.md) | [project-configuration.md](project-configuration.md) |

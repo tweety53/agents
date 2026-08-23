@@ -34,7 +34,7 @@ Re-asking cold invites a duplicate PR.
 ## 1.2 Commit the staged work
 
 **The `reset` is what makes the split hold; the exclusion alone only assumes it** — the reason is
-stated under **Git boundaries** (`skills/myflow-contracts/pipeline.md`), which `/myflow-do` follows
+stated under **Git boundaries** (`skills/myflow-contracts/git-boundaries.md`), which `/myflow-do` follows
 too. What is specific to this gate is *whose* staging it retracts: the operator may have run their
 own `git add -A` while reviewing, and the excluding `add` cannot take those paths back out.
 
@@ -82,7 +82,7 @@ merge is genuinely still ahead.
    parse left-to-right as `(diff --quiet || commit) && push`, which runs `push` unconditionally
    once the outer group is entered — even when nothing was staged or committed. Grouping `commit`
    and `push` together means `push` only runs on the branch where `commit` actually ran, matching
-   the skip-if-empty shape **Git boundaries** (`skills/myflow-contracts/pipeline.md`) already
+   the skip-if-empty shape **Git boundaries** (`skills/myflow-contracts/git-boundaries.md`) already
    documents for the worktree commits.
 
 A self-review mechanism that itself burned disproportionate tokens on

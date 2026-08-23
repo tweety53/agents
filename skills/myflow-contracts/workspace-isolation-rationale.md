@@ -136,7 +136,7 @@ Run 2 has no derivation to repeat and no record to read, so it cannot know which
 an index swept by guess is another workspace's.
 
 What that leaves behind and why it is acceptable are stated once
-under **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`), which is canonical
+under **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`), which is canonical
 for every artifact's lifetime.
 
 ## The empty id

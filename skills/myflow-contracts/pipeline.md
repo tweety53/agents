@@ -1,7 +1,7 @@
 # myflow pipeline
 
-The three-state pipeline itself: state definitions, the command→state transition table, git
-boundaries and the handoff shape. See **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
+The three-state pipeline itself: state definitions, the command→state transition table and the
+handoff shape. See **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
 **Load this file when running any `/myflow-*` command.** It is split out of
 `rules/myflow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
@@ -12,6 +12,15 @@ file wins.
 
 The reasoning behind this file lives in `skills/myflow-contracts/pipeline-rationale.md`;
 **a `/myflow-*` run never loads it.**
+
+**Five sections that reach fewer than every command live beside this file, not in it** — a
+discovery aid, never a second statement of what they say:
+
+- `git-boundaries.md` — Git boundaries
+- `model-policy.md` — Model policy
+- `artifacts-registry.md` — Temporary artifacts registry
+- `session-records.md` — Rendering the session records
+- `worktree-resolution.md` — Resolving a change's worktrees
 
 ## States
 
@@ -116,80 +125,6 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 **Suggested instead:** /myflow-<other> <name>
 ```
 
-## Git boundaries
-
-| Command | Condition | Allowed git actions |
-|---------|-----------|---------------------|
-| `/myflow-start` | — | **None — stages planning artifacts and never commits** |
-| `/myflow-do` | from `STARTED` | Create branch/worktree + **commits each task** (fixups fold in) — no push, merge, or PR |
-| `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way — no push, merge, or PR |
-| `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
-| `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
-| `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — and removes worktrees and branches |
-| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report on `chore/archive-<name>` — a second, separate commit, and still no push |
-| `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, and opens its pull request — never pushes `<base>` |
-| `/myflow-status` | — | None — read-only |
-
-**The planning paths** are the two that
-**Handoff output** (`pipeline.md`) names below. `/myflow-do` clears them from the index and only
-then stages with them excluded by pathspec — an exclusion governs what an
-`add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
-rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
-`/myflow-finish` is what commits them.
-
-`git add -A` respects `<project>/.gitignore`. Never force-add.
-
-**Both commits are guarded, and an empty one is skipped rather than failed.** Each commit is
-preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single
-command. See **Git boundaries** (`skills/myflow-contracts/pipeline-rationale.md`) for the ordinary
-cases this guards against and why it is a chain rather than `set -e`.
-
-```bash
-git -C <abs-worktree> reset -q -- openspec/ docs/superpowers/ \
-  && git -C <abs-worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/' \
-  && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
-  && git -C <abs-worktree> add -A \
-  && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "chore(openspec): plan and session records"; }
-```
-
-`<module>` is derived from the reshaped diff — the module carrying the change's substance, or a
-broader area where it spans several, never a list. That is the same rule `/myflow-start`'s
-writing-plans stage applies to each task's `**Commit:**` field. The
-planning message is a **fixed literal**, never derived — every planning commit stages the same two
-trees in every change, so there is nothing about it that varies.
-
-**A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report
-git's own output and stop.** See **Git boundaries** (`skills/myflow-contracts/pipeline-rationale.md`)
-for what an unguarded sequence would do instead.
-
-**A planning path that is a tracked symlink stops the run, and is never worked around.** When either
-of the two is a symlink, `git add -A -- . ':(exclude)docs/superpowers/'` exits 128 with
-`fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**. Report that message,
-name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bare `git add -A`,
-which puts the planning artifacts into the implementation commit — the one outcome this split
-exists to prevent — so the fix belongs in the repository, by making the path a real directory.
-
-## Rendering the session records
-
-`/myflow-do` reads this table on its `prUrl` commit path, and `/myflow-finish` reads it in
-run 1; the invocation of `myflow record render` itself is described by each caller.
-
-| Outcome | What it means | What you do |
-|---------|---------------|-------------|
-| `rendered: <dest>`, exit 0 | The record was written to that path from the store's rows. | Nothing. Proceed. |
-| `MISSING: <kind> — no rows for <change>`, exit 0 | The store holds no rows of that kind for this change. | **Report it.** It means no record exists, never that one was written elsewhere. Proceed. |
-| `journalled: <kind>`, exit 0 | The store could not be reached, so nothing was rendered. | **Report it, naming the kind.** Proceed with the integration. |
-| A message on stderr, **exit non-zero** | A destination was refused or could not be written. | **Report it, with the command's own message.** Then proceed. |
-
-**A non-zero exit is never silent and never a stop; the remaining kinds are still attempted after
-any one failure, and the handoff names which records were rendered and which were not.** **Neither
-`MISSING:` nor `journalled:` is non-zero** — non-zero keeps its one meaning, a destination refused or
-a write that failed, so a caller branching on exit status never reads an empty record, or an
-unreachable store, as a failure. See **Preserving the session records**
-(`skills/myflow-contracts/pipeline-rationale.md`) — which keeps its former name — for why.
-
 ## Progress visibility
 
 **Every pipeline command drives the harness's task-list mechanism.** `/myflow-start`, `/myflow-do`,
@@ -247,19 +182,13 @@ the run, before the first `stage begin`, and reuse that exact value at every lat
 same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
 — `claude-code`, `cursor` or `codex`.
 
-**The token is per run, generated fresh, never reused across runs.** Two concurrent runs that
-happened to carry the same token would resolve to more than one session, which the ambiguity rule
-below already refuses — correctly, since a token shared by two sessions identifies neither. A run
+**The token is per run, generated fresh, never reused across runs.** See **Stage marks**
+(`skills/myflow-contracts/pipeline-rationale.md`) for why. A run
 that starts identifies itself with its own new token; a run that already has one (mid-run, at a
 later mark) reuses it.
 
-**The `<change>` argument is always a resolved change name, never a guess.** Marking writes: where
-the store has no record for the name a `stage begin` carries, the begin handler bootstraps a change
-row so the mark has something to attach to, and that row outlives the run — it appears among the
-open changes, carries a next command, and is never archived, because no change directory bears that
-name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`<agents repo>/openspec/specs/myflow-run-telemetry/spec.md`):
-that rule keeps a command from *reading* a state its own mark authored; this one keeps a command
-from *creating* a change nobody named.
+**The `<change>` argument is always a resolved change name, never a guess.** See **Stage marks**
+(`skills/myflow-contracts/pipeline-rationale.md`) for what marking writes when it is not.
 `<agents repo>/scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
 written as a placeholder naming a guess.
 
@@ -282,10 +211,8 @@ myflow stage begin -command '/myflow-do' -stage do.lint-and-test -harness <harne
 
 **The session token MUST be a literal, written directly into the command — never a shell
 substitution.** `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
-backtick or a `$VAR` reference. The reason is what makes the whole binding mechanism work: the
-transcript records `tool_use.input.command` — the text handed to the tool — **before** the shell ever
-expands it. A substitution therefore lands in every calling session's transcript as the identical,
-unexpanded string, and discriminates nothing between them. A reader who does not know this will
+backtick or a `$VAR` reference. See **Stage marks** (`skills/myflow-contracts/pipeline-rationale.md`)
+for why. A reader who does not know this will
 "improve" the literal into a substitution the first chance they get, which is exactly the regression
 this paragraph, `<agents repo>/stats/cmd/myflow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
 `validateSessionTokenShape`, and `<agents repo>/scripts/check-stage-mark-calls.sh` all exist to stop. Write a
@@ -408,12 +335,11 @@ This narrows the "code, commits, docs and specs stay full" carve-out the be-brie
 (`rules/be-brief.mdc`) states — for the artifacts named above, and for no other file.
 
 **No length guard and no byte budget measures a change artifact**, and none is to be added: a budget
-on a per-change artifact rewards dropping the facts the paragraph above requires kept. Brevity here
-is a judgment the review panel and the operator make, never a number a script checks.
+on a per-change artifact rewards dropping the facts the paragraph above requires kept. Brevity
+here is a judgment the review panel and the operator make, never a number a script checks.
 
-Stated here rather than in each artifact-writing skill because this file is the one every
-`/myflow-*` command loads before any other step. Four skill-local copies would drift, and whichever
-skill lacked one would silently exempt its own artifacts.
+See **Artifact brevity** (`skills/myflow-contracts/pipeline-rationale.md`) for why this is stated
+here rather than in each artifact-writing skill.
 
 ## IntelliJ commands
 
@@ -423,9 +349,8 @@ Every state that waits on a human must print a copy-paste command in its handoff
 open -na "IntelliJ IDEA" --args "<absolute path>"
 ```
 
-Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH. `open` resolves the
-app by name (bundle `com.jetbrains.intellij`), returns immediately instead of blocking the shell,
-and reuses a running instance.
+Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH. See
+**IntelliJ commands** (`skills/myflow-contracts/pipeline-rationale.md`) for what `open` buys.
 
 | State | Path to open |
 |-------|--------------|
@@ -441,12 +366,10 @@ Skills and contracts name a guard by **basename**, never by a path relative to a
 root — such a path resolves only when the project being worked on *is* the agents repository,
 which is the one case that is never the interesting one.
 
-Resolution against the **running command's own** skill directory is what lets a contract loaded
-by more than one command — `skills/myflow-contracts/finish-contract.md`, loaded by both
-`/myflow-finish` and `/myflow-status` — name a guard at all: the same basename resolves inside
-whichever command is actually running, never a fixed one of them.
 `skills/myflow-contracts/` is never a running command and carries no
-`skills/myflow-contracts/scripts/` directory.
+`skills/myflow-contracts/scripts/` directory. See **Guard resolution**
+(`skills/myflow-contracts/pipeline-rationale.md`) for what resolving against the running command's
+own skill directory buys.
 
 **Prose describing this repository's own guard is not an invocation.** A guard invoked by name
 uses the basename form above. Prose that describes **this repository's own** lint and test
@@ -454,9 +377,8 @@ guards — resolved through `<agents repo>/.myflow/project.md`'s `## lint` and `
 rather than through `<skill-dir>/scripts/` — names the guard as
 `<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
 resolves, for a reader standing in an installed project, against that project's own tree, so the
-sentence would name a file the reader may be able to write. Carrying the prefix says which
-repository is meant, and removes the need for any classifier to tell describing a guard from
-running one.
+sentence would name a file the reader may be able to write. See **Guard resolution**
+(`skills/myflow-contracts/pipeline-rationale.md`) for why carrying the prefix matters.
 
 ## Guard presence check
 
@@ -481,12 +403,9 @@ A guard is never skipped for want of the script — this changes only when its a
 not what happens next. The block is printed once, at the start of the run; a later call site for
 one of the guards it already named performs the check by hand without printing the block again.
 
-**The check covers a named guard's own sibling dependencies too, not only the guard itself.** A
-guard that resolves a neighbour from its own `$SCRIPT_DIR` at runtime — for example
-`check-unfinished-work.sh` needing `<agents repo>/scripts/lib/panel-record.sh`, `check-task-commit-fields.sh` needing
-`check-task-commit-fields.py`, or `prepare-workspace.sh` needing `check-workspace-isolation.sh` —
-fails at the moment it reaches for that neighbour if the neighbour alone is missing, so a missing
-sibling is exactly as reportable as a missing guard, and the block names it the same way. Derive a
+**The check covers a named guard's own sibling dependencies too, not only the guard itself.** See
+**Guard presence check** (`skills/myflow-contracts/pipeline-rationale.md`) for the mechanism and
+examples. Derive a
 guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — rather than trusting a
 hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
 here would drift from that guard's own dependencies the moment they change.
@@ -499,106 +418,6 @@ Each command names, in its own text, the guards *it* can invoke — exactly the 
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`) governs the preflight signals,
 both runs' procedures, base-branch resolution and worktree cleanup, and `/myflow-finish` is the
 only command that loads it.
-
-## Resolving a change's worktrees
-
-Any step in any command that needs "the worktrees" for a change — a preflight verdict, a gate that
-runs once per worktree, a status report, or a removal — resolves the set first; it never loops over
-the state file's `worktrees` map directly. A map with zero keys and a map that was never populated
-look identical to a raw read, so a direct read cannot tell "nothing to do" from "unpopulated," and
-a zero-iteration loop over either reads as a pass it never earned.
-
-**A resolved set that comes back empty is never a vacuous pass.** Report it explicitly rather than
-let a zero-iteration loop read as "every worktree passed," "every worktree is merged," or whatever
-verdict the calling step would otherwise default to on no evidence at all. A gate stops and asks the
-operator, exactly as it would on any other refusal; a read-only report says so in its own output
-instead of silently omitting the change.
-
-This binds every command that iterates a change's worktrees: `/myflow-do`'s workspace-isolation
-gate, `/myflow-status`'s merge-status report, and `/myflow-finish`'s preflight verdict,
-unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
-than restating it. How a command resolves the set beyond reading the state file's map — whether it
-falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;
-see **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`).
-
-## Temporary artifacts registry
-
-Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. It
-stays in the core because two contracts `/myflow-do` loads — `project-configuration.md` and
-`workspace-isolation.md` — cite into it, so a reader of either never meets a citation to a file
-their command does not load.
-
-| Artifact | Created by | Location | Removed by |
-|----------|-----------|----------|-----------|
-| Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
-| SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
-| Rendered ledger and panel record | `myflow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
-| Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Proposal artifact source | `/myflow-start` | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
-| Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
-| Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
-| Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
-| Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |
-| Change directory | `/myflow-start` | `<project>/openspec/changes/<name>/` | moved to the archive, never deleted |
-| Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
-| Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
-| State file | every command | the state directory | never — it is the terminal record |
-
-**This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
-points here rather than restating it. **Worktree cleanup**
-(`skills/myflow-contracts/finish-contract.md`) is the *procedure* for the rows removed there, not a
-second statement of the rule. See **Temporary artifacts registry**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why a stale second copy would be dangerous.
-
-**An artifact no row accounts for is a defect in the registry**, corrected by adding the row —
-never left unaccounted for on the grounds that something probably removes it. See **Temporary
-artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for the incident that
-established this.
-
-**Where the proposal artifact source comes from, and what produces the copy its row tests.**
-`/myflow-start` writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish
-to the same URL, and the preserved copy its row requires lives under
-`<project>/docs/superpowers/artifacts/`. **Finish run 1 is what puts it there**, by copying it before
-it stages — see **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`), which is canonical for that copy, for the change-name
-and containment checks it makes first, and for the skip when a change published no artifact. The
-condition is therefore reachable in both directions: a change whose artifact run 1 copied is deleted
-at run 2, and a `/myflow-fast` change, which publishes none, is not. No preserved copy → leave the
-file and say so. The deletion is disclosed the same way the worktree removal is. See **Temporary
-artifacts registry** (`skills/myflow-contracts/pipeline-rationale.md`) for why the row is
-conditional.
-
-**The workspace row belongs only to a project that declares isolation, and for every other project
-it is a row about nothing — which is why it names no database, no bucket and no service.** A project
-declares the commands that create these resources, that remove them, and that report which of them
-survived, in
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`).
-Which resources there are, and how each derived value is derived, is stated under
-**What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
-
-**This is the one row whose removal is verified by asking rather than by looking: a survivor is
-established from the project's own survivor report, never inferred from the removal's exit code** —
-stated once under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`), with
-the report's output and exit-code contract under **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`). A report that could not reach its service is
-skipped rather than failed. See **Temporary artifacts registry**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why asking, not looking, is required here.
-
-**Nothing removes the archive branch either, on `origin` or in the repository.** Run 2 is terminal
-and the pull request it opens outlives the run, so no later run exists to delete the branch it was
-opened from — this repository already carries five such leftovers, chore/archive-kan-197,
-chore/archive-kan-200, chore/archive-kan-209, chore/self-review-kan-201 and chore/self-review-kan-236,
-which is the evidence, not a guess, that nothing removes them today. Whether some future run should
-gain that duty is design.md's open question `archive-branch-cleanup`, deliberately left open rather
-than decided here.
-
-**Nothing removes the claimed cache index, and nothing in this pipeline can.** It is not written
-into the state file, and the project's `remove` command does not touch it either — stated as a
-property of the `cache index` resource word under **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`). See **Temporary artifacts registry**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why: guessing an index to sweep risks flushing
-another workspace's.
 
 ## State file
 
@@ -620,102 +439,6 @@ and has its description synced — including that Jira is never a gate and never
 write. **Jira integration** (`skills/myflow-contracts/jira-integration.md`) — load it before any
 Jira-related step.
 
-## Model policy
-
-See **Model policy** (`skills/myflow-contracts/pipeline-rationale.md`).
-
-**Change the capability first and bring this section with it: a section that contradicts the
-OpenSpec requirement is this file's defect, not the spec's.** See **Model policy**
-(`skills/myflow-contracts/pipeline-rationale.md`) for which file governs which layer and why runtime
-reads this section rather than the live spec.
-
-`/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
-and design benefit most from stronger reasoning. Every other `/myflow-*` command should run on
-**Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on the
-panel's model — Sonnet by default** — regardless of the parent model. Sonnet is the default rather
-than an absolute because a change may record its own panel model, per the three roles below; what
-never varies is that the panel's model is *chosen*, not inherited from the parent session.
-
-**Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
-available model), which **explicitly overrides** superpowers:subagent-driven-development's model
-guidance. See **Model policy** (`skills/myflow-contracts/pipeline-rationale.md`) for why that
-guidance's cost savings do not apply here.
-
-**Two further instructions in that same upstream skill are also overridden: dispatching the final
-review on the most capable model, and escalating the model in fix rounds 4-5.** myflow fixes every
-panel slot at the panel's model instead and escalates breadth (the conditional Security, Adversarial
-and extra-principle-lens slots) rather than the model. See **Model policy**
-(`skills/myflow-contracts/pipeline-rationale.md`) for the reasoning.
-
-**An explicit operator instruction overrides either default, in either direction** — raising the
-panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
-work. Record the instruction with the dispatch; an override nobody wrote down is indistinguishable
-from a mistake.
-
-**Three model roles are chosen once per change and recorded in its state file.** The run that
-**creates** a change — `/myflow-start` finding no state file, exactly as the planning-effort
-question determines it — asks three separate questions, one per role, each naming its default and
-marking it as the recommendation. A revision round states the recorded values and does not ask
-again, and every other command carries them forward verbatim, as it does the linked Jira issue.
-
-| Role | Key under `models` | Default |
-|------|--------------------|---------|
-| The implementer subagents `/myflow-do` dispatches | `implementation` | Opus, or the harness's strongest available model |
-| Every review-panel slot that takes a model override | `reviewPanel` | Sonnet |
-| The subagents that repair panel findings | `panelFix` | Opus, or the harness's strongest available model |
-
-See **State file** (`skills/myflow-contracts/state-file.md`).
-
-**The panel-fix default is the strongest available model, and deliberately not Sonnet** — the role
-applies fixes, which is implementer work, so the implementer rule above governs it too. See **Model
-policy** (`skills/myflow-contracts/pipeline-rationale.md`) for why.
-
-**A recorded choice is the operator override this section already permits, made durable.** It
-applies to every run of the change without being restated, which is the point of recording it. A
-session instruction is the narrower and later of the two: it governs the run in which it is given
-and is recorded with its dispatch exactly as above.
-
-**These fields record intent; the ledger records what happened.** A recorded value does **not**
-replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch
-actually ran on. Slots dispatched by `subagent_type` take no override from this mechanism either —
-no recorded panel model is passed to them, none is written for them in the ledger, and their entries
-still read `unknown (agent-defined)`.
-
-**Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
-See **Model policy** (`skills/myflow-contracts/pipeline-rationale.md`) for why, and for the history
-behind this rule.
-
-Where the dispatcher **cannot know** the model, the ledger records `unknown (agent-defined)` and
-never a guess. Slots dispatched by `subagent_type` (Bugbot, Security Review) resolve their model
-from their own agent definition, which the dispatcher does not read; writing a plausible slug for
-them puts an unmeasured value into the audit trail.
-
-**This record outlives the change, because it is a row in the store rather than a file in a
-worktree.** Each dispatch is written as it closes, and the store's rows are the terminal record — no
-worktree removal reaches them. The ledger rendered under `<project>/docs/superpowers/ledgers/` at
-run 1 is a readable copy of those rows, for a reader with no daemon running; it is not the record.
-**Rows also make the question answerable across changes, by query** — which model ran a given role,
-over every change the store holds — where a preserved file answered it only for the one change whose
-file you opened. See **Model policy** (`skills/myflow-contracts/pipeline-rationale.md`) for why, and
-**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`) for the render
-duty itself.
-
-**A persisting record must not fill in `unknown (agent-defined)` on the way into the repository** —
-neither the write into the store nor the render out of it invents a model slug. See **Model policy**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why.
-
-- **Claude Code**: the **session** model is enforced via `model: opus` / `model: sonnet` in each
-  command's frontmatter (`commands-claude/*.md`) — no manual action needed *for the session*.
-  Frontmatter cannot set a **subagent's** model, so the implementer rule above is not enforced by
-  it: `/myflow-do` must name the model on each implementer dispatch, and the ledger line for that
-  task is what records that it did. Slots dispatched by `subagent_type` (Bugbot, Security Review)
-  carry their own agent definitions and take no override from either mechanism.
-- **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) —
-  each `.cursor/commands/myflow-*.md` file carries an explicit note; switch models manually in the
-  composer/chat picker.
-- **Codex**: no per-command/skill model override mechanism either — model is a session or profile
-  level setting; switch manually before starting a new proposal.
-
 ## Change name resolution (all `/myflow-*` commands)
 
 `<name>` is **optional** on every `/myflow-*` command. When omitted, the candidate set is built
@@ -728,12 +451,9 @@ HTTP call.** `state list` enumerates the store on the caller's behalf (`GET
 /api/v1/stats/state-board` under the hood, over a period wide enough to cover every change ever
 recorded, since the store starts empty per **State file**) and prints one JSON object:
 `"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`), and
-`"records"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`). Going through the CLI rather
-than a skill calling `curl` directly is deliberate, not a style preference: `state list` shares the
-same `Client.ListStateBoard` method every other read uses, so it inherits the `Myflow-Daemon`
-header check, the timeout, and the unreachable/refused classification once, in the one package that
-owns them, instead of every contract file that enumerates changes growing its own copy of that HTTP
-handling — the outcome `design.md`'s `daemon-owns-db` decision names and rejects.
+`"records"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`). See
+**Change name resolution (all `/myflow-*` commands)** (`skills/myflow-contracts/pipeline-rationale.md`)
+for why this goes through the CLI rather than a skill calling `curl` directly.
 
 **When `"source":"store"`**, the candidate set is every record's `name`, dropping one whose `state`
 is `FINISHED` — **States** above already defines `FINISHED` as archived, so this is the store-backed

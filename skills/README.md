@@ -20,7 +20,7 @@ installed by `setup.sh global` to `~/.cursor/rules/` and inlined into the manage
 (non-archived) change relevant to that state is used automatically; if there are multiple, you're
 asked which.
 
-**Model:** See "Model policy" in `myflow-contracts/pipeline.md`, which is canonical.
+**Model:** See "Model policy" in `myflow-contracts/model-policy.md`, which is canonical.
 
 ## Superpowers Basic Workflow map
 

@@ -104,7 +104,7 @@ cannot write one correctly without being told which directory that is.
 - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
   applications does, and that is the worktree whose applications need the resources — the same
   first-start-in-a-worktree fact the row in
-  **Temporary artifacts registry** (`skills/myflow-contracts/pipeline.md`) records. The asymmetry is
+  **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`) records. The asymmetry is
   the rule working rather than an exception to it: each command runs from the checkout that still
   exists when it is called.
 

@@ -223,7 +223,7 @@ because nothing is committed at this stage. A checkbox is marked `[x]` only afte
 spec **and** quality review; a blocked task pauses and reports rather than guessing.
 
 Which model a dispatch runs on, and the rule that every dispatch records it, are **Model policy**
-(`skills/myflow-contracts/pipeline.md`).
+(`skills/myflow-contracts/model-policy.md`).
 
 #### The review panel — `/myflow-do`
 
@@ -255,7 +255,7 @@ force a full re-run in place of a targeted one are **Panel re-runs** in the same
 
 `scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
 taken once per worktree in the resolved set — never a raw read of the state file's `worktrees` map,
-per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`). It prints exactly
+per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`). It prints exactly
 one verdict line and exits 0 whenever it reached a verdict; a missing verdict line is not a verdict,
 and neither is a worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` stops the
 run and asks the operator rather than guessing. Run 2 proceeds only when every worktree in the
@@ -268,7 +268,7 @@ The three signals and why their order is load-bearing are **Finish contract**
 #### The unfinished-work gate — `/myflow-finish` run 1
 
 Runs **before** the landing question and before any git action, once per worktree in the resolved
-set — see **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`).
+set — see **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`).
 `scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
 prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
 **Stop** marked as the recommendation. There is no fourth course, and none that hands back to
@@ -295,7 +295,7 @@ one.
 
 The route table is **Run 1 — the branch is not merged**
 (`skills/myflow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
-**Git boundaries** (`skills/myflow-contracts/pipeline.md`).
+**Git boundaries** (`skills/myflow-contracts/git-boundaries.md`).
 
 #### Cleanup — `/myflow-finish` run 2
 
@@ -309,7 +309,7 @@ remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no 
 treated exactly as `LEFTOVER`.
 
 What is removed, when, and on what condition is **Temporary artifacts registry**
-(`skills/myflow-contracts/pipeline.md`) — the one place a cleanup rule is stated. The procedure for
+(`skills/myflow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
 the rows it removes is **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
 
 ---
@@ -584,7 +584,7 @@ degraded but the OpenSpec-specific steps still work.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** See "Model policy" in `skills/myflow-contracts/pipeline.md`.
+**Model:** See "Model policy" in `skills/myflow-contracts/model-policy.md`.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|

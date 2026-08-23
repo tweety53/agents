@@ -5,7 +5,7 @@ category: myflow
 description: Do — implement the plan with TDD and the review panel
 ---
 
-**Model:** keep this **session** on Sonnet (or your default). See "Model policy" in `skills/myflow-contracts/pipeline.md`, which is canonical. Cursor doesn't yet support a per-command model frontmatter field, so the session setting is a recommendation rather than an enforced switch — but the subagent models are set at dispatch time and apply in every harness.
+**Model:** keep this **session** on Sonnet (or your default). See "Model policy" in `skills/myflow-contracts/model-policy.md`, which is canonical. Cursor doesn't yet support a per-command model frontmatter field, so the session setting is a recommendation rather than an enforced switch — but the subagent models are set at dispatch time and apply in every harness.
 
 Use the **myflow-do** skill — installed globally, so let your harness resolve it by name rather than assuming a project-local path.
 
@@ -17,7 +17,7 @@ Produces **both** the staged diff **and** the run instructions, so reviewing the
 
 Runs the project's lint and test commands before handing off, because **nothing runs them later** — `/myflow-finish` has no verification gate.
 
-Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git boundaries and the finish contract.
+Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions and the finish contract.
 
 **Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
 

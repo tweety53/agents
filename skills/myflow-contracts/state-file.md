@@ -163,7 +163,7 @@ field is how it gets erased.
   the run that **creates** the change; every other command **carries it forward verbatim**. Its
   live consumer is `/myflow-do`, which dispatches on those values. The roles, their defaults and
   how an operator override applies are stated once under
-  **Model policy** (`skills/myflow-contracts/pipeline.md`), which is canonical for them; a second
+  **Model policy** (`skills/myflow-contracts/model-policy.md`), which is canonical for them; a second
   copy here is what this repository's reference guard exists to prevent. These fields record what
   was *chosen* — the SDD ledger remains the only record of what a dispatch actually ran on.
 
@@ -318,7 +318,7 @@ separately.
 The **key set of `worktrees` is the authoritative recorded list of affected worktrees** — it is
 what `/myflow-finish` cleans up, and what resolves an app's root when a handoff needs an absolute
 path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
-first, per **Resolving a change's worktrees** (`skills/myflow-contracts/pipeline.md`), rather than
+first, per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`), rather than
 looping over this map directly. The scalar `branch` names the shared branch only. Never infer a
 worktree path from a conventional layout; layout differs per repository.
 

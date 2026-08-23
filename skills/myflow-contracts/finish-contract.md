@@ -151,7 +151,7 @@ myflow record render -change <name> -kind ledger -repo <abs-repo-root>
 `<abs-repo-root>` is the apply worktree's own root — the tree this run is committing from, never the
 main checkout. The panel record is already under that path: `/myflow-do` renders it at panel close,
 from the same rows. Act on the command's outcome word per the table under **Rendering the session
-records** (`pipeline.md`), which is canonical for it and is deliberately not restated here.
+records** (`session-records.md`), which is canonical for it and is deliberately not restated here.
 
 **The proposal artifact source is copied here, not rendered.** It is not a record: `/myflow-start`
 wrote it to the state directory and it was never in the store, so `myflow record render` — which
@@ -193,15 +193,15 @@ cp "<state-dir>/<name>-proposal-artifact.html" \
   copy and nothing wrong.
 
 This copy is what makes the `Proposal artifact source` row in **Temporary artifacts registry**
-(`pipeline.md`) reachable at all: its run-2 deletion is conditional on a preserved copy existing, and
+(`artifacts-registry.md`) reachable at all: its run-2 deletion is conditional on a preserved copy existing, and
 this step is what produces one.
 
 Those two planning paths are cleared from the index before the first `add` and excluded from it by
-pathspec — the same clearing pass **Git boundaries** (`pipeline.md`) gives `/myflow-do`, and
+pathspec — the same clearing pass **Git boundaries** (`git-boundaries.md`) gives `/myflow-do`, and
 for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
 picks the two paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
-failure rule and the symlink case — is the chain **Git boundaries** (`pipeline.md`) gives, and is
+failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives, and is
 not written out a second time here; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
 call site and `/myflow-do`'s PR-exception path.
 
@@ -344,7 +344,7 @@ the one irreversible step.
    from the project's survivor report and never from this command's exit code, per
    **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
 6. **Remove the proposal artifact source** from the state directory, on the condition its row in
-   **Temporary artifacts registry** (`pipeline.md`) gives. That section carries the condition and
+   **Temporary artifacts registry** (`artifacts-registry.md`) gives. That section carries the condition and
    the reason for it; this step does not repeat either.
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once
    per repository, **after** every removal above — it is there to judge what the run actually left
@@ -465,7 +465,7 @@ so self-review has nothing to delay: there is no Jira write left in run 2 for it
 
 The scan that finds the worktrees carrying a change's branch. This is `/myflow-finish`'s own
 application of the rule stated once under **Resolving a change's worktrees**
-(`skills/myflow-contracts/pipeline.md`) — that a step needing "the worktrees" resolves the set
+(`skills/myflow-contracts/worktree-resolution.md`) — that a step needing "the worktrees" resolves the set
 rather than reading the state file's `worktrees` map directly, and that a resolved set which comes
 back empty is never a vacuous pass. That rule and the commands it binds are not restated here; what
 follows is specific to `/myflow-finish`: the preflight verdict, the unfinished-work gate, and run
@@ -485,7 +485,7 @@ repository this pipeline is installed into keeps them.
 
 **Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
 worktree on the change's branch in any affected repository.** Per **Resolving a change's worktrees**
-(`skills/myflow-contracts/pipeline.md`), that is a state the pipeline cannot explain: stop and
+(`skills/myflow-contracts/worktree-resolution.md`), that is a state the pipeline cannot explain: stop and
 report it to the operator, exactly as a `REFUSE`
 verdict would, rather than letting a zero-iteration loop read as "every worktree returned `RUN2`" or
 "`CLEAR` from every worktree." This applies wherever this procedure is used — the preflight verdict,

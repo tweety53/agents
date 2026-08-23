@@ -23,7 +23,7 @@
 # (1-3) — one distinct OUTCOME WORD per source on stdout rather than a
 # distinct exit status, which is the convention the pipeline's own record
 # steps follow; see the outcome table under **Rendering the session records**
-# (`skills/myflow-contracts/pipeline.md`) — and each found source's content
+# (`skills/myflow-contracts/session-records.md`) — and each found source's content
 # under its own subheading.
 # Exits 2 on a missing argument, an invalid change name, or a malformed
 # <repo-root> (a malformed invocation, in every case); otherwise ALWAYS exits
@@ -641,7 +641,7 @@ fi
 
 # The three commits: the implementation commit and the planning commit
 # (finish run 1's own two-commit chain, per Git boundaries in
-# skills/myflow-contracts/pipeline.md), plus the archive commit.
+# skills/myflow-contracts/git-boundaries.md), plus the archive commit.
 #
 # PLAN_SHA is resolved by PATH **AND** SUBJECT SHAPE together (pass 2,
 # finding E): the plan commit is the most recent commit that both (a)
