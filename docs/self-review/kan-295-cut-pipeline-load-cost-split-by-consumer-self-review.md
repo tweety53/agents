@@ -3,8 +3,7 @@
 **Jira:** KAN-295 · **Run:** `/myflow-fast` · **Rating:** not given — the operator answered the
 per-angle filing prompts and supplied no 1-5 rating.
 
-Fifteen findings across five angles; fourteen filed, one recorded here only. Every angle produced
-findings.
+Fifteen findings across five angles, all fifteen filed. Every angle produced findings.
 
 ## Angle 1 — Problems encountered — `myflow-fix`
 
@@ -12,7 +11,7 @@ findings.
 - **[myflow-fix]** Nothing marks a panel finding fixed, and `myflow record status` accepts values outside `open`/`fixed`/`withdrawn` without complaint. Both surfaced at the same place: the unfinished-work gate blocked run 1 on 30 findings that were fixed and confirmed clean by three panel slots, plus two more written `resolved` and counted as unrecognised. All 32 had to be closed by hand. — filed: KAN-297
 - **[myflow-fix]** `check-finish-preflight.sh` accepts a bare local branch name where the finish contract requires `origin/$BASE`. The contract explains why — the fetch refreshes only remote-tracking refs, so a stale local branch silently feeds the RUN1/RUN2/REFUSE decision — but the guard's usage line says only `<base-ref>`, and the natural composition from `resolve-base-branch.sh`'s output is the wrong one. Made that mistake here; the verdict happened to agree. — filed: KAN-298
 - **[myflow-fix]** Worktree cleanup check 5 runs the project's `## stop` command with no scoping to the worktree. Compose derives its project name from the directory basename — `stats` in the main checkout and in every worktree — and `container_name` is pinned, so running it from a worktree stops the main checkout's Postgres. That is the store this run still needed, and the operator's own database. — filed: KAN-299
-- **[myflow-fix]** `git rebase --autosquash` silently reverted three already-applied fixes through a clean 3-way auto-merge with no conflict marker, twice in the same change. It surfaced only because the dispatcher had stopped accepting claims without pasted command output. A fix round should re-verify each repair by content after any rebase, never by the commit's presence. — declined
+- **[myflow-fix]** `git rebase --autosquash` silently reverted three already-applied fixes through a clean 3-way auto-merge with no conflict marker, twice in the same change. It surfaced only because the dispatcher had stopped accepting claims without pasted command output. A fix round should re-verify each repair by content after any rebase, never by the commit's presence. — filed: KAN-310
 
 ## Angle 2 — Token and time cost — `myflow-cost`
 
