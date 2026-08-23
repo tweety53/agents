@@ -223,7 +223,7 @@ or empty**, it SHALL be found by scanning `git worktree list` in each affected r
 **An empty map SHALL be treated exactly as an absent one, and never as "there are no worktrees".**
 `/myflow-finish`'s preflight verdict and its unfinished-work gate are each defined as *once per
 worktree in the resolved set*, per **Resolving a change's worktrees**
-(`skills/myflow-contracts/pipeline.md`) — never a raw read of the map, because a map carrying zero
+(`skills/myflow-contracts/worktree-resolution.md`) — never a raw read of the map, because a map carrying zero
 keys would otherwise make both pass having examined nothing — `RUN2` from
 every worktree and `CLEAR` from every worktree are each vacuously true of the empty set — and run 2
 would then archive a change that may still hold an unmerged worktree. State self-heal previously
