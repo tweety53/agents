@@ -3,6 +3,9 @@ package harvest
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -647,12 +650,40 @@ func NewDispatchAttributor(windows DispatchWindowSource) *DispatchAttributor {
 	return &DispatchAttributor{windows: windows}
 }
 
+// AmbiguousDispatch is one set of dispatch ids that bestDispatchWindow
+// could not choose among for some record -- either its identity pass
+// found the record's agent id on more than one window, or (only when the
+// identity pass found none at all) its interval pass found the record's
+// timestamp inside more than one window. DispatchIDs is that whole
+// candidate set, sorted ascending for a deterministic caller (task 6,
+// tasks.md: "the watcher must stamp every candidate").
+//
+// Attribute (below) reports one AmbiguousDispatch per distinct candidate
+// set a batch's records actually hit, not one per record: two records
+// colliding on the exact same set of dispatches have nothing further to
+// tell a caller that stamps every id in the set once, and the stamp
+// itself (store.Store.MarkDispatchesUnattributedByID) merges via the
+// jsonb "||" operator, which is idempotent under an identical repeat
+// stamp -- restamping the same candidate set leaves it unchanged rather
+// than inflating it, so a caller that chose to restamp an identical set
+// anyway would still be correct, just wasteful.
+type AmbiguousDispatch struct {
+	DispatchIDs []int64
+}
+
 // Attribute assigns every *sidechain* record in records to the dispatch
 // window matching its session and, among those, the one bestDispatchWindow
 // selects -- the window recording the record's own agent id where one is
 // reported on both sides, and otherwise the window whose interval contains
 // its timestamp. It returns one TokenDelta per touched dispatch, keyed by
-// the dispatch row's id.
+// the dispatch row's id, together with every distinct set of dispatch ids
+// a record could not be told apart between (AmbiguousDispatch) -- the
+// candidates bestDispatchWindow's own third return value names, which
+// this method used to discard outright. A caller with somewhere to record
+// an ambiguity (Watcher.attributeDispatches, via
+// SessionTokenBinder.MarkDispatchesUnattributedByID) now has the ids to
+// name; a caller with nowhere to record it is free to ignore the second
+// return value exactly as every caller did before this existed.
 //
 // Only sidechain records are attributed here, and they land in the
 // Sidechain bucket alone. A dispatching session's own main-thread tokens
@@ -676,14 +707,16 @@ func NewDispatchAttributor(windows DispatchWindowSource) *DispatchAttributor {
 //
 // Like Attributor.Attribute, this is a pure computation over records and
 // whatever DispatchWindowsForSession answers, and records whose session
-// or timestamp matches no window are silently not attributed. Unlike it,
+// or timestamp matches no window at all (bestDispatchWindow's ok=false,
+// candidates=nil case) are silently not attributed and not reported as
+// ambiguous -- there is nothing to name a candidate set for. Unlike it,
 // the deltas it produces are not committed atomically with the batch's
 // offset -- see Watcher's own doc comment on the second pass for what
 // that costs and why it is accepted.
-func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]TokenDelta, error) {
+func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (map[int64]TokenDelta, []AmbiguousDispatch, error) {
 	deltas := make(map[int64]TokenDelta)
 	if len(records) == 0 {
-		return deltas, nil
+		return deltas, nil, nil
 	}
 
 	// Filtering to sidechain records here, rather than inside the
@@ -692,14 +725,25 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 	// DispatchWindowsForSession query.
 	bySession, sessionOrder := groupBySession(records, func(r Record) bool { return r.IsSidechain })
 
+	var ambiguous []AmbiguousDispatch
+	seenAmbiguous := make(map[string]bool)
+
 	for _, sessionID := range sessionOrder {
 		windows, err := a.windows.DispatchWindowsForSession(ctx, sessionID)
 		if err != nil {
-			return nil, fmt.Errorf("harvest: dispatch windows for session %s: %w", sessionID, err)
+			return nil, nil, fmt.Errorf("harvest: dispatch windows for session %s: %w", sessionID, err)
 		}
 		for _, r := range bySession[sessionID] {
-			w, ok := bestDispatchWindow(windows, r.AgentID, r.Timestamp)
+			w, ok, candidates := bestDispatchWindow(windows, r.AgentID, r.Timestamp)
 			if !ok {
+				if len(candidates) > 0 {
+					ids := dispatchIDsOf(candidates)
+					key := dispatchIDsKey(ids)
+					if !seenAmbiguous[key] {
+						seenAmbiguous[key] = true
+						ambiguous = append(ambiguous, AmbiguousDispatch{DispatchIDs: ids})
+					}
+				}
 				continue
 			}
 			d := deltas[w.DispatchID]
@@ -708,22 +752,62 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 		}
 	}
 
-	return deltas, nil
+	return deltas, ambiguous, nil
 }
 
-// bestDispatchWindow returns the dispatch window a record belongs to:
-// among the windows whose interval contains ts, the one whose AgentID is
-// the record's own, and failing that the one with the latest StartedAt.
+// dispatchIDsOf returns windows' DispatchIDs, sorted ascending -- both for
+// a deterministic AmbiguousDispatch.DispatchIDs and so dispatchIDsKey
+// produces the same key regardless of the order
+// DispatchWindowsForSession happened to return windows in.
+func dispatchIDsOf(windows []DispatchWindow) []int64 {
+	ids := make([]int64, len(windows))
+	for i, w := range windows {
+		ids[i] = w.DispatchID
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids
+}
+
+// dispatchIDsKey renders a sorted id slice as a map key, for deduplicating
+// AmbiguousDispatch entries in Attribute above.
+func dispatchIDsKey(ids []int64) string {
+	var b strings.Builder
+	for i, id := range ids {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.FormatInt(id, 10))
+	}
+	return b.String()
+}
+
+// bestDispatchWindow returns the dispatch window a record belongs to, in
+// two passes run in this order:
 //
-// The agent id comes first because the interval cannot answer the case the
-// dispatch grain exists for. A review panel dispatches its slots at once
-// against one parent session, so their intervals overlap and every
-// sidechain record inside the overlap looks equally like all of them --
-// the change's total would stay right while its split across the slots,
-// which is what a per-dispatch cost record is for, went to whichever slot
-// started last. The transcript already labels each record with the
-// subagent that produced it, so where a dispatch recorded the same label
-// the two identify each other outright and no interval is consulted.
+//  1. By identifier: every window whose non-empty AgentID equals the
+//     record's own non-empty agentID, with the interval ignored entirely.
+//     Exactly one such window is the answer. More than one is ambiguous --
+//     an identifier naming two dispatches has said nothing about which one
+//     incurred the record, and a tie broken by interval or by row order
+//     would reintroduce, one layer down, exactly the silent misattribution
+//     this rule exists to remove. An empty agentID on either side is "not
+//     reported", never a value, and matches nothing, including another
+//     empty one.
+//  2. By interval, reached only when the identifier pass found no
+//     candidate at all: every window whose contains(ts) is true. Exactly
+//     one such window is the answer; more than one is ambiguous for the
+//     same reason as above -- of two windows that both contain a record,
+//     nothing says which one it belongs to, so neither is credited.
+//
+// Identity is checked first, and unconditionally -- not merely preferred
+// among windows the interval already contains, which is what this function
+// used to do. A dispatch's StartedAt and EndedAt are typed by the
+// dispatching agent at mark time, not measured: an audit of the live store
+// on 2026-08-23 found recorded windows rounded to the minute (02:00:00,
+// 00:10:00). An interval approximate by construction cannot be allowed to
+// gate an exact identifier, so a record whose agentID matches a dispatch
+// attributes to it even when the record's timestamp falls outside that
+// dispatch's own window entirely.
 //
 // The interval rule underneath is not a legacy path and is not going away.
 // Cursor and Codex expose no subagent identifier at all, so on two of the
@@ -731,53 +815,53 @@ func (a *DispatchAttributor) Attribute(ctx context.Context, records []Record) (m
 // the interval remains exactly correct for dispatches that do not overlap
 // -- which is every dispatch outside a panel.
 //
-// An empty agent id on either side is "not reported", never a value: it
-// matches nothing, including another empty one. Two dispatches that both
-// reported none are not thereby the same dispatch, and a record that
-// reported none has said nothing about which of them it belongs to, so
-// both fall through to the interval rule rather than being paired off by
-// their shared absence.
+// Both passes used to end in a tie-break -- latest StartedAt, and among
+// same-instant ties the lower DispatchID -- rather than in ambiguity. Both
+// are gone: each existed only to choose among candidates this function now
+// refuses to choose among, and choosing was always a guess dressed up as a
+// measurement -- crediting one dispatch with a whole concurrent group's
+// spend while its siblings recorded zero, and presenting the result
+// unqualified. Where a pass finds more than one candidate, this function
+// now says so instead of picking one.
 //
-// "Whichever started last" is undefined at an exact StartedAt tie -- After
-// is false in both directions -- so the tie is broken by the lower
-// DispatchID, stated here rather than left to the order the windows arrive
-// in. It is the same order DispatchWindowsForSession returns its rows in
-// (ORDER BY d.started_at, d.id), so the two agree; but this function does
-// not depend on that, because a rule that holds only for one caller's
-// query plan is not a rule. A tie is ordinary rather than exotic here: a
-// panel's slots are dispatched together and -started-at is written at
-// seconds resolution.
-//
-// This is written out rather than folded into bestWindow, deliberately.
-// bestWindow's tie-break reads Window.Attempt, which has no dispatch
-// analogue at all (DispatchWindow's own doc comment says why), so serving
-// both callers would mean a shared helper parameterised by a field only
-// one of them has -- the wrong abstraction, more expensive than the eight
-// lines it would save. views/RunDetail.tsx's RunPanel records the same
-// reasoning for its own duplication.
-func bestDispatchWindow(windows []DispatchWindow, agentID string, ts time.Time) (DispatchWindow, bool) {
-	var (
-		best        DispatchWindow
-		found       bool
-		matchedByID bool
-	)
-	for _, w := range windows {
-		if !w.contains(ts) {
-			continue
-		}
-		byID := agentID != "" && w.AgentID == agentID
-		switch {
-		case byID && !matchedByID:
-			// The first window identified by the record's own agent id
-			// displaces any the interval alone had selected.
-			best, found, matchedByID = w, true, true
-		case byID == matchedByID:
-			if !found || w.StartedAt.After(best.StartedAt) ||
-				(w.StartedAt.Equal(best.StartedAt) && w.DispatchID < best.DispatchID) {
-				best = w
-				found = true
+// candidates, the third return value, is whichever pass's own candidate
+// set produced the final answer: nil when ok is true (exactly one
+// candidate, named by win) or when neither pass found anything at all,
+// and the pass's whole candidate set -- length >1 -- when a pass found
+// more than one and neither could be preferred over the other. Attribute
+// (above) is what reads it now, turning it into the dispatch ids a
+// caller with somewhere to record an ambiguity can name
+// (AmbiguousDispatch).
+func bestDispatchWindow(windows []DispatchWindow, agentID string, ts time.Time) (win DispatchWindow, ok bool, candidates []DispatchWindow) {
+	if agentID != "" {
+		var byID []DispatchWindow
+		for _, w := range windows {
+			if w.AgentID != "" && w.AgentID == agentID {
+				byID = append(byID, w)
 			}
 		}
+		switch len(byID) {
+		case 0:
+			// No identifier match: fall through to the interval pass.
+		case 1:
+			return byID[0], true, nil
+		default:
+			return DispatchWindow{}, false, byID
+		}
 	}
-	return best, found
+
+	var byInterval []DispatchWindow
+	for _, w := range windows {
+		if w.contains(ts) {
+			byInterval = append(byInterval, w)
+		}
+	}
+	switch len(byInterval) {
+	case 0:
+		return DispatchWindow{}, false, nil
+	case 1:
+		return byInterval[0], true, nil
+	default:
+		return DispatchWindow{}, false, byInterval
+	}
 }

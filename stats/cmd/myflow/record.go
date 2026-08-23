@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -40,7 +41,8 @@ const recordUsage = `usage: myflow record dispatch begin [-addr url] [-timeout d
                              -session-token token -started-at rfc3339
        myflow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
-                             [-commit sha] [-outcome outcome] -ended-at rfc3339
+                             [-commit sha] [-outcome outcome] [-agent-id id]
+                             -ended-at rfc3339
        myflow record finding  [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> [-round n] -slot name
                              -severity sev [-location loc] -status status
@@ -50,6 +52,7 @@ const recordUsage = `usage: myflow record dispatch begin [-addr url] [-timeout d
        myflow record render   [-addr url] [-timeout dur] [-C dir]
                              -change name -kind ledger|panel|all -repo dir
        myflow record journal-count [-C dir] -change name
+       myflow record cost-status [-addr url] [-timeout dur] [-C dir] -change name
 
 A record write never blocks: on any store failure the intent is journalled,
 one warning line is printed, and the command exits 0. A caller must never
@@ -61,6 +64,16 @@ could be produced. It never blocks either, and for a sharper reason: it
 exists so a handoff can state the number honestly, so it must never itself
 become the reason the handoff does not print. It takes no -addr, because it
 reads the local journal and never contacts the store.
+
+cost-status prints, on one stdout line, how many of a change's dispatches
+carry no cost figure and why: "N unattributed" when N is zero, and
+"N unattributed — <reason>: <count>[, <reason>: <count>...]" (reasons sorted
+alphabetically, for a deterministic line) when N is greater than zero.
+Unlike journal-count it DOES contact the store -- only the store can answer
+what it holds -- but it carries the identical never-block guarantee for the
+identical reason: on any failure to reach or read the store it prints
+"unknown" and exits 0, rather than putting a handoff's own output behind a
+store that has no other reason to be up.
 
 The only non-zero exits are caller mistakes -- a missing required flag, an
 unrecognised -role, or a -session-token carrying a shell substitution --
@@ -87,7 +100,13 @@ dispatched, where the harness exposes one. It is optional because two of
 the three supported harnesses expose none at all: a dispatch recorded
 without it is ordinary, not degraded, and its cost is attributed by the
 dispatch's own time window instead. Giving it is what lets two slots
-dispatched at once be costed separately, since their windows overlap.
+dispatched at once be costed separately, since their windows overlap. It
+may be given on "begin", on "end", or both: on Claude Code the harness
+reports it only once the dispatch has launched, so "begin" cannot always
+carry it and "end" may carry it instead. Given on "end", it overwrites
+whatever "begin" recorded; omitted on "end", it leaves that value
+untouched -- an "end" that omits it never clears an identifier already
+recorded.
 
 -session-token must be a literal, unique token this command writes -- never
 a shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
@@ -117,6 +136,8 @@ func runRecord(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return runRecordRender(ctx, args[1:], stdout, stderr)
 	case "journal-count":
 		return runRecordJournalCount(args[1:], stdout, stderr)
+	case "cost-status":
+		return runRecordCostStatus(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "myflow: unknown record command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -448,6 +469,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
 	outcome := fset.String("outcome", "", "how the dispatch ended, e.g. completed")
+	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	endedAt := fset.String("ended-at", "", "when the dispatch ended, RFC 3339 -- the instant its attribution window closes (required)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
@@ -482,6 +504,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, stdout, stderr io.
 		CommitSHA:    *commit,
 		Outcome:      *outcome,
 		EndedAt:      ended,
+		AgentID:      *agentID,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)
@@ -727,6 +750,92 @@ func countRecordJournalEntries(path string) (int, error) {
 		raw = raw[idx+1:]
 	}
 	return n, nil
+}
+
+// costStatusUnknown is the one word runRecordCostStatus prints instead of
+// a figure, on the identical reasoning recordJournalCountUnknown carries:
+// zero unattributed dispatches is the clean, ordinary answer, and reporting
+// a failure to reach or read the store as that same clean answer would
+// turn a store problem into a claim that every dispatch is costed.
+const costStatusUnknown = "unknown"
+
+// runRecordCostStatus implements `myflow record cost-status`: how many of
+// a change's dispatches carry no cost figure, and why, read from the
+// store.
+//
+// UNLIKE journal-count, THIS VERB CAN CONTACT THE STORE. journal-count
+// answers a question about the local filesystem and never does; this one
+// takes the same -addr/-timeout every writing subcommand takes and reaches
+// for the store when it gets far enough to need one -- but it does not
+// always get that far: fallback.ProjectKey is resolved first, and its
+// failure prints costStatusUnknown and returns before the store is ever
+// contacted, exactly as if the store itself had failed to answer.
+//
+// IT NEVER BLOCKS, for the identical reason journal-count does not: it
+// exists so a handoff can state a change's cost honestly, so it must never
+// itself become the reason the handoff does not print. Any failure --
+// a project key that cannot be resolved, an unreachable daemon, a malformed
+// response, a change the store has never heard of -- prints
+// costStatusUnknown and exits 0, on the single exit path below. The only
+// non-zero exit is a caller mistake, which the shared identity flags
+// already report.
+func runRecordCostStatus(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("myflow record cost-status", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintln(stdout, costStatusUnknown)
+		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		return 0
+	}
+
+	cs, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.CostStatus, error) {
+		return cl.GetCostStatus(ctx, projectKey, f.change)
+	})
+	if callErr != nil {
+		fmt.Fprintln(stdout, costStatusUnknown)
+		fmt.Fprintf(stderr, "myflow: cost-status: %v\n", callErr)
+		return 0
+	}
+	fmt.Fprintln(stdout, formatCostStatusLine(cs))
+	return 0
+}
+
+// formatCostStatusLine renders cs as the one line cost-status prints.
+//
+// N == 0 renders `0 unattributed`, with no trailing clause: there is
+// nothing to name a reason for, and a dash into an empty list would read
+// as a line that lost its second half.
+//
+// N > 0 renders `N unattributed — <reason>: <count>[, <reason>: <count>...]`,
+// one clause per reason cs.Reasons carries, SORTED ALPHABETICALLY BY REASON
+// STRING. cs.Reasons is a Go map, whose iteration order is randomised by
+// design, and this line can carry two reasons at once (a session that
+// never bound and a dispatch ambiguity both stamp dispatches under the same
+// change); printing it in whatever order the map happened to yield would
+// make the same underlying figures read as a different line on every run,
+// which is exactly the non-determinism a handoff line must not have.
+func formatCostStatusLine(cs records.CostStatus) string {
+	if cs.Unattributed == 0 {
+		return fmt.Sprintf("%d unattributed", cs.Unattributed)
+	}
+	reasons := make([]string, 0, len(cs.Reasons))
+	for reason := range cs.Reasons {
+		reasons = append(reasons, reason)
+	}
+	sort.Strings(reasons)
+	clauses := make([]string, len(reasons))
+	for i, reason := range reasons {
+		clauses[i] = fmt.Sprintf("%s: %d", reason, cs.Reasons[reason])
+	}
+	return fmt.Sprintf("%d unattributed — %s", cs.Unattributed, strings.Join(clauses, ", "))
 }
 
 // recordStatusRequest is the journalled form of a status write. The wire

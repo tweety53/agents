@@ -569,6 +569,73 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	})
 }
 
+// TestDispatchEndAcceptsAgentID pins the delta spec's "A dispatch's
+// identifier may be recorded when it becomes known": on Claude Code the
+// harness reports a subagent's identifier only once the dispatch has
+// actually been launched, so `begin` cannot always carry it and `end` must
+// be able to.
+//
+// The "omitted" subtest is the load-bearing half. `begin` may already have
+// recorded a real identifier for this dispatch; an `end` that sent an
+// empty one would clear it, destroying the very thing this requirement
+// exists to capture. So the wire body must carry no agentId key at all
+// when the caller gives none -- an absent key, not an empty value -- the
+// same contract TestRecordDispatchSendsAgentIDOnlyWhenGiven pins for
+// begin.
+func TestDispatchEndAcceptsAgentID(t *testing.T) {
+	endArgs := func(repo, addr string, extra ...string) []string {
+		args := []string{"record", "dispatch", "end", "-addr", addr, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-key", "panel-primary", "-session-token", "mf-record-end-agent-id",
+			"-ended-at", "2026-01-02T03:44:05Z"}
+		return append(args, extra...)
+	}
+
+	send := func(t *testing.T, extra ...string) map[string]any {
+		t.Helper()
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), endArgs(repo, srv.URL, extra...),
+			strings.NewReader(""), &stdout, &stderr)
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		return sent
+	}
+
+	t.Run("given", func(t *testing.T) {
+		sent := send(t, "-agent-id", "agent-example0001")
+		if sent["agentId"] != "agent-example0001" {
+			t.Errorf("agentId = %v, want agent-example0001", sent["agentId"])
+		}
+	})
+
+	t.Run("omitted", func(t *testing.T) {
+		sent := send(t)
+		if v, ok := sent["agentId"]; ok {
+			t.Errorf("agentId = %v, want the key absent -- an end that omits it must never clear an identifier begin already recorded", v)
+		}
+	})
+}
+
 // --- render ---
 
 // renderRunRecordJSON is the body a genuine daemon answers
@@ -1043,6 +1110,71 @@ func TestRecordJournalCountPrintsUnknownWhenItCannotCount(t *testing.T) {
 
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0 -- an uncountable journal must never block the handoff; stderr:\n%s", code, stderr.String())
+	}
+	if got := stdout.String(); got != "unknown\n" {
+		t.Errorf("stdout = %q, want %q", got, "unknown\n")
+	}
+}
+
+// --- cost-status ------------------------------------------------------
+
+// TestCostStatusPrintsOneLine pins cost-status's success shape: one line
+// on stdout naming how many of the change's dispatches are unattributed
+// and, where the count is non-zero, why -- the reason wording the ledger
+// (internal/records) already renders, one `<reason>: <count>` clause per
+// reason present. Unlike journal-count this verb DOES contact the store,
+// because only the store can answer the question: it exists to state a
+// figure journal-count has no way to derive.
+func TestCostStatusPrintsOneLine(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotPath, gotMethod string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotMethod = r.URL.Path, r.Method
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"unattributed":2,"reasons":{"session never bound":2}}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "cost-status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if gotMethod != http.MethodGet {
+		t.Errorf("cost-status sent a %s request; it only reads", gotMethod)
+	}
+	if !strings.HasSuffix(gotPath, "/kan-258/cost-status") {
+		t.Errorf("request path = %s, want it to end in /kan-258/cost-status", gotPath)
+	}
+	want := "2 unattributed — session never bound: 2\n"
+	if got := stdout.String(); got != want {
+		t.Errorf("stdout = %q, want %q", got, want)
+	}
+}
+
+// TestCostStatusNeverBlocks pins the one guarantee cost-status exists
+// for: it must never itself become the reason a handoff does not print
+// the figure it names. An unreachable store -- a daemon not yet started,
+// a stale addr -- prints the literal `unknown` and exits 0, exactly the
+// contract journal-count carries for the filesystem it reads instead.
+func TestCostStatusNeverBlocks(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "cost-status", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-258"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 -- cost-status must never block a handoff; stderr:\n%s", code, stderr.String())
 	}
 	if got := stdout.String(); got != "unknown\n" {
 		t.Errorf("stdout = %q, want %q", got, "unknown\n")

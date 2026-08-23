@@ -280,6 +280,14 @@ var (
 	_ harvest.DispatchWindowSource = (*store.Store)(nil)
 	_ harvest.DispatchMetricsSink  = (*store.Store)(nil)
 	_ sweep.AbandonedSweeper       = (*store.Store)(nil)
+	// *store.Store satisfies the widened harvest.SessionTokenBinder (task
+	// 6, kan-212-persist-per-dispatch-cost-tokens-model-and-role) with no
+	// adapter either: RecordSessionTokenGiveUp, PersistedGiveUps and
+	// MarkDispatchesUnattributedByID are written to match it exactly,
+	// PersistedGiveUps returning harvest.GiveUp directly for the same
+	// reason DispatchWindowsForSession returns harvest.DispatchWindow
+	// directly, above.
+	_ harvest.SessionTokenBinder = (*store.Store)(nil)
 )
 
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure

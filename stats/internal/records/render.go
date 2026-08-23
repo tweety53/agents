@@ -165,10 +165,41 @@ func RenderPanel(r Run) string {
 // a figure that stopped rendering rather than as a compile error.
 //
 // Tokens is a POINTER, and that is the whole of how an unmeasured dispatch
-// is told from one measured at zero. See tokenLine.
+// is told from one measured at zero. Unattributed is a POINTER for the
+// same reason: a bag with no "unattributed" key at all -- the ordinary
+// shape of everything this task's producers have not stamped -- must stay
+// distinguishable from an explicit, empty one. See tokenLine.
 type dispatchMetrics struct {
-	Tokens *tokenTotals `json:"tokens"`
+	Tokens       *tokenTotals  `json:"tokens"`
+	Unattributed *unattributed `json:"unattributed"`
 }
+
+// unattributed is the bag's "unattributed" object: the reason
+// internal/store's MarkDispatchesUnattributed /
+// MarkDispatchesUnattributedByID and internal/harvest/watcher.go's
+// resolveSessionTokens / attributeDispatches recorded for a dispatch whose
+// cost could not be attributed, plus the candidate count for the two
+// reasons that are ambiguities. Candidates is meaningless, and left at its
+// zero value, for reasonSessionNeverBound, which is not an ambiguity.
+type unattributed struct {
+	Reason     string `json:"reason"`
+	Candidates int    `json:"candidates"`
+}
+
+// The three reason strings a producer writes, mirrored from
+// internal/harvest/watcher.go's unexported constants of the same name.
+// tokenLine keys its wording off these exact strings -- never off
+// Candidates > 0 -- because reasonSessionAmbiguous and
+// reasonDispatchAmbiguous both carry a nonzero Candidates and count
+// different things: one counts sessions a token matched, the other counts
+// dispatches a record could not be told apart from. Rendering a session
+// count behind the words "concurrent dispatches" would misreport the
+// measurement rather than abbreviate it.
+const (
+	reasonSessionNeverBound = "session never bound"
+	reasonSessionAmbiguous  = "matched more than one session"
+	reasonDispatchAmbiguous = "matched more than one dispatch"
+)
 
 // tokenTotals is the bag's "tokens" object: the harvester's two buckets.
 type tokenTotals struct {
@@ -183,7 +214,7 @@ type tokenBucket struct {
 	CacheRead     int64 `json:"cache_read"`
 }
 
-// tokenLine renders a dispatch's token figures, or the words that say
+// tokenLine renders a dispatch's token figures, or the words that say why
 // there are none.
 //
 // A dispatch nothing measured renders `not measured`, NEVER zero: the
@@ -208,6 +239,25 @@ type tokenBucket struct {
 // A `tokens` object that IS present renders whatever it carries, zeros
 // included. An explicit zero is a real figure and is not hidden.
 //
+// TOKENS OUTRANKS UNATTRIBUTED. A dispatch can carry both: a session
+// marked given up after a dispatch under it was already measured is a
+// contradiction the store resolves by keeping the measurement (see
+// internal/store's MarkDispatchesUnattributed), and a real figure outranks
+// a stale stamp here too. Only once Tokens is nil does an Unattributed
+// stamp get a say.
+//
+// THE FOUR STATES. Where Unattributed is present, its Reason selects the
+// wording: reasonSessionNeverBound renders with no count,
+// reasonSessionAmbiguous and reasonDispatchAmbiguous each render with
+// Candidates but under DIFFERENT wordings, because they count different
+// things -- see the constants' own comment. A reason none of the three
+// matches is not `not measured`: it is still a producer's statement that
+// attribution failed, so it renders verbatim (through neutraliseMarkers,
+// like every other externally-sourced string in this file) rather than
+// being collapsed into the state that means nothing was ever attempted. An
+// Unattributed bag with no recognised key at all -- Reason "" -- falls
+// back to `not measured`, the same as no bag.
+//
 // Main and sidechain are summed. A dispatch's own work is the sidechain
 // bucket, but the row is the dispatcher's record of the whole dispatch,
 // and splitting the two here would invite a reader to add them up wrongly.
@@ -219,16 +269,28 @@ func tokenLine(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return "not measured (metrics bag unreadable)"
 	}
-	if m.Tokens == nil {
-		return "not measured"
+	if m.Tokens != nil {
+		t := *m.Tokens
+		sum := func(a, b int64) int64 { return a + b }
+		return fmt.Sprintf("input %d, output %d, cache read %d, cache creation %d",
+			sum(t.Main.Input, t.Sidechain.Input),
+			sum(t.Main.Output, t.Sidechain.Output),
+			sum(t.Main.CacheRead, t.Sidechain.CacheRead),
+			sum(t.Main.CacheCreation, t.Sidechain.CacheCreation))
 	}
-	t := *m.Tokens
-	sum := func(a, b int64) int64 { return a + b }
-	return fmt.Sprintf("input %d, output %d, cache read %d, cache creation %d",
-		sum(t.Main.Input, t.Sidechain.Input),
-		sum(t.Main.Output, t.Sidechain.Output),
-		sum(t.Main.CacheRead, t.Sidechain.CacheRead),
-		sum(t.Main.CacheCreation, t.Sidechain.CacheCreation))
+	if m.Unattributed != nil && m.Unattributed.Reason != "" {
+		switch m.Unattributed.Reason {
+		case reasonSessionNeverBound:
+			return "cost unattributed — session never bound"
+		case reasonSessionAmbiguous:
+			return fmt.Sprintf("cost unattributed — the session token matched %d sessions", m.Unattributed.Candidates)
+		case reasonDispatchAmbiguous:
+			return fmt.Sprintf("cost unattributed — indistinguishable from %d concurrent dispatches", m.Unattributed.Candidates)
+		default:
+			return "cost unattributed — " + neutraliseMarkers(m.Unattributed.Reason)
+		}
+	}
+	return "not measured"
 }
 
 // orElse is what an unrecorded optional field renders as. A dispatch that

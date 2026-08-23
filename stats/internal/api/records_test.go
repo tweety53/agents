@@ -91,6 +91,12 @@ func (f *fakeStore) RecordDispatch(_ context.Context, projectKey, change string,
 // store.ErrDispatchNotFound for a key naming none -- the condition the
 // handler must answer 404 to rather than 500, and the one 404 the CLI
 // journals rather than reports.
+//
+// A non-empty in.AgentID overwrites the row's identifier -- this is the
+// closing half of "a dispatch's identifier may be recorded when it becomes
+// known", for a harness that reports it only after launch. An EMPTY
+// in.AgentID leaves whatever begin already recorded untouched: an end that
+// omits it must never clear an identifier the opening call captured.
 func (f *fakeStore) EndDispatch(_ context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error) {
 	f.recordCalls++
 	for i := range f.dispatches {
@@ -101,6 +107,9 @@ func (f *fakeStore) EndDispatch(_ context.Context, projectKey, change string, in
 			d.dispatch.CommitSHA = in.CommitSHA
 			d.dispatch.Outcome = in.Outcome
 			d.dispatch.EndedAt = &endedAt
+			if in.AgentID != "" {
+				d.dispatch.AgentID = in.AgentID
+			}
 			return d.dispatch, nil
 		}
 	}
@@ -479,6 +488,55 @@ func TestRunRecordRouteReturnsDispatchesAndFindingsInOrder(t *testing.T) {
 	}
 }
 
+// TestCostStatusRouteDerivesFromTheRealRunRecord drives the real
+// costStatus handler (never fakeStore's own bookkeeping) through the HTTP
+// route, over dispatches seeded with the wire shapes records.CostStatusOf
+// distinguishes: one carrying tokens only, one carrying an unattributed
+// stamp only, and one carrying both -- the tokens-outrank-a-stamp
+// contradiction case. It pins the route (GET .../cost-status), the status
+// (200) and the body shape (records.CostStatus's own JSON tags), so a
+// change to any of the three fails this test rather than going unnoticed.
+func TestCostStatusRouteDerivesFromTheRealRunRecord(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	seed := []struct {
+		key     string
+		metrics string
+	}{
+		{"tokens-only", `{"tokens":{"main":{"input":100,"output":20,"cache_read":0,"cache_creation":0},"sidechain":{"input":0,"output":0,"cache_read":0,"cache_creation":0}}}`},
+		{"unattributed-only", `{"unattributed":{"reason":"session never bound"}}`},
+		{"both", `{"tokens":{"main":{"input":5,"output":1,"cache_read":0,"cache_creation":0},"sidechain":{"input":0,"output":0,"cache_read":0,"cache_creation":0}},"unattributed":{"reason":"matched more than one dispatch","candidates":2}}`},
+	}
+	for _, s := range seed {
+		body := dispatchBody("implementer", "opus")
+		body["key"] = s.key
+		body["metrics"] = json.RawMessage(s.metrics)
+		resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", body)
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("seed POST dispatches %s = %d (%s), want 201", s.key, resp.StatusCode, respBody)
+		}
+	}
+
+	code, body := doGet(t, ts, recordsPath("proj", "kan-1")+"/cost-status")
+	if code != http.StatusOK {
+		t.Fatalf("GET cost-status = %d (%s), want 200", code, body)
+	}
+
+	var got records.CostStatus
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.Unattributed != 1 {
+		t.Errorf("Unattributed = %d, want 1 -- only unattributed-only counts, tokens-only and both do not", got.Unattributed)
+	}
+	if got.Reasons["session never bound"] != 1 {
+		t.Errorf("Reasons[session never bound] = %d, want 1", got.Reasons["session never bound"])
+	}
+	if len(got.Reasons) != 1 {
+		t.Errorf("Reasons = %v, want exactly one reason", got.Reasons)
+	}
+}
+
 // --- rejections ---
 
 // TestRecordRouteRejectsAMalformedBodyWithoutReachingTheStore pins that a
@@ -575,6 +633,68 @@ func TestEndDispatchRouteClosesTheRowItsBeginOpened(t *testing.T) {
 	}
 	if closed.CommitSHA != "def5678" || closed.Outcome != "completed" {
 		t.Errorf("closed row = commit %q outcome %q, want def5678/completed", closed.CommitSHA, closed.Outcome)
+	}
+}
+
+// TestDispatchEndAgentIDReachesTheStore pins the store-reaching half of
+// the delta spec's "A dispatch's identifier may be recorded when it
+// becomes known": begin need not carry the identifier at all -- the
+// harness reports it only once the dispatch has launched -- so end must be
+// able to carry it, and it must land on the very row begin opened.
+func TestDispatchEndAgentIDReachesTheStore(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", dispatchBody("implementer", "opus"))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	endBody := dispatchEndBody("task-3-implementer")
+	endBody["agentId"] = "agent-example0001"
+	resp, body = postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches/end", endBody)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST dispatches/end = %d (%s), want 200", resp.StatusCode, body)
+	}
+	var closed records.Dispatch
+	if err := json.Unmarshal(body, &closed); err != nil {
+		t.Fatalf("decode end response %s: %v", body, err)
+	}
+	if closed.AgentID != "agent-example0001" {
+		t.Errorf("closed.AgentID = %q, want agent-example0001 -- an identifier given only at close must still reach the row begin opened", closed.AgentID)
+	}
+}
+
+// TestDispatchEndOmittedAgentIDPreservesBeginsIdentifier pins the
+// load-bearing half of the same delta spec clause
+// TestDispatchEndAgentIDReachesTheStore pins the other half of: an "end"
+// call that OMITS agentId must never clear an identifier "begin" already
+// recorded. fakeStore.EndDispatch already encodes the guard
+// (`if in.AgentID != ""`), but nothing exercised the scenario it exists
+// for before this test -- begin sets an identifier, end omits it, the
+// identifier survives -- so a regression to an unconditional overwrite in
+// either fakeStore or the real handler path would have passed every other
+// test in this file.
+func TestDispatchEndOmittedAgentIDPreservesBeginsIdentifier(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+
+	beginBody := dispatchBody("implementer", "opus")
+	beginBody["agentId"] = "agent-begin00001"
+	resp, body := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches", beginBody)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST dispatches = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	// dispatchEndBody carries no agentId key at all -- the omitted case.
+	resp, body = postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/dispatches/end", dispatchEndBody("task-3-implementer"))
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST dispatches/end = %d (%s), want 200", resp.StatusCode, body)
+	}
+	var closed records.Dispatch
+	if err := json.Unmarshal(body, &closed); err != nil {
+		t.Fatalf("decode end response %s: %v", body, err)
+	}
+	if closed.AgentID != "agent-begin00001" {
+		t.Errorf("closed.AgentID = %q, want agent-begin00001 -- an end that omits agentId must never clear the identifier begin recorded", closed.AgentID)
 	}
 }
 

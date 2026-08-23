@@ -371,6 +371,13 @@ func ParseCommandRecords(complete []byte) []CommandRecord {
 // watcher) is reported via ErrOffsetBeyondEOF rather than silently
 // reread from 0, which would double-count everything already attributed
 // from it under the old identity.
+//
+// ReadAllCommands (below) is a deliberate second reader of this same
+// file, added by task 6.2 (tasks.md) for exactly one caller that must
+// look at commands, and only commands, from bytes this offset-tracked
+// read has already passed -- see its own doc comment for why that does
+// not reopen the "second scan" this comment otherwise still holds true
+// against.
 func ReadNewRecords(path string, offset int64) (records []Record, commands []CommandRecord, newOffset int64, err error) {
 	f, err := openAt(path, offset)
 	if err != nil {
@@ -385,6 +392,42 @@ func ReadNewRecords(path string, offset int64) (records []Record, commands []Com
 
 	complete, _ := SplitCompleteLines(raw)
 	return ParseAssistantRecords(complete), ParseCommandRecords(complete), offset + int64(len(complete)), nil
+}
+
+// ReadAllCommands reads path from byte 0 to its current EOF and returns
+// every Bash command found in it -- entirely independent of any offset a
+// caller has committed, and computing no Record (no usage) at all, ever
+// (task 6.2, tasks.md, "bind a retried token by scanning, not by waiting
+// for new bytes").
+//
+// It exists for exactly one caller: Watcher's retried-give-up scan
+// (watcher.go, scanRetriedTokens), which must be able to look for a mark
+// carrying a persisted give-up's token in bytes harvest_offsets has
+// already read past -- kan-302's own measured state, a transcript whose
+// committed offset already equals its full length, so ReadNewRecords from
+// that offset forever returns nothing new to look at. A retry built on
+// ReadNewRecords(path, 0) instead would also re-derive that whole
+// region's usage Records, which is exactly the shape of mistake that
+// tempts a caller into re-attributing them a second time. This function
+// makes that mistake structurally unavailable: it has no Record to hand
+// back in the first place, so there is nothing here a caller could
+// attribute even by accident, and it neither reads nor advances
+// harvest_offsets for path -- the property this whole task exists to
+// keep (task 6.2's own "never re-attribute usage").
+func ReadAllCommands(path string) ([]CommandRecord, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("harvest: open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return nil, fmt.Errorf("harvest: read %s: %w", path, err)
+	}
+
+	complete, _ := SplitCompleteLines(raw)
+	return ParseCommandRecords(complete), nil
 }
 
 // DispatchMeta is a subagent dispatch's own descriptors, read from its
