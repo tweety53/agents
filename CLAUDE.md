@@ -65,7 +65,7 @@ All skills require the `openspec` CLI to be installed.
 | `skills/myflow-fast/` | `/myflow-fast` | Composite: chains `/myflow-start`'s brainstorming and `/myflow-do`'s implementation into one invocation, and `/myflow-finish`'s two runs into one when the chosen route needs no external merge — same three states, same state file, no human gate in between. Publishes no proposal artifact. See `skills/myflow-fast/SKILL.md` |
 | `skills/myflow-status/` | `/myflow-status` | Read-only state report for open changes |
 | `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for any `/myflow-*` command) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/myflow-finish` run 1 files or joins a follow-up, `finish-contract.md` for `/myflow-finish`'s two-run procedure and no other command, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
-| `skills/openspec-explore/` | `/opsx:explore` | Thinking-partner mode — explore ideas, investigate, no implementation, no state |
+| `skills/spectre-research/` | `/spectre-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state |
 
 ### /myflow commands summary
 

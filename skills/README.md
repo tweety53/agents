@@ -64,4 +64,4 @@ skills/
 └── spectre-research/  ← /spectre-research
 ```
 
-All skills require the `openspec` CLI (`npm install -g openspec`).
+The `/myflow-*` skills require the `openspec` CLI (`npm install -g openspec`); `spectre-research` needs none — reading a spectre tree is reading markdown.

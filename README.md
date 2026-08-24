@@ -37,7 +37,7 @@ agents-data/
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
-├── commands/                          ← Cursor slash commands (myflow + opsx:explore)
+├── commands/                          ← Cursor slash commands (myflow + spectre-research)
 ├── commands-claude/                   ← Claude Code slash commands (myflow only)
 └── skills/                            ← OpenSpec / /myflow skills
     ├── README.md                      ← myflow command map
@@ -47,7 +47,7 @@ agents-data/
     ├── myflow-fast/                   ← /myflow-fast (composite: brainstorm+implement, then integrate+archive, chained)
     ├── myflow-status/                 ← read-only state report for open changes
     ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
-    └── openspec-explore/              ← /opsx:explore — thinking-partner mode, touches no state
+    └── spectre-research/              ← /spectre-research — thinking-partner mode, touches no state
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in
@@ -56,7 +56,7 @@ snapshot of today's set, not the definition; read the frontmatter to be sure.
 
 **Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, `/myflow-fast`
 (the composite that chains the other three), plus the read-only `/myflow-status`, and
-`/opsx:explore` for thinking-partner mode.
+`/spectre-research` for thinking-partner mode.
 
 **myflow pipeline — three states, three commands.**
 
@@ -595,7 +595,7 @@ degraded but the OpenSpec-specific steps still work.
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
 | `/myflow-fast <name>` | `myflow-fast` | Composite command: chains `/myflow-start`'s brainstorming (fully interactive, unchanged) directly into `/myflow-do`'s implementation and review panel with no gate in between, and chains `/myflow-finish`'s run 1 into run 2 when the chosen landing route is merge and push. Accepts no state (creates the change) or `IN_PROGRESS` — an argument at `IN_PROGRESS` is fix instructions, a bare invocation asks how to land the branch. Publishes no proposal artifact. A creating or fix run ends at `IN_PROGRESS` — a fix leaves the state unchanged; a bare invocation ends at `IN_PROGRESS` or `FINISHED`, depending on the route chosen. Re-run to fix or to integrate. |
 | `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |
-| `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
+| `/spectre-research` | `spectre-research` | Thinking-partner mode — no implementation, no state |
 
 Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
 each — are stated once under
