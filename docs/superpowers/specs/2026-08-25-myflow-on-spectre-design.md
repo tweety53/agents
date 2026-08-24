@@ -81,8 +81,10 @@ safety net that proves it.
 Two guards need judgement rather than substitution:
 
 - `scripts/check-contract-budget.sh` carries a size baseline naming files under `openspec/specs/`.
-  Those files are now frozen, so their sizes are permanently constant and the guard stays green
-  untouched. It is left alone deliberately, not overlooked.
+  Five of those rows are ALREADY failing on `main`, before this cutover — three over budget, two
+  undeclared. A frozen tree has no budget to enforce, because nothing in it can grow, so the guard
+  drops its `openspec/specs/` rows entirely. That fixes a pre-existing failure as a side effect. If
+  any of the frozen tree is ever unfrozen, its rows come back with it.
 - Any guard asserting that delta specs were synced loses that assertion, because there are no delta
   specs to sync.
 

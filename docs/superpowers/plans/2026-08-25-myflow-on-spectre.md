@@ -294,14 +294,21 @@ git commit -m "refactor(scripts): read change artifacts from the spectre tree"
 
 Read `scripts/lib/owned-corpus.sh` and `scripts/check-markdown-integrity.py`'s header comment, which says integrity covers the repository's own markdown and "not `openspec/`". That exclusion is now permanent and correct — the frozen tree must never be linted again. Make sure the exclusion survives your edit rather than being path-substituted into an exclusion of `spectre/`, which would be exactly backwards.
 
-- [ ] **Step 2: `check-contract-budget.sh` is not modified**
+- [ ] **Step 2: Drop the frozen tree's rows from `check-contract-budget.sh`**
 
-Its baseline table lists files under `openspec/specs/` with byte sizes. Those files are frozen, so their sizes are constant and the guard stays green. Leave it untouched and say so in your report; a reviewer will otherwise read the omission as a miss.
-
-Confirm the assumption holds:
+Its baseline table lists files under `openspec/specs/` with byte sizes, and five of those rows already FAIL on `main` — `myflow-contract-economy`, `myflow-run-record` and `myflow-state-store` over budget, `myflow-daemon-single-instance` and `myflow-stats-build` undeclared. Confirm that for yourself first:
 
 ```bash
-scripts/test-check-contract-budget.sh && echo "budget guard still green"
+scripts/check-contract-budget.sh; echo "exit=$?"
+```
+
+A frozen tree has no budget to enforce: nothing in it can grow. Remove every `openspec/specs/` row from `budgets()`, and make the guard skip that path rather than requiring rows for it. Say in a comment that the tree is frozen, so a future reader does not re-add the rows. Rows for files this repository still edits stay exactly as they are.
+
+Verify the guard now passes on the real repository, not only its test harness:
+
+```bash
+scripts/check-contract-budget.sh && echo "budget guard green on the repo"
+scripts/test-check-contract-budget.sh && echo "and its tests pass"
 ```
 
 - [ ] **Step 3: Flip the remaining five, with their tests**
