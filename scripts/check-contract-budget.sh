@@ -136,9 +136,9 @@ openspec/specs/myflow-plan-provenance/spec.md 17138
 openspec/specs/myflow-planning-effort/spec.md 11232
 openspec/specs/myflow-planning-gate/spec.md 15748
 openspec/specs/myflow-progress-visibility/spec.md 5351
-openspec/specs/myflow-review-panel-economics/spec.md 71648
+openspec/specs/myflow-review-panel-economics/spec.md 91461
 openspec/specs/myflow-review-panel-roster/spec.md 11918
-openspec/specs/myflow-run-record/spec.md 20658
+openspec/specs/myflow-run-record/spec.md 31150
 openspec/specs/myflow-run-telemetry/spec.md 30260
 openspec/specs/myflow-self-review/spec.md 30591
 openspec/specs/myflow-state-machine/spec.md 14270
