@@ -26,6 +26,13 @@ earlier, wrong count survive six review passes) and
 guard in this repository remains Bash-only; adding Python here was a deliberate, recorded widening
 of the toolchain, not a drift.
 
+### artifact tree
+
+The pipeline's artifact tree is `spectre/`. `openspec/` is frozen at the 2026-08-25 cutover and is
+never written to again. The two changes left open in it —
+`kan-295-cut-pipeline-load-cost-split-by-consumer` and `kan-327-review-per-round-delta-after-round-1`
+— are abandoned.
+
 ## run
 
 To exercise the installer without touching the real home directory:
