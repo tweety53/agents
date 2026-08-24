@@ -91,6 +91,13 @@ override LIVE_PORT := 4173
 override LIVE_BIN := bin/myflowd
 override LIVE_LOG := /tmp/myflow-live.log
 
+# Where `restart` installs the `myflow` CLI. Hardcoded rather than
+# configurable: this is the one path already on the operator's PATH, and a
+# variable here would let a caller install the CLI somewhere that is not the
+# one every /myflow-* command actually invokes -- which is the failure this
+# install exists to prevent, not a flexibility worth having.
+override LIVE_CLI := $(HOME)/.local/bin/myflow
+
 restart: build
 	@pid="$$(lsof -ti tcp:$(LIVE_PORT) -sTCP:LISTEN 2>/dev/null | head -1)"; \
 	if [ -n "$$pid" ]; then \
@@ -114,6 +121,17 @@ restart: build
 	docker compose up -d
 	docker compose restart
 	go build -o $(LIVE_BIN) ./cmd/myflowd
+	# The CLI is installed here, alongside the daemon, because half of this
+	# repository's behaviour lives in `cmd/myflow` rather than in `myflowd`
+	# -- `state set`'s own validation and the instant it stamps are the
+	# CLI's, and no daemon restart makes a new one of those live. Installing
+	# only the daemon left the two halves of KAN-284 split across two
+	# binaries: the store refused a malformed merge base while the stale CLI
+	# still failed to stamp `updatedAt`, so the defect that change fixed was
+	# still live on a stack that had just been "restarted".
+	@mkdir -p $(dir $(LIVE_CLI))
+	go build -o $(LIVE_CLI) ./cmd/myflow
+	@echo "restart: installed the myflow CLI to $(LIVE_CLI)"
 	@nohup ./$(LIVE_BIN) >> $(LIVE_LOG) 2>&1 & \
 	echo "restart: started myflowd (pid $$!), logging to $(LIVE_LOG)"
 	@echo "restart: waiting for myflowd to answer on :$(LIVE_PORT)"
