@@ -189,7 +189,7 @@ skills/myflow-contracts/workspace-isolation-rationale.md 14317
 skills/myflow-contracts/workspace-isolation.md 31471
 skills/myflow-contracts/worktree-resolution-rationale.md 595
 skills/myflow-contracts/worktree-resolution.md 2343
-skills/myflow-do/SKILL-rationale.md 20902
+skills/myflow-do/SKILL-rationale.md 27551
 skills/myflow-do/SKILL.md 103578
 skills/myflow-do/adversarial-reviewer-prompt.md 3545
 skills/myflow-do/bug-hunter-reviewer-prompt.md 1437

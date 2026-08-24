@@ -162,8 +162,37 @@ few costs a defect.
 
 ### Panel re-runs
 
-Why the not-re-run scoping reaches conditional slots alone: a conditional slot's region is exactly
-its trigger's subject, while a required slot has no bounded region to check staleness against.
+Why **trigger-based** scoping reaches conditional slots alone: a conditional slot's region is
+exactly its trigger's subject, so a trigger that no longer fires states positively that the region
+is unchanged; a required slot has no trigger, and so no subject to re-evaluate. The empty-delta
+skip is a second mechanism rather than the first one widened because it asks a different question
+of a different fact — not *did this slot's subject change*, but *has anything changed since this
+slot last read* — and the record keeps a wording for each, so that a panel record naming one says
+which of the two questions was asked.
+
+Why a delta is anchored at the slot's own last read rather than at the current round: for a slot
+reaching a Full pass having missed rounds in between, `fix-round-N.diff` would withhold those rounds
+silently, against *targeting is a cost optimization, never a coverage waiver*. What the anchor buys
+is measured: KAN-315 ran twelve rounds, and three slots re-read a diff that reached 3,300 lines
+every round while each round's actual subject was a 200-to-900-line delta.
+<!-- measured: KAN-315's self-review, as reported in KAN-327's description -->
+
+Why the range is tree-to-tree rather than `A..B`: an ancestry-dependent range is orphaned by the
+same `git rebase --autosquash` a tree-to-tree range survives, and stops naming the change between
+the two trees without erroring — the slot is handed a diff, just not the one the rule asked for.
+
+Why Primary alone keeps the whole `final-review.diff`: its remit is plan alignment and the change's
+history, and a delta carries neither — it shows what moved since one sha, never whether the change
+as a whole still answers the plan it was written from. Principles is the near miss, and goes delta
+anyway: it owns hard invariants, but judges them against the code it is shown, and pass 1 already
+showed it everything.
+
+Why the base is stored on the dispatch row and never read back: every `myflow record` write is on
+the never-block guarantee — an unreachable store journals the intent and the run proceeds — which
+holds only while nothing depends on the write having landed. A panel runs inside one `/myflow-do`
+invocation and a re-run starts a fresh pass 1, so the dispatcher already holds each slot's
+last-reviewed sha in session; adding a read path would convert a write that is allowed to fail into
+one that is not.
 
 Why checking the path alone was not enough: an argument such as `../../../etc/passwd` was free to
 escape the worktree while the path token itself stayed clean.

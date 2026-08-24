@@ -140,7 +140,8 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // sixteenth to one and not the other compiles cleanly and silently reads
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
-	          session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key`
+	          session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
+	          diff_base`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -181,11 +182,13 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		sessionToken *string
 		notes        *string
 		dispatchKey  *string
+		diffBase     *string
 		bag          []byte
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
+		&diffBase,
 	); err != nil {
 		return records.Dispatch{}, err
 	}
@@ -197,6 +200,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	d.SessionToken = derefOrEmpty(sessionToken)
 	d.Notes = derefOrEmpty(notes)
 	d.Key = derefOrEmpty(dispatchKey)
+	d.DiffBase = derefOrEmpty(diffBase)
 	d.Metrics = bag
 	return d, nil
 }
@@ -222,12 +226,13 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 	return scanDispatchRow(s.pool.QueryRow(ctx, `
 		INSERT INTO dispatches (
 			change_id, stage_run_id, seq, task_id, role, slot, model, commit_sha, outcome,
-			session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key
+			session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
+			diff_base
 		)
 		SELECT
 			c.id, $3,
 			COALESCE((SELECT MAX(d.seq) FROM dispatches d WHERE d.change_id = c.id), 0) + 1,
-			$4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16
+			$4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
@@ -237,7 +242,7 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		projectKey, change, in.StageRunID, nullIfEmpty(in.TaskID), in.Role, nullIfEmpty(in.Slot),
 		in.Model, nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), nullIfEmpty(in.SessionToken),
 		in.StartedAt, in.EndedAt, metrics, nullIfEmpty(in.Notes), nullIfEmpty(in.AgentID),
-		nullIfEmpty(in.Key),
+		nullIfEmpty(in.Key), nullIfEmpty(in.DiffBase),
 	))
 }
 

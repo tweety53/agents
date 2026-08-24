@@ -306,7 +306,8 @@ func orElse(s, fallback string) string {
 
 // RenderLedger renders a change's dispatches as the SDD ledger: one
 // section per dispatch, in seq order, naming the task it ran against, the
-// role, the model, the commit it produced, how it ended and what it cost.
+// role, the model, the commit it produced, the base of any diff it was
+// given, how it ended and what it cost.
 //
 // The model renders VERBATIM. A slot that resolves its own model from an
 // agent definition the dispatcher cannot read is recorded as the literal
@@ -337,6 +338,14 @@ func RenderLedger(r Run) string {
 		}
 		fmt.Fprintf(&b, "- Model: %s\n", orElse(d.Model, "not recorded"))
 		fmt.Fprintf(&b, "- Commit: %s\n", orElse(d.CommitSHA, "no commit"))
+		// Conditional, in the shape the Slot and Notes lines use, rather
+		// than orElse-defaulted: every implementer dispatch and the primary
+		// reviewer's own dispatch read the whole diff and legitimately
+		// record no base, and a `- Diff base: no base` line on each of them
+		// is noise that says nothing.
+		if strings.TrimSpace(d.DiffBase) != "" {
+			fmt.Fprintf(&b, "- Diff base: %s\n", neutraliseMarkers(d.DiffBase))
+		}
 		fmt.Fprintf(&b, "- Outcome: %s\n", orElse(d.Outcome, "not recorded"))
 		started := "not recorded"
 		if !d.StartedAt.IsZero() {

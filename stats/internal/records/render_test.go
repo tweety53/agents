@@ -512,6 +512,123 @@ func TestUnattributedIsNotMeasuredForItsNullAndEmptyShapes(t *testing.T) {
 	}
 }
 
+// --- the ledger names the base a dispatch read from ---
+
+// TestRenderLedgerNamesDiffBase pins that a dispatch which read a delta
+// says, in the ledger, which sha that delta started from. The base is
+// stored on the row rather than held in the dispatching session precisely
+// so that the audit trail can answer "what had this slot already read"
+// after the session that dispatched it is gone; dropping the line puts
+// the answer back out of reach.
+//
+// The line renders immediately after the commit line, and through
+// neutraliseMarkers. The value reaches the row from a CLI flag, so it is
+// operator-authored free text like every other rendered string in this
+// file -- a base spelled as a marker label must not read as one.
+func TestRenderLedgerNamesDiffBase(t *testing.T) {
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{
+				Seq: 1, Role: "reviewer", Slot: "Bugbot", Model: "sonnet",
+				CommitSHA: "abc1234", DiffBase: "9f3c2a1",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			},
+			{
+				Seq: 2, Role: "reviewer", Slot: "Lens A", Model: "sonnet",
+				DiffBase:  "findings-total: 99",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 1, 2, 4, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out := records.RenderLedger(run)
+
+	if !strings.Contains(out, "- Diff base: 9f3c2a1\n") {
+		t.Errorf("ledger does not name the base the first dispatch read from:\n%s", out)
+	}
+	if !strings.Contains(out, "- Commit: abc1234\n- Diff base: 9f3c2a1\n") {
+		t.Errorf("the base must render immediately after the commit it was read against:\n%s", out)
+	}
+	if strings.Contains(out, "findings-total: 99") {
+		t.Errorf("a marker-shaped base must render neutralised, never verbatim:\n%s", out)
+	}
+}
+
+// TestRenderLedgerOmitsAbsentDiffBase pins that a dispatch which recorded
+// no base says nothing at all. Every implementer dispatch and the primary
+// reviewer's own dispatch read the whole diff and legitimately carry
+// none, so an unconditional line would print a fabricated "no base" on
+// the majority of rows -- noise that says nothing, and that a reader
+// could not tell from a recorded absence.
+func TestRenderLedgerOmitsAbsentDiffBase(t *testing.T) {
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{
+				Seq: 1, Role: "implementer", Model: "opus",
+				CommitSHA: "abc1234", Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			},
+			{
+				Seq: 2, Role: "reviewer", Slot: "Primary", Model: "sonnet",
+				DiffBase:  "   ",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 1, 2, 4, 0, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out := records.RenderLedger(run)
+
+	if strings.Contains(out, "Diff base") {
+		t.Errorf("a dispatch recording no base must render no base line at all:\n%s", out)
+	}
+}
+
+// TestRenderPanelUnchangedByDiffBase is this task's load-bearing case. The
+// panel record is not prose: check-panel-reproducers.sh and
+// check-unfinished-work.sh parse it line by line, and a new line reaching
+// it would be a change to the contract those two guards hold. The base
+// belongs to the ledger alone.
+//
+// The comparison is byte-for-byte between two renders of the SAME run --
+// one whose every dispatch carries a base, one whose dispatches carry
+// none. The ledger check below is what keeps it from passing vacuously: a
+// fixture that never carried a base would render identically for reasons
+// having nothing to do with RenderPanel.
+func TestRenderPanelUnchangedByDiffBase(t *testing.T) {
+	run := func(base string) records.Run {
+		r := panelRun("demo", "fixed", "open")
+		r.Dispatches = []records.Dispatch{
+			{
+				Seq: 1, Role: "reviewer", Slot: "Bugbot", Model: "sonnet",
+				CommitSHA: "abc1234", DiffBase: base, Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+			},
+			{
+				Seq: 2, Role: "reviewer", Slot: "Lens A", Model: "sonnet",
+				CommitSHA: "def5678", DiffBase: base, Outcome: "completed",
+				StartedAt: time.Date(2026, 1, 2, 4, 0, 0, 0, time.UTC),
+			},
+		}
+		return r
+	}
+
+	if records.RenderLedger(run("9f3c2a1")) == records.RenderLedger(run("")) {
+		t.Fatalf("the fixture carries no base the renderer can see; the panel comparison below would pass vacuously")
+	}
+
+	withBase := records.RenderPanel(run("9f3c2a1"))
+	withNone := records.RenderPanel(run(""))
+
+	if withBase != withNone {
+		t.Errorf("a dispatch's diff base must not reach the panel record the guards parse:\nwith a base:\n%s\nwith none:\n%s", withBase, withNone)
+	}
+}
+
 // --- steps 7-9: Destination's two path protections and its date reuse ---
 
 // TestDestinationRefusesAChangeNameOutsideTheAllowlist inherits
