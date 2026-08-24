@@ -745,3 +745,57 @@ func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
 			gotN, appendCount, appendCount-gotN)
 	}
 }
+
+// TestReplayRetiresMalformedMergeBaseEntryAndAppliesEntryBehindIt is the
+// journal half of "A recorded merge base is a sha or nothing". `myflow
+// state set` refuses a malformed merge base before it can ever be
+// journalled, so the only way one reaches replay is a hand-edited or
+// out-of-band-modified fallback file -- the case
+// skills/myflow-contracts/state-file.md already names.
+//
+// Such an entry is unfixable by retrying: the bytes already on disk
+// produce the identical store.ErrInvalidMergeBase refusal on every future
+// pass. It must therefore retire, exactly as an invalid-state entry does,
+// rather than block every entry queued behind it forever. That is what
+// makes store.ErrInvalidMergeBase's case in api.IsDefinitiveChangeOutcome
+// load-bearing rather than decorative: without it the refusal falls into
+// replayFile's "unknown outcome" branch and stops the file there, which is
+// F1's bug reproduced by a different malformed field.
+func TestReplayRetiresMalformedMergeBaseEntryAndAppliesEntryBehindIt(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	root := t.TempDir()
+
+	const project, name = "proj-badbase", "chg-badbase"
+
+	// A worktree path written into the merge-base position -- the value
+	// KAN-265 recorded and could not correct.
+	handEdited := []byte(`{"state":"IN_PROGRESS","mainCheckoutPath":"/tmp/reconcile-test",` +
+		`"worktrees":{"/w/kan-265":"/Users/x/Projects/agents-worktrees/kan-265"},` +
+		`"updatedAt":"2026-08-13T10:00:00Z","updatedBy":"myflow-do"}`)
+	if err := fallback.AppendJournalEntry(journalPath(root, project, name), project, name, handEdited, time.Now()); err != nil {
+		t.Fatalf("append hand-edited journal entry: %v", err)
+	}
+	appendEntry(t, root, project, name, "IN_PROGRESS", "2026-08-13T10:05:00Z", "myflow-fix")
+
+	rec := reconcile.New(st, st, st, root, nil)
+	result, err := rec.Run(ctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Applied != 1 || result.Refused != 1 {
+		t.Fatalf("Run result = %+v, want {Applied:1 Refused:1} -- a hand-edited merge base must retire, not block the valid entry behind it", result)
+	}
+
+	got, err := st.GetChange(ctx, project, name)
+	if err != nil {
+		t.Fatalf("GetChange: %v", err)
+	}
+	if got.UpdatedBy != "myflow-fix" {
+		t.Fatalf("stored change = %+v, want the valid entry queued behind the bad one", got)
+	}
+
+	if n := pendingCount(t, root, project, name); n != 0 {
+		t.Fatalf("pending entries after replay = %d, want 0 (both entries retired)", n)
+	}
+}

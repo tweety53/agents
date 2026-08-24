@@ -604,6 +604,7 @@ func TestErrorStatusMapping(t *testing.T) {
 		{"monotonic violation", store.ErrMonotonicViolation, http.StatusConflict},
 		{"invalid state", store.ErrInvalidState, http.StatusBadRequest},
 		{"invalid main checkout path", store.ErrInvalidMainCheckoutPath, http.StatusBadRequest},
+		{"invalid merge base", store.ErrInvalidMergeBase, http.StatusBadRequest},
 		{"duplicate repo root", store.ErrDuplicateRepoRoot, http.StatusBadRequest},
 		{"unknown field", store.ErrUnknownField, http.StatusBadRequest},
 		{"unknown filter op", store.ErrUnknownFilterOp, http.StatusBadRequest},

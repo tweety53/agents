@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -215,7 +216,10 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	body := `{"state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z"}`
+	// No updatedAt on the way in: the CLI owns that field and stamps it
+	// itself (stampUpdatedAt), so what the fallback records is the body
+	// the CLI actually wrote, not the caller's bytes verbatim.
+	body := `{"state":"IN_PROGRESS","updatedBy":"/myflow-do"}`
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
@@ -234,8 +238,9 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadStateFile: %v", err)
 	}
-	if !jsonEqual(t, stateBody, []byte(body)) {
-		t.Errorf("on-disk state file = %s, want %s", stateBody, body)
+	want := []byte(`{"state":"IN_PROGRESS","updatedBy":"/myflow-do","updatedAt":"` + updatedAtOf(t, stateBody) + `"}`)
+	if !jsonEqual(t, stateBody, want) {
+		t.Errorf("on-disk state file = %s, want %s", stateBody, want)
 	}
 
 	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
@@ -245,8 +250,8 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("len(journal entries) = %d, want 1", len(entries))
 	}
-	if !jsonEqual(t, entries[0].Body, []byte(body)) {
-		t.Errorf("journal entry body = %s, want %s", entries[0].Body, body)
+	if !jsonEqual(t, entries[0].Body, want) {
+		t.Errorf("journal entry body = %s, want %s", entries[0].Body, want)
 	}
 	if entries[0].Project != projectKey || entries[0].Name != "kan-16" {
 		t.Errorf("journal entry identity = %s/%s, want %s/kan-16", entries[0].Project, entries[0].Name, projectKey)
@@ -458,6 +463,321 @@ func TestStateSetSucceedsAgainstReachableStore(t *testing.T) {
 	}
 	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
 		t.Error("state file was written on a successful store write -- the fallback path must be untouched")
+	}
+}
+
+// --- state set: updatedAt is stamped by the CLI, at full precision ---
+
+// updatedAtOf decodes body as a JSON object and returns its "updatedAt"
+// field, failing the test if the field is absent or is not a string. The
+// three tests below all assert on that one field across a different set
+// of destinations, so reading it is worth naming once.
+func updatedAtOf(t *testing.T, body []byte) string {
+	t.Helper()
+	var got struct {
+		UpdatedAt *string `json:"updatedAt"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode %s: %v", body, err)
+	}
+	if got.UpdatedAt == nil {
+		t.Fatalf("body carried no updatedAt: %s", body)
+	}
+	return *got.UpdatedAt
+}
+
+// TestStateSetStampsUpdatedAtOverBodyValue is the regression test for
+// KAN-284's actual cause. The store orders a same-state write by
+// "updatedAt", and every skill wrote that field truncated to the second;
+// a stage mark's synthetic bootstrap wrote it from time.Now() at
+// nanosecond precision. A truncated instant compares as earlier than any
+// sub-second instant inside the same second, so the next write -- a fix,
+// which by the pipeline's own rule does not move the state -- was refused
+// as moving state backwards. The CLI now owns the field: whatever the
+// body carried is overwritten before the body reaches the store.
+func TestStateSetStampsUpdatedAtOverBodyValue(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"state":"IN_PROGRESS"}`))
+	}))
+	defer srv.Close()
+
+	before := time.Now().UTC().Add(-time.Second)
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
+		&stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	stamped := updatedAtOf(t, gotBody)
+	if stamped == "2020-01-01T00:00:00Z" {
+		t.Fatalf("request body carried the caller's updatedAt %q -- the CLI must overwrite it", stamped)
+	}
+	at, err := time.Parse(time.RFC3339Nano, stamped)
+	if err != nil {
+		t.Fatalf("stamped updatedAt %q does not parse as RFC3339Nano: %v", stamped, err)
+	}
+	if at.Before(before) {
+		t.Errorf("stamped updatedAt = %s, want an instant read during this run (at or after %s)", at, before)
+	}
+}
+
+// TestStateSetStampsSameInstantIntoRequestAndJournal pins that one read of
+// the clock reaches every destination a single `state set` writes to. The
+// fake store captures the request body and only then answers 500, so the
+// same invocation goes on to take the fallback path and write both the
+// on-disk state file and the journal entry -- the one arrangement in
+// which all three destinations are produced by a single run. A journal
+// entry carrying a different instant from the request it retries would be
+// replayed under the wrong clock read, and could lose to the very write it
+// was recorded behind.
+func TestStateSetStampsSameInstantIntoRequestAndJournal(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+		strings.NewReader(`{"state":"IN_PROGRESS","updatedAt":"2020-01-01T00:00:00Z"}`),
+		&stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a 500 is not a refusal); stderr:\n%s", code, stderr.String())
+	}
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	stateBody, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16"))
+	if err != nil {
+		t.Fatalf("ReadStateFile: %v", err)
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("len(journal entries) = %d, want 1", len(entries))
+	}
+
+	request := updatedAtOf(t, gotBody)
+	if request == "2020-01-01T00:00:00Z" {
+		t.Fatalf("updatedAt = %s -- the caller's value must not survive into any destination", request)
+	}
+	if onDisk := updatedAtOf(t, stateBody); onDisk != request {
+		t.Errorf("state file updatedAt = %s, request updatedAt = %s -- one write must carry one instant", onDisk, request)
+	}
+	if journalled := updatedAtOf(t, entries[0].Body); journalled != request {
+		t.Errorf("journal entry updatedAt = %s, request updatedAt = %s -- a replay must reissue the instant its write happened at", journalled, request)
+	}
+}
+
+// TestStateSetStampIsFinerThanSecondPrecision guards the format itself:
+// narrowing it back to time.RFC3339 would truncate to the second and
+// reintroduce exactly the collision this change removes.
+//
+// It asserts on formatUpdatedAt rather than on a `state set` run because
+// the property under test is the format, and the format is the only part
+// of the stamp that does not depend on when the test happens to run: a
+// fixed instant with a non-zero nanosecond component formats to exactly
+// one string under time.RFC3339Nano and to a whole-second string under
+// time.RFC3339, so the regression is caught with no reading of the wall
+// clock at all.
+func TestStateSetStampIsFinerThanSecondPrecision(t *testing.T) {
+	at := time.Date(2026, 8, 24, 10, 30, 45, 123456789, time.UTC)
+	const want = "2026-08-24T10:30:45.123456789Z"
+	if got := formatUpdatedAt(at); got != want {
+		t.Errorf("formatUpdatedAt(%s) = %q, want %q -- a whole-second value means the format was narrowed to time.RFC3339", at, got, want)
+	}
+}
+
+// --- state set: a recorded merge base is a sha or nothing ---
+
+// TestStateSetAcceptsShaAndNullMergeBases pins the two values the
+// `worktrees` map is allowed to carry. `null` is not a lenient case left
+// to be tightened later: the state file contract defines it as *no merge
+// base recorded*, which is what a worktree registered before its base is
+// known carries, so a check that rejected it would refuse writes the
+// pipeline makes on purpose.
+func TestStateSetAcceptsShaAndNullMergeBases(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"state":"IN_PROGRESS"}`))
+	}))
+	defer srv.Close()
+
+	const sha = "0123456789abcdef0123456789abcdef01234567"
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+		strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/recorded":"`+sha+`","/w/unrecorded":null}}`),
+		&stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got struct {
+		Worktrees map[string]*string `json:"worktrees"`
+	}
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body sent to store: %v", err)
+	}
+	if recorded := got.Worktrees["/w/recorded"]; recorded == nil || *recorded != sha {
+		t.Errorf("request body = %s, want /w/recorded to carry the sha %s", gotBody, sha)
+	}
+	if unrecorded, ok := got.Worktrees["/w/unrecorded"]; !ok || unrecorded != nil {
+		t.Errorf("request body = %s, want /w/unrecorded to carry null", gotBody)
+	}
+}
+
+// TestStateSetRefusesMalformedMergeBase covers the value KAN-265 recorded
+// and could not correct -- a worktree path written into the merge-base
+// position -- together with the other shapes that are not a sha: a short
+// sha, an uppercase sha, and an empty string. The refusal is a caller
+// mistake reported at the point it was made, so it exits 2 rather than
+// taking the never-block fallback an unreachable store takes, and it
+// happens before the store is touched at all: the fake daemon below fails
+// the test if it is called.
+func TestStateSetRefusesMalformedMergeBase(t *testing.T) {
+	repo := gitRepo(t)
+
+	for name, value := range map[string]string{
+		"worktree path": "/Users/x/Projects/agents-worktrees/kan-265",
+		"short sha":     "0123456",
+		"uppercase sha": "0123456789ABCDEF0123456789ABCDEF01234567",
+		"empty string":  "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			isolatedStateRoot(t)
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+				t.Errorf("the store was called: a malformed merge base must be refused before the store is touched")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			encoded, err := json.Marshal(value)
+			if err != nil {
+				t.Fatalf("encode %q: %v", value, err)
+			}
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+				strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":`+string(encoded)+`}}`),
+				&stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2 (a caller mistake, not a store outage); stderr:\n%s", code, stderr.String())
+			}
+			if got := countLines(stderr.String()); got != 1 {
+				t.Errorf("stderr line count = %d, want exactly 1:\n%s", got, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), "/w/kan-16") {
+				t.Errorf("stderr does not name the offending worktree path: %q", stderr.String())
+			}
+			// Quoted, so the empty string is legible as a rejected value
+			// rather than invisible in the middle of the sentence.
+			if !strings.Contains(stderr.String(), strconv.Quote(value)) {
+				t.Errorf("stderr does not name the rejected value %q: %q", value, stderr.String())
+			}
+		})
+	}
+}
+
+// TestMergeBaseRefusalNamesTheSortedFirstOffender pins which offender a
+// body carrying several of them names. Go randomises map iteration, so
+// without the sort in validateWorktreeMergeBases the reported path is
+// whichever entry the runtime happened to visit first, and the same bad
+// body produces a different message on consecutive runs -- a refusal a
+// reader cannot reproduce from the message they were given.
+//
+// The loop is what makes the assertion decisive rather than a coin toss:
+// one unsorted scan of three offenders names the sorted-first one with
+// probability 1/3, so a single iteration would pass half the time with
+// the sort deleted, while sixteen consecutive iterations doing so is not
+// a thing that happens. The JSON below lists the paths in reverse sorted
+// order for the same reason -- a decode that merely preserved input order
+// would name /w/zebra and fail here.
+func TestMergeBaseRefusalNamesTheSortedFirstOffender(t *testing.T) {
+	const body = `{"state":"IN_PROGRESS","worktrees":{"/w/zebra":"not-a-sha","/w/mike":"not-a-sha","/w/alpha":"not-a-sha"}}`
+
+	for range 16 {
+		err := validateWorktreeMergeBases([]byte(body))
+		if err == nil {
+			t.Fatalf("validateWorktreeMergeBases(%s) = nil, want a refusal", body)
+		}
+		if !strings.Contains(err.Error(), "/w/alpha") {
+			t.Fatalf("refusal names %q, want the sorted-first offending path /w/alpha -- a body with several bad values must report the same one on every run", err)
+		}
+	}
+}
+
+// TestStateSetRefusalWritesNoFallback is why the check sits before the
+// project key is resolved: both fallback destinations -- the on-disk state
+// file and the journal -- are derived from that key, so returning first is
+// what guarantees the refusal wrote nothing. Journalling the bad value
+// instead would hide it until check-finish-preflight.sh refuses at the
+// finish gate, which is the failure this change removes rather than a
+// tolerable version of it.
+func TestStateSetRefusalWritesNoFallback(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
+		strings.NewReader(`{"state":"IN_PROGRESS","worktrees":{"/w/kan-16":"/w/kan-16"}}`),
+		&stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2: an unreachable store does not turn a caller mistake into a fallback; stderr:\n%s", code, stderr.String())
+	}
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-16")); err == nil {
+		t.Error("a malformed merge base reached the state file -- the refusal must write nothing")
+	}
+	entries, err := fallback.ReadJournalEntries(fallback.JournalFilePath(projectKey, "kan-16"))
+	if err != nil {
+		t.Fatalf("ReadJournalEntries: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("journal has %d entries, want 0 -- a malformed merge base must never be journaled", len(entries))
 	}
 }
 

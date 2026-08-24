@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
+	"slices"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
@@ -269,6 +271,23 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 	}
 	if !isJSONObject(body) {
 		fmt.Fprintln(stderr, "myflow: state on stdin must be a JSON object")
+		return 2
+	}
+
+	// Stamp before anything reads body: the store request, the on-disk
+	// fallback file and the journal entry are all derived from this
+	// variable further down, so one clock read reaches all three.
+	body, err = stampUpdatedAt(body)
+	if err != nil {
+		fmt.Fprintf(stderr, "myflow: stamp updatedAt: %v\n", err)
+		return 1
+	}
+
+	// Before the project key is resolved, and therefore before either
+	// fallback destination exists to be written to -- see
+	// validateWorktreeMergeBases for why the refusal must write nothing.
+	if err := validateWorktreeMergeBases(body); err != nil {
+		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		return 2
 	}
 
@@ -561,6 +580,116 @@ func putChange(ctx context.Context, addr string, timeout time.Duration, projectK
 
 	cl := client.New(addr, &http.Client{Timeout: timeout})
 	return cl.PutChange(reqCtx, projectKey, name, reqBody)
+}
+
+// stampUpdatedAt returns body with its "updatedAt" field set to this
+// process's own clock, at full precision, overwriting whatever value the
+// body carried. Every other field is left untouched.
+//
+// The field is CLI-owned (skills/myflow-contracts/state-file.md): a
+// caller supplies it or not, and either way this value is the one that
+// reaches the store, the on-disk fallback file and the journal entry.
+// That single ownership is the whole fix for KAN-284. The store orders a
+// same-state write by this instant, and it was being fed two clocks at
+// two precisions -- a skill's `date -u +%Y-%m-%dT%H:%M:%SZ`, truncated to
+// the second, against a stage mark's synthetic bootstrap at nanosecond
+// precision. A truncated instant compares as earlier than any sub-second
+// instant inside the same second, so a write that followed a bootstrap in
+// the same second was refused as moving state backwards -- which blocks a
+// fix run, whose writes never move the state by design. With one writer
+// at one precision the store's strict `>` is satisfied by every live
+// write, so the monotonic rule needs no change.
+//
+// body is expected to already be a JSON object -- runStateSet's
+// isJSONObject check enforces that before this is ever called. The nil
+// check below is the same second, cheap guard withMainCheckoutPath
+// carries, and matters slightly more here: this call site sits outside
+// putChange's recover, so a nil-map assignment would take the process
+// down rather than degrade to the fallback.
+func stampUpdatedAt(body []byte) ([]byte, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("decode state as a JSON object: %w", err)
+	}
+	if raw == nil {
+		raw = map[string]json.RawMessage{}
+	}
+	stamped, err := json.Marshal(formatUpdatedAt(time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("encode updatedAt: %w", err)
+	}
+	raw["updatedAt"] = stamped
+	out, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("encode stamped state: %w", err)
+	}
+	return out, nil
+}
+
+// formatUpdatedAt renders at as the "updatedAt" field's wire value: UTC,
+// at full precision. It is stampUpdatedAt's format step, named separately
+// so the format can be asserted against a fixed instant instead of
+// against whatever the clock happens to read
+// (TestStateSetStampIsFinerThanSecondPrecision).
+//
+// time.RFC3339Nano is the format toDTO already emits the field in, so the
+// value a `state get` prints and the value a `state set` sends are the
+// same shape. Narrowing it to time.RFC3339 would truncate to the second
+// and reintroduce the collision described on stampUpdatedAt.
+func formatUpdatedAt(at time.Time) string {
+	return at.UTC().Format(time.RFC3339Nano)
+}
+
+// mergeBasePattern is the only shape a recorded merge base may take: a
+// 40-character lowercase hexadecimal sha, exactly as git prints one.
+// Uppercase is excluded deliberately rather than folded -- every producer
+// in the pipeline is `git merge-base`, which emits lowercase, so an
+// uppercase value is a hand-edit and worth reporting as one.
+var mergeBasePattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// validateWorktreeMergeBases reports the first `worktrees` value that is
+// neither JSON null nor a sha, naming the worktree path it was recorded
+// against and the value itself. `null` is legal and means *no merge base
+// recorded* (skills/myflow-contracts/state-file.md), which is what a
+// worktree registered before its base is known carries.
+//
+// Its caller in runStateSet exits 2 rather than taking the never-block
+// fallback path, and calls it before fallback.ProjectKey: both fallback
+// destinations -- the on-disk state file and the journal -- are derived
+// from the project key, so returning before it is resolved is what makes
+// "writes nothing" a property of the control flow rather than a promise.
+// The fallback exists for a store outage; a malformed merge base is a
+// caller mistake, and journalling it would hide the bad value until
+// check-finish-preflight.sh refuses at the finish gate -- KAN-265's
+// failure, which this check exists to stop at the point the value is
+// written.
+//
+// The paths are sorted so that a body carrying several bad values names
+// the same one on every run. Decoding into *string is what separates a
+// JSON null (nil) from the empty string (non-nil, empty), which are
+// different answers: the first is legal, the second is not.
+func validateWorktreeMergeBases(body []byte) error {
+	var raw struct {
+		Worktrees map[string]*string `json:"worktrees"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return fmt.Errorf("decode worktrees: %w", err)
+	}
+	paths := make([]string, 0, len(raw.Worktrees))
+	for path := range raw.Worktrees {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	for _, path := range paths {
+		mergeBase := raw.Worktrees[path]
+		if mergeBase == nil {
+			continue
+		}
+		if !mergeBasePattern.MatchString(*mergeBase) {
+			return fmt.Errorf("worktree %s: merge base %q is neither null nor a 40-character lowercase hex sha", path, *mergeBase)
+		}
+	}
+	return nil
 }
 
 // withMainCheckoutPath returns body with a "mainCheckoutPath" field added,
