@@ -22,6 +22,13 @@ earlier in the pipeline than the stored one, or — at the same state — to an 
 instant. The recorded instant is the primary ordering and the pipeline state is the tiebreaker, so a
 replayed or duplicated write can never silently overwrite a newer record with older field values.
 
+`updatedAt` SHALL be stamped by the CLI on every write, at a precision no coarser than the precision
+any other writer of the record uses, and SHALL overwrite whatever value the caller supplied. The
+stamped value SHALL be the one carried by the store row, the on-disk fallback file and the journal
+entry alike, so a journal entry replayed later orders by the instant its write happened at rather
+than the instant of the replay. A caller MAY still supply the field; it is ignored rather than
+refused, so a journal entry written before this rule still replays.
+
 #### Scenario: A command reads state through the CLI
 
 - **WHEN** any `/myflow-*` command needs a change's state and the daemon is reachable
@@ -47,6 +54,22 @@ replayed or duplicated write can never silently overwrite a newer record with ol
 - **THEN** the store refuses it and the stored record is unchanged
 - **AND** the refusal is reported as the same kind of refusal a state regression produces, so a
   caller cannot mistake it for a transport failure
+
+#### Scenario: The CLI stamps the recorded instant
+
+- **WHEN** a caller writes state through the CLI with a payload carrying its own `updatedAt`
+- **THEN** the CLI replaces that value with the current instant before the payload is sent
+- **AND** the value sent to the store, the value written to the on-disk fallback file, and the value
+  appended to the journal are the same instant
+
+#### Scenario: A same-state write following a sub-second stored instant is accepted
+
+- **WHEN** a change's stored record carries a recorded instant with sub-second precision — as a
+  stage mark's synthetic bootstrap writes — and a write at that same state arrives within the same
+  wall-clock second
+- **THEN** the write is accepted and the stored record carries the new field values
+- **AND** it is accepted because the arriving instant is stamped at the same precision, not because
+  the monotonic rule was relaxed
 
 ### Requirement: The pipeline never blocks on the store
 
@@ -157,4 +180,53 @@ unknown or missing repository.
 
 - **WHEN** a stage belongs to the change rather than to any one repository
 - **THEN** its stage run records no repository, and aggregation attributes it to the whole unit
+
+### Requirement: A recorded merge base is a sha or nothing
+
+Each value of the `worktrees` map records that worktree's merge base. A value SHALL be either JSON
+`null` — meaning *no merge base recorded*, exactly as the state file contract already defines it —
+or a 40-character lowercase hexadecimal sha. No other value SHALL reach the store.
+
+The CLI SHALL refuse a violating write **before the store is touched**, naming the offending
+worktree path and the rejected value, and SHALL exit non-zero without writing the on-disk fallback
+file and without appending a journal entry. A malformed merge base is a caller mistake, not a store
+outage, and SHALL NOT take the never-block fallback path that a store outage takes — journalling it
+would hide the bad value until the finish gate, which is the failure this requirement exists to
+prevent.
+
+The store SHALL additionally refuse a violating write with an error distinguishable from an invalid
+state and from a monotonic refusal. For a write made through the CLI this refusal is unreachable,
+because the CLI refused first; it covers the path that bypasses the CLI, namely journal replay of a
+hand-edited or out-of-band-modified fallback file. Such an entry SHALL be retired from the journal
+as a definitive outcome rather than replayed indefinitely.
+
+A validated merge base SHALL NOT be inferred, defaulted, or repaired. `null` remains the refusal to
+infer one, never a licence to.
+
+#### Scenario: A sha is accepted
+
+- **WHEN** a write carries a `worktrees` value that is a 40-character lowercase hexadecimal string
+- **THEN** the CLI sends it and the store records it as that worktree's merge base
+
+#### Scenario: An unrecorded merge base is accepted
+
+- **WHEN** a write carries a `worktrees` value of JSON `null`
+- **THEN** the CLI sends it and the store records no merge base for that worktree
+- **AND** every rule the pipeline already states for a missing recorded merge base applies unchanged
+
+#### Scenario: A worktree path in the merge base position is refused at the CLI
+
+- **WHEN** a write carries a `worktrees` value that is neither `null` nor a 40-character lowercase
+  hexadecimal string — an absolute path, a short sha, an uppercase sha, or an empty string
+- **THEN** the CLI refuses the write, names the offending worktree path and the rejected value, and
+  exits non-zero
+- **AND** no on-disk fallback file is written and no journal entry is appended
+
+#### Scenario: Journal replay refuses a hand-edited merge base
+
+- **WHEN** journal replay applies an entry whose `worktrees` carries a value that is neither `null`
+  nor a 40-character lowercase hexadecimal string
+- **THEN** the store refuses it with an error distinguishable from an invalid state and from a
+  monotonic refusal
+- **AND** the entry is retired from the journal rather than replayed again
 
