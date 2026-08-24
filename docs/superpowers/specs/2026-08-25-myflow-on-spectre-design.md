@@ -1,0 +1,163 @@
+# myflow on spectre — design
+
+**Date:** 2026-08-25
+**Status:** approved, pending implementation plan
+
+## Purpose
+
+Move the myflow pipeline off OpenSpec and onto `spectre`, the minimal spec tool at
+`github.com/tweety53/spectre`. One artifact layer, chosen by this repository, replaces a third-party
+CLI whose surface myflow used a fraction of.
+
+The switch is a full transition. Nothing in the pipeline speaks OpenSpec afterwards, and no project
+is expected to run both.
+
+## Scope
+
+**The existing `openspec/` tree is frozen in place and never migrated.** Its 35 capability specs,
+roughly 60 archived changes and 2 unfinished changes — `kan-295-cut-pipeline-load-cost-split-by-consumer`
+and `kan-327-review-per-round-delta-after-round-1` — stay exactly where they are, readable, as the
+record of how this repository got here. Both unfinished changes are abandoned; neither is recreated.
+
+A fresh `spectre/specs/` and `spectre/changes/` start empty. No `spectre/config.md` is written: the
+defaults are what myflow wants, and a configuration file added at cutover would be configuring for
+its own sake.
+
+## What the pipeline stops doing
+
+Three of the integration points have no spectre equivalent, by spectre's design. Each is a deletion
+rather than a port, and each removes work the pipeline was doing.
+
+### Delta specs
+
+OpenSpec has a change carry `changes/<name>/specs/<capability>/spec.md` delta files, which
+`/myflow-finish` run 2 merges back into the main specs tree at archive time.
+
+spectre has no deltas. A change edits `spectre/specs/<capability>.md` **directly on its branch**, and
+git computes the diff. So:
+
+- `/myflow-start` writes spec changes into the specs tree itself, not into delta files.
+- `/myflow-finish` run 2 loses step 3's "sync delta specs" half entirely. What remains is: archive the
+  change folder, commit on `chore/archive-<name>`.
+
+This removes the step in the whole pipeline most able to lose an edit silently, and it is the
+strongest single reason to make this switch.
+
+### `openspec instructions`
+
+`/myflow-start` and `/myflow-do` call `openspec instructions <artifact-id> --change <name> --json` for
+enriched artifact instructions. spectre keeps conventions out of the binary deliberately — its own
+design records this as a non-goal — so the artifact shape moves into the skills that create the
+artifacts. Most of that prose already lives there; what the CLI supplied is the residue.
+
+### `openspec status --change`
+
+Used for the `changeRoot` field. Under spectre a change's root is `<tree>/changes/<id>` by
+construction, so this becomes derivation rather than a process call.
+
+## Command mapping
+
+| OpenSpec call | Replacement | Notes |
+|---------------|-------------|-------|
+| `openspec new <name>` | `spectre new <id>` | refuses when the tree does not exist; there is no `init` |
+| `openspec list --json` | `spectre list --json` | shape becomes `{"changes":[{"id","done","total"}]}` |
+| `openspec validate [name]` | `spectre validate [id]` | exit 1 on findings, 2 on usage or IO error |
+| `openspec archive <name>` | `spectre archive <id>` | `git mv` into `changes/archive/`; does not commit |
+| `openspec status --change` | derived path | `<tree>/changes/<id>` |
+| `openspec instructions` | skill prose | no replacement command |
+
+`/myflow-status` reports only non-archived changes, which is exactly what `spectre list --json`
+returns — it needs nothing spectre does not have.
+
+`spectre refs <capability>#<id>` has no OpenSpec counterpart and no myflow caller. It is not wired
+into the pipeline by this change.
+
+## Guards and scripts
+
+24 guard scripts and 21 guard tests reference `openspec/changes/...`, including 208 fixture paths.
+All move to `spectre/changes/...`. The change is mechanical but wide, and the guard tests are the
+safety net that proves it.
+
+Two guards need judgement rather than substitution:
+
+- `scripts/check-contract-budget.sh` carries a size baseline naming files under `openspec/specs/`.
+  Those files are now frozen, so their sizes are permanently constant and the guard stays green
+  untouched. It is left alone deliberately, not overlooked.
+- Any guard asserting that delta specs were synced loses that assertion, because there are no delta
+  specs to sync.
+
+## Explore mode
+
+`skills/openspec-explore/` and `commands/opsx-explore.md` are third-party (MIT, authored by
+openspec), 290 and 174 lines, and depend on `openspec` CLI calls through an `allowed-tools` grant.
+
+They are **replaced, not ported**, by a new and much smaller skill written for this repository:
+
+- Skill-only. Exploring a spectre tree means reading markdown; it needs no binary and no
+  `allowed-tools` grant.
+- Keeps the stance that earns the mode its place: a thinking partner that investigates, asks and
+  captures, and never writes application code.
+- Drops the OpenSpec-specific machinery — the status probing, the change-exists branching, the
+  artifact-creation choreography — in favour of reading the tree directly.
+- Installed as `spectre-explore`, invoked as `/spx:explore`, mirroring the shape of the command it
+  replaces. Leaving a command named after the removed tool is the drift this repository's own rules
+  exist to prevent.
+
+## Documentation and distribution
+
+`CLAUDE.md`, `AGENTS.md`, `README.md`, `.myflow/project.md`, `skills/README.md`, `setup.sh`, the five
+myflow skills, the contract files under `skills/myflow-contracts/` that name OpenSpec (10 of its 27), and
+the ten myflow slash commands
+across `commands/` and `commands-claude/` all describe the pipeline in terms of OpenSpec and are
+updated together.
+
+Historical artifacts are NOT rewritten: `docs/self-review/`, `docs/superpowers/ledgers/`,
+`docs/superpowers/reviews/`, `docs/superpowers/reports/`, existing files under
+`docs/superpowers/specs/`, and the whole frozen `openspec/` tree keep saying OpenSpec, because that
+is what happened at the time. Rewriting them would falsify the record.
+
+## Execution
+
+One cutover on a single branch, by hand, with the guard test suite as the net. The repository is
+self-hosting: a half-ported repository fails its own guards, so there is no coherent intermediate
+state at which to stop, and phasing would only defer the same landing. The cutover is not itself run
+through `/myflow-*`, because neither pipeline is usable while it is in progress.
+
+## Verification
+
+1. The repository's 21 guard tests pass.
+2. `spectre validate` runs clean against the new empty tree.
+3. A real pipeline run end to end — `/myflow-start`, `/myflow-do`, `/myflow-finish` twice — against a
+   scratch project holding a spectre tree, proving the pipeline works on the new layer rather than
+   merely compiling.
+4. `git status openspec/` reports nothing. The frozen tree must prove it stayed frozen.
+
+## Non-goals
+
+No migration of OpenSpec content, now or later. No dual-path support: nothing in the pipeline
+detects which tool a project uses. No `spectre/config.md`. No new spectre features — if the pipeline
+needs something spectre lacks, that is a change to spectre, proposed separately.
+
+## Rejected alternatives
+
+**Teaching myflow to speak both, cutting over later.** Rejected because every contract and guard
+would grow a second path, which is the configurability spectre exists to remove, and because the
+agents repository would then carry two artifact layers indefinitely.
+
+**Phasing the cutover across three changes** — contracts and skills, then guards, then docs.
+Rejected because the repository runs its own guards against itself: after phase 1 the guards fail,
+so the phases have to land together regardless. The phasing would be presentational.
+
+**Running the cutover as the last OpenSpec change, through `/myflow-*` itself.** Rejected despite the
+appeal of exercising the old path one final time: the run's own guards would inspect a repository
+mid-cutover, and it would add an entry to a tree being frozen in the same commit.
+
+**Migrating the 35 capability specs with `spectre migrate`.** Rejected by the author. OpenSpec states
+the modal verb in a requirement's body while spectre states it in the bullet, so every migrated
+requirement needs a hand pass — 249 of 278 warnings on this very corpus are that one artifact. A
+frozen, readable `openspec/` tree plus an empty `spectre/` tree is honest; a machine-converted tree
+carrying 249 findings would not be.
+
+**Porting `openspec-explore` as it stands.** Rejected: it is 290 lines of third-party prose built
+around CLI calls that no longer exist, and a smaller skill written for this repository serves the
+same purpose with less to maintain.
