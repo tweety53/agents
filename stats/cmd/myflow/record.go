@@ -37,8 +37,8 @@ var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner"
 
 const recordUsage = `usage: myflow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
-                             -model model [-agent-id id] -key key
-                             -session-token token -started-at rfc3339
+                             -model model [-agent-id id] [-diff-base sha]
+                             -key key -session-token token -started-at rfc3339
        myflow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-agent-id id]
@@ -368,6 +368,13 @@ func runRecordDispatchVerb(ctx context.Context, args []string, stdout, stderr io
 // treats an absent id as "not reported" and must never pair two dispatches
 // off by their shared absence.
 //
+// -diff-base is optional in the same shape as -agent-id: it names the sha
+// the diff this dispatch was given was computed from, which a panel slot
+// re-run against its own delta has and an implementer -- or a slot reading
+// the whole diff -- does not. Left unset it is sent as nothing at all
+// rather than as an empty value, because an absent base means the dispatch
+// recorded none, and a rendered record must never show a base it invented.
+//
 // -key is required, and is the one flag whose value the caller invents. It
 // names this dispatch within its run, so that `end` can close a row whose
 // seq the caller may never have seen -- a begin that fell back to the
@@ -383,6 +390,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	slot := fset.String("slot", "", "the review-panel slot, where the role is a panel slot")
 	model := fset.String("model", "", "the model this dispatch ran on, as recorded intent -- the literal \"unknown (agent-defined)\" where it cannot be read, never a guess (required)")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where it exposes one -- optional, since two of the three supported harnesses expose none")
+	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	startedAt := fset.String("started-at", "", "when the dispatch started, RFC 3339 -- the instant the harvester attributes its cost from (required)")
@@ -426,6 +434,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		Role:         *role,
 		Slot:         *slot,
 		Model:        *model,
+		DiffBase:     *diffBase,
 		SessionToken: *sessionToken,
 		StartedAt:    started,
 	}

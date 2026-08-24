@@ -60,6 +60,20 @@ import (
 // dispatches that do not overlap. An absent value is "" and means "not
 // reported"; it never matches another absent value.
 //
+// DiffBase is the sha the diff this dispatch was given was computed
+// from -- the answer to "what has this slot already read". A Full panel
+// re-run hands each slot only its own delta, and that delta is anchored
+// at the slot's own last read rather than at the current round, because
+// a Targeted round re-runs slot 0 and the slots that raised findings, so
+// a slot arriving at a Full pass may have missed rounds in between.
+//
+// It is optional and its absence is ordinary: every implementer dispatch
+// and the primary reviewer's own dispatch read the whole diff and record
+// none. An absent value is "" and means "this dispatch read no delta",
+// and a slot for which no base is held is given the whole diff rather
+// than a delta anchored at nothing -- an unrecorded base is not a small
+// delta.
+//
 // Model is recorded intent, written by the dispatcher -- the literal
 // `unknown (agent-defined)` where a slot resolves its own model from an
 // agent definition the dispatcher cannot read, never a plausible-looking
@@ -77,6 +91,7 @@ type Dispatch struct {
 	Slot         string          `json:"slot,omitempty"`
 	Model        string          `json:"model"`
 	CommitSHA    string          `json:"commitSha,omitempty"`
+	DiffBase     string          `json:"diffBase,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`
 	StartedAt    time.Time       `json:"startedAt"`

@@ -569,6 +569,79 @@ func TestRecordDispatchSendsAgentIDOnlyWhenGiven(t *testing.T) {
 	})
 }
 
+// dispatchBeginBody runs one `record dispatch begin` against a daemon that
+// captures the request body, and returns that body decoded. The two
+// -diff-base tests below differ only in the flags they pass and in what
+// they assert about the result, so the wiring they share sits here rather
+// than being written out twice.
+func dispatchBeginBody(t *testing.T, extra ...string) map[string]any {
+	t.Helper()
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"reviewer","model":"sonnet","startedAt":"2026-01-02T03:04:05Z"}`))
+	}))
+	defer srv.Close()
+
+	args := []string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "kan-327", "-role", "reviewer", "-model", "sonnet", "-key", "panel-principles",
+		"-session-token", "mf-record-diff-base", "-started-at", "2026-01-02T03:04:05Z"}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), append(args, extra...), strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+	}
+	return sent
+}
+
+// TestRecordDispatchBeginAcceptsDiffBase pins -diff-base through to the
+// request body. A panel slot re-run against its own delta is dispatched
+// with the sha that delta starts from, and recording it is the whole
+// reason the ledger can afterwards say what that slot actually read: a
+// flag the command accepted and then dropped would leave the store holding
+// nothing while every caller believed the base had been recorded.
+func TestRecordDispatchBeginAcceptsDiffBase(t *testing.T) {
+	const base = "0f1e2d3c4b5a69788796a5b4c3d2e1f009182736"
+
+	sent := dispatchBeginBody(t, "-diff-base", base)
+
+	if sent["diffBase"] != base {
+		t.Errorf("diffBase = %v, want %s", sent["diffBase"], base)
+	}
+}
+
+// TestRecordDispatchBeginDiffBaseIsOptional pins the flag's absence, which
+// is an ordinary state rather than a degraded one: every implementer
+// dispatch, and every panel slot reading the whole diff, legitimately
+// records no base, so a required flag here would break every existing call
+// site at once.
+//
+// The assertion is that the key is missing from the body, not that it is
+// empty -- the same distinction -agent-id draws for the same reason. An
+// absent base means "not recorded", and a present empty value is one the
+// store would keep and a reader could mistake for a base that was.
+func TestRecordDispatchBeginDiffBaseIsOptional(t *testing.T) {
+	sent := dispatchBeginBody(t)
+
+	if v, ok := sent["diffBase"]; ok {
+		t.Errorf("diffBase = %v, want the key absent -- an unrecorded base is absence, not an empty value", v)
+	}
+}
+
 // TestDispatchEndAcceptsAgentID pins the delta spec's "A dispatch's
 // identifier may be recorded when it becomes known": on Claude Code the
 // harness reports a subagent's identifier only once the dispatch has

@@ -479,7 +479,8 @@ dispatched, `end` at its close, and for the same reasons section 4 gives:
 
 ```bash
 myflow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
-  -agent-id <id> -key panel-<round>-<slot> -session-token mf-<literal-token> -started-at <ts>
+  -agent-id <id> -diff-base <sha> -key panel-<round>-<slot> \
+  -session-token mf-<literal-token> -started-at <ts>
 myflow record dispatch end -change <name> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
@@ -487,11 +488,18 @@ myflow record dispatch end -change <name> -key panel-<round>-<slot> \
 `-slot` is the slot's own name from the table above — `Primary`, `Bugbot`, `Principles`,
 `Code review (low)`, `Security`, `Adversarial`, `Lens B` or `Lens C` — so the rows themselves say
 which slots ran, and nothing has to state it a second time. `-role` is `reviewer` for every one of
-them, and `-task` is omitted: a panel slot reads the whole diff and runs against no single task.
+them, and `-task` is omitted: a panel slot runs against no single task.
 `-started-at` and `-ended-at` are that slot's own start and end, RFC 3339. `-key` is
 `panel-<round>-<slot>`, the same literal in both halves. **`-session-token` takes a literal, never a
 shell substitution**, exactly as the `myflow stage begin` that opened this stage does, and both
 halves take the same one.
+
+**`-diff-base <sha>` is the sha a delta-slot's delta starts from**, passed on a slot dispatched
+against a delta and on no other: a slot reading the whole `final-review.diff` passes none, and an
+absent base means *not recorded* rather than a base of nothing. **Scheduling reads the dispatcher's
+own in-session value of each slot's last-reviewed sha, never the store** — the row is the durable
+audit trail, and nothing waits on it, which is what keeps this flag inside *A record write never
+blocks*, stated earlier in this section.
 
 **`-model` is recorded intent here too, per Model policy.** A slot the dispatcher named a model for
 records that model; **slots 1 and 4, dispatched by `subagent_type`, record the literal
@@ -805,14 +813,35 @@ diff — one commit per task throughout the panel's re-runs, never a trailing se
 | Mode | Who re-runs | Diff they get |
 |------|-------------|---------------|
 | **Targeted** (default) | Slot 0 (always, as integration check) + every agent that raised a finding | `fix-round-N.diff` |
-| **Full** (escalation) | Every **required** slot; a **conditional** slot (Security, Adversarial, Lens B, Lens C) only when its own row in the optional-slot trigger table still fires against `fix-round-N.diff` | rewritten `final-review.diff` |
+| **Full** (escalation) | Every **required** slot; a **conditional** slot (Security, Adversarial, Lens B, Lens C) only when its own row in the optional-slot trigger table still fires against `fix-round-N.diff` | Slot 0 the rewritten `final-review.diff`; every other diff-reading slot its own delta, below |
+
+**A delta is `git diff <the HEAD sha that slot last reviewed> HEAD`**, written to
+`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff`. It is anchored at that slot's own
+last read, never at the current round: **Targeted** mode re-runs slot 0 and the slots that raised
+findings alone, so a slot reaching a Full pass may have missed rounds in between. Each dispatch sets
+that slot's sha to the HEAD it was dispatched against — pass 1, a Targeted re-run and a Full-mode
+delta dispatch alike — and a slot not dispatched in a round, including one skipped for an empty
+delta, keeps the sha it had. The range is tree-to-tree and needs no ancestry between its ends, so a
+base recorded before a `git rebase --autosquash` stays valid after that rebase rewrote the task
+commit. A slot for which no last-reviewed sha is held reads the whole `final-review.diff` — an
+unrecorded base is not a small delta. Bugbot and Security read no diff file and are unaffected.
+Coverage holds because pass 1 always runs the full roster against the full `final-review.diff`, so
+every slot has a real starting sha and every change made since sits inside some slot's delta, and
+there is no exemption for the pass that closes the panel. **Every slot's dispatch prompt names the
+path it was given and, for a delta, the sha that delta starts from** — that is what makes a
+reviewer's "I did not see X" checkable after the fact rather than a matter of recollection.
+
+**A required slot whose delta is empty is not dispatched**, and the record states `not re-run —
+nothing new since its last read`. Slot 0 reads the whole diff, has no delta, and is never scoped out
+by this. It says the slot's reading is current, never that its remit was waived.
 
 A conditional slot whose trigger did not fire is **not** re-run; its previous result stands, and the
 record states `not re-run — subject unchanged`, distinct from a slot whose trigger never fired at
 all and from a slot the operator declined. The **Targeted** row is unchanged. Not re-running a slot
 never closes, softens or expires a finding it has already raised — the zero-open-findings bar still
-governs every slot in the roster. See **Panel re-runs** (`skills/myflow-do/SKILL-rationale.md`) for
-why this scoping reaches conditional slots alone.
+governs every slot in the roster. **Trigger-based** scoping reaches conditional slots alone; a
+required slot is scoped, if at all, only by its own delta being empty — two mechanisms, two
+recorded reasons. See **Panel re-runs** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
 outside the set named in the findings; the fix altered a delta spec, a migration, or a guard's

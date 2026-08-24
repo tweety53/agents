@@ -1,0 +1,30 @@
+-- 0014_dispatch_diff_base.sql: the sha a dispatch's diff was computed
+-- from, so a later round can say what that slot has already read.
+--
+-- A Full panel re-run gives each slot its own delta rather than the whole
+-- diff again, and a delta is only correct if it starts where that slot
+-- last stopped. Targeted mode re-runs slot 0 and the slots that raised
+-- findings, so a slot reaching a Full pass may have missed rounds in
+-- between: anchoring its delta at the current round would hand it a range
+-- that skips everything it never saw, with nothing anywhere reporting the
+-- gap. The base therefore has to outlive the session that chose it, which
+-- is why it is a column rather than a value held in the dispatcher.
+--
+-- It is a NEW file rather than an edit to 0010_run_records.sql, for the
+-- reason 0011_dispatch_agent_id.sql gives: migrations here are tracked by
+-- filename with no checksum, so editing an applied one would leave an
+-- existing database silently diverged from a freshly migrated one.
+--
+-- Nullable, and it stays nullable: every implementer dispatch and the
+-- primary reviewer's own dispatch legitimately read the whole diff and
+-- record no base at all. NULL means "this dispatch read no delta" -- the
+-- ordinary case, not a degraded or legacy row -- and a slot for which no
+-- base is held is given the whole diff rather than a delta anchored at
+-- nothing.
+--
+-- THERE IS DELIBERATELY NO INDEX ON diff_base. Nothing queries across it:
+-- it is read back only as part of a row already selected by change, by
+-- readDispatches and by the insert's own RETURNING. An index here would be
+-- charged on every dispatch insert and never read. Add one only alongside
+-- a query that would use it.
+ALTER TABLE dispatches ADD COLUMN diff_base TEXT;

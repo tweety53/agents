@@ -998,6 +998,114 @@ func TestDispatchAgentIDRoundTripsAndAbsenceStaysAbsent(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchRoundTripsDiffBase pins the sha a panel slot was
+// dispatched against through a full write and read: the store writes
+// diff_base on the insert and reads back exactly the value it was given.
+//
+// The base is stored rather than held in the dispatcher's session because
+// it has to outlive the session that chose it. A later round asks what a
+// slot last read in order to compute that slot's own delta, and a rendered
+// ledger names it so a reviewer's "I did not see X" is checkable after the
+// fact rather than a matter of recollection. A column written but never
+// read back, or read back into the wrong field, loses both silently: the
+// dispatch still records, and the base it names is simply gone.
+func TestRecordDispatchRoundTripsDiffBase(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-diff-base-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const base = "9f1c2d3e4b5a60718293a4b5c6d7e8f901234567"
+
+	in := baseDispatch("reviewer", "sonnet")
+	in.Slot = "principles"
+	in.DiffBase = base
+
+	written, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("RecordDispatch (with a diff base): %v", err)
+	}
+	if written.DiffBase != base {
+		t.Errorf("RecordDispatch returned DiffBase %q, want %q", written.DiffBase, base)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Dispatches) != 1 {
+		t.Fatalf("RunRecord returned %d dispatches, want 1", len(rec.Dispatches))
+	}
+	if rec.Dispatches[0].DiffBase != base {
+		t.Errorf("RunRecord returned DiffBase %q, want %q -- the base a slot read from must survive the read path", rec.Dispatches[0].DiffBase, base)
+	}
+}
+
+// TestRecordDispatchOmitsAbsentDiffBase pins the other half: a dispatch
+// that recorded no base reads back with none, and the rest of its row is
+// untouched by the column's addition.
+//
+// Absent has to stay distinguishable from recorded. Every implementer
+// dispatch and the primary reviewer's own dispatch legitimately carry no
+// base -- they read the whole diff -- so an absent value is the ordinary
+// case rather than a degraded row, and a slot holding no last-reviewed sha
+// is given the whole diff rather than a delta anchored at nothing.
+func TestRecordDispatchOmitsAbsentDiffBase(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-no-diff-base-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseDispatch("implementer", "opus")
+	in.TaskID = "1"
+	in.Slot = "implementer"
+	in.CommitSHA = "0123456789abcdef0123456789abcdef01234567"
+	in.Notes = "the whole diff, no base"
+
+	written, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("RecordDispatch (no diff base): %v", err)
+	}
+	if written.DiffBase != "" {
+		t.Errorf("RecordDispatch returned DiffBase %q, want empty -- a dispatch recording none records none", written.DiffBase)
+	}
+
+	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(rec.Dispatches) != 1 {
+		t.Fatalf("RunRecord returned %d dispatches, want 1", len(rec.Dispatches))
+	}
+	got := rec.Dispatches[0]
+	if got.DiffBase != "" {
+		t.Errorf("RunRecord returned DiffBase %q, want empty", got.DiffBase)
+	}
+
+	// The neighbouring columns still decode into their own fields. A
+	// column added to one of dispatchColumns, the scan and the insert but
+	// not the others shifts every scan target after it, which compiles
+	// cleanly and reads the right shape into the wrong fields.
+	if got.Role != "implementer" {
+		t.Errorf("Role = %q, want implementer", got.Role)
+	}
+	if got.Model != "opus" {
+		t.Errorf("Model = %q, want opus", got.Model)
+	}
+	if got.TaskID != "1" {
+		t.Errorf("TaskID = %q, want 1", got.TaskID)
+	}
+	if got.Slot != "implementer" {
+		t.Errorf("Slot = %q, want implementer", got.Slot)
+	}
+	if got.CommitSHA != in.CommitSHA {
+		t.Errorf("CommitSHA = %q, want %q", got.CommitSHA, in.CommitSHA)
+	}
+	if got.Notes != in.Notes {
+		t.Errorf("Notes = %q, want %q", got.Notes, in.Notes)
+	}
+}
+
 // TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres
 // pins EndDispatch's `agent_id = COALESCE($8, d.agent_id)` clause against a
 // real database, not fakeStore's Go conditional: a dispatch begun with an
