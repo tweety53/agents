@@ -86,7 +86,7 @@ Two guards need judgement rather than substitution:
 - Any guard asserting that delta specs were synced loses that assertion, because there are no delta
   specs to sync.
 
-## Explore mode
+## Research mode
 
 `skills/openspec-explore/` and `commands/opsx-explore.md` are third-party (MIT, authored by
 openspec), 290 and 174 lines, and depend on `openspec` CLI calls through an `allowed-tools` grant.
@@ -99,9 +99,10 @@ They are **replaced, not ported**, by a new and much smaller skill written for t
   captures, and never writes application code.
 - Drops the OpenSpec-specific machinery — the status probing, the change-exists branching, the
   artifact-creation choreography — in favour of reading the tree directly.
-- Installed as `spectre-explore`, invoked as `/spx:explore`, mirroring the shape of the command it
-  replaces. Leaving a command named after the removed tool is the drift this repository's own rules
-  exist to prevent.
+- Installed as `spectre-research`, invoked as `/spectre-research`. The name is the author's, and the
+  command follows this repository's own convention for commands it owns — `/myflow-start` shape,
+  not the `opsx:` colon namespace inherited from openspec. Leaving a command named after the removed
+  tool is the drift this repository's own rules exist to prevent.
 
 ## Documentation and distribution
 
@@ -160,4 +161,4 @@ carrying 249 findings would not be.
 
 **Porting `openspec-explore` as it stands.** Rejected: it is 290 lines of third-party prose built
 around CLI calls that no longer exist, and a smaller skill written for this repository serves the
-same purpose with less to maintain.
+same purpose with less to maintain. Naming it research rather than explore is the author's call.
