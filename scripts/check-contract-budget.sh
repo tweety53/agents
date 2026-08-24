@@ -114,7 +114,7 @@ commands/myflow-fast.md 3040
 commands/myflow-finish.md 3507
 commands/myflow-start.md 2178
 commands/myflow-status.md 1981
-commands/opsx-explore.md 9288
+commands/spectre-research.md 1038
 openspec/specs/agents-repo-verification/spec.md 33525
 openspec/specs/myflow-artifact-economy/spec.md 3412
 openspec/specs/myflow-base-branch-resolution/spec.md 12796
@@ -203,7 +203,7 @@ skills/myflow-finish/SKILL.md 50207
 skills/myflow-start/SKILL-rationale.md 7030
 skills/myflow-start/SKILL.md 38342
 skills/myflow-status/SKILL.md 22856
-skills/openspec-explore/SKILL.md 14345
+skills/spectre-research/SKILL.md 4600
 EOF
 }
 

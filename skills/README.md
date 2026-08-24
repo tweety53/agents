@@ -46,7 +46,7 @@ asked which.
 | *(gate)* | you | Review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run, asking how to land it (PR by default, merge, or manual); on its second, once merged, archives the change and removes what the pipeline created. |
 | `/myflow-status [name]` | `myflow-status` | Read-only report of where every open change is |
-| `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
+| `/spectre-research` | `spectre-research` | Thinking-partner mode — no implementation, no state |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
 **Level 1 — the stages of each command** (`README.md`) and are deliberately not
@@ -61,7 +61,7 @@ skills/
 ├── myflow-finish/     ← /myflow-finish
 ├── myflow-status/     ← /myflow-status (read-only)
 ├── myflow-contracts/  ← on-demand contracts; `pipeline.md` is canonical for the state machine
-└── openspec-explore/  ← /opsx:explore
+└── spectre-research/  ← /spectre-research
 ```
 
 All skills require the `openspec` CLI (`npm install -g openspec`).

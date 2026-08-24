@@ -530,7 +530,7 @@ EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
   "commands/myflow-fast.md"
   "commands/myflow-start.md"
   "commands/myflow-status.md"
-  "commands/opsx-explore.md"
+  "commands/spectre-research.md"
 )
 EXPECTED_ZERO_COMMAND_DISPATCH_REASON="command-dispatch stub — every path it cites sits inside the SAME bold span as the verb citing it (e.g. \"**load \`path\` first**\"); looks_like_section rejects any bold span containing '/', so no candidate section name ever forms adjacent to the path"
 
@@ -569,7 +569,7 @@ EXPECTED_ZERO_RATIONALE_DOCS=(
   "skills/myflow-contracts/git-boundaries-rationale.md"
   "skills/myflow-contracts/worktree-resolution-rationale.md"
   "skills/myflow-fast/SKILL-rationale.md"
-  "skills/openspec-explore/SKILL.md"
+  "skills/spectre-research/SKILL.md"
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"
 

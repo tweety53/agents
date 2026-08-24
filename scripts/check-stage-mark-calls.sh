@@ -256,11 +256,11 @@ guess_placeholder() {
 # scripts/lib/coverage.sh's own header for the same constraint).
 EXPECTED_ZERO_FILES=(
   "skills/myflow-contracts/SKILL.md"
-  "skills/openspec-explore/SKILL.md"
+  "skills/spectre-research/SKILL.md"
 )
 EXPECTED_ZERO_REASONS=(
   "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"
-  "a thinking-partner exploration mode with no implementation or verification stage to mark and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
+  "a thinking-partner research mode with no implementation or verification stage to mark and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
 )
 
 # declare_expected_zeros — called ONLY for the guard's own default, full-
