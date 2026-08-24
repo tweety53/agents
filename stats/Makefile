@@ -80,6 +80,17 @@ down:
 # serving. Stopping first and building second would turn every failed build
 # into unplanned downtime.
 #
+# THAT PREREQUISITE IS ALSO WHAT PRODUCES $(LIVE_BIN), and is now the only
+# thing that does. This recipe used to carry its own
+# `go build -o $(LIVE_BIN) ./cmd/myflowd` after the container steps, from when
+# `build` ran a bare `go build ./...` and therefore compiled the daemon and
+# threw the binary away (KAN-170). `build` names both outputs now, so that
+# line rebuilt a file the prerequisite had already written moments earlier.
+# Removing it makes the dependency load-bearing rather than decorative: drop
+# `build` from the line below and this target starts whatever stale
+# $(LIVE_BIN) is on disk, with nothing left to refresh it. That is what
+# scripts/test-make-build.sh's `restart depends on build` case pins.
+#
 # THIS KILL IS PORT-DRIVEN, deliberately -- and it stays port-driven now that
 # a pidfile exists. myflowd writes a pidfile on EVERY start, however it was
 # started: internal/pidfile claims $TMPDIR/myflowd-<port>.pid before the store
@@ -147,8 +158,7 @@ restart: build
 	# (`up -d` alone is a no-op there). Neither covers both cases.
 	docker compose up -d
 	docker compose restart
-	go build -o $(LIVE_BIN) ./cmd/myflowd
-	# The CLI is installed here, alongside the daemon, because half of this
+	# The CLI is installed here, unlike the daemon, because half of this
 	# repository's behaviour lives in `cmd/myflow` rather than in `myflowd`
 	# -- `state set`'s own validation and the instant it stamps are the
 	# CLI's, and no daemon restart makes a new one of those live. Installing
@@ -156,6 +166,9 @@ restart: build
 	# binaries: the store refused a malformed merge base while the stale CLI
 	# still failed to stamp `updatedAt`, so the defect that change fixed was
 	# still live on a stack that had just been "restarted".
+	#
+	# `build` cannot cover this one the way it covers $(LIVE_BIN): it writes
+	# `bin/myflow`, which is not on the operator's PATH, and $(LIVE_CLI) is.
 	@mkdir -p $(dir $(LIVE_CLI))
 	go build -o $(LIVE_CLI) ./cmd/myflow
 	@echo "restart: installed the myflow CLI to $(LIVE_CLI)"

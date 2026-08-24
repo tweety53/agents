@@ -246,6 +246,34 @@ else
   pass "ui-test pid reads take only the pidfile's pid line"
 fi
 
+# `restart` starts $(LIVE_BIN) and no longer rebuilds it inline -- the `build`
+# prerequisite is the only thing that writes that file now (see the Makefile's
+# own comment above the target). Two halves, one case, because neither is worth
+# anything alone: the prerequisite must be declared, AND the recipe must not
+# have quietly regrown its own build to compensate for the prerequisite going
+# missing. A target that declared `build` and rebuilt anyway would pass the
+# first half while hiding exactly what the first half exists to guarantee.
+RESTART_RULE="$(printf '%s\n' "$MAKEFILE_TEXT" | grep -E '^restart:' || true)"
+RESTART_RECIPE="$(printf '%s\n' "$MAKEFILE_TEXT" \
+  | awk '/^restart:/{inside=1; next} inside && /^[^\t#]/{inside=0} inside{print}')"
+RESTART_PROBLEMS=""
+if [ -z "$RESTART_RULE" ]; then
+  RESTART_PROBLEMS="$RESTART_PROBLEMS
+  no \`restart:\` rule found in stats/Makefile"
+elif ! printf '%s\n' "$RESTART_RULE" | grep -qE '^restart:([[:space:]]|.*[[:space:]])build([[:space:]]|$)'; then
+  RESTART_PROBLEMS="$RESTART_PROBLEMS
+  \`restart:\` does not declare \`build\` as a prerequisite, so nothing refreshes \$(LIVE_BIN)"
+fi
+if printf '%s\n' "$RESTART_RECIPE" | grep -qE 'go build -o \$\(LIVE_BIN\)'; then
+  RESTART_PROBLEMS="$RESTART_PROBLEMS
+  \`restart:\`'s recipe rebuilds \$(LIVE_BIN), which its \`build\` prerequisite already wrote"
+fi
+if [ -n "$RESTART_PROBLEMS" ]; then
+  fail "restart depends on build to produce \$(LIVE_BIN), and does not rebuild it:$RESTART_PROBLEMS"
+else
+  pass "restart depends on build to produce \$(LIVE_BIN), and does not rebuild it"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
