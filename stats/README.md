@@ -185,7 +185,6 @@ cd stats && docker compose up -d
 #    ProgramArguments is a fixed path, so build to that exact location —
 #    the main checkout, not a worktree.
 cd stats && make build
-go build -o bin/myflowd ./cmd/myflowd
 
 # 3. Install and load the agent.
 cp stats/launchd/com.tweety53.myflowd.plist ~/Library/LaunchAgents/

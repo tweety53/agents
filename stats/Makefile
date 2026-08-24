@@ -37,12 +37,29 @@ web-test:
 web-build:
 	cd web && npm ci && npm run build
 
-# The whole daemon binary: the Vite build, then `go build`, in that order
-# -- never the other way around -- so the embedded assets `go build`
-# bakes in are always the ones just produced, never a stale dist/ left
-# over from an earlier build.
+# Both binaries: the Vite build, then `go build`, in that order -- never
+# the other way around -- so the embedded assets `go build` bakes in are
+# always the ones just produced, never a stale dist/ left over from an
+# earlier build.
+#
+# `go build ./...` stays, and stays FIRST. It is what holds cmd/uitest-seed
+# and every library without a binary of its own compiling under this target;
+# the two `-o` lines below name two packages and would silently stop
+# compiling the rest. Running it first also means a compile error anywhere
+# in the module fails before either bin/ artifact is rewritten, so a failed
+# build leaves the previous binaries intact rather than half-replaced.
+#
+# The two `-o` lines are what make bin/myflowd and bin/myflow real files:
+# `go build ./...` compiles every package and then DISCARDS the resulting
+# binaries, which is why the documented launch sequence used to carry a
+# second, hand-written `go build -o bin/myflowd ./cmd/myflowd` after this
+# target -- and why an operator who skipped that half ran whatever stale
+# bin/myflowd was already on disk. scripts/test-make-build.sh asserts all
+# three lines are present, over `make -n build`.
 build: web-build
 	go build ./...
+	go build -o bin/myflowd ./cmd/myflowd
+	go build -o bin/myflow  ./cmd/myflow
 
 # Brings up the dedicated myflow-postgres container (see docker-compose.yml).
 # Does not touch any other compose stack running on this machine.
@@ -63,15 +80,25 @@ down:
 # serving. Stopping first and building second would turn every failed build
 # into unplanned downtime.
 #
-# NO PIDFILE, deliberately. The live daemon is usually started by hand
-# (`./bin/myflowd` from a terminal), so a pidfile this target wrote would be
-# absent exactly when it is needed. The port is the authority instead: whatever
-# holds $(LIVE_PORT) IS the live daemon, which is also why a stale pidfile
-# cannot send this `kill` somewhere else. That matters here for the same reason
-# the `override` rules below matter for the UI-test stack -- a `kill` driven by
-# a caller-nameable file is the hazard; a `kill` driven by "who holds this
-# port" has no such handle. $(LIVE_PORT) is still `override` so it cannot be
-# repointed at another service's port from the command line.
+# THIS KILL IS PORT-DRIVEN, deliberately -- and it stays port-driven now that
+# a pidfile exists. myflowd writes a pidfile on EVERY start, however it was
+# started: internal/pidfile claims $TMPDIR/myflowd-<port>.pid before the store
+# is opened, so the hand-started `./bin/myflowd` this target usually finds has
+# one too. The old reason for not reading a pidfile here -- that a pidfile
+# *this target* wrote would be absent exactly when it is needed -- is
+# therefore gone.
+#
+# The reason that remains is the other one, and the daemon writing its own
+# file does not overturn it: a `kill` driven by a file whose path a caller can
+# name is the hazard; a `kill` driven by "who holds this port" has no such
+# handle. That is the same reason the `override` rules below matter for the
+# UI-test stack. $(LIVE_PORT) is still `override` so it cannot be repointed at
+# another service's port from the command line.
+#
+# The port also remains the better answer to "which process IS the live
+# daemon": whatever holds $(LIVE_PORT) is by definition the thing a restart
+# has to replace -- including a daemon whose pidfile someone removed by hand,
+# and excluding one whose pidfile is stale because it was SIGKILLed.
 #
 # The daemon is started with nohup and detached: the operator's own foreground
 # run dies with their terminal, and this target is invoked from wherever, so a
@@ -204,7 +231,16 @@ override UITEST_DB := myflow_uitest
 override UITEST_ID := uitest
 override UITEST_PORT := 4174
 override UITEST_DSN := postgres://myflow:myflow@localhost:5433/$(UITEST_DB)?sslmode=disable
-override UITEST_PIDFILE := /tmp/myflow-uitest.pid
+# The pidfile myflowd writes for ITSELF, not one this Makefile writes:
+# internal/pidfile claims filepath.Join(os.TempDir(), "myflowd-<port>.pid") at
+# startup, before it opens the store. Port-derived on both sides, so the live
+# stack (4173) and this one (4174) never contend for one file. The daemon's
+# TMPDIR is pinned to /tmp on the launch below -- see the comment there --
+# because os.TempDir() is $TMPDIR, which on macOS is a per-user
+# /var/folders/.../T and is not /tmp. Hardcoded here rather than derived from
+# $(TMPDIR): deriving it would hand a caller the `kill` and `rm -f` target
+# that `override` exists to deny them.
+override UITEST_PIDFILE := /tmp/myflowd-$(UITEST_PORT).pid
 override UITEST_BIN := /tmp/myflow-uitest-myflowd
 override UITEST_TRANSCRIPTS_DIR := /tmp/myflow-uitest-transcripts
 override UITEST_STATE_DIR := /tmp/myflow-uitest-state
@@ -285,9 +321,28 @@ endef
 #   to bind :4174 ("address already in use") and this target aborts
 #   with the first daemon orphaned. Killing before the drop also means
 #   the drop is not racing a daemon that is still writing.
+#
+#   The pid it signals comes from $(UITEST_PIDFILE), which the DAEMON wrote
+#   for itself at startup -- this target does not write that file. One
+#   writer, and it is the process the file names: a `& echo $! >` here would
+#   record the pid of the shell's background job instead, which is the daemon
+#   today but becomes a wrapper the moment the launch grows one, leaving the
+#   kill below aimed at the wrapper.
+#
+#   `head -n1`, NOT `cat`. That file has two lines -- the decimal pid, then
+#   the path of the executable that wrote it, which is what lets the daemon's
+#   own identity check recognise a differently-named copy of itself
+#   (stats/internal/pidfile). `$$(cat ...)` captures both, joined by a
+#   newline that command substitution does not strip because it is not
+#   trailing, and `kill -0` then rejects the result as an illegal pid --
+#   always, and never because the daemon is dead. The guard below would take
+#   its "no previous daemon" branch against a live one, rm -f its pidfile,
+#   and launch a second daemon that cannot bind. scripts/test-make-build.sh
+#   case 6 runs each of these reads against a real two-line file rather than
+#   asserting on how they are spelled.
 ui-test-up: web-build check-uitest-overrides
-	@if [ -f $(UITEST_PIDFILE) ] && kill -0 "$$(cat $(UITEST_PIDFILE))" 2>/dev/null; then \
-		pid="$$(cat $(UITEST_PIDFILE))"; \
+	@if [ -f $(UITEST_PIDFILE) ] && kill -0 "$$(head -n1 $(UITEST_PIDFILE))" 2>/dev/null; then \
+		pid="$$(head -n1 $(UITEST_PIDFILE))"; \
 		echo "ui-test-up: stopping previous daemon $$pid"; \
 		kill "$$pid" 2>/dev/null; \
 		for i in $$(seq 1 30); do \
@@ -313,10 +368,18 @@ ui-test-up: web-build check-uitest-overrides
 	@$(call UITEST_SAFE_RMRF,$(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR))
 	mkdir -p $(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR)
 	go build -o $(UITEST_BIN) ./cmd/myflowd
+	# TMPDIR is pinned so the daemon's own pidfile lands where
+	# $(UITEST_PIDFILE) says it does: internal/pidfile builds its path from
+	# os.TempDir(), which is $$TMPDIR, and on macOS that is a per-user
+	# /var/folders/.../T -- not /tmp. Without this the daemon would write a
+	# file neither the stop-previous-daemon block above nor ui-test-down
+	# below ever looks at, and both would silently take their "no daemon"
+	# branch. Nothing else in myflowd reads os.TempDir().
 	MYFLOWD_PORT=$(UITEST_PORT) MYFLOWD_DSN="$(UITEST_DSN)" \
 		MYFLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
 		MYFLOW_STATE_DIR=$(UITEST_STATE_DIR) \
-		$(UITEST_BIN) > $(UITEST_LOG) 2>&1 & echo $$! > $(UITEST_PIDFILE)
+		TMPDIR=/tmp \
+		$(UITEST_BIN) > $(UITEST_LOG) 2>&1 &
 	@echo "ui-test-up: waiting for myflowd to answer on :$(UITEST_PORT)"
 	@for i in $$(seq 1 60); do \
 		curl -sf http://127.0.0.1:$(UITEST_PORT)/api/v1/changes >/dev/null 2>&1 && exit 0; \
@@ -338,10 +401,17 @@ ui-test-up: web-build check-uitest-overrides
 # stop-previous-daemon step uses (myflowd's shutdown grace is 15s;
 # 30 one-second polls covers that with margin). Without the wait, an
 # unforced `dropdb` can race a daemon that is still holding its
-# connection open and fail intermittently.
+# connection open and fail intermittently. The pid signalled below is read
+# from $(UITEST_PIDFILE), the file the daemon wrote for itself at startup;
+# an absent file means no daemon to stop, which is what makes a second
+# `make ui-test-down` a no-op rather than an error. `head -n1` and not
+# `cat`, for the reason spelled out above ui-test-up: the file's second line
+# is the recorded executable, and reading it too yields something `kill`
+# rejects, so this target would skip the SIGTERM and the wait behind it and
+# hand its unforced `workspace.sh remove` a still-live daemon to race.
 ui-test-down: check-uitest-overrides
 	@if [ -f $(UITEST_PIDFILE) ]; then \
-		pid="$$(cat $(UITEST_PIDFILE))"; \
+		pid="$$(head -n1 $(UITEST_PIDFILE))"; \
 		if kill -0 "$$pid" 2>/dev/null; then \
 			kill "$$pid" 2>/dev/null; \
 			for i in $$(seq 1 30); do \

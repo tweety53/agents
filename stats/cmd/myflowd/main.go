@@ -3,11 +3,22 @@
 // MYFLOWD_HOST is refused before any listener is opened -- and shuts down
 // gracefully: in-flight requests complete before the connection pool
 // closes.
+//
+// It claims its port before its database. acquireStartup below validates
+// the configuration, checks the pidfile named after the resolved port,
+// opens the listener and only then records that pidfile -- all before
+// store.Open is reached, so a start refused because another daemon
+// already holds that port or that pidfile runs no migration, seeds no
+// pricing and harvests no transcript
+// (openspec/specs/myflow-daemon-single-instance, "a refused start touches
+// no database").
 package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,14 +28,15 @@ import (
 	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/harvest"
+	"github.com/tweety53/agents/stats/internal/pidfile"
 	"github.com/tweety53/agents/stats/internal/reconcile"
 	"github.com/tweety53/agents/stats/internal/store"
 	"github.com/tweety53/agents/stats/internal/sweep"
 	"github.com/tweety53/agents/stats/internal/web"
 )
 
-// shutdownGrace bounds how long ListenAndServe's graceful shutdown waits
-// for in-flight requests to finish before giving up and closing the
+// shutdownGrace bounds how long Serve's graceful shutdown waits for
+// in-flight requests to finish before giving up and closing the
 // connection pool anyway.
 const shutdownGrace = 15 * time.Second
 
@@ -83,6 +95,29 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// The prelude, before anything opens the database: the loopback rule,
+	// the pidfile check, the listener, then the pidfile write. Everything
+	// below this point runs only once this daemon holds the port it is
+	// about to serve.
+	lock, ln, err := acquireStartup(cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := lock.Release(logger); err != nil {
+			logger.Error("myflowd could not remove its pidfile", "error", err)
+		}
+	}()
+	// This covers the window between the listener opening and srv.Serve
+	// taking ownership of it: store.Open, the migrations, the seeding,
+	// web.FS and api.New below each return with the port still held
+	// otherwise, and every other resource in this function is released by
+	// an explicit defer. Serve closes the listener itself on shutdown, so
+	// on the ordinary path this call finds it already closed and returns
+	// that error -- discarded here deliberately, since a close that
+	// reports the work already done is exactly what is wanted.
+	defer func() { _ = ln.Close() }()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -127,8 +162,11 @@ func run(logger *slog.Logger) error {
 
 	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler))
 	if err != nil {
-		// A non-loopback MYFLOWD_HOST lands here: refused before any
-		// listener is opened, per config.Config.Validate.
+		// api.New calls config.Config.Validate itself, which keeps
+		// internal/api correct for any other caller, but the loopback
+		// rule is no longer enforced here for this daemon: acquireStartup
+		// above already refused a non-loopback MYFLOWD_HOST, before the
+		// listener it hands to Serve below was opened.
 		return err
 	}
 
@@ -185,7 +223,7 @@ func run(logger *slog.Logger) error {
 	serveErr := make(chan error, 1)
 	go func() {
 		logger.Info("myflowd listening", "addr", cfg.Addr())
-		serveErr <- srv.ListenAndServe()
+		serveErr <- srv.Serve(ln)
 	}()
 
 	select {
@@ -201,11 +239,70 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	// ListenAndServe's goroutine returns nil once Shutdown has drained it;
+	// Serve's goroutine returns nil once Shutdown has drained it;
 	// wait for that so the store's pool (deferred above) closes only after
 	// every in-flight request has actually finished, not merely after
 	// Shutdown decided it was done.
 	return <-serveErr
+}
+
+// acquireStartup claims the daemon's port, then records the pidfile,
+// before anything touches the database. On any failure it releases
+// whatever it already claimed and returns no listener.
+//
+// Its steps run in one order and only one: cfg.Validate, pidfile.Check,
+// net.Listen, pidfile.Write. **The write comes after the bind, and that
+// is the point.** The pidfile race and the bind race are independent, so
+// a daemon that checked and wrote before binding could be the one that
+// then loses the bind -- and its own pid-matched Release would delete the
+// pidfile of the daemon actually holding the port, disarming the refusal
+// for every later start. Writing only after the bind removes the case
+// outright: a bind-loser has written nothing and has nothing to release,
+// and the daemon named in the file is by construction the one holding the
+// port.
+//
+// The ordering is also KAN-170's second defect: a start refused because
+// another daemon holds the port, or holds the pidfile named after it,
+// must run no migration, seed no pricing and harvest no transcript into a
+// database a live daemon is already writing
+// (openspec/specs/myflow-daemon-single-instance, "a refused start touches
+// no database"). Extracting the prelude out of run is what makes that
+// testable: wiring_test.go calls this directly, with no database
+// anywhere, exactly as it calls newTranscriptWatcher below.
+//
+// cfg.Validate is called here explicitly even though api.New calls it
+// too, because api.New now runs after the listener is open: without this
+// call the loopback-only rule would be enforced only once a non-loopback
+// listener already existed.
+func acquireStartup(cfg config.Config, logger *slog.Logger) (*pidfile.Lock, net.Listener, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	path := pidfile.Path(cfg.Port)
+	if err := pidfile.Check(path, logger); err != nil {
+		return nil, nil, err
+	}
+
+	ln, err := net.Listen("tcp", cfg.Addr())
+	if err != nil {
+		// Nothing to undo: Check wrote nothing, so a daemon that loses
+		// this bind leaves the winner's pidfile exactly as it found it.
+		return nil, nil, fmt.Errorf("myflowd: listen on %s: %w", cfg.Addr(), err)
+	}
+
+	lock, err := pidfile.Write(path)
+	if err != nil {
+		// The listener goes back before the error does: this process is
+		// about to exit, and a held port it never serves would refuse
+		// the next start for no reason.
+		if closeErr := ln.Close(); closeErr != nil {
+			logger.Error("myflowd could not close its listener after failing to write its pidfile", "error", closeErr)
+		}
+		return nil, nil, err
+	}
+
+	return lock, ln, nil
 }
 
 // newTranscriptWatcher builds the harvest.Watcher the daemon runs.

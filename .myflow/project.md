@@ -39,8 +39,8 @@ HOME="$SANDBOX" ./setup.sh global
 
 ```bash
 cd stats && docker compose up -d          # myflow-postgres on host port 5433
-cd stats && make build                    # builds the SPA, then verifies the Go build
-cd stats && go build -o bin/myflowd ./cmd/myflowd && ./bin/myflowd
+cd stats && make build                    # builds the SPA, then both binaries into bin/
+cd stats && ./bin/myflowd
 ```
 
 `myflowd` binds `127.0.0.1:4173` (override with `MYFLOWD_PORT`) and refuses to start on any other
@@ -93,6 +93,7 @@ scripts/test-check-installed-citations.sh
 scripts/test-check-installed-rules.sh
 scripts/test-check-normative-inventory.sh
 scripts/test-check-worktree-processes.sh
+scripts/test-make-build.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
