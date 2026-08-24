@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -621,5 +623,101 @@ func TestProjectKeysByDisplayNameReturnsNoneForUnknownName(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("ProjectKeysByDisplayName(%s) = %v, want none", base, got)
+	}
+}
+
+// TestPutChangeRefusesMalformedMergeBase covers the store half of the
+// merge-base value constraint. The CLI already refuses these four shapes
+// before the store is touched, so for a live write this refusal is
+// unreachable; it exists for the one path that bypasses the CLI entirely
+// -- internal/reconcile replaying a hand-edited fallback file, which the
+// state file contract (skills/myflow-contracts/state-file.md) already
+// names as a real case.
+//
+// The four cases are the shapes a merge base is not: a worktree path
+// written into the merge-base position (the value KAN-265 recorded and
+// could not correct), a short sha, an uppercase sha, and an empty string.
+// The refusal must name both the repo root and the rejected value, since
+// a change spanning several repositories gives the reader nothing to act
+// on otherwise, and it must leave nothing behind: the check runs before
+// the transaction opens, so there is no partial write to roll back.
+func TestPutChangeRefusesMalformedMergeBase(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	for name, value := range map[string]string{
+		"worktree path": "/Users/x/Projects/agents-worktrees/kan-265",
+		"short sha":     "0123456",
+		"uppercase sha": "0123456789ABCDEF0123456789ABCDEF01234567",
+		"empty string":  "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := baseChange("agents", "kan-284-malformed-"+strings.ReplaceAll(name, " ", "-"))
+			c.Repos = []store.Repo{
+				{RepoRoot: "/repo-ok", MergeBase: ptr("0123456789abcdef0123456789abcdef01234567")},
+				{RepoRoot: "/repo-bad", MergeBase: ptr(value)},
+			}
+
+			err := st.PutChange(ctx, c)
+			if !errors.Is(err, store.ErrInvalidMergeBase) {
+				t.Fatalf("PutChange(merge base %q) error = %v, want errors.Is(_, store.ErrInvalidMergeBase)", value, err)
+			}
+			if !strings.Contains(err.Error(), "/repo-bad") {
+				t.Errorf("refusal does not name the offending repo root: %v", err)
+			}
+			// Quoted, so the empty string is legible as a rejected value
+			// rather than invisible in the middle of the sentence.
+			if !strings.Contains(err.Error(), strconv.Quote(value)) {
+				t.Errorf("refusal does not name the rejected value %q: %v", value, err)
+			}
+
+			if _, getErr := st.GetChange(ctx, c.ProjectKey, c.Name); !errors.Is(getErr, store.ErrChangeNotFound) {
+				t.Fatalf("GetChange after a refused write = %v, want errors.Is(_, store.ErrChangeNotFound) (the check runs before the transaction opens, so nothing should have been persisted)", getErr)
+			}
+		})
+	}
+}
+
+// TestPutChangeMergeBaseErrorIsDistinctFromInvalidState is the merge-base
+// twin of TestPutChangeInvalidStateIsNotConflatedWithMonotonicViolation:
+// a caller must be able to tell a malformed value apart from a malformed
+// state and from a correct backwards-write refusal, because the three ask
+// for three different responses.
+//
+// The second write below would be refused as a monotonic violation on its
+// own -- same state, an earlier instant than the stored record -- so it
+// also pins the order: the value check runs before the transaction opens,
+// and reports the caller's content fault rather than the ordering one it
+// never got far enough to hit.
+func TestPutChangeMergeBaseErrorIsDistinctFromInvalidState(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	first := baseChange("agents", "kan-284-distinct-errors")
+	if err := st.PutChange(ctx, first); err != nil {
+		t.Fatalf("first PutChange: %v", err)
+	}
+
+	malformed := first
+	malformed.UpdatedAt = first.UpdatedAt.Add(-time.Minute)
+	malformed.Repos = []store.Repo{{RepoRoot: "/repo-a", MergeBase: ptr("not-a-sha")}}
+
+	err := st.PutChange(ctx, malformed)
+	if !errors.Is(err, store.ErrInvalidMergeBase) {
+		t.Fatalf("PutChange(malformed merge base) error = %v, want errors.Is(_, store.ErrInvalidMergeBase)", err)
+	}
+	if errors.Is(err, store.ErrInvalidState) {
+		t.Errorf("PutChange(malformed merge base) error = %v, must not also satisfy errors.Is(_, store.ErrInvalidState)", err)
+	}
+	if errors.Is(err, store.ErrMonotonicViolation) {
+		t.Errorf("PutChange(malformed merge base) error = %v, must not also satisfy errors.Is(_, store.ErrMonotonicViolation)", err)
+	}
+
+	got, err := st.GetChange(ctx, first.ProjectKey, first.Name)
+	if err != nil {
+		t.Fatalf("GetChange: %v", err)
+	}
+	if !got.UpdatedAt.Equal(first.UpdatedAt) {
+		t.Errorf("stored UpdatedAt = %v, want %v (the refused write must have changed nothing)", got.UpdatedAt, first.UpdatedAt)
 	}
 }

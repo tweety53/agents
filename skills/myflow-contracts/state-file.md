@@ -84,9 +84,10 @@ and takes the fallback path above, exiting 0. A skill that sends a malformed pay
 never stopped by this layer; the payload is written to the fallback file and journal as sent, and
 what happens to it next is stated under **The journal is replayed, never merged** below.
 
-A CLI usage error — non-JSON stdin, JSON that is not an object, or stdin over the CLI's own size
-cap — is a local input error, not a store failure: it is reported to stderr and exits 2, never
-falls back, and never reaches the network.
+A CLI usage error — non-JSON stdin, JSON that is not an object, stdin over the CLI's own size
+cap, or a `worktrees` value that is neither `null` nor a sha (**The record** below) — is a local
+input error, not a store failure: it is reported to stderr and exits 2, never falls back, and never
+reaches the network.
 
 ## The record
 
@@ -143,6 +144,18 @@ field is how it gets erased.
   legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal
   actually succeeded, so a worktree that could not be removed stays listed and remains findable.
   See **A change spanning repositories is one record** below.
+
+  **A value is either JSON `null` or a 40-character lowercase hexadecimal sha, and nothing else** —
+  a worktree path, a short sha, an uppercase sha and an empty string are all refused. `myflow state
+  set` refuses one before the store is touched: it names the offending worktree path and the
+  rejected value on stderr and exits 2, writing neither the on-disk fallback file nor a journal
+  entry, because a malformed merge base is a local input error in the sense of **The pipeline never
+  blocks** above rather than a store outage. Journalling it instead would hide the bad value until
+  the finish gate's preflight refused, which is the failure this constraint exists to stop at the
+  point the value is written. The store refuses it a second time on write, with an error distinct
+  from an invalid state and from a monotonic refusal, covering the one path that bypasses the CLI —
+  replay of a hand-edited or out-of-band-modified fallback file; such an entry is retired from the
+  journal rather than replayed forever.
 
   **A `null` value is legal and means *no merge base recorded* for that path** — it can occur in a
   hand-edited or out-of-band-modified fallback file. Every rule this contract and the pipeline
@@ -211,11 +224,17 @@ field is how it gets erased.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
   that a fix must be committed and pushed rather than merely staged.
-- `updatedAt` — the ISO-8601 UTC instant of the last write. Read the actual current time
-  (`date -u +%Y-%m-%dT%H:%M:%SZ`); never invent or placeholder it, since `/myflow-status` reports
-  "last update" from this field, the store uses it to order same-state writes (see **Writes are
-  monotonic in both dimensions** below), and a fabricated value makes a stalled change look freshly
-  touched or corrupts that ordering.
+- `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `myflow state set`
+  stamps it on every write from its own clock, at full precision, overwriting whatever value the
+  payload carried. The stamped instant is the one the store row, the on-disk fallback file and the
+  journal entry all carry, so an entry replayed later orders by the instant its write actually
+  happened at rather than the instant of the replay. No skill reads the clock for this field or
+  emits it. A payload still carrying the field is accepted with its value ignored rather than
+  refused. A journal entry written before this rule replays unchanged for an unrelated reason: the
+  daemon decodes such an entry's own body rather than routing it back through the CLI, and that
+  decoder accepts a second-precision instant and a sub-second one alike. `/myflow-status` reports
+  "last update" from this field, and the store uses it to order same-state writes (see **Writes are
+  monotonic in both dimensions** below).
 - `updatedBy` — the command that last wrote the record, e.g. `/myflow-do`.
 
 **This record carries no human confirmation and no fix origin.** No command observes whether the
@@ -248,6 +267,11 @@ backwards **in either dimension**: to a `state` earlier in the pipeline than the
 at the *same* `state` — to an `updatedAt` earlier than the one already recorded. The recorded
 instant is the primary ordering and the pipeline state is the tiebreaker, so a replayed or
 duplicated write can never silently overwrite a newer record with older field values.
+
+The instant this ordering rests on now comes from a single writer — the CLI stamps it (`updatedAt`
+under **The record** above), so every live write is ordered by one clock at one precision rather
+than by two clocks whose differing precisions made a same-state write inside one second compare as
+backwards.
 
 **This same refusal covers a benign duplicate** — a write identical to one already accepted, being
 retried or replayed — because the store cannot tell a superseded write from a harmless repeat of the

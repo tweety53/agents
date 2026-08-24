@@ -15,8 +15,8 @@ func TestPutChangeWritesRepoSet(t *testing.T) {
 
 	c := baseChange("agents", "kan-16-repo-set")
 	c.Repos = []store.Repo{
-		{RepoRoot: "/Users/tweety53/Projects/agents", MergeBase: ptr("abc123")},
-		{RepoRoot: "/Users/tweety53/Projects/other-repo", MergeBase: ptr("def456")},
+		{RepoRoot: "/Users/tweety53/Projects/agents", MergeBase: ptr("abc1230000000000000000000000000000000000")},
+		{RepoRoot: "/Users/tweety53/Projects/other-repo", MergeBase: ptr("def4560000000000000000000000000000000000")},
 	}
 	if err := st.PutChange(ctx, c); err != nil {
 		t.Fatalf("PutChange: %v", err)
@@ -36,12 +36,12 @@ func TestPutChangeWritesRepoSet(t *testing.T) {
 	}
 
 	agents, ok := byRoot["/Users/tweety53/Projects/agents"]
-	if !ok || agents.MergeBase == nil || *agents.MergeBase != "abc123" {
-		t.Errorf("agents repo = %+v, want merge base %q", agents, "abc123")
+	if !ok || agents.MergeBase == nil || *agents.MergeBase != "abc1230000000000000000000000000000000000" {
+		t.Errorf("agents repo = %+v, want merge base %q", agents, "abc1230000000000000000000000000000000000")
 	}
 	other, ok := byRoot["/Users/tweety53/Projects/other-repo"]
-	if !ok || other.MergeBase == nil || *other.MergeBase != "def456" {
-		t.Errorf("other-repo = %+v, want merge base %q", other, "def456")
+	if !ok || other.MergeBase == nil || *other.MergeBase != "def4560000000000000000000000000000000000" {
+		t.Errorf("other-repo = %+v, want merge base %q", other, "def4560000000000000000000000000000000000")
 	}
 }
 
@@ -248,7 +248,7 @@ func TestGetChangeIncludesRepoSet(t *testing.T) {
 
 	c := baseChange("agents", "kan-16-get-change-repos")
 	c.Repos = []store.Repo{
-		{RepoRoot: "/repo-a", MergeBase: ptr("aaa111")},
+		{RepoRoot: "/repo-a", MergeBase: ptr("aaa1110000000000000000000000000000000000")},
 		{RepoRoot: "/repo-b"},
 	}
 	if err := st.PutChange(ctx, c); err != nil {

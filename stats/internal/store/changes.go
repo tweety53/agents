@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -43,6 +44,32 @@ var ErrInvalidState = errors.New("store: invalid state")
 // value would permanently poison the row instead of surfacing the caller's
 // mistake.
 var ErrInvalidMainCheckoutPath = errors.New("store: main checkout path required to create a new project")
+
+// ErrInvalidMergeBase is returned by PutChange when a c.Repos entry
+// records a merge base that is neither absent -- a nil MergeBase, meaning
+// none recorded -- nor a 40-character lowercase hexadecimal sha. Like
+// ErrInvalidState it is a fault in the caller's own content rather than a
+// correct refusal, and errors.Is must be able to tell it apart from both:
+// from ErrInvalidState, because a different field of the same payload is
+// what is malformed, and from ErrMonotonicViolation, which reports a
+// well-formed write arriving out of order. Replaying the identical
+// payload produces the identical refusal, so such a write is retired
+// rather than retried (IsDefinitiveChangeOutcome, internal/api/changes.go).
+var ErrInvalidMergeBase = errors.New("store: invalid merge base")
+
+// mergeBasePattern is the only shape a recorded merge base may take: a
+// 40-character lowercase hexadecimal sha, exactly as git prints one.
+// Uppercase is excluded deliberately rather than folded -- every producer
+// in the pipeline is `git merge-base`, which emits lowercase, so an
+// uppercase value is a hand-edit and worth reporting as one.
+//
+// stats/cmd/myflow/state.go carries this same pattern for the CLI's own
+// check, and the duplication is deliberate rather than an oversight: the
+// two are independent defences at opposite ends of the write path
+// (design.md, "Where a merge base is refused"), and sharing one constant
+// would make cmd/myflow import this package, pulling the store and pgx
+// into the CLI's dependency graph for a single regular expression.
+var mergeBasePattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 // validStates is the closed set State.IsValid checks c.State against.
 var validStates = map[State]bool{
@@ -96,7 +123,10 @@ type Change struct {
 // c.MainCheckoutPath — which PutChange refuses with
 // ErrInvalidMainCheckoutPath if empty and the project does not yet exist,
 // rather than silently persisting an unusable row. The write is refused
-// with ErrInvalidState if c.State is not one of the three canonical states.
+// with ErrInvalidState if c.State is not one of the three canonical states,
+// and with ErrInvalidMergeBase if any c.Repos entry records a merge base
+// that is not a sha. Both content checks run before the transaction opens,
+// so a refusal has nothing to roll back.
 //
 // A write is refused with ErrMonotonicViolation when it would move the
 // record backwards in either dimension the design names: to a state
@@ -112,6 +142,17 @@ type Change struct {
 func (s *Store) PutChange(ctx context.Context, c Change) error {
 	if !c.State.IsValid() {
 		return fmt.Errorf("%w: %q", ErrInvalidState, c.State)
+	}
+
+	// Before the transaction opens, so a refusal cannot leave a partial
+	// write behind to be rolled back. c.Repos already arrives sorted by
+	// RepoRoot from internal/api's reposFromWorktrees, so a payload
+	// carrying several bad values names the same one on every run without
+	// this loop sorting anything itself.
+	for _, r := range c.Repos {
+		if r.MergeBase != nil && !mergeBasePattern.MatchString(*r.MergeBase) {
+			return fmt.Errorf("%w: repo %s: %q is neither null nor a 40-character lowercase hex sha", ErrInvalidMergeBase, r.RepoRoot, *r.MergeBase)
+		}
 	}
 
 	worktrees := c.Worktrees

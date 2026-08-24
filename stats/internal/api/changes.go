@@ -202,14 +202,19 @@ func DecodeChangeBody(project, name string, body []byte) (store.Change, error) {
 // store.ErrMonotonicViolation is definitive because it covers a genuinely
 // superseded write and a benign duplicate retry alike -- both leave the
 // record correct, with nothing left for that entry to do (see
-// internal/api/changes.go's put doc comment). store.ErrInvalidState and
-// store.ErrInvalidMainCheckoutPath are definitive for the same reason a
-// journalled entry naming an undocumented stage is: the entry's own content
-// is what is wrong, and replaying it again produces the identical refusal
-// every time. store.ErrDuplicateRepoRoot is included for the same symmetry
-// -- a payload naming one repo root twice would be equally unfixable by
-// retrying -- though nothing on this path can actually produce it today:
-// DecodeChangeBody derives Repos from the worktrees JSON object's own keys
+// internal/api/changes.go's put doc comment). store.ErrInvalidState,
+// store.ErrInvalidMainCheckoutPath and store.ErrInvalidMergeBase are
+// definitive for the same reason a journalled entry naming an undocumented
+// stage is: the entry's own content is what is wrong, and replaying it
+// again produces the identical refusal every time. store.ErrInvalidMergeBase
+// reaches this path only from a hand-edited or out-of-band-modified fallback
+// file -- `myflow state set` refuses a malformed merge base before it can be
+// journalled at all -- and that is exactly the entry that would otherwise
+// block every entry queued behind it forever. store.ErrDuplicateRepoRoot is
+// included for the same symmetry -- a payload naming one repo root twice
+// would be equally unfixable by retrying -- though nothing on this path can
+// actually produce it today: DecodeChangeBody derives Repos from the
+// worktrees JSON object's own keys
 // (reposFromWorktrees), and Go map keys are already unique once unmarshalled,
 // so two identical repo roots can never reach PutChange this way.
 //
@@ -228,6 +233,8 @@ func IsDefinitiveChangeOutcome(err error) bool {
 	case errors.Is(err, store.ErrInvalidState):
 		return true
 	case errors.Is(err, store.ErrInvalidMainCheckoutPath):
+		return true
+	case errors.Is(err, store.ErrInvalidMergeBase):
 		return true
 	case errors.Is(err, store.ErrDuplicateRepoRoot):
 		return true

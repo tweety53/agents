@@ -460,6 +460,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrInvalidMainCheckoutPath):
 		return http.StatusBadRequest, err.Error()
+	case errors.Is(err, store.ErrInvalidMergeBase):
+		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDuplicateRepoRoot):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrUnknownField):
