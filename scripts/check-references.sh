@@ -524,6 +524,7 @@ EOF
 EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
   "commands-claude/myflow-do.md"
   "commands-claude/myflow-fast.md"
+  "commands-claude/myflow-research.md"
   "commands-claude/myflow-start.md"
   "commands-claude/myflow-status.md"
   "commands/myflow-do.md"

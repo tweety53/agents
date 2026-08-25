@@ -45,6 +45,7 @@ asked which.
 | `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, printing the run instructions in its handoff beside a staged diff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
 | *(gate)* | you | Review the staged diff **and** run the apps |
 | `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run, asking how to land it (PR by default, merge, or manual); on its second, once merged, archives the change and removes what the pipeline created. |
+| `/myflow-fast <name>` | `myflow-fast` | Composite: chains `/myflow-start`'s brainstorming into `/myflow-do`'s implementation with no gate between, and `/myflow-finish`'s run 1 into run 2 when the route is merge and push. Publishes no proposal artifact. Re-run to fix or to integrate. |
 | `/myflow-status [name]` | `myflow-status` | Read-only report of where every open change is |
 | `/myflow-research` | `myflow-research` | Thinking-partner mode — no implementation, no state |
 
@@ -59,6 +60,7 @@ skills/
 ├── myflow-start/      ← /myflow-start
 ├── myflow-do/         ← /myflow-do  (carries the review-panel prompts + engineering-principles.md)
 ├── myflow-finish/     ← /myflow-finish
+├── myflow-fast/       ← /myflow-fast (composite: chains the other three)
 ├── myflow-status/     ← /myflow-status (read-only)
 ├── myflow-contracts/  ← on-demand contracts; `pipeline.md` is canonical for the state machine
 └── myflow-research/   ← /myflow-research

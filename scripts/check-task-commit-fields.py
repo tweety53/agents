@@ -2,10 +2,11 @@
 """check-task-commit-fields.py — check a task's declared `Files:`, `Tests:`
 and `Commit:` fields in `tasks.md` against the real commit that closed it.
 
-Rule (canonical definition: openspec/changes/kan-100-myflow-get-rid-of-
-staging-use-commits/specs/myflow-task-commit-fields/spec.md — "A runtime
-guard checks each field against the real commit", and "Regression and
-Baseline checks skip, rather than fail, when unsupported"). `Files:`,
+Rule (canonical definition, in the frozen tree:
+openspec/changes/archive/2026-08-09-kan-100-myflow-get-rid-of-staging-
+use-commits/specs/myflow-task-commit-fields/spec.md — "A runtime guard
+checks each field against the real commit", and "Regression and Baseline
+checks skip, rather than fail, when unsupported"). `Files:`,
 `Tests:` and `Commit:` are checked directly against git (`check_files`,
 `check_tests`, `check_commit_subject`). `Regression:` and `Baseline:`
 (`check_regression`, `check_baseline`) additionally need the project's

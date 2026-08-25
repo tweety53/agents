@@ -8,8 +8,9 @@
 # a fixture copy would be a second place for that agreement to drift.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the four rules
-# stated in openspec/changes/kan-73-install-guard-scripts-alongside-skills/
-# tasks.md's task 5 and design.md's "The guard-to-skill map" / "The
+# stated in the frozen openspec/changes/archive/
+# 2026-08-18-kan-73-install-guard-scripts-alongside-skills/tasks.md's
+# task 5 and design.md's "The guard-to-skill map" / "The
 # $SCRIPT_DIR/.. hazard" — never against observed output.
 #
 # Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:

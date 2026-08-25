@@ -19,8 +19,9 @@
 # its section existed. This guard makes an incomplete or malformed report a
 # loud, mechanical fact instead.
 #
-# THE REPORT SHAPE (openspec/changes/kan-200-self-review-filing-ask-per-angle
-# /tasks.md, "The report shape this change defines"):
+# THE REPORT SHAPE, in the frozen tree (openspec/changes/archive/
+# 2026-08-18-kan-200-self-review-filing-ask-per-angle/tasks.md, "The
+# report shape this change defines"):
 #
 #   ## <prose> — `<label>`
 #
@@ -43,8 +44,9 @@
 # THE FIVE ANGLE LABELS, in the order the report shape states them:
 #   myflow-fix, myflow-cost, myflow-improvement, myflow-automation,
 #   myflow-stats-app
-# (openspec/changes/kan-200-self-review-filing-ask-per-angle/specs/
-# myflow-self-review/spec.md, "One combined reasoning pass" angle table).
+# (the frozen openspec/changes/archive/2026-08-18-kan-200-self-review-
+# filing-ask-per-angle/specs/myflow-self-review/spec.md, "One combined
+# reasoning pass" angle table).
 #
 # PER-REPORT COVERAGE, via scripts/lib/coverage.sh. Each report's recorded
 # count is the number of section-level checks this guard actually performed

@@ -120,6 +120,7 @@ README.md 47306
 commands-claude/myflow-do.md 2240
 commands-claude/myflow-fast.md 2536
 commands-claude/myflow-finish.md 3163
+commands-claude/myflow-research.md 972
 commands-claude/myflow-start.md 1815
 commands-claude/myflow-status.md 1637
 commands/myflow-do.md 2738

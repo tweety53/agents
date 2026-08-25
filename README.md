@@ -37,8 +37,8 @@ agents-data/
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
-├── commands/                          ← Cursor slash commands (myflow + myflow-research)
-├── commands-claude/                   ← Claude Code slash commands (myflow only)
+├── commands/                          ← Cursor slash commands (the six /myflow-* commands)
+├── commands-claude/                   ← Claude Code slash commands (the same six)
 ├── skills/                            ← spectre / /myflow skills
 │   ├── README.md                      ← myflow command map
 │   ├── myflow-start/                  ← /myflow-start

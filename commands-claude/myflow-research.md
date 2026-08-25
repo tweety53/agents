@@ -1,7 +1,5 @@
 ---
-name: /myflow-research
-id: myflow-research
-category: myflow
+model: sonnet
 description: Research — a thinking partner for exploring ideas and clarifying requirements
 ---
 
