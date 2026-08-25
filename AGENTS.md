@@ -101,8 +101,8 @@ conventions and the patterns already present in the surrounding code.
 These skills live in `skills/` next to this file (or in `<project>/.codex/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
-Every skill below but `myflow-research` requires the `spectre` CLI to be installed.
-`myflow-research` needs none — reading a spectre tree is reading markdown.
+Every skill below but `myflow-research` and `myflow-contracts` requires the `spectre` CLI to be
+installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
 
 ### Skill index
 
