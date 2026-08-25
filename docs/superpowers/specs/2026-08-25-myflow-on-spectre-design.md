@@ -55,6 +55,34 @@ artifacts. Most of that prose already lives there; what the CLI supplied is the 
 Used for the `changeRoot` field. Under spectre a change's root is `<tree>/changes/<id>` by
 construction, so this becomes derivation rather than a process call.
 
+## The plan's task shape
+
+Discovered during implementation, and the design was wrong about it. This document previously
+claimed the artifact shapes themselves were unchanged. They are not.
+
+A myflow plan marks each task with a `### <n> <title>` heading and each step beneath it with a
+`- [x] **Step N: ...**` checkbox. spectre reads a task as a flat `- [ ] <n>. <text>` line and
+nothing else. Measured against the archived `kan-295` plan, spectre sees no tasks at all:
+`spectre list` reports `0/0`, `spectre validate` emits 31 findings — one false "malformed task line"
+per step checkbox — and `spectre archive` refuses with "tasks.md has no tasks".
+
+**A plan's tasks therefore lead with a spectre checkbox.** `- [ ] 1. Capture the verification
+baselines` replaces `### 1 Capture the verification baselines`, and the task's steps stay beneath it
+exactly as they are. Both tools then agree what a task is: progress in `spectre list` becomes real,
+`archive`'s unchecked-tasks refusal becomes meaningful, and `validate` is clean on a change the
+pipeline itself produced.
+
+The alternatives were rejected. Turning the task rules off in a `config.md` leaves `list` reporting
+`0/0` and `archive` needing `--force`, which is the flag that also disarms the guards that matter.
+Splitting the plan into a rich `plan.md` beside a thin `tasks.md` puts the task list in two places
+that can drift. Teaching spectre to read headings adds to the tool the configurability it was built
+to avoid.
+
+The cost is real and lands on the guards: `scripts/lib/plan_grammar.py`,
+`scripts/check-task-build-green.py`, `scripts/check-task-commit-fields.py` and
+`scripts/plan-dispatch-bundles.py` all key off the `###` heading, and the contracts and
+`/myflow-start` describe it. All of them move together.
+
 ## Command mapping
 
 | OpenSpec call | Replacement | Notes |
