@@ -31,9 +31,10 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |
 
-**A change's spec edits are not an artifact and carry no row.** `/myflow-start` writes them
-directly into `<project>/spectre/specs/<capability>.md` on the change's branch, where they are
-ordinary source: the merge lands them and there is nothing temporary to remove.
+**A change's spec edits are not an artifact and carry no row.** `/myflow-do`'s implementer writes
+them directly into `<project>/spectre/specs/<capability>.md` on the change's branch, in the task
+commit that implements the requirement, where they are ordinary source: the merge lands them and
+there is nothing temporary to remove.
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it. **Worktree cleanup**

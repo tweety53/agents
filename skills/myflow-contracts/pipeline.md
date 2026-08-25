@@ -262,8 +262,10 @@ Next:
 - **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
-- **`/myflow-do` never stages `<project>/spectre/` or `<project>/docs/superpowers/` before
-  finish**, and the list is fixed here rather than configured per project. `/myflow-finish` run 1
+- **`/myflow-do` never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
+  finish**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
+  is deliberately not on it — a capability spec is implementation, per **Git boundaries**
+  (`skills/myflow-contracts/git-boundaries.md`). `/myflow-finish` run 1
   stages them and commits them separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:

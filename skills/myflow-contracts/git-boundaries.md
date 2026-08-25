@@ -31,6 +31,13 @@ then stages with them excluded by pathspec — an exclusion governs what an
 rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
 `/myflow-finish` is what commits them.
 
+**A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
+states what the system must do, so changing it changes the product exactly as code does: the
+implementer writes and commits it on the change branch, in the task commit that implements the
+requirement, and it never reaches the planning commit. Within the spectre tree the boundary is the
+directory — `<project>/spectre/changes/` is planning and `<project>/spectre/specs/` is not — which is
+why every pathspec below names the change folder rather than the tree.
+
 `git add -A` respects `<project>/.gitignore`. Never force-add.
 
 **Both commits are guarded, and an empty one is skipped rather than failed.** Each commit is
@@ -39,8 +46,8 @@ command. See **Git boundaries** (`skills/myflow-contracts/git-boundaries-rationa
 cases this guards against and why it is a chain rather than `set -e`.
 
 ```bash
-git -C <abs-worktree> reset -q -- spectre/ docs/superpowers/ \
-  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/' ':(exclude)docs/superpowers/' \
+git -C <abs-worktree> reset -q -- spectre/changes/ docs/superpowers/ \
+  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/superpowers/' \
   && { git -C <abs-worktree> diff --cached --quiet \
        || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \
@@ -59,7 +66,9 @@ git's own output and stop.** See **Git boundaries** (`skills/myflow-contracts/gi
 for what an unguarded sequence would do instead.
 
 **A planning path that is a tracked symlink stops the run, and is never worked around.** When either
-of the two is a symlink, `git add -A -- . ':(exclude)docs/superpowers/'` exits 128 with
+of the two is a symlink — or `<project>/spectre/` is, putting `<project>/spectre/changes/` behind
+one — the
+`git add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/superpowers/'` call exits 128 with
 `fatal: pathspec … is beyond a symbolic link` and stages **nothing at all**. Report that message,
 name the path, and stop at `IN_PROGRESS`. The only way to stage past it is a bare `git add -A`,
 which puts the planning artifacts into the implementation commit — the one outcome this split

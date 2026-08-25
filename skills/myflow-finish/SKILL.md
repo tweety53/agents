@@ -195,7 +195,7 @@ collapses every per-task and fixup commit `/myflow-do` made on the branch back i
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
 
-All three routes commit — implementation, the `<project>/spectre/` planning
+All three routes commit — implementation, the `<project>/spectre/changes/` planning
 artifacts, and the session records under `<project>/docs/superpowers/` — as **two** commits, never
 one.
 

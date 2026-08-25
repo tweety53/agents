@@ -64,7 +64,7 @@ unexpanded string, and discriminates nothing between them.
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-- **`/myflow-do` never stages `<project>/spectre/` or `<project>/docs/superpowers/` before
+- **`/myflow-do` never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
   finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
   implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
   display command, is what makes them absent from *every* view of the staging area — a filtered

@@ -554,6 +554,13 @@ is_real_impl_commit() {
   # do. Skipped entirely for a merge commit, which is refused on its
   # own above regardless of what it touches.
   #
+  # THE PATTERN BELOW MUST TRACK commit-split.sh's EXCLUSION PATHSPEC
+  # EXACTLY. It reads `spectre/changes/`, not `spectre/`, because a
+  # capability spec under `spectre/specs/` is implementation: a
+  # spec-only implementation commit is real, and a pattern widened
+  # back to `spectre/` would filter its only path away, leave
+  # PARENT_TOUCHES_OUTSIDE at 0, and drop that genuine commit.
+  #
   # Resolved via `git diff-tree --no-commit-id --name-only -r --root`,
   # NOT `git diff --name-only "${PLAN_PARENT}^..${PLAN_PARENT}"`: the
   # latter fails with "fatal: ambiguous argument" when PLAN_PARENT is
@@ -569,7 +576,7 @@ is_real_impl_commit() {
   local PARENT_TOUCHES_OUTSIDE=0
   if [ "$PARENT_IS_MERGE" -eq 0 ] \
     && git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r --root "$PLAN_PARENT" 2>/dev/null \
-      | grep -Ev '^(spectre/|docs/superpowers/)' | grep -q .; then
+      | grep -Ev '^(spectre/changes/|docs/superpowers/)' | grep -q .; then
     PARENT_TOUCHES_OUTSIDE=1
   fi
 
@@ -684,7 +691,7 @@ fi
 # since it matched none of the three reserved subject shapes this guard
 # used to check alone). The parent is now accepted as IMPL_SHA only when it
 # is BOTH a non-merge commit (exactly one parent — every commit-split.sh
-# commit is) AND touches at least one path outside spectre/ and
+# commit is) AND touches at least one path outside spectre/changes/ and
 # docs/superpowers/ (what a real implementation commit is guaranteed to do,
 # per commit-split.sh's own boundary, and what some unrelated commit
 # sitting just ahead of the plan commit is not), on top of the existing
@@ -757,7 +764,7 @@ if [ -n "$REPO_ROOT" ]; then
 
   # IMPL_SHA derived from PLAN_SHA's first parent (finding G): accepted
   # only when that parent is a non-merge commit touching at least one path
-  # outside spectre/ and docs/superpowers/, and its subject matches none
+  # outside spectre/changes/ and docs/superpowers/, and its subject matches none
   # of the three reserved plan-/archive-shapes above. Anything else
   # resolves NOTHING rather than a confident wrong answer. The four
   # conditions themselves live in is_real_impl_commit, defined above.

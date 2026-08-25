@@ -47,10 +47,18 @@ rather than a port, and each removes work the pipeline was doing.
 OpenSpec has a change carry `changes/<name>/specs/<capability>/spec.md` delta files, which
 `/myflow-finish` run 2 merges back into the main specs tree at archive time.
 
-spectre has no deltas. A change edits `spectre/specs/<capability>.md` **directly on its branch**, and
-git computes the diff. So:
+spectre has no deltas. `spectre/specs/<capability>.md` is edited in place and git computes the diff,
+so the carriage that used to be finish run 2's sync step is now git's own. **The actor is
+`/myflow-do`'s implementer and the carrier is that task's own commit**: a capability spec states what
+the system must do, so changing it changes the product exactly as code does, and the task
+implementing the requirement names the spec file in its `**Files:**` field and commits it on the
+change branch alongside its code. So:
 
-- `/myflow-start` writes spec changes into the specs tree itself, not into delta files.
+- `/myflow-start` plans the spec change as a task and writes no spec — it runs before any branch or
+  worktree exists, so it has nowhere on the change branch to write to.
+- The split between the two commits is by directory, not by tree: `spectre/changes/` is a planning
+  artifact and `spectre/specs/` is implementation, so the exclusion pathspec names the change folder
+  rather than the tree.
 - `/myflow-finish` run 2 loses step 3's "sync delta specs" half entirely. What remains is: archive the
   change folder, commit on `chore/archive-<name>`.
 

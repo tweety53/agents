@@ -315,8 +315,10 @@ field names. Every implementer dispatch **must** carry each of the six blocks be
 > `**Commit:**` field, reproduced exactly** — already what `check-task-commit-fields.sh`
 > enforces. **Never weaken or bypass a project's commit validation to fit** — no `--no-verify`, and
 > no edit to its commit-message validator; a rejected subject means writing one the project accepts.
-> You **may** `git add`/`git commit` your own work, but never `<project>/spectre/` or
-> `<project>/docs/superpowers/` — `/myflow-finish` stages and commits those.
+> You **may** `git add`/`git commit` your own work, but never `<project>/spectre/changes/` or
+> `<project>/docs/superpowers/` — `/myflow-finish` stages and commits those. **A capability spec
+> under `<project>/spectre/specs/` is your work, not theirs**: when this task's `**Files:**` names
+> one, edit it and commit it here, in this task's own commit, exactly like a source file.
 
 **A `Build: red` task's commit folds into its green partner.** A task tagged `Build: red` also
 carries `**Squash-with:** Task <N>`, naming the green partner whose commit it folds into. Once that
@@ -1322,16 +1324,17 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **`<project>/spectre/` and `<project>/docs/superpowers/` are never part of a task commit.** Section 4's
-> COMMIT-PER-TASK clause already excludes both paths from every task and fixup commit; this step
-> only confirms nothing slipped in, it does not stage anything itself. See **7. Verify, stage, and
+> **`<project>/spectre/changes/` and `<project>/docs/superpowers/` are never part of a task commit.** Section 4's
+> COMMIT-PER-TASK clause already excludes both paths from every task and fixup commit — and
+> `<project>/spectre/specs/` is not one of them: a capability spec belongs in the task commit that
+> implements its requirement. This step only confirms nothing slipped in, it does not stage anything itself. See **7. Verify, stage, and
 > hand off** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **Load `skills/myflow-contracts/git-boundaries.md`** before committing below.
 
 **The one push exception.** Every task and fixup commit already sits on the branch, unpushed, per
 sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so this run also
-commits `<project>/spectre/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
+commits `<project>/spectre/changes/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
 and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
 only — and in this order — run
 `myflow record render -change <name> -kind all -repo <worktree>`; then
@@ -1356,7 +1359,7 @@ still attempted after any one failure. See **Rendering the session records**
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
 (`skills/myflow-contracts/git-boundaries.md`). The empty
-case is ordinary here — a fix round that touched neither `<project>/spectre/` nor the test guide has nothing
+case is ordinary here — a fix round that touched neither `<project>/spectre/changes/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 
 ```bash
@@ -1451,7 +1454,7 @@ the line rather than printing an empty one. See **Description sync**
 
 ## Guardrails
 
-- **Commit per task and per fixup, as section 4 and section 5 require** — never `<project>/spectre/` or
+- **Commit per task and per fixup, as section 4 and section 5 require** — never `<project>/spectre/changes/` or
   `<project>/docs/superpowers/` in a task or fixup commit. **Never push, merge, or open a PR** — except the
   `prUrl` exception above.
 - **Never** run `finishing-a-development-branch`.

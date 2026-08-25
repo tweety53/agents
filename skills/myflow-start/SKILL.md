@@ -314,9 +314,13 @@ these three artifacts; **this list is the whole of it**, since no command suppli
   (both below)
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
-**Spec edits go straight into `<project>/spectre/specs/<capability>.md` on the change branch**, one
-flat file per capability, so git carries them to the base branch with the change itself and finish
-run 2 has nothing to merge back.
+**A spec edit is planned here, never written here.** This command runs before any branch or
+worktree exists, so it has nowhere on the change branch to write to. A capability whose requirements
+the change alters therefore gets a task in `tasks.md` like any other, naming
+`<project>/spectre/specs/<capability>.md` — one flat file per capability — in that task's
+`**Files:**` field. `/myflow-do`'s implementer writes and commits it on the change branch, in that
+task's own commit, so git carries it to the base branch with the change itself and finish run 2 has
+nothing to merge back.
 
 ### Decisions
 
@@ -448,7 +452,7 @@ myflow stage begin -command '/myflow-start' -stage start.publish-proposal -harne
 ```
 
 Load the `artifact-design` skill, then build one self-contained page carrying the proposal's why
-and what, the design including `## Decisions` and `## Open questions`, the spec edits, and the
+and what, the design including `## Decisions` and `## Open questions`, the spec changes it plans, and the
 task list. Publish it with the Artifact tool. The open questions are carried so that stopping with
 something unanswered is visible at the gate the operator actually reads, rather than held only in
 the session transcript.

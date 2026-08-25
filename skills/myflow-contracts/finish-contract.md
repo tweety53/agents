@@ -139,7 +139,7 @@ that chain then commits from this reshaped state exactly as it always has.
 
 All three routes first commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
-reshaped diff carries, then the `<project>/spectre/` planning artifacts and the session records
+reshaped diff carries, then the `<project>/spectre/changes/` planning artifacts and the session records
 under `<project>/docs/superpowers/` (the SDD ledger and the review panel record), subject the fixed
 literal `chore(spectre): plan and session records`. The ledger is rendered from the store before
 staging, by:

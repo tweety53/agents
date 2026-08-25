@@ -5,9 +5,10 @@
 # Asserts against commit-split.sh's own contract (mirrored from
 # skills/myflow-contracts/pipeline.md's "Git boundaries" section, the
 # canonical spec this script implements): two guarded commits, each skipped
-# rather than failed when its staging area is empty, and a tracked symlink at
-# either planning path stops the run with git's own exit 128 rather than
-# being worked around.
+# rather than failed when its staging area is empty, a capability spec under
+# spectre/specs/ landing on the implementation side of the split, and a
+# tracked symlink at either planning path stopping the run with git's own
+# exit 128 rather than being worked around.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,9 +40,10 @@ new_repo() {
   git -C "$REPO" init -q
   git -C "$REPO" config user.email "test@example.com"
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/spectre" "$REPO/docs/superpowers"
+  mkdir -p "$REPO/spectre/changes" "$REPO/spectre/specs" "$REPO/docs/superpowers"
   printf 'seed\n' > "$REPO/README.md"
-  printf 'seed\n' > "$REPO/spectre/seed.md"
+  printf 'seed\n' > "$REPO/spectre/changes/seed.md"
+  printf 'seed\n' > "$REPO/spectre/specs/seed.md"
   printf 'seed\n' > "$REPO/docs/superpowers/seed.md"
   git -C "$REPO" add -A
   git -C "$REPO" commit -q -m "seed"
@@ -56,7 +58,7 @@ log_subjects() {
 # ===========================================================================
 new_repo
 printf 'impl change\n' > "$REPO/src.md"
-printf 'plan change\n' > "$REPO/spectre/plan.md"
+printf 'plan change\n' > "$REPO/spectre/changes/plan.md"
 set +e
 OUT="$("$SCRIPT" "$REPO" demo "impl: case1" "plan: case1" 2>&1)"
 RC=$?
@@ -138,6 +140,42 @@ case "$OUT" in
   *"beyond a symbolic link"* | *symbolic*) pass "case 4: git's own message surfaces" ;;
   *) fail "case 4: expected git's symlink message, got: $OUT" ;;
 esac
+
+# ===========================================================================
+# 5. A capability spec under spectre/specs/ is IMPLEMENTATION, not planning:
+#    it lands in the implementation commit, and the planning commit is
+#    skipped when nothing under spectre/changes/ or docs/superpowers/ moved.
+#    The counterpart half — spectre/changes/ still being planning — is
+#    cases 1 and 2 above.
+# ===========================================================================
+new_repo
+printf 'spec change\n' > "$REPO/spectre/specs/greeting.md"
+set +e
+OUT="$("$SCRIPT" "$REPO" demo "impl: case5" "plan: case5" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 0 ] || fail "case 5: rc=$RC out=$OUT"
+SUBJECTS="$(log_subjects)"
+case "$SUBJECTS" in
+  *"impl: case5"*) pass "case 5: capability spec committed as implementation" ;;
+  *) fail "case 5: implementation commit missing: $SUBJECTS" ;;
+esac
+case "$SUBJECTS" in
+  *"plan: case5"*) fail "case 5: planning commit made for a spec-only change: $SUBJECTS" ;;
+  *) pass "case 5: planning commit skipped" ;;
+esac
+# Resolved by SUBJECT, not by HEAD: with the exclusion pathspec widened back
+# to spectre/ the implementation commit is SKIPPED and HEAD is the planning
+# commit — which carries the spec too, so a HEAD-relative assertion here
+# passes for the wrong reason and this case stops being load-bearing.
+CASE5_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case5/ {print $1; exit}')"
+if [ -n "$CASE5_IMPL_SHA" ] \
+  && git -C "$REPO" show --name-only --format= "$CASE5_IMPL_SHA" \
+    | grep -q '^spectre/specs/greeting\.md$'; then
+  pass "case 5: spec file is in the implementation commit"
+else
+  fail "case 5: spec file not in an implementation commit (sha='${CASE5_IMPL_SHA:-none}')"
+fi
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
