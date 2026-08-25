@@ -614,7 +614,9 @@ spectre validate && echo "scratch tree valid"
 
 - [ ] **Step 2: Run the pipeline**
 
-Run `/myflow-start`, then `/myflow-do`, then `/myflow-finish` twice, against a small change in that scratch project — for example, adding a second requirement and the line of code that satisfies it. Follow each command's own handoff.
+Drive it with `/myflow-fast`, against a small change in that scratch project — for example, adding a second requirement and the line of code that satisfies it. `fast` is the composite that chains brainstorming, implementation and the review panel, then integration and archiving, pausing only at the human gates, so it exercises strictly more of the installed surface than running the three commands by hand. Stand in for the operator at each gate, and record which gate asked and what you chose.
+
+Record which commands `fast` invoked underneath and whether its handoffs matched what the individual skills would have printed. A composite that skips or reorders a step the pipeline expects is a finding.
 
 - [ ] **Step 3: Record what actually happened**
 
