@@ -23,6 +23,21 @@ A fresh `spectre/specs/` and `spectre/changes/` start empty. No `spectre/config.
 defaults are what myflow wants, and a configuration file added at cutover would be configuring for
 its own sake.
 
+## A rider: plans are arguments, not scripts
+
+Not part of the cutover, added to this branch at the author's request because the cutover is what
+demonstrated it. Seven times during this work an implementer measured something that contradicted
+the plan — the task shape spectre could not read, the budget guard already red on `main`, the
+archive path with no date prefix, sub-changes that are flat siblings, a blocked-state signal that
+would have stopped `/myflow-do` running at all. Every one improved the result, and every one arrived
+because the implementer measured rather than complied.
+
+`plan-provenance.md` already carries the vocabulary for this — `verified:`, `unverified:`,
+`measured:` — because a plan is a mix of checked facts and guesses. What it did not say is what to do
+when a guess is disproved mid-run. It says so now: report the measurement, stop, and amend the plan
+or the design before continuing. Silent deviation and silent compliance are both failures — the
+first is indistinguishable from a mistake, the second wastes the measurement.
+
 ## What the pipeline stops doing
 
 Three of the integration points have no spectre equivalent, by spectre's design. Each is a deletion
