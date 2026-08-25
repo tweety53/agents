@@ -44,9 +44,9 @@ beforeEach(() => {
 
 describe("route resolution ignores the query string (task 1)", () => {
   it("a static view route with a query resolves to that view", async () => {
-    window.location.hash = "#/cost-per-change?from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z";
+    window.location.hash = "#/trend?from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z";
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Cost per change" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Trend over time" })).toBeInTheDocument();
     window.location.hash = "";
   });
 

@@ -188,23 +188,23 @@ needs a change in flight.
 is installed into** — and conflating the two made a permanently vacuous lint step read as
 enforcement. The run here checks this repository's own `## workspace isolation` section below; a
 green lint run therefore says nothing whatever about any other project's declaration. What covers
-those is `/myflow-do`, which runs this guard against
-each apply worktree before it resolves the section, per section 7 of `skills/myflow-do/SKILL.md` —
+those is `/flow`, which runs this guard against
+each apply worktree before it resolves the section, per **Verify** in `skills/flow/verify-and-handoff.md` —
 so a declaration is validated where it is read, in whichever repository holds it. The lint entry
 stays because this repository's own configuration is one more configuration worth checking, and
 because it keeps the guard runnable from a bare tree.
 
 **`check-finish-preflight.sh`, `check-unfinished-work.sh`, `check-cleanup-complete.sh` and
-`check-worktree-processes.sh` are deliberately not lint steps.** All four are `/myflow-finish`
+`check-worktree-processes.sh` are deliberately not lint steps.** All four are `/flow` integrate/archive
 helpers that need a change in flight and a real worktree, a repository or a state directory passed
 in as arguments; they answer a question about one change, not about the state of the repository's
 text. A lint step that cannot run against a bare tree would fail on every unrelated invocation, so
 the omission is a decision, not an oversight. They are covered instead by their harnesses under
 `## test`.
 `check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
-`run-reproducer.sh` are excluded for the same reason: they are `/myflow-do` helpers that likewise
-need a change in flight and a worktree passed in, so they are covered by their own harnesses under
-`## test` instead.
+`run-reproducer.sh` are excluded for the same reason: they are `/flow` implementation helpers that
+likewise need a change in flight and a worktree passed in, so they are covered by their own
+harnesses under `## test` instead.
 
 **`check-installed-citations.sh` belongs in the list for the opposite reason those are excluded.**
 It takes no change-in-flight state — it derives the installed set by running a sandboxed `setup.sh`
@@ -249,7 +249,7 @@ launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist   # only if t
 ```
 
 The launchd agent line is a no-op if the agent was never loaded — see `stats/README.md`. This key
-is present rather than omitted so that `/myflow-finish`'s stack-stopped check runs against a real
+is present rather than omitted so that `/flow`'s stack-stopped check runs against a real
 answer, not a recorded "nothing to stop" that stopped being true when `stats/` landed.
 
 ## standards

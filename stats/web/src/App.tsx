@@ -16,10 +16,6 @@ import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
 import { CacheEfficiency } from "./views/CacheEfficiency";
-import { CostPerChange } from "./views/CostPerChange";
-import { ModelComparison } from "./views/ModelComparison";
-import { PanelEconomics } from "./views/PanelEconomics";
-import { ReworkRate } from "./views/ReworkRate";
 import { RunDetail } from "./views/RunDetail";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
@@ -29,24 +25,16 @@ const DEFAULT_VIEW: ViewName = "state-board";
 
 const VIEW_LABELS: Record<ViewName, string> = {
   "state-board": "Live state board",
-  "cost-per-change": "Cost per change",
   "stage-leaderboard": "Stage leaderboard",
   trend: "Trend over time",
   "cache-efficiency": "Cache efficiency",
-  "panel-economics": "Panel economics",
-  "model-comparison": "Model comparison",
-  "rework-rate": "Rework rate",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "state-board": StateBoard,
-  "cost-per-change": CostPerChange,
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
   "cache-efficiency": CacheEfficiency,
-  "panel-economics": PanelEconomics,
-  "model-comparison": ModelComparison,
-  "rework-rate": ReworkRate,
 };
 
 function isViewName(v: string): v is ViewName {

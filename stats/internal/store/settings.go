@@ -1,0 +1,136 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// ValidModels is the harness's fixed set of known model identifiers a
+// flow_settings.default_model value may take (design.md's
+// model-default-sonnet decision: implementer, fixer and reviewer all
+// default to one of these, uniformly).
+var ValidModels = map[string]bool{
+	"sonnet": true,
+	"opus":   true,
+	"haiku":  true,
+}
+
+// ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
+// may take: the three slots every /flow run dispatches by default
+// (design.md's review-panel-fixed-3 decision) plus the two slots that are
+// otherwise fully on-demand.
+var ValidReviewers = map[string]bool{
+	"primary":         true,
+	"principles":      true,
+	"code-review-low": true,
+	"bugbot":          true,
+	"security":        true,
+}
+
+// ErrInvalidModel is returned by PutSettings when DefaultModel is not one
+// of ValidModels.
+var ErrInvalidModel = errors.New("store: invalid model")
+
+// ErrInvalidReviewer is returned by PutSettings when a Reviewers entry is
+// not one of ValidReviewers.
+var ErrInvalidReviewer = errors.New("store: invalid reviewer")
+
+// DefaultModel is the value GetSettings reports for DefaultModel when
+// flow_settings holds no row yet -- the model-default-sonnet decision's
+// default, so a /flow run started before /flow-settings has ever been run
+// still resolves to a defined default rather than an error.
+const DefaultModel = "sonnet"
+
+// DefaultReviewers is the value GetSettings reports for Reviewers when
+// flow_settings holds no row yet: the three required slots
+// review-panel-fixed-3 dispatches by default, with neither on-demand slot
+// included.
+var DefaultReviewers = []string{"primary", "principles", "code-review-low"}
+
+// Settings is the harness-wide record /flow-settings manages: which model
+// implements, fixes and reviews by default, and which reviewer slots the
+// panel dispatches by default. flow_settings (0015_flow_settings.sql)
+// holds exactly one row of this shape.
+type Settings struct {
+	DefaultModel string
+	Reviewers    []string
+}
+
+// ValidateSettings reports whether s.DefaultModel and every entry of
+// s.Reviewers fall within the harness's fixed enums, returning
+// ErrInvalidModel or ErrInvalidReviewer -- wrapped with the specific bad
+// value -- for the first violation found. internal/api's own
+// ValidateSettings re-exports this rather than redefining the enums a
+// second time, so the store and the HTTP layer (task 2) can never
+// silently diverge on what counts as a valid value.
+func ValidateSettings(s Settings) error {
+	if !ValidModels[s.DefaultModel] {
+		return fmt.Errorf("%w: %q", ErrInvalidModel, s.DefaultModel)
+	}
+	for _, r := range s.Reviewers {
+		if !ValidReviewers[r] {
+			return fmt.Errorf("%w: %q", ErrInvalidReviewer, r)
+		}
+	}
+	return nil
+}
+
+// PutSettings validates settings and upserts it as flow_settings' single
+// row, overwriting whatever was recorded before. It returns
+// ErrInvalidModel or ErrInvalidReviewer -- without writing anything -- if
+// settings fails ValidateSettings.
+func (s *Store) PutSettings(ctx context.Context, settings Settings) error {
+	if err := ValidateSettings(settings); err != nil {
+		return err
+	}
+
+	reviewers, err := json.Marshal(settings.Reviewers)
+	if err != nil {
+		return fmt.Errorf("store: put settings: marshal reviewers: %w", err)
+	}
+
+	_, err = s.pool.Exec(ctx, `
+		INSERT INTO flow_settings (id, default_model, reviewers)
+		VALUES (TRUE, $1, $2)
+		ON CONFLICT (id) DO UPDATE SET
+			default_model = EXCLUDED.default_model,
+			reviewers     = EXCLUDED.reviewers,
+			updated_at    = now()
+	`, settings.DefaultModel, json.RawMessage(reviewers))
+	if err != nil {
+		return fmt.Errorf("store: put settings: %w", err)
+	}
+	return nil
+}
+
+// GetSettings returns flow_settings' single row, or -- when no row has
+// ever been written -- DefaultModel and DefaultReviewers: a /flow run
+// started before /flow-settings has ever been invoked still resolves to a
+// defined default rather than an error (this package's own DefaultModel
+// and DefaultReviewers doc comments).
+func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
+	var defaultModel string
+	var reviewers []byte
+	err := s.pool.QueryRow(ctx, `
+		SELECT default_model, reviewers FROM flow_settings WHERE id = TRUE
+	`).Scan(&defaultModel, &reviewers)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Settings{
+				DefaultModel: DefaultModel,
+				Reviewers:    append([]string(nil), DefaultReviewers...),
+			}, nil
+		}
+		return Settings{}, fmt.Errorf("store: get settings: %w", err)
+	}
+
+	out := Settings{DefaultModel: defaultModel}
+	if err := json.Unmarshal(reviewers, &out.Reviewers); err != nil {
+		return Settings{}, fmt.Errorf("store: get settings: decode reviewers: %w", err)
+	}
+	return out, nil
+}

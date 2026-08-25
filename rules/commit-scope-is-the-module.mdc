@@ -33,7 +33,7 @@ three known-wrong shapes and accepts everything else.
 ## The guard
 
 Inside the myflow pipeline, `<agents repo>/scripts/check-task-commit-fields.py`'s `check_commit_scope` enforces
-this on every task's **declared** `**Commit:**` field, at the point `/myflow-do` commits the task —
+this on every task's **declared** `**Commit:**` field, at the point `/flow` commits the task —
 so a plan that declares one of the three prohibited shapes fails the guard even when the implementer
 reproduces it exactly. Outside the pipeline, this rule is the only enforcement: apply it by hand.
 

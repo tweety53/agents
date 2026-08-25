@@ -153,6 +153,86 @@ func (c *Client) PutChange(ctx context.Context, project, name string, body []byt
 	}
 }
 
+// settingsURL is myflowd's harness-wide settings endpoint -- GET/PUT
+// /api/v1/settings, per design.md's model-default-sonnet and
+// review-panel-fixed-3 decisions. Unlike every other endpoint above, it
+// carries no project or change identity: flow_settings holds exactly one
+// row for the whole harness (internal/store/settings.go).
+func (c *Client) settingsURL() string { return c.baseURL + "/api/v1/settings" }
+
+// Settings is the wire shape GET/PUT /api/v1/settings exchange, copied
+// from internal/api's settingsDTO field-for-field rather than imported --
+// the same boundary reason StateBoardRow is copied rather than imported:
+// the CLI knows only HTTP, never the daemon's internal packages.
+type Settings struct {
+	DefaultModel string   `json:"defaultModel"`
+	Reviewers    []string `json:"reviewers"`
+}
+
+// ErrSettingsRejected means the store was reached and refused a
+// PutSettings call with a 400 -- an unknown model or reviewer value, named
+// in the wrapped error text exactly as internal/api/settings.go's put
+// handler writes it. Like ErrRefused and ErrNotFound, this is the store
+// answering, not the store being unreachable: a caller mistake with no
+// fallback value to retry, per this task's own instruction.
+var ErrSettingsRejected = errors.New("client: store rejected the settings write")
+
+// GetSettings fetches the harness-wide settings record via GET
+// /api/v1/settings. On any outcome other than the store answering 200 with
+// a well-formed body carrying the daemon header, it returns an error
+// wrapping ErrUnavailable -- the same fallback trigger every other read in
+// this package uses.
+func (c *Client) GetSettings(ctx context.Context) (Settings, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.settingsURL(), nil)
+	if err != nil {
+		return Settings{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+
+	body, status, err := c.send(req)
+	if err != nil {
+		return Settings{}, err
+	}
+	if status != http.StatusOK {
+		return Settings{}, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+
+	var out Settings
+	if err := json.Unmarshal(body, &out); err != nil {
+		return Settings{}, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return out, nil
+}
+
+// PutSettings writes in as the harness-wide settings record via PUT
+// /api/v1/settings and returns the record the store echoes back. A 200 is
+// success; a 400 is ErrSettingsRejected, carrying the rejected value in
+// its wrapped text exactly as the daemon reported it -- this is the store
+// answering "no" to a caller mistake, not a reason to fall back. Every
+// other outcome, transport failure included, is ErrUnavailable.
+func (c *Client) PutSettings(ctx context.Context, in Settings) (Settings, error) {
+	respBody, status, err := c.sendJSON(ctx, http.MethodPut, c.settingsURL(), in)
+	if err != nil {
+		return Settings{}, err
+	}
+
+	switch status {
+	case http.StatusOK:
+		var out Settings
+		if err := json.Unmarshal(respBody, &out); err != nil {
+			return Settings{}, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+		}
+		return out, nil
+	case http.StatusBadRequest:
+		var wire errorWireResponse
+		if err := json.Unmarshal(respBody, &wire); err != nil || wire.Error == "" {
+			return Settings{}, fmt.Errorf("%w: %s", ErrSettingsRejected, string(respBody))
+		}
+		return Settings{}, fmt.Errorf("%w: %s", ErrSettingsRejected, wire.Error)
+	default:
+		return Settings{}, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+}
+
 // stateBoardEpoch is the "from" instant ListStateBoard's underlying query
 // asks for -- before any change this store could ever hold, since the
 // store starts empty (state-file.md, "The store starts empty"). It is

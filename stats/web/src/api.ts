@@ -34,27 +34,18 @@ export const CHANGE_QUERY_FIELDS: readonly string[] = queryFields.changeFields;
  * queryFields.json -- see this file's header comment. */
 export const STAGE_RUN_QUERY_FIELDS: readonly string[] = queryFields.stageRunFields;
 
-/** One of the eight statistics views' URL slugs (design.md, "The views"). */
-export type ViewName =
-  | "state-board"
-  | "cost-per-change"
-  | "stage-leaderboard"
-  | "trend"
-  | "cache-efficiency"
-  | "panel-economics"
-  | "model-comparison"
-  | "rework-rate";
+/** One of the four surviving statistics views' URL slugs (design.md's
+ * `stats-ui-cut`: `CostPerChange`, `ModelComparison`, `PanelEconomics` and
+ * `ReworkRate` were cut). */
+export type ViewName = "state-board" | "stage-leaderboard" | "trend" | "cache-efficiency";
 
-export const VIEW_NAMES: readonly ViewName[] = [
-  "state-board",
-  "cost-per-change",
-  "stage-leaderboard",
-  "trend",
-  "cache-efficiency",
-  "panel-economics",
-  "model-comparison",
-  "rework-rate",
-];
+export const VIEW_NAMES: readonly ViewName[] = ["state-board", "stage-leaderboard", "trend", "cache-efficiency"];
+
+/** The "cost-per-change" statistics endpoint slug -- not a navigable
+ * `ViewName` (its standalone dashboard was cut, design.md's `stats-ui-cut`),
+ * but still called directly by `useRunDetail.ts` for a change's own
+ * aggregate, so `fetchStatsView` keeps accepting it alongside `ViewName`. */
+type CostPerChangeViewSlug = "cost-per-change";
 
 /**
  * Parameters every statistics view accepts. "from" and "to" are both
@@ -114,7 +105,7 @@ export interface StatsViewParams {
 
 /** The envelope every statistics view answers with. */
 export interface StatsResponse<Row = unknown> {
-  view: ViewName;
+  view: ViewName | CostPerChangeViewSlug;
   /** RFC 3339, the period actually applied -- echoed back, not merely the request's raw string. */
   from: string;
   to: string;
@@ -256,16 +247,6 @@ export interface CostPerChangeRow {
   sidechainTokens: number | null;
 }
 
-/** Mirrors costPerChangeRepoRowDTO -- the breakdown=repo shape. */
-export interface CostPerChangeRepoRow {
-  repoRoot: string | null;
-  runCount: number;
-  measuredRuns: number;
-  totalTokensInput: number | null;
-  totalCostUsd: number | null;
-  totalDurationMs: number | null;
-}
-
 /** Mirrors stageLeaderboardRowDTO. */
 export interface StageLeaderboardRow {
   command: string;
@@ -290,33 +271,6 @@ export interface CacheEfficiencyRow {
   cacheReadTotal: number | null;
   cacheCreationTotal: number | null;
   ratio: number | null;
-}
-
-/** Mirrors panelEconomicsRowDTO. */
-export interface PanelEconomicsRow {
-  reviewPanelRoster: string;
-  findingsTotal: number;
-  tokensTotal: number | null;
-  findingsPerMtok: number | null;
-}
-
-/** Mirrors modelComparisonRowDTO. */
-export interface ModelComparisonRow {
-  model: string;
-  command: string;
-  stage: string;
-  runCount: number;
-  meanCostUsd: number | null;
-  reworkAttempts: number;
-}
-
-/** Mirrors reworkRateRowDTO. */
-export interface ReworkRateRow {
-  command: string;
-  stage: string;
-  totalAttempts: number;
-  reworkAttempts: number;
-  abandonedCount: number;
 }
 
 /**
@@ -438,7 +392,7 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= */
 export async function fetchStatsView<Row = unknown>(
-  view: ViewName,
+  view: ViewName | CostPerChangeViewSlug,
   params: StatsViewParams,
   init?: RequestInit,
 ): Promise<StatsResponse<Row>> {

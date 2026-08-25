@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -25,7 +24,7 @@ import (
 
 // --- fakeStore's StatsStore surface -----------------------------------
 //
-// These eight methods exist purely so fakeStore (changes_test.go,
+// These five methods exist purely so fakeStore (changes_test.go,
 // stages_test.go) keeps satisfying api.StatsStore for the New() call sites
 // in those files that pass it as every one of New's three store
 // parameters and never exercise a stats route. Every stats_test.go test
@@ -51,18 +50,6 @@ func (f *fakeStore) TrendOverTime(_ context.Context, _ store.Period, project, _ 
 func (f *fakeStore) CacheEfficiency(_ context.Context, _ store.Period, project, _ *string) ([]store.CacheEfficiencyRow, error) {
 	f.lastStatsProject = project
 	return f.cacheEfficiency, f.cacheEfficiencyErr
-}
-func (f *fakeStore) PanelEconomics(_ context.Context, _ store.Period, project, _ *string) ([]store.PanelEconomicsRow, error) {
-	f.lastStatsProject = project
-	return f.panelEconomics, f.panelEconomicsErr
-}
-func (f *fakeStore) ModelComparison(_ context.Context, _ store.Period, project, _ *string) ([]store.ModelComparisonRow, error) {
-	f.lastStatsProject = project
-	return f.modelComparison, f.modelComparisonErr
-}
-func (f *fakeStore) ReworkRate(_ context.Context, _ store.Period, project, _ *string) ([]store.ReworkRateRow, error) {
-	f.lastStatsProject = project
-	return f.reworkRate, f.reworkRateErr
 }
 
 // CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured have no
@@ -105,9 +92,6 @@ type statsFake struct {
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
 	cacheEfficiency  []store.CacheEfficiencyRow
-	panelEconomics   []store.PanelEconomicsRow
-	modelComparison  []store.ModelComparisonRow
-	reworkRate       []store.ReworkRateRow
 	aggErr           error
 
 	countRunsWithoutModel    int
@@ -169,18 +153,6 @@ func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *strin
 func (f *statsFake) CacheEfficiency(_ context.Context, _ store.Period, p, m *string) ([]store.CacheEfficiencyRow, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.cacheEfficiency, f.aggErr
-}
-func (f *statsFake) PanelEconomics(_ context.Context, _ store.Period, p, m *string) ([]store.PanelEconomicsRow, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.panelEconomics, f.aggErr
-}
-func (f *statsFake) ModelComparison(_ context.Context, _ store.Period, p, m *string) ([]store.ModelComparisonRow, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.modelComparison, f.aggErr
-}
-func (f *statsFake) ReworkRate(_ context.Context, _ store.Period, p, m *string) ([]store.ReworkRateRow, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.reworkRate, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p
@@ -291,7 +263,7 @@ var _ api.StatsStore = (*statsFake)(nil)
 func newStatsTestServer(t *testing.T, sts api.StatsStore) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), nil)
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), newFakeStore(), nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -356,7 +328,7 @@ func periodPath(view string) string {
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	views := []string{
 		"state-board", "cost-per-change", "stage-leaderboard", "trend",
-		"cache-efficiency", "panel-economics", "model-comparison", "rework-rate",
+		"cache-efficiency",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -466,62 +438,6 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 		}
 	})
 
-	t.Run("panel-economics", func(t *testing.T) {
-		tokens := int64(2_000_000)
-		perMTok := 4.5
-		sts := &statsFake{panelEconomics: []store.PanelEconomicsRow{
-			{ReviewPanelRoster: "full", FindingsTotal: 9, TokensTotal: &tokens, FindingsPerMTok: &perMTok},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("panel-economics"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			ReviewPanelRoster string   `json:"reviewPanelRoster"`
-			FindingsTotal     int64    `json:"findingsTotal"`
-			TokensTotal       *int64   `json:"tokensTotal"`
-			FindingsPerMTok   *float64 `json:"findingsPerMtok"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.ReviewPanelRoster != "full" || got.FindingsTotal != 9 ||
-			got.TokensTotal == nil || *got.TokensTotal != 2_000_000 ||
-			got.FindingsPerMTok == nil || *got.FindingsPerMTok != 4.5 {
-			t.Errorf("got %+v, want roster=full FindingsTotal=9 TokensTotal=2000000 FindingsPerMTok=4.5", got)
-		}
-	})
-
-	t.Run("model-comparison", func(t *testing.T) {
-		mean := 6.75
-		sts := &statsFake{modelComparison: []store.ModelComparisonRow{
-			{Model: "claude-opus-4", Command: "/myflow-do", Stage: "SDD + TDD per task",
-				RunCount: 4, MeanCostUSD: &mean, ReworkAttempts: 2},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("model-comparison"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			Model          string   `json:"model"`
-			RunCount       int      `json:"runCount"`
-			MeanCostUSD    *float64 `json:"meanCostUsd"`
-			ReworkAttempts int      `json:"reworkAttempts"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.Model != "claude-opus-4" || got.RunCount != 4 ||
-			got.MeanCostUSD == nil || *got.MeanCostUSD != 6.75 || got.ReworkAttempts != 2 {
-			t.Errorf("got %+v, want Model=claude-opus-4 RunCount=4 MeanCostUSD=6.75 ReworkAttempts=2", got)
-		}
-	})
 }
 
 func mustDecodeRows(t *testing.T, env statsEnvelope, body []byte, v any) {
@@ -565,13 +481,12 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // --- TestBoundaryConventionIsConsistentAcrossViews ---------------------
 
 // TestBoundaryConventionIsConsistentAcrossViews exercises every one of the
-// seven stage-run-keyed views. A post-commit review mutation proved the
+// four stage-run-keyed views. A post-commit review mutation proved the
 // gap this closes: changing StageLeaderboard's boundary from
 // "sr.started_at < $2" to "<= $2" (internal/store/aggregate.go) left the
 // *previous* version of this test green -- it only looped over
-// cost-per-change and rework-rate, so a boundary divergence in
-// stage-leaderboard, trend, cache-efficiency, panel-economics or
-// model-comparison went completely undetected, even though this test's own
+// cost-per-change, so a boundary divergence in stage-leaderboard, trend or
+// cache-efficiency went completely undetected, even though this test's own
 // name claims to cover "every view".
 //
 // The live state board is deliberately excluded, not merely forgotten: it
@@ -583,13 +498,9 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 // One stage run is seeded exactly on the boundary T, with a metrics bag and
 // an owning change shaped to satisfy every remaining view's own WHERE
 // clause (internal/store/aggregate.go): StageLeaderboard requires
-// "cost_usd" present, ModelComparison requires "models" present (task 22
-// retired the scalar "model" key ModelComparison used to group by, in
-// favor of the per-model "models" bucket a mixed-model run actually
-// needs), and PanelEconomics requires the change's review_panel_roster to
-// be set. CostPerChange, TrendOverTime, CacheEfficiency and ReworkRate
+// "cost_usd" present. CostPerChange, TrendOverTime and CacheEfficiency
 // impose no such extra condition, so the same run and change satisfy all
-// seven at once.
+// four at once.
 func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	st := newIntegrationStore(t)
 	projectKey := fmt.Sprintf("proj-boundary-%d", time.Now().UnixNano())
@@ -617,8 +528,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	// The live state board is not in this loop -- see the doc comment above
 	// for why it is a genuinely different case, not an omission.
 	views := []string{
-		"cost-per-change", "rework-rate", "stage-leaderboard", "trend",
-		"cache-efficiency", "panel-economics", "model-comparison",
+		"cost-per-change", "stage-leaderboard", "trend", "cache-efficiency",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -973,44 +883,6 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 	}
 }
 
-// --- TestReworkRateReadsAttemptsNotTiming -------------------------------
-
-func TestReworkRateReadsAttemptsNotTiming(t *testing.T) {
-	// These exact numbers come straight from store.ReworkRateRow -- this
-	// task's own aggregation logic (attempt/outcome counting) is task 3's,
-	// already proven against real Postgres. What this test defends is
-	// that the HTTP layer carries the numbers through unmodified: it
-	// would fail if the handler recomputed rework from wall-clock timing,
-	// zeroed a field, or transposed reworkAttempts/abandonedCount.
-	sts := &statsFake{
-		reworkRate: []store.ReworkRateRow{
-			{Command: "/myflow-do", Stage: "SDD + TDD per task", TotalAttempts: 7, ReworkAttempts: 3, AbandonedCount: 1},
-		},
-	}
-	ts := newStatsTestServer(t, sts)
-	status, env, body := getStats(t, ts, periodPath("rework-rate"))
-	if status != http.StatusOK {
-		t.Fatalf("status %d, body %s", status, body)
-	}
-	var rows []struct {
-		Command        string `json:"command"`
-		Stage          string `json:"stage"`
-		TotalAttempts  int    `json:"totalAttempts"`
-		ReworkAttempts int    `json:"reworkAttempts"`
-		AbandonedCount int    `json:"abandonedCount"`
-	}
-	if err := json.Unmarshal(env.Rows, &rows); err != nil {
-		t.Fatalf("decode rows: %v (body %s)", err, body)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("rows = %d, want 1", len(rows))
-	}
-	got := rows[0]
-	if got.TotalAttempts != 7 || got.ReworkAttempts != 3 || got.AbandonedCount != 1 {
-		t.Errorf("got %+v, want TotalAttempts=7 ReworkAttempts=3 AbandonedCount=1", got)
-	}
-}
-
 // --- TestListEndpointsAcceptFilterSortSearchPage ------------------------
 
 func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
@@ -1099,7 +971,7 @@ func TestNegativeLimitAtHTTPBoundaryIsRejected(t *testing.T) {
 	t.Run("changes", func(t *testing.T) {
 		fs := newFakeStore()
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, fs, fs, fs, fs, nil)
+		srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
 		if err != nil {
 			t.Fatalf("api.New: %v", err)
 		}
@@ -1344,7 +1216,7 @@ func newIntegrationStore(t *testing.T) *store.Store {
 func newIntegrationTestServer(t *testing.T, st *store.Store) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, st, st, st, st, nil)
+	srv, err := api.New(cfg, st, st, st, st, st, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -1452,269 +1324,6 @@ func TestMultiRepoChangeIsOneRowInEveryView(t *testing.T) {
 	}
 }
 
-// TestPerRepoBreakdownAvailableOnRequest seeds the same two-repository
-// change as TestMultiRepoChangeIsOneRowInEveryView and asserts that
-// breakdown=repo&change=kan-1 reports each repository's contribution
-// separately, summing back to the unit's total -- the spec's own scenario,
-// verified with hand-computed per-repository figures, not merely "more
-// than one row came back".
-func TestPerRepoBreakdownAvailableOnRequest(t *testing.T) {
-	st := newIntegrationStore(t)
-	projectKey := fmt.Sprintf("proj-breakdown-%d", time.Now().UnixNano())
-	repoA, repoB := "/repos/a", "/repos/b"
-	mustPutIntegrationChange(t, st, projectKey, "kan-1", []store.Repo{{RepoRoot: repoA}, {RepoRoot: repoB}})
-
-	started := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoA, Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: started,
-	}, json.RawMessage(`{"cost_usd":2.0,"tokens":{"input":100}}`), started.Add(time.Minute))
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoB, Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: started.Add(2 * time.Minute),
-	}, json.RawMessage(`{"cost_usd":3.0,"tokens":{"input":200}}`), started.Add(3*time.Minute))
-
-	ts := newIntegrationTestServer(t, st)
-	path := fmt.Sprintf(
-		"/api/v1/stats/cost-per-change?from=2026-08-01T00:00:00Z&to=2026-09-01T00:00:00Z&project=%s&change=kan-1&breakdown=repo&command=%s&stage=%s",
-		projectKey, url.QueryEscape("/myflow-do"), url.QueryEscape("SDD + TDD per task"),
-	)
-	status, env, body := getStats(t, ts, path)
-	if status != http.StatusOK {
-		t.Fatalf("status %d, body %s", status, body)
-	}
-
-	var rows []struct {
-		RepoRoot         *string  `json:"repoRoot"`
-		RunCount         int      `json:"runCount"`
-		MeasuredRuns     int      `json:"measuredRuns"`
-		TotalTokensInput *int64   `json:"totalTokensInput"`
-		TotalCostUSD     *float64 `json:"totalCostUsd"`
-	}
-	if err := json.Unmarshal(env.Rows, &rows); err != nil {
-		t.Fatalf("decode breakdown rows: %v (body %s)", err, body)
-	}
-	if len(rows) != 2 {
-		t.Fatalf("breakdown rows = %d, want 2 (one per repository)", len(rows))
-	}
-
-	byRepo := map[string]float64{}
-	tokensByRepo := map[string]int64{}
-	var sum float64
-	for _, r := range rows {
-		if r.RepoRoot == nil {
-			t.Fatalf("row has nil RepoRoot in a breakdown that should name one per row: %+v", r)
-		}
-		if r.TotalCostUSD == nil {
-			t.Fatalf("row %s has nil TotalCostUSD", *r.RepoRoot)
-		}
-		if r.RunCount != 1 || r.MeasuredRuns != 1 {
-			t.Errorf("row %s: RunCount/MeasuredRuns = %d/%d, want 1/1", *r.RepoRoot, r.RunCount, r.MeasuredRuns)
-		}
-		if r.TotalTokensInput == nil {
-			t.Fatalf("row %s has nil TotalTokensInput, want a measured value", *r.RepoRoot)
-		}
-		byRepo[*r.RepoRoot] = *r.TotalCostUSD
-		tokensByRepo[*r.RepoRoot] = *r.TotalTokensInput
-		sum += *r.TotalCostUSD
-	}
-	if tokensByRepo[repoA] != 100 {
-		t.Errorf("repo A tokens.input = %v, want 100", tokensByRepo[repoA])
-	}
-	if tokensByRepo[repoB] != 200 {
-		t.Errorf("repo B tokens.input = %v, want 200", tokensByRepo[repoB])
-	}
-	if byRepo[repoA] != 2.0 {
-		t.Errorf("repo A total = %v, want 2.0", byRepo[repoA])
-	}
-	if byRepo[repoB] != 3.0 {
-		t.Errorf("repo B total = %v, want 3.0", byRepo[repoB])
-	}
-	if sum != 5.0 {
-		t.Errorf("sum of per-repository totals = %v, want 5.0 (the unit's total)", sum)
-	}
-}
-
-// TestPerRepoBreakdownDoesNotBlendAcrossProjects is post-commit review
-// finding F1, reproduced and fixed: a change is keyed by (project, name),
-// per store.TestSameNameInTwoProjectsCoexist, so two different projects
-// legitimately using the same change name ("kan-1") must never have their
-// stage runs summed together just because costPerChangeByRepo filtered on
-// name alone. This seeds exactly that collision -- projA/kan-1 in one
-// repository, projB/kan-1 (same change name, different project) in
-// another -- and asserts that requesting the breakdown without a project
-// is rejected (never silently blended), and that naming the project
-// returns only that project's own repository, with the other project's
-// contribution completely absent.
-func TestPerRepoBreakdownDoesNotBlendAcrossProjects(t *testing.T) {
-	st := newIntegrationStore(t)
-	suffix := time.Now().UnixNano()
-	projA := fmt.Sprintf("proj-a-%d", suffix)
-	projB := fmt.Sprintf("proj-b-%d", suffix)
-	repoA := "/repos/a-collision"
-	repoB := "/repos/b-collision"
-	mustPutIntegrationChange(t, st, projA, "kan-1", []store.Repo{{RepoRoot: repoA}})
-	mustPutIntegrationChange(t, st, projB, "kan-1", []store.Repo{{RepoRoot: repoB}})
-
-	started := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projA, ChangeName: "kan-1", RepoRoot: &repoA, Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: started,
-	}, json.RawMessage(`{"cost_usd":2.0}`), started.Add(time.Minute))
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projB, ChangeName: "kan-1", RepoRoot: &repoB, Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: started.Add(time.Minute),
-	}, json.RawMessage(`{"cost_usd":3.0}`), started.Add(2*time.Minute))
-
-	ts := newIntegrationTestServer(t, st)
-	period := "from=2026-08-01T00:00:00Z&to=2026-09-01T00:00:00Z"
-	rowParams := fmt.Sprintf("command=%s&stage=%s", url.QueryEscape("/myflow-do"), url.QueryEscape("SDD + TDD per task"))
-
-	t.Run("no project: rejected, never silently blended", func(t *testing.T) {
-		status, body := doGetRaw(t, ts, fmt.Sprintf("/api/v1/stats/cost-per-change?%s&change=kan-1&breakdown=repo&%s", period, rowParams))
-		if status != http.StatusBadRequest {
-			t.Fatalf("status = %d, want 400; body %s", status, body)
-		}
-	})
-
-	t.Run("projA: only projA's own repository, projB's is absent", func(t *testing.T) {
-		status, env, body := getStats(t, ts, fmt.Sprintf("/api/v1/stats/cost-per-change?%s&project=%s&change=kan-1&breakdown=repo&%s", period, projA, rowParams))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			RepoRoot     *string  `json:"repoRoot"`
-			TotalCostUSD *float64 `json:"totalCostUsd"`
-		}
-		if err := json.Unmarshal(env.Rows, &rows); err != nil {
-			t.Fatalf("decode: %v (body %s)", err, body)
-		}
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1 (only projA's own repository)", len(rows))
-		}
-		if rows[0].RepoRoot == nil || *rows[0].RepoRoot != repoA {
-			t.Fatalf("repoRoot = %v, want %q", rows[0].RepoRoot, repoA)
-		}
-		if rows[0].TotalCostUSD == nil || *rows[0].TotalCostUSD != 2.0 {
-			t.Fatalf("TotalCostUSD = %v, want 2.0 (projB's 3.0 must not leak in)", rows[0].TotalCostUSD)
-		}
-	})
-}
-
-// TestPerRepoBreakdownScopedToRowNotWholeChange is post-commit review
-// finding F1 (task 13's review round): the cost-per-change view groups its
-// own, non-breakdown rows by (project, change, command, stage) -- one row
-// per stage -- and the interface nests exactly one breakdown toggle under
-// each of those rows. Before this fix, costPerChangeByRepo filtered only on
-// project and change name, so it summed every stage run of the whole
-// change into one panel regardless of which row's toggle asked for it: two
-// differently-costed rows of the same change opened to the identical,
-// unreconciling total. This seeds two stages of one change with different
-// costs and asserts each stage's breakdown sums to *that stage's own*
-// total, and that the two breakdowns differ from each other -- a fixture
-// with only one stage per change cannot exhibit the bug, which is why this
-// one deliberately has two.
-func TestPerRepoBreakdownScopedToRowNotWholeChange(t *testing.T) {
-	st := newIntegrationStore(t)
-	projectKey := fmt.Sprintf("proj-row-scope-%d", time.Now().UnixNano())
-	repoA := "/repos/row-scope"
-	mustPutIntegrationChange(t, st, projectKey, "kan-1", []store.Repo{{RepoRoot: repoA}})
-
-	started := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
-	const sddStage = "SDD + TDD per task"
-	const panelStage = "5. The review panel"
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoA, Harness: "claude-code",
-		Command: "/myflow-do", Stage: sddStage, StartedAt: started,
-	}, json.RawMessage(`{"cost_usd":2.10}`), started.Add(time.Minute))
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoA, Harness: "claude-code",
-		Command: "/myflow-do", Stage: sddStage, StartedAt: started.Add(2 * time.Minute),
-	}, json.RawMessage(`{"cost_usd":0.0}`), started.Add(3*time.Minute))
-	mustRunIntegrationStage(t, st, store.BeginStageInput{
-		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoA, Harness: "claude-code",
-		Command: "/myflow-do", Stage: panelStage, StartedAt: started.Add(4 * time.Minute),
-	}, json.RawMessage(`{"cost_usd":3.10}`), started.Add(5*time.Minute))
-
-	ts := newIntegrationTestServer(t, st)
-	period := "from=2026-08-01T00:00:00Z&to=2026-09-01T00:00:00Z"
-
-	fetchTotal := func(t *testing.T, stage string) float64 {
-		t.Helper()
-		path := fmt.Sprintf(
-			"/api/v1/stats/cost-per-change?%s&project=%s&change=kan-1&breakdown=repo&command=%s&stage=%s",
-			period, projectKey, url.QueryEscape("/myflow-do"), url.QueryEscape(stage),
-		)
-		status, env, body := getStats(t, ts, path)
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			RepoRoot     *string  `json:"repoRoot"`
-			RunCount     int      `json:"runCount"`
-			TotalCostUSD *float64 `json:"totalCostUsd"`
-		}
-		if err := json.Unmarshal(env.Rows, &rows); err != nil {
-			t.Fatalf("decode: %v (body %s)", err, body)
-		}
-		if len(rows) != 1 {
-			t.Fatalf("stage %q: rows = %d, want 1 (one repository)", stage, len(rows))
-		}
-		if rows[0].TotalCostUSD == nil {
-			t.Fatalf("stage %q: TotalCostUSD is nil", stage)
-		}
-		return *rows[0].TotalCostUSD
-	}
-
-	sddTotal := fetchTotal(t, sddStage)
-	panelTotal := fetchTotal(t, panelStage)
-
-	// The bug summed every stage run of the change (2.10 + 0.0 + 3.10 =
-	// 5.20) into both panels. The fix must reconcile each panel with its
-	// own row: sddStage's two runs (2.10 + 0.0 = 2.10) and panelStage's one
-	// run (3.10) -- distinct from each other and from the whole-change sum.
-	if sddTotal != 2.10 {
-		t.Errorf("%q breakdown total = %v, want 2.10 (its own two runs, not the whole change)", sddStage, sddTotal)
-	}
-	if panelTotal != 3.10 {
-		t.Errorf("%q breakdown total = %v, want 3.10 (its own one run, not the whole change)", panelStage, panelTotal)
-	}
-	if sddTotal == panelTotal {
-		t.Fatalf("both rows' breakdowns report the same total (%v) -- scoped to the whole change, not the row", sddTotal)
-	}
-}
-
-// TestPerRepoBreakdownRequiresCommandAndStage is the request-validation
-// half of TestPerRepoBreakdownScopedToRowNotWholeChange: breakdown=repo
-// must be rejected -- not silently widened to a change-wide figure --
-// when command or stage is missing, since a request without them has no
-// row to scope the breakdown to.
-func TestPerRepoBreakdownRequiresCommandAndStage(t *testing.T) {
-	st := newIntegrationStore(t)
-	projectKey := fmt.Sprintf("proj-row-scope-required-%d", time.Now().UnixNano())
-	mustPutIntegrationChange(t, st, projectKey, "kan-1", []store.Repo{{RepoRoot: "/repos/a"}})
-	ts := newIntegrationTestServer(t, st)
-	period := "from=2026-08-01T00:00:00Z&to=2026-09-01T00:00:00Z"
-
-	cases := []struct {
-		name  string
-		extra string
-	}{
-		{"neither command nor stage", ""},
-		{"command only", "&command=" + url.QueryEscape("/myflow-do")},
-		{"stage only", "&stage=" + url.QueryEscape("SDD + TDD per task")},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			path := fmt.Sprintf("/api/v1/stats/cost-per-change?%s&project=%s&change=kan-1&breakdown=repo%s", period, projectKey, tc.extra)
-			status, body := doGetRaw(t, ts, path)
-			if status != http.StatusBadRequest {
-				t.Fatalf("status = %d, want 400; body %s", status, body)
-			}
-		})
-	}
-}
-
 // --- task 21: the model filter -------------------------------------------
 
 // TestModelRestrictionRejectedOnStateBoard is
@@ -1743,15 +1352,14 @@ func TestModelRestrictionRejectedOnStateBoard(t *testing.T) {
 }
 
 // TestModelParamAcceptedAndPassedThroughOnEveryStageRunView iterates the
-// seven views whose rows are stage runs (every view except state-board,
+// four views whose rows are stage runs (every view except state-board,
 // covered separately above) and asserts a "model" query parameter reaches
 // the store call unchanged, for each one -- not spot-checked, per this
 // task's own non-negotiable requirement that the filter be honoured on
-// every one of the seven, iterated.
+// every one of the four, iterated.
 func TestModelParamAcceptedAndPassedThroughOnEveryStageRunView(t *testing.T) {
 	views := []string{
-		"cost-per-change", "stage-leaderboard", "trend",
-		"cache-efficiency", "panel-economics", "model-comparison", "rework-rate",
+		"cost-per-change", "stage-leaderboard", "trend", "cache-efficiency",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -1815,60 +1423,6 @@ func TestExcludedNoModelPresentOnlyWhenAModelFilterWasApplied(t *testing.T) {
 			t.Errorf("excludedNoModel = %v, want a present 0", env.ExcludedNoModel)
 		}
 	})
-}
-
-// --- task 25, step 1: "breakdown" is rejected where it cannot apply -------
-
-// TestBreakdownRejectedOnViewsThatDoNotSupportIt is task 25's own defect:
-// "breakdown" sat in statsQueryParams, so the unknown-parameter guard
-// passed it through on every view, and only cost-per-change ever read it
-// -- every other view returned an ordinary 200 and said nothing about the
-// parameter it silently discarded. This mirrors
-// TestModelRestrictionRejectedOnStateBoard's posture exactly: name the
-// view, and never reach the store at all.
-func TestBreakdownRejectedOnViewsThatDoNotSupportIt(t *testing.T) {
-	views := []string{
-		"state-board", "stage-leaderboard", "trend",
-		"cache-efficiency", "panel-economics", "model-comparison", "rework-rate",
-	}
-	for _, view := range views {
-		t.Run(view, func(t *testing.T) {
-			sts := &statsFake{}
-			ts := newStatsTestServer(t, sts)
-			status, body := doGetRaw(t, ts, periodPath(view)+"&breakdown=repo")
-			if status != http.StatusBadRequest {
-				t.Fatalf("status = %d, want 400; body %s", status, body)
-			}
-			if !contains(body, view) {
-				t.Errorf("body %q does not name the rejected view", body)
-			}
-			if sts.lastProject != nil || sts.lastModel != nil {
-				t.Errorf("store was called (lastProject=%v, lastModel=%v) -- the rejection must happen before any store call", sts.lastProject, sts.lastModel)
-			}
-		})
-	}
-}
-
-// TestBreakdownStillAcceptedOnCostPerChange guards the one view that must
-// keep honouring "breakdown" exactly as before -- task 25's own
-// non-negotiable that the existing breakdown=repo pairing rules on
-// cost-per-change are unchanged.
-func TestBreakdownStillAcceptedOnCostPerChange(t *testing.T) {
-	sts := &statsFake{}
-	ts := newStatsTestServer(t, sts)
-	status, body := doGetRaw(t, ts, periodPath("cost-per-change")+"&breakdown=repo")
-	// No "change" parameter: this must fail for the pairing-rule reason,
-	// never for an "unsupported view" reason -- so it is a 400 whose body
-	// names the missing pairing parameter, not the view.
-	if status != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400; body %s", status, body)
-	}
-	if !contains(body, "change") {
-		t.Errorf("body %q does not name the missing pairing parameter", body)
-	}
-	if contains(body, "does not accept") {
-		t.Errorf("body %q rejected as an unsupported view, want the pairing-rule message instead", body)
-	}
 }
 
 // --- GET /api/v1/models ---------------------------------------------------

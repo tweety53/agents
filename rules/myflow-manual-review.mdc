@@ -1,27 +1,28 @@
 ---
-description: myflow state machine — three states (STARTED, IN_PROGRESS, FINISHED) tracked in a state file, one per pipeline command (/myflow-start, /myflow-do, /myflow-finish); /myflow-do emits both the staged diff and the run instructions, so reviewing and testing are one human gate; the gate is a property of the state, so no command exists whose only job is to record it; every command is re-entrant and a fix never moves the state; no command takes a flag; /myflow-finish runs twice — integrate (PR by default, merge, or manual), then archive, push and remove worktrees once the branch is merged; no tests, linters or coverage run before integration
+description: myflow state machine — three states (STARTED, IN_PROGRESS, FINISHED) tracked in a state file, driven end to end by one command (/flow); a creating run writes STARTED at invocation and, in the same invocation, continues into implementation behind a fixed 3-slot review panel, ending at IN_PROGRESS; that run emits both the staged diff and the run instructions, so reviewing and testing are one human gate; the gate is a property of the state, so no command exists whose only job is to record it; every invocation is re-entrant and a fix never moves the state; no command takes a flag; a bare invocation at IN_PROGRESS asks how to land the branch — open PR by default, merge, or manual — then, on merge-and-push, continues in the same invocation through archive to FINISHED; no tests, linters or coverage run before integration
 globs:
 alwaysApply: true
 ---
 
-# myflow — start → do → finish
+# myflow — /flow, start to finish
 
-When running `/myflow-*` commands, follow this **fixed three-state pipeline**:
+When running `/flow`, follow this **fixed three-state pipeline**:
 
 ```text
-/myflow-start  → STARTED      you: read the proposal artifact
-/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (second run — it integrates first)
+/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
+/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
+/flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```
 
-Each command ends in the state named after it. The human gate is a property of the state, not a
-separate step — which is why no command exists whose only job is to record that a review
-happened. `/myflow-do` produces both the staged diff and the run instructions, so reviewing and
-testing are one gate. Every command is re-entrant, and a fix never moves the state.
+One invocation carries the run named after wherever it stops. The human gate is a property of the
+state, not a separate step — which is why no command exists whose only job is to record that a
+review happened. A creating or fix run produces both the staged diff and the run instructions, so
+reviewing and testing are one gate. Every invocation is re-entrant, and a fix never moves the state.
 
-`/myflow-finish` runs **twice**: once to integrate the branch (open a PR by default, merge, or
-leave it to you), and again once the branch is merged to sync, archive, push and remove the
-worktrees.
+A bare invocation at `IN_PROGRESS` asks how the branch should land: open a PR by default, merge and
+push, or leave it to you. Choosing merge-and-push continues the same invocation once the branch is
+merged, syncing, archiving, pushing and removing the worktrees; open PR and manual stop and hand off
+instead.
 
 ## Load the pipeline before acting
 
@@ -29,11 +30,11 @@ This rule is always on, in every session, so it carries **only the trigger above
 pipeline itself. The pipeline is one file, loaded on demand:
 
 **States** and **State transitions** (`skills/myflow-contracts/pipeline.md`) — **load that file
-first**, before any other step of any `/myflow-*` command. It is canonical for the state
+first**, before any other step of `/flow`. It is canonical for the state
 definitions, the command→state transition table, the wrong-state handoff, the
 handoff output shape. The finish contract itself lives in
 `skills/myflow-contracts/finish-contract.md`, which is canonical for it and is loaded by
-`/myflow-finish` alone.
+`/flow`'s integrate/archive phase alone.
 
 Never act on a remembered version of any of that. A command that skips the load is running on a
 stale copy of the state machine — the failure this split exists to prevent.
@@ -48,13 +49,13 @@ first time a contract is added, nothing checks it against the table, and that is
 | **State file** (`skills/myflow-contracts/state-file.md`) | reading or writing a change's state file |
 | **Project configuration** (`skills/myflow-contracts/project-configuration.md`) | resolving `<project>/.myflow/project.md` |
 | **Jira integration** (`skills/myflow-contracts/jira-integration.md`) | any Jira-related step |
-| **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/myflow-finish` run 1 only |
+| **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 only |
 | **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
 | **The build-green tag** (`skills/myflow-contracts/build-green.md`) | writing or checking a task's build tag |
 | **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
-| **Finish contract** (`skills/myflow-contracts/finish-contract.md`) | `/myflow-finish`'s two-run procedure — the preflight signals, both runs, base-branch resolution and worktree cleanup |
+| **Finish contract** (`skills/myflow-contracts/finish-contract.md`) | `/flow`'s two-run integrate/archive procedure — the preflight signals, both runs, base-branch resolution and worktree cleanup |
 
-**A `/myflow-*` run never loads a rationale appendix.** `pipeline-rationale.md` and
+**A `/flow` run never loads a rationale appendix.** `pipeline-rationale.md` and
 `jira-integration-rationale.md` hold the reasoning behind the two largest contracts — why an
 ordering is what it is, what was rejected, what was measured — and exist for whoever *edits* a
 contract. They are deliberately absent from the table above, because that table is what a command

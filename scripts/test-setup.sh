@@ -760,7 +760,7 @@ group "check-unfinished-work.sh runs through the installed path and finds its li
 # The guard with the hardest dependency: it sources lib/panel-record.sh from its own
 # directory. Presence is not reachability — this actually RUNS it through the installed
 # symlink chain and inspects what it printed, not just that the file exists.
-GUARD_PATH="$home/.claude/skills/myflow-finish/scripts/check-unfinished-work.sh"
+GUARD_PATH="$home/.claude/skills/flow/scripts/check-unfinished-work.sh"
 assert_exists "the installed check-unfinished-work.sh exists to invoke" "$GUARD_PATH"
 GUARD_LOG="$SANDBOX/check-unfinished-work-installed.log"
 "$GUARD_PATH" >"$GUARD_LOG" 2>&1

@@ -43,7 +43,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 		[]string{
 			"stage", "begin",
 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd",
+			"-command", "/flow", "-stage", "flow.sdd-tdd",
 			"-harness", "claude-code", "-session", "sess-123",
 			"-session-token", "mf-session-token-identity-abc",
 			"kan-16",
@@ -64,11 +64,11 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 	if got["changeName"] != "kan-16" {
 		t.Errorf("changeName = %v, want kan-16", got["changeName"])
 	}
-	if got["command"] != "/myflow-do" {
-		t.Errorf("command = %v, want /myflow-do", got["command"])
+	if got["command"] != "/flow" {
+		t.Errorf("command = %v, want /flow", got["command"])
 	}
-	if got["stage"] != "do.sdd-tdd" {
-		t.Errorf("stage = %v, want %q", got["stage"], "do.sdd-tdd")
+	if got["stage"] != "flow.sdd-tdd" {
+		t.Errorf("stage = %v, want %q", got["stage"], "flow.sdd-tdd")
 	}
 	if got["harness"] != "claude-code" {
 		t.Errorf("harness = %v, want claude-code", got["harness"])
@@ -111,7 +111,7 @@ func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-session-token-default-harness", "kan-16"},
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-default-harness", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -150,7 +150,7 @@ func TestStageBeginRejectsUndocumentedStageWithoutContactingStore(t *testing.T) 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage", "kan-16"},
+			"-command", "/flow", "-stage", "a stage nobody documented", "-session-token", "mf-session-token-undocumented-stage", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
@@ -184,7 +184,7 @@ func TestStageBeginRequiresSessionToken(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "kan-16"},
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 2 {
@@ -230,7 +230,7 @@ func TestStageBeginRejectsShellSubstitutionSessionToken(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := run(context.Background(),
 				[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-					"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", tc.sessionToken, "kan-16"},
+					"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", tc.sessionToken, "kan-16"},
 				strings.NewReader(""), &stdout, &stderr)
 
 			if code != 2 {
@@ -272,7 +272,7 @@ func TestStageBeginAcceptsLiteralSessionToken(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-20260814-abc123", "kan-16"},
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-20260814-abc123", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -327,7 +327,7 @@ func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", expandedValue, "kan-16"},
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", expandedValue, "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 
 	if code != 0 {
@@ -373,7 +373,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 		[]string{
 			"stage", "end",
 			"-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd",
+			"-command", "/flow", "-stage", "flow.sdd-tdd",
 			"-outcome", "completed",
 			"-fix-rounds", "2", "-panel-rounds", "1",
 			"-findings", `{"critical":0,"major":1}`,
@@ -438,7 +438,7 @@ func TestStageEndOmitsMetricsWhenNoFlagsGiven(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-outcome", "completed", "kan-16"},
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
@@ -467,7 +467,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
-				"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-session-token-fallback-begin", "kan-16"},
+				"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-begin", "kan-16"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -504,7 +504,7 @@ func TestStageMarkFallsBackAndExitsZero(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"stage", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
-				"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-outcome", "completed", "kan-16"},
+				"-command", "/flow", "-stage", "flow.sdd-tdd", "-outcome", "completed", "kan-16"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -548,7 +548,7 @@ func TestStageMarkFallbackDoesNotTouchStateJournal(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"stage", "begin", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
-			"-command", "/myflow-do", "-stage", "do.sdd-tdd", "-session-token", "mf-session-token-fallback-journal", "kan-16"},
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-fallback-journal", "kan-16"},
 		strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())

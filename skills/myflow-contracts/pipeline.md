@@ -3,7 +3,7 @@
 The three-state pipeline itself: state definitions, the command→state transition table and the
 handoff shape. See **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
 
-**Load this file when running any `/myflow-*` command.** It is split out of
+**Load this file when running `/flow`.** It is split out of
 `rules/myflow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
 whole state machine — the same reason the other contract files beside it were split out.
 
@@ -11,7 +11,7 @@ This file is **canonical** for everything in it. Where a skill or command disagr
 file wins.
 
 The reasoning behind this file lives in `skills/myflow-contracts/pipeline-rationale.md`;
-**a `/myflow-*` run never loads it.**
+**a `/flow` run never loads it.**
 
 **Five sections that reach fewer than every command live beside this file, not in it** — a
 discovery aid, never a second statement of what they say:
@@ -27,9 +27,9 @@ discovery aid, never a second statement of what they say:
 A change is always in exactly one of three states, recorded in its state file.
 
 ```text
-/myflow-start  → STARTED      you: read the proposal artifact
-/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (second run — see the finish contract)
+/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
+/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
+/flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
 ```
 
 **Each command ends in the state named after it**, so the state vocabulary and the command
@@ -47,13 +47,13 @@ be nothing for one to write.
 | `IN_PROGRESS` | The implementation is staged and the handoff printed the run instructions | you — review the diff, run the apps |
 | `FINISHED` | Archived, pushed, worktrees removed | — |
 
-**Reviewing and testing are one gate.** `/myflow-do` produces both surfaces in the same run, so
-the human does both at one sitting. There is no state between implementation and finishing —
-integration is not a stage, it is the first half of finishing.
+**Reviewing and testing are one gate.** A creating or fix run of `/flow` produces both surfaces in
+the same run, so the human does both at one sitting. There is no state between implementation and
+finishing — integration is not a stage, it is the first half of finishing.
 
 ## Stage exit — never the command's own judgment
 
-Within a single command's run, a stage that loops — most concretely `/myflow-start`'s brainstorm
+Within a single run, a stage that loops — most concretely `/flow`'s brainstorm
 stage, whose convergence test reopens after every planning-stage exchange that leaves a question the
 command's inputs do not answer — never closes on the command's own judgment. It closes only on an
 explicit operator answer: at a confirm, or by declining an offer, recording what is still open
@@ -62,14 +62,13 @@ records the confirm itself as an open question and ends the stage there, since n
 could ever arrive through it. An operator who is present but silent is not that exception and still
 gets another round.
 
-See **Convergence** (`skills/myflow-start/SKILL.md`).
+See **Convergence** (`skills/flow/brainstorm.md`).
 
 ## Command surface
 
-Three pipeline commands, one composite command, plus one read-only one. `/myflow-fast` is the
-composite command — it chains the other three's stage content across state transitions that carry
-no human gate; see `skills/myflow-fast/SKILL.md` for what it does. **No command accepts a flag.**
-The only argument is the optional change name — see **Change name resolution**.
+One command, `/flow`, drives the whole pipeline, plus two read-only commands (`/flow-status`,
+`/flow-research`) and one standalone, non-pipeline command (`/flow-settings`). **No command accepts
+a flag.** The only argument is the optional change name — see **Change name resolution**.
 
 An argument that is not a known change name is **reported**, not silently ignored — a silently
 ignored word is indistinguishable from a flag that stopped working.
@@ -78,33 +77,30 @@ ignored word is indistinguishable from a flag that stopped working.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/myflow-start` | *(none — creates the change)* · `STARTED` | `STARTED` |
-| `/myflow-do` | `STARTED` · `IN_PROGRESS` | `IN_PROGRESS` from `STARTED`; **otherwise unchanged** |
-| `/myflow-finish` | `IN_PROGRESS` | `IN_PROGRESS` after run 1; `FINISHED` after run 2 |
-| `/myflow-fast` | *(none — creates the change)* · `IN_PROGRESS` | `IN_PROGRESS` from a creating or fix run; from a bare invocation at `IN_PROGRESS`, `IN_PROGRESS` or `FINISHED` depending on the route chosen |
-| `/myflow-status` | any — read-only, never block | unchanged |
+| `/flow` | *(none — creates the change)* · `STARTED` · `IN_PROGRESS` | `STARTED` from a creating run that stops early, or `IN_PROGRESS` in the same invocation; from `STARTED`, resumes and ends at `STARTED` or `IN_PROGRESS`; from `IN_PROGRESS` with an argument, unchanged (fix run); from a bare invocation at `IN_PROGRESS`, `IN_PROGRESS` or `FINISHED` depending on the route chosen — see `skills/flow/SKILL.md`'s own **State transitions** and **Stage keys** for the full detail this row summarises |
+| `/flow-status` | any — read-only, never block | unchanged |
 
 **This table is authoritative.** Every command file — in **both** command trees (`commands/` and
 `commands-claude/`) — must state exactly the states its row lists, and must agree with the skill it
 delegates to. When a command and its skill disagree, whichever the agent reads first wins, which is
 non-determinism in the one layer that must be deterministic.
 
-### Every command is re-entrant
+### Every invocation is re-entrant
 
-Re-invoking a command is the supported way to revise its output. There is no separate `*-fix`
+Re-invoking `/flow` is the supported way to revise its output. There is no separate `*-fix`
 command:
 
-- **`/myflow-start` at `STARTED`** revises the proposal and republishes the artifact to the
-  **same** URL.
-- **`/myflow-do` at `IN_PROGRESS`** resumes the existing worktree and applies a fix, documenting it
-  in `proposal.md`/`tasks.md` or a `<name>-fix-N` sub-change first, and refreshing the test
-  guide alongside the code so the two surfaces never drift apart.
-- **`/myflow-finish` at `IN_PROGRESS`** integrates on its first run and archives on its second.
+- **At `STARTED`**, `/flow` resumes the creating run from wherever brainstorming stopped.
+- **At `IN_PROGRESS`, with an argument**, `/flow` resumes the existing worktree and applies a fix,
+  documenting it in `proposal.md`/`tasks.md` or a `<name>-fix-N` sub-change first, and refreshing
+  the test guide alongside the code so the two surfaces never drift apart.
+- **At `IN_PROGRESS`, bare**, `/flow` integrates on the first such invocation and archives on the
+  next, once the branch has merged.
 
 ### A fix never moves the state
 
-`/myflow-do` advances the state **only** from `STARTED` to `IN_PROGRESS`. From `IN_PROGRESS` it
-writes the state back exactly as it found it.
+Implementation advances the state **only** from `STARTED` to `IN_PROGRESS`. A fix run at
+`IN_PROGRESS` writes the state back exactly as it found it.
 
 No field records where a fix was raised. Whether the human re-reviews the diff or re-runs the apps
 after a fix is their decision.
@@ -122,26 +118,21 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 **Change:** <name>
 **Current state:** <actual> (set by <updatedBy>, <updatedAt>)
 **This command expects:** <expected>
-**Suggested instead:** /myflow-<other> <name>
+**Suggested instead:** <what to do instead, e.g. "nothing — the change is archived">
 ```
 
 ## Progress visibility
 
-**Every pipeline command drives the harness's task-list mechanism.** `/myflow-start`, `/myflow-do`,
-`/myflow-finish` and `/myflow-fast` register their steps with it at the start of a run and keep each entry's status
-current — in progress when its step begins, completed when that step finishes — so the harness's
-live progress view, a count line and one line per task, renders throughout the run rather than
-arriving with the handoff. The count line then distinguishes done, in progress and open at every
-point.
+**`/flow` drives the harness's task-list mechanism.** It registers its steps with it at the start of
+a run and keeps each entry's status current — in progress when its step begins, completed when
+that step finishes — so the harness's live progress view, a count line and one line per task,
+renders throughout the run rather than arriving with the handoff. The count line then distinguishes
+done, in progress and open at every point. One entry per whichever cited stage is running at the
+time, at that stage's own granularity — brainstorming checklist items and artifacts on the
+creating/resuming branch, `tasks.md` items on the implementation branch, a finish run's steps on
+the integrate/archive branch.
 
-| Command | One entry per |
-|---------|---------------|
-| `/myflow-start` | its brainstorming checklist item and each artifact it produces |
-| `/myflow-do` | each item in `tasks.md`, in plan order |
-| `/myflow-finish` | each step of the run it is performing — run 1's steps or run 2's, never both |
-| `/myflow-fast` | whichever cited stage is running at the time, at that stage's own granularity — brainstorming checklist items on the brainstorm+create branch, `tasks.md` items on the implementation branch, a finish run's steps on the integrate branch |
-
-`/myflow-status` is read-only and **registers nothing**. Registering steps for a
+`/flow-status` is read-only and **registers nothing**. Registering steps for a
 report would put entries on the operator's task list for work nobody is doing.
 
 **The progress view is a view, never a record.** No command, guard or contract reads the harness's
@@ -161,8 +152,7 @@ harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 
 ## Stage marks
 
-Every `/myflow-*` pipeline command — `/myflow-start`, `/myflow-do`, `/myflow-finish` and
-`/myflow-fast` — marks each of its own stages: `myflow stage begin` when the stage starts,
+`/flow` marks each of its own stages: `myflow stage begin` when the stage starts,
 `myflow stage end` when it closes, both naming the command, the stage and the change. The stage
 identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
 (`<agents repo>/README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
@@ -202,11 +192,11 @@ write no transcript, so their runs are *explicitly unavailable* rather than zero
 way it rejects a substituted session token.
 
 ```bash
-myflow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-<literal-token> <name>
+myflow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 # … the stage's own work …
-myflow stage end   -command '/myflow-do' -stage do.review-panel -outcome completed <name>
+myflow stage end   -command '/flow' -stage flow.review-panel -outcome completed <name>
 # … a later stage in the same run reuses the same token, not a new one …
-myflow stage begin -command '/myflow-do' -stage do.lint-and-test -harness <harness> -session-token mf-<literal-token> <name>
+myflow stage begin -command '/flow' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **The session token MUST be a literal, written directly into the command — never a shell
@@ -234,12 +224,12 @@ call rather than worked around.
 `begin`, and the harness recorded there is immutable, so an end mark can never contradict the harness
 a stage began under.
 
-`/myflow-status` marks nothing — its own row in the Level 1 table says so, and a read-only report
+`/flow-status` marks nothing — its own row in the Level 1 table says so, and a read-only report
 that wrote stage runs would be recording work nobody did.
 
 ## Handoff output
 
-Every command ends in the same shape, and prints **nothing** after it:
+Every run ends in the same shape, and prints **nothing** after it:
 
 ```
 <1–3 lines: what actually happened>
@@ -247,25 +237,25 @@ Every command ends in the same shape, and prints **nothing** after it:
 <absolute paths to anything the operator needs to open>
 
 Next:
-/myflow-finish <name>
+/flow <name>
 ```
 
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
   **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why.
-- **`/myflow-finish` run 1 names itself** as the next command, because that is what the operator
-  runs once the branch is merged. Only a run 2 that **completed** is terminal and names nothing — a
-  run 2 that stopped on a cleanup leftover names itself too, for the same reason: the operator
-  clears what remains and runs it again.
+- **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
+  next command, because that is what the operator runs once the branch is merged. Only a run that
+  **completed** archive is terminal and names nothing — a run that stopped on a cleanup leftover
+  names itself too, for the same reason: the operator clears what remains and runs it again.
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
 - **Link, never paste.** Diffs and plans are given as absolute paths.
 - **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
-- **`/myflow-do` never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
-  finish**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
+- **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
+  integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
   is deliberately not on it — a capability spec is implementation, per **Git boundaries**
-  (`skills/myflow-contracts/git-boundaries.md`). `/myflow-finish` run 1
+  (`skills/myflow-contracts/git-boundaries.md`). The integrate phase
   stages them and commits them separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:
@@ -278,12 +268,12 @@ Next:
 ### The block each state renders
 
 The block a state hands off is defined in **The block each state renders**
-(`skills/myflow-contracts/handoff-blocks.md`). `/myflow-status` loads it; a producing command
+(`skills/myflow-contracts/handoff-blocks.md`). `/flow-status` loads it; `/flow`
 carries only the block it prints.
 
 ### The tab commands, printed at the start of a run
 
-`/myflow-start`, `/myflow-do` and `/myflow-finish` each print, immediately after their announcement
+`/flow` prints, immediately after its announcement
 line and before any work, two commands for the operator to paste:
 
 ```text
@@ -293,7 +283,7 @@ line and before any work, two commands for the operator to paste:
 
 **They sit at the start of the run, not in the handoff block, and the colour is one fixed value —
 `cyan` — for every command and change, signifying only that a pipeline command owns the tab.**
-`/myflow-status` prints neither line: a read-only report does not own the tab. See **The tab
+`/flow-status` prints neither line: a read-only report does not own the tab. See **The tab
 commands, printed at the start of a run** (`skills/myflow-contracts/pipeline-rationale.md`) for why
 cyan was chosen and why the lines are printed at the start rather than the end.
 
@@ -315,7 +305,7 @@ adapted it.
 
 ## Artifact brevity
 
-**Every artifact a `/myflow-*` run writes is written brief** — bullets over prose, no preamble, no
+**Every artifact a `/flow` run writes is written brief** — bullets over prose, no preamble, no
 recap, no restatement of what another artifact in the same change already says. It binds
 `proposal.md`, `design.md`, the change's spec edits, `tasks.md`, the SDD ledger, the review panel record and
 the self-review report.
@@ -384,7 +374,7 @@ sentence would name a file the reader may be able to write. See **Guard resoluti
 
 ## Guard presence check
 
-Each `/myflow-*` command checks, once at the start of its run, that every guard it can invoke —
+`/flow` checks, once at the start of its run, that every guard it can invoke —
 per **Guard resolution** above — is present in `<skill-dir>/scripts/`. A complete
 set prints nothing. Any absence prints exactly one block, naming every missing guard, the
 directory searched, and the install command, then the run continues:
@@ -418,8 +408,8 @@ Each command names, in its own text, the guards *it* can invoke — exactly the 
 ## Finish contract
 
 **Finish contract** (`skills/myflow-contracts/finish-contract.md`) governs the preflight signals,
-both runs' procedures, base-branch resolution and worktree cleanup, and `/myflow-finish` is the
-only command that loads it.
+both runs' procedures, base-branch resolution and worktree cleanup, and `/flow`'s integrate/archive
+phase is the only phase that loads it.
 
 ## State file
 
@@ -443,7 +433,7 @@ Jira-related step.
 
 ## Change name resolution (all `/myflow-*` commands)
 
-`<name>` is **optional** on every `/myflow-*` command. When omitted, the candidate set is built
+`<name>` is **optional** on `/flow` and `/flow-status`. When omitted, the candidate set is built
 from the store when the daemon answers, and from the filesystem only when it does not — and the
 command building it says which of the two produced the set, per **State file**
 (`skills/myflow-contracts/state-file.md`).
@@ -493,12 +483,12 @@ Once the candidate set is built, resolution proceeds exactly as before:
 
 - Exactly one match → use it automatically; announce which change was picked.
 - Multiple matches → **AskUserQuestion** listing each (name, state, last modified) — never guess.
-- Zero matches → fall back to that command's normal "no change" handling (e.g. `/myflow-start` asks
-  what to build; others suggest the prior state's command).
+- Zero matches → fall back to that command's normal "no change" handling (e.g. a creating `/flow`
+  run asks what to build; `/flow-status` reports no open changes).
 
-This resolution is defined **once, here**, and every `/myflow-*` command's own enumeration step
-cites this section rather than repeating or re-deriving the union — so no command's list of open
-changes can drift from another's.
+This resolution is defined **once, here**, and `/flow`'s own enumeration step
+cites this section rather than repeating or re-deriving the union — so its list of open
+changes can never drift from what this section defines.
 
 A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 **Change naming** in `skills/myflow-contracts/jira-integration.md`.

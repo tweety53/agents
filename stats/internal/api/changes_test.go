@@ -82,12 +82,6 @@ type fakeStore struct {
 	trendOverTimeErr    error
 	cacheEfficiency     []store.CacheEfficiencyRow
 	cacheEfficiencyErr  error
-	panelEconomics      []store.PanelEconomicsRow
-	panelEconomicsErr   error
-	modelComparison     []store.ModelComparisonRow
-	modelComparisonErr  error
-	reworkRate          []store.ReworkRateRow
-	reworkRateErr       error
 
 	// lastStatsProject records the project pointer passed to whichever
 	// aggregation method a stats test just called, so a test can assert
@@ -107,6 +101,13 @@ type fakeStore struct {
 	projectKeysByDisplayName      map[string][]string
 	projectKeysByDisplayNameErr   error
 	projectKeysByDisplayNameCalls []string
+
+	// --- settings bookkeeping (internal/api/settings_test.go's fakeStore
+	// methods operate on these) --- settings is nil until the first
+	// PutSettings, mirroring flow_settings holding no row yet.
+	settings       *store.Settings
+	getSettingsErr error
+	putSettingsErr error
 }
 
 func (f *fakeStore) ProjectKeysByDisplayName(_ context.Context, displayName string) ([]string, error) {
@@ -168,7 +169,7 @@ var _ api.ChangeStore = (*fakeStore)(nil)
 func newTestServer(t *testing.T, fs *fakeStore) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fs, fs, fs, fs, nil)
+	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -269,7 +270,7 @@ func matchesFilters(c store.Change, filters []store.Filter) bool {
 func TestServerBindsLoopbackOnly(t *testing.T) {
 	t.Run("non-loopback host is refused", func(t *testing.T) {
 		cfg := config.Config{Host: "0.0.0.0", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
+		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
 		if err == nil {
 			t.Fatal("expected an error for a non-loopback host, got nil")
 		}
@@ -287,14 +288,14 @@ func TestServerBindsLoopbackOnly(t *testing.T) {
 		// it would make the answer depend on this machine's own
 		// name-resolution configuration.
 		cfg := config.Config{Host: "localhost", Port: 0, DSN: "unused"}
-		if _, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil); err == nil {
+		if _, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil); err == nil {
 			t.Fatal("expected an error for a hostname, got nil")
 		}
 	})
 
 	t.Run("loopback host is accepted", func(t *testing.T) {
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
+		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error for a loopback host: %v", err)
 		}
@@ -382,6 +383,61 @@ func TestPutChangeRejectsUnknownField(t *testing.T) {
 	}
 	if _, stored := fs.changes[changeKey("proj", "chg")]; stored {
 		t.Fatal("a rejected body must not reach PutChange")
+	}
+}
+
+// TestPutChangeRejectsReviewPanelRosterField asserts the retired
+// `reviewPanelRoster` field (state-file.md's per-change roster preset,
+// dropped by this task in favor of task 1-3's settings-store default) is no
+// longer part of changeDTO's vocabulary: a body naming it is refused the
+// same way TestPutChangeRejectsUnknownField's `bogusField` is, under the
+// same DisallowUnknownFields guard.
+func TestPutChangeRejectsReviewPanelRosterField(t *testing.T) {
+	fs := newFakeStore()
+	ts := newTestServer(t, fs)
+
+	body := []byte(`{"state":"STARTED","updatedAt":"2026-08-13T00:00:00Z","updatedBy":"tester","reviewPanelRoster":"light"}`)
+	status, respBody := doPut(t, ts, "/api/v1/changes/proj/chg", body)
+
+	if status != http.StatusBadRequest {
+		t.Fatalf("got status %d, want 400", status)
+	}
+	if !strings.Contains(respBody, "reviewPanelRoster") {
+		t.Fatalf("expected the rejected field named in the body, got %q", respBody)
+	}
+	if _, stored := fs.changes[changeKey("proj", "chg")]; stored {
+		t.Fatal("a rejected body must not reach PutChange")
+	}
+}
+
+// TestGetChangeOmitsReviewPanelRoster asserts a change record carrying a
+// store-level ReviewPanelRoster value (a pre-existing row from before this
+// task) never surfaces it on the wire: GET's JSON response has no
+// "reviewPanelRoster" key at all, since changeDTO no longer names the
+// field. This is the read-side counterpart of
+// TestPutChangeRejectsReviewPanelRosterField's write-side check.
+func TestGetChangeOmitsReviewPanelRoster(t *testing.T) {
+	fs := newFakeStore()
+	ts := newTestServer(t, fs)
+
+	roster := "light"
+	fs.changes[changeKey("proj", "chg")] = store.Change{
+		ProjectKey: "proj", Name: "chg", State: store.StateStarted,
+		ReviewPanelRoster: &roster,
+		UpdatedAt:         time.Now(), UpdatedBy: "tester",
+	}
+
+	status, body := doGet(t, ts, "/api/v1/changes/proj/chg")
+	if status != http.StatusOK {
+		t.Fatalf("got status %d, want 200, body %s", status, body)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(body), &raw); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if _, present := raw["reviewPanelRoster"]; present {
+		t.Fatalf("response must not carry reviewPanelRoster, got %q", body)
 	}
 }
 
@@ -658,7 +714,7 @@ func TestShutdownDrainsInFlight(t *testing.T) {
 	}
 
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fs, fs, fs, fs, nil)
+	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

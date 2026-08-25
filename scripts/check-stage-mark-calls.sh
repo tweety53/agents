@@ -73,7 +73,7 @@
 # `-session-token` either — attribution happens once, at `begin`. Only lines that
 # invoke `stage begin` are examined.
 #
-# `/myflow-status` marks nothing, per its own row in README.md's Level 1
+# `/flow-status` marks nothing, per its own row in README.md's Level 1
 # table, so a `myflow stage begin` appearing in its SKILL.md would itself be
 # a defect this guard would (correctly) catch — there is no exemption for it.
 #
@@ -247,7 +247,7 @@ guess_placeholder() {
 # `stage begin` nor a `record dispatch` (measured 2026-08-18 for `stage
 # begin` and re-measured 2026-08-22 for `record dispatch`, by grepping each
 # directly against this guard's own call-detection pattern), plus
-# myflow-status/SKILL.md declared separately
+# flow-status/SKILL.md declared separately
 # below with its own by-contract reason. Each gets its OWN one-line
 # justification for WHY its zero is legitimate by design (KAN-197 F2),
 # not a shared string attesting only to how the zero was measured.
@@ -256,11 +256,15 @@ guess_placeholder() {
 # scripts/lib/coverage.sh's own header for the same constraint).
 EXPECTED_ZERO_FILES=(
   "skills/myflow-contracts/SKILL.md"
-  "skills/myflow-research/SKILL.md"
+  "skills/flow-research/SKILL.md"
+  "skills/flow-settings/SKILL.md"
+  "skills/flow/SKILL.md"
 )
 EXPECTED_ZERO_REASONS=(
   "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"
   "a thinking-partner research mode with no implementation or verification stage to mark and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
+  "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
+  "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, archive.md) that owns the phase in force; every flow.* mark lives in one of those phase files, never in this one"
 )
 
 # declare_expected_zeros — called ONLY for the guard's own default, full-
@@ -282,13 +286,13 @@ declare_expected_zeros() {
       die "coverage_declare failed for '$f' (see stderr above)"
     fi
   done
-  # myflow-status marks nothing BY CONTRACT, not merely as a measured fact
+  # flow-status marks nothing BY CONTRACT, not merely as a measured fact
   # like the files above: it is a read-only status report, and a stage mark
   # or a dispatch record it wrote would record work nobody did. Declared with its own reason
   # rather than folded into the generic list, per this task's own note.
-  if ! coverage_declare "skills/myflow-status/SKILL.md" \
+  if ! coverage_declare "skills/flow-status/SKILL.md" \
     "read-only status report; writes no stage marks by contract — a mark here would record work nobody did"; then
-    die "coverage_declare failed for 'skills/myflow-status/SKILL.md' (see stderr above)"
+    die "coverage_declare failed for 'skills/flow-status/SKILL.md' (see stderr above)"
   fi
 }
 
