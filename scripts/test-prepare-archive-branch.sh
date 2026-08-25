@@ -5,8 +5,8 @@
 # repository tree.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract in
-# openspec/changes/kan-239-run-2-asserts-base-branch-and-archives-via-pr/specs/myflow-finish-cleanup/spec.md's
+# contract in this repository's own kan-239-run-2-asserts-base-branch-and-archives-via-pr
+# change's myflow-finish-cleanup delta spec (now archived), its
 # "Run 2 positions the main checkout before it archives" requirement, never
 # against observed output.
 #

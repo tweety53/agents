@@ -12,21 +12,30 @@
 #
 # THE CORPUS is every `.md` and `.mdc` file under these scope roots:
 #
-#   skills/  rules/  openspec/specs/  commands/  commands-claude/  .myflow/
+#   skills/  rules/  spectre/specs/  commands/  commands-claude/  .myflow/
 #
 # plus the `.md`/`.mdc` files sitting directly at the repository root
 # (README.md, AGENTS.md, CLAUDE.md today). The root is deliberately NOT scanned
-# recursively: doing that would sweep in openspec/changes/, whose session
+# recursively: doing that would sweep in spectre/changes/, whose session
 # records and panel reports a `/myflow-*` run writes DURING a change, so an
 # inventory captured before a change's first edit could never match one captured
 # after its last, however faithfully the prose was preserved.
+#
+# `openspec/` NAMES NO SCOPE ROOT HERE, deliberately. It is this repository's
+# frozen, pre-spectre tree — history, not something a `/myflow-*` run edits
+# again — so it is never linted, budgeted or inventoried, exactly like
+# `openspec/changes/archive/` was already excluded below before this file's
+# corpus moved: a frozen tree gets the same treatment an already-archived
+# change got, for the same reason. Nothing needs to name it as an exclusion
+# for that to hold; it simply is not one of the roots above, and the two
+# callers this file serves only ever look under the roots they are given.
 #
 # THE EXCLUSIONS are structural — a path component, or a path prefix, never a
 # list of filenames:
 #
 #   any component named `node_modules`   vendored third-party text
 #   any component named `.superpowers`   a run's own scratch records
-#   openspec/changes/archive/            archived changes, frozen by definition
+#   spectre/changes/archive/             archived changes, frozen by definition
 #   docs/superpowers/                    a vendored copy of another project's skills
 #
 # The last three sit outside every scope root above, so today they are already
@@ -91,7 +100,7 @@
 
 # The scope roots, relative to the repository root. A bash array rather than a
 # function printing lines, so a caller iterates it without word-splitting.
-OWNED_CORPUS_SCOPE_DIRS=(skills rules openspec/specs commands commands-claude .myflow)
+OWNED_CORPUS_SCOPE_DIRS=(skills rules spectre/specs commands commands-claude .myflow)
 
 # owned_corpus_excluded <path-relative-to-repo-root> -> exit 0 when the path is
 # excluded from the corpus, 1 otherwise. Every test is a path-component or
@@ -101,7 +110,7 @@ owned_corpus_excluded() {
   case "$1" in
     node_modules|node_modules/*|*/node_modules|*/node_modules/*) return 0 ;;
     .superpowers|.superpowers/*|*/.superpowers|*/.superpowers/*) return 0 ;;
-    openspec/changes/archive|openspec/changes/archive/*) return 0 ;;
+    spectre/changes/archive|spectre/changes/archive/*) return 0 ;;
     docs/superpowers|docs/superpowers/*) return 0 ;;
   esac
   return 1

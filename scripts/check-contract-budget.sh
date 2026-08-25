@@ -47,6 +47,17 @@
 # exactly how the file inventory in myflow-contract-distribution went stale
 # through three changes before anyone noticed.
 #
+# THE FROZEN openspec/specs/ TREE CARRIES NO ROWS, and never did widen into
+# this table the way the rest of the corpus did — it is no longer part of the
+# corpus at all. scripts/lib/owned-corpus.sh's scope roots name spectre/specs/,
+# not openspec/specs/, so owned_corpus_files no longer enumerates a single file
+# under the old tree; "every covered file needs a row" above already excuses
+# it, the same way it excuses everything else outside the library's scope
+# roots. A ratchet exists to catch REGROWTH, and a frozen tree cannot regrow —
+# nothing under openspec/ is edited again, by this guard's own corpus
+# definition. Do not re-add its rows: that tree is history now, not something
+# this guard measures, no matter how large or small it happens to sit.
+#
 # THE TABLE IS HAND-MAINTAINED AND HAS NO REGENERATE MODE. A guard that can
 # rewrite its own bound from current sizes makes regeneration the path of least
 # resistance, and a ratchet whose bound is recomputed on demand does not
@@ -115,39 +126,6 @@ commands/myflow-finish.md 3507
 commands/myflow-start.md 2178
 commands/myflow-status.md 1981
 commands/spectre-research.md 1038
-openspec/specs/agents-repo-verification/spec.md 33525
-openspec/specs/myflow-artifact-economy/spec.md 3412
-openspec/specs/myflow-base-branch-resolution/spec.md 12796
-openspec/specs/myflow-build-green/spec.md 4181
-openspec/specs/myflow-citation-roots/spec.md 19301
-openspec/specs/myflow-command-surface/spec.md 13563
-openspec/specs/myflow-commit-scope/spec.md 9341
-openspec/specs/myflow-contract-distribution/spec.md 30051
-openspec/specs/myflow-contract-economy/spec.md 28200
-openspec/specs/myflow-dashboard-period/spec.md 6501
-openspec/specs/myflow-debugging-dispatch/spec.md 3323
-openspec/specs/myflow-dispatch-economy/spec.md 14245
-openspec/specs/myflow-fast-command/spec.md 11811
-openspec/specs/myflow-finish-cleanup/spec.md 43331
-openspec/specs/myflow-handoff-output/spec.md 27522
-openspec/specs/myflow-jira-projection/spec.md 34381
-openspec/specs/myflow-model-policy/spec.md 13905
-openspec/specs/myflow-plan-provenance/spec.md 17138
-openspec/specs/myflow-planning-effort/spec.md 11232
-openspec/specs/myflow-planning-gate/spec.md 15748
-openspec/specs/myflow-progress-visibility/spec.md 5351
-openspec/specs/myflow-review-panel-economics/spec.md 71648
-openspec/specs/myflow-review-panel-roster/spec.md 11918
-openspec/specs/myflow-run-record/spec.md 20658
-openspec/specs/myflow-run-telemetry/spec.md 30260
-openspec/specs/myflow-self-review/spec.md 30591
-openspec/specs/myflow-state-machine/spec.md 14270
-openspec/specs/myflow-state-store/spec.md 9801
-openspec/specs/myflow-stats-views/spec.md 23658
-openspec/specs/myflow-task-commit-fields/spec.md 33148
-openspec/specs/myflow-task-commits/spec.md 6668
-openspec/specs/myflow-ui-test-stack/spec.md 7435
-openspec/specs/myflow-workspace-isolation/spec.md 15100
 rules/agent-baseline.md 6883
 rules/be-brief.mdc 7782
 rules/build-the-simplest-thing.mdc 3660

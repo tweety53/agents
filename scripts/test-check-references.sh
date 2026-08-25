@@ -118,7 +118,7 @@ run_guard "$FIXTURE"
 # genuinely zero, and it is the only file in this fixture's corpus.
 new_fixture
 mkdir -p "$FIXTURE/skills/spectre-research"
-printf 'see **Whatever** in `openspec/changes/<name>/tasks.md`\n' \
+printf 'see **Whatever** in `spectre/changes/<name>/tasks.md`\n' \
   > "$FIXTURE/skills/spectre-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unresolvable path skipped" || fail "unresolvable path: out=$OUT"
