@@ -139,9 +139,9 @@ that chain then commits from this reshaped state exactly as it always has.
 
 All three routes first commit the work, in **two** commits and never one: the implementation,
 subject `<type>(<module>): <what the implementation does>` with `<module>` naming the area the
-reshaped diff carries, then the `<project>/openspec/` planning artifacts and the session records
+reshaped diff carries, then the `<project>/spectre/` planning artifacts and the session records
 under `<project>/docs/superpowers/` (the SDD ledger and the review panel record), subject the fixed
-literal `chore(openspec): plan and session records`. The ledger is rendered from the store before
+literal `chore(spectre): plan and session records`. The ledger is rendered from the store before
 staging, by:
 
 ```bash
@@ -220,7 +220,7 @@ BASE="$(resolve-base-branch.sh "<abs-worktree>")"
 ```
 
 `<abs-worktree>` is **the apply worktree** — the same one **Reshape the branch** above just
-committed from — where `HEAD` is the change's own branch, `openspec/<name>`, by construction; never
+committed from — where `HEAD` is the change's own branch, `spectre/<name>`, by construction; never
 the main checkout. The exit contract: `0` resolved, with the name on stdout; `1` a named refusal —
 detached `HEAD`, no base resolved, the base equal to the current branch, or a base name that fails
 validation; `2` the tree cannot be read — `<abs-worktree>` is missing, unreadable, or not a git
@@ -228,8 +228,8 @@ worktree — or `HEAD`'s own ref cannot be read (corrupt or permission-denied); 
 no `origin` remote at all.
 
 **Never fall back to `HEAD@{upstream}`.** `/myflow-finish` runs inside the apply worktree, where
-`HEAD` *is* `openspec/<name>` — so that fallback resolves to the change's **own** upstream, making
-the merge check `openspec/<name>` vs `origin/openspec/<name>`, which is true the moment the branch
+`HEAD` *is* `spectre/<name>` — so that fallback resolves to the change's **own** upstream, making
+the merge check `spectre/<name>` vs `origin/spectre/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
 deletes its worktree. `resolve-base-branch.sh` is where this rule is now enforced: it never
 consults `HEAD@{upstream}`, and its assertion that `BASE` differs from the current branch is
@@ -300,9 +300,12 @@ the one irreversible step.
    it out — or, when it already exists, **reuse it only if it is descended from `origin/<base>`** and
    refuse it otherwise. Apply each refusal in that order and never accept a guess in place of any of
    them.
-3. **Sync delta specs** into `<project>/openspec/specs/`, then move the change into
-   `<project>/openspec/changes/archive/<date>-<name>/`. Any nested `<name>-fix-N` sub-changes are archived in
-   the same operation — never left behind, never archived alone.
+3. **Archive the change** — move it into
+   `<project>/spectre/changes/archive/<date>-<name>/`. Any nested `<name>-fix-N` sub-changes are archived in
+   the same operation — never left behind, never archived alone. **There is nothing to sync into
+   `<project>/spectre/specs/` first, and no sync step is ever to be added back**: a change edits that
+   tree directly on its own branch, so its spec edits reached the base branch with the merge step 1
+   proved.
 4. **Commit the archive on `chore/archive-<name>` — no push.** There is no merge to do: the change
    branch was already merged, which step 1 proved. Run 2 never merges anything into the base branch,
    and never commits the archive on the base branch itself. Every commit run 2 makes after step 2 —
@@ -382,7 +385,7 @@ the one irreversible step.
    **Run 2 is re-entrant, which is what makes that safe.** Every step is remove-or-move *if present*
    and a step whose artifact is already gone is success, not an error — so a re-run after the
    operator clears the leftover repeats the verification and nothing else. An already-archived change
-   directory means step 3 is already done: sync and archive are skipped, not repeated, and the run
+   directory means step 3 is already done: the archive move is skipped, not repeated, and the run
    continues to cleanup and verification.
 
    **When the script is absent** — a repository that does not carry it — check the same registry rows
@@ -435,12 +438,13 @@ the one irreversible step.
    specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
    and the report-commit shell. It is not a second statement of this rule.
 
-   **Which file to change first.** The normative requirement is
-   **Requirement: Self-review runs only after FINISHED is written**
-   (`<agents repo>/openspec/specs/myflow-self-review/spec.md`), read alongside the sibling requirements in that
+   **There is no requirements layer above this one; change this file.** The procedure was first
+   written as **Requirement: Self-review runs only after FINISHED is written**
+   (`<agents repo>/openspec/specs/myflow-self-review/spec.md`), alongside sibling requirements in that
    same file for context gathering, the combined pass, the per-angle filing ask, the rating and
-   the report path. That file is the requirement to change first when the procedure changes — it is
-   not the runtime source of the procedure, which is stated above.
+   the report path. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre
+   cutover and not migrated, so it records where the rule came from and governs nothing: the
+   statement above is both the requirement and the runtime source of the procedure.
 10. **Push the archive branch and open its pull request.** Push `chore/archive-<name>`; open a pull
     request against `<base>` via a PR CLI when usable for the host, else print the forge's
     create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route above
@@ -476,7 +480,7 @@ empty, scan each affected repository:
 
 ```bash
 git -C "$REPO" worktree list --porcelain \
-  | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/openspec/<name>") print w}'
+  | awk '/^worktree /{w=substr($0, 10)} /^branch /{if ($2=="refs/heads/spectre/<name>") print w}'
 ```
 
 **Never guess a path.** Worktree layout differs per repository — this repo keeps worktrees under
@@ -590,7 +594,7 @@ Then, and only then:
 
 ```bash
 git -C "$REPO" worktree remove --force "$WT"
-git -C "$REPO" branch -d "openspec/<name>"
+git -C "$REPO" branch -d "spectre/<name>"
 git -C "$REPO" worktree prune
 ```
 
@@ -621,14 +625,14 @@ Then the change's **remote** branch:
 # `push --delete` exits non-zero BOTH when the branch was already gone and when the push was
 # refused, so the two are told apart by git's message and never by the exit code alone. Measured
 # against a scratch remote on this machine (git 2.50.1): an already-absent branch prints
-# `error: unable to delete 'openspec/<name>': remote ref does not exist` and exits 1, and the
+# `error: unable to delete 'spectre/<name>': remote ref does not exist` and exits 1, and the
 # stale remote-tracking ref SURVIVES that failure.
-OUT="$(git -C "$REPO" push origin --delete "openspec/<name>" 2>&1)"; RC=$?
+OUT="$(git -C "$REPO" push origin --delete "spectre/<name>" 2>&1)"; RC=$?
 if [ "$RC" -eq 0 ]; then
-  echo "remote branch deleted: origin/openspec/<name>"
+  echo "remote branch deleted: origin/spectre/<name>"
 elif printf '%s' "$OUT" | grep -q 'remote ref does not exist'; then
   # The forge deleted it on merge. Prune the ref it left behind: check-cleanup-complete.sh reads a
-  # surviving refs/remotes/origin/openspec/<name> as a leftover, and it would be a real one.
+  # surviving refs/remotes/origin/spectre/<name> as a leftover, and it would be a real one.
   git -C "$REPO" fetch --prune --quiet origin
   echo "remote branch already gone — the forge deleted it on merge"
 else

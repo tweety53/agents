@@ -94,7 +94,7 @@ reaches the network.
 ```json
 {
   "state": "IN_PROGRESS",
-  "branch": "openspec/<name>",
+  "branch": "spectre/<name>",
   "worktrees": {
     "/absolute/path/to/worktree": "<merge-base sha>"
   },
@@ -138,7 +138,7 @@ field is how it gets erased.
 
 - `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
   `STARTED`, `IN_PROGRESS`, `FINISHED`.
-- `branch` — the change's branch, `openspec/<name>`; `null` before one exists.
+- `branch` — the change's branch, `spectre/<name>`; `null` before one exists.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
   that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
   legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal
@@ -348,8 +348,8 @@ worktree path from a conventional layout; layout differs per repository.
 
 ```json
 "worktrees": {
-  "/Users/tweety53/Projects/agents-worktrees/openspec-<name>": "5ee4c9a…",
-  "/Users/tweety53/Projects/other-worktrees/openspec-<name>": "b31f7c2…"
+  "/Users/tweety53/Projects/agents-worktrees/spectre-<name>": "5ee4c9a…",
+  "/Users/tweety53/Projects/other-worktrees/spectre-<name>": "b31f7c2…"
 }
 ```
 
@@ -375,18 +375,18 @@ committed, never staged, and never archived** — nothing here is part of the ch
 
 ## Planning effort
 
-**Which file to change first.** The normative requirement — that three levels exist, that `default`
-is the level offered as the recommendation, and that no level may switch a gate off — is
+**There is no requirements layer above this one; change this file.** The rule — that three levels
+exist, that `default` is the level offered as the recommendation, and that no level may switch a gate
+off — was first written as
 **Requirement: Planning effort scales the reasoning spent inside the gates, never the gates themselves** (`<agents repo>/openspec/specs/myflow-planning-effort/spec.md`).
-Naming the requirement in full, rather than giving the path alone, is what makes
-`<agents repo>/scripts/check-references.sh` check this pointer — an OpenSpec `### Requirement: …` heading is a
-heading like any other. The guard skips a path that does not resolve, so this one is checked only
-once the capability lands in `<agents repo>/openspec/specs/` at finish run 2; until then it is a reference nobody
-verifies, which is said here rather than left to look otherwise. That spec is the requirement; the
-table below is the
-**operational form the commands read**, and it exists here so `/myflow-start` has one place to look
-rather than a requirements document to interpret. Change the spec first and bring this table with
-it: a table that contradicts the requirement is this file's defect, not the spec's.
+That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not
+migrated, so it records where the rule came from and governs nothing: the table below is both the
+requirement and the **operational form the commands read**, and it exists here so `/myflow-start`
+has one place to look rather than a requirements document to interpret. Naming the requirement in
+full, rather than giving the path alone, is still what makes
+`<agents repo>/scripts/check-references.sh` check the pointer — a `### Requirement: …` heading is a
+heading like any other, and the frozen file it names does resolve, so the citation stays checked
+rather than rotting silently.
 
 Three levels, offered by `/myflow-start` on the run that creates a change, with `default` the level
 offered as the recommendation:

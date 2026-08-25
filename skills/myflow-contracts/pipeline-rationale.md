@@ -48,7 +48,7 @@ Marking writes: where
 the store has no record for the name a `stage begin` carries, the begin handler bootstraps a change
 row so the mark has something to attach to, and that row outlives the run — it appears among the
 open changes, carries a next command, and is never archived, because no change directory bears that
-name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`<agents repo>/openspec/specs/myflow-run-telemetry/spec.md`):
+name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`<agents repo>/openspec/specs/myflow-run-telemetry/spec.md`, frozen at the spectre cutover and kept as the record of where the rule came from):
 that rule keeps a command from *reading* a state its own mark authored; this one keeps a command
 from *creating* a change nobody named.
 
@@ -64,7 +64,7 @@ unexpanded string, and discriminates nothing between them.
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-- **`/myflow-do` never stages `<project>/openspec/` or `<project>/docs/superpowers/` before
+- **`/myflow-do` never stages `<project>/spectre/` or `<project>/docs/superpowers/` before
   finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
   implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
   display command, is what makes them absent from *every* view of the staging area — a filtered
@@ -185,7 +185,7 @@ defined; the two call sites point here rather than each describing them.
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a
    number of its own would renumber steps 7, 8 and 9, which are cited *by number* from
-   `<agents repo>/openspec/specs/` and from `skills/myflow-finish/SKILL.md`.
+   `skills/myflow-finish/SKILL.md` and from the capability specs frozen under `<agents repo>/openspec/specs/`.
 
 ### Worktree cleanup
 
@@ -204,7 +204,7 @@ header check, the timeout, and the unreachable/refused classification once, in t
 owns them, instead of every contract file that enumerates changes growing its own copy of that HTTP
 handling — the outcome `design.md`'s `daemon-owns-db` decision names and rejects.
 
-This is why the second source matters: `openspec list --json` only
+This is why the second source matters: `spectre list --json` only
 sees change directories present in the *current* git checkout, so a change staged in a worktree —
-`<project>/openspec/changes/<name>/` created there but never committed to the main checkout — is invisible to
+`<project>/spectre/changes/<name>/` created there but never committed to the main checkout — is invisible to
 it alone, even while it sits at a human gate with a fully staged diff.

@@ -39,13 +39,13 @@ command. See **Git boundaries** (`skills/myflow-contracts/git-boundaries-rationa
 cases this guards against and why it is a chain rather than `set -e`.
 
 ```bash
-git -C <abs-worktree> reset -q -- openspec/ docs/superpowers/ \
-  && git -C <abs-worktree> add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/' \
+git -C <abs-worktree> reset -q -- spectre/ docs/superpowers/ \
+  && git -C <abs-worktree> add -A -- . ':(exclude)spectre/' ':(exclude)docs/superpowers/' \
   && { git -C <abs-worktree> diff --cached --quiet \
        || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \
   && { git -C <abs-worktree> diff --cached --quiet \
-       || git -C <abs-worktree> commit -m "chore(openspec): plan and session records"; }
+       || git -C <abs-worktree> commit -m "chore(spectre): plan and session records"; }
 ```
 
 `<module>` is derived from the reshaped diff — the module carrying the change's substance, or a

@@ -396,7 +396,7 @@ fi
 # implementation passed all of them anyway.
 assert_case "unrecognised-placeholder-is-reported" "skills/myflow-do/SKILL.md" \
   '# myflow-do fixture
-`<foo>/openspec/specs/x.md`
+`<foo>/spectre/specs/x.md`
 ' "reported"
 
 # ===========================================================================
@@ -414,7 +414,7 @@ assert_case "unrecognised-placeholder-is-reported" "skills/myflow-do/SKILL.md" \
 
 assert_case "git-branch-name-is-not-a-citation" "skills/myflow-do/SKILL.md" \
   '# myflow-do fixture
-Branch `openspec/<name>`.
+Branch `spectre/<name>`.
 ' "not-reported"
 
 assert_case "file-line-reference-is-not-a-citation" "skills/myflow-do/SKILL.md" \
@@ -459,7 +459,7 @@ assert_case "origin-with-extension-is-a-citation" "skills/myflow-do/SKILL.md"   
 ' "reported"
 
 assert_case "origin-ref-with-nested-path-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
-`origin/openspec/<name>`
+`origin/spectre/<name>`
 ' "not-reported"
 
 # origin-directory-is-a-citation — panel round 3's finding: the ORIGINAL
@@ -516,32 +516,32 @@ else
   fail "skill-dir-rooted-is-recognised: rc=$RC out='$OUT'"
 fi
 
-assert_case "openspec-branch-with-change-name-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
-`openspec/<change-name>`
+assert_case "spectre-branch-with-change-name-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`spectre/<change-name>`
 ' "not-reported"
 
-# openspec-shape-with-real-path-is-still-reported and
-# openspec-shape-with-trailing-path-is-still-reported — the "second half"
-# GIT_BRANCH_OPENSPEC_RE's own comment calls out explicitly: the shape is
+# spectre-shape-with-real-path-is-still-reported and
+# spectre-shape-with-trailing-path-is-still-reported — the "second half"
+# GIT_BRANCH_SPECTRE_RE's own comment calls out explicitly: the shape is
 # anchored at BOTH ends so it cannot widen past exactly one bracket
 # segment. Without these two cases, a shape rule that accidentally matched
-# ANY `openspec/`-prefixed token would still pass every other case in this
-# file (none of them exercises a real `openspec/...` path), which is
+# ANY `spectre/`-prefixed token would still pass every other case in this
+# file (none of them exercises a real `spectre/...` path), which is
 # exactly how task 9's own placeholder generalisation failed open the
 # first time.
-assert_case "openspec-shape-with-real-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
-`openspec/specs/x.md`
+assert_case "spectre-shape-with-real-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`spectre/specs/x.md`
 ' "reported"
 
-assert_case "openspec-shape-with-trailing-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
-`openspec/changes/<name>/`
+assert_case "spectre-shape-with-trailing-path-is-still-reported" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
+`spectre/changes/<name>/`
 ' "reported"
 
 # ===========================================================================
 # SECTION: Task 9 (kan-239) — a second pipeline-created branch shape,
-# `chore/archive-<name>`, needs the same GIT_BRANCH_OPENSPEC_RE treatment:
+# `chore/archive-<name>`, needs the same GIT_BRANCH_SPECTRE_RE treatment:
 # a branch name is not a path citation. Two cases, same bound as the
-# openspec pair above: the bare shape is not reported, and a bracket
+# spectre pair above: the bare shape is not reported, and a bracket
 # segment followed by more path — `chore/archive-<name>/spec.md` — is the
 # fail-open bound and must stay reported.
 # ===========================================================================

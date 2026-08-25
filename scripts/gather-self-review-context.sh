@@ -522,7 +522,7 @@ is_refused() {
 #     plan commit's `git add -A` pick up a file outside the planning
 #     trees. They also guard a collision this very change created: the
 #     planning subject is now the fixed literal
-#     "chore(openspec): plan and session records", IDENTICAL across every
+#     "chore(spectre): plan and session records", IDENTICAL across every
 #     change, so a skipped implementation commit can leave PLAN_PARENT
 #     pointing at a DIFFERENT change's planning commit, with no name left
 #     in the subject to tell them apart.
@@ -646,7 +646,7 @@ fi
 # finding E): the plan commit is the most recent commit that both (a)
 # touched THIS change's own spectre/changes/<name>/ directory and (b)
 # carries a plan-commit subject — PLAN_SUBJECT_RE_NEW, the module-scope
-# convention's fixed literal "chore(openspec): plan and session records",
+# convention's fixed literal "chore(spectre): plan and session records",
 # or PLAN_SUBJECT_RE_OLD, either wording finish run 1 used before that
 # rename. Path alone is not commit-specific: verified directly, a LATER
 # commit that merely touches the same directory (e.g. a typo fix landed
@@ -725,7 +725,7 @@ if [ -n "$REPO_ROOT" ]; then
   NAME_RE="$(printf '%s' "$NAME" | sed 's/\./\\./g')"
 
   ARCHIVE_SUBJECT_RE="^chore\\(${NAME_RE}\\): .*archive"
-  PLAN_SUBJECT_RE_NEW='^chore\(openspec\): plan and session records'
+  PLAN_SUBJECT_RE_NEW='^chore\(spectre\): plan and session records'
   PLAN_SUBJECT_RE_OLD="^chore\\(${NAME_RE}\\): plan(, test guide and| and) session records"
 
   ARCHIVE_SHA="$(git -C "$REPO_ROOT" log -E --grep="$ARCHIVE_SUBJECT_RE" \

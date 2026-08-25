@@ -295,7 +295,7 @@ GIT_BRANCH_RE = re.compile(r"^[A-Za-z0-9_.-]+/(main|master|HEAD)$")
 # whose first segment was the literal `origin`, unconditionally — so
 # `` `origin/README.md` `` sailed through uncounted, never even reaching
 # judges_ok. The real corpus's only two `origin/…` sites, `origin/$BASE`
-# and `origin/openspec/<name>`, are both genuine remote-tracking refs, so
+# and `origin/spectre/<name>`, are both genuine remote-tracking refs, so
 # the rule is narrowed rather than deleted: a token whose first segment is
 # `origin` is a ref only when what follows has no file extension — a real
 # path citation in this corpus always ends in one (`.md`, `.sh`, `.py`,
@@ -303,22 +303,26 @@ GIT_BRANCH_RE = re.compile(r"^[A-Za-z0-9_.-]+/(main|master|HEAD)$")
 # unexcluded, is counted as checked, and is reported (first segment
 # `origin` names no recognised root).
 ORIGIN_REF_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]+$")
-# GIT_BRANCH_OPENSPEC_RE — task 10 first drew this as an exact-literal set,
+# GIT_BRANCH_SPECTRE_RE — task 10 first drew this as an exact-literal set,
 # `{"openspec/<name>"}`, for the one branch name this corpus wrote that
 # GIT_BRANCH_RE's suffix set (main/master/HEAD) does not cover. The second
 # per-task review found a second live site of the identical shape —
 # `openspec/<change-name>` — that an exact-literal set does not generalise
-# to, so it is a SHAPE now: `openspec/` followed by exactly one `<…>`
-# placeholder segment and NOTHING ELSE. Anchored at both ends so it cannot
-# widen past that: `openspec/specs/x.md` (no brackets) and
-# `openspec/changes/<name>/` (a bracket segment followed by MORE path) are
+# to, so it is a SHAPE now: the branch prefix followed by exactly one `<…>`
+# placeholder segment and NOTHING ELSE. The prefix became `spectre/` at the
+# spectre cutover, moved WITH the contract prose that writes the branch
+# name rather than after it: a shape exclusion left pointing at a prefix
+# the corpus no longer writes stops matching silently, and every branch
+# name it used to exempt is then reported as an unrooted path. Anchored at both ends so it cannot
+# widen past that: `spectre/specs/x.md` (no brackets) and
+# `spectre/changes/<name>/` (a bracket segment followed by MORE path) are
 # both still fully reportable — this is the deliberately narrow bound that
 # stops the shape from becoming the same fail-open hole task 9's
 # placeholder generalisation was reverted for. `[^/<>]+` inside the
 # brackets, not `.+`, so the bracket segment itself cannot smuggle in a
 # second `/`.
-GIT_BRANCH_OPENSPEC_RE = re.compile(r"^openspec/<[^/<>]+>$")
-# GIT_BRANCH_CHORE_RE — a sibling of GIT_BRANCH_OPENSPEC_RE, added by
+GIT_BRANCH_SPECTRE_RE = re.compile(r"^spectre/<[^/<>]+>$")
+# GIT_BRANCH_CHORE_RE — a sibling of GIT_BRANCH_SPECTRE_RE, added by
 # kan-239's task 9 for the second pipeline-created branch shape that
 # exemption does not cover: `chore/archive-<name>`, the branch
 # `/myflow-finish` run 2 creates and names, backticked, in
@@ -333,7 +337,7 @@ GIT_BRANCH_OPENSPEC_RE = re.compile(r"^openspec/<[^/<>]+>$")
 # `<…>` placeholder segment and NOTHING ELSE. Anchored at both ends so it
 # cannot widen past that: `chore/archive-<name>/spec.md` (a bracket
 # segment followed by MORE path) stays fully reportable — the same
-# fail-open bound GIT_BRANCH_OPENSPEC_RE's own comment describes.
+# fail-open bound GIT_BRANCH_SPECTRE_RE's own comment describes.
 # `[^/<>]+` inside the brackets, not `.+`, so the bracket segment itself
 # cannot smuggle in a second `/`.
 GIT_BRANCH_CHORE_RE = re.compile(r"^chore/(?:archive|self-review)-<[^/<>]+>$")
@@ -589,13 +593,13 @@ def classify_token(token, repo_root_files):
     name told an agent to create a branch of that literal name, and a
     findings-table Location example taught a fabricated citation shape:
 
-      - A GIT_BRANCH_OPENSPEC_RE match: `openspec/<…>` names a branch, not
+      - A GIT_BRANCH_SPECTRE_RE match: `spectre/<…>` names a branch, not
         a filesystem path — see that pattern's own comment for the exact,
         deliberately narrow bound (a shape now, not an exact-literal set,
         after the second per-task review found a second live site).
       - A GIT_BRANCH_CHORE_RE match: `chore/archive-<…>` or
         `chore/self-review-<…>` — kan-239's task 9, a sibling of the
-        GIT_BRANCH_OPENSPEC_RE exclusion above for the pipeline's other
+        GIT_BRANCH_SPECTRE_RE exclusion above for the pipeline's other
         branch-name shapes. Run 2 creates the first; the second predates
         kan-239 and survives only as existing branches. See that
         pattern's own comment for the same deliberately narrow bound.
@@ -634,8 +638,8 @@ def classify_token(token, repo_root_files):
         return False  # URL
     if tok[0] in "'\"" or tok[-1] in "'\"":
         return False  # quoted program output, not a citation
-    if GIT_BRANCH_OPENSPEC_RE.match(tok):
-        return False  # openspec/<…> — a branch name, not a path
+    if GIT_BRANCH_SPECTRE_RE.match(tok):
+        return False  # spectre/<…> — a branch name, not a path
     if GIT_BRANCH_CHORE_RE.match(tok):
         return False  # chore/archive-<…> or chore/self-review-<…> — a branch name, not a path
     if FILE_LINE_RE.search(tok):
@@ -680,7 +684,7 @@ def classify_token(token, repo_root_files):
 
 # PLACEHOLDER_ROOTS — the closed set specs/myflow-citation-roots/spec.md
 # enumerates. Task 9's first cut accepted ANY first segment shaped
-# `<…>` — bracket-shaped alone — which fails open: `<foo>/openspec/specs/
+# `<…>` — bracket-shaped alone — which fails open: `<foo>/spectre/specs/
 # x.md` passed while naming an unrooted path, and so did a typo of a real
 # placeholder (`<changeroot>/`, `<change-root>/`). A guard that reports
 # clean while checking nothing is worse than no guard — the same

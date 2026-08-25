@@ -901,7 +901,7 @@ add_module_scope_commits() {
       && git commit -q -m "feat(some-module): MODULE-SCOPE-IMPL-BODY" \
       && printf 'TASKS-MODULE-SCOPE\n' > spectre/changes/demo/tasks.md \
       && git add spectre/changes/demo/tasks.md \
-      && git commit -q -m "chore(openspec): plan and session records MODULE-SCOPE-PLAN-BODY" \
+      && git commit -q -m "chore(spectre): plan and session records MODULE-SCOPE-PLAN-BODY" \
       && git mv spectre/changes/demo "$REL" \
       && git commit -q -m "chore(demo): sync delta specs and archive the change MODULE-SCOPE-ARCHIVE-BODY"
   )
@@ -928,7 +928,7 @@ case "$OUT" in
 esac
 
 # A DIFFERENT change's planning commit — textually IDENTICAL
-# ("chore(openspec): plan and session records" is now the same literal
+# ("chore(spectre): plan and session records" is now the same literal
 # subject across every change) and landed LATER in this repository's
 # history than demo's own. This is the case that distinguishes path-scoped
 # resolution from a merely widened subject grep: a subject-only
@@ -942,7 +942,7 @@ add_module_scope_commits
     && mkdir -p spectre/changes/archive/2026-01-02-demo2 \
     && printf 'OTHER-CHANGE-TASKS\n' > spectre/changes/archive/2026-01-02-demo2/tasks.md \
     && git add spectre/changes/archive/2026-01-02-demo2/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records OTHER-CHANGE-PLAN-BODY"
+    && git commit -q -m "chore(spectre): plan and session records OTHER-CHANGE-PLAN-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "module-scope subjects (later distractor plan commit present): exits 0" \
@@ -985,7 +985,7 @@ new_repo
     && git commit -q -m "feat(some-module): LIVE-PATH-IMPL-BODY" \
     && printf 'TASKS-LIVE\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records LIVE-PATH-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records LIVE-PATH-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change LIVE-PATH-ARCHIVE-BODY"
 )
@@ -1020,7 +1020,7 @@ new_repo
     && git commit -q -m "feat(some-module): E-IMPL-BODY" \
     && printf 'TASKS-E\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records E-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records E-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change E-ARCHIVE-BODY" \
     && printf 'TASKS-E-FIXED-TYPO\n' > "$REL/tasks.md" \
@@ -1065,7 +1065,7 @@ ORIG_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
     && mkdir -p spectre/changes/demo \
     && printf 'TASKS-G\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records G-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records G-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change G-ARCHIVE-BODY"
 )
@@ -1102,7 +1102,7 @@ new_repo
     && git commit -q -m "chore(records): PLANNING-ONLY-PARENT-BODY" \
     && printf 'TASKS-OUTSIDE\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records OUTSIDE-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records OUTSIDE-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change"
 )
@@ -1134,7 +1134,7 @@ ISO_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
     && mkdir -p spectre/changes/demo \
     && printf 'TASKS-MERGE\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records MERGE-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records MERGE-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change"
 )
@@ -1165,7 +1165,7 @@ new_repo
     && git commit -q -m "feat(some-module): G-POSITIVE-IMPL-BODY" \
     && printf 'TASKS-G-POSITIVE\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records G-POSITIVE-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records G-POSITIVE-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change G-POSITIVE-ARCHIVE-BODY"
 )
@@ -1204,7 +1204,7 @@ TREES+=("$ROOT_REPO")
     && git commit -q -m "feat(some-module): ROOT-COMMIT-IMPL-BODY" \
     && printf 'TASKS-ROOT\n' > spectre/changes/demo/tasks.md \
     && git add spectre/changes/demo/tasks.md \
-    && git commit -q -m "chore(openspec): plan and session records ROOT-COMMIT-PLAN-BODY" \
+    && git commit -q -m "chore(spectre): plan and session records ROOT-COMMIT-PLAN-BODY" \
     && mkdir -p spectre/changes/archive \
     && git mv spectre/changes/demo spectre/changes/archive/2026-01-01-demo \
     && git commit -q -m "chore(demo): sync delta specs and archive the change ROOT-COMMIT-ARCHIVE-BODY"

@@ -14,14 +14,21 @@ that task's body**:
   given only the state left by the tasks before it.
 - `**Build:** red` — this task alone does not leave a green build. A `red`-tagged task also
   carries a separate `**Squash-with:** Task <N>` field, naming one or more other tasks in the same
-  plan (comma- or whitespace-separated dotted ids, e.g. `2.1, 3.4`) that this task is dispatched
-  together with as a single unit and whose commit this task's commit folds into.
+  plan (comma- or whitespace-separated ids, e.g. `2, 4`) that this task is dispatched
+  together with as a single unit and whose commit this task's commit folds into. The field's own
+  grammar still admits a dotted id, so a partner written `2.1` parses and then names no task —
+  reported as the absent partner it is, rather than silently ignored.
 
-**Placement.** A task begins at a `### <dotted-id> …` heading — a level-3 heading whose text
-starts with a dotted id (`1`, `2.1`, `9.9.2`, …), which is that task's identity for every
-violation message and every `Squash-with: Task <N>` reference. A task's body runs from that
-heading to the next level-2 or level-3 heading — whichever comes first, including a `###` aside
-that is not itself a task heading — or to the end of the file. Within that body, the `Build:` tag
+**Placement.** A task begins at a column-0 `- [ ] <id>. <title>` checkbox line — spectre's own task
+grammar, where `<id>` is a **flat integer** (`1`, `2`, `17`, …) and the mark between the brackets
+carries only whether the task is done, so `- [x]` opens a task exactly as `- [ ]` does. That id is
+the task's identity for every violation message and every `Squash-with: Task <N>` reference; a
+dotted id on a task line is a malformed task line to spectre and no task at all here, so a sub-task
+is renumbered flat rather than written `1.1`. A task's body runs from that line to the next task
+line, to the next level-2 or level-3 heading — whichever comes first — or to the end of the file.
+The body is everything below the task line, its `  - [ ] **Step N: …**` step checkboxes included: a
+step is indented two columns beneath its task, belongs to that task's body, and is never a task of
+its own, which is also what keeps spectre's malformed-task check off it. Within that body, the `Build:` tag
 is the **first** line matching the vocabulary above; a body with no such line has no tag at all,
 and a line that merely resembles one (`**Build:** yellow`) is treated the same as no tag rather
 than as a separate malformed-tag class. This is the same placement rule the guard script's own

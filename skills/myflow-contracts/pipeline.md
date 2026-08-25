@@ -262,7 +262,7 @@ Next:
 - **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
-- **`/myflow-do` never stages `<project>/openspec/` or `<project>/docs/superpowers/` before
+- **`/myflow-do` never stages `<project>/spectre/` or `<project>/docs/superpowers/` before
   finish**, and the list is fixed here rather than configured per project. `/myflow-finish` run 1
   stages them and commits them separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why leaving them unstaged
@@ -315,7 +315,7 @@ adapted it.
 
 **Every artifact a `/myflow-*` run writes is written brief** — bullets over prose, no preamble, no
 recap, no restatement of what another artifact in the same change already says. It binds
-`proposal.md`, `design.md`, the delta specs, `tasks.md`, the SDD ledger, the review panel record and
+`proposal.md`, `design.md`, the change's spec edits, `tasks.md`, the SDD ledger, the review panel record and
 the self-review report.
 
 **Brevity never withholds a fact.** Wording is compressed; a decision, a reason, a measured number,
@@ -328,7 +328,7 @@ of those is a defect, not a brief artifact.
   fields;
 - a plan's `verified:` / `unverified:` / `measured:` / `predicted:` provenance tags;
 - a decision's or an open question's `ID:` and `Status:` lines;
-- a delta spec's normative statements and their scenarios;
+- a spec's normative statements and their scenarios;
 - the review panel record's marker blocks and its findings table.
 
 This narrows the "code, commits, docs and specs stay full" carve-out the be-brief rule
@@ -463,15 +463,16 @@ form of the same exclusion.
 local on-disk fallback directory — the candidate set falls back to the union of two filesystem
 sources:
 
-- the non-archived names `openspec list --json` reports; and
+- the non-archived ids `spectre list --json` reports, read from each entry's `id` field in its
+  `{"changes":[{"id","done","total"}]}` output; and
 - the names `state list`'s own `"records"` carries in this mode — the basenames of whatever is
   directly under the project's state directory, `/Users/tweety53/Agents/myflow/state/<project-key>/`
   — which, per **State file**'s "The store starts empty", now holds only the CLI's on-disk fallback
   records, never a second live source. A name found only here is one whose last write could not
   reach the store.
 
-From that union, drop any name whose `<project>/openspec/changes/<name>/` directory has already reached
-`<project>/openspec/changes/archive/`. The state directory is per-project rather than per-worktree, so a
+From that union, drop any name whose `<project>/spectre/changes/<name>/` directory has already reached
+`<project>/spectre/changes/archive/`. The state directory is per-project rather than per-worktree, so a
 fallback record is reachable from the main checkout regardless of which worktree wrote it. See
 **Change name resolution (all `/myflow-*` commands)** (`skills/myflow-contracts/pipeline-rationale.md`)
 for why the filesystem source is needed at all now that the store is the normal path.
