@@ -17,9 +17,9 @@
 #
 # This wrapper's own job is resolving WHICH tasks.md the named task lives
 # in: the single non-archived tasks.md under
-# <worktree>/openspec/changes/*/tasks.md. Zero or more than one such file is
+# <worktree>/spectre/changes/*/tasks.md. Zero or more than one such file is
 # an invocation error (exit 2) — this guard runs against one change's
-# worktree, which openspec's own layout guarantees holds exactly one active
+# worktree, which spectre's own layout guarantees holds exactly one active
 # change's tasks.md outside archive/.
 set -euo pipefail
 
@@ -65,7 +65,7 @@ if [ ! -d "$WORKTREE" ]; then
   exit 2
 fi
 
-CHANGES_DIR="$WORKTREE/openspec/changes"
+CHANGES_DIR="$WORKTREE/spectre/changes"
 MATCHES=()
 if [ -d "$CHANGES_DIR" ]; then
   for tasks_file in "$CHANGES_DIR"/*/tasks.md; do

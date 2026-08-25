@@ -10,13 +10,13 @@ Exit codes:
      numeric claims. Fix the named file:line; never suppress.
   2  environment — the guard cannot determine anything about the tree:
      CHECK_PLAN_PROVENANCE_ROOT set but empty or not a directory,
-     openspec/changes/ missing, or change directories exist but none of
+     spectre/changes/ missing, or change directories exist but none of
      them yielded any of `SCANNED_FILENAMES` at the expected depth
      (scan-integrity). This last case is grouped under "environment"
      rather than given its own code: it means the root or the changes
      tree is misconfigured (a broken glob, a planning artifact at the
      wrong depth), the same class of "cannot determine" as a missing
-     openspec/changes/ — not a malicious payload (that's 3) and not a
+     spectre/changes/ — not a malicious payload (that's 3) and not a
      parsing question (that's 4). Also covers a file that passed
      containment but cannot be read (permission denied, I/O error) or
      cannot be decoded as UTF-8: both are "cannot determine this file's
@@ -88,9 +88,9 @@ that instruction is never a special case again: every snippet either
 says how it was checked, or says plainly that it was not, and every
 number names the command that would confirm it.
 
-Scope is `openspec/changes/*/{tasks,design,proposal}.md` — the three
+Scope is `spectre/changes/*/{tasks,design,proposal}.md` — the three
 artifacts named in `SCANNED_FILENAMES` — and never
-`openspec/changes/archive/`. All three make claims about the world, and
+`spectre/changes/archive/`. All three make claims about the world, and
 a claim is no more attributable for sitting in the design than in the
 tasks; scanning only tasks.md left the two artifacts the tasks are
 derived FROM unchecked.
@@ -594,7 +594,7 @@ _ESCAPED_DELIMITER_RE = re.compile(
 # that spec, or in an archived design document that walked through the same
 # veto — or a claim already carrying a provenance tag on the same line, so
 # none of the 9 reports anything. Inside the guard's actual scan scope
-# (`openspec/changes/*/{tasks,design,proposal}.md`) the loss is zero, since
+# (`spectre/changes/*/{tasks,design,proposal}.md`) the loss is zero, since
 # archived and preserved copies fall outside it.
 _ANGLE_BRACKET = "<"
 
@@ -2454,7 +2454,7 @@ class ProvenanceGuard:
           - `OSError` (permission denied, I/O error, and similar) after
             containment has already passed: the guard cannot determine
             anything about this file's content, the same "cannot know"
-            class as a missing `openspec/changes/` — not a malicious
+            class as a missing `spectre/changes/` — not a malicious
             payload (that is exit 3, already ruled out by
             `verify_scanned_file_containment` above) and not a parsing
             question (that is exit 4, `classify_line`'s abort path).
@@ -2759,7 +2759,7 @@ def _report_containment_refusal(guard: "ProvenanceGuard", file_errors: list) -> 
 
     Two call sites reach exit 3 (Critical 5, pass-14 fix wave): the
     end-of-scan ladder below, and `main()`'s validation of the
-    `openspec/changes` ANCHOR itself, which fires before any directory is
+    `spectre/changes` ANCHOR itself, which fires before any directory is
     scanned. Stated once here rather than twice, for the reason this file
     keeps rediscovering — a message and an exit code written in two places
     drift, and this guard's whole value is an exit contract a caller can
@@ -2877,7 +2877,7 @@ def main() -> None:
         sys.exit(2)
 
     guard = ProvenanceGuard()
-    changes_dir = os.path.join(repo_root, "openspec", "changes")
+    changes_dir = os.path.join(repo_root, "spectre", "changes")
 
     # Critical 5 (pass-14 fix wave): validate the ANCHOR itself before
     # anything is anchored on it.
@@ -2885,7 +2885,7 @@ def main() -> None:
     # `verify_scanned_file_containment` decides every per-file containment
     # question by comparing against `os.path.realpath(changes_dir)` — and
     # never checked that `changes_dir` was itself where it claimed to be.
-    # `os.path.isdir` below follows symlinks, so `openspec/changes` being
+    # `os.path.isdir` below follows symlinks, so `spectre/changes` being
     # a symlink was simply accepted, and every subsequent comparison was
     # made against the symlink's TARGET. Measured consequences:
     #
@@ -2894,7 +2894,7 @@ def main() -> None:
     #     FALSE CLEAN RUN — the one outcome this module's docstring says
     #     must never happen.
     #   - `changes/` -> a directory outside the repo root: read out of
-    #     tree, exit 1, with `openspec/changes/...`-relative paths in the
+    #     tree, exit 1, with `spectre/changes/...`-relative paths in the
     #     output that actively conceal the escape.
     #
     # The strictly WEAKER version of the same escape — a symlink one
@@ -2909,10 +2909,10 @@ def main() -> None:
     # resolves to exit 3 through the existing priority ladder — the same
     # code, from the same accumulator, as every other containment refusal.
     real_repo_root = os.path.realpath(repo_root)
-    expected_changes_dir = os.path.join(real_repo_root, "openspec", "changes")
+    expected_changes_dir = os.path.join(real_repo_root, "spectre", "changes")
     if os.path.islink(changes_dir):
         print(
-            f"{changes_dir}: openspec/changes is a symlink — refusing to "
+            f"{changes_dir}: spectre/changes is a symlink — refusing to "
             "scan through it (a decoy target reports a false clean run; an "
             "out-of-tree target reads outside the repository)",
             file=sys.stderr,
@@ -2930,12 +2930,12 @@ def main() -> None:
         guard.containment_errors.append(changes_dir)
         _report_containment_refusal(guard, [])
 
-    # No openspec/changes directory at all: genuinely cannot determine
+    # No spectre/changes directory at all: genuinely cannot determine
     # anything — the same "cannot know" case as REPO_ROOT not being a
     # directory above.
     if not os.path.isdir(changes_dir):
         print(
-            f"openspec/changes not found under {repo_root} — refusing to "
+            f"spectre/changes not found under {repo_root} — refusing to "
             "report a clean run",
             file=sys.stderr,
         )
@@ -2973,7 +2973,7 @@ def main() -> None:
             )
         else:
             print(
-                f"openspec/changes not found under {repo_root} — refusing to "
+                f"spectre/changes not found under {repo_root} — refusing to "
                 "report a clean run",
                 file=sys.stderr,
             )

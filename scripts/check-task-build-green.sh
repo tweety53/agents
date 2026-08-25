@@ -14,7 +14,7 @@
 # This wrapper is what resolves WHICH files that means:
 #
 #   - no arguments: scan every non-archived change's tasks.md under
-#     openspec/changes/*/tasks.md (excluding openspec/changes/archive/),
+#     spectre/changes/*/tasks.md (excluding spectre/changes/archive/),
 #     calling the Python script once per file and aggregating exit codes —
 #     non-zero if ANY file has a violation, printing each file's own
 #     violations as the Python script emits them;
@@ -68,15 +68,15 @@ fi
 # unless CHECK_TASK_BUILD_GREEN_ROOT is set, in which case it names the root
 # explicitly (the same opt-in override check-plan-provenance.py accepts as
 # CHECK_PLAN_PROVENANCE_ROOT), so a test harness can point this wrapper at a
-# sandboxed fixture tree instead of this repository's own openspec/changes/.
+# sandboxed fixture tree instead of this repository's own spectre/changes/.
 REPO_ROOT="${CHECK_TASK_BUILD_GREEN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-CHANGES_DIR="$REPO_ROOT/openspec/changes"
+CHANGES_DIR="$REPO_ROOT/spectre/changes"
 
 STATUS=0
 
 if [ -d "$CHANGES_DIR" ]; then
   # The glob below (one directory level under CHANGES_DIR) never descends
-  # into openspec/changes/archive/*/tasks.md in the first place — an
+  # into spectre/changes/archive/*/tasks.md in the first place — an
   # archived change's tasks.md is nested a level deeper, at
   # archive/<date-name>/tasks.md, so the glob's own depth already excludes
   # every archived file without any extra filtering here.

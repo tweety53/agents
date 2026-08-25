@@ -260,7 +260,7 @@ OCCURRENCES="$(printf '%s\n' "$OUT" | grep -c "task 12.1 merges with Task 12.2, 
 
 # ===========================================================================
 # Case 13: the wrapper's no-argument scan path (F5), exercised as a smoke
-# test against this repository's OWN openspec/changes tree. check-task-
+# test against this repository's OWN spectre/changes tree. check-task-
 # build-green.sh derives REPO_ROOT from its own script location (not the
 # invocation cwd) unless CHECK_TASK_BUILD_GREEN_ROOT overrides it, so the
 # no-arg default path can only be exercised for real against the real repo
@@ -284,21 +284,21 @@ set -e
 # archived change) is excluded from the scan entirely.
 # ===========================================================================
 AGG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/task-build-green-agg-test.XXXXXX")"
-mkdir -p "$AGG_ROOT/openspec/changes/change-a" \
-  "$AGG_ROOT/openspec/changes/change-b" \
-  "$AGG_ROOT/openspec/changes/archive/2024-01-01-old-change"
+mkdir -p "$AGG_ROOT/spectre/changes/change-a" \
+  "$AGG_ROOT/spectre/changes/change-b" \
+  "$AGG_ROOT/spectre/changes/archive/2024-01-01-old-change"
 {
   printf '### 1.1 Clean task\n\n'
   printf '**Build:** green\n'
-} > "$AGG_ROOT/openspec/changes/change-a/tasks.md"
+} > "$AGG_ROOT/spectre/changes/change-a/tasks.md"
 {
   printf '### 1.1 Untagged task\n\n'
   printf 'No tag here.\n'
-} > "$AGG_ROOT/openspec/changes/change-b/tasks.md"
+} > "$AGG_ROOT/spectre/changes/change-b/tasks.md"
 {
   printf '### 1.1 Archived, also untagged\n\n'
   printf 'No tag here either -- must never be scanned.\n'
-} > "$AGG_ROOT/openspec/changes/archive/2024-01-01-old-change/tasks.md"
+} > "$AGG_ROOT/spectre/changes/archive/2024-01-01-old-change/tasks.md"
 
 run_guard_root "$AGG_ROOT"
 [ "$RC" -ne 0 ] && pass "case 14: aggregation reports non-zero when any file violates" \

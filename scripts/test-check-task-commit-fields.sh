@@ -36,7 +36,7 @@ new_repo() {
   git -C "$REPO" init -q
   git -C "$REPO" config user.email "test@example.com"
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/openspec/changes/$CHANGE_NAME"
+  mkdir -p "$REPO/spectre/changes/$CHANGE_NAME"
   printf 'root\n' > "$REPO/root.txt"
   git -C "$REPO" add root.txt
   git -C "$REPO" commit -q -m "root"
@@ -44,7 +44,7 @@ new_repo() {
 
 # write_tasks_md <repo> <content> -> writes the change's tasks.md
 write_tasks_md() {
-  printf '%s' "$2" > "$1/openspec/changes/$CHANGE_NAME/tasks.md"
+  printf '%s' "$2" > "$1/spectre/changes/$CHANGE_NAME/tasks.md"
 }
 
 # write_project_md_test_section <repo> <command-line> -> writes a
@@ -118,7 +118,7 @@ write_tasks_md "$REPO" '### 1.1 Clean task
 **Commit:** add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf '# test_alpha covers alpha\n' > "$REPO/beta.txt"
@@ -139,7 +139,7 @@ write_tasks_md "$REPO" '### 2.1 Undeclared file
 **Commit:** add alpha only
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
 printf 'gamma\n' > "$REPO/gamma.txt"
@@ -164,7 +164,7 @@ write_tasks_md "$REPO" '### 3.1 Test present
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -184,7 +184,7 @@ write_tasks_md "$REPO" '### 4.1 Test missing
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'no tests here\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -208,7 +208,7 @@ write_tasks_md "$REPO" '### 5.1 Subject matches
 **Commit:** add alpha for real
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -228,7 +228,7 @@ write_tasks_md "$REPO" '### 6.1 Subject mismatch
 **Commit:** add alpha for real
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -253,7 +253,7 @@ write_tasks_md "$REPO" '### 7.1 Collateral covered
 **Commit:** add alpha and sweep docs
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 mkdir -p "$REPO/docs"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
@@ -280,7 +280,7 @@ fails
 **Commit:** add guard test cases
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 {
   printf '# Case 1: files subset of declared passes\n'
@@ -305,7 +305,7 @@ fails
 **Commit:** add guard test case one only
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '# Case 1: files subset of declared passes\n' > "$REPO/guard_test.sh"
 git -C "$REPO" add guard_test.sh
@@ -334,7 +334,7 @@ the wrapper this task adds
 **Commit:** add the wrapper
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'wrapper body, no case markers at all\n' > "$REPO/guard_test.sh"
 git -C "$REPO" add guard_test.sh
@@ -358,7 +358,7 @@ write_tasks_md "$REPO" '### 11.1 Regression passes
 **Commit:** add alpha_test
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
@@ -383,7 +383,7 @@ write_tasks_md "$REPO" '### 12.1 Regression skip
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -410,7 +410,7 @@ write_tasks_md "$REPO" '### 13.1 Baseline passes
 **Commit:** add alpha_test
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
@@ -433,7 +433,7 @@ write_tasks_md "$REPO" '### 14.1 Baseline skip
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'no tests here\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -467,7 +467,7 @@ Example of the field grammar, not a real field:
 **Commit:** add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -492,7 +492,7 @@ write_tasks_md "$REPO" '### 16.1 Revert conflict
 **Commit:** add alpha_test
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
@@ -520,7 +520,7 @@ write_tasks_md "$REPO" '### 17.1 Change-name scope
 **Commit:** feat(kan-900-some-change): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -544,7 +544,7 @@ write_tasks_md "$REPO" '### 18.1 Bare-key scope
 **Commit:** feat(kan-900): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -567,7 +567,7 @@ write_tasks_md "$REPO" '### 19.1 Numeric task id scope
 **Commit:** feat(3): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -590,7 +590,7 @@ write_tasks_md "$REPO" '### 20.1 Dotted task id scope
 **Commit:** feat(3.2): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -613,7 +613,7 @@ write_tasks_md "$REPO" '### 21.1 Module scope
 **Commit:** feat(scripts): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -634,7 +634,7 @@ write_tasks_md "$REPO" '### 22.1 No scope
 **Commit:** feat: add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -655,7 +655,7 @@ write_tasks_md "$REPO" '### 23.1 Scope containing the key
 **Commit:** feat(kan-900-helpers): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -677,7 +677,7 @@ write_tasks_md "$REPO" '### 24.1 Scope containing the change name
 **Commit:** feat(kan-900-some-change-helpers): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -701,7 +701,7 @@ write_tasks_md "$REPO" '### 25.1 Breaking-change form names the change
 **Commit:** feat(kan-900-some-change)!: add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -726,7 +726,7 @@ write_tasks_md "$REPO" '### 26.1 Breaking-change form, real module
 **Commit:** feat(scripts)!: add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -748,7 +748,7 @@ write_tasks_md "$REPO" '### 27.1 Uppercase change-name scope
 **Commit:** feat(KAN-900-SOME-CHANGE): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -773,7 +773,7 @@ write_tasks_md "$REPO" '### 28.1 Uppercase Jira-key scope
 **Commit:** feat(KAN-900): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -800,7 +800,7 @@ write_tasks_md "$REPO" '### 29.1 Ambiguous key-shaped change name
 **Commit:** feat(release-2026): add alpha
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -834,7 +834,7 @@ write_tasks_md "$REPO" '### 1 Red half
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -884,7 +884,7 @@ write_tasks_md "$REPO" '### 1 Red half pointing at nothing
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -920,7 +920,7 @@ write_tasks_md "$REPO" '### 1 Red half
 
 **Squash-with:** Task 1
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -953,7 +953,7 @@ write_tasks_md "$REPO" '### 1 Ordinary task
 **Commit:** feat: add beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -985,7 +985,7 @@ write_tasks_md "$REPO" '### 1 Ordinary task
 **Commit:** feat: add beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -1027,7 +1027,7 @@ write_tasks_md "$REPO" '### 1 Red third
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1080,7 +1080,7 @@ write_tasks_md "$REPO" '### 1 Red third
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1120,7 +1120,7 @@ write_tasks_md "$REPO" '### 1 Red third
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1162,7 +1162,7 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 1
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1205,7 +1205,7 @@ write_tasks_md "$REPO" '### 1 Red third
 **Files:** `gamma.txt`
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1251,7 +1251,7 @@ write_tasks_md "$REPO" '### 1 Red third
 **Files:** `gamma.txt`
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1293,7 +1293,7 @@ write_tasks_md "$REPO" '### 1 Red half
 **Files:** `beta.txt`
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1329,7 +1329,7 @@ write_tasks_md "$REPO" '### 1 Ordinary task declaring no subject
 **Files:** `alpha.txt`
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -1381,7 +1381,7 @@ write_tasks_md "$REPO" '### 1 Red one
 **Commit:** feat: subject b
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '1\n' > "$REPO/one.txt"
 printf '2\n' > "$REPO/two.txt"
@@ -1456,7 +1456,7 @@ write_tasks_md "$REPO" '### 1 Red one
 **Commit:** feat: the one folded subject
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '1\n' > "$REPO/one.txt"
 printf '2\n' > "$REPO/two.txt"
@@ -1499,7 +1499,7 @@ write_tasks_md "$REPO" '### 1 Red half naming a missing partner
 
 **Squash-with:** Task 9
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -1530,7 +1530,7 @@ write_tasks_md "$REPO" '### 1 Red half naming a red partner
 **Files:** `beta.txt`
 **Build:** red
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1579,7 +1579,7 @@ write_tasks_md "$REPO" '### 1 Red task naming a missing partner and two disagree
 **Commit:** feat: subject b
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1645,7 +1645,7 @@ write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
 **Commit:** feat: the one folded subject
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '1\n' > "$REPO/one.txt"
 printf '2\n' > "$REPO/two.txt"
@@ -1709,7 +1709,7 @@ write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
 **Files:** `five.txt`
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf '1\n' > "$REPO/one.txt"
 printf '2\n' > "$REPO/two.txt"
@@ -1767,7 +1767,7 @@ write_tasks_md "$REPO" '### 1 Red task whose Squash-with carries free text
 **Commit:** feat: add a and b
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/a.txt"
 printf 'u\n' > "$REPO/unrelated.txt"
@@ -1808,7 +1808,7 @@ write_tasks_md "$REPO" '### 1 Red task naming a partner and mentioning a step nu
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1854,7 +1854,7 @@ write_tasks_md "$REPO" '### 1 Red task with two dotted partners
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1895,7 +1895,7 @@ The fold is described in the paragraph above.
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1940,7 +1940,7 @@ write_tasks_md "$REPO" '### 1 Red task whose partner ids wrap onto a second line
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -1989,7 +1989,7 @@ write_tasks_md "$REPO" '### 1 A red task naming a partner that is itself red
 **Commit:** feat: add beta and gamma
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'b\n' > "$REPO/beta.txt"
 printf 'g\n' > "$REPO/gamma.txt"
@@ -2033,7 +2033,7 @@ write_tasks_md "$REPO" '### 1 Red task whose Squash-with names its partner in fr
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -2073,7 +2073,7 @@ write_tasks_md "$REPO" '### 1.1 Clean task
 **Commit:** add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf '# test_alpha covers alpha\n' > "$REPO/beta.txt"
@@ -2123,7 +2123,7 @@ write_tasks_md "$REPO" '### 1 Red task whose first Squash-with line does not gat
 **Commit:** feat: add alpha and beta
 **Build:** green
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'b\n' > "$REPO/beta.txt"
@@ -2161,7 +2161,7 @@ write_tasks_md "$REPO" '### 1 Red task carrying two Build lines
 
 **Squash-with:** Task 9
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -2192,7 +2192,7 @@ this sentence explains the tag and is not part of it
 
 **Squash-with:** Task 9
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -2229,7 +2229,7 @@ Example of a fold, shown but never declared:
 **Squash-with:** Task 8 (see the note)
 ```
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -2274,7 +2274,7 @@ write_tasks_md "$REPO" '### 1 First heading for this id
 
 **Squash-with:** Task 1
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 printf 'g\n' > "$REPO/gamma.txt"
@@ -2313,7 +2313,7 @@ Example of how the field is written:
 '
 new_repo
 write_tasks_md "$REPO" "$FENCED_EXAMPLE_TILDE"
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'r\n' > "$REPO/real.txt"
 git -C "$REPO" add real.txt
@@ -2326,7 +2326,7 @@ run_guard "$REPO" 1 "$SHA"
 # touching it is undeclared collateral.
 new_repo
 write_tasks_md "$REPO" "$FENCED_EXAMPLE_TILDE"
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'e\n' > "$REPO/example-only.txt"
 git -C "$REPO" add example-only.txt
@@ -2361,7 +2361,7 @@ Example of how the field is written:
 **Files:** `example-only.txt`
    ```
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'r\n' > "$REPO/real.txt"
 git -C "$REPO" add real.txt
@@ -2393,7 +2393,7 @@ UNCLOSED_FENCE_BODY='### 1 Task whose body opens a fence it never closes
 '
 new_repo
 write_tasks_md "$REPO" "$UNCLOSED_FENCE_BODY"
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
@@ -2425,7 +2425,7 @@ write_tasks_md "$REPO" '### 1 Task whose body closes the fence it opens
 example
 ~~~
 '
-git -C "$REPO" add "openspec/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
 git -C "$REPO" commit -q -m "plan"
 printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
