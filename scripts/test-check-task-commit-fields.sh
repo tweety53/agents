@@ -111,7 +111,7 @@ RUNNER
 # Case 1: commit's changed files are a subset of declared Files: -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1.1 Clean task
+write_tasks_md "$REPO" '- [ ] 1.1. Clean task
 
 **Files:** `alpha.txt`, `beta.txt`
 **Tests:** `test_alpha`
@@ -132,7 +132,7 @@ run_guard "$REPO" 1.1 "$SHA"
 # Case 2: commit touches a file not in declared Files: -> exit 1.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 2.1 Undeclared file
+write_tasks_md "$REPO" '- [ ] 2.1. Undeclared file
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -157,7 +157,7 @@ esac
 # Case 3: declared test name found in the commit's diff -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 3.1 Test present
+write_tasks_md "$REPO" '- [ ] 3.1. Test present
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -177,7 +177,7 @@ run_guard "$REPO" 3.1 "$SHA"
 # Case 4: declared test name missing from the commit's diff -> exit 1.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 4.1 Test missing
+write_tasks_md "$REPO" '- [ ] 4.1. Test missing
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -201,7 +201,7 @@ esac
 # Case 5: commit subject matches declared Commit: -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 5.1 Subject matches
+write_tasks_md "$REPO" '- [ ] 5.1. Subject matches
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -221,7 +221,7 @@ run_guard "$REPO" 5.1 "$SHA"
 # Case 6: commit subject does not match declared Commit: -> exit 1.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 6.1 Subject mismatch
+write_tasks_md "$REPO" '- [ ] 6.1. Subject mismatch
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -245,7 +245,7 @@ esac
 # Case 7: extra path covered by Allowed-collateral: glob -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 7.1 Collateral covered
+write_tasks_md "$REPO" '- [ ] 7.1. Collateral covered
 
 **Files:** `alpha.txt`
 **Allowed-collateral:** `docs/*.md`
@@ -272,7 +272,7 @@ run_guard "$REPO" 7.1 "$SHA"
 # exit 0. Proves the guard does not require backtick-quoted identifiers.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 8.1 Prose cases present
+write_tasks_md "$REPO" '- [ ] 8.1. Prose cases present
 
 **Files:** `guard_test.sh`
 **Tests:** Case 1: files subset of declared passes; Case 2: undeclared file
@@ -297,7 +297,7 @@ run_guard "$REPO" 8.1 "$SHA"
 # never "Case 2" -> exit 1, naming "Case 2" (not the whole sentence).
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 9.1 Prose case missing
+write_tasks_md "$REPO" '- [ ] 9.1. Prose case missing
 
 **Files:** `guard_test.sh`
 **Tests:** Case 1: files subset of declared passes; Case 2: undeclared file
@@ -326,7 +326,7 @@ esac
 # the whole sentence.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 10.1 No checkable tests declared
+write_tasks_md "$REPO" '- [ ] 10.1. No checkable tests declared
 
 **Files:** `guard_test.sh`
 **Tests:** the 7 cases listed in task 3.2, run for the first time against
@@ -350,7 +350,7 @@ run_guard "$REPO" 10.1 "$SHA"
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
-write_tasks_md "$REPO" '### 11.1 Regression passes
+write_tasks_md "$REPO" '- [ ] 11.1. Regression passes
 
 **Files:** `suite.txt`
 **Tests:** `alpha_test`
@@ -376,7 +376,7 @@ grep -qxF "alpha_test" "$REPO/suite.txt" && pass "case 11: suite.txt restored to
 # ===========================================================================
 new_repo
 write_unsupported_test_runner "$REPO"
-write_tasks_md "$REPO" '### 12.1 Regression skip
+write_tasks_md "$REPO" '- [ ] 12.1. Regression skip
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -402,7 +402,7 @@ esac
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
-write_tasks_md "$REPO" '### 13.1 Baseline passes
+write_tasks_md "$REPO" '- [ ] 13.1. Baseline passes
 
 **Files:** `suite.txt`
 **Tests:** `alpha_test`
@@ -426,7 +426,7 @@ run_guard "$REPO" 13.1 "$SHA"
 # ===========================================================================
 new_repo
 write_unsupported_test_runner "$REPO"
-write_tasks_md "$REPO" '### 14.1 Baseline skip
+write_tasks_md "$REPO" '- [ ] 14.1. Baseline skip
 
 **Files:** `alpha.txt`
 **Baseline:** before=0 after=1
@@ -453,7 +453,7 @@ esac
 # `evil.txt`, so a commit touching only alpha.txt still passes.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 15.1 Fence guard
+write_tasks_md "$REPO" '- [ ] 15.1. Fence guard
 
 **Files:** `alpha.txt`
 
@@ -484,7 +484,7 @@ run_guard "$REPO" 15.1 "$SHA"
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
-write_tasks_md "$REPO" '### 16.1 Revert conflict
+write_tasks_md "$REPO" '- [ ] 16.1. Revert conflict
 
 **Files:** `suite.txt`
 **Tests:** `alpha_test`
@@ -514,7 +514,7 @@ git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet && pass "cas
 # check, never from check_commit_subject.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 17.1 Change-name scope
+write_tasks_md "$REPO" '- [ ] 17.1. Change-name scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-some-change): add alpha
@@ -538,7 +538,7 @@ esac
 # -> exit 1.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 18.1 Bare-key scope
+write_tasks_md "$REPO" '- [ ] 18.1. Bare-key scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900): add alpha
@@ -561,7 +561,7 @@ esac
 # Case 19: declared Commit: scope is a numeric task id -> exit 1.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 19.1 Numeric task id scope
+write_tasks_md "$REPO" '- [ ] 19.1. Numeric task id scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(3): add alpha
@@ -584,7 +584,7 @@ esac
 # Case 20: declared Commit: scope is a dotted task id -> exit 1.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 20.1 Dotted task id scope
+write_tasks_md "$REPO" '- [ ] 20.1. Dotted task id scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(3.2): add alpha
@@ -607,7 +607,7 @@ esac
 # Case 21: declared Commit: scope names a real module -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 21.1 Module scope
+write_tasks_md "$REPO" '- [ ] 21.1. Module scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(scripts): add alpha
@@ -628,7 +628,7 @@ run_guard "$REPO" 21.1 "$SHA"
 # scope is optional.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 22.1 No scope
+write_tasks_md "$REPO" '- [ ] 22.1. No scope
 
 **Files:** `alpha.txt`
 **Commit:** feat: add alpha
@@ -649,7 +649,7 @@ run_guard "$REPO" 22.1 "$SHA"
 # a substring -> exit 0. Proves the check is equality, not substring.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 23.1 Scope containing the key
+write_tasks_md "$REPO" '- [ ] 23.1. Scope containing the key
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-helpers): add alpha
@@ -671,7 +671,7 @@ run_guard "$REPO" 23.1 "$SHA"
 # substring.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 24.1 Scope containing the change name
+write_tasks_md "$REPO" '- [ ] 24.1. Scope containing the change name
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-some-change-helpers): add alpha
@@ -695,7 +695,7 @@ run_guard "$REPO" 24.1 "$SHA"
 # silently returned no violation for this exact subject.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 25.1 Breaking-change form names the change
+write_tasks_md "$REPO" '- [ ] 25.1. Breaking-change form names the change
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-some-change)!: add alpha
@@ -720,7 +720,7 @@ esac
 # turn every subject into a scope match.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 26.1 Breaking-change form, real module
+write_tasks_md "$REPO" '- [ ] 26.1. Breaking-change form, real module
 
 **Files:** `alpha.txt`
 **Commit:** feat(scripts)!: add alpha
@@ -742,7 +742,7 @@ run_guard "$REPO" 26.1 "$SHA"
 # case-insensitive.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 27.1 Uppercase change-name scope
+write_tasks_md "$REPO" '- [ ] 27.1. Uppercase change-name scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(KAN-900-SOME-CHANGE): add alpha
@@ -767,7 +767,7 @@ esac
 # written uppercase, so this is the shape a human is most likely to type.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '### 28.1 Uppercase Jira-key scope
+write_tasks_md "$REPO" '- [ ] 28.1. Uppercase Jira-key scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(KAN-900): add alpha
@@ -794,7 +794,7 @@ esac
 # than being wrongly flagged as the change's Jira key.
 # ===========================================================================
 new_repo "release-2026-kan-450-cleanup"
-write_tasks_md "$REPO" '### 29.1 Ambiguous key-shaped change name
+write_tasks_md "$REPO" '- [ ] 29.1. Ambiguous key-shaped change name
 
 **Files:** `alpha.txt`
 **Commit:** feat(release-2026): add alpha
@@ -819,7 +819,7 @@ run_guard "$REPO" 29.1 "$SHA"
 # partner's subject and the union of both file sets.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red half
+write_tasks_md "$REPO" '- [ ] 1. Red half
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -828,7 +828,7 @@ write_tasks_md "$REPO" '### 1 Red half
 
 **Squash-with:** Task 2
 
-### 2 Green half
+- [ ] 2. Green half
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -870,7 +870,7 @@ esac
 # silently widen the file set to nothing.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red half pointing at nothing
+write_tasks_md "$REPO" '- [ ] 1. Red half pointing at nothing
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -878,7 +878,7 @@ write_tasks_md "$REPO" '### 1 Red half pointing at nothing
 
 **Squash-with:** Task 9
 
-### 2 Green half
+- [ ] 2. Green half
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -904,7 +904,7 @@ esac
 # green commit at all.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red half
+write_tasks_md "$REPO" '- [ ] 1. Red half
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -912,7 +912,7 @@ write_tasks_md "$REPO" '### 1 Red half
 
 **Squash-with:** Task 2
 
-### 2 Also red
+- [ ] 2. Also red
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -941,13 +941,13 @@ esac
 # unconditional union across every task in the plan.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Ordinary task
+write_tasks_md "$REPO" '- [ ] 1. Ordinary task
 
 **Files:** `alpha.txt`
 **Commit:** feat: add alpha
 **Build:** green
 
-### 2 Another ordinary task
+- [ ] 2. Another ordinary task
 
 **Files:** `beta.txt`
 **Commit:** feat: add beta
@@ -973,13 +973,13 @@ esac
 # partner's subject is taken only for a folded pair.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Ordinary task
+write_tasks_md "$REPO" '- [ ] 1. Ordinary task
 
 **Files:** `alpha.txt`
 **Commit:** feat: add alpha
 **Build:** green
 
-### 2 Another ordinary task
+- [ ] 2. Another ordinary task
 
 **Files:** `beta.txt`
 **Commit:** feat: add beta
@@ -1007,7 +1007,7 @@ esac
 # green side used never to union.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red third
+write_tasks_md "$REPO" '- [ ] 1. Red third
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1015,13 +1015,13 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 2, 3
 
-### 2 Green third
+- [ ] 2. Green third
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 
-### 3 Sibling green third
+- [ ] 3. Sibling green third
 
 **Files:** `gamma.txt`
 **Commit:** feat: add alpha beta and gamma
@@ -1060,7 +1060,7 @@ esac
 # produced a false "does not match declared Commit:" before.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red third
+write_tasks_md "$REPO" '- [ ] 1. Red third
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1068,13 +1068,13 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 2, 3
 
-### 2 Green third
+- [ ] 2. Green third
 
 **Files:** `beta.txt`
 **Commit:** feat: add beta
 **Build:** green
 
-### 3 Sibling green third
+- [ ] 3. Sibling green third
 
 **Files:** `gamma.txt`
 **Commit:** feat: add alpha beta and gamma
@@ -1106,7 +1106,7 @@ esac
 # the invalid folds too.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red third
+write_tasks_md "$REPO" '- [ ] 1. Red third
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1114,7 +1114,7 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 2, 9
 
-### 2 Green third
+- [ ] 2. Green third
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -1140,7 +1140,7 @@ esac
 # the red task's own id rejects cannot pass through a green partner's id.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red third
+write_tasks_md "$REPO" '- [ ] 1. Red third
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1148,13 +1148,13 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 2, 3
 
-### 2 Green third
+- [ ] 2. Green third
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
 **Build:** green
 
-### 3 Also red
+- [ ] 3. Also red
 
 **Files:** `gamma.txt`
 **Commit:** test: add gamma
@@ -1186,7 +1186,7 @@ esac
 # "different Commit: subjects '...', None".
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red third
+write_tasks_md "$REPO" '- [ ] 1. Red third
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1194,13 +1194,13 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 2, 3
 
-### 2 Green third
+- [ ] 2. Green third
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 
-### 3 Sibling green third declaring no subject
+- [ ] 3. Sibling green third declaring no subject
 
 **Files:** `gamma.txt`
 **Build:** green
@@ -1232,7 +1232,7 @@ run_guard "$REPO" 3 "$SHA"
 # checked the commit against `None`, i.e. against nothing, and passed.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red third
+write_tasks_md "$REPO" '- [ ] 1. Red third
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1240,13 +1240,13 @@ write_tasks_md "$REPO" '### 1 Red third
 
 **Squash-with:** Task 2, 3
 
-### 2 Green third
+- [ ] 2. Green third
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 
-### 3 Sibling green third declaring no subject
+- [ ] 3. Sibling green third declaring no subject
 
 **Files:** `gamma.txt`
 **Build:** green
@@ -1280,7 +1280,7 @@ esac
 # for a commit it checked against nothing. Both ids give the one verdict.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red half
+write_tasks_md "$REPO" '- [ ] 1. Red half
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1288,7 +1288,7 @@ write_tasks_md "$REPO" '### 1 Red half
 
 **Squash-with:** Task 2
 
-### 2 Green half declaring no subject
+- [ ] 2. Green half declaring no subject
 
 **Files:** `beta.txt`
 **Build:** green
@@ -1324,7 +1324,7 @@ esac
 # task in every plan rather than the folded ones this change is about.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Ordinary task declaring no subject
+write_tasks_md "$REPO" '- [ ] 1. Ordinary task declaring no subject
 
 **Files:** `alpha.txt`
 **Build:** green
@@ -1348,7 +1348,7 @@ run_guard "$REPO" 1 "$SHA"
 # and exited 0 on a commit both red ids rejected.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red one
+write_tasks_md "$REPO" '- [ ] 1. Red one
 
 **Files:** `one.txt`
 **Commit:** test: add one
@@ -1356,7 +1356,7 @@ write_tasks_md "$REPO" '### 1 Red one
 
 **Squash-with:** Task 3, 4
 
-### 2 Red two
+- [ ] 2. Red two
 
 **Files:** `two.txt`
 **Commit:** test: add two
@@ -1364,18 +1364,18 @@ write_tasks_md "$REPO" '### 1 Red one
 
 **Squash-with:** Task 3, 5
 
-### 3 Shared green partner
+- [ ] 3. Shared green partner
 
 **Files:** `shared.txt`
 **Build:** green
 
-### 4 Green partner of red one
+- [ ] 4. Green partner of red one
 
 **Files:** `four.txt`
 **Commit:** feat: subject a
 **Build:** green
 
-### 5 Green partner of red two
+- [ ] 5. Green partner of red two
 
 **Files:** `five.txt`
 **Commit:** feat: subject b
@@ -1423,7 +1423,7 @@ esac
 # while the shared partner's id passed: three ids, two verdicts.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red one
+write_tasks_md "$REPO" '- [ ] 1. Red one
 
 **Files:** `one.txt`
 **Commit:** test: add one
@@ -1431,7 +1431,7 @@ write_tasks_md "$REPO" '### 1 Red one
 
 **Squash-with:** Task 3, 4
 
-### 2 Red two
+- [ ] 2. Red two
 
 **Files:** `two.txt`
 **Commit:** test: add two
@@ -1439,18 +1439,18 @@ write_tasks_md "$REPO" '### 1 Red one
 
 **Squash-with:** Task 3, 5
 
-### 3 Shared green partner
+- [ ] 3. Shared green partner
 
 **Files:** `shared.txt`
 **Build:** green
 
-### 4 Green partner of red one
+- [ ] 4. Green partner of red one
 
 **Files:** `four.txt`
 **Commit:** feat: the one folded subject
 **Build:** green
 
-### 5 Green partner of red two
+- [ ] 5. Green partner of red two
 
 **Files:** `five.txt`
 **Commit:** feat: the one folded subject
@@ -1491,7 +1491,7 @@ run_guard "$REPO" 5 "$SHA"
 # than inferring it from "no other violation has been appended yet".
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red half naming a missing partner
+write_tasks_md "$REPO" '- [ ] 1. Red half naming a missing partner
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1517,7 +1517,7 @@ case "$OUT" in
 esac
 
 new_repo
-write_tasks_md "$REPO" '### 1 Red half naming a red partner
+write_tasks_md "$REPO" '- [ ] 1. Red half naming a red partner
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1525,7 +1525,7 @@ write_tasks_md "$REPO" '### 1 Red half naming a red partner
 
 **Squash-with:** Task 2
 
-### 2 Partner that is itself red and declares no subject
+- [ ] 2. Partner that is itself red and declares no subject
 
 **Files:** `beta.txt`
 **Build:** red
@@ -1559,7 +1559,7 @@ esac
 # for one broken field.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task naming a missing partner and two disagreeing ones
+write_tasks_md "$REPO" '- [ ] 1. Red task naming a missing partner and two disagreeing ones
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1567,13 +1567,13 @@ write_tasks_md "$REPO" '### 1 Red task naming a missing partner and two disagree
 
 **Squash-with:** Task 2, 3, 9
 
-### 2 Green partner declaring one subject
+- [ ] 2. Green partner declaring one subject
 
 **Files:** `beta.txt`
 **Commit:** feat: subject a
 **Build:** green
 
-### 3 Green partner declaring a different subject
+- [ ] 3. Green partner declaring a different subject
 
 **Files:** `gamma.txt`
 **Commit:** feat: subject b
@@ -1613,7 +1613,7 @@ esac
 # while a subject was sitting in the same fold.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
+write_tasks_md "$REPO" '- [ ] 1. Red one, whose partners declare no subject
 
 **Files:** `one.txt`
 **Commit:** test: add one
@@ -1621,7 +1621,7 @@ write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
 
 **Squash-with:** Task 3, 4
 
-### 2 Red two, whose partner declares the fold subject
+- [ ] 2. Red two, whose partner declares the fold subject
 
 **Files:** `two.txt`
 **Commit:** test: add two
@@ -1629,17 +1629,17 @@ write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
 
 **Squash-with:** Task 3, 5
 
-### 3 Shared green partner declaring no subject
+- [ ] 3. Shared green partner declaring no subject
 
 **Files:** `shared.txt`
 **Build:** green
 
-### 4 Green partner of red one declaring no subject
+- [ ] 4. Green partner of red one declaring no subject
 
 **Files:** `four.txt`
 **Build:** green
 
-### 5 Green partner of red two declaring the fold subject
+- [ ] 5. Green partner of red two declaring the fold subject
 
 **Files:** `five.txt`
 **Commit:** feat: the one folded subject
@@ -1678,7 +1678,7 @@ run_guard "$REPO" 5 "$SHA"
 # folds, the way case 44 anchors the disagreement, and every id reports it.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
+write_tasks_md "$REPO" '- [ ] 1. Red one, whose partners declare no subject
 
 **Files:** `one.txt`
 **Commit:** test: add one
@@ -1686,7 +1686,7 @@ write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
 
 **Squash-with:** Task 3, 4
 
-### 2 Red two, whose partners declare no subject either
+- [ ] 2. Red two, whose partners declare no subject either
 
 **Files:** `two.txt`
 **Commit:** test: add two
@@ -1694,17 +1694,17 @@ write_tasks_md "$REPO" '### 1 Red one, whose partners declare no subject
 
 **Squash-with:** Task 3, 5
 
-### 3 Shared green partner declaring no subject
+- [ ] 3. Shared green partner declaring no subject
 
 **Files:** `shared.txt`
 **Build:** green
 
-### 4 Green partner of red one declaring no subject
+- [ ] 4. Green partner of red one declaring no subject
 
 **Files:** `four.txt`
 **Build:** green
 
-### 5 Green partner of red two declaring no subject
+- [ ] 5. Green partner of red two declaring no subject
 
 **Files:** `five.txt`
 **Build:** green
@@ -1748,7 +1748,7 @@ run_guard "$REPO" 5 "$SHA"
 # flagged and the run exited 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task whose Squash-with carries free text
+write_tasks_md "$REPO" '- [ ] 1. Red task whose Squash-with carries free text
 
 **Files:** `a.txt`
 **Commit:** test: add a
@@ -1756,12 +1756,12 @@ write_tasks_md "$REPO" '### 1 Red task whose Squash-with carries free text
 
 **Squash-with:** Task 3 (see step 2)
 
-### 2 An unrelated green task nobody folds with
+- [ ] 2. An unrelated green task nobody folds with
 
 **Files:** `unrelated.txt`
 **Build:** green
 
-### 3 The real partner
+- [ ] 3. The real partner
 
 **Files:** `b.txt`
 **Commit:** feat: add a and b
@@ -1794,7 +1794,7 @@ run_guard "$REPO" 2 "$SHA"
 # id is invented from its free text at all.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task naming a partner and mentioning a step number
+write_tasks_md "$REPO" '- [ ] 1. Red task naming a partner and mentioning a step number
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1802,7 +1802,7 @@ write_tasks_md "$REPO" '### 1 Red task naming a partner and mentioning a step nu
 
 **Squash-with:** Task 2 (see step 3)
 
-### 2 Green partner
+- [ ] 2. Green partner
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -1834,7 +1834,7 @@ esac
 # single comma-separated integer list.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task with two dotted partners
+write_tasks_md "$REPO" '- [ ] 1. Red task with two dotted partners
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1842,13 +1842,13 @@ write_tasks_md "$REPO" '### 1 Red task with two dotted partners
 
 **Squash-with:** Task 2.1 3.4
 
-### 2.1 Green partner
+- [ ] 2.1. Green partner
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 
-### 3.4 Sibling green partner
+- [ ] 3.4. Sibling green partner
 
 **Files:** `gamma.txt`
 **Commit:** feat: add alpha beta and gamma
@@ -1880,7 +1880,7 @@ run_guard "$REPO" 3.4 "$SHA"
 # grammar, from scripts/lib/plan_grammar.py.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task whose Squash-with is followed by prose
+write_tasks_md "$REPO" '- [ ] 1. Red task whose Squash-with is followed by prose
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1889,7 +1889,7 @@ write_tasks_md "$REPO" '### 1 Red task whose Squash-with is followed by prose
 **Squash-with:** Task 2
 The fold is described in the paragraph above.
 
-### 2 Green partner
+- [ ] 2. Green partner
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -1919,7 +1919,7 @@ run_guard "$REPO" 2 "$SHA"
 # the fold's file union to task 3's declared file.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task whose partner ids wrap onto a second line
+write_tasks_md "$REPO" '- [ ] 1. Red task whose partner ids wrap onto a second line
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1928,13 +1928,13 @@ write_tasks_md "$REPO" '### 1 Red task whose partner ids wrap onto a second line
 **Squash-with:** Task 2,
 3
 
-### 2 Green partner
+- [ ] 2. Green partner
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 
-### 3 Sibling green partner named only on the wrapped line
+- [ ] 3. Sibling green partner named only on the wrapped line
 
 **Files:** `gamma.txt`
 **Commit:** feat: add alpha beta and gamma
@@ -1967,7 +1967,7 @@ esac
 # task carrying it, and joins nothing.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 A red task naming a partner that is itself red
+write_tasks_md "$REPO" '- [ ] 1. A red task naming a partner that is itself red
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -1975,7 +1975,7 @@ write_tasks_md "$REPO" '### 1 A red task naming a partner that is itself red
 
 **Squash-with:** Task 9
 
-### 9 A red task whose own partner is green
+- [ ] 9. A red task whose own partner is green
 
 **Files:** `beta.txt`
 **Commit:** test: add beta
@@ -1983,7 +1983,7 @@ write_tasks_md "$REPO" '### 1 A red task naming a partner that is itself red
 
 **Squash-with:** Task 10
 
-### 10 The green partner of task 9 fold
+- [ ] 10. The green partner of task 9 fold
 
 **Files:** `gamma.txt`
 **Commit:** feat: add beta and gamma
@@ -2019,7 +2019,7 @@ esac
 # `Files:` field instead of the broken `Squash-with:` one.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task whose Squash-with names its partner in free text
+write_tasks_md "$REPO" '- [ ] 1. Red task whose Squash-with names its partner in free text
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -2027,7 +2027,7 @@ write_tasks_md "$REPO" '### 1 Red task whose Squash-with names its partner in fr
 
 **Squash-with:** Task 2 (see step 3)
 
-### 2 The green partner that free text names
+- [ ] 2. The green partner that free text names
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -2066,7 +2066,7 @@ esac
 # exits 1 with a traceback rather than 2 with a sentence.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1.1 Clean task
+write_tasks_md "$REPO" '- [ ] 1.1. Clean task
 
 **Files:** `alpha.txt`, `beta.txt`
 **Tests:** `test_alpha`
@@ -2108,7 +2108,7 @@ rm -rf "$STRIPPED"
 # pinned from both sides.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task whose first Squash-with line does not gate
+write_tasks_md "$REPO" '- [ ] 1. Red task whose first Squash-with line does not gate
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -2117,7 +2117,7 @@ write_tasks_md "$REPO" '### 1 Red task whose first Squash-with line does not gat
 **Squash-with:** Task 2 (see note below)
 **Squash-with:** Task 2
 
-### 2 The green partner named by the gating line
+- [ ] 2. The green partner named by the gating line
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha and beta
@@ -2152,7 +2152,7 @@ esac
 # asserted against check-task-build-green.sh as its own case 21.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task carrying two Build lines
+write_tasks_md "$REPO" '- [ ] 1. Red task carrying two Build lines
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -2183,7 +2183,7 @@ esac
 # its own case 22.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Red task whose tag line is followed by prose
+write_tasks_md "$REPO" '- [ ] 1. Red task whose tag line is followed by prose
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -2206,8 +2206,8 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 60 (fix round 9): a fenced example task heading opens no task. This
-# guard's heading scan used to ignore fences entirely, so the worked example
+# Case 60 (fix round 9): a fenced example task line opens no task. This
+# guard's task scan used to ignore fences entirely, so the worked example
 # below became a real task 9 whose ungated `Squash-with:` was reported —
 # through case 55's plan-wide rule — against every task in the plan, while
 # check-task-build-green.sh saw one clean green task. Task splitting is now
@@ -2215,7 +2215,7 @@ esac
 # asserted against that guard as its own case 23.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Real task with a worked example in its body
+write_tasks_md "$REPO" '- [ ] 1. Real task with a worked example in its body
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
@@ -2224,7 +2224,7 @@ write_tasks_md "$REPO" '### 1 Real task with a worked example in its body
 Example of a fold, shown but never declared:
 
 ```
-### 9 Example red task
+- [ ] 9. Example red task
 **Build:** red
 **Squash-with:** Task 8 (see the note)
 ```
@@ -2236,7 +2236,7 @@ git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "test: add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
-[ "$RC" -eq 0 ] && pass "case 60: a fenced example heading opens no task" || fail "case 60: rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "case 60: a fenced example task line opens no task" || fail "case 60: rc=$RC out=$OUT"
 case "$OUT" in
   *"is not \`Task"*) fail "case 60: the fenced example was read as a real task, out=$OUT" ;;
   *) pass "case 60: the fenced example's Squash-with is not reported" ;;
@@ -2244,29 +2244,29 @@ esac
 
 # ===========================================================================
 # Case 61 (fix round 9): WHICH task a duplicated id names. This guard used
-# to keep scanning past the first matching heading, so id 1 resolved to the
-# LAST heading carrying it, while check-task-build-green.sh resolved every
+# to keep scanning past the first matching task line, so id 1 resolved to the
+# LAST task line carrying it, while check-task-build-green.sh resolved every
 # lookup to the first. Here that made the two guards read a different
 # `Build:` tag, a different `Files:` set and a different `Commit:` subject
-# out of one id. `select_task` now answers it for both: the first heading
+# out of one id. `select_task` now answers it for both: the first task line
 # wins, so this commit is checked against the green task 1 that declared it.
 # The same body is asserted against that guard as its own case 24, where the
 # duplicate itself is still reported.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 First heading for this id
+write_tasks_md "$REPO" '- [ ] 1. First task line for this id
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
 **Build:** green
 
-### 1 Second heading reusing the id
+- [ ] 1. Second task line reusing the id
 
 **Files:** `zulu.txt`
 **Commit:** test: add zulu
 **Build:** red
 
-### 3 Red task folding into Task 1
+- [ ] 3. Red task folding into Task 1
 
 **Files:** `gamma.txt`
 **Commit:** test: add gamma
@@ -2282,10 +2282,10 @@ git -C "$REPO" add alpha.txt gamma.txt
 git -C "$REPO" commit -q -m "test: add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
-[ "$RC" -eq 0 ] && pass "case 61: a duplicated id resolves to its first heading" || fail "case 61: rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "case 61: a duplicated id resolves to its first task line" || fail "case 61: rc=$RC out=$OUT"
 case "$OUT" in
-  *"zulu.txt"*) fail "case 61: the id resolved to the last heading's fields, out=$OUT" ;;
-  *) pass "case 61: the later heading's fields are not what the commit is checked against" ;;
+  *"zulu.txt"*) fail "case 61: the id resolved to the last task line's fields, out=$OUT" ;;
+  *) pass "case 61: the later task line's fields are not what the commit is checked against" ;;
 esac
 
 # ===========================================================================
@@ -2299,7 +2299,7 @@ esac
 # undeclared, and a commit touching the example's file passed. Both halves
 # are asserted below. The field loop now uses FENCE_RE too.
 # ===========================================================================
-FENCED_EXAMPLE_TILDE='### 1 Real task with a tilde-fenced example field
+FENCED_EXAMPLE_TILDE='- [ ] 1. Real task with a tilde-fenced example field
 
 **Files:** `real.txt`
 **Commit:** test: add real
@@ -2349,7 +2349,7 @@ esac
 # example body would assert nothing.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '### 1 Real task with an indented fenced example field
+write_tasks_md "$REPO" '- [ ] 1. Real task with an indented fenced example field
 
 **Files:** `real.txt`
 **Commit:** test: add real
@@ -2383,7 +2383,7 @@ run_guard "$REPO" 1 "$SHA"
 # check-task-build-green.sh as its own case 25, where the swallowed
 # `**Build:**` tag used to be reported as an untagged task.
 # ===========================================================================
-UNCLOSED_FENCE_BODY='### 1 Task whose body opens a fence it never closes
+UNCLOSED_FENCE_BODY='- [ ] 1. Task whose body opens a fence it never closes
 
 ~~~
 
@@ -2415,7 +2415,7 @@ esac
 # The no-false-positive half: a fence the body CLOSES is not an unclosed one,
 # and the fields above it are read exactly as before.
 new_repo
-write_tasks_md "$REPO" '### 1 Task whose body closes the fence it opens
+write_tasks_md "$REPO" '- [ ] 1. Task whose body closes the fence it opens
 
 **Build:** green
 **Files:** `alpha.txt`

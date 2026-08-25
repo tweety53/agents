@@ -54,7 +54,7 @@ What this module defines
 ------------------------
 
 Every structural element BOTH guards read out of a `tasks.md`, pattern AND
-selection: which lines are a task heading, which task an id names, where a
+selection: which lines are a task, which task an id names, where a
 task's body starts and ends, which line is its `**Build:**` tag, which line
 is its `**Squash-with:**` field, and — `unclosed_fence`, fix round 11 —
 whether the body opens a fence it never closes, which is the one condition
@@ -94,19 +94,42 @@ DOTTED_ID = r"\d+(?:\.\d+)*"
 
 # FENCE_RE — a fenced code block delimiter: three or more backticks or
 # tildes, optionally preceded by up to 3 columns of leading whitespace (per
-# CommonMark). Matching this line toggles fence state; a task heading, a
+# CommonMark). Matching this line toggles fence state; a task line, a
 # `**Build:**` tag line or a `**Squash-with:**` field line inside a fence is
 # example text, not real structure. It lives here because
 # `select_squash_with` below has to skip fenced candidates, and a second
 # copy of the rule in a guard is what this module exists to prevent.
 FENCE_RE: Pattern[str] = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
-# TASK_HEADING_RE — opens a task. Group 1 is its id. The id may be followed
-# by more heading text (`### 1.1 Some title`) or by nothing at all.
-TASK_HEADING_RE: Pattern[str] = re.compile(rf"^### ({DOTTED_ID})(?:\s|$)")
+# TASK_LINE_RE — opens a task: the spectre checkbox line `- [ ] <id>. <title>`.
+# Group "state" is the character between the brackets, a space for an open
+# task and an `x` for a done one; group "id" is the task's id.
+#
+# This is spectre's own task grammar (`^- \[([ x])\] (\d+)\. (.*)$` in its
+# internal/parse/tasks.go), widened only where this repository's ids are
+# dotted, and it replaces the `### <id> <title>` heading a myflow plan used
+# to mark a task with. Recognising BOTH shapes was rejected: while the two
+# grammars disagreed, spectre saw no tasks in a real myflow plan at all —
+# `spectre list` reported 0/0, `spectre validate` reported one false
+# "malformed task line" per step checkbox, and `spectre archive` refused
+# with "tasks.md has no tasks" — and a grammar admitting a shape spectre
+# rejects would leave that disagreement standing.
+#
+# The trailing space after the dot is spectre's too, and is what keeps the
+# two tools reading the same line as a task: spectre's own malformed-task
+# check is `^- \[[ x]\] \d+\. `, so `- [ ] 1.` with nothing after the dot
+# is a finding there and, here, no task.
+#
+# A task's STEPS — the `- [x] **Step N: ...**` checkboxes beneath it — are
+# not tasks, and this is the pattern that says so: `**Step` is not an id.
+# spectre's parser makes exactly the same distinction.
+TASK_LINE_RE: Pattern[str] = re.compile(
+    rf"^- \[(?P<state>[ x])\] (?P<id>{DOTTED_ID})\. "
+)
 
 # BODY_BOUNDARY_RE — closes the current task's body: any level-2 or level-3
-# heading, whether or not the level-3 one is itself a task heading.
+# heading. The next task's own TASK_LINE_RE line closes it too; that is
+# `iter_tasks` below, which tests for a task line before this pattern.
 BODY_BOUNDARY_RE: Pattern[str] = re.compile(r"^#{2,3}(?:\s|$)")
 
 # BUILD_TAG_RE — the `**Build:**` tag's vocabulary and its scope: the WHOLE
@@ -250,14 +273,17 @@ def select_build_tag(body: Sequence[str]) -> Optional[BuildTag]:
 
 
 class TaskBody(NamedTuple):
-    """One task found in a `tasks.md`. `heading_line` is the 1-based line
-    number of its `### <id>` heading; `body_start` is the 0-based index, in
+    """One task found in a `tasks.md`. `task_line` is the 1-based line
+    number of its `- [ ] <id>. <title>` line; `done` is that line's checkbox
+    state, True for `[x]` and False for `[ ]`, which is the same
+    done-ness `spectre list` counts; `body_start` is the 0-based index, in
     the file's line list, of the first body line, so a caller turns an
     offset within `lines` into a file line number by adding it and 1;
     `lines` is the body itself, fences included."""
 
     id: str
-    heading_line: int
+    task_line: int
+    done: bool
     body_start: int
     lines: List[str]
 
@@ -265,15 +291,18 @@ class TaskBody(NamedTuple):
 def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
     """Every task in `lines`, in document order, duplicate ids included.
 
-    A task opens at a non-fenced `TASK_HEADING_RE` line and its body runs to
-    the next non-fenced `BODY_BOUNDARY_RE` line or end of file. Fence state
-    is tracked across the whole file, so a heading, tag or field shown
-    inside a fenced example opens no task and closes no body — it is
-    documentation, not structure.
+    A task opens at a non-fenced `TASK_LINE_RE` line and its body runs to
+    the next task line, the next non-fenced `BODY_BOUNDARY_RE` line, or end
+    of file. The body is everything BELOW the task line — its fields, its
+    prose and its step checkboxes — and a step is never a task of its own.
+    Fence state is tracked across the whole file, so a task line, tag or
+    field shown inside a fenced example opens no task and closes no body —
+    it is documentation, not structure.
     """
     tasks: List[TaskBody] = []
     open_index: Optional[int] = None
     open_id = ""
+    open_done = False
     in_fence = False
 
     def close(end_index: int) -> None:
@@ -282,7 +311,8 @@ def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
         tasks.append(
             TaskBody(
                 id=open_id,
-                heading_line=open_index + 1,
+                task_line=open_index + 1,
+                done=open_done,
                 body_start=open_index + 1,
                 lines=list(lines[open_index + 1 : end_index]),
             )
@@ -294,11 +324,12 @@ def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
             continue
         if in_fence:
             continue
-        heading_match = TASK_HEADING_RE.match(line)
-        if heading_match:
+        task_match = TASK_LINE_RE.match(line)
+        if task_match:
             close(index)
             open_index = index
-            open_id = heading_match.group(1)
+            open_id = task_match.group("id")
+            open_done = task_match.group("state") == "x"
             continue
         if BODY_BOUNDARY_RE.match(line):
             close(index)
@@ -310,7 +341,7 @@ def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
 def select_task(lines: Sequence[str], task_id: str) -> Optional[TaskBody]:
     """The task `task_id` names, or None if the plan defines no such task.
 
-    An id defined more than once resolves to the FIRST heading carrying it
+    An id defined more than once resolves to the FIRST task line carrying it
     (fix round 9). A duplicate id is itself a plan defect
     check-task-build-green.py reports, but until it is fixed both guards
     have to read the same task out of it.

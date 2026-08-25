@@ -25,9 +25,9 @@ Exit codes:
   2  invocation error — wrong argument count, or the file cannot be read.
 
 Fenced code blocks (a line matching `^ {0,3}(`{3,}|~{3,})`, toggling fence
-state each time it is seen) are opaque to this parser: a `### ...` heading, a
-`**Build:** ...` line, or a `**Squash-with:** ...` line inside a fence opens
-no task, closes no task's body, and is never read as a real tag or field —
+state each time it is seen) are opaque to this parser: a `- [ ] <id>. ...`
+task line, a `**Build:** ...` line, or a `**Squash-with:** ...` line inside a
+fence opens no task, closes no task's body, and is never read as a real tag or field —
 it is documentation/example text, not structure. This keeps a `tasks.md`
 free to show worked examples of the tag grammar without those examples
 being mistaken for real tasks.
@@ -46,19 +46,21 @@ Parsing model
 -------------
 
 A task begins at a line (outside any fence) matching
-`^### (DOTTED_ID)(?:\\s|$)`, where `DOTTED_ID` is `\\d+(?:\\.\\d+)*` — a
-level-3 heading whose text starts with a dotted id, optionally followed by
-more heading text, or by nothing at all (the id runs to end of line). That
-id is the task's identity for every violation message and every
-`Squash-with: Task <id>` reference. Two or more tasks sharing the same id is
-itself a violation (see list item 0 below); lookups against that id resolve
-against whichever task was parsed first.
+`^- \\[([ x])\\] (DOTTED_ID)\\. `, where `DOTTED_ID` is `\\d+(?:\\.\\d+)*` —
+the spectre checkbox line `- [ ] <id>. <title>`, whose mark carries whether
+the task is DONE and never whether it is a task at all, so `- [x]` opens one
+exactly as `- [ ]` does. That id is the task's identity for every violation
+message and every `Squash-with: Task <id>` reference. Two or more tasks
+sharing the same id is itself a violation (see list item 0 below); lookups
+against that id resolve against whichever task was parsed first.
 
-A task's BODY runs from its heading line to the next line (outside any
-fence) matching `^#{2,3}(?:\\s|$)` (a level-2 or level-3 heading, whether or
-not the level-3 one is itself a task heading) or end of file. Splitting a
-file into tasks, and resolving an id to a task, are `lib/plan_grammar.py`'s
-`iter_tasks` and `select_task`. Within that body, the FIRST line (also
+A task's BODY runs from its task line to the next task line, to the next
+line (outside any fence) matching `^#{2,3}(?:\\s|$)` (a level-2 or level-3
+heading), or to end of file. The body is everything BELOW the task line, its
+`- [ ] **Step N: ...**` step checkboxes included: a step is part of its
+task's body and is never a task of its own, which is the same distinction
+spectre's own parser makes. Splitting a file into tasks, and resolving an id
+to a task, are `lib/plan_grammar.py`'s `iter_tasks` and `select_task`. Within that body, the FIRST line (also
 outside any fence) matching
 
     ^\\*\\*Build:\\*\\*\\s+(green|red)\\s*$
@@ -91,14 +93,14 @@ condition it has always been read as here.
 Validation, run over every task in document order:
 
   0. A task id that duplicates an earlier task's id in the same file →
-     `<file>:<this heading's line>: task <id> is defined more than once
-     (first at line <first heading's line>)`, reported for every occurrence
+     `<file>:<this task line>: task <id> is defined more than once
+     (first at line <first task line>)`, reported for every occurrence
      after the first.
   0b. A task body that opens a fence it never closes →
      `<file>:<fence line>: task <id> opens a code fence here that is never
      closed in its body, ...`, reported INSTEAD of checks 1-5 for that
      task, whose fields the fence swallowed.
-  1. Missing **Build:** tag → `<file>:<heading line>: task <id> has no
+  1. Missing **Build:** tag → `<file>:<task line>: task <id> has no
      **Build:** tag`
   2. `red` with no **Squash-with:** field at all →
      `<file>:<tag line>: task <id> is red with no **Squash-with:** field`
@@ -160,7 +162,7 @@ class Task:
     """One task found in a tasks.md file."""
 
     id: str
-    heading_line: int
+    task_line: int
     tag_kind: Optional[str] = None  # "green", "red", or None (no tag)
     tag_line: Optional[int] = None
     squash_line: Optional[int] = None  # None: no **Squash-with:** field
@@ -177,7 +179,7 @@ def parse_tasks(lines: List[str]) -> List[Task]:
     """
     tasks: List[Task] = []
     for found in iter_tasks(lines):
-        task = Task(id=found.id, heading_line=found.heading_line)
+        task = Task(id=found.id, task_line=found.task_line)
         tag = select_build_tag(found.lines)
         if tag is not None:
             task.tag_kind = tag.kind
@@ -216,8 +218,8 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
             by_id[task.id] = task
         else:
             duplicate_violations.append(
-                f"{relfile}:{task.heading_line}: task {task.id} is defined "
-                f"more than once (first at line {first.heading_line})"
+                f"{relfile}:{task.task_line}: task {task.id} is defined "
+                f"more than once (first at line {first.task_line})"
             )
     violations: List[str] = list(duplicate_violations)
 
@@ -236,7 +238,7 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
             continue
         if task.tag_kind is None:
             violations.append(
-                f"{relfile}:{task.heading_line}: task {task.id} has no "
+                f"{relfile}:{task.task_line}: task {task.id} has no "
                 "**Build:** tag"
             )
             continue
