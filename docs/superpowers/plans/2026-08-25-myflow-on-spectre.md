@@ -28,7 +28,7 @@
 | Area | Files | Responsibility |
 |------|-------|----------------|
 | New tree | `spectre/specs/`, `spectre/changes/` | this repository's own artifact tree, starting empty |
-| New skill | `skills/spectre-research/SKILL.md`, `commands/spectre-research.md` | research mode, replacing `openspec-explore` |
+| New skill | `skills/myflow-research/SKILL.md`, `commands/myflow-research.md` | research mode, replacing `openspec-explore` |
 | Guards (path) | 11 scripts + tests | change-folder paths: `openspec/changes/` → `spectre/changes/` |
 | Guards (artifact) | 5 scripts + tests | plan provenance, build-green tags, commit fields, self-review reports |
 | Guards (corpus) | 6 scripts + tests | citations, references, markdown integrity, owned corpus, symlinks |
@@ -98,17 +98,17 @@ git commit -m "feat(spectre): start this repository's own spectre tree"
 
 ---
 
-## Task 2: Replace explore mode with spectre-research
+## Task 2: Replace explore mode with myflow-research
 
 **Files:**
-- Create: `skills/spectre-research/SKILL.md`, `commands/spectre-research.md`
+- Create: `skills/myflow-research/SKILL.md`, `commands/myflow-research.md`
 - Delete: `skills/openspec-explore/SKILL.md`, `commands/opsx-explore.md`
 - Modify: `setup.sh`, `scripts/check-references.sh`
 - Test: `scripts/test-check-references.sh`, `scripts/test-setup.sh`
 
 **Interfaces:**
 - Consumes: the tree from Task 1.
-- Produces: the skill name `spectre-research` and the command `/spectre-research`, which Task 8's documentation refers to.
+- Produces: the skill name `myflow-research` and the command `/myflow-research`, which Task 8's documentation refers to.
 
 - [ ] **Step 1: Read what is being replaced**
 
@@ -116,11 +116,11 @@ Read `skills/openspec-explore/SKILL.md` (290 lines) and `commands/opsx-explore.m
 
 - [ ] **Step 2: Write the new skill**
 
-Create `skills/spectre-research/SKILL.md`. Frontmatter:
+Create `skills/myflow-research/SKILL.md`. Frontmatter:
 
 ```yaml
 ---
-name: spectre-research
+name: myflow-research
 description: Research mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements before or during a change. Touches no pipeline state.
 ---
 ```
@@ -135,7 +135,7 @@ The body covers, in this order and no more than roughly 120 lines total:
 
 - [ ] **Step 3: Write the command**
 
-Create `commands/spectre-research.md` following the shape of the other files in `commands/` — read one of the existing `commands/myflow-*.md` files first and match its frontmatter and structure. It invokes the `spectre-research` skill and passes the user's argument through as the topic.
+Create `commands/myflow-research.md` following the shape of the other files in `commands/` — read one of the existing `commands/myflow-*.md` files first and match its frontmatter and structure. It invokes the `myflow-research` skill and passes the user's argument through as the topic.
 
 - [ ] **Step 4: Remove the old skill and command**
 
@@ -145,7 +145,7 @@ git rm -r skills/openspec-explore commands/opsx-explore.md
 
 - [ ] **Step 5: Update the installer and the references guard**
 
-In `setup.sh`, replace every `openspec-explore` and `opsx-explore` entry with the new names. In `scripts/check-references.sh`, the allow-list at roughly line 572 names `skills/openspec-explore/SKILL.md`; replace it with `skills/spectre-research/SKILL.md`.
+In `setup.sh`, replace every `openspec-explore` and `opsx-explore` entry with the new names. In `scripts/check-references.sh`, the allow-list at roughly line 572 names `skills/openspec-explore/SKILL.md`; replace it with `skills/myflow-research/SKILL.md`.
 
 - [ ] **Step 6: Verify**
 
@@ -164,7 +164,7 @@ Expected: both test scripts pass; `no stale references`; nothing from the `opens
 
 ```bash
 git add -A skills commands setup.sh scripts/check-references.sh
-git commit -m "feat(skills): replace explore mode with spectre-research"
+git commit -m "feat(skills): replace explore mode with myflow-research"
 ```
 
 ---
@@ -555,7 +555,7 @@ Each of the ten `myflow-*.md` files across `commands/` and `commands-claude/` na
 
 - [ ] **Step 3: `README.md` and `skills/README.md`**
 
-`README.md`'s tree diagram and its "How the pipeline works" section describe OpenSpec, including `openspec/` in the directory listing. The listing gains `spectre/` and keeps `openspec/` marked as frozen. `skills/README.md`'s command map names `openspec-explore`; it becomes `spectre-research`.
+`README.md`'s tree diagram and its "How the pipeline works" section describe OpenSpec, including `openspec/` in the directory listing. The listing gains `spectre/` and keeps `openspec/` marked as frozen. `skills/README.md`'s command map names `openspec-explore`; it becomes `myflow-research`.
 
 - [ ] **Step 4: `.myflow/project.md`**
 

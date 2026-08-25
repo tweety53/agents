@@ -140,9 +140,13 @@ They are **replaced, not ported**, by a new and much smaller skill written for t
   captures, and never writes application code.
 - Drops the OpenSpec-specific machinery — the status probing, the change-exists branching, the
   artifact-creation choreography — in favour of reading the tree directly.
-- Installed as `spectre-research`, invoked as `/spectre-research`. The name is the author's, and the
-  command follows this repository's own convention for commands it owns — `/myflow-start` shape,
-  not the `opsx:` colon namespace inherited from openspec. Leaving a command named after the removed
+- Installed as `myflow-research`, invoked as `/myflow-research`. It sits in the myflow family, not
+  the spectre one, because that is where its coupling is: every guardrail it carries — no state
+  file, no worktree, no branch, no commit, and `spectre new` and `spectre archive` reserved to
+  `/myflow-start` and `/myflow-finish` — is a myflow concept. The spectre-specific content is one
+  short section on reading a markdown tree. Naming it `spectre-research` would also have left it the
+  only skill in `skills/` not matching the `/myflow-*` convention this repository uses for the
+  commands it owns. Leaving a command named after the removed
   tool is the drift this repository's own rules exist to prevent.
 
 ## Documentation and distribution
