@@ -52,13 +52,13 @@ new_fixture
 {
   printf -- '- [ ] 1. First task\n\n'
   printf '**Files:**\n- Create: `a.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 2. Second task\n\n'
   printf '**Files:**\n- Create: `b.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 3. Third task\n\n'
   printf '**Files:**\n- Create: `c.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 1: disjoint tasks exit 0" || fail "case 1: rc=$RC out=$OUT"
@@ -72,10 +72,10 @@ new_fixture
 {
   printf -- '- [ ] 1. First task\n\n'
   printf '**Files:**\n- Modify: `shared.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 2. Second task\n\n'
   printf '**Files:**\n- Modify: `shared.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 2: shared path exits 0" || fail "case 2: rc=$RC out=$OUT"
@@ -90,13 +90,13 @@ new_fixture
 {
   printf -- '- [ ] 1. First task\n\n'
   printf '**Files:**\n- Create: `x.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 2. Second task\n\n'
   printf '**Files:**\n- Create: `x.txt`\n- Create: `y.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 3. Third task\n\n'
   printf '**Files:**\n- Create: `y.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 3: transitive chain exits 0" || fail "case 3: rc=$RC out=$OUT"
@@ -118,10 +118,10 @@ new_fixture
 {
   printf -- '- [x] 1. Done task\n\n'
   printf '**Files:**\n- Modify: `shared.txt`\n\n'
-  printf -- '- [ ] **Step 1: a step left unmarked**\n\n'
+  printf -- '  - [ ] **Step 1: a step left unmarked**\n\n'
   printf -- '- [ ] 2. Open task\n\n'
   printf '**Files:**\n- Modify: `shared.txt`\n\n'
-  printf -- '- [x] **Step 1: a step already marked**\n'
+  printf -- '  - [x] **Step 1: a step already marked**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 4: mixed checked/unchecked exits 0" || fail "case 4: rc=$RC out=$OUT"
@@ -136,10 +136,10 @@ new_fixture
 {
   printf -- '- [ ] 1. First task\n\n'
   printf '**Files:**\n- Create: `a.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 2. Fieldless task\n\n'
   printf 'No Files field here at all.\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 5: missing Files field exits 1" || fail "case 5: rc=$RC out=$OUT"
@@ -157,10 +157,10 @@ new_fixture
   printf -- '- [ ] 1. First task\n\n'
   printf '**Files:**\n- Create: `a.txt`\n\n'
   printf '**Allowed-collateral:** `shared.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 2. Second task\n\n'
   printf '**Files:**\n- Create: `shared.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 6: collateral glob exits 0" || fail "case 6: rc=$RC out=$OUT"
@@ -184,10 +184,10 @@ new_fixture
 {
   printf -- '- [ ] 1. First task\n\n'
   printf '**Files:**\n- Modify: `a.txt`, `b.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
   printf -- '- [ ] 2. Second task\n\n'
   printf '**Files:**\n- Modify: `b.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 8: multi-path bullet exits 0" || fail "case 8: rc=$RC out=$OUT"
@@ -195,22 +195,22 @@ EXPECTED='bundle 1: 1 2'
 [ "$OUT" = "$EXPECTED" ] && pass "case 8: second declared path in a multi-path bullet still joins the bundle" || fail "case 8: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
-# Case 9: dotted multi-component task ids sort numerically per component,
-# not lexically — "1.10" after "1.2", not before it.
+# Case 9: task ids sort numerically, not lexically — "10" after "2", not
+# before it, which is the order sorting their text would give.
 # ===========================================================================
 new_fixture
 {
-  printf -- '- [ ] 1.2. Earlier subtask\n\n'
+  printf -- '- [ ] 2. Earlier task\n\n'
   printf '**Files:**\n- Create: `x.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n\n'
-  printf -- '- [ ] 1.10. Later subtask\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 10. Later task\n\n'
   printf '**Files:**\n- Create: `y.txt`\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
-[ "$RC" -eq 0 ] && pass "case 9: dotted ids exit 0" || fail "case 9: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1.2\nbundle 2: 1.10'
-[ "$OUT" = "$EXPECTED" ] && pass "case 9: 1.10 sorts after 1.2 numerically" || fail "case 9: expected [$EXPECTED], got [$OUT]"
+[ "$RC" -eq 0 ] && pass "case 9: two-digit ids exit 0" || fail "case 9: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 2\nbundle 2: 10'
+[ "$OUT" = "$EXPECTED" ] && pass "case 9: 10 sorts after 2 numerically" || fail "case 9: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
 # Case 10: a step checkbox directly after a **Files:** bullet block, with no
@@ -221,6 +221,15 @@ EXPECTED=$'bundle 1: 1.2\nbundle 2: 1.10'
 # immediately after their Files blocks, so they must produce two bundles —
 # if the bug is present, both swallow that same step line as a declared
 # path, the shared bogus path joins them, and one bundle comes back.
+#
+# This is the ONE fixture here whose steps are deliberately left UNINDENTED,
+# at column 0, where every other fixture indents them two columns as a plan
+# now does. That is the whole point of it: an indented step never reaches
+# BULLET_RE (which is anchored at `^- `), so indenting this fixture would
+# retire the lookahead's only reproducer while the lookahead still has to
+# hold for a hand-written plan that gets the indent wrong. Such a line is a
+# "malformed task line" finding in `spectre validate`; it must still not
+# become a declared path here.
 # ===========================================================================
 new_fixture
 {
@@ -263,7 +272,7 @@ ln -s ../../../scripts/lib "$FIXTURE/skills/myflow-do/scripts/lib"
 {
   printf -- '- [ ] 1. Fieldless task\n\n'
   printf 'No Files field here at all.\n\n'
-  printf -- '- [ ] **Step 1: do it**\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
 } > "$FIXTURE/spectre/changes/some-change/tasks.md"
 set +e
 OUT="$("$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.sh" 2>&1)"
@@ -297,6 +306,28 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 12: a level-3 heading opens no task" || fail "case 12: rc=$RC out=$OUT"
 EXPECTED='bundle 1: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 12: only the checkbox task bundles" || fail "case 12: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 13: a task's id is a FLAT integer here too. `- [ ] 1.1. …` is a
+# "malformed task line" finding to spectre and no task to it; this guard
+# keeps its own copy of the task-line pattern rather than importing it, so
+# the narrowing has to be pinned against THAT copy — check-task-build-
+# green.sh's case 27 pins it against the shared grammar. The dotted line
+# below declares no **Files:** field, so a copy that still admitted a dotted
+# id would read it as an unchecked task and exit 1 naming it.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. The only real task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 1.1. A dotted task line, which is no task\n\n'
+  printf 'No Files field here at all.\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 13: a dotted task line opens no task" || fail "case 13: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 1'
+[ "$OUT" = "$EXPECTED" ] && pass "case 13: only the flat-id task bundles" || fail "case 13: expected [$EXPECTED], got [$OUT]"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

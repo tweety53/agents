@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check-task-build-green.py — fail when a tasks.md's dotted-id tasks carry
+"""check-task-build-green.py — fail when a tasks.md's tasks carry
 no **Build:** tag, or a `red` tag whose task has no **Squash-with:** field,
 an empty one, one naming an absent partner, or one naming a partner that is
 itself `red`.
@@ -46,10 +46,15 @@ Parsing model
 -------------
 
 A task begins at a line (outside any fence) matching
-`^- \\[([ x])\\] (DOTTED_ID)\\. `, where `DOTTED_ID` is `\\d+(?:\\.\\d+)*` —
-the spectre checkbox line `- [ ] <id>. <title>`, whose mark carries whether
-the task is DONE and never whether it is a task at all, so `- [x]` opens one
-exactly as `- [ ]` does. That id is the task's identity for every violation
+`^- \\[([ x])\\] (TASK_ID)\\. `, where `TASK_ID` is `\\d+` — the spectre
+checkbox line `- [ ] <id>. <title>`, whose mark carries whether the task is
+DONE and never whether it is a task at all, so `- [x]` opens one exactly as
+`- [ ]` does. A task's id is a FLAT integer, spectre's own: a dotted `1.1`
+is a "malformed task line" finding there and is no task here either, so a
+sub-task is renumbered flat rather than written dotted. The dotted grammar
+survives as `lib/plan_grammar.py`'s `DOTTED_ID` for `Squash-with:` partner
+ids, where a dotted value now names no task and is reported as a partner
+that does not exist. That id is the task's identity for every violation
 message and every `Squash-with: Task <id>` reference. Two or more tasks
 sharing the same id is itself a violation (see list item 0 below); lookups
 against that id resolve against whichever task was parsed first.
@@ -57,9 +62,10 @@ against that id resolve against whichever task was parsed first.
 A task's BODY runs from its task line to the next task line, to the next
 line (outside any fence) matching `^#{2,3}(?:\\s|$)` (a level-2 or level-3
 heading), or to end of file. The body is everything BELOW the task line, its
-`- [ ] **Step N: ...**` step checkboxes included: a step is part of its
-task's body and is never a task of its own, which is the same distinction
-spectre's own parser makes. Splitting a file into tasks, and resolving an id
+`  - [ ] **Step N: ...**` step checkboxes included: a step is indented two
+columns beneath its task, is part of that task's body, and is never a task
+of its own — the same distinction spectre's own parser makes, and the indent
+is what keeps spectre's malformed-task check off those lines as well. Splitting a file into tasks, and resolving an id
 to a task, are `lib/plan_grammar.py`'s `iter_tasks` and `select_task`. Within that body, the FIRST line (also
 outside any fence) matching
 

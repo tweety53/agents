@@ -33,8 +33,9 @@ Parsing model
 -------------
 
 A task begins at a line (outside any fenced code block) matching
-`^- \\[([ x])\\] (DOTTED_ID)\\. `, the same TASK_LINE_RE grammar check-task-
-build-green.py uses — the spectre checkbox line. Its body runs to the next
+`^- \\[([ x])\\] (\\d+)\\. `, the same TASK_LINE_RE grammar check-task-
+build-green.py uses — the spectre checkbox line, whose id is a flat
+integer. Its body runs to the next
 such line, to the next line matching `^#{2,3}(?:\\s|$)`, or to end of file,
 the same BODY_BOUNDARY_RE. Fenced code blocks (three or more backticks or
 tildes, toggling fence state each time one is seen) are opaque to this
@@ -46,10 +47,11 @@ A task is UNCHECKED when the mark on its OWN task line is a space
 (`- [ ] 3. ...`); one marked `- [x] 3. ...` is done and takes no part in
 any bundle — it is simply not read for its **Files:** field, and never
 reported as missing one. That mark is where done-ness lives now, and it is
-the same bit `spectre list` counts as progress. The `- [x] **Step N: ...**
-` checkboxes beneath a task are part of its body, never tasks of their own,
-and this guard no longer reads them for anything: a task whose own line is
-unchecked is dispatched however many of its steps are already marked.
+the same bit `spectre list` counts as progress. The
+`  - [x] **Step N: ...**` checkboxes beneath a task are indented two
+columns, are part of its body, are never tasks of their own, and this guard
+no longer reads them for anything: a task whose own line is unchecked is
+dispatched however many of its steps are already marked.
 
 Within a task's body:
 
@@ -83,14 +85,16 @@ import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-# DOTTED_ID / TASK_LINE_RE / FENCE_RE / BODY_BOUNDARY_RE mirror check-
+# TASK_ID / TASK_LINE_RE / FENCE_RE / BODY_BOUNDARY_RE mirror check-
 # task-build-green.py's own constants exactly, so the two guards never read
 # the same tasks.md's structure two different ways. TASK_LINE_RE is
-# spectre's own task grammar, widened only where this repository's ids are
-# dotted: group "state" is the mark between the brackets, a space for an
-# open task and an `x` for a done one, and group "id" is the task's id.
-DOTTED_ID = r"\d+(?:\.\d+)*"
-TASK_LINE_RE = re.compile(rf"^- \[(?P<state>[ x])\] (?P<id>{DOTTED_ID})\. ")
+# spectre's own task grammar character for character: group "state" is the
+# mark between the brackets, a space for an open task and an `x` for a done
+# one, and group "id" is the task's id, a flat integer. The dotted id
+# grammar lives on in lib/plan_grammar.py for `Squash-with:` partner ids,
+# and is deliberately not mirrored here — this guard reads no partner.
+TASK_ID = r"\d+"
+TASK_LINE_RE = re.compile(rf"^- \[(?P<state>[ x])\] (?P<id>{TASK_ID})\. ")
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 BODY_BOUNDARY_RE = re.compile(r"^#{2,3}(?:\s|$)")
 
@@ -219,10 +223,10 @@ def parse_tasks(lines: List[str]) -> List[Task]:
     return tasks
 
 
-def _id_key(task_id: str) -> Tuple[int, ...]:
-    """Numeric sort key for a dotted task id, so "1.10" sorts after "1.2"
-    rather than before it."""
-    return tuple(int(part) for part in task_id.split("."))
+def _id_key(task_id: str) -> int:
+    """Numeric sort key for a task id, so "10" sorts after "2" rather than
+    before it as its text would."""
+    return int(task_id)
 
 
 class UnionFind:

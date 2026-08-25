@@ -111,7 +111,7 @@ RUNNER
 # Case 1: commit's changed files are a subset of declared Files: -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 1.1. Clean task
+write_tasks_md "$REPO" '- [ ] 1. Clean task
 
 **Files:** `alpha.txt`, `beta.txt`
 **Tests:** `test_alpha`
@@ -125,14 +125,14 @@ printf '# test_alpha covers alpha\n' > "$REPO/beta.txt"
 git -C "$REPO" add alpha.txt beta.txt
 git -C "$REPO" commit -q -m "add alpha and beta"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 1.1 "$SHA"
+run_guard "$REPO" 1 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 1: files subset of declared passes" || fail "case 1: rc=$RC out=$OUT"
 
 # ===========================================================================
 # Case 2: commit touches a file not in declared Files: -> exit 1.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 2.1. Undeclared file
+write_tasks_md "$REPO" '- [ ] 2. Undeclared file
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -146,7 +146,7 @@ printf 'gamma\n' > "$REPO/gamma.txt"
 git -C "$REPO" add alpha.txt gamma.txt
 git -C "$REPO" commit -q -m "add alpha only"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 2.1 "$SHA"
+run_guard "$REPO" 2 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 2: undeclared file fails" || fail "case 2: rc=$RC out=$OUT"
 case "$OUT" in
   *"gamma.txt"*"not declared"*) pass "case 2: names the undeclared file" ;;
@@ -157,7 +157,7 @@ esac
 # Case 3: declared test name found in the commit's diff -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 3.1. Test present
+write_tasks_md "$REPO" '- [ ] 3. Test present
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -170,14 +170,14 @@ printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 3.1 "$SHA"
+run_guard "$REPO" 3 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 3: declared test name found in diff passes" || fail "case 3: rc=$RC out=$OUT"
 
 # ===========================================================================
 # Case 4: declared test name missing from the commit's diff -> exit 1.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 4.1. Test missing
+write_tasks_md "$REPO" '- [ ] 4. Test missing
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -190,7 +190,7 @@ printf 'no tests here\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 4.1 "$SHA"
+run_guard "$REPO" 4 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 4: missing declared test fails" || fail "case 4: rc=$RC out=$OUT"
 case "$OUT" in
   *"test_alpha"*"not found in the diff"*) pass "case 4: names the missing test" ;;
@@ -201,7 +201,7 @@ esac
 # Case 5: commit subject matches declared Commit: -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 5.1. Subject matches
+write_tasks_md "$REPO" '- [ ] 5. Subject matches
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -214,14 +214,14 @@ printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha for real"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 5.1 "$SHA"
+run_guard "$REPO" 5 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 5: commit subject matches declared Commit: passes" || fail "case 5: rc=$RC out=$OUT"
 
 # ===========================================================================
 # Case 6: commit subject does not match declared Commit: -> exit 1.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 6.1. Subject mismatch
+write_tasks_md "$REPO" '- [ ] 6. Subject mismatch
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -234,7 +234,7 @@ printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha, not quite right"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 6.1 "$SHA"
+run_guard "$REPO" 6 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 6: commit subject mismatch fails" || fail "case 6: rc=$RC out=$OUT"
 case "$OUT" in
   *"subject"*"does not match"*) pass "case 6: reports the subject mismatch" ;;
@@ -245,7 +245,7 @@ esac
 # Case 7: extra path covered by Allowed-collateral: glob -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 7.1. Collateral covered
+write_tasks_md "$REPO" '- [ ] 7. Collateral covered
 
 **Files:** `alpha.txt`
 **Allowed-collateral:** `docs/*.md`
@@ -261,7 +261,7 @@ printf 'swept\n' > "$REPO/docs/notes.md"
 git -C "$REPO" add alpha.txt docs/notes.md
 git -C "$REPO" commit -q -m "add alpha and sweep docs"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 7.1 "$SHA"
+run_guard "$REPO" 7 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 7: extra path covered by Allowed-collateral: glob passes" || fail "case 7: rc=$RC out=$OUT"
 
 # ===========================================================================
@@ -272,7 +272,7 @@ run_guard "$REPO" 7.1 "$SHA"
 # exit 0. Proves the guard does not require backtick-quoted identifiers.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 8.1. Prose cases present
+write_tasks_md "$REPO" '- [ ] 8. Prose cases present
 
 **Files:** `guard_test.sh`
 **Tests:** Case 1: files subset of declared passes; Case 2: undeclared file
@@ -289,7 +289,7 @@ git -C "$REPO" commit -q -m "plan"
 git -C "$REPO" add guard_test.sh
 git -C "$REPO" commit -q -m "add guard test cases"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 8.1 "$SHA"
+run_guard "$REPO" 8 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 8: prose Case N: labels found in diff passes" || fail "case 8: rc=$RC out=$OUT"
 
 # ===========================================================================
@@ -297,7 +297,7 @@ run_guard "$REPO" 8.1 "$SHA"
 # never "Case 2" -> exit 1, naming "Case 2" (not the whole sentence).
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 9.1. Prose case missing
+write_tasks_md "$REPO" '- [ ] 9. Prose case missing
 
 **Files:** `guard_test.sh`
 **Tests:** Case 1: files subset of declared passes; Case 2: undeclared file
@@ -311,7 +311,7 @@ printf '# Case 1: files subset of declared passes\n' > "$REPO/guard_test.sh"
 git -C "$REPO" add guard_test.sh
 git -C "$REPO" commit -q -m "add guard test case one only"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 9.1 "$SHA"
+run_guard "$REPO" 9 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 9: missing prose case fails" || fail "case 9: rc=$RC out=$OUT"
 case "$OUT" in
   *"Case 2"*"not found in the diff"*) pass "case 9: names Case 2, not the whole sentence" ;;
@@ -326,7 +326,7 @@ esac
 # the whole sentence.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 10.1. No checkable tests declared
+write_tasks_md "$REPO" '- [ ] 10. No checkable tests declared
 
 **Files:** `guard_test.sh`
 **Tests:** the 7 cases listed in task 3.2, run for the first time against
@@ -340,7 +340,7 @@ printf 'wrapper body, no case markers at all\n' > "$REPO/guard_test.sh"
 git -C "$REPO" add guard_test.sh
 git -C "$REPO" commit -q -m "add the wrapper"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 10.1 "$SHA"
+run_guard "$REPO" 10 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 10: prose with no Case N: or backticks declares nothing, never false-fails" || fail "case 10: rc=$RC out=$OUT"
 
 # ===========================================================================
@@ -350,7 +350,7 @@ run_guard "$REPO" 10.1 "$SHA"
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
-write_tasks_md "$REPO" '- [ ] 11.1. Regression passes
+write_tasks_md "$REPO" '- [ ] 11. Regression passes
 
 **Files:** `suite.txt`
 **Tests:** `alpha_test`
@@ -364,7 +364,7 @@ printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
 git -C "$REPO" commit -q -m "add alpha_test"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 11.1 "$SHA"
+run_guard "$REPO" 11 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 11: regression check passes (revert makes named test fail, un-revert restores it)" || fail "case 11: rc=$RC out=$OUT"
 [ "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" ] && pass "case 11: HEAD unchanged after un-revert" || fail "case 11: HEAD moved, expected $SHA got $(git -C "$REPO" rev-parse HEAD)"
 git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet && pass "case 11: worktree clean after un-revert" || fail "case 11: worktree not restored"
@@ -376,7 +376,7 @@ grep -qxF "alpha_test" "$REPO/suite.txt" && pass "case 11: suite.txt restored to
 # ===========================================================================
 new_repo
 write_unsupported_test_runner "$REPO"
-write_tasks_md "$REPO" '- [ ] 12.1. Regression skip
+write_tasks_md "$REPO" '- [ ] 12. Regression skip
 
 **Files:** `alpha.txt`
 **Tests:** `test_alpha`
@@ -389,7 +389,7 @@ printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 12.1 "$SHA"
+run_guard "$REPO" 12 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 12: regression check skips (not fails) when the ## test command can't target a named test" || fail "case 12: rc=$RC out=$OUT"
 case "$OUT" in
   *"Regression"*"skipped"*) pass "case 12: reports Regression: skipped, not verified" ;;
@@ -402,7 +402,7 @@ esac
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
-write_tasks_md "$REPO" '- [ ] 13.1. Baseline passes
+write_tasks_md "$REPO" '- [ ] 13. Baseline passes
 
 **Files:** `suite.txt`
 **Tests:** `alpha_test`
@@ -416,7 +416,7 @@ printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
 git -C "$REPO" commit -q -m "add alpha_test"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 13.1 "$SHA"
+run_guard "$REPO" 13 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 13: baseline check passes (parent/task counts match declared before=/after=)" || fail "case 13: rc=$RC out=$OUT"
 [ "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" ] && pass "case 13: HEAD unchanged after baseline check" || fail "case 13: HEAD moved"
 
@@ -426,7 +426,7 @@ run_guard "$REPO" 13.1 "$SHA"
 # ===========================================================================
 new_repo
 write_unsupported_test_runner "$REPO"
-write_tasks_md "$REPO" '- [ ] 14.1. Baseline skip
+write_tasks_md "$REPO" '- [ ] 14. Baseline skip
 
 **Files:** `alpha.txt`
 **Baseline:** before=0 after=1
@@ -439,7 +439,7 @@ printf 'no tests here\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 14.1 "$SHA"
+run_guard "$REPO" 14 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 14: baseline check skips (not fails) when the count is unparseable" || fail "case 14: rc=$RC out=$OUT"
 case "$OUT" in
   *"Baseline"*"skipped"*) pass "case 14: reports Baseline: skipped, not verified" ;;
@@ -453,7 +453,7 @@ esac
 # `evil.txt`, so a commit touching only alpha.txt still passes.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 15.1. Fence guard
+write_tasks_md "$REPO" '- [ ] 15. Fence guard
 
 **Files:** `alpha.txt`
 
@@ -473,7 +473,7 @@ printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 15.1 "$SHA"
+run_guard "$REPO" 15 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 15: field-looking line inside a fenced block is not parsed as real field data" || fail "case 15: rc=$RC out=$OUT"
 
 # ===========================================================================
@@ -484,7 +484,7 @@ run_guard "$REPO" 15.1 "$SHA"
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
-write_tasks_md "$REPO" '- [ ] 16.1. Revert conflict
+write_tasks_md "$REPO" '- [ ] 16. Revert conflict
 
 **Files:** `suite.txt`
 **Tests:** `alpha_test`
@@ -501,7 +501,7 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 # Dirty the same line the commit touched, uncommitted, so the revert this
 # guard attempts cannot cleanly apply and fails with a conflict.
 printf 'alpha_test_MODIFIED_LOCALLY\n' > "$REPO/suite.txt"
-run_guard "$REPO" 16.1 "$SHA"
+run_guard "$REPO" 16 "$SHA"
 [ "$RC" -ne 0 ] && pass "case 16: guard reports non-zero when the revert itself fails" || fail "case 16: rc=$RC out=$OUT (expected non-zero)"
 [ "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" ] && pass "case 16: HEAD unchanged after a failed revert" || fail "case 16: HEAD moved, expected $SHA got $(git -C "$REPO" rev-parse HEAD)"
 git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet && pass "case 16: worktree clean after a failed revert, not left mid-conflict" || fail "case 16: worktree left dirty/conflicted"
@@ -514,7 +514,7 @@ git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet && pass "cas
 # check, never from check_commit_subject.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 17.1. Change-name scope
+write_tasks_md "$REPO" '- [ ] 17. Change-name scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-some-change): add alpha
@@ -526,11 +526,11 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(kan-900-some-change): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 17.1 "$SHA"
+run_guard "$REPO" 17 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 17: change-name scope fails" || fail "case 17: rc=$RC out=$OUT"
 case "$OUT" in
-  *"17.1"*"kan-900-some-change"*) pass "case 17: message names the task and the offending scope" ;;
-  *) fail "case 17: expected message naming task 17.1 and scope kan-900-some-change, out=$OUT" ;;
+  *"17"*"kan-900-some-change"*) pass "case 17: message names the task and the offending scope" ;;
+  *) fail "case 17: expected message naming task 17 and scope kan-900-some-change, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -538,7 +538,7 @@ esac
 # -> exit 1.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 18.1. Bare-key scope
+write_tasks_md "$REPO" '- [ ] 18. Bare-key scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900): add alpha
@@ -550,18 +550,18 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(kan-900): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 18.1 "$SHA"
+run_guard "$REPO" 18 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 18: bare-key scope fails" || fail "case 18: rc=$RC out=$OUT"
 case "$OUT" in
-  *"18.1"*"kan-900"*) pass "case 18: message names the task and the offending scope" ;;
-  *) fail "case 18: expected message naming task 18.1 and scope kan-900, out=$OUT" ;;
+  *"18"*"kan-900"*) pass "case 18: message names the task and the offending scope" ;;
+  *) fail "case 18: expected message naming task 18 and scope kan-900, out=$OUT" ;;
 esac
 
 # ===========================================================================
 # Case 19: declared Commit: scope is a numeric task id -> exit 1.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 19.1. Numeric task id scope
+write_tasks_md "$REPO" '- [ ] 19. Numeric task id scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(3): add alpha
@@ -573,18 +573,18 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(3): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 19.1 "$SHA"
+run_guard "$REPO" 19 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 19: numeric task id scope fails" || fail "case 19: rc=$RC out=$OUT"
 case "$OUT" in
-  *"19.1"*"task id"*) pass "case 19: message names the task and reports the task-id shape" ;;
-  *) fail "case 19: expected message naming task 19.1 and a task-id scope, out=$OUT" ;;
+  *"19"*"task id"*) pass "case 19: message names the task and reports the task-id shape" ;;
+  *) fail "case 19: expected message naming task 19 and a task-id scope, out=$OUT" ;;
 esac
 
 # ===========================================================================
 # Case 20: declared Commit: scope is a dotted task id -> exit 1.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 20.1. Dotted task id scope
+write_tasks_md "$REPO" '- [ ] 20. Dotted task id scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(3.2): add alpha
@@ -596,18 +596,18 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(3.2): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 20.1 "$SHA"
+run_guard "$REPO" 20 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 20: dotted task id scope fails" || fail "case 20: rc=$RC out=$OUT"
 case "$OUT" in
-  *"20.1"*"task id"*) pass "case 20: message names the task and reports the task-id shape" ;;
-  *) fail "case 20: expected message naming task 20.1 and a task-id scope, out=$OUT" ;;
+  *"20"*"task id"*) pass "case 20: message names the task and reports the task-id shape" ;;
+  *) fail "case 20: expected message naming task 20 and a task-id scope, out=$OUT" ;;
 esac
 
 # ===========================================================================
 # Case 21: declared Commit: scope names a real module -> exit 0.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 21.1. Module scope
+write_tasks_md "$REPO" '- [ ] 21. Module scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(scripts): add alpha
@@ -619,7 +619,7 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(scripts): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 21.1 "$SHA"
+run_guard "$REPO" 21 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 21: module scope passes" || fail "case 21: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 21: clean exit, no scope violation printed" || fail "case 21: expected no output, got: $OUT"
 
@@ -628,7 +628,7 @@ run_guard "$REPO" 21.1 "$SHA"
 # scope is optional.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 22.1. No scope
+write_tasks_md "$REPO" '- [ ] 22. No scope
 
 **Files:** `alpha.txt`
 **Commit:** feat: add alpha
@@ -640,7 +640,7 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat: add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 22.1 "$SHA"
+run_guard "$REPO" 22 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 22: absent scope passes" || fail "case 22: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 22: clean exit, no scope violation printed" || fail "case 22: expected no output, got: $OUT"
 
@@ -649,7 +649,7 @@ run_guard "$REPO" 22.1 "$SHA"
 # a substring -> exit 0. Proves the check is equality, not substring.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 23.1. Scope containing the key
+write_tasks_md "$REPO" '- [ ] 23. Scope containing the key
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-helpers): add alpha
@@ -661,7 +661,7 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(kan-900-helpers): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 23.1 "$SHA"
+run_guard "$REPO" 23 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 23: scope merely containing the key passes (equality, not substring)" || fail "case 23: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 23: clean exit, no scope violation printed" || fail "case 23: expected no output, got: $OUT"
 
@@ -671,7 +671,7 @@ run_guard "$REPO" 23.1 "$SHA"
 # substring.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 24.1. Scope containing the change name
+write_tasks_md "$REPO" '- [ ] 24. Scope containing the change name
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-some-change-helpers): add alpha
@@ -683,7 +683,7 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(kan-900-some-change-helpers): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 24.1 "$SHA"
+run_guard "$REPO" 24 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 24: scope merely containing the change name passes (equality, not substring)" || fail "case 24: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 24: clean exit, no scope violation printed" || fail "case 24: expected no output, got: $OUT"
 
@@ -695,7 +695,7 @@ run_guard "$REPO" 24.1 "$SHA"
 # silently returned no violation for this exact subject.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 25.1. Breaking-change form names the change
+write_tasks_md "$REPO" '- [ ] 25. Breaking-change form names the change
 
 **Files:** `alpha.txt`
 **Commit:** feat(kan-900-some-change)!: add alpha
@@ -707,11 +707,11 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(kan-900-some-change)!: add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 25.1 "$SHA"
+run_guard "$REPO" 25 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 25: breaking-change '!' form still catches a change-name scope" || fail "case 25: rc=$RC out=$OUT"
 case "$OUT" in
-  *"25.1"*"names the change"*) pass "case 25: message reports the change-name shape" ;;
-  *) fail "case 25: expected message naming task 25.1 and the change-name shape, out=$OUT" ;;
+  *"25"*"names the change"*) pass "case 25: message reports the change-name shape" ;;
+  *) fail "case 25: expected message naming task 25 and the change-name shape, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -720,7 +720,7 @@ esac
 # turn every subject into a scope match.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 26.1. Breaking-change form, real module
+write_tasks_md "$REPO" '- [ ] 26. Breaking-change form, real module
 
 **Files:** `alpha.txt`
 **Commit:** feat(scripts)!: add alpha
@@ -732,7 +732,7 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(scripts)!: add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 26.1 "$SHA"
+run_guard "$REPO" 26 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 26: breaking-change '!' form with a real module scope passes" || fail "case 26: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 26: clean exit, no scope violation printed" || fail "case 26: expected no output, got: $OUT"
 
@@ -742,7 +742,7 @@ run_guard "$REPO" 26.1 "$SHA"
 # case-insensitive.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 27.1. Uppercase change-name scope
+write_tasks_md "$REPO" '- [ ] 27. Uppercase change-name scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(KAN-900-SOME-CHANGE): add alpha
@@ -754,11 +754,11 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(KAN-900-SOME-CHANGE): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 27.1 "$SHA"
+run_guard "$REPO" 27 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 27: uppercase change-name scope fails (case-insensitive compare)" || fail "case 27: rc=$RC out=$OUT"
 case "$OUT" in
-  *"27.1"*"names the change"*) pass "case 27: message reports the change-name shape" ;;
-  *) fail "case 27: expected message naming task 27.1 and the change-name shape, out=$OUT" ;;
+  *"27"*"names the change"*) pass "case 27: message reports the change-name shape" ;;
+  *) fail "case 27: expected message naming task 27 and the change-name shape, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -767,7 +767,7 @@ esac
 # written uppercase, so this is the shape a human is most likely to type.
 # ===========================================================================
 new_repo "kan-900-some-change"
-write_tasks_md "$REPO" '- [ ] 28.1. Uppercase Jira-key scope
+write_tasks_md "$REPO" '- [ ] 28. Uppercase Jira-key scope
 
 **Files:** `alpha.txt`
 **Commit:** feat(KAN-900): add alpha
@@ -779,11 +779,11 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(KAN-900): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 28.1 "$SHA"
+run_guard "$REPO" 28 "$SHA"
 [ "$RC" -eq 1 ] && pass "case 28: uppercase Jira-key scope fails (case-insensitive compare)" || fail "case 28: rc=$RC out=$OUT"
 case "$OUT" in
-  *"28.1"*"Jira key"*) pass "case 28: message reports the Jira-key shape" ;;
-  *) fail "case 28: expected message naming task 28.1 and the Jira-key shape, out=$OUT" ;;
+  *"28"*"Jira key"*) pass "case 28: message reports the Jira-key shape" ;;
+  *) fail "case 28: expected message naming task 28 and the Jira-key shape, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -794,7 +794,7 @@ esac
 # than being wrongly flagged as the change's Jira key.
 # ===========================================================================
 new_repo "release-2026-kan-450-cleanup"
-write_tasks_md "$REPO" '- [ ] 29.1. Ambiguous key-shaped change name
+write_tasks_md "$REPO" '- [ ] 29. Ambiguous key-shaped change name
 
 **Files:** `alpha.txt`
 **Commit:** feat(release-2026): add alpha
@@ -806,7 +806,7 @@ printf 'a\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "feat(release-2026): add alpha"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-run_guard "$REPO" 29.1 "$SHA"
+run_guard "$REPO" 29 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 29: ambiguous key-shaped change name yields no leading key, scope passes" || fail "case 29: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 29: clean exit, no scope violation printed" || fail "case 29: expected no output, got: $OUT"
 
@@ -1828,27 +1828,29 @@ esac
 
 # ===========================================================================
 # Case 51 (fix round 5, F9): the gate must not narrow what a WELL-FORMED
-# field means. Dotted ids, whitespace-separated — `Task 2.1 3.4` — resolve
-# exactly as `Task 2, 3` does (case 36), from every id in the fold. This is
-# the case that stops the gate being written so tightly it only admits a
-# single comma-separated integer list.
+# field means. Whitespace-separated ids — `Task 2 3` — resolve exactly as
+# `Task 2, 3` does (case 36), from every id in the fold. This is the case
+# that stops the gate being written so tightly it only admits a single
+# comma-separated list. It used to name its partners `2.1` and `3.4`; a task
+# id is a flat integer now, and a dotted partner names no task at all, which
+# check-task-build-green.sh pins as its own case 27.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 1. Red task with two dotted partners
+write_tasks_md "$REPO" '- [ ] 1. Red task with two partners
 
 **Files:** `alpha.txt`
 **Commit:** test: add alpha
 **Build:** red
 
-**Squash-with:** Task 2.1 3.4
+**Squash-with:** Task 2 3
 
-- [ ] 2.1. Green partner
+- [ ] 2. Green partner
 
 **Files:** `beta.txt`
 **Commit:** feat: add alpha beta and gamma
 **Build:** green
 
-- [ ] 3.4. Sibling green partner
+- [ ] 3. Sibling green partner
 
 **Files:** `gamma.txt`
 **Commit:** feat: add alpha beta and gamma
@@ -1863,11 +1865,11 @@ git -C "$REPO" add alpha.txt beta.txt gamma.txt
 git -C "$REPO" commit -q -m "feat: add alpha beta and gamma"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
-[ "$RC" -eq 0 ] && pass "case 51: dotted whitespace-separated partners still resolve" || fail "case 51: rc=$RC out=$OUT"
-run_guard "$REPO" 2.1 "$SHA"
-[ "$RC" -eq 0 ] && pass "case 51: the first dotted partner reaches the same verdict" || fail "case 51 (task 2.1): rc=$RC out=$OUT"
-run_guard "$REPO" 3.4 "$SHA"
-[ "$RC" -eq 0 ] && pass "case 51: the sibling dotted partner reaches the same verdict" || fail "case 51 (task 3.4): rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "case 51: whitespace-separated partners still resolve" || fail "case 51: rc=$RC out=$OUT"
+run_guard "$REPO" 2 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 51: the first partner reaches the same verdict" || fail "case 51 (task 2): rc=$RC out=$OUT"
+run_guard "$REPO" 3 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 51: the sibling partner reaches the same verdict" || fail "case 51 (task 3): rc=$RC out=$OUT"
 
 # ===========================================================================
 # Case 52 (fix round 6, F14): the `Squash-with:` field is LINE-SCOPED. Its
@@ -2066,7 +2068,7 @@ esac
 # exits 1 with a traceback rather than 2 with a sentence.
 # ===========================================================================
 new_repo
-write_tasks_md "$REPO" '- [ ] 1.1. Clean task
+write_tasks_md "$REPO" '- [ ] 1. Clean task
 
 **Files:** `alpha.txt`, `beta.txt`
 **Tests:** `test_alpha`
@@ -2085,7 +2087,7 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 STRIPPED="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-test.XXXXXX")" && pwd)"
 cp "$SCRIPT_DIR/check-task-commit-fields.sh" "$SCRIPT_DIR/check-task-commit-fields.py" "$STRIPPED/"
 set +e
-STRIPPED_OUT="$("$STRIPPED/check-task-commit-fields.sh" "$REPO" 1.1 "$SHA" 2>&1)"
+STRIPPED_OUT="$("$STRIPPED/check-task-commit-fields.sh" "$REPO" 1 "$SHA" 2>&1)"
 STRIPPED_RC=$?
 set -e
 [ "$STRIPPED_RC" -eq 2 ] && pass "case 56: a guard copy with no lib/ sibling exits 2" || fail "case 56: rc=$STRIPPED_RC out=$STRIPPED_OUT"

@@ -90,13 +90,17 @@ are about what THIS task declared, not about which commit survived.
 Field grammar
 -------------
 
-A task's body runs from its `- [ ] <DOTTED_ID>. ...` task line to the next
+A task's body runs from its `- [ ] <TASK_ID>. ...` task line to the next
 task line, to the next line matching `^#{2,3}(?:\\s|$)`, or to end of file,
 fenced examples excluded and a duplicated id resolving to its FIRST task
 line — all of which is lib/plan_grammar.py's `select_task`, not a scan in
 this file (fix round 9). The task line is the spectre checkbox line, whose
-mark carries whether the task is DONE; the `- [ ] **Step N: ...**` step
-checkboxes below it are part of the body and are never tasks of their own.
+mark carries whether the task is DONE; the `  - [ ] **Step N: ...**` step
+checkboxes below it are indented two columns, are part of the body, and are
+never tasks of their own. A task's id is a flat integer — `TASK_ID`, not
+`DOTTED_ID` — because a dotted id is no task to spectre. `DOTTED_ID` stays
+this module's `Squash-with:` partner grammar and, below, the shape of the
+task-id-shaped commit scope this guard refuses.
 
 A body that opens a fence and never closes it is a PLAN DEFECT, reported on
 its own by `check_task_commit` and replacing every other check for that
@@ -251,7 +255,9 @@ BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 # closing paren and the colon, or a subject like
 # `feat(kan-202-commit-split-and-module-scopes)!: add alpha` bypassed the
 # scope check entirely — a real, valid Conventional Commits shape this
-# guard has to see. TASK_ID_SCOPE_RE reuses DOTTED_ID: a scope that is
+# guard has to see. TASK_ID_SCOPE_RE reuses DOTTED_ID rather than the
+# narrower task-id grammar, deliberately: a scope written `1.2` names no
+# task any more and is still exactly the mistake this refuses. A scope that is
 # nothing but digits and dots is a task id, never a module.
 SUBJECT_SCOPE_RE = re.compile(r"^[A-Za-z]+\(([^)]*)\)!?:")
 TASK_ID_SCOPE_RE = re.compile(rf"^{DOTTED_ID}$")
