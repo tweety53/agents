@@ -67,8 +67,19 @@ nothing else. Measured against the archived `kan-295` plan, spectre sees no task
 per step checkbox — and `spectre archive` refuses with "tasks.md has no tasks".
 
 **A plan's tasks therefore lead with a spectre checkbox.** `- [ ] 1. Capture the verification
-baselines` replaces `### 1 Capture the verification baselines`, and the task's steps stay beneath it
-exactly as they are. Both tools then agree what a task is: progress in `spectre list` becomes real,
+baselines` replaces `### 1 Capture the verification baselines`, and the task's steps are indented
+two columns beneath it.
+
+The indent is not cosmetic, and the first attempt at this proved it. spectre reports any column-0
+`- [` line that is not a well-formed task as a malformed task line, so a plan whose steps stayed at
+column 0 still drew one finding per step — 31 on the measured plan, with the tasks now read
+correctly. Indenting the steps two columns takes that to `no findings`, exit 0, and full progress,
+and both myflow guards are indifferent to the indent. It also reads truer: a step belongs to its
+task, and now looks like it.
+
+**A task's id is a flat integer.** spectre reads `- [ ] <n>.` and nothing else, so `- [ ] 1.1.` is a
+task to myflow's grammar and a malformed line to spectre. The task line takes a flat integer; the
+dotted form stays available to whatever else in the plan grammar uses it, but never as a task id. Both tools then agree what a task is: progress in `spectre list` becomes real,
 `archive`'s unchecked-tasks refusal becomes meaningful, and `validate` is clean on a change the
 pipeline itself produced.
 
