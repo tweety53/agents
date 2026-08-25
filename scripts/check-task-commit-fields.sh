@@ -16,11 +16,22 @@
 #   check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha]
 #
 # This wrapper's own job is resolving WHICH tasks.md the named task lives
-# in: the single non-archived tasks.md under
-# <worktree>/spectre/changes/*/tasks.md. Zero or more than one such file is
-# an invocation error (exit 2) — this guard runs against one change's
-# worktree, which spectre's own layout guarantees holds exactly one active
-# change's tasks.md outside archive/.
+# in, among the non-archived ones under
+# <worktree>/spectre/changes/*/tasks.md. Zero is an invocation error
+# (exit 2), and so is more than one ROOT change — two changes neither of
+# which is the other's sub-change, which nothing here may guess between.
+#
+# SPECTRE'S LAYOUT GUARANTEES NOTHING LIKE "exactly one active change", and
+# this header used to say it did. That assumption is what broke. A
+# <name>-fix-N sub-change is a FLAT SIBLING of its parent under
+# spectre/changes/ — `spectre new` refuses an id that is not a single flat
+# directory name — so the glob matches the parent AND the sibling the moment
+# a fix round opens one, and a wrapper refusing on "more than one" took this
+# guard out of service on exactly the runs it was added for. A fix sibling is
+# therefore not ambiguity: the highest-numbered one resolves, or the root when
+# there is none. The mechanism, the digit test that keeps a merely
+# similarly-named change out of it, and two caveats on the numbering are in
+# the body below.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -128,6 +139,16 @@ ROOT="${ROOTS[0]}"
 # sub-change is finished, and the parent's own tasks were done before any fix
 # round opened. So the newest sub-change is the plan whose tasks are being
 # dispatched, which is the plan this guard has to read.
+#
+# TWO CAVEATS, both accepted. (1) N INCREMENTING IS CONVENTION, NOT CONTRACT:
+# nothing in skills/myflow-do/SKILL.md specifies that a fix round numbers its
+# sub-change one higher than the last, so "highest-numbered" reads an ordering
+# nobody promised. (2) Reading the wrong plan is normally LOUD rather than
+# silent — the commit's files are undeclared there and the guard exits 1
+# naming one — but it can pass silently when the chosen plan's task N declares
+# a SUPERSET of the intended plan's files. Passing the change name as an
+# argument would remove both; that changes a call signature
+# skills/myflow-do/SKILL.md documents, and was judged not worth it.
 CHOSEN="$ROOT"
 CHOSEN_N=-1
 for change_name in "${NAMES[@]}"; do

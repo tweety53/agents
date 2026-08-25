@@ -34,9 +34,8 @@ because the implementer measured rather than complied.
 
 `plan-provenance.md` already carries the vocabulary for this — `verified:`, `unverified:`,
 `measured:` — because a plan is a mix of checked facts and guesses. What it did not say is what to do
-when a guess is disproved mid-run. It says so now: report the measurement, stop, and amend the plan
-or the design before continuing. Silent deviation and silent compliance are both failures — the
-first is indistinguishable from a mistake, the second wastes the measurement.
+when a guess is disproved mid-run. It says so now, under **When a measurement contradicts the plan**
+(`skills/myflow-contracts/plan-provenance.md`), which is canonical for it.
 
 ## What the pipeline stops doing
 
