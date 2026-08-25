@@ -172,6 +172,15 @@
 # THE ARCHIVED CHANGE DIRECTORY IS NOT A LEFTOVER. The registry says the change
 # directory is MOVED into spectre/changes/archive/ and never deleted, so only
 # one still sitting at spectre/changes/<name>/ counts.
+#
+# A <name>-fix-N SUB-CHANGE COUNTS TOO, and used not to. Under spectre a
+# sub-change is a FLAT SIBLING of its parent under spectre/changes/, never a
+# directory inside it -- `spectre new` refuses an id that is not a single flat
+# directory name -- so `spectre archive <name>` cannot reach one and each
+# sub-change needs its own call (run 2 step 3,
+# skills/myflow-contracts/finish-contract.md). Before this row the guard
+# reported COMPLETE with the parent archived and the child left behind, and
+# nothing anywhere said so.
 set -euo pipefail
 
 REPO="${1:-}"
@@ -451,6 +460,23 @@ esac
 if [ -d "$REPO/spectre/changes/$NAME" ]; then
   add "spectre/changes/$NAME was never moved into the archive"
 fi
+
+# Row four, second half — each <name>-fix-N sub-change, archived by its own
+# call and therefore missable on its own. See the header note above.
+#
+# THE SUFFIX MUST BE `-fix-` FOLLOWED BY DIGITS AND NOTHING ELSE. A change
+# merely named like a neighbour — `demo-other`, or `demo-fix-the-parser` — is a
+# change of its own with its own finish run, and reporting it here would send
+# the operator hunting for another change's live work: the same prefix-matching
+# failure every other row above is matched by full name to avoid.
+for sub in "$REPO/spectre/changes/$NAME"-fix-*; do
+  [ -d "$sub" ] || continue
+  sub_leaf="${sub##*/}"
+  case "${sub_leaf#"$NAME"-fix-}" in
+    '' | *[!0-9]*) continue ;;
+  esac
+  add "spectre/changes/$sub_leaf, a sub-change of $NAME, was never moved into the archive"
+done
 
 # Row five — the proposal artifact source, whose removal at run 2 is
 # conditional on a preserved copy existing. This guard reports it as remaining;

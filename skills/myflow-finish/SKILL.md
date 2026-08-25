@@ -421,16 +421,13 @@ myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness
    `<project>/spectre/changes/<name>/` into `<project>/spectre/changes/archive/<name>/` and leaves the
    rename staged; it does not commit — step 4 does.
 
-   **A nested `<name>-fix-N` sub-change is a change directory of its own and needs its own call.**
-   `spectre new` refuses an id that is not a single flat directory name, so a sub-change sits beside
-   its parent under `<project>/spectre/changes/`, not inside it, and `spectre archive "<name>"` does
-   not reach it. Run `spectre archive "<name>-fix-N"` for each one in this same step — never left
-   behind, and never archived alone.
+   **One call per change, parent and each `<name>-fix-N` sibling alike** — run
+   `spectre archive "<name>-fix-N"` for every sub-change in this same step.
 
-   **There is nothing to sync into `<project>/spectre/specs/` first, and no sync step is ever to be
-   added back** — a change edits that tree directly on its own branch, so its spec edits reached the
-   base branch with the merge step 1 proved. Step 3 of **Run 2 — the branch is merged**
-   (`skills/myflow-contracts/finish-contract.md`) states that in full.
+   Why a sub-change is a sibling the parent's call cannot reach, why the archived leaf carries no
+   date prefix, and why there is nothing to sync into `<project>/spectre/specs/` first — step 3 of
+   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), canonical for all
+   three.
 
    **`spectre archive` refuses four things; `--force` overrides three of them.** Unchecked tasks, a
    missing `tasks.md`, and a `tasks.md` carrying no task at all each exit `1` and say
@@ -454,18 +451,19 @@ myflow stage begin -command '/myflow-finish' -stage finish.commit-archive -harne
    [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
      && git -C <main-checkout> add -A \
      && { git -C <main-checkout> diff --cached --quiet \
-          || git -C <main-checkout> commit -m "chore(<name>): archive change"; }
+          || git -C <main-checkout> commit -m "chore(spectre): archive <name>"; }
    ```
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS` — `git -C <main-checkout>` fixes the directory, never the branch.
 
-   **The subject's scope is the change name, and that is deliberate here and nowhere else.**
-   `<agents repo>/scripts/gather-self-review-context.sh` finds this commit by grepping for
-   `^chore\(<name>\): .*archive`, so the scope is what makes step 9 resolve *this* change's archive
-   commit rather than the most recent archive commit of any change. Everywhere the scope can name a
-   module instead, it must — **Commit scopes name the module**
-   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
+   The subject is the fixed literal shown, scope included, per **Commit scopes name the module**
+   (`<agents repo>/rules/commit-scope-is-the-module.mdc`): `spectre` names the tree this commit
+   moves, and the change name sits in the description rather than the scope. **Reproduce it
+   exactly.** `<agents repo>/scripts/gather-self-review-context.sh` resolves this commit at step 9 by
+   matching that subject line whole, anchored at both ends, since the scope alone no longer says
+   which change it belongs to — a subject reworded here leaves step 9 unable to find it, or matching
+   a differently-named change whose name merely begins the same way.
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.commit-archive -outcome completed <name>
@@ -545,9 +543,8 @@ transitions nothing — the change is not done.
    canonical for the procedure and the file to change first when it changes. What is specific to
    *executing* it here: the script invocation `gather-self-review-context.sh
    <archived-change-path> <name> <state-dir> <main-checkout>`, resolving `<archived-change-path>` as
-   `<project>/spectre/changes/archive/<name>/` — the destination step 3 moved the change to, which
-   carries no date prefix because `spectre archive` adds none — and passing `<main-checkout>` as the
-   trust anchor so the script's `--git-common-dir` derivation no longer depends on this run's own
+   `<project>/spectre/changes/archive/<name>/`, the destination step 3 moved the change to, and
+   passing `<main-checkout>` as the trust anchor so the script's `--git-common-dir` derivation no longer depends on this run's own
    working directory.
 
    The skip prompt fires first, and reads — shape per Operator prompts

@@ -97,7 +97,10 @@ add_tasks() {
 # alone and never reads a path, so giving it one would only add fixture
 # complexity (a `git mv` destination shared with other fixtures' own
 # archived-path setup) without covering anything PLAN_SHA/IMPL_SHA don't
-# already cover realistically on their own.
+# already cover realistically on their own. The archive marker goes in the
+# commit BODY, not on the subject line: ARCHIVE_SUBJECT_RE is anchored at
+# both ends, so a marker appended to the subject would stop it matching —
+# which is the anchoring doing exactly its job.
 add_commits() {
   (
     cd "$REPO" \
@@ -109,7 +112,7 @@ add_commits() {
       && printf 'PLAN-COMMIT-BODY\n' > spectre/changes/demo/proposal.md \
       && git add spectre/changes/demo/proposal.md \
       && git commit -q -m "chore(demo): plan, test guide and session records PLAN-COMMIT-BODY" \
-      && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change ARCHIVE-COMMIT-BODY"
+      && git commit -q --allow-empty -m "chore(spectre): archive demo" -m "ARCHIVE-COMMIT-BODY"
   )
 }
 
@@ -379,7 +382,7 @@ esac
 # SECTION: F13 — the exact same symlinked-archive-directory attack as
 # "archived path is symlink" above, but invoked WITH a trailing slash on
 # $ARCHIVED_PATH (the shape skills/myflow-finish/SKILL.md actually
-# documents: spectre/changes/archive/<date>-<name>/). Must be refused
+# documents: spectre/changes/archive/<name>/). Must be refused
 # identically, never leaked, regardless of the trailing slash.
 # ===========================================================================
 
@@ -411,7 +414,7 @@ esac
 
 # ===========================================================================
 # SECTION: F14 — spectre/changes/archive itself (one level above the leaf)
-# is a symlink. The leaf ($ARCHIVED, the <date>-<name> directory) is an
+# is a symlink. The leaf ($ARCHIVED, the archived-change directory) is an
 # ordinary, non-symlink directory underneath it, so the F12/F13 leaf-only
 # check must not be what catches this — the lexical-vs-real comparison must.
 # ===========================================================================
@@ -527,7 +530,7 @@ esac
 # 3-hop walk never even reached, combined with an EXTRA directory level under
 # spectre/changes/archive/ that isn't part of the documented shape at all.
 # spectre/ itself is a symlink, and the archived-change-path carries one
-# extra "subdir/" segment before the <date>-<name> leaf. The old bounded walk
+# extra "subdir/" segment before the archived-change leaf. The old bounded walk
 # would have missed both the extra nesting (never checked at all — the walk
 # only ever considered the fixed 3 hops for the *documented* shape) and,
 # depending on how the extra segment shifted the hop count, potentially the
@@ -663,7 +666,7 @@ new_repo
     && printf 'F8-PLAN\n' > spectre/changes/demo/proposal.md \
     && git add spectre/changes/demo/proposal.md \
     && git commit -q -m "chore(demo): plan, test guide and session records" \
-    && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change ARCHIVE-COMMIT-BODY2"
+    && git commit -q --allow-empty -m "chore(spectre): archive demo" -m "ARCHIVE-COMMIT-BODY2"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "archive substring in impl subject: exits 0" \
@@ -699,7 +702,7 @@ new_repo
     && printf 'F9-PLAN\n' > spectre/changes/demo/proposal.md \
     && git add spectre/changes/demo/proposal.md \
     && git commit -q -m "chore(demo): plan and session records" \
-    && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change PLAN-PHRASE-ARCHIVE-BODY"
+    && git commit -q --allow-empty -m "chore(spectre): archive demo" -m "PLAN-PHRASE-ARCHIVE-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "plan-phrase substring in impl subject: exits 0" \
@@ -843,7 +846,7 @@ new_repo
     && git add spectre/changes/demo/proposal.md \
     && git commit -q -m "chore(demo): plan and session records NEW-WORDING-PLAN-COMMIT-BODY" \
     && git mv spectre/changes/demo/proposal.md "$REL/proposal.md" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change NEW-WORDING-ARCHIVE-COMMIT-BODY"
+    && git commit -q -m "chore(spectre): archive demo" -m "NEW-WORDING-ARCHIVE-COMMIT-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "new-wording plan commit: exits 0" \
@@ -874,8 +877,10 @@ esac
 # subjects no longer carry the change name at all (the module-scope commit
 # convention), so PLAN_SHA and IMPL_SHA can no longer be resolved by a
 # subject grep keyed on the change name — path-based resolution (task 12)
-# must do it instead. ARCHIVE_SHA is unaffected: run 2's archive commit
-# subject is untouched by this change.
+# must do it instead. ARCHIVE_SHA now carries a module scope too —
+# `chore(spectre): archive <name>` — and is kept change-specific by the
+# change name in its DESCRIPTION plus a both-ends-anchored grep, which the
+# dedicated distractor section below this one proves.
 # ===========================================================================
 
 # add_module_scope_commits — the implementation and planning commits back to
@@ -903,7 +908,7 @@ add_module_scope_commits() {
       && git add spectre/changes/demo/tasks.md \
       && git commit -q -m "chore(spectre): plan and session records MODULE-SCOPE-PLAN-BODY" \
       && git mv spectre/changes/demo "$REL" \
-      && git commit -q -m "chore(demo): sync delta specs and archive the change MODULE-SCOPE-ARCHIVE-BODY"
+      && git commit -q -m "chore(spectre): archive demo" -m "MODULE-SCOPE-ARCHIVE-BODY"
   )
 }
 
@@ -923,7 +928,7 @@ case "$OUT" in
 esac
 case "$OUT" in
   *MODULE-SCOPE-ARCHIVE-BODY*) \
-    pass "module-scope subjects: archive commit still resolved as ARCHIVE_SHA, unaffected by this change" ;;
+    pass "module-scope subjects: archive commit still resolved as ARCHIVE_SHA under its module scope" ;;
   *) fail "module-scope subjects: archive commit not resolved as ARCHIVE_SHA: $OUT" ;;
 esac
 
@@ -964,6 +969,38 @@ case "$OUT" in
 esac
 
 # ===========================================================================
+# A DIFFERENT change's ARCHIVE commit, landed LATER, whose name has demo's
+# as a PREFIX — `demo-fix-1`, the exact shape a nested fix sub-change takes.
+# Since the spectre cutover the archive subject carries a module scope
+# (`chore(spectre): archive <name>`) shared by every change, so the only
+# thing separating demo's archive commit from this one is the change name in
+# the description AND the fact that ARCHIVE_SUBJECT_RE is anchored at both
+# ends. Drop either anchor and `archive demo` matches `archive demo-fix-1`
+# too; --max-count=1 then returns this later, unrelated commit and the
+# self-review bundle quietly describes the wrong change.
+# ===========================================================================
+
+new_repo
+add_module_scope_commits
+(
+  cd "$REPO" \
+    && git commit -q --allow-empty -m "chore(spectre): archive demo-fix-1" -m "SIBLING-ARCHIVE-BODY"
+)
+run_it
+[ "$RC" -eq 0 ] && pass "prefix-sibling archive commit present: exits 0" \
+  || fail "prefix-sibling archive commit present: rc=$RC out=$OUT"
+case "$OUT" in
+  *MODULE-SCOPE-ARCHIVE-BODY*) \
+    pass "prefix-sibling archive commit present: demo's own archive commit still resolved" ;;
+  *) fail "prefix-sibling archive commit present: demo's own archive commit not resolved: $OUT" ;;
+esac
+case "$OUT" in
+  *SIBLING-ARCHIVE-BODY*) \
+    fail "prefix-sibling archive commit present: a prefix-sibling change's later archive commit wrongly resolved instead of demo's own: $OUT" ;;
+  *) pass "prefix-sibling archive commit present: a prefix-sibling change's later archive commit correctly excluded" ;;
+esac
+
+# ===========================================================================
 # The REAL run-1-then-run-2 sequence: finish run 1 commits the planning
 # artifacts at the LIVE location, spectre/changes/<name>/, because the change
 # is not archived yet; run 2 only later renames that directory under
@@ -987,7 +1024,7 @@ new_repo
     && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(spectre): plan and session records LIVE-PATH-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change LIVE-PATH-ARCHIVE-BODY"
+    && git commit -q -m "chore(spectre): archive demo" -m "LIVE-PATH-ARCHIVE-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "run-1-live-then-run-2-archive: exits 0" \
@@ -1022,7 +1059,7 @@ new_repo
     && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(spectre): plan and session records E-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change E-ARCHIVE-BODY" \
+    && git commit -q -m "chore(spectre): archive demo" -m "E-ARCHIVE-BODY" \
     && printf 'TASKS-E-FIXED-TYPO\n' > "$REL/tasks.md" \
     && git add "$REL/tasks.md" \
     && git commit -q -m "docs(spectre): fix a typo in an archived plan"
@@ -1067,7 +1104,7 @@ ORIG_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
     && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(spectre): plan and session records G-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change G-ARCHIVE-BODY"
+    && git commit -q -m "chore(spectre): archive demo" -m "G-ARCHIVE-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "finding G: exits 0" \
@@ -1104,7 +1141,7 @@ new_repo
     && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(spectre): plan and session records OUTSIDE-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change"
+    && git commit -q -m "chore(spectre): archive demo"
 )
 run_it
 case "$OUT" in
@@ -1136,7 +1173,7 @@ ISO_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
     && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(spectre): plan and session records MERGE-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change"
+    && git commit -q -m "chore(spectre): archive demo"
 )
 run_it
 case "$OUT" in
@@ -1167,7 +1204,7 @@ new_repo
     && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(spectre): plan and session records G-POSITIVE-PLAN-BODY" \
     && git mv spectre/changes/demo "$REL" \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change G-POSITIVE-ARCHIVE-BODY"
+    && git commit -q -m "chore(spectre): archive demo" -m "G-POSITIVE-ARCHIVE-BODY"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "finding G positive control: exits 0" \
@@ -1207,7 +1244,7 @@ TREES+=("$ROOT_REPO")
     && git commit -q -m "chore(spectre): plan and session records ROOT-COMMIT-PLAN-BODY" \
     && mkdir -p spectre/changes/archive \
     && git mv spectre/changes/demo spectre/changes/archive/2026-01-01-demo \
-    && git commit -q -m "chore(demo): sync delta specs and archive the change ROOT-COMMIT-ARCHIVE-BODY"
+    && git commit -q -m "chore(spectre): archive demo" -m "ROOT-COMMIT-ARCHIVE-BODY"
 )
 REPO="$ROOT_REPO"
 ARCHIVED="$REPO/spectre/changes/archive/2026-01-01-demo"

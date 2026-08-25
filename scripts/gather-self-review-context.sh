@@ -7,7 +7,8 @@
 # Usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir> [<repo-root>]
 #
 # <archived-change-path> is the ARCHIVED change directory
-# (spectre/changes/archive/<date>-<name>/), never a worktree path — by the
+# (spectre/changes/archive/<name>/ — no date prefix; `spectre archive`
+# adds none), never a worktree path — by the
 # time step 9 runs, run 2 has already removed the worktree. <state-dir> is
 # accepted for CLI parity with this script's usage line and with the
 # <worktree> <name> <state-dir> shape the /myflow-finish record helper took
@@ -57,8 +58,8 @@
 #
 # NOTE on <archived-change-path> itself being a symlink, or any ancestor of
 # it, at any depth (F12, F13, F14, F20, F22): git tracks symlinks as
-# committed blobs, so a merged PR could make spectre/changes/archive/<date>-
-# <name> itself a symlink to anywhere, or make ANY ancestor component
+# committed blobs, so a merged PR could make spectre/changes/archive/<name>
+# itself a symlink to anywhere, or make ANY ancestor component
 # (spectre/, spectre/changes/, spectre/changes/archive/, or a deeper
 # nesting level not even part of the documented shape) a symlink instead.
 # Four rounds of bounded, lexical, fixed-depth patches — a leaf-only check, a
@@ -659,7 +660,7 @@ fi
 #
 # Only the LIVE pathspec (spectre/changes/<name>/) is searched (pass 2,
 # finding F) — NOT ALSO the archived location
-# (spectre/changes/archive/<date>-<name>/, where run 2 later moves it):
+# (spectre/changes/archive/<name>/, where run 2 later moves it):
 # `git log -- <path>` filters each commit by its OWN historical tree, so
 # the live pathspec alone finds the planning commit even after run 2's
 # `git mv` renames the directory — verified directly. A second, archived
@@ -708,9 +709,21 @@ fi
 # exercised by a test fixture built with `git commit --allow-empty` and
 # nothing staged.
 #
-# ARCHIVE_SHA is UNCHANGED by any of this: run 2's archive commit has always
-# used, and still uses, `chore(<name>): ... archive ...` — a subject grep
-# stays exact and change-specific there, so it is left exactly as it was.
+# ARCHIVE_SHA is resolved by an EXACT subject match on run 2's archive
+# commit, `chore(spectre): archive <name>`. That subject changed at the
+# spectre cutover, and the reason is worth keeping: it used to be
+# `chore(<name>): ... archive ...`, whose scope was the change name, which
+# rules/commit-scope-is-the-module.mdc forbids globally. A guard cannot
+# license breaking an always-on rule, so the scope now names the module the
+# commit moves — the spectre tree — and the change name moved into the
+# subject's description, where this query can still read it.
+#
+# THE REGEX IS ANCHORED AT BOTH ENDS, and that is what replaces the
+# specificity the old change-name scope supplied. Unanchored,
+# `archive demo` also matches a sibling change's `archive demo-fix-1`, and
+# --max-count=1 would then return the wrong commit with no error. `^` and
+# `$` bind to line boundaries in git's own --grep, so a commit body below
+# the subject line never widens the match.
 # NAME's only regex metacharacter a real allowlisted name can carry is '.',
 # escaped below.
 #
@@ -724,7 +737,7 @@ GITLOG_CONTENT=""
 if [ -n "$REPO_ROOT" ]; then
   NAME_RE="$(printf '%s' "$NAME" | sed 's/\./\\./g')"
 
-  ARCHIVE_SUBJECT_RE="^chore\\(${NAME_RE}\\): .*archive"
+  ARCHIVE_SUBJECT_RE="^chore\\(spectre\\): archive ${NAME_RE}$"
   PLAN_SUBJECT_RE_NEW='^chore\(spectre\): plan and session records'
   PLAN_SUBJECT_RE_OLD="^chore\\(${NAME_RE}\\): plan(, test guide and| and) session records"
 

@@ -457,6 +457,44 @@ run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "an unarchived change directory is LEFTOVER"
 assert_reason "spectre/changes/demo" "an unarchived change directory names its row"
 
+# 5b. Registry row — a <name>-fix-N sub-change, which is a FLAT SIBLING under
+#     spectre/changes/ and is archived by its own `spectre archive` call. The
+#     parent being archived says nothing about the child, so a guard that only
+#     looks at spectre/changes/<name>/ reports COMPLETE with the sub-change
+#     still sitting there. That is the hole this case exists to hold shut.
+new_fixture
+mkdir -p "$REPO/spectre/changes/demo-fix-1"
+run_guard "$REPO" demo "$STATE"
+assert_verdict "LEFTOVER:" "an unarchived demo-fix-1 sub-change is LEFTOVER"
+assert_reason "spectre/changes/demo-fix-1" "an unarchived sub-change names its own row"
+assert_reason "a sub-change of demo" "the sub-change row says whose sub-change it is"
+
+# 5c. The parent archived and the sub-change left behind — the exact shape the
+#     guard used to pass. spectre/changes/demo is GONE (archived), so row four
+#     is silent; only the sub-change row can catch this.
+new_fixture
+mkdir -p "$REPO/spectre/changes/archive/demo" "$REPO/spectre/changes/demo-fix-2"
+run_guard "$REPO" demo "$STATE"
+assert_verdict "LEFTOVER:" "parent archived but sub-change left behind is LEFTOVER"
+assert_reason "spectre/changes/demo-fix-2" "the surviving sub-change is named"
+
+# 5d. Every sub-change is reported, not just the first.
+new_fixture
+mkdir -p "$REPO/spectre/changes/demo-fix-1" "$REPO/spectre/changes/demo-fix-2"
+run_guard "$REPO" demo "$STATE"
+assert_reason "spectre/changes/demo-fix-1" "the first sub-change is named"
+assert_reason "spectre/changes/demo-fix-2" "the second sub-change is named"
+
+# 5e. The suffix must be `-fix-` plus DIGITS. A separate change whose name only
+#     begins the same way — `demo-fix-the-parser` — has its own finish run and
+#     is not this change's leftover; nor is a plain neighbour like demo-other
+#     (case 7 below covers that one). Without the digit test the guard sends the
+#     operator hunting for another change's live work.
+new_fixture
+mkdir -p "$REPO/spectre/changes/demo-fix-the-parser" "$REPO/spectre/changes/demo-fixup"
+run_guard "$REPO" demo "$STATE"
+assert_verdict "COMPLETE:" "a differently-named change beginning demo-fix is not a sub-change"
+
 # 6. Registry row — the proposal artifact source in the state directory.
 new_fixture
 : > "$STATE/demo-proposal-artifact.html"

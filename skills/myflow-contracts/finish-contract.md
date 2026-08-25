@@ -300,9 +300,15 @@ the one irreversible step.
    it out — or, when it already exists, **reuse it only if it is descended from `origin/<base>`** and
    refuse it otherwise. Apply each refusal in that order and never accept a guess in place of any of
    them.
-3. **Archive the change** — move it into
-   `<project>/spectre/changes/archive/<date>-<name>/`. Any nested `<name>-fix-N` sub-changes are archived in
-   the same operation — never left behind, never archived alone. **There is nothing to sync into
+3. **Archive the change** — `spectre archive <name>` moves it into
+   `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**, because
+   `spectre archive` adds none: the date-ordered archive OpenSpec gave this pipeline is a real loss,
+   accepted, and a prefix re-added here would describe a move the tool does not perform.
+   **One call per change, parent and sub-change alike.** A nested `<name>-fix-N` sub-change is a flat
+   sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
+   refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
+   each sub-change is archived by its own call in this same step. Never left behind, never archived
+   alone. **There is nothing to sync into
    `<project>/spectre/specs/` first, and no sync step is ever to be added back**: a change edits that
    tree directly on its own branch, so its spec edits reached the base branch with the merge step 1
    proved.
