@@ -1,7 +1,7 @@
 ---
 name: myflow-fast
 description: Chain brainstorming, implementation and the review panel into one command, then integrate and archive across the same three-state pipeline, pausing only at the human gates. Re-run to fix or to integrate. Use for /myflow-fast.
-allowed-tools: Bash(openspec:*)
+allowed-tools: Bash(spectre:*)
 license: MIT
 ---
 
@@ -155,7 +155,7 @@ in the state file (see **State write and handoff** below), and the handoff this 
 does not offer an artifact link.
 
 Once **D. Basic Workflow #3 — Writing plans** (`skills/myflow-start/SKILL.md`), cited above,
-completes and the OpenSpec artifacts exist, continue — within the same invocation and without a
+completes and the change's artifacts exist, continue — within the same invocation and without a
 further command from the operator — into `skills/myflow-do/SKILL.md`'s implementation stage, run
 exactly as `/myflow-do` runs it from `STARTED`:
 
@@ -208,8 +208,8 @@ two commits, and the chosen route. Every stage mark is the cited section's own �
 
 Continue, within the same invocation and without a further command from the operator, into
 **Run 2 — archive and clean up** (`skills/myflow-finish/SKILL.md`) exactly as written: verify the
-merge, position the checkout, sync delta specs, archive the change, commit the archive, remove the
-worktrees/branches, verify the cleanup, write `FINISHED`, run self-review, and push the archive
+merge, position the checkout, archive the change, commit the archive, remove the worktrees and
+branches, verify the cleanup, write `FINISHED`, run self-review, and push the archive
 branch and open its pull request. Nothing external blocks this route, so nothing pauses between
 run 1 and run 2 here. Every stage mark is the cited section's own —
 `finish.write-in-progress`, `finish.move-in-review`, `finish.verify-merge`, `finish.sync-archive`,

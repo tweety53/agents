@@ -1,15 +1,15 @@
 ---
 name: myflow-status
 description: Show every open myflow change with its pipeline state, PR, next command, and last update. Read-only. Use for /myflow-status.
-allowed-tools: Bash(openspec:*), Bash(git:*), Bash(jq:*), Bash(myflow:*)
+allowed-tools: Bash(spectre:*), Bash(git:*), Bash(jq:*), Bash(myflow:*)
 license: MIT
-compatibility: Requires openspec CLI, the myflow CLI, and jq.
+compatibility: Requires the spectre CLI, the myflow CLI, and jq.
 metadata:
   author: gymie
   version: "2.0"
 ---
 
-Report the pipeline state of every open (non-archived) OpenSpec change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
+Report the pipeline state of every open (non-archived) spectre change. **Read-only** — never commits, never runs git write operations, never advances a state, and never writes state.
 
 **Announce at start:** "Using myflow-status."
 
@@ -221,7 +221,8 @@ completed.
 Add below the table:
 
 - Linked Jira issue key, or "none linked"
-- Task progress (`N` of `M` checked, from `tasks.md`)
+- Task progress — `done` of `total` from `spectre list --json`, which counts the change's
+  `tasks.md` checkboxes and is the same count `spectre archive` gates on
 - Nested `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that

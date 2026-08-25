@@ -1,12 +1,12 @@
 ---
 name: myflow-start
-description: Propose an OpenSpec change with Superpowers brainstorming and writing-plans woven into OpenSpec artifacts, and publish a proposal artifact. Re-run to revise the proposal. Use for /myflow-start.
-allowed-tools: Bash(openspec:*)
+description: Propose a spectre change with Superpowers brainstorming and writing-plans woven into its artifacts, and publish a proposal artifact. Re-run to revise the proposal. Use for /myflow-start.
+allowed-tools: Bash(spectre:*)
 license: MIT
 ---
 
-Propose an OpenSpec change with Superpowers Basic Workflow steps **#1** and **#3** fully
-intertwined with OpenSpec artifact creation. **No code is written and no worktree is created.**
+Propose a spectre change with Superpowers Basic Workflow steps **#1** and **#3** fully
+intertwined with spectre artifact creation. **No code is written and no worktree is created.**
 
 **Announce at start:** "Using myflow-start for change `<name>`."
 
@@ -43,8 +43,8 @@ on an explicit override.
 
 | Step | Skill | When |
 |------|-------|------|
-| **1** | **superpowers:brainstorming** | Before any OpenSpec artifacts — full checklist, design approval gate |
-| **3** | **superpowers:writing-plans** | After OpenSpec draft artifacts — enrich `tasks.md` to plan quality |
+| **1** | **superpowers:brainstorming** | Before any spectre artifacts — full checklist, design approval gate |
+| **3** | **superpowers:writing-plans** | After the draft artifacts — enrich `tasks.md` to plan quality |
 
 Steps **2, 4–6** run in `myflow-do`. Do not run them here.
 
@@ -200,10 +200,10 @@ the design.
 
 - Save the design to `<project>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it when the
   brainstorming skill requires it.
-- **HARD GATE:** do not run `openspec new change` until the user approves the design.
+- **HARD GATE:** do not run `spectre new` until the user approves the design.
 - For multi-subsystem work, decompose before proposing.
 
-The approved design is the source for OpenSpec `design.md`; adapt its format, never duplicate a
+The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
 
 ### Convergence
@@ -293,20 +293,27 @@ myflow stage end   -command '/myflow-start' -stage start.design-approval -outcom
 
 ```bash
 myflow stage begin -command '/myflow-start' -stage start.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-openspec new change "<name>"
-openspec status --change "<name>" --json
-openspec instructions <artifact-id> --change "<name>" --json
+spectre new "<name>"
 ```
 
-Create every artifact `applyRequires` names:
+`spectre new` scaffolds `<project>/spectre/changes/<name>/`, and the two ways it refuses are the
+ones worth knowing here: exit `2` and a *no tree found* refusal when the project holds no
+`<project>/spectre/` tree at all, and exit `2` and `invalid change id` when `<name>` is not a single
+flat directory name. **That directory is the change root — `<changeRoot>` below — by
+construction**: no call reports it and none exists to, because under spectre the layout is the
+contract rather than something a process answers.
 
-- **proposal.md** — what and why
-- **specs/** — delta specs, one file per capability named in the proposal
+`spectre new` writes a stub `proposal.md` and an empty `tasks.md` and nothing else. Create and fill
+these three artifacts; **this list is the whole of it**, since no command supplies one:
+
+- **proposal.md** — what and why, carrying `## Why` and `## What changes`
 - **design.md** — how, from the approved design, including `## Decisions` and `## Open questions`
   (both below)
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
-Do not copy `<context>` / `<rules>` blocks from the CLI instructions into artifact files.
+**Spec edits go straight into `<project>/spectre/specs/<capability>.md` on the change branch**, one
+flat file per capability, so git carries them to the base branch with the change itself and finish
+run 2 has nothing to merge back.
 
 ### Decisions
 
@@ -381,6 +388,13 @@ Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan q
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
 coverage, placeholder scan, type consistency) before finishing.
 
+**Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
+column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
+`  - [ ] **Step N: …**` lines indented two columns beneath it, belonging to the task's body and
+never tasks of their own. A step left at column 0 is a malformed task line to spectre and no task
+here either. The rule in full, and every field that hangs off the task line, is the `Placement`
+paragraph under **The build-green tag** (`skills/myflow-contracts/build-green.md`).
+
 While enriching `tasks.md`, tag every fenced block and every numeric claim per
 **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`): code that cannot be verified is tagged
 `unverified:` and **kept** — a plan without the snippet is worse than a plan with a labelled guess.
@@ -404,21 +418,17 @@ checked by a runtime guard during `/myflow-do`:
   substance, or a broader area covering them — never a list. A scope is optional: leave it off
   where no single module carries the task, rather than manufacturing one to satisfy the field.
   `check-task-commit-fields.sh` checks this at `/myflow-do`, canonical in
-  **Requirement: A commit's scope names the module, never the change or the task**
-  (`<agents repo>/openspec/specs/myflow-commit-scope/spec.md`) — a capability this change adds, so
-  the guard skips that path until this change's own finish run 2 lands it in
-  `<agents repo>/openspec/specs/`; until then it is a reference nobody verifies, which is said here
-  rather than left to look otherwise.
+  **Commit scopes name the module** (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
 
 A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
-its commit folds into. `tasks.md` in this change's own `<project>/openspec/changes/` directory demonstrates
+its commit folds into. `tasks.md` in this change's own `<project>/spectre/changes/` directory demonstrates
 the real syntax for all of these fields.
 
 Add this header to `tasks.md`:
 
 ```markdown
-> **Execution:** `/myflow-do` implements this plan. Mark each checkbox when its task passes spec +
-> quality review.
+> **Execution:** `/myflow-do` implements this plan. Mark a task's own checkbox when that task
+> passes spec + quality review.
 ```
 
 Before publishing the artifact, run the project's configured plan-provenance guard and its
@@ -435,7 +445,7 @@ myflow stage begin -command '/myflow-start' -stage start.publish-proposal -harne
 ```
 
 Load the `artifact-design` skill, then build one self-contained page carrying the proposal's why
-and what, the design including `## Decisions` and `## Open questions`, the delta specs, and the
+and what, the design including `## Decisions` and `## Open questions`, the spec edits, and the
 task list. Publish it with the Artifact tool. The open questions are carried so that stopping with
 something unanswered is visible at the gate the operator actually reads, rather than held only in
 the session transcript.

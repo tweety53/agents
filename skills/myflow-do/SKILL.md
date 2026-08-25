@@ -1,11 +1,11 @@
 ---
 name: myflow-do
-description: Implement an OpenSpec change with Superpowers TDD and a multi-agent review panel, committing each task as it completes and printing the run instructions in the handoff for one human gate. Re-run to apply a fix. Use for /myflow-do.
-allowed-tools: Bash(openspec:*)
+description: Implement a spectre change with Superpowers TDD and a multi-agent review panel, committing each task as it completes and printing the run instructions in the handoff for one human gate. Re-run to apply a fix. Use for /myflow-do.
+allowed-tools: Bash(spectre:*)
 license: MIT
 ---
 
-Implement an OpenSpec change, committing each task as it completes, and print the run instructions
+Implement a spectre change, committing each task as it completes, and print the run instructions
 in the handoff for the human gate at `IN_PROGRESS`: the operator reviews the diff and runs the
 apps. **Never pushes, merges, or opens a PR** — unless a PR already exists, which is the one
 exception below.
@@ -73,13 +73,32 @@ myflow stage end -command '/myflow-do' -stage do.state-gate -outcome completed <
 
 ```bash
 myflow stage begin -command '/myflow-do' -stage do.load-context -harness <harness> -session-token mf-<literal-token> <name>
-openspec status --change "<name>" --json
-openspec instructions apply --change "<name>" --json
+spectre validate "<name>"
 ```
 
-- `state: "blocked"` → stop; suggest `/myflow-start <name>`.
-- `state: "all_done"` → suggest `/myflow-finish <name>`.
-- Read every path in `contextFiles`. Resolve paths from the CLI JSON, never from an assumed layout.
+Exit `0` is the only exit that proceeds. Exit `1` names findings in this change's own artifacts —
+most often a step checkbox left at column 0, which spectre reads as a malformed task line — and each
+is repaired here, before any code is touched, exactly as a plan defect is. Exit `2` is a usage or IO
+error, and `no such change "<name>"` is the one worth naming: nothing has been proposed under that
+name, so stop and suggest `/myflow-start <name>`.
+
+**The change root is `<project>/spectre/changes/<name>/`, by construction.** Nothing reports it and
+nothing needs to: under spectre the layout is the contract, so it is derived rather than asked for.
+**Read these files, and this list is the whole of it** — no command supplies one:
+
+- `<changeRoot>/proposal.md` — what and why
+- `<changeRoot>/tasks.md` — the plan
+- `<changeRoot>/design.md` — how, when the change carries one; a change may legitimately carry none
+- `<project>/spectre/specs/<capability>.md` for every capability the proposal names — one flat file
+  per capability, edited directly on this change's branch, never a delta
+
+**Whether there is anything left to implement is read off the task checkboxes**, which
+`spectre list --json` reports per change as `done` and `total` in its
+`{"changes":[{"id","done","total"}]}` output:
+
+- `total == 0` → the change has no plan spectre can read: stop, and suggest `/myflow-start <name>`
+  to write one.
+- `total > 0` and `done == total` → every task is already checked: suggest `/myflow-finish <name>`.
 
 **Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
 confirm every guard this command invokes — `check-panel-diff-size.sh`,
@@ -93,7 +112,8 @@ Confirm `tasks.md` meets **writing-plans** quality — exact paths, verification
 bite-sized steps, no placeholders. If it does not, invoke **superpowers:writing-plans** to repair
 it before touching code.
 
-Extract the **Global constraints** verbatim from the delta specs and `design.md` for the reviewers.
+Extract the **Global constraints** verbatim from the capability specs the proposal names and
+`design.md` for the reviewers.
 
 ```bash
 myflow stage end -command '/myflow-do' -stage do.load-context -outcome completed <name>
@@ -112,7 +132,7 @@ marks nothing here:
 myflow stage begin -command '/myflow-do' -stage do.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Invoke **superpowers:using-git-worktrees**. Branch `openspec/<name>`. Never implement on the
+Invoke **superpowers:using-git-worktrees**. Branch `spectre/<name>`. Never implement on the
 default branch without explicit consent. Record each worktree's merge base and absolute path in
 this run's own working notes as soon as the worktree exists — the state file's `worktrees` map is
 written only at the end of section 7. See **2. Isolate the workspace (first run only)**
@@ -193,8 +213,9 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
   > <worktree>/.superpowers/sdd/dispatch-context.md
 ```
 
-where `<changeRoot>` is section 1's `openspec status` output's `changeRoot` field, resolved inside
-this worktree, and `<principles-path>` is the same absolute path of `engineering-principles.md` that
+where `<changeRoot>` is `<project>/spectre/changes/<name>/`, the path section 1 derives, resolved
+inside this worktree, and `<principles-path>` is the same absolute path of
+`engineering-principles.md` that
 `[PRINCIPLES_PATH]` (section 5) names — resolve it here too, since implementers dispatch before the
 principles slot does. A non-zero exit — including the guard being absent — is reported, and
 dispatching proceeds with the prompt shape this stage used before this capability existed; the bundle
@@ -242,8 +263,10 @@ open attribution window, and an open window goes on claiming its successors' tok
 is what `end` closes and what makes a replayed write land on one row rather than two, so **write it
 as a literal and reuse the identical string in both calls** — `task-<n>-implementer` for an
 implementer, and the analogous form for each role below. `-role` is one of `implementer`,
-`reviewer`, `panel-fix` or `red-partner`; `-task` is the task's dotted id from its `tasks.md`
-heading, omitted for a dispatch that ran against no single task; `-started-at` and `-ended-at` are
+`reviewer`, `panel-fix` or `red-partner`; `-task` is the task's id — the flat integer on its
+`tasks.md` task line, per the `Placement` paragraph under **The build-green tag**
+(`skills/myflow-contracts/build-green.md`) — omitted for a dispatch that ran against no single
+task; `-started-at` and `-ended-at` are
 that dispatch's own start and end, RFC 3339. **`-session-token` takes a literal, never a shell
 substitution**, exactly as every `myflow stage` call above it does, and both halves take the same
 one. `-agent-id` goes on `end` here, not `begin`: a serialized implementer dispatch reports its own
@@ -286,12 +309,12 @@ field names. Every implementer dispatch **must** carry each of the six blocks be
 
 > **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
-> your work with `git commit`, carrying a `Task-Id: <n>` trailer where `<n>` is this task's dotted
-> id from its `tasks.md` heading. **The trailer identifies the task; the subject is this task's
-> declared `**Commit:**` field, reproduced exactly** — already what `check-task-commit-fields.sh`
+> your work with `git commit`, carrying a `Task-Id: <n>` trailer where `<n>` is this task's id from
+> its `tasks.md` task line. **The trailer identifies the task; the subject is this task's declared
+> `**Commit:**` field, reproduced exactly** — already what `check-task-commit-fields.sh`
 > enforces. **Never weaken or bypass a project's commit validation to fit** — no `--no-verify`, and
 > no edit to its commit-message validator; a rejected subject means writing one the project accepts.
-> You **may** `git add`/`git commit` your own work, but never `<project>/openspec/` or
+> You **may** `git add`/`git commit` your own work, but never `<project>/spectre/` or
 > `<project>/docs/superpowers/` — `/myflow-finish` stages and commits those.
 
 **A `Build: red` task's commit folds into its green partner.** A task tagged `Build: red` also
@@ -304,7 +327,7 @@ green partner's own commit — the one named by the red task's `Squash-with:` fi
 **A `Build: red` task's own dispatch records `-role red-partner`, not `implementer`.** That role
 exists to mark exactly this case: a dispatch whose work ends up carrying no commit of its own,
 because it was folded into the green partner's. Record it as a pair like any other, with `-task`
-its own dotted id and the end call's `-commit` the green partner's sha as it stands after the fold:
+its own id and the end call's `-commit` the green partner's sha as it stands after the fold:
 
 ```bash
 myflow record dispatch begin -change <name> -task <n> -role red-partner -model <m> \
@@ -325,8 +348,8 @@ myflow record dispatch end -change <name> -key task-<n>-red-partner \
 > against them.
 
 > **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
-> proposal, design, plan, delta specs and engineering principles, gathered for you — you need not go
-> looking for them. You may open any file it names. You **must** still read the actual diff and the
+> proposal, design, plan and engineering principles, gathered for you — you need not go looking
+> for them. You may open any file it names. You **must** still read the actual diff and the
 > actual code you are reviewing or changing: the bundle is shared *input*, never a substitute for the
 > source, and never a shared conclusion.
 
@@ -349,7 +372,7 @@ commit sha back, and **before** the parent dispatches that task for review, the 
 check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
 ```
 
-naming the worktree path, this task's dotted id from its `tasks.md` heading, the commit sha the
+naming the worktree path, this task's id from its `tasks.md` task line, the commit sha the
 implementer just made, and the commit the task started from. A nonzero exit is a guard failure,
 not a review finding — per `myflow-task-commit-fields`'s requirement **A runtime guard checks each
 field against the real commit** — so it does **not** consume one of the review loop's fix-round
@@ -375,8 +398,8 @@ commit. **Record the reviewer's dispatch too** — `-role reviewer`, the same `-
 `-model` — so implementer and reviewer alike leave a row. Nothing writes a ledger line by hand: the
 model is each row's own `-model` field, and the per-task review shape is read off the rows
 themselves, one reviewer row where a combined reviewer ran and two under `full`, so no second
-statement of it can disagree with them. Mark a checkbox `[x]` only after its task passes spec **and**
-quality review.
+statement of it can disagree with them. Mark a **task's** checkbox `[x]` only after that task passes
+spec **and** quality review; a step's checkbox tracks the step and gates nothing.
 
 **The per-task review's shape depends on `reviewPanelRoster`.** Under `light` and `standard`, a
 **single** combined reviewer per task covers spec compliance and code quality together, dispatched
@@ -530,8 +553,8 @@ definition is edited to carry it.
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph:**
 
 > **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
-> proposal, design, plan, delta specs and engineering principles, gathered for you — you need not go
-> looking for them. You may open any file it names. You **must** still read the actual diff and the
+> proposal, design, plan and engineering principles, gathered for you — you need not go looking
+> for them. You may open any file it names. You **must** still read the actual diff and the
 > actual code you are reviewing or changing: the bundle is shared *input*, never a substitute for the
 > source, and never a shared conclusion.
 
@@ -844,16 +867,16 @@ required slot is scoped, if at all, only by its own delta being empty — two me
 recorded reasons. See **Panel re-runs** (`skills/myflow-do/SKILL-rationale.md`) for why.
 
 **Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
-outside the set named in the findings; the fix altered a delta spec, a migration, or a guard's
+outside the set named in the findings; the fix altered a capability spec, a migration, or a guard's
 behaviour; a targeted re-run surfaced a **new** Critical finding; three or more fix rounds have
 already run; or the fix diff exceeds ~150 changed lines **and** adds a new file. Size alone carries
 no risk signal — a mechanical rename is large and harmless, a one-line change to a guard's behaviour
 is small and dangerous — so size never escalates on its own. **The signal it is paired with is `adds
-a new file` and nothing else, because every other risk signal already escalates by itself**: a delta
-spec, a migration, a guard's behaviour and a file outside the findings set each have their own clause
-above, so repeating them here would add no case the ladder does not already reach. What the pairing
+a new file` and nothing else, because every other risk signal already escalates by itself**: a
+capability spec, a migration, a guard's behaviour and a file outside the findings set each have
+their own clause above, so repeating them here would add no case the ladder does not already reach. What the pairing
 does reach is the one gap those clauses leave — a large body of brand-new, wholly unreviewed code in
-a file the findings themselves named. See the delta spec for the longer argument. A
+a file the findings themselves named. See the capability spec for the longer argument. A
 trigger that fires on every fix round of every change in a given repository selects nothing there,
 so where a trigger is found not to discriminate, the correct repair is to narrow the condition, not
 to remove the escalation.
@@ -1078,8 +1101,8 @@ the code it is given, so an excerpt taken now would be invalidated by the fixer'
 is even read — the fix subagent opens the named file itself.
 
 > **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
-> proposal, design, plan, delta specs and engineering principles, gathered for you — you need not go
-> looking for them. You may open any file it names. You **must** still read the actual diff and the
+> proposal, design, plan and engineering principles, gathered for you — you need not go looking
+> for them. You may open any file it names. You **must** still read the actual diff and the
 > actual code you are reviewing or changing: the bundle is shared *input*, never a substitute for the
 > source, and never a shared conclusion.
 
@@ -1283,7 +1306,7 @@ myflow stage end -command '/myflow-do' -stage do.lint-and-test \
 myflow stage begin -command '/myflow-do' -stage do.stage-diff -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Confirm every intended checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit
+Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one commit
 per completed task, per section 4's commit-per-task model, with every fix-round and red-task-partner
 fixup already folded in via `git rebase --autosquash` — no stray `fixup!` commit should remain
 unsquashed on the branch, unless a PR already exists (below), in which case the section's one
@@ -1296,7 +1319,7 @@ git -C <worktree> status
 git -C <worktree> log <merge-base>..HEAD --oneline
 ```
 
-> **`<project>/openspec/` and `<project>/docs/superpowers/` are never part of a task commit.** Section 4's
+> **`<project>/spectre/` and `<project>/docs/superpowers/` are never part of a task commit.** Section 4's
 > COMMIT-PER-TASK clause already excludes both paths from every task and fixup commit; this step
 > only confirms nothing slipped in, it does not stage anything itself. See **7. Verify, stage, and
 > hand off** (`skills/myflow-do/SKILL-rationale.md`) for why.
@@ -1305,11 +1328,11 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 
 **The one push exception.** Every task and fixup commit already sits on the branch, unpushed, per
 sections 4 and 5. If the state file records a `prUrl`, a PR is already open, so this run also
-commits `<project>/openspec/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
+commits `<project>/spectre/` and `<project>/docs/superpowers/` — the only paths a task or fixup commit never touches —
 and pushes everything to the PR branch; otherwise this step commits and pushes nothing. On that path
 only — and in this order — run
 `myflow record render -change <name> -kind all -repo <worktree>`; then
-`commit-split.sh <worktree> <name> "<impl-msg>" "chore(openspec): plan and session records"`;
+`commit-split.sh <worktree> <name> "<impl-msg>" "chore(spectre): plan and session records"`;
 then push the branch, which carries whatever that call committed along with every task and fixup
 commit accumulated since the PR was opened. `<impl-msg>` covers the one case a task or fixup commit
 does not: working-tree edits the operator made at the human gate without staging them — normally
@@ -1330,7 +1353,7 @@ still attempted after any one failure. See **Rendering the session records**
 **`commit-split.sh` is the same guarded chain run 1 uses** — the skipped-empty rule, the
 stop-on-failure rule and the symlinked-planning-path case are all under **Git boundaries**
 (`skills/myflow-contracts/git-boundaries.md`). The empty
-case is ordinary here — a fix round that touched neither `<project>/openspec/` nor the test guide has nothing
+case is ordinary here — a fix round that touched neither `<project>/spectre/` nor the test guide has nothing
 to add — but say in the handoff which of the two commits, if either, was made.
 
 ```bash
@@ -1425,7 +1448,7 @@ the line rather than printing an empty one. See **Description sync**
 
 ## Guardrails
 
-- **Commit per task and per fixup, as section 4 and section 5 require** — never `<project>/openspec/` or
+- **Commit per task and per fixup, as section 4 and section 5 require** — never `<project>/spectre/` or
   `<project>/docs/superpowers/` in a task or fixup commit. **Never push, merge, or open a PR** — except the
   `prUrl` exception above.
 - **Never** run `finishing-a-development-branch`.
@@ -1437,5 +1460,5 @@ the line rather than printing an empty one. See **Description sync**
   explicitly on every other slot.
 - **Never** paste the principle list into a prompt — the reviewer reads the file.
 - **Never** hand off with an open finding of any severity, or a stale clean result.
-- **Never** mark a checkbox before its task review passes.
+- **Never** mark a task's checkbox before that task's review passes.
 - **No flags.** The only argument is the optional change name; report anything else.

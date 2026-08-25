@@ -1,7 +1,7 @@
 ---
 name: myflow-finish
-description: Two-run finish — integrate the branch (open a PR, merge, or leave it manual), then once merged sync delta specs, archive, push, and remove the worktrees. Use for /myflow-finish.
-allowed-tools: Bash(openspec:*)
+description: Two-run finish — integrate the branch (open a PR, merge, or leave it manual), then once merged archive, push, and remove the worktrees. Use for /myflow-finish.
+allowed-tools: Bash(spectre:*)
 license: MIT
 ---
 
@@ -195,7 +195,7 @@ collapses every per-task and fixup commit `/myflow-do` made on the branch back i
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
 
-All three routes commit — implementation, the `<project>/openspec/` planning
+All three routes commit — implementation, the `<project>/spectre/` planning
 artifacts, and the session records under `<project>/docs/superpowers/` — as **two** commits, never
 one.
 
@@ -233,7 +233,7 @@ operator may have edited the worktree at the human gate without staging.
 ```bash
 commit-split.sh <worktree> <name> \
   "<type>(<module>): <what the implementation does>" \
-  "chore(openspec): plan and session records"
+  "chore(spectre): plan and session records"
 ```
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — this
@@ -413,12 +413,33 @@ myflow stage begin -command '/myflow-finish' -stage finish.sync-archive -harness
    the handoff that it was done manually — `prepare-archive-branch.sh`'s own header is the authority
    for the exact commands, per that same step 2.
 
-3. **Sync delta specs, then archive.** Assess each delta in `<changeRoot>/specs/` against
-   `<project>/openspec/specs/`, show a summary, and offer: sync now (recommended), archive without syncing,
-   or cancel. Apply `## ADDED` by appending (creating the capability spec if absent), `## MODIFIED`
-   by replacing the block matched on its `### Requirement:` heading whitespace-insensitively,
-   `## REMOVED` by deleting it, `## RENAMED` in place preserving the body. Then move the change to
-   `<project>/openspec/changes/archive/<YYYY-MM-DD>-<name>/`, taking any nested `<name>-fix-N` with it.
+3. **Archive the change** — under the mark `finish.sync-archive`, whose key stays exactly that
+   although the sync half is gone: renaming it would invalidate every stage run already recorded
+   under it, for the same reason `finish.preserve-sessions` keeps its own name above.
+
+   Run `spectre archive "<name>"` in the main checkout. It `git mv`s
+   `<project>/spectre/changes/<name>/` into `<project>/spectre/changes/archive/<name>/` and leaves the
+   rename staged; it does not commit — step 4 does.
+
+   **A nested `<name>-fix-N` sub-change is a change directory of its own and needs its own call.**
+   `spectre new` refuses an id that is not a single flat directory name, so a sub-change sits beside
+   its parent under `<project>/spectre/changes/`, not inside it, and `spectre archive "<name>"` does
+   not reach it. Run `spectre archive "<name>-fix-N"` for each one in this same step — never left
+   behind, and never archived alone.
+
+   **There is nothing to sync into `<project>/spectre/specs/` first, and no sync step is ever to be
+   added back** — a change edits that tree directly on its own branch, so its spec edits reached the
+   base branch with the merge step 1 proved. Step 3 of **Run 2 — the branch is merged**
+   (`skills/myflow-contracts/finish-contract.md`) states that in full.
+
+   **`spectre archive` refuses four things; `--force` overrides three of them.** Unchecked tasks, a
+   missing `tasks.md`, and a `tasks.md` carrying no task at all each exit `1` and say
+   `(use --force to archive anyway)`. A destination that already exists also exits `1`, and `--force`
+   does **not** override that one. **The pipeline never passes `--force`.** Run 2 is reached only by
+   proving the branch merged, so any of the first three means the change is not actually finished and
+   the flag would archive that fact away instead of fixing it; the fourth means this change is
+   already archived, which step 3 skips rather than repeats, per run 2's re-entrancy. Report the
+   refusal, stop, and leave the change at `IN_PROGRESS`.
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.sync-archive -outcome completed <name>
@@ -433,14 +454,18 @@ myflow stage begin -command '/myflow-finish' -stage finish.commit-archive -harne
    [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
      && git -C <main-checkout> add -A \
      && { git -C <main-checkout> diff --cached --quiet \
-          || git -C <main-checkout> commit -m "chore(openspec): archive change, sync delta specs"; }
+          || git -C <main-checkout> commit -m "chore(<name>): archive change"; }
    ```
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS` — `git -C <main-checkout>` fixes the directory, never the branch.
 
-   The subject is the fixed literal shown, scope included, per **Finish run 2's two commits carry
-   module scopes** (`<agents repo>/openspec/specs/myflow-commit-scope/spec.md`).
+   **The subject's scope is the change name, and that is deliberate here and nowhere else.**
+   `<agents repo>/scripts/gather-self-review-context.sh` finds this commit by grepping for
+   `^chore\(<name>\): .*archive`, so the scope is what makes step 9 resolve *this* change's archive
+   commit rather than the most recent archive commit of any change. Everywhere the scope can name a
+   module instead, it must — **Commit scopes name the module**
+   (`<agents repo>/rules/commit-scope-is-the-module.mdc`).
 
 ```bash
 myflow stage end   -command '/myflow-finish' -stage finish.commit-archive -outcome completed <name>
@@ -516,15 +541,14 @@ transitions nothing — the change is not done.
 9. **Run self-review.** The procedure — skippable per run with running it the default, gathering
    input via a script rather than an inline re-read, one combined reasoning pass across all five
    angles plus the rating, the per-angle filing ask, and the report path — see
-   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
-   requirement to change first when that procedure changes is
-   **Requirement: Self-review runs only after FINISHED is written**
-   (`<agents repo>/openspec/specs/myflow-self-review/spec.md`). What is specific to *executing* it here: the
-   script invocation `gather-self-review-context.sh
+   **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9, which is
+   canonical for the procedure and the file to change first when it changes. What is specific to
+   *executing* it here: the script invocation `gather-self-review-context.sh
    <archived-change-path> <name> <state-dir> <main-checkout>`, resolving `<archived-change-path>` as
-   `<project>/openspec/changes/archive/<YYYY-MM-DD>-<name>/` using the same date step 3 (sync + archive)
-   already used when it moved the change there, and passing `<main-checkout>` as the trust anchor so
-   the script's `--git-common-dir` derivation no longer depends on this run's own working directory.
+   `<project>/spectre/changes/archive/<name>/` — the destination step 3 moved the change to, which
+   carries no date prefix because `spectre archive` adds none — and passing `<main-checkout>` as the
+   trust anchor so the script's `--git-common-dir` derivation no longer depends on this run's own
+   working directory.
 
    The skip prompt fires first, and reads — shape per Operator prompts
    (`skills/myflow-contracts/operator-prompts.md`):
@@ -582,8 +606,9 @@ transitions nothing — the change is not done.
           || git -C <main-checkout> commit -m "docs(self-review): <name> self-review report"; }
    ```
 
-   The subject is the fixed literal shown, scope included, per **Finish run 2's two commits carry
-   module scopes** (`<agents repo>/openspec/specs/myflow-commit-scope/spec.md`).
+   The subject is the fixed literal shown, scope included, per **Commit scopes name the module**
+   (`<agents repo>/rules/commit-scope-is-the-module.mdc`): `self-review` names the directory this
+   commit moves, and `<name>` sits in the description rather than the scope.
 
    A branch mismatch reports the branch found and stops this commit, and so does a commit that FAILS
    (hook rejection) — reported with git's own output either way. The change stays `FINISHED`
@@ -629,8 +654,7 @@ myflow stage end -command '/myflow-finish' -stage finish.push-archive -outcome c
 ## Finished
 
 **Change:** <name>
-**Specs:** synced | skipped | none
-**Archived:** openspec/changes/archive/<date>-<name>/ (committed on chore/archive-<name>)
+**Archived:** spectre/changes/archive/<name>/ (committed on chore/archive-<name>)
 **Archive PR:** <prUrl> | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open a PR against <base>
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
@@ -653,8 +677,7 @@ finishes the change:
 ## Cleanup incomplete — not finished
 
 **Change:** <name>
-**Specs:** synced | skipped | none
-**Archived:** openspec/changes/archive/<date>-<name>/ (committed on chore/archive-<name>)
+**Archived:** spectre/changes/archive/<name>/ (committed on chore/archive-<name>)
 **Remaining:** <what the guard named> | unverified — <what the guard reported on stderr>
 **State:** IN_PROGRESS — FINISHED is not written while anything remains
 
