@@ -357,3 +357,14 @@ only after actually running `<command>` at `<ref>` and reading the result. Writi
 without doing the check it names is worse than leaving the block `unverified` or the number
 `predicted` — it tells the next reader a check happened when it did not, which is exactly the
 failure this contract exists to prevent.
+
+## When a measurement contradicts the plan
+
+A plan is an argument, not a script. An implementer who measures something that contradicts the plan
+reports the measurement and stops, rather than following the plan into a wrong result. The plan or
+the design is amended before the work continues. Silent deviation and silent compliance are both
+failures: the first is indistinguishable from a mistake, the second wastes the measurement.
+
+This is where the tag vocabulary comes due. A guess labelled `unverified:` or `predicted:` is
+honest; the same guess after a run has disproved it is a defect in the plan, and the plan is where
+it is fixed — not routed around in the implementation, and not obeyed anyway.

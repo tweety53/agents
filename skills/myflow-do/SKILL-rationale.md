@@ -31,8 +31,8 @@ chances to disagree.
 ## 3. Documenting a fix, before implementing it
 
 Appending is recommended because most fixes are corrections within the change's existing scope, and
-a sub-change per fix round buys a directory tree the operator has to read back. A nested sub-change
-is never archived alone — it goes with its parent.
+a sub-change per fix round buys another change directory the operator has to read back. A
+sub-change is never archived alone — it is archived with its parent, by its own call.
 
 ## 4. Execute (SDD + TDD)
 

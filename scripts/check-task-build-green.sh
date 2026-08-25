@@ -78,7 +78,7 @@ if [ -d "$CHANGES_DIR" ]; then
   # The glob below (one directory level under CHANGES_DIR) never descends
   # into spectre/changes/archive/*/tasks.md in the first place — an
   # archived change's tasks.md is nested a level deeper, at
-  # archive/<date-name>/tasks.md, so the glob's own depth already excludes
+  # archive/<name>/tasks.md, so the glob's own depth already excludes
   # every archived file without any extra filtering here.
   for tasks_file in "$CHANGES_DIR"/*/tasks.md; do
     [ -e "$tasks_file" ] || continue

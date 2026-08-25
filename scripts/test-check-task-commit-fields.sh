@@ -2436,6 +2436,125 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 64: a closed fence is not reported as unclosed" || fail "case 64: rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 65: a <name>-fix-N SUB-CHANGE alongside its parent. Under spectre a
+# sub-change is a flat sibling under spectre/changes/, so the wrapper's
+# `*/tasks.md` glob matches both and used to exit 2 with "more than one
+# tasks.md found" — taking the guard out of service on every fix round after
+# the first sub-change is created. The sub-change is the plan being
+# implemented, so its tasks.md is the one that must be read.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Parent task, already done
+
+**Files:** `parent-only.txt`
+**Tests:** `test_parent`
+**Commit:** test: parent
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/$CHANGE_NAME-fix-1"
+printf '%s' '- [ ] 1. Fix-round task
+
+**Files:** `alpha.txt`, `beta.txt`
+**Tests:** `test_alpha`
+**Commit:** fix: add alpha
+**Build:** green
+' > "$REPO/spectre/changes/$CHANGE_NAME-fix-1/tasks.md"
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+printf '# test_alpha covers alpha\n' > "$REPO/beta.txt"
+git -C "$REPO" add alpha.txt beta.txt
+git -C "$REPO" commit -q -m "fix: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -ne 2 ] && pass "case 65: a fix sub-change beside its parent is not an ambiguity refusal" \
+  || fail "case 65: rc=$RC out=$OUT"
+case "$OUT" in
+  *"more than one tasks.md"*) fail "case 65: still refused as ambiguous: $OUT" ;;
+  *) pass "case 65: no ambiguity message" ;;
+esac
+# The DECISIVE check: alpha.txt is declared only by the SUB-CHANGE's task 1.
+# If the wrapper read the parent's tasks.md instead, alpha.txt would be an
+# undeclared file and the guard would exit 1 naming it.
+[ "$RC" -eq 0 ] && pass "case 65: the sub-change's own plan was the one read" \
+  || fail "case 65: the parent's plan was read instead (rc=$RC): $OUT"
+
+# ===========================================================================
+# Case 66: the HIGHEST-numbered fix sibling wins — a fix round implements the
+# newest sub-change, and an earlier one is finished.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Parent task
+
+**Files:** `parent-only.txt`
+**Tests:** `test_parent`
+**Commit:** test: parent
+**Build:** green
+'
+for n in 1 2; do
+  mkdir -p "$REPO/spectre/changes/$CHANGE_NAME-fix-$n"
+done
+printf '%s' '- [ ] 1. First fix round
+
+**Files:** `fix-one-only.txt`
+**Tests:** `test_one`
+**Commit:** fix: one
+**Build:** green
+' > "$REPO/spectre/changes/$CHANGE_NAME-fix-1/tasks.md"
+printf '%s' '- [ ] 1. Second fix round
+
+**Files:** `alpha.txt`, `beta.txt`
+**Tests:** `test_alpha`
+**Commit:** fix: add alpha
+**Build:** green
+' > "$REPO/spectre/changes/$CHANGE_NAME-fix-2/tasks.md"
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+printf '# test_alpha covers alpha\n' > "$REPO/beta.txt"
+git -C "$REPO" add alpha.txt beta.txt
+git -C "$REPO" commit -q -m "fix: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 66: the highest-numbered fix sibling is the plan read" \
+  || fail "case 66: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 67: TWO UNRELATED CHANGES still refuse. `-fix-` followed by anything
+# other than digits is a change of its own, not a sub-change, so the guard
+# must not guess between them — the ambiguity this check has always caught.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Task
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** test: alpha
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/$CHANGE_NAME-fix-the-parser"
+printf '%s' '- [ ] 1. Another change entirely
+
+**Files:** `beta.txt`
+**Tests:** `test_beta`
+**Commit:** test: beta
+**Build:** green
+' > "$REPO/spectre/changes/$CHANGE_NAME-fix-the-parser/tasks.md"
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 2 ] && pass "case 67: two unrelated changes still refuse with exit 2" \
+  || fail "case 67: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"more than one tasks.md"*) pass "case 67: the ambiguity message is still the one printed" ;;
+  *) fail "case 67: ambiguity message missing: $OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

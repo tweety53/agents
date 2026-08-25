@@ -74,11 +74,12 @@ myflow stage end -command '/myflow-do' -stage do.state-gate -outcome completed <
 ```bash
 myflow stage begin -command '/myflow-do' -stage do.load-context -harness <harness> -session-token mf-<literal-token> <name>
 spectre validate "<name>"
+spectre list --json
 ```
 
-Exit `0` is the only exit that proceeds. Exit `1` names findings in this change's own artifacts —
-most often a step checkbox left at column 0, which spectre reads as a malformed task line — and each
-is repaired here, before any code is touched, exactly as a plan defect is. Exit `2` is a usage or IO
+Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
+own artifacts — most often a step checkbox left at column 0, which spectre reads as a malformed task
+line — and each is repaired here, before any code is touched, exactly as a plan defect is. Exit `2` is a usage or IO
 error, and `no such change "<name>"` is the one worth naming: nothing has been proposed under that
 name, so stop and suggest `/myflow-start <name>`.
 
@@ -92,9 +93,9 @@ nothing needs to: under spectre the layout is the contract, so it is derived rat
 - `<project>/spectre/specs/<capability>.md` for every capability the proposal names — one flat file
   per capability, edited directly on this change's branch, never a delta
 
-**Whether there is anything left to implement is read off the task checkboxes**, which
-`spectre list --json` reports per change as `done` and `total` in its
-`{"changes":[{"id","done","total"}]}` output:
+**Whether there is anything left to implement is read off the task checkboxes**, which the
+`spectre list --json` call above reports per change as `done` and `total` in its
+`{"changes":[{"id","done","total"}]}` output — read this change's own entry, matched on `id`:
 
 - `total == 0` → the change has no plan spectre can read: stop, and suggest `/myflow-start <name>`
   to write one.
@@ -180,7 +181,7 @@ which of exactly two, with named options rather than open prose — shape per Op
 > **This fix has to be recorded before it is written — where should it go?**
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — the fix is recorded in the
 >   change's own artifacts; nothing new is created, and the plan stays one file
-> - **Create a linked nested `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that
+> - **Create a linked `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that
 >   adds scope the parent change does not describe
 
 If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
@@ -356,7 +357,9 @@ myflow record dispatch end -change <name> -key task-<n>-red-partner \
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. A block tagged
 > `verified:<how>` was checked as stated; if it does not compile, report that — do not contort the
-> code to match it.
+> code to match it. When what you measure contradicts the plan, stop and report the measurement:
+> see **When a measurement contradicts the plan**
+> (`skills/myflow-contracts/plan-provenance.md`).
 
 **Dispatch every implementer on the model the state file records under `models.implementation`**,
 defaulting to Opus (or the harness's strongest available model) when that field is absent or null.

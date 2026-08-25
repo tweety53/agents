@@ -28,12 +28,23 @@ is renumbered flat rather than written `1.1`. A task's body runs from that line 
 line, to the next level-2 or level-3 heading — whichever comes first — or to the end of the file.
 The body is everything below the task line, its `  - [ ] **Step N: …**` step checkboxes included: a
 step is indented two columns beneath its task, belongs to that task's body, and is never a task of
-its own, which is also what keeps spectre's malformed-task check off it. Within that body, the `Build:` tag
-is the **first** line matching the vocabulary above; a body with no such line has no tag at all,
-and a line that merely resembles one (`**Build:** yellow`) is treated the same as no tag rather
-than as a separate malformed-tag class. This is the same placement rule the guard script's own
-docstring states as a regex — this file states it in prose, and the two are required to describe
-the same rule.
+its own, which is also what keeps spectre's malformed-task check off it.
+
+**The two columns of indent belong to the steps alone: a task's FIELDS sit at column 0.** The
+`Build:` tag is read as `^\*\*Build:\*\*\s+(green|red)\s*$` — anchored at column 0, exactly as the
+task line above it is — and `**Squash-with:**` is anchored the same way, as is every field the
+`myflow-task-commit-fields` family adds to a task. Indenting the fields along with the steps is the
+natural reading of "the body sits beneath its task", and it is wrong in a way nothing catches
+kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
+task line to spectre than a step is, while this file's own guard reports
+`task <id> has no **Build:** tag` — naming the consequence and hiding the cause, since the tag is
+there, one column short of where its regex looks. Measured on a one-task plan written both ways.
+
+Within that body, the `Build:` tag is the **first** line matching the vocabulary above; a body with
+no such line has no tag at all, and a line that merely resembles one (`**Build:** yellow`) is
+treated the same as no tag rather than as a separate malformed-tag class. This is the same
+placement rule the guard script's own docstring states as a regex — this file states it in prose,
+and the two are required to describe the same rule, the column-0 anchor included.
 
 ## The guard's scope
 

@@ -97,7 +97,7 @@ command:
 - **`/myflow-start` at `STARTED`** revises the proposal and republishes the artifact to the
   **same** URL.
 - **`/myflow-do` at `IN_PROGRESS`** resumes the existing worktree and applies a fix, documenting it
-  in `proposal.md`/`tasks.md` or a nested `<name>-fix-N` sub-change first, and refreshing the test
+  in `proposal.md`/`tasks.md` or a `<name>-fix-N` sub-change first, and refreshing the test
   guide alongside the code so the two surfaces never drift apart.
 - **`/myflow-finish` at `IN_PROGRESS`** integrates on its first run and archives on its second.
 

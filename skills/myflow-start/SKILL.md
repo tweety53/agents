@@ -296,10 +296,13 @@ myflow stage begin -command '/myflow-start' -stage start.create-artifacts -harne
 spectre new "<name>"
 ```
 
-`spectre new` scaffolds `<project>/spectre/changes/<name>/`, and the two ways it refuses are the
-ones worth knowing here: exit `2` and a *no tree found* refusal when the project holds no
-`<project>/spectre/` tree at all, and exit `2` and `invalid change id` when `<name>` is not a single
-flat directory name. **That directory is the change root — `<changeRoot>` below — by
+`spectre new` scaffolds `<project>/spectre/changes/<name>/`, and refuses three ways, each worth
+knowing here: exit `2` and a *no tree found* refusal when the project holds no `<project>/spectre/`
+tree at all; exit `2` and `invalid change id` when `<name>` is not a single flat directory name; and
+exit `1` and `<path> already exists` when the change is already there. **That last one is the
+ordinary case on a revision run** — this command accepts `STARTED` and re-runs against a change it
+created earlier, so the refusal means the change root is ready, not that anything is wrong. Revise
+the artifacts in place and never `--force` past it. **That directory is the change root — `<changeRoot>` below — by
 construction**: no call reports it and none exists to, because under spectre the layout is the
 contract rather than something a process answers.
 

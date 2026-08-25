@@ -145,7 +145,7 @@ skills/README.md 4781
 skills/myflow-contracts/SKILL.md 9665
 skills/myflow-contracts/artifacts-registry-rationale.md 6981
 skills/myflow-contracts/artifacts-registry.md 7620
-skills/myflow-contracts/build-green.md 4698
+skills/myflow-contracts/build-green.md 6678
 skills/myflow-contracts/finish-contract.md 54286
 skills/myflow-contracts/git-boundaries-rationale.md 2317
 skills/myflow-contracts/git-boundaries.md 5535

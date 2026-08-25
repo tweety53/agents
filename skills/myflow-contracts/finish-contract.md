@@ -304,7 +304,7 @@ the one irreversible step.
    `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**, because
    `spectre archive` adds none: the date-ordered archive OpenSpec gave this pipeline is a real loss,
    accepted, and a prefix re-added here would describe a move the tool does not perform.
-   **One call per change, parent and sub-change alike.** A nested `<name>-fix-N` sub-change is a flat
+   **One call per change, parent and sub-change alike.** A `<name>-fix-N` sub-change is a flat
    sibling under `<project>/spectre/changes/`, never a directory inside its parent — `spectre new`
    refuses an id that is not a single flat directory name — so the parent's call cannot reach it and
    each sub-change is archived by its own call in this same step. Never left behind, never archived

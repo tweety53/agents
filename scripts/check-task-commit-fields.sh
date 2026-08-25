@@ -67,10 +67,13 @@ fi
 
 CHANGES_DIR="$WORKTREE/spectre/changes"
 MATCHES=()
+NAMES=()
 if [ -d "$CHANGES_DIR" ]; then
   for tasks_file in "$CHANGES_DIR"/*/tasks.md; do
     [ -e "$tasks_file" ] || continue
     MATCHES+=("$tasks_file")
+    change_dir="${tasks_file%/tasks.md}"
+    NAMES+=("${change_dir##*/}")
   done
 fi
 
@@ -79,12 +82,65 @@ if [ "${#MATCHES[@]}" -eq 0 ]; then
   exit 2
 fi
 
-if [ "${#MATCHES[@]}" -gt 1 ]; then
+# A <name>-fix-N SUB-CHANGE IS NOT AMBIGUITY. Under spectre a sub-change is a
+# FLAT SIBLING of its parent under spectre/changes/ -- `spectre new` refuses an
+# id that is not a single flat directory name -- so the glob above matches the
+# parent AND every fix sibling as soon as one exists. Under OpenSpec a
+# sub-change was nested and never matched, so "more than one tasks.md" meant
+# two unrelated changes and refusing was right. Refusing now would take this
+# guard out of service on exactly the runs it was added for: every fix round
+# after the first sub-change is created.
+#
+# is_fix_sibling_of_set <name> -- true when <name> is "<stem>-fix-<digits>" AND
+# <stem> is itself one of the matched change names. The digit test is the same
+# one check-cleanup-complete.sh's sub-change row uses, and for the same reason:
+# a change merely named like a neighbour (`demo-fix-the-parser`) is a change of
+# its own, not this change's sub-change, and must still count as ambiguity.
+is_fix_sibling_of_set() {
+  local candidate="$1" suffix stem other
+  case "$candidate" in *-fix-*) ;; *) return 1 ;; esac
+  suffix="${candidate##*-fix-}"
+  case "$suffix" in '' | *[!0-9]*) return 1 ;; esac
+  stem="${candidate%-fix-$suffix}"
+  for other in "${NAMES[@]}"; do
+    [ "$other" = "$stem" ] && return 0
+  done
+  return 1
+}
+
+ROOTS=()
+for change_name in "${NAMES[@]}"; do
+  is_fix_sibling_of_set "$change_name" || ROOTS+=("$change_name")
+done
+
+# MORE THAN ONE ROOT IS STILL A REFUSAL, unchanged: two changes neither of
+# which is the other's fix sibling is the genuine ambiguity this check has
+# always existed to catch, and nothing here may guess between them.
+if [ "${#ROOTS[@]}" -ne 1 ]; then
   echo "check-task-commit-fields.sh: more than one tasks.md found under $CHANGES_DIR, cannot resolve which change: ${MATCHES[*]}" >&2
   exit 2
 fi
 
-TASKS_MD="${MATCHES[0]}"
+ROOT="${ROOTS[0]}"
+
+# THE HIGHEST-NUMBERED FIX SIBLING WINS, and the root wins when there is none.
+# A fix round creates <name>-fix-N and implements THAT plan; an earlier
+# sub-change is finished, and the parent's own tasks were done before any fix
+# round opened. So the newest sub-change is the plan whose tasks are being
+# dispatched, which is the plan this guard has to read.
+CHOSEN="$ROOT"
+CHOSEN_N=-1
+for change_name in "${NAMES[@]}"; do
+  case "$change_name" in "$ROOT"-fix-*) ;; *) continue ;; esac
+  suffix="${change_name##*-fix-}"
+  case "$suffix" in '' | *[!0-9]*) continue ;; esac
+  if [ "$((10#$suffix))" -gt "$CHOSEN_N" ]; then
+    CHOSEN_N="$((10#$suffix))"
+    CHOSEN="$change_name"
+  fi
+done
+
+TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"
 
 if [ -n "$PARENT_SHA" ]; then
   exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA" "$PARENT_SHA"
