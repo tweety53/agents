@@ -155,7 +155,7 @@ written count went stale the first time a guard was added to it, and the same se
 stale again on the next.
 
 **`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
-file — every one under `skills/`, `rules/`, `openspec/specs/`, `commands/`, `commands-claude/`,
+file — every one under `skills/`, `rules/`, `spectre/specs/`, `commands/`, `commands-claude/`,
 `.myflow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
 budget declared for it in the guard's own `budgets()` table, or carries no budget at all. The table
 is keyed on the path relative to the repository root, not on the bare basename, because every skill

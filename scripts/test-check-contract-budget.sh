@@ -490,6 +490,29 @@ else
   failures=$((failures + 1))
 fi
 
+# THE LIVE spectre/specs/ TREE IS COVERED. Its own positive counterpart to the
+# frozen-tree case above: a file placed under spectre/specs/ with no budget
+# row fails exactly the way any other covered-but-undeclared file does. This
+# is the only case in the suite that would notice spectre/specs/ silently
+# falling out of OWNED_CORPUS_SCOPE_DIRS — every other case that touches that
+# root (mkroot's own skeleton, or a plain directory-existence check) is
+# satisfied by an EMPTY spectre/specs/, which today's real spectre/specs/
+# actually is (a bare .gitkeep, no budget rows of its own yet). Mutation-
+# proved below, in the report: deleting spectre/specs from the scope array
+# turns this case's exit 1 into exit 0, and restoring it turns it back.
+mkroot "$FIX/live-spec-tree"
+mkdir -p "$FIX/live-spec-tree/spectre/specs"
+printf 'x\n' > "$FIX/live-spec-tree/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/live-spec-tree/spectre/specs/some-capability.md"
+expect 'a file under the live spectre/specs/ tree is covered' 1 "$FIX/live-spec-tree"
+out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/live-spec-tree" "$GUARD" 2>&1 || true)"
+if printf '%s' "$out" | grep -q '^spectre/specs/some-capability\.md: no budget declared'; then
+  printf 'ok   the live spec-tree file is named\n'
+else
+  printf 'FAIL the live spec-tree file was not named: %s\n' "$out"
+  failures=$((failures + 1))
+fi
+
 # A DIRECTORY TOTAL IS NOT A SUBSTITUTE FOR PER-FILE ROWS. Two real covered
 # files sharing one directory (skills/myflow-contracts/), deliberately picked
 # for a huge budget gap between them: build-green.md a few hundred bytes over

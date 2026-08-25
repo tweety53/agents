@@ -47,16 +47,18 @@
 # exactly how the file inventory in myflow-contract-distribution went stale
 # through three changes before anyone noticed.
 #
-# THE FROZEN openspec/specs/ TREE CARRIES NO ROWS, and never did widen into
-# this table the way the rest of the corpus did — it is no longer part of the
-# corpus at all. scripts/lib/owned-corpus.sh's scope roots name spectre/specs/,
-# not openspec/specs/, so owned_corpus_files no longer enumerates a single file
-# under the old tree; "every covered file needs a row" above already excuses
-# it, the same way it excuses everything else outside the library's scope
-# roots. A ratchet exists to catch REGROWTH, and a frozen tree cannot regrow —
-# nothing under openspec/ is edited again, by this guard's own corpus
-# definition. Do not re-add its rows: that tree is history now, not something
-# this guard measures, no matter how large or small it happens to sit.
+# THE FROZEN openspec/specs/ TREE CARRIES NO ROWS ANY MORE, though it once did:
+# it was the largest single piece of the 79-file, 462-KB widening described
+# above, 33 rows' worth. Those rows are gone now because the tree they measured
+# is no longer part of the corpus at all: scripts/lib/owned-corpus.sh's scope
+# roots name spectre/specs/, not openspec/specs/, so owned_corpus_files no
+# longer enumerates a single file under the old tree, and "every covered file
+# needs a row" above already excuses it, the same way it excuses everything
+# else outside the library's scope roots. A ratchet exists to catch REGROWTH,
+# and a frozen tree cannot regrow — nothing under openspec/ is edited again,
+# by this guard's own corpus definition. Do not re-add its rows: that tree is
+# history now, not something this guard measures, no matter how large or
+# small it happens to sit.
 #
 # THE TABLE IS HAND-MAINTAINED AND HAS NO REGENERATE MODE. A guard that can
 # rewrite its own bound from current sizes makes regeneration the path of least

@@ -59,9 +59,12 @@ source "$SCRIPT_DIR/lib/coverage.sh"
 # The default scan set: everything in this repo that can carry the vocabulary. Kept here
 # and nowhere else, so callers only ever have to say `scripts/check-vocabulary.sh`.
 #
-# `openspec/specs` is not in this list because that tree is FROZEN — history, per
-# scripts/lib/owned-corpus.sh's own corpus definition, never linted again no matter what
-# vocabulary it still carries. That is reason enough on its own today. It is also, separately,
+# `openspec/specs` is not in this list because that tree is FROZEN — history, this repository's
+# convention no matter which guard is asking (see scripts/lib/owned-corpus.sh's corpus
+# definition for the guards that literally source it; this one does not — it has always had its
+# own DEFAULT_TARGETS, never that library's scope roots — but the same tree gets the same answer
+# either way), never linted again no matter what vocabulary it still carries. That is reason
+# enough on its own today. It is also, separately,
 # a record of an earlier decision made while the tree was still live: scanning `openspec/specs`
 # was tried and reverted back then, because a requirement that forbids a retired term has to
 # name that term to do its job (e.g. "SHALL NOT contain `gates`, `tested`, ..."), so a live spec
