@@ -290,18 +290,26 @@ def select_build_tag(body: Sequence[str]) -> Optional[BuildTag]:
 
 class TaskBody(NamedTuple):
     """One task found in a `tasks.md`. `task_line` is the 1-based line
-    number of its `- [ ] <id>. <title>` line; `done` is that line's checkbox
-    state, True for `[x]` and False for `[ ]`, which is the same
-    done-ness `spectre list` counts; `body_start` is the 0-based index, in
+    number of its `- [ ] <id>. <title>` line; `body_start` is the 0-based index, in
     the file's line list, of the first body line, so a caller turns an
     offset within `lines` into a file line number by adding it and 1;
     `lines` is the body itself, fences included."""
 
     id: str
     task_line: int
-    done: bool
     body_start: int
     lines: List[str]
+
+    # The task line's checkbox STATE is deliberately not a field here. Both
+    # guards that import this module answer questions about a task's
+    # `**Build:**` tag and its `**Squash-with:**` field, neither of which
+    # depends on whether the task is done; the one guard that does read
+    # done-ness, plan-dispatch-bundles.py, mirrors TASK_LINE_RE rather than
+    # importing it and reads its own `state` group. A field no caller reads
+    # is a field no test can pin — the reviewer inverted this one's
+    # assignment and all three suites still passed — so it is not carried
+    # until a caller exists. TASK_LINE_RE's `state` group is where it comes
+    # from when one does.
 
 
 def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
@@ -319,7 +327,6 @@ def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
     tasks: List[TaskBody] = []
     open_index: Optional[int] = None
     open_id = ""
-    open_done = False
     in_fence = False
 
     def close(end_index: int) -> None:
@@ -329,7 +336,6 @@ def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
             TaskBody(
                 id=open_id,
                 task_line=open_index + 1,
-                done=open_done,
                 body_start=open_index + 1,
                 lines=list(lines[open_index + 1 : end_index]),
             )
@@ -346,7 +352,6 @@ def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
             close(index)
             open_index = index
             open_id = task_match.group("id")
-            open_done = task_match.group("state") == "x"
             continue
         if BODY_BOUNDARY_RE.match(line):
             close(index)

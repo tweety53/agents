@@ -717,6 +717,30 @@ case "$OUT" in
   *) fail "case 27b: expected the missing-partner message naming 1.1, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 28: TASK_LINE_RE is anchored at COLUMN 0, and that anchor is the whole
+# mechanism the two-column step indent rests on. spectre's malformed-task
+# check tests the RAW line for a `- [` prefix, so an indented line is not a
+# task to it and must not be one here either: a grammar anchored `^\s*-` (or
+# any other relaxation) would read the indented line below as a task that
+# spectre never counts, which is the disagreement this whole task exists to
+# end, reintroduced one indent at a time.
+#
+# The indented line is task-SHAPED — `  - [ ] 2. …`, not a `**Step N:**` —
+# because a step line could never match the pattern anyway and so proves
+# nothing about the anchor. It carries no `**Build:**` tag, so a relaxed
+# anchor reads it as a second, untagged task and this case fails.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Green task\n\n'
+  printf '**Build:** green\n\n'
+  printf -- '  - [ ] 2. An indented task-shaped line, which is no task\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 28: an indented task-shaped line opens no task" || fail "case 28: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 28: no output" || fail "case 28: expected no output, got: $OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

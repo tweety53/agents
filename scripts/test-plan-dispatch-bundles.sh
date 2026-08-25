@@ -329,6 +329,27 @@ run_guard "$TASKS_MD"
 EXPECTED='bundle 1: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 13: only the flat-id task bundles" || fail "case 13: expected [$EXPECTED], got [$OUT]"
 
+# ===========================================================================
+# Case 14: the column-0 anchor, against this guard's OWN copy of the pattern
+# — check-task-build-green.sh's case 28 pins it against the shared grammar,
+# and a mirror is exactly where an anchor quietly relaxes on its own. An
+# indented task-shaped line is not a task to spectre, whose malformed-task
+# check reads the raw line, so it must not be one here. The indented line
+# below declares no **Files:** field, so a relaxed anchor reads it as an
+# unchecked task and exits 1 naming it.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. The only real task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '  - [ ] 2. An indented task-shaped line, which is no task\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 14: an indented task-shaped line opens no task" || fail "case 14: rc=$RC out=$OUT"
+EXPECTED='bundle 1: 1'
+[ "$OUT" = "$EXPECTED" ] && pass "case 14: only the column-0 task bundles" || fail "case 14: expected [$EXPECTED], got [$OUT]"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

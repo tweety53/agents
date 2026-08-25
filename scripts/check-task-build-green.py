@@ -65,9 +65,10 @@ heading), or to end of file. The body is everything BELOW the task line, its
 `  - [ ] **Step N: ...**` step checkboxes included: a step is indented two
 columns beneath its task, is part of that task's body, and is never a task
 of its own — the same distinction spectre's own parser makes, and the indent
-is what keeps spectre's malformed-task check off those lines as well. Splitting a file into tasks, and resolving an id
-to a task, are `lib/plan_grammar.py`'s `iter_tasks` and `select_task`. Within that body, the FIRST line (also
-outside any fence) matching
+is what keeps spectre's malformed-task check off those lines as well.
+Splitting a file into tasks, and resolving an id to a task, are
+`lib/plan_grammar.py`'s `iter_tasks` and `select_task`. Within that body,
+the FIRST line (also outside any fence) matching
 
     ^\\*\\*Build:\\*\\*\\s+(green|red)\\s*$
 
