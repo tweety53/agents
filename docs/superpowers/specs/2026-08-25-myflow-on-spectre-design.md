@@ -193,11 +193,16 @@ through `/myflow-*`, because neither pipeline is usable while it is in progress.
 
 ## Verification
 
-1. The repository's 21 guard tests pass.
+1. Every guard test in `.myflow/project.md`'s `## test` list passes. That list is longer than the 21
+   guard tests **Guards and scripts** above counts as referencing `openspec/changes/...`; the bar is
+   the whole list, not that subset.
 2. `spectre validate` runs clean against the new empty tree.
-3. A real pipeline run end to end — `/myflow-start`, `/myflow-do`, `/myflow-finish` twice — against a
-   scratch project holding a spectre tree, proving the pipeline works on the new layer rather than
-   merely compiling.
+3. A real pipeline run end to end against a scratch project holding a spectre tree, proving the
+   pipeline works on the new layer rather than merely compiling. **`/myflow-fast` is what ran it** —
+   the author redirected the run to it mid-flight and the plan was amended to match: three bare
+   invocations, build then integrate then archive, marking the union of `/myflow-start`'s,
+   `/myflow-do`'s and `/myflow-finish`'s stages under the one command rather than invoking the three
+   separately.
 4. `git status openspec/` reports nothing. The frozen tree must prove it stayed frozen.
 
 ## Non-goals
