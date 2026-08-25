@@ -279,6 +279,68 @@ git commit -m "refactor(scripts): read change artifacts from the spectre tree"
 
 ---
 
+## Task 4b: Make a plan's tasks spectre-readable
+
+Added 2026-08-25 during implementation, after Task 4 found that spectre cannot see a myflow plan's tasks at all. See the design's **The plan's task shape** section, which is binding.
+
+**Files:**
+- Modify: `scripts/lib/plan_grammar.py`, `scripts/check-task-build-green.py`, `scripts/check-task-commit-fields.py`, `scripts/plan-dispatch-bundles.py`
+- Test: `scripts/test-check-task-build-green.sh`, `scripts/test-check-task-commit-fields.sh`, `scripts/test-plan-dispatch-bundles.sh`, `scripts/test-lib-coverage.sh`
+
+**Interfaces:**
+- Consumes: the spectre paths from Tasks 3 and 4.
+- Produces: the task line shape every later task describes — `- [ ] <n>. <title>`, with that task's steps beneath it unchanged. Tasks 6 and 7 document this shape; do not let them find a different one.
+
+The problem, measured against the archived `kan-295` plan before any change: `spectre list` reports `0/0`, `spectre validate` emits 31 findings — one false "malformed task line" per step checkbox — and `spectre archive` refuses with "tasks.md has no tasks". A myflow plan writes `### <n> <title>` per task; spectre reads only `- [ ] <n>. <text>`.
+
+- [ ] **Step 1: Reproduce the failure**
+
+```bash
+D=$(mktemp -d); mkdir -p $D/spectre/specs $D/spectre/changes/demo
+cp openspec/changes/archive/2026-08-23-kan-295-cut-pipeline-load-cost-split-by-consumer/tasks.md $D/spectre/changes/demo/tasks.md
+printf '# demo\n\n## Why\nx\n\n## What changes\ny\n' > $D/spectre/changes/demo/proposal.md
+/Users/tweety53/go/bin/spectre list --root $D
+/Users/tweety53/go/bin/spectre validate --root $D | tail -2
+```
+
+Expected: `demo  0/0`, and a count of findings in the low tens. Record both in your report — they are the before-numbers your fix has to move.
+
+- [ ] **Step 2: Change the grammar, test first**
+
+`scripts/lib/plan_grammar.py` is where a task's identity is recognised. Its task heading becomes the checkbox line: `- [ ] <n>. <title>` and `- [x] <n>. <title>` are both a task, the checkbox state carrying whether it is done. The `**Build:**` and `**Squash-with:**` fields keep their current shape and position relative to the task they belong to. A task's steps — the `- [x] **Step N: ...**` lines beneath — are NOT tasks and must not be recognised as such, which is exactly the distinction spectre's own parser makes.
+
+Write the grammar's test first, run it against the unchanged grammar, and confirm it fails before you change the grammar.
+
+- [ ] **Step 3: Follow the grammar through its three consumers**
+
+`check-task-build-green.py`, `check-task-commit-fields.py` and `plan-dispatch-bundles.py` each read tasks through that grammar. Change each with its test, one pair at a time, running the pair's test before moving on. Where a guard's message names a heading, reword it to name the checkbox line — a message that tells a user to fix a `###` heading that no longer exists is worse than no message.
+
+- [ ] **Step 4: Prove spectre now agrees**
+
+Rewrite the scratch fixture's tasks.md by hand into the new shape — each `### <n> <title>` becoming `- [ ] <n>. <title>`, steps untouched — and re-run:
+
+```bash
+/Users/tweety53/go/bin/spectre list --root $D
+/Users/tweety53/go/bin/spectre validate --root $D; echo "exit=$?"
+```
+
+Expected: real progress rather than `0/0`, and `no findings` with exit 0. If findings remain, they are telling you something the grammar still disagrees about; report them rather than suppressing them.
+
+- [ ] **Step 5: Verify and commit**
+
+```bash
+for t in test-check-task-build-green test-check-task-commit-fields test-plan-dispatch-bundles test-lib-coverage; do
+  scripts/$t.sh >/dev/null 2>&1 && echo "PASS $t" || echo "FAIL $t"
+done
+git status --porcelain openspec/
+git add scripts
+git commit -m "feat(scripts): read a plan's tasks as spectre checkbox lines"
+```
+
+Expected: four `PASS` lines and nothing from `openspec/`.
+
+---
+
 ## Task 5: Flip the corpus guards
 
 **Files:**
