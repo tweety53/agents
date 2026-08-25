@@ -125,9 +125,9 @@ commands-claude/myflow-status.md 1637
 commands/myflow-do.md 2738
 commands/myflow-fast.md 3040
 commands/myflow-finish.md 3507
+commands/myflow-research.md 1038
 commands/myflow-start.md 2178
 commands/myflow-status.md 1981
-commands/spectre-research.md 1038
 rules/agent-baseline.md 6883
 rules/be-brief.mdc 7782
 rules/build-the-simplest-thing.mdc 3660
@@ -180,10 +180,10 @@ skills/myflow-fast/SKILL-rationale.md 3241
 skills/myflow-fast/SKILL.md 25636
 skills/myflow-finish/SKILL-rationale.md 5786
 skills/myflow-finish/SKILL.md 50207
+skills/myflow-research/SKILL.md 4600
 skills/myflow-start/SKILL-rationale.md 7030
 skills/myflow-start/SKILL.md 38342
 skills/myflow-status/SKILL.md 22856
-skills/spectre-research/SKILL.md 4600
 EOF
 }
 

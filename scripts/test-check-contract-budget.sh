@@ -389,9 +389,9 @@ printf 'x\n' > "$FIX/skill-undeclared/skills/mystery-skill/SKILL.md"
 expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared"
 
 # Two skills whose SKILL.md files carry different budgets in the real table —
-# skills/spectre-research/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
+# skills/myflow-research/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
 # much larger one). skills/myflow-do/SKILL.md is sized to the midpoint between
-# the two real rows, read from the guard itself: above spectre-research's row,
+# the two real rows, read from the guard itself: above myflow-research's row,
 # below myflow-do's row, by construction rather than by a number that must stay
 # between two rows that can each move independently. If the table were still
 # keyed on the bare basename "SKILL.md" — the collision this key fixes —
@@ -400,27 +400,27 @@ expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared
 # hand it. Keyed on the path relative to the repository root, each file is
 # checked against its own row and both pass.
 mkroot "$FIX/skill-distinct"
-mkdir -p "$FIX/skill-distinct/skills/spectre-research" "$FIX/skill-distinct/skills/myflow-do"
+mkdir -p "$FIX/skill-distinct/skills/myflow-research" "$FIX/skill-distinct/skills/myflow-do"
 printf 'x\n' > "$FIX/skill-distinct/skills/myflow-contracts/build-green.md"
-printf 'x\n' > "$FIX/skill-distinct/skills/spectre-research/SKILL.md"
-spectre_research_budget="$(budget_row_bytes 'skills/spectre-research/SKILL.md')"
+printf 'x\n' > "$FIX/skill-distinct/skills/myflow-research/SKILL.md"
+myflow_research_budget="$(budget_row_bytes 'skills/myflow-research/SKILL.md')"
 myflow_do_budget="$(budget_row_bytes 'skills/myflow-do/SKILL.md')"
 
 # The fixture only discriminates the basename-collision bug when mid_size
 # lands STRICTLY BETWEEN the two rows. If the rows ever converge, integer
-# division makes mid_size collapse onto spectre_research_budget and the case
+# division makes mid_size collapse onto myflow_research_budget and the case
 # below would keep reporting "ok" even with the collision bug back in place —
 # F15's own defect class (a fixture that stops discriminating when its
 # premise erodes), reintroduced by the round that fixed F15 (F16). Assert the
 # premise rather than assume it, and fail the whole harness loudly, naming
 # both rows, when it does not hold: a fixture that cannot be constructed to
 # discriminate must say so, never quietly pass.
-if [ "$((myflow_do_budget - spectre_research_budget))" -lt 2 ]; then
-  printf 'cannot construct a discriminating fixture: skills/spectre-research/SKILL.md is %s bytes and skills/myflow-do/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
-    "$spectre_research_budget" "$myflow_do_budget" >&2
+if [ "$((myflow_do_budget - myflow_research_budget))" -lt 2 ]; then
+  printf 'cannot construct a discriminating fixture: skills/myflow-research/SKILL.md is %s bytes and skills/myflow-do/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
+    "$myflow_research_budget" "$myflow_do_budget" >&2
   exit 2
 fi
-mid_size=$((spectre_research_budget + (myflow_do_budget - spectre_research_budget) / 2))
+mid_size=$((myflow_research_budget + (myflow_do_budget - myflow_research_budget) / 2))
 head -c "$mid_size" /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
 expect 'two skills with different budgets are each checked against their own row' \
   0 "$FIX/skill-distinct"

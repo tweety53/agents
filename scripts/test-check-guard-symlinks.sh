@@ -758,7 +758,7 @@ assert_ok "the agents repository's own tree validates cleanly"
 #    level, so this rule closes that gap.
 #
 #    Both fixture skills below are named "myflow-start" and
-#    "spectre-research" — the guard's own two declared-expected-zero
+#    "myflow-research" — the guard's own two declared-expected-zero
 #    members — so neither fixture's genuinely-empty required set trips the
 #    unrelated KAN-197 coverage check; these cases are about rule 5 alone.
 # ---------------------------------------------------------------------------
@@ -766,15 +766,15 @@ assert_ok "the agents repository's own tree validates cleanly"
 # 8a. The violation: a symlink directly under a skill directory, pointing at
 #     a file in a sibling skill, with no other defect anywhere in the tree.
 new_repo
-mkdir -p "$REPO/skills/spectre-research"
-printf 'principles\n' > "$REPO/skills/spectre-research/engineering-principles.md"
-write_skill_md "spectre-research" "# fixture, no citations"
+mkdir -p "$REPO/skills/myflow-research"
+printf 'principles\n' > "$REPO/skills/myflow-research/engineering-principles.md"
+write_skill_md "myflow-research" "# fixture, no citations"
 write_skill_md "myflow-start" "# fixture, no citations"
-ln -s "../spectre-research/engineering-principles.md" "$REPO/skills/myflow-start/engineering-principles.md"
+ln -s "../myflow-research/engineering-principles.md" "$REPO/skills/myflow-start/engineering-principles.md"
 run_guard "$REPO"
 assert_invalid "a symlink directly under a skill directory's top level is a rule 5 violation"
 if printf '%s\n' "$OUT" | grep -q "engineering-principles.md" \
-  && printf '%s\n' "$OUT" | grep -q "../spectre-research/engineering-principles.md"; then
+  && printf '%s\n' "$OUT" | grep -q "../myflow-research/engineering-principles.md"; then
   pass "rule 5: the report names both the symlink's path and its target"
 else
   fail "rule 5: the report does not name both the symlink's path and its target: $OUT"

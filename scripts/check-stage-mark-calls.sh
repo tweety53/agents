@@ -256,7 +256,7 @@ guess_placeholder() {
 # scripts/lib/coverage.sh's own header for the same constraint).
 EXPECTED_ZERO_FILES=(
   "skills/myflow-contracts/SKILL.md"
-  "skills/spectre-research/SKILL.md"
+  "skills/myflow-research/SKILL.md"
 )
 EXPECTED_ZERO_REASONS=(
   "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"

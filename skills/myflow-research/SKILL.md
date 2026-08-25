@@ -1,5 +1,5 @@
 ---
-name: spectre-research
+name: myflow-research
 description: Research mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements before or during a change. Touches no pipeline state.
 ---
 

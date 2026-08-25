@@ -863,7 +863,7 @@ done < "$SKILL_NAMES_FILE"
 # this repository). Declaring a name that is not part of the current corpus
 # at all would make it a KAN-197 F3 "declared but never recorded" violation
 # for every fixture that does not happen to carry a "myflow-start" or
-# "spectre-research" directory of its own — not a real staleness, just a
+# "myflow-research" directory of its own — not a real staleness, just a
 # mismatch between this guard's own hardcoded real-repo names and a smaller
 # sandboxed tree. Gating on actual corpus membership keeps F3's protection
 # meaningful for the real repository (both names are real directories here
@@ -888,7 +888,7 @@ declare_if_present() {
 }
 
 declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .myflow/project.md, never one symlinked into its own scripts/ directory"
-declare_if_present "spectre-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
+declare_if_present "myflow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

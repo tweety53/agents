@@ -171,8 +171,8 @@ declare_if_present "skills/myflow-do/engineering-principles.md" \
   "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
 declare_if_present "skills/myflow-do/security-reviewer-prompt.md" \
   "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
-declare_if_present "commands/spectre-research.md" \
-  "command-dispatch stub — delegates to the spectre-research skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "commands/myflow-research.md" \
+  "command-dispatch stub — delegates to the myflow-research skill by name, not by path; cites no .md/.mdc path at all"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then
