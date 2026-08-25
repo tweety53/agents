@@ -892,7 +892,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	planDir := filepath.Join(repo, "openspec", "changes", "demo")
+	planDir := filepath.Join(repo, "spectre", "changes", "demo")
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
 		t.Fatalf("mkdir plan dir: %v", err)
 	}

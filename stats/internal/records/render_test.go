@@ -49,7 +49,7 @@ func guardWorktree(t *testing.T, change, panel string) string {
 	t.Helper()
 	root := t.TempDir()
 
-	planDir := filepath.Join(root, "openspec", "changes", change)
+	planDir := filepath.Join(root, "spectre", "changes", change)
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
 		t.Fatalf("mkdir plan dir: %v", err)
 	}
