@@ -96,18 +96,19 @@ conventions and the patterns already present in the surrounding code.
 
 ---
 
-## Project Skills (OpenSpec / /myflow workflow)
+## Project Skills (spectre / /myflow workflow)
 
 These skills live in `skills/` next to this file (or in `<project>/.codex/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
-All skills require the `openspec` CLI to be installed.
+Every skill below but `myflow-research` requires the `spectre` CLI to be installed.
+`myflow-research` needs none — reading a spectre tree is reading markdown.
 
 ### Skill index
 
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
-| `skills/myflow-start/` | `/myflow-start` | Proposal: brainstorming behind a design gate, the OpenSpec artifacts, and a published proposal artifact. Re-run to revise, republishing to the **same** URL |
+| `skills/myflow-start/` | `/myflow-start` | Proposal: brainstorming behind a design gate, the spectre artifacts, and a published proposal artifact. Re-run to revise, republishing to the **same** URL |
 | `skills/myflow-do/` | `/myflow-do` | Implementation: SDD + TDD in an isolated worktree, the review panel, and a staged diff whose handoff carries the run instructions. Re-run to fix; a fix never moves the state. Carries the reviewer prompts + `engineering-principles.md` |
 | `skills/myflow-finish/` | `/myflow-finish` | **Run 1** integrates the branch (PR by default, merge, or manual). **Run 2**, once merged, archives the change and removes what the pipeline created |
 | `skills/myflow-fast/` | `/myflow-fast` | Composite: chains `/myflow-start`'s brainstorming and `/myflow-do`'s implementation into one invocation, and `/myflow-finish`'s two runs into one when the chosen route needs no external merge — same three states, same state file, no human gate in between. Publishes no proposal artifact. See `skills/myflow-fast/SKILL.md` |

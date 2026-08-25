@@ -21,10 +21,11 @@ can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist
 review panel passes and seven fix waves that found defect class after defect class in the Bash
 version — canonical enumeration and full history in `check-plan-provenance.py`'s own module
 docstring (this file does not restate the count, since a copied number is exactly what let an
-earlier, wrong count survive six review passes) and
-`openspec/changes/kan-14-plan-provenance/design.md`'s "Post-review reshape" section. Every other
-guard in this repository remains Bash-only; adding Python here was a deliberate, recorded widening
-of the toolchain, not a drift.
+earlier, wrong count survive six review passes) and in
+`openspec/changes/archive/2026-07-29-kan-14-plan-provenance/design.md` — frozen and historical, a
+record of why the wrapper exists rather than a live artifact — under its "Post-review reshape"
+section. Every other guard in this repository remains Bash-only; adding Python here was a
+deliberate, recorded widening of the toolchain, not a drift.
 
 ### artifact tree
 
@@ -231,10 +232,11 @@ clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
 content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint
 step does, is unaffected by that split. The long-standing exception recorded here previously — a
 block of unattributed fenced snippets in `kan-8-myflow-updates`'s plan — cleared on its own when
-that change archived, exactly as predicted, because the guard excludes `openspec/changes/archive/`
-by design. There is no known exception left. A future non-zero exit is a real hit on a plan in
-flight: fix the offending line by stating its provenance, never by narrowing the guard's scope or
-adding a suppression marker.
+that change archived, exactly as predicted, because the guard excludes `changes/archive/` by
+design — `spectre/changes/archive/` today, `openspec/changes/archive/` in the frozen tree where
+that change actually sits. There is no known exception left. A future non-zero exit is a real hit
+on a plan in flight: fix the offending line by stating its provenance, never by narrowing the
+guard's scope or adding a suppression marker.
 
 ## stop
 

@@ -18,11 +18,12 @@
 # pass 5 alone, on a settled tree, after four of seven reviewers had
 # already called it clean (full history and the canonical enumeration:
 # check-plan-provenance.py's own module docstring, and
-# openspec/changes/kan-14-plan-provenance/design.md's "Post-review
-# reshape" section — this comment does not restate the count, since a
-# copied number is exactly what let an earlier, wrong count survive six
-# review passes). The operator's call: stop patching an ERE
-# allowlist and replace it with a real block-structure parser — a
+# openspec/changes/archive/2026-07-29-kan-14-plan-provenance/design.md's
+# "Post-review reshape" section, in the frozen tree — this comment does
+# not restate the count, since a copied number is exactly what let an
+# earlier, wrong count survive six review passes). The operator's call:
+# stop patching an ERE allowlist and replace it with a real
+# block-structure parser — a
 # container stack recorded at fence-open time, and a language with O(1)
 # indexing rather than bash 3.2's O(N) sequential array access. Python's
 # standard library was chosen over a Markdown/CommonMark library because

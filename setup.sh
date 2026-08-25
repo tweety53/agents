@@ -68,7 +68,7 @@ SKIPPED=0
 #     `commands/*.md` and `rules/*.mdc`, and `.bak` falls outside both globs.
 #   - A DIRECTORY goes to a sibling `<parent>-backup/<name>-<timestamp>/`, OUTSIDE
 #     the scanned tree. `<dest>.bak` would not work here: a skills directory is
-#     discovered by walking the tree for SKILL.md, so `openspec-propose.bak/` stays
+#     discovered by walking the tree for SKILL.md, so `myflow-start.bak/` stays
 #     live alongside the symlink — two loadable skills declaring the same name,
 #     which is precisely the stale-copy shadowing this function exists to prevent.
 link_into() {

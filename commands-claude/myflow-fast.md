@@ -22,7 +22,7 @@ boundaries and the finish contract.
 
 **Input:** the change name or a description/Jira key to seed a new change, from `$ARGUMENTS` or
 the conversation — and nothing else. **This command takes no flags.** If omitted at `IN_PROGRESS`,
-run `openspec list --json` and use the sole relevant open change, asking which when there are
+run `spectre list --json` and use the sole relevant open change, asking which when there are
 several. Report any argument that is not a change name, description, or fix instruction rather
 than ignoring it.
 

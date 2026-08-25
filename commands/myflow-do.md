@@ -19,6 +19,6 @@ Runs the project's lint and test commands before handing off, because **nothing 
 
 Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness resolve it rather than assuming a project-local path. It is a stub: **load `skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions and the finish contract.
 
-**Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `openspec list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
+**Input:** the change name, from `$ARGUMENTS` or the conversation — and nothing else. **This command takes no flags.** If the name is omitted, run `spectre list --json` and use the sole relevant open change, asking which when there are several. Report any argument that is not a change name rather than ignoring it.
 
 **When done:** review the staged diff and run the apps. Re-run `/myflow-do <name>` to fix anything you find, then `/myflow-finish <name>`.

@@ -1,6 +1,6 @@
 # agents-data
 
-Portable, project-agnostic agent configuration — the **myflow** pipeline (OpenSpec +
+Portable, project-agnostic agent configuration — the **myflow** pipeline (spectre +
 Superpowers), its skills, slash commands, and always-on rules.
 Contains the rule set, an index of the skills, and installation instructions for every
 supported AI harness.
@@ -39,15 +39,17 @@ agents-data/
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
 ├── commands/                          ← Cursor slash commands (myflow + myflow-research)
 ├── commands-claude/                   ← Claude Code slash commands (myflow only)
-└── skills/                            ← OpenSpec / /myflow skills
-    ├── README.md                      ← myflow command map
-    ├── myflow-start/                  ← /myflow-start
-    ├── myflow-do/                     ← /myflow-do; carries the review-panel prompts + engineering-principles.md
-    ├── myflow-finish/                 ← /myflow-finish (integrate, then archive + clean up)
-    ├── myflow-fast/                   ← /myflow-fast (composite: brainstorm+implement, then integrate+archive, chained)
-    ├── myflow-status/                 ← read-only state report for open changes
-    ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
-    └── myflow-research/               ← /myflow-research — thinking-partner mode, touches no state
+├── skills/                            ← spectre / /myflow skills
+│   ├── README.md                      ← myflow command map
+│   ├── myflow-start/                  ← /myflow-start
+│   ├── myflow-do/                     ← /myflow-do; carries the review-panel prompts + engineering-principles.md
+│   ├── myflow-finish/                 ← /myflow-finish (integrate, then archive + clean up)
+│   ├── myflow-fast/                   ← /myflow-fast (composite: brainstorm+implement, then integrate+archive, chained)
+│   ├── myflow-status/                 ← read-only state report for open changes
+│   ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
+│   └── myflow-research/               ← /myflow-research — thinking-partner mode, touches no state
+├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
+└── openspec/                          ← frozen at the 2026-08-25 cutover: the record of how this repository got here, never written to again
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in
@@ -66,9 +68,9 @@ emits both the staged diff and the run instructions, so reviewing and testing ar
 Every command is re-entrant, and a fix never moves the state.
 
 `/myflow-finish` runs **twice**: once to integrate the branch (open a PR by default, merge and
-push, or leave it to you), and again once the branch is merged, to sync delta specs, archive and
-commit onto a `chore/archive-<name>` branch, remove the worktrees, and — after self-review — push
-that branch and open its pull request. **Run 2 never pushes the base branch**; run 1's merge-and-push
+push, or leave it to you), and again once the branch is merged, to archive and commit onto a
+`chore/archive-<name>` branch, remove the worktrees, and — after self-review — push that branch
+and open its pull request. **Run 2 never pushes the base branch**; run 1's merge-and-push
 route still does, when you choose it. It runs **no** tests, linters or coverage check — that
 happened during `/myflow-do`.
 
@@ -118,7 +120,7 @@ no rows.
 | `start.ask-options` | Ask planning effort, models & panel roster (creating run only) | `/myflow-start`, `/myflow-fast` |
 | `start.brainstorm` | Brainstorm ▸ | `/myflow-start`, `/myflow-fast` |
 | `start.design-approval` | Design approval | `/myflow-start`, `/myflow-fast` |
-| `start.create-artifacts` | Create the OpenSpec artifacts | `/myflow-start`, `/myflow-fast` |
+| `start.create-artifacts` | Create the spectre artifacts | `/myflow-start`, `/myflow-fast` |
 | `start.writing-plans` | Writing-plans ▸ | `/myflow-start`, `/myflow-fast` |
 | `start.publish-proposal` | Publish the proposal artifact | `/myflow-start`, `/myflow-fast` |
 | `start.write-started` | Write `STARTED` | `/myflow-start`, `/myflow-fast` |
@@ -142,7 +144,7 @@ no rows.
 | `finish.write-in-progress` | Write `IN_PROGRESS` (run 1) | `/myflow-finish`, `/myflow-fast` |
 | `finish.move-in-review` | Move the issue to In Review (run 1) | `/myflow-finish`, `/myflow-fast` |
 | `finish.verify-merge` | Verify the merge (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.sync-archive` | Position the checkout, sync delta specs and archive (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `finish.sync-archive` | Position the checkout and archive (run 2) | `/myflow-finish`, `/myflow-fast` |
 | `finish.commit-archive` | Commit the archive (run 2) | `/myflow-finish`, `/myflow-fast` |
 | `finish.cleanup` | Cleanup (run 2) ▸ | `/myflow-finish`, `/myflow-fast` |
 | `finish.verify-cleanup` | Verify the cleanup (run 2) | `/myflow-finish`, `/myflow-fast` |
@@ -164,10 +166,9 @@ its own.
 
 `/myflow-finish` run 2's sequence ends with `push-archive`; the row before it, `self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
-**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
-requirement to change first when that procedure changes is
-**Requirement: Self-review runs only after FINISHED is written**
-(`openspec/specs/myflow-self-review/spec.md`).
+**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9 — which is
+also the file to change when that procedure changes, since the requirements layer that once sat
+above it is frozen with the rest of the `openspec/` tree at the spectre cutover.
 
 ### Level 2 — the stages that hide substructure
 
@@ -178,9 +179,9 @@ copied here is a copy that can go wrong silently the next time the owning file c
 #### Brainstorm — `/myflow-start`
 
 superpowers:brainstorming runs its checklist in full and ends with the operator approving the
-design, which is a hard gate: nothing is created under `openspec/changes/` until that approval
+design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
 lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
-change's OpenSpec design artifact — adapted, never duplicated into a conflicting second design.
+change's `design.md` artifact — adapted, never duplicated into a conflicting second design.
 
 The stage iterates rather than passing once. After every planning-stage exchange — a round of
 clarifying questions, the approval of a design section, the operator's review of the written spec —
@@ -339,7 +340,7 @@ symlinks and need no re-run.
 | `~/.claude/skills/` | every directory in `skills/` (one symlink per skill) |
 | `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/myflow-*` commands through these |
 | `~/.claude/commands/` | every file in `commands-claude/` — the `/myflow-*` Claude Code commands |
-| `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*` and `/opsx:*` Cursor commands |
+| `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*` Cursor commands |
 | `~/.cursor/rules/` | whichever rules declare `alwaysApply: true` in their frontmatter, and only those |
 | `~/.claude/rules/` | the same always-on rules, symlinked as `<name>.md` — their **full text**, which the managed block's `Full rule:` pointers name. Plus `agent-baseline.md`, the file a dispatched subagent is told to read |
 | `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
@@ -574,7 +575,7 @@ Read file: .claude/skills/myflow-start/SKILL.md
 
 The `/myflow-*` skills internally reference Superpowers skills (brainstorming, TDD, etc.).
 Without Superpowers those general skills won't auto-trigger, so the overall workflow is
-degraded but the OpenSpec-specific steps still work.
+degraded but the spectre-specific steps still work.
 
 ---
 
@@ -588,7 +589,7 @@ degraded but the OpenSpec-specific steps still work.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|
-| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design-approval gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
+| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design-approval gate, the spectre artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | You | Read the proposal artifact |
 | `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots, with Security, Adversarial and extra lenses staying conditional under every preset — which hands off only at **zero open findings at any severity**. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
 | *(gate)* | You | Review the staged diff **and** run the apps |
@@ -605,7 +606,9 @@ here — one ordered list rather than two competing ones in the same file.
 The branch's merge status alone decides which `/myflow-finish` run happens, so a PR you merged on
 the forge and a merge it performed itself are indistinguishable to it — which is correct.
 
-All skills require the `openspec` CLI (`npm install -g openspec` or check project README).
+Every skill above but `myflow-research` requires the `spectre` CLI
+(`go install github.com/tweety53/spectre/cmd/spectre@latest`, with `$(go env GOPATH)/bin` on your
+`PATH`). `myflow-research` needs none — reading a spectre tree is reading markdown.
 
 ---
 

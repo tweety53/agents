@@ -1,6 +1,6 @@
 # myflow skills
 
-**myflow** = OpenSpec + Superpowers **Basic Workflow** bridge with a **three-state** machine: a
+**myflow** = spectre + Superpowers **Basic Workflow** bridge with a **three-state** machine: a
 proposal gate, one combined review-and-test gate, and a finish command that integrates before it
 archives.
 
@@ -40,7 +40,7 @@ asked which.
 
 | Command | Skill | What it does |
 |---------|-------|--------------|
-| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
+| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design gate, the spectre artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
 | *(gate)* | you | Read the proposal artifact |
 | `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, printing the run instructions in its handoff beside a staged diff. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
 | *(gate)* | you | Review the staged diff **and** run the apps |
@@ -64,4 +64,4 @@ skills/
 └── myflow-research/   ← /myflow-research
 ```
 
-The `/myflow-*` skills require the `openspec` CLI (`npm install -g openspec`); `myflow-research` needs none — reading a spectre tree is reading markdown.
+The `/myflow-*` skills require the `spectre` CLI (`go install github.com/tweety53/spectre/cmd/spectre@latest`); `myflow-research` needs none — reading a spectre tree is reading markdown.
