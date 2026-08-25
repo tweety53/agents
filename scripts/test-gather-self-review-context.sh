@@ -4,9 +4,8 @@
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
 # contract — Requirement: "Context is gathered deterministically, not by the
-# model re-reading files" in
-# openspec/changes/kan-23-myflow-self-review/specs/myflow-self-review/spec.md
-# — never against whatever the script happens to print.
+# model re-reading files" in this repository's archived kan-23-myflow-self-review
+# change's delta spec — never against whatever the script happens to print.
 # test-check-plan-provenance.sh's header records that suite encoding the
 # guard's own defects as its specification more than once, which then made
 # each defect look verified; the same mistake is possible here.
@@ -49,7 +48,7 @@ trap cleanup EXIT
 
 # The relative <archived-change-path> shape this script's documented caller
 # always uses (skills/myflow-finish/SKILL.md step 8).
-REL="openspec/changes/archive/2026-01-01-demo"
+REL="spectre/changes/archive/2026-01-01-demo"
 
 # new_repo -> sets REPO, ARCHIVED, STATE_DIR for the change named `demo`.
 # ARCHIVED is a real directory inside a git repository, since the script
@@ -67,7 +66,7 @@ new_repo() {
       && git config user.name test \
       && git commit -q --allow-empty -m "init"
   )
-  ARCHIVED="$REPO/openspec/changes/archive/2026-01-01-demo"
+  ARCHIVED="$REPO/spectre/changes/archive/2026-01-01-demo"
   mkdir -p "$ARCHIVED"
   STATE_DIR="$REPO/.state"
   mkdir -p "$STATE_DIR"
@@ -106,9 +105,9 @@ add_commits() {
       && printf 'IMPLEMENTATION-COMMIT-BODY\n' > src/demo-feature.txt \
       && git add src/demo-feature.txt \
       && git commit -q -m "feat(demo): IMPLEMENTATION-COMMIT-BODY" \
-      && mkdir -p openspec/changes/demo \
-      && printf 'PLAN-COMMIT-BODY\n' > openspec/changes/demo/proposal.md \
-      && git add openspec/changes/demo/proposal.md \
+      && mkdir -p spectre/changes/demo \
+      && printf 'PLAN-COMMIT-BODY\n' > spectre/changes/demo/proposal.md \
+      && git add spectre/changes/demo/proposal.md \
       && git commit -q -m "chore(demo): plan, test guide and session records PLAN-COMMIT-BODY" \
       && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change ARCHIVE-COMMIT-BODY"
   )
@@ -324,7 +323,7 @@ run_it
 [ "$RC" -eq 0 ] && pass "archived path missing: exits 0" \
   || fail "archived path missing: rc=$RC out=$OUT"
 case "$OUT" in
-  *"note: archived-change-path '$REL' does not resolve to the expected openspec/changes/archive/<leaf> location — every source below is reported skipped for that reason"*) \
+  *"note: archived-change-path '$REL' does not resolve to the expected spectre/changes/archive/<leaf> location — every source below is reported skipped for that reason"*) \
     pass "archived path missing: note printed" ;;
   *) fail "archived path missing: note not printed: $OUT" ;;
 esac
@@ -380,7 +379,7 @@ esac
 # SECTION: F13 — the exact same symlinked-archive-directory attack as
 # "archived path is symlink" above, but invoked WITH a trailing slash on
 # $ARCHIVED_PATH (the shape skills/myflow-finish/SKILL.md actually
-# documents: openspec/changes/archive/<date>-<name>/). Must be refused
+# documents: spectre/changes/archive/<date>-<name>/). Must be refused
 # identically, never leaked, regardless of the trailing slash.
 # ===========================================================================
 
@@ -411,7 +410,7 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# SECTION: F14 — openspec/changes/archive itself (one level above the leaf)
+# SECTION: F14 — spectre/changes/archive itself (one level above the leaf)
 # is a symlink. The leaf ($ARCHIVED, the <date>-<name> directory) is an
 # ordinary, non-symlink directory underneath it, so the F12/F13 leaf-only
 # check must not be what catches this — the lexical-vs-real comparison must.
@@ -422,8 +421,8 @@ OUTSIDE_ARCHIVE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-archive.XX
 TREES+=("$OUTSIDE_ARCHIVE_DIR")
 mkdir -p "$OUTSIDE_ARCHIVE_DIR/2026-01-01-demo"
 printf 'TOP-SECRET-F14-CONTENT\n' > "$OUTSIDE_ARCHIVE_DIR/2026-01-01-demo/tasks.md"
-rm -rf "$REPO/openspec/changes/archive"
-ln -s "$OUTSIDE_ARCHIVE_DIR" "$REPO/openspec/changes/archive"
+rm -rf "$REPO/spectre/changes/archive"
+ln -s "$OUTSIDE_ARCHIVE_DIR" "$REPO/spectre/changes/archive"
 add_commits
 run_it
 [ "$RC" -eq 0 ] && pass "archive ancestor is symlink: exits 0" \
@@ -451,14 +450,14 @@ esac
 
 # ===========================================================================
 # SECTION: F21 — the same must catch an ancestor symlink at hop 2
-# (openspec/changes/) too, not just hop 1 (archive/, tested above as F14).
+# (spectre/changes/) too, not just hop 1 (archive/, tested above as F14).
 # ===========================================================================
 
 new_repo
 # add_commits runs BEFORE the ancestor is clobbered with a symlink below:
-# it now stages real commits under openspec/changes/demo/ (finding A, this
+# it now stages real commits under spectre/changes/demo/ (finding A, this
 # change's own review panel, pass 3), and `git add` refuses any path beyond
-# a symlink — so once openspec/changes/ itself is a symlink, a real `mkdir
+# a symlink — so once spectre/changes/ itself is a symlink, a real `mkdir
 # -p`/`git add` under it would fail outright rather than reach the
 # invocation this section exists to test. The symlink swap is a plain
 # filesystem operation the script reads live off disk; it does not touch
@@ -468,8 +467,8 @@ OUTSIDE_CHANGES_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-changes.XX
 TREES+=("$OUTSIDE_CHANGES_DIR")
 mkdir -p "$OUTSIDE_CHANGES_DIR/archive/2026-01-01-demo"
 printf 'TOP-SECRET-F21-HOP2-CONTENT\n' > "$OUTSIDE_CHANGES_DIR/archive/2026-01-01-demo/tasks.md"
-rm -rf "$REPO/openspec/changes"
-ln -s "$OUTSIDE_CHANGES_DIR" "$REPO/openspec/changes"
+rm -rf "$REPO/spectre/changes"
+ln -s "$OUTSIDE_CHANGES_DIR" "$REPO/spectre/changes"
 run_it
 [ "$RC" -eq 0 ] && pass "changes ancestor is symlink (hop 2): exits 0" \
   || fail "changes ancestor is symlink (hop 2): rc=$RC out=$OUT"
@@ -490,7 +489,7 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# SECTION: F21 — the same must catch an ancestor symlink at hop 3 (openspec/
+# SECTION: F21 — the same must catch an ancestor symlink at hop 3 (spectre/
 # itself) too.
 # ===========================================================================
 
@@ -498,43 +497,43 @@ new_repo
 # add_commits runs BEFORE the ancestor is clobbered — see the matching note
 # on the hop-2 section above.
 add_commits
-OUTSIDE_OPENSPEC_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-openspec.XXXXXX")"
+OUTSIDE_OPENSPEC_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-spectre.XXXXXX")"
 TREES+=("$OUTSIDE_OPENSPEC_DIR")
 mkdir -p "$OUTSIDE_OPENSPEC_DIR/changes/archive/2026-01-01-demo"
 printf 'TOP-SECRET-F21-HOP3-CONTENT\n' > "$OUTSIDE_OPENSPEC_DIR/changes/archive/2026-01-01-demo/tasks.md"
-rm -rf "$REPO/openspec"
-ln -s "$OUTSIDE_OPENSPEC_DIR" "$REPO/openspec"
+rm -rf "$REPO/spectre"
+ln -s "$OUTSIDE_OPENSPEC_DIR" "$REPO/spectre"
 run_it
-[ "$RC" -eq 0 ] && pass "openspec ancestor is symlink (hop 3): exits 0" \
-  || fail "openspec ancestor is symlink (hop 3): rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "spectre ancestor is symlink (hop 3): exits 0" \
+  || fail "spectre ancestor is symlink (hop 3): rc=$RC out=$OUT"
 case "$OUT" in
   *"note: archived-change-path '$REL' resolves through a symlink somewhere between the repository root and the leaf"*) \
-    pass "openspec ancestor is symlink (hop 3): distinct note printed" ;;
-  *) fail "openspec ancestor is symlink (hop 3): distinct note not printed: $OUT" ;;
+    pass "spectre ancestor is symlink (hop 3): distinct note printed" ;;
+  *) fail "spectre ancestor is symlink (hop 3): distinct note not printed: $OUT" ;;
 esac
 case "$OUT" in
   *TOP-SECRET-F21-HOP3-CONTENT*) \
-    fail "openspec ancestor is symlink (hop 3): target tasks.md content leaked into bundle: $OUT" ;;
-  *) pass "openspec ancestor is symlink (hop 3): target tasks.md content not in bundle" ;;
+    fail "spectre ancestor is symlink (hop 3): target tasks.md content leaked into bundle: $OUT" ;;
+  *) pass "spectre ancestor is symlink (hop 3): target tasks.md content not in bundle" ;;
 esac
 case "$OUT" in
   *"skipped: $REL/tasks.md (absent)"*) \
-    pass "openspec ancestor is symlink (hop 3): tasks.md reported skipped" ;;
-  *) fail "openspec ancestor is symlink (hop 3): tasks.md not reported skipped: $OUT" ;;
+    pass "spectre ancestor is symlink (hop 3): tasks.md reported skipped" ;;
+  *) fail "spectre ancestor is symlink (hop 3): tasks.md not reported skipped: $OUT" ;;
 esac
 
 # ===========================================================================
 # SECTION: F22 — a symlinked ancestor at a nesting depth the old bounded
 # 3-hop walk never even reached, combined with an EXTRA directory level under
-# openspec/changes/archive/ that isn't part of the documented shape at all.
-# openspec/ itself is a symlink, and the archived-change-path carries one
+# spectre/changes/archive/ that isn't part of the documented shape at all.
+# spectre/ itself is a symlink, and the archived-change-path carries one
 # extra "subdir/" segment before the <date>-<name> leaf. The old bounded walk
 # would have missed both the extra nesting (never checked at all — the walk
 # only ever considered the fixed 3 hops for the *documented* shape) and,
 # depending on how the extra segment shifted the hop count, potentially the
 # ancestor symlink too. The new mechanism refuses this outright on shape
 # alone (the lexical path doesn't resolve to a single-segment leaf under
-# openspec/changes/archive/), before it even reaches the symlink comparison.
+# spectre/changes/archive/), before it even reaches the symlink comparison.
 # ===========================================================================
 
 new_repo
@@ -545,45 +544,45 @@ OUTSIDE_F22_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-f22.XXXXXX")"
 TREES+=("$OUTSIDE_F22_DIR")
 mkdir -p "$OUTSIDE_F22_DIR/changes/archive/subdir/2026-01-01-demo"
 printf 'TOP-SECRET-F22-CONTENT\n' > "$OUTSIDE_F22_DIR/changes/archive/subdir/2026-01-01-demo/tasks.md"
-rm -rf "$REPO/openspec"
-ln -s "$OUTSIDE_F22_DIR" "$REPO/openspec"
-F22_ARG="openspec/changes/archive/subdir/2026-01-01-demo"
+rm -rf "$REPO/spectre"
+ln -s "$OUTSIDE_F22_DIR" "$REPO/spectre"
+F22_ARG="spectre/changes/archive/subdir/2026-01-01-demo"
 run_with "$F22_ARG"
-[ "$RC" -eq 0 ] && pass "F22 extra nesting + symlinked openspec: exits 0" \
-  || fail "F22 extra nesting + symlinked openspec: rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "F22 extra nesting + symlinked spectre: exits 0" \
+  || fail "F22 extra nesting + symlinked spectre: rc=$RC out=$OUT"
 case "$OUT" in
-  *"note: archived-change-path '$F22_ARG' does not resolve to the expected openspec/changes/archive/<leaf> location"*) \
-    pass "F22 extra nesting + symlinked openspec: shape note printed" ;;
-  *) fail "F22 extra nesting + symlinked openspec: shape note not printed: $OUT" ;;
+  *"note: archived-change-path '$F22_ARG' does not resolve to the expected spectre/changes/archive/<leaf> location"*) \
+    pass "F22 extra nesting + symlinked spectre: shape note printed" ;;
+  *) fail "F22 extra nesting + symlinked spectre: shape note not printed: $OUT" ;;
 esac
 case "$OUT" in
   *TOP-SECRET-F22-CONTENT*) \
-    fail "F22 extra nesting + symlinked openspec: target tasks.md content leaked into bundle: $OUT" ;;
-  *) pass "F22 extra nesting + symlinked openspec: target tasks.md content not in bundle" ;;
+    fail "F22 extra nesting + symlinked spectre: target tasks.md content leaked into bundle: $OUT" ;;
+  *) pass "F22 extra nesting + symlinked spectre: target tasks.md content not in bundle" ;;
 esac
 case "$OUT" in
   *"skipped: $F22_ARG/tasks.md (absent)"*) \
-    pass "F22 extra nesting + symlinked openspec: tasks.md reported skipped" ;;
-  *) fail "F22 extra nesting + symlinked openspec: tasks.md not reported skipped: $OUT" ;;
+    pass "F22 extra nesting + symlinked spectre: tasks.md reported skipped" ;;
+  *) fail "F22 extra nesting + symlinked spectre: tasks.md not reported skipped: $OUT" ;;
 esac
 case "$OUT" in
   *"refused: 0 of 4 sources"*) \
-    pass "F22 extra nesting + symlinked openspec: no source reported refused (skipped, like the missing-path case)" ;;
-  *) fail "F22 extra nesting + symlinked openspec: expected zero refused sources: $OUT" ;;
+    pass "F22 extra nesting + symlinked spectre: no source reported refused (skipped, like the missing-path case)" ;;
+  *) fail "F22 extra nesting + symlinked spectre: expected zero refused sources: $OUT" ;;
 esac
 
 # ===========================================================================
 # SECTION: F20 — a '..' path component that would desync a lexical hop-count
 # walk from the real (kernel-resolved) filesystem ancestors, letting a
 # symlinked ancestor slip past undetected. Reproduces the exact bypass shape:
-# openspec/ itself is a symlink to an evil directory (same target shape as
+# spectre/ itself is a symlink to an evil directory (same target shape as
 # the hop-3 case above), and the archived-change-path is invoked with an
 # injected '<dir>/../' segment. The new lexical-normalize step collapses
 # this '..' by pure string manipulation (no filesystem access), so the
 # lexical side lands on the ordinary-looking
-# openspec/changes/archive/2026-01-01-demo shape and passes the shape check —
+# spectre/changes/archive/2026-01-01-demo shape and passes the shape check —
 # but the real, symlink-following resolution in step 4 lands somewhere else
-# entirely (through the openspec symlink), so the two diverge and the
+# entirely (through the spectre symlink), so the two diverge and the
 # invocation is refused via the same lexical-vs-real comparison as every
 # other symlink shape above.
 # ===========================================================================
@@ -592,14 +591,14 @@ new_repo
 # add_commits runs BEFORE the ancestor is clobbered — see the matching note
 # on the hop-2 section above.
 add_commits
-rm -rf "$REPO/openspec"
+rm -rf "$REPO/spectre"
 OUTSIDE_DOTDOT="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-dotdot.XXXXXX")"
 TREES+=("$OUTSIDE_DOTDOT")
 mkdir -p "$OUTSIDE_DOTDOT/changes/archive/extra"
 mkdir -p "$OUTSIDE_DOTDOT/changes/archive/2026-01-01-demo"
 printf 'TOP-SECRET-F20-CONTENT\n' > "$OUTSIDE_DOTDOT/changes/archive/2026-01-01-demo/tasks.md"
-ln -s "$OUTSIDE_DOTDOT" "$REPO/openspec"
-DOTDOT_ARG="openspec/changes/archive/extra/../2026-01-01-demo"
+ln -s "$OUTSIDE_DOTDOT" "$REPO/spectre"
+DOTDOT_ARG="spectre/changes/archive/extra/../2026-01-01-demo"
 run_with "$DOTDOT_ARG"
 [ "$RC" -eq 0 ] && pass "dotdot ancestor-walk bypass: exits 0" \
   || fail "dotdot ancestor-walk bypass: rc=$RC out=$OUT"
@@ -648,7 +647,7 @@ esac
 # subject must not exclude it from IMPL_SHA candidacy. Fixture realistic
 # (this change's own review panel, pass 3, finding A): the implementation
 # commit touches a real path outside the planning paths and the planning
-# commit actually writes openspec/changes/demo/, so this resolves through
+# commit actually writes spectre/changes/demo/, so this resolves through
 # the PRIMARY path+subject query — no subject-only fallback exists to fall
 # through to.
 # ===========================================================================
@@ -660,9 +659,9 @@ new_repo
     && printf 'x\n' > src/archive-browsing.txt \
     && git add src/archive-browsing.txt \
     && git commit -q -m "feat(demo): implement archive browsing UI ARCHIVE-SUBSTRING-MARKER" \
-    && mkdir -p openspec/changes/demo \
-    && printf 'F8-PLAN\n' > openspec/changes/demo/proposal.md \
-    && git add openspec/changes/demo/proposal.md \
+    && mkdir -p spectre/changes/demo \
+    && printf 'F8-PLAN\n' > spectre/changes/demo/proposal.md \
+    && git add spectre/changes/demo/proposal.md \
     && git commit -q -m "chore(demo): plan, test guide and session records" \
     && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change ARCHIVE-COMMIT-BODY2"
 )
@@ -685,7 +684,7 @@ esac
 # implementation commit whose subject merely CONTAINS the phrase, without
 # starting with it, must still resolve. Fixture realistic (this change's own
 # review panel, pass 3, finding A): the implementation commit touches a real
-# path and the planning commit actually writes openspec/changes/demo/, so
+# path and the planning commit actually writes spectre/changes/demo/, so
 # this resolves through the PRIMARY path+subject query.
 # ===========================================================================
 
@@ -696,9 +695,9 @@ new_repo
     && printf 'x\n' > src/onboarding-docs.txt \
     && git add src/onboarding-docs.txt \
     && git commit -q -m "feat(demo): document plan and session records for onboarding PLAN-PHRASE-SUBSTRING-MARKER" \
-    && mkdir -p openspec/changes/demo \
-    && printf 'F9-PLAN\n' > openspec/changes/demo/proposal.md \
-    && git add openspec/changes/demo/proposal.md \
+    && mkdir -p spectre/changes/demo \
+    && printf 'F9-PLAN\n' > spectre/changes/demo/proposal.md \
+    && git add spectre/changes/demo/proposal.md \
     && git commit -q -m "chore(demo): plan and session records" \
     && git commit -q --allow-empty -m "chore(demo): sync delta specs and archive the change PLAN-PHRASE-ARCHIVE-BODY"
 )
@@ -771,14 +770,14 @@ esac
 # ===========================================================================
 
 new_repo
-mkdir -p "$REPO/openspec/changes/archive/GLOB-SIBLING-ONE"
-mkdir -p "$REPO/openspec/changes/archive/GLOB-SIBLING-TWO"
-GLOB_ARG="openspec/changes/archive/*"
+mkdir -p "$REPO/spectre/changes/archive/GLOB-SIBLING-ONE"
+mkdir -p "$REPO/spectre/changes/archive/GLOB-SIBLING-TWO"
+GLOB_ARG="spectre/changes/archive/*"
 run_with "$GLOB_ARG"
 [ "$RC" -eq 0 ] && pass "F26 literal glob in archived-change-path: exits 0" \
   || fail "F26 literal glob in archived-change-path: rc=$RC out=$OUT"
 case "$OUT" in
-  *"does not resolve to the expected openspec/changes/archive/<leaf> location"*) \
+  *"does not resolve to the expected spectre/changes/archive/<leaf> location"*) \
     pass "F26 literal glob in archived-change-path: refused as shape (no bypass)" ;;
   *) fail "F26 literal glob in archived-change-path: not refused as shape: $OUT" ;;
 esac
@@ -823,7 +822,7 @@ esac
 # This is also the dedicated old-era, end-to-end fixture finding A (this
 # change's own review panel, pass 3) calls for: a real implementation
 # commit touching a real path, a real planning commit that actually writes
-# openspec/changes/demo/, under the old subject, and a real archive
+# spectre/changes/demo/, under the old subject, and a real archive
 # `git mv` to the archived location — proving old-era resolution goes
 # through the PRIMARY path+subject query. There is no longer a subject-only
 # fallback to fall through to (finding A deleted it as unreachable for any
@@ -839,11 +838,11 @@ new_repo
     && printf 'x\n' > src/new-wording-feature.txt \
     && git add src/new-wording-feature.txt \
     && git commit -q -m "feat(demo): NEW-WORDING-IMPLEMENTATION-COMMIT-BODY" \
-    && mkdir -p openspec/changes/demo \
-    && printf 'NEW-WORDING-PLAN\n' > openspec/changes/demo/proposal.md \
-    && git add openspec/changes/demo/proposal.md \
+    && mkdir -p spectre/changes/demo \
+    && printf 'NEW-WORDING-PLAN\n' > spectre/changes/demo/proposal.md \
+    && git add spectre/changes/demo/proposal.md \
     && git commit -q -m "chore(demo): plan and session records NEW-WORDING-PLAN-COMMIT-BODY" \
-    && git mv openspec/changes/demo/proposal.md "$REL/proposal.md" \
+    && git mv spectre/changes/demo/proposal.md "$REL/proposal.md" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change NEW-WORDING-ARCHIVE-COMMIT-BODY"
 )
 run_it
@@ -883,7 +882,7 @@ esac
 # back, in that order, exactly as commit-split.sh produces them: the
 # implementation commit touches a real file outside the planning paths under
 # a module-scoped subject; the planning commit touches THIS change's own
-# LIVE directory (openspec/changes/demo/tasks.md) — the signal path-based
+# LIVE directory (spectre/changes/demo/tasks.md) — the signal path-based
 # resolution now keys on exclusively (pass 2, finding F: PLAN_SHA is
 # searched only at the live path, never the archived one, since `git log
 # -- <path>` follows a commit's historical tree through a later rename) —
@@ -896,14 +895,14 @@ esac
 add_module_scope_commits() {
   (
     cd "$REPO" \
-      && mkdir -p scripts/some-module openspec/changes/demo \
+      && mkdir -p scripts/some-module spectre/changes/demo \
       && printf 'x\n' > scripts/some-module/foo.sh \
       && git add scripts/some-module/foo.sh \
       && git commit -q -m "feat(some-module): MODULE-SCOPE-IMPL-BODY" \
-      && printf 'TASKS-MODULE-SCOPE\n' > openspec/changes/demo/tasks.md \
-      && git add openspec/changes/demo/tasks.md \
+      && printf 'TASKS-MODULE-SCOPE\n' > spectre/changes/demo/tasks.md \
+      && git add spectre/changes/demo/tasks.md \
       && git commit -q -m "chore(openspec): plan and session records MODULE-SCOPE-PLAN-BODY" \
-      && git mv openspec/changes/demo "$REL" \
+      && git mv spectre/changes/demo "$REL" \
       && git commit -q -m "chore(demo): sync delta specs and archive the change MODULE-SCOPE-ARCHIVE-BODY"
   )
 }
@@ -940,9 +939,9 @@ new_repo
 add_module_scope_commits
 (
   cd "$REPO" \
-    && mkdir -p openspec/changes/archive/2026-01-02-demo2 \
-    && printf 'OTHER-CHANGE-TASKS\n' > openspec/changes/archive/2026-01-02-demo2/tasks.md \
-    && git add openspec/changes/archive/2026-01-02-demo2/tasks.md \
+    && mkdir -p spectre/changes/archive/2026-01-02-demo2 \
+    && printf 'OTHER-CHANGE-TASKS\n' > spectre/changes/archive/2026-01-02-demo2/tasks.md \
+    && git add spectre/changes/archive/2026-01-02-demo2/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records OTHER-CHANGE-PLAN-BODY"
 )
 run_it
@@ -966,9 +965,9 @@ esac
 
 # ===========================================================================
 # The REAL run-1-then-run-2 sequence: finish run 1 commits the planning
-# artifacts at the LIVE location, openspec/changes/<name>/, because the change
+# artifacts at the LIVE location, spectre/changes/<name>/, because the change
 # is not archived yet; run 2 only later renames that directory under
-# openspec/changes/archive/. So the commit PLAN_SHA must find is one that
+# spectre/changes/archive/. So the commit PLAN_SHA must find is one that
 # touched the LIVE path — and, since pass 2's finding F, the LIVE path is the
 # ONLY pathspec PLAN_SHA is ever searched at; the prior ALSO-searched archived
 # location was removed because `git log -- <path>` already follows a commit's
@@ -980,14 +979,14 @@ esac
 new_repo
 (
   cd "$REPO" \
-    && mkdir -p scripts/some-module openspec/changes/demo \
+    && mkdir -p scripts/some-module spectre/changes/demo \
     && printf 'x\n' > scripts/some-module/foo.sh \
     && git add scripts/some-module/foo.sh \
     && git commit -q -m "feat(some-module): LIVE-PATH-IMPL-BODY" \
-    && printf 'TASKS-LIVE\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && printf 'TASKS-LIVE\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records LIVE-PATH-PLAN-BODY" \
-    && git mv openspec/changes/demo "$REL" \
+    && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change LIVE-PATH-ARCHIVE-BODY"
 )
 run_it
@@ -1015,18 +1014,18 @@ esac
 new_repo
 (
   cd "$REPO" \
-    && mkdir -p scripts/some-module openspec/changes/demo \
+    && mkdir -p scripts/some-module spectre/changes/demo \
     && printf 'x\n' > scripts/some-module/foo.sh \
     && git add scripts/some-module/foo.sh \
     && git commit -q -m "feat(some-module): E-IMPL-BODY" \
-    && printf 'TASKS-E\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && printf 'TASKS-E\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records E-PLAN-BODY" \
-    && git mv openspec/changes/demo "$REL" \
+    && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change E-ARCHIVE-BODY" \
     && printf 'TASKS-E-FIXED-TYPO\n' > "$REL/tasks.md" \
     && git add "$REL/tasks.md" \
-    && git commit -q -m "docs(openspec): fix a typo in an archived plan"
+    && git commit -q -m "docs(spectre): fix a typo in an archived plan"
 )
 run_it
 [ "$RC" -eq 0 ] && pass "finding E: exits 0" \
@@ -1063,11 +1062,11 @@ ORIG_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
     && git commit -q --allow-empty -m "feat(other): unrelated work on a side branch" \
     && git checkout -q "$ORIG_BRANCH" \
     && git merge -q --no-ff -m "Merge pull request #42 from someone/some-other-change" other-branch \
-    && mkdir -p openspec/changes/demo \
-    && printf 'TASKS-G\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && mkdir -p spectre/changes/demo \
+    && printf 'TASKS-G\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records G-PLAN-BODY" \
-    && git mv openspec/changes/demo "$REL" \
+    && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change G-ARCHIVE-BODY"
 )
 run_it
@@ -1097,14 +1096,14 @@ esac
 new_repo
 (
   cd "$REPO" \
-    && mkdir -p docs/superpowers/ledgers openspec/changes/demo \
+    && mkdir -p docs/superpowers/ledgers spectre/changes/demo \
     && printf 'unrelated\n' > docs/superpowers/ledgers/someone-else.md \
     && git add docs/superpowers/ledgers/someone-else.md \
     && git commit -q -m "chore(records): PLANNING-ONLY-PARENT-BODY" \
-    && printf 'TASKS-OUTSIDE\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && printf 'TASKS-OUTSIDE\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records OUTSIDE-PLAN-BODY" \
-    && git mv openspec/changes/demo "$REL" \
+    && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change"
 )
 run_it
@@ -1132,11 +1131,11 @@ ISO_BRANCH="$(cd "$REPO" && git symbolic-ref --short HEAD)"
     && git commit -q -m "feat(iso): side work touching scripts" \
     && git checkout -q "$ISO_BRANCH" \
     && git merge -q --no-ff -m "Merge branch iso-side MERGING-PARENT-BODY" iso-side \
-    && mkdir -p openspec/changes/demo \
-    && printf 'TASKS-MERGE\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && mkdir -p spectre/changes/demo \
+    && printf 'TASKS-MERGE\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records MERGE-PLAN-BODY" \
-    && git mv openspec/changes/demo "$REL" \
+    && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change"
 )
 run_it
@@ -1153,21 +1152,21 @@ esac
 
 # ===========================================================================
 # SECTION: pass 2, finding G (positive control) — a genuine, non-merge
-# implementation commit that touches a path outside openspec/ and
+# implementation commit that touches a path outside spectre/ and
 # docs/superpowers/ is still accepted as IMPL_SHA. Proves the new
 # non-merge/outside-path heuristic does not just refuse everything.
 # ===========================================================================
 new_repo
 (
   cd "$REPO" \
-    && mkdir -p scripts/some-module openspec/changes/demo \
+    && mkdir -p scripts/some-module spectre/changes/demo \
     && printf 'x\n' > scripts/some-module/foo.sh \
     && git add scripts/some-module/foo.sh \
     && git commit -q -m "feat(some-module): G-POSITIVE-IMPL-BODY" \
-    && printf 'TASKS-G-POSITIVE\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && printf 'TASKS-G-POSITIVE\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records G-POSITIVE-PLAN-BODY" \
-    && git mv openspec/changes/demo "$REL" \
+    && git mv spectre/changes/demo "$REL" \
     && git commit -q -m "chore(demo): sync delta specs and archive the change G-POSITIVE-ARCHIVE-BODY"
 )
 run_it
@@ -1199,19 +1198,19 @@ TREES+=("$ROOT_REPO")
     && git init -q \
     && git config user.email test@example.com \
     && git config user.name test \
-    && mkdir -p scripts/some-module openspec/changes/demo \
+    && mkdir -p scripts/some-module spectre/changes/demo \
     && printf 'x\n' > scripts/some-module/foo.sh \
     && git add scripts/some-module/foo.sh \
     && git commit -q -m "feat(some-module): ROOT-COMMIT-IMPL-BODY" \
-    && printf 'TASKS-ROOT\n' > openspec/changes/demo/tasks.md \
-    && git add openspec/changes/demo/tasks.md \
+    && printf 'TASKS-ROOT\n' > spectre/changes/demo/tasks.md \
+    && git add spectre/changes/demo/tasks.md \
     && git commit -q -m "chore(openspec): plan and session records ROOT-COMMIT-PLAN-BODY" \
-    && mkdir -p openspec/changes/archive \
-    && git mv openspec/changes/demo openspec/changes/archive/2026-01-01-demo \
+    && mkdir -p spectre/changes/archive \
+    && git mv spectre/changes/demo spectre/changes/archive/2026-01-01-demo \
     && git commit -q -m "chore(demo): sync delta specs and archive the change ROOT-COMMIT-ARCHIVE-BODY"
 )
 REPO="$ROOT_REPO"
-ARCHIVED="$REPO/openspec/changes/archive/2026-01-01-demo"
+ARCHIVED="$REPO/spectre/changes/archive/2026-01-01-demo"
 STATE_DIR="$REPO/.state"
 mkdir -p "$STATE_DIR"
 run_it
@@ -1230,9 +1229,9 @@ esac
 # SECTION: <repo-root> — the optional fourth positional argument
 # (Requirement: "Context is gathered deterministically, not by the model
 # re-reading files", scenarios "The repo root is omitted", "The repo root is
-# supplied" and "A malformed repo root is an invocation error", in
-# openspec/changes/kan-239-run-2-asserts-base-branch-and-archives-via-pr/
-# specs/myflow-self-review/spec.md). One assertion per case, each folding its
+# supplied" and "A malformed repo root is an invocation error", in this
+# repository's archived kan-239-run-2-asserts-base-branch-and-archives-via-pr
+# change's delta spec). One assertion per case, each folding its
 # exit code and its content/emptiness check into a single pass/fail — no
 # case here duplicates a check already made above this section.
 # ===========================================================================
@@ -1280,7 +1279,7 @@ add_panel
 add_tasks
 add_commits
 REPO_REAL_ABS="$(cd -P "$REPO" && pwd -P)"
-ARCHIVED_REAL_ABS="$REPO_REAL_ABS/openspec/changes/archive/2026-01-01-demo"
+ARCHIVED_REAL_ABS="$REPO_REAL_ABS/spectre/changes/archive/2026-01-01-demo"
 OUTSIDE_CWD="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-cwd.XXXXXX")"
 TREES+=("$OUTSIDE_CWD")
 set +e

@@ -47,8 +47,9 @@
 # a line (leading whitespace allowed, for a nested item). Unanchored, it also
 # matches a plan that merely QUOTES a checklist inside a fenced example, which
 # this repository's own plans do — measured: 44 unanchored hits against 42
-# anchored ones in openspec/changes/kan-17-finish-gate-jira-and-commit-hygiene/
-# tasks.md, the two extra being `printf` lines in fenced shell. A guard that
+# anchored ones in this repository's own kan-17-finish-gate-jira-and-commit-hygiene
+# change's tasks.md (now archived), the two extra being `printf` lines in fenced
+# shell. A guard that
 # fires on every plan that documents a checkbox is a guard the operator learns
 # to click past. Fence tracking was rejected as the fuller fix: it is real
 # complexity, and what it would still catch — a fenced example whose line BEGINS
@@ -166,7 +167,7 @@ fi
 # inside panel_record_path, which is the order records.Destination validates in
 # too: a name carrying a metacharacter never becomes part of a pattern.
 PANEL="$(panel_record_path "$WORKTREE" "$NAME")"
-CHANGES="$WORKTREE/openspec/changes"
+CHANGES="$WORKTREE/spectre/changes"
 PRIMARY_PLAN="$CHANGES/$NAME/tasks.md"
 
 REASONS=""
@@ -232,7 +233,7 @@ count_unticked() {
 # Signal one — the plan, including any fix sub-change.
 #
 # THE PRIMARY PLAN IS TRACKED SEPARATELY FROM THE REST, because their absences
-# mean opposite things. `openspec/changes/<name>/tasks.md` is the change's plan
+# mean opposite things. `spectre/changes/<name>/tasks.md` is the change's plan
 # and every myflow change has one: missing, it is outstanding like any other
 # missing record, and reporting "every plan item is checked" over a change with
 # no plan at all is the same silent clearance the header rejects. A fix
@@ -302,7 +303,7 @@ fi
 #   finding-status: F<n> withdrawn <reason>
 #
 # and one checksum line, `findings-total: <n>`. The format is a SHALL in
-# openspec/specs/myflow-review-panel-economics/spec.md and is documented where
+# this repository's myflow-review-panel-economics spec and is documented where
 # the table is, in skills/myflow-do/SKILL.md. Because a marker is a whole line
 # there are no cells to split, no escaping rule, no table boundary to track and
 # no orphan net: none of the six defects has anywhere to happen.

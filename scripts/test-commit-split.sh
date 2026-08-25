@@ -39,9 +39,9 @@ new_repo() {
   git -C "$REPO" init -q
   git -C "$REPO" config user.email "test@example.com"
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/openspec" "$REPO/docs/superpowers"
+  mkdir -p "$REPO/spectre" "$REPO/docs/superpowers"
   printf 'seed\n' > "$REPO/README.md"
-  printf 'seed\n' > "$REPO/openspec/seed.md"
+  printf 'seed\n' > "$REPO/spectre/seed.md"
   printf 'seed\n' > "$REPO/docs/superpowers/seed.md"
   git -C "$REPO" add -A
   git -C "$REPO" commit -q -m "seed"
@@ -56,7 +56,7 @@ log_subjects() {
 # ===========================================================================
 new_repo
 printf 'impl change\n' > "$REPO/src.md"
-printf 'plan change\n' > "$REPO/openspec/plan.md"
+printf 'plan change\n' > "$REPO/spectre/plan.md"
 set +e
 OUT="$("$SCRIPT" "$REPO" demo "impl: case1" "plan: case1" 2>&1)"
 RC=$?
@@ -116,14 +116,14 @@ case "$SUBJECTS" in
 esac
 
 # ===========================================================================
-# 4. A tracked symlink at openspec/ stops the script with exit 128, no commit
+# 4. A tracked symlink at spectre/ stops the script with exit 128, no commit
 #    made.
 # ===========================================================================
 new_repo
-rm -rf "$REPO/openspec"
-ln -s docs "$REPO/openspec"
+rm -rf "$REPO/spectre"
+ln -s docs "$REPO/spectre"
 git -C "$REPO" add -A
-git -C "$REPO" commit -q -m "openspec becomes a tracked symlink"
+git -C "$REPO" commit -q -m "spectre becomes a tracked symlink"
 BEFORE_COUNT="$(git -C "$REPO" log --oneline | wc -l | tr -d ' ')"
 printf 'impl change\n' > "$REPO/only.md"
 set +e

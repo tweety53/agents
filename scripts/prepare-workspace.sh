@@ -24,7 +24,7 @@
 # THE WORKSPACE ID NEEDS THE CHANGE NAME, AND THIS SCRIPT TAKES ONLY A
 # WORKTREE. The id is derived from the change name and from nothing else, per
 # **The workspace id**, so this script reads the name from the worktree's own
-# branch: every apply worktree is created on `openspec/<name>`, per section 2
+# branch: every apply worktree is created on `spectre/<name>`, per section 2
 # of skills/myflow-do/SKILL.md, and that branch is the one place the name is
 # already recorded where a script can read it without being handed it
 # separately. A worktree not on such a branch — detached HEAD, or checked out
@@ -123,16 +123,16 @@ if ! grep -qiE "$ISO_HEADING" "$CFG"; then
 fi
 
 # The change name, read from the worktree's own branch. Every apply worktree
-# is created on `openspec/<name>` per section 2 of skills/myflow-do/SKILL.md,
+# is created on `spectre/<name>` per section 2 of skills/myflow-do/SKILL.md,
 # and the id is derived from the change name and nothing else, per **The
 # workspace id** (skills/myflow-contracts/workspace-isolation.md).
 BRANCH="$(git -C "$WORKTREE" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 case "$BRANCH" in
-  openspec/*)
-    NAME="${BRANCH#openspec/}"
+  spectre/*)
+    NAME="${BRANCH#spectre/}"
     ;;
   *)
-    echo "prepare-workspace: $WORKTREE is not on an openspec/<name> branch (got '${BRANCH:-detached HEAD}') — cannot derive a workspace id without the change name" >&2
+    echo "prepare-workspace: $WORKTREE is not on a spectre/<name> branch (got '${BRANCH:-detached HEAD}') — cannot derive a workspace id without the change name" >&2
     exit 2
     ;;
 esac

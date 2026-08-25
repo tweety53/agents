@@ -3,9 +3,10 @@
 # repository per case under TMPDIR; never touches the real repository tree.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract — the Requirements and Scenarios in
-# openspec/changes/kan-201-reduce-context-rediscovery-across-review-panel/specs/myflow-dispatch-economy/spec.md
-# — never against whatever the script happens to print.
+# contract — the Requirements and Scenarios in this repository's archived
+# kan-201-reduce-context-rediscovery-across-review-panel change's
+# myflow-dispatch-economy spec — never against whatever the script happens to
+# print.
 # scripts/test-check-plan-provenance.sh's header records that suite encoding
 # the guard's own defects as its specification more than once, which then
 # made each defect look verified; the same mistake is possible here.
@@ -55,7 +56,7 @@ new_repo() {
       && git config user.name test \
       && git commit -q --allow-empty -m "init"
   )
-  CHANGE_ROOT="$REPO/openspec/changes/demo"
+  CHANGE_ROOT="$REPO/spectre/changes/demo"
   mkdir -p "$CHANGE_ROOT/specs/cap"
   printf 'PROPOSAL-BODY\n' > "$CHANGE_ROOT/proposal.md"
   printf 'DESIGN-BODY\n' > "$CHANGE_ROOT/design.md"
@@ -264,10 +265,10 @@ OUTSIDE_12="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-outside12.XXXXXX")
 TREES+=("$OUTSIDE_12")
 mkdir -p "$OUTSIDE_12/changes/demo"
 printf 'TOP-SECRET-12\n' > "$OUTSIDE_12/changes/demo/tasks.md"
-mkdir -p "$REPO/openspec-symlink"
-rm -rf "$REPO/openspec-symlink"
-ln -s "$OUTSIDE_12" "$REPO/openspec-symlink"
-SYMLINKED_CHANGE_ROOT="$REPO/openspec-symlink/changes/demo"
+mkdir -p "$REPO/spectre-symlink"
+rm -rf "$REPO/spectre-symlink"
+ln -s "$OUTSIDE_12" "$REPO/spectre-symlink"
+SYMLINKED_CHANGE_ROOT="$REPO/spectre-symlink/changes/demo"
 set +e
 OUT="$("$SCRIPT" "$REPO" "$SYMLINKED_CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
 RC=$?

@@ -7,7 +7,7 @@
 # Usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir> [<repo-root>]
 #
 # <archived-change-path> is the ARCHIVED change directory
-# (openspec/changes/archive/<date>-<name>/), never a worktree path — by the
+# (spectre/changes/archive/<date>-<name>/), never a worktree path — by the
 # time step 9 runs, run 2 has already removed the worktree. <state-dir> is
 # accepted for CLI parity with this script's usage line and with the
 # <worktree> <name> <state-dir> shape the /myflow-finish record helper took
@@ -57,16 +57,16 @@
 #
 # NOTE on <archived-change-path> itself being a symlink, or any ancestor of
 # it, at any depth (F12, F13, F14, F20, F22): git tracks symlinks as
-# committed blobs, so a merged PR could make openspec/changes/archive/<date>-
+# committed blobs, so a merged PR could make spectre/changes/archive/<date>-
 # <name> itself a symlink to anywhere, or make ANY ancestor component
-# (openspec/, openspec/changes/, openspec/changes/archive/, or a deeper
+# (spectre/, spectre/changes/, spectre/changes/archive/, or a deeper
 # nesting level not even part of the documented shape) a symlink instead.
 # Four rounds of bounded, lexical, fixed-depth patches — a leaf-only check, a
 # trailing-slash strip, an exactly-3-hop ancestor `dirname` walk, a literal
 # `..`-component rejection — each closed the specific bypass the previous
 # round's reviewer found, but the underlying design stayed fragile to any
 # path shape one step outside what each patch anticipated: most simply, one
-# extra directory nesting level under openspec/changes/archive/ defeats a
+# extra directory nesting level under spectre/changes/archive/ defeats a
 # fixed hop count outright (F22).
 #
 # validate_archived_path() below replaces all of that with one general
@@ -94,7 +94,7 @@
 #      touching the filesystem at all, so it cannot itself be fooled by a
 #      symlink. Call this ARCHIVED_LEXICAL.
 #   3. ARCHIVED_LEXICAL must sit exactly at
-#      "$TRUSTED_REPO_ROOT/openspec/changes/archive/<leaf>" — one path
+#      "$TRUSTED_REPO_ROOT/spectre/changes/archive/<leaf>" — one path
 #      segment past the trusted archive root, no more and no less. Checked as
 #      a real path BOUNDARY via `within_root()`, not a string prefix.
 #      Anything else (missing, extra nesting, wrong location entirely) is an
@@ -143,15 +143,14 @@
 # docs/superpowers/{ledgers,reviews}/ with a LEADING DATE, e.g.
 # "2026-08-01-demo.md", never literally "<name>.md" — this script's messages
 # still name the source using the plain "<name>.md" / "<name>-panel.md" form,
-# matching the wording the delta spec
-# (openspec/changes/kan-23-myflow-self-review/specs/myflow-self-review/spec.md)
-# states verbatim in its scenarios, but the SEARCH below uses the real,
-# date-prefixed filename shape so a source that exists is actually found.
+# matching the wording this repository's archived kan-23-myflow-self-review
+# change's delta spec states verbatim in its scenarios, but the SEARCH below
+# uses the real, date-prefixed filename shape so a source that exists is
+# actually found.
 #
 # NOTE on the "skipped:" stream: the design doc originally said stderr; this
-# was corrected to stdout to match the delta spec
-# (openspec/changes/kan-23-myflow-self-review/specs/myflow-self-review/spec.md,
-# which has always said stdout) and to match the pipeline's own convention of
+# was corrected to stdout to match that same kan-23-myflow-self-review delta
+# spec (which has always said stdout) and to match the pipeline's own convention of
 # printing every outcome word on stdout — `myflow record render` prints
 # `rendered:`, `MISSING:` and `journalled:` there — since this script's own
 # bundle is a single stdout document by design.
@@ -331,10 +330,10 @@ validate_archived_path() {
   archived_lexical="$(lexically_collapse "$abs_input")"
 
   # Step 3: ARCHIVED_LEXICAL must sit exactly one segment past
-  # $trusted_root/openspec/changes/archive/ — a real path boundary
+  # $trusted_root/spectre/changes/archive/ — a real path boundary
   # (within_root), not a string prefix, and exactly one segment: no deeper
   # nesting (F22), no shallower.
-  local archive_root="$trusted_root/openspec/changes/archive"
+  local archive_root="$trusted_root/spectre/changes/archive"
   if ! within_root "$archived_lexical" "$archive_root"; then
     ARCHIVED_PATH_INVALID=1
     ARCHIVED_PATH_REASON="shape"
@@ -528,7 +527,7 @@ is_refused() {
 #     pointing at a DIFFERENT change's planning commit, with no name left
 #     in the subject to tell them apart.
 #   - the archive-subject rejection guards against a change to run 2's
-#     archive step touching a path outside openspec/.
+#     archive step touching a path outside spectre/.
 #
 # Every one of those guarantees lives in another file, with no test
 # coupling this function to it, so a future edit there would silently
@@ -569,7 +568,7 @@ is_real_impl_commit() {
   local PARENT_TOUCHES_OUTSIDE=0
   if [ "$PARENT_IS_MERGE" -eq 0 ] \
     && git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r --root "$PLAN_PARENT" 2>/dev/null \
-      | grep -Ev '^(openspec/|docs/superpowers/)' | grep -q .; then
+      | grep -Ev '^(spectre/|docs/superpowers/)' | grep -q .; then
     PARENT_TOUCHES_OUTSIDE=1
   fi
 
@@ -645,7 +644,7 @@ fi
 #
 # PLAN_SHA is resolved by PATH **AND** SUBJECT SHAPE together (pass 2,
 # finding E): the plan commit is the most recent commit that both (a)
-# touched THIS change's own openspec/changes/<name>/ directory and (b)
+# touched THIS change's own spectre/changes/<name>/ directory and (b)
 # carries a plan-commit subject — PLAN_SUBJECT_RE_NEW, the module-scope
 # convention's fixed literal "chore(openspec): plan and session records",
 # or PLAN_SUBJECT_RE_OLD, either wording finish run 1 used before that
@@ -658,9 +657,9 @@ fi
 # identical literal subject (a subject-only match can return a DIFFERENT
 # change's planning commit). Together they are both.
 #
-# Only the LIVE pathspec (openspec/changes/<name>/) is searched (pass 2,
+# Only the LIVE pathspec (spectre/changes/<name>/) is searched (pass 2,
 # finding F) — NOT ALSO the archived location
-# (openspec/changes/archive/<date>-<name>/, where run 2 later moves it):
+# (spectre/changes/archive/<date>-<name>/, where run 2 later moves it):
 # `git log -- <path>` filters each commit by its OWN historical tree, so
 # the live pathspec alone finds the planning commit even after run 2's
 # `git mv` renames the directory — verified directly. A second, archived
@@ -684,7 +683,7 @@ fi
 # since it matched none of the three reserved subject shapes this guard
 # used to check alone). The parent is now accepted as IMPL_SHA only when it
 # is BOTH a non-merge commit (exactly one parent — every commit-split.sh
-# commit is) AND touches at least one path outside openspec/ and
+# commit is) AND touches at least one path outside spectre/ and
 # docs/superpowers/ (what a real implementation commit is guaranteed to do,
 # per commit-split.sh's own boundary, and what some unrelated commit
 # sitting just ahead of the plan commit is not), on top of the existing
@@ -696,7 +695,7 @@ fi
 # There is deliberately NO subject-only fallback for a change finished
 # before this landed. One was tried and removed: it assumed a pre-KAN-202
 # planning commit's own historical tree "may not even touch"
-# openspec/changes/<name>/, which is false — that IS commit-split.sh's own
+# spectre/changes/<name>/, which is false — that IS commit-split.sh's own
 # planning commit, in either era, so it always touches that path. Verified
 # directly against this repository's own archived history: the planning
 # commits for kan-201-, kan-209-, kan-102- and kan-236- all resolve through
@@ -737,7 +736,7 @@ if [ -n "$REPO_ROOT" ]; then
   # ORs multiple --grep patterns together by default (no --all-match) — so
   # either the new fixed literal or an old-era wording qualifies, whichever
   # this particular commit carries.
-  PLAN_PATH_LIVE="openspec/changes/$NAME"
+  PLAN_PATH_LIVE="spectre/changes/$NAME"
   PLAN_SHA="$(git -C "$REPO_ROOT" log -E \
     --grep="$PLAN_SUBJECT_RE_NEW" --grep="$PLAN_SUBJECT_RE_OLD" \
     --max-count=1 --format='%H' \
@@ -745,7 +744,7 @@ if [ -n "$REPO_ROOT" ]; then
 
   # IMPL_SHA derived from PLAN_SHA's first parent (finding G): accepted
   # only when that parent is a non-merge commit touching at least one path
-  # outside openspec/ and docs/superpowers/, and its subject matches none
+  # outside spectre/ and docs/superpowers/, and its subject matches none
   # of the three reserved plan-/archive-shapes above. Anything else
   # resolves NOTHING rather than a confident wrong answer. The four
   # conditions themselves live in is_real_impl_commit, defined above.
@@ -798,7 +797,7 @@ if [ "$ARCHIVED_PATH_INVALID" -eq 1 ]; then
       echo "note: archived-change-path '$ARCHIVED_PATH' could not be validated — no enclosing git repository was found from this script's own working directory; every source below is reported skipped for that reason"
       ;;
     shape)
-      echo "note: archived-change-path '$ARCHIVED_PATH' does not resolve to the expected openspec/changes/archive/<leaf> location — every source below is reported skipped for that reason"
+      echo "note: archived-change-path '$ARCHIVED_PATH' does not resolve to the expected spectre/changes/archive/<leaf> location — every source below is reported skipped for that reason"
       ;;
     symlink)
       echo "note: archived-change-path '$ARCHIVED_PATH' resolves through a symlink somewhere between the repository root and the leaf — refusing to use it as a trust boundary; every source below is reported skipped for that reason"

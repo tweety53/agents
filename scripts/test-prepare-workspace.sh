@@ -45,7 +45,7 @@ cleanup() {
 trap cleanup EXIT
 
 # new_repo <change-name> -> sets REPO to a freshly initialized git repository,
-# checked out on `openspec/<change-name>` — the branch every apply worktree is
+# checked out on `spectre/<change-name>` — the branch every apply worktree is
 # created on, per section 2 of skills/myflow-do/SKILL.md, and the one place
 # prepare-workspace.sh reads the change name from.
 new_repo() {
@@ -57,7 +57,7 @@ new_repo() {
   printf 'seed\n' > "$REPO/README.md"
   git -C "$REPO" add -A
   git -C "$REPO" commit -q -m "seed"
-  git -C "$REPO" checkout -q -b "openspec/$1"
+  git -C "$REPO" checkout -q -b "spectre/$1"
 }
 
 write_config() {

@@ -5,10 +5,10 @@
 # real repository tree, and never inspects a process it did not start itself.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated contract
-# — the verdict grammar under **Global constraints** in
-# openspec/changes/kan-242-devstop-not-running-while-stack-alive/tasks.md and the
-# requirement **Worktree cleanup verifies the stack actually stopped, before
-# removing anything** in that change's specs/myflow-finish-cleanup/spec.md.
+# — the verdict grammar under **Global constraints** in this repository's
+# archived kan-242-devstop-not-running-while-stack-alive change's tasks.md and
+# the requirement **Worktree cleanup verifies the stack actually stopped, before
+# removing anything** in that change's myflow-finish-cleanup spec.
 # Never assert against observed output.
 # test-check-plan-provenance.sh's header records that suite encoding the guard's
 # own defects as its specification more than once, which then made each defect
@@ -239,16 +239,16 @@ fi
 # ---------------------------------------------------------------------------
 
 # Case 4: two sibling worktrees whose names share a prefix, which is exactly what
-# this pipeline's own naming produces — openspec-kan-1 beside openspec-kan-12. A
+# this pipeline's own naming produces — spectre-kan-1 beside spectre-kan-12. A
 # bare string-prefix test reports the first as HELD by the second's process, and
 # a run 2 blocked on a process in a different worktree is a false alarm the
 # operator cannot clear.
 SIBLINGS="$(mktemp -d "${TMPDIR:-/tmp}/worktree-processes-siblings.XXXXXX")"
 SANDBOXES+=("$SIBLINGS")
-mkdir -p "$SIBLINGS/openspec-kan-1" "$SIBLINGS/openspec-kan-12"
-WT="$SIBLINGS/openspec-kan-1"
+mkdir -p "$SIBLINGS/spectre-kan-1" "$SIBLINGS/spectre-kan-12"
+WT="$SIBLINGS/spectre-kan-1"
 PHYS="$(cd "$WT" && pwd -P)"
-NEIGHBOUR="$(cd "$SIBLINGS/openspec-kan-12" && pwd -P)"
+NEIGHBOUR="$(cd "$SIBLINGS/spectre-kan-12" && pwd -P)"
 start_in "$NEIGHBOUR"
 SIB_PID="$PID"
 if await_cwd "$SIB_PID" "$NEIGHBOUR"; then

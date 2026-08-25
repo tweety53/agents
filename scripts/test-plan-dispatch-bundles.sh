@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assertion harness for plan-dispatch-bundles.sh. Builds a fixture tasks.md
 # under a sandboxed TMPDIR for every case; never touches this repository's
-# own openspec/changes/ tree.
+# own spectre/changes/ tree.
 #
 # Modeled on test-check-task-build-green.sh's fixture-driven pattern: a
 # fixture directory per case via new_fixture, the guard invoked through a
@@ -237,13 +237,13 @@ EXPECTED='bundle 1: 1 2'
 # two depths, its real home (scratch-repo/scripts/) and a
 # skills/myflow-do/scripts/ symlink, mirroring how setup.sh's install carries
 # it. Invoked through the symlink with no argument, it must scan THAT tree's
-# own openspec/changes/ — never skills/myflow-do/openspec/changes/, which does
+# own spectre/changes/ — never skills/myflow-do/spectre/changes/, which does
 # not exist and would silently scan nothing (see design.md, "The
 # $SCRIPT_DIR/.. hazard").
 # ===========================================================================
 new_fixture
 mkdir -p "$FIXTURE/scripts/lib" "$FIXTURE/skills/myflow-do/scripts" \
-  "$FIXTURE/openspec/changes/some-change"
+  "$FIXTURE/spectre/changes/some-change"
 cp "$GUARD" "$FIXTURE/scripts/plan-dispatch-bundles.sh"
 chmod +x "$FIXTURE/scripts/plan-dispatch-bundles.sh"
 cp "$SCRIPT_DIR/plan-dispatch-bundles.py" "$FIXTURE/scripts/plan-dispatch-bundles.py"
@@ -257,7 +257,7 @@ ln -s ../../../scripts/lib "$FIXTURE/skills/myflow-do/scripts/lib"
   printf '### 1 Fieldless task\n\n'
   printf 'No Files field here at all.\n\n'
   printf -- '- [ ] **Step 1: do it**\n'
-} > "$FIXTURE/openspec/changes/some-change/tasks.md"
+} > "$FIXTURE/spectre/changes/some-change/tasks.md"
 set +e
 OUT="$("$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.sh" 2>&1)"
 RC=$?
@@ -265,7 +265,7 @@ set -e
 [ "$RC" -eq 1 ] && pass "case 11: no-arg default resolves through a skill-dir symlink to the real repo root" \
   || fail "case 11: expected rc=1 (found the fixture's own tasks.md), got rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 1"*"no **Files:** field"*) pass "case 11: names task 1 from the fixture's own openspec/changes/" ;;
+  *"task 1"*"no **Files:** field"*) pass "case 11: names task 1 from the fixture's own spectre/changes/" ;;
   *) fail "case 11: expected message naming task 1, out=$OUT" ;;
 esac
 

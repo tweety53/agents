@@ -5,7 +5,8 @@
 # repository tree.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract in openspec/changes/kan-236-base-branch-resolution-retyped-by-hand/design.md,
+# contract in this repository's archived
+# kan-236-base-branch-resolution-retyped-by-hand change's design doc,
 # never against observed output.
 #
 # Every case checks stdout, stderr AND exit status together. A guard that
@@ -103,7 +104,7 @@ expect_refusal() {
 
 # new_worktree -> sets WT, REMOTE. A bare "remote" repository with a main
 # branch, cloned into WT with refs/remotes/origin/HEAD explicitly set, then
-# checked out onto a branch named openspec/fixture.
+# checked out onto a branch named spectre/fixture.
 new_worktree() {
   REMOTE="$(mktemp -d "${TMPDIR:-/tmp}/resolve-base-branch-test.XXXXXX")"
   REPOS+=("$REMOTE")
@@ -126,7 +127,7 @@ new_worktree() {
   rm -rf "$WT"
   git clone -q "$REMOTE" "$WT"
   git -C "$WT" remote set-head origin -a >/dev/null
-  git -C "$WT" checkout -q -b openspec/fixture
+  git -C "$WT" checkout -q -b spectre/fixture
 }
 
 # new_worktree_no_head -> like new_worktree, but refs/remotes/origin/HEAD is
@@ -143,7 +144,7 @@ new_worktree_no_origin() {
   WT="$(mktemp -d "${TMPDIR:-/tmp}/resolve-base-branch-test.XXXXXX")"
   REPOS+=("$WT")
   rm -rf "$WT"
-  git init -q -b openspec/fixture "$WT"
+  git init -q -b spectre/fixture "$WT"
   git -C "$WT" config user.email test@example.invalid
   git -C "$WT" config user.name "Test"
   echo base > "$WT/file.txt"
@@ -288,7 +289,7 @@ expect_refusal "hostile HEAD branch value: non-ASCII byte under a UTF-8 locale" 
 #     at REF_FILE to chmod. Skipped rather than asserted when either holds,
 #     matching test-check-cleanup-complete.sh's own unreadable-ref case.
 new_worktree
-REF_FILE="$WT/.git/refs/heads/openspec/fixture"
+REF_FILE="$WT/.git/refs/heads/spectre/fixture"
 if [ ! -f "$REF_FILE" ]; then
   skip "current branch ref unreadable" \
     "this git stores the ref packed rather than loose"

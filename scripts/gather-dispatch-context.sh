@@ -9,7 +9,7 @@
 # Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path>
 #
 # <worktree> and <change-root> are absolute paths; <change-root> is expected
-# to sit under <worktree> (openspec/changes/<name>/, but this script does not
+# to sit under <worktree> (spectre/changes/<name>/, but this script does not
 # assume that literal shape — it only requires containment). <principles-path>
 # is the absolute path of engineering-principles.md, resolved by the CALLER
 # (skills/myflow-do/SKILL.md's own [PRINCIPLES_PATH] rule) and never derived

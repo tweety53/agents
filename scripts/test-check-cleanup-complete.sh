@@ -238,12 +238,12 @@ assert_no_verdict() {
 
 # new_fixture -> sets REPO and STATE to a repository and state directory after
 # a SUCCESSFUL run-2 cleanup of the change "demo": no worktree registered for
-# openspec/demo, no local branch, no remote-tracking ref, no proposal artifact
-# source, and the change directory moved under openspec/changes/archive/.
+# spectre/demo, no local branch, no remote-tracking ref, no proposal artifact
+# source, and the change directory moved under spectre/changes/archive/.
 #
 # The archived copy is present on purpose. The registry row says the change
 # directory is MOVED to the archive and never deleted, so a guard that demanded
-# an empty openspec/changes/ tree would report LEFTOVER on every correctly
+# an empty spectre/changes/ tree would report LEFTOVER on every correctly
 # finished change.
 new_fixture() {
   REPO="$(mktemp -d "${TMPDIR:-/tmp}/cleanup-complete-repo.XXXXXX")"
@@ -252,7 +252,7 @@ new_fixture() {
   git -C "$REPO" init -q -b main
   git -C "$REPO" config user.email test@example.invalid
   git -C "$REPO" config user.name "Test"
-  mkdir -p "$REPO/openspec/changes/archive/2026-01-01-demo"
+  mkdir -p "$REPO/spectre/changes/archive/2026-01-01-demo"
   printf 'base\n' > "$REPO/f.txt"
   git -C "$REPO" add -A
   git -C "$REPO" commit -qm base
@@ -317,7 +317,7 @@ assert_verdict "COMPLETE:" "a fully cleaned repository is COMPLETE"
 # 2. Registry row — the worktree. Found by branch, exactly as the contract says
 #    worktrees are found when the state file's map is absent or empty.
 new_fixture
-add_worktree openspec/demo
+add_worktree spectre/demo
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a surviving worktree is LEFTOVER"
 assert_reason "worktree" "a surviving worktree names its row"
@@ -327,7 +327,7 @@ assert_reason "worktree" "a surviving worktree names its row"
 #     remove. Case 2 passes for a guard that only tested whether the directory
 #     exists, so without this case a half-finished cleanup reads as COMPLETE.
 new_fixture
-add_worktree openspec/demo
+add_worktree spectre/demo
 rm -rf "$WT_PATH"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a registered but pruned-away worktree is LEFTOVER"
@@ -345,7 +345,7 @@ assert_reason "worktree" "a registered but pruned-away worktree names its row"
 #     the one git reports, and asserting the unresolved one would fail against
 #     a correct guard.
 new_fixture
-add_worktree openspec/demo "tree with space"
+add_worktree spectre/demo "tree with space"
 WT_REAL="$(cd "$WT_PATH" && pwd -P)"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a worktree whose path contains a space is LEFTOVER"
@@ -353,7 +353,7 @@ assert_reason "$WT_REAL" "the breakdown names the worktree's whole path"
 
 # 3. Registry row — the local branch.
 new_fixture
-git -C "$REPO" branch openspec/demo
+git -C "$REPO" branch spectre/demo
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a surviving local branch is LEFTOVER"
 assert_reason "local branch" "a surviving local branch names its row"
@@ -363,7 +363,7 @@ assert_no_reason "remote-tracking ref" "a surviving local branch is not read as 
 #    row is new in this change: run 2 never deleted the remote branch before,
 #    so a guard that omitted it would confirm a cleanup that left one behind.
 new_fixture
-git -C "$REPO" update-ref refs/remotes/origin/openspec/demo HEAD
+git -C "$REPO" update-ref refs/remotes/origin/spectre/demo HEAD
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a surviving remote-tracking ref is LEFTOVER"
 assert_reason "remote-tracking ref" "a surviving remote-tracking ref names its row"
@@ -396,30 +396,30 @@ assert_no_reason "local branch" "a surviving remote-tracking ref is not read as 
 # 4b. A corrupt loose ref — content git cannot resolve. This variant needs no
 #     permission trickery, so it runs in every environment this suite runs in.
 new_fixture
-git -C "$REPO" branch openspec/demo
-printf 'garbage\n' > "$REPO/.git/refs/heads/openspec/demo"
+git -C "$REPO" branch spectre/demo
+printf 'garbage\n' > "$REPO/.git/refs/heads/spectre/demo"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a corrupt local branch ref does not block the terminal state"
 assert_out "SKIPPED" "a corrupt local branch ref is reported as skipped"
-assert_out "refs/heads/openspec/demo" "the skip names the ref it could not read"
+assert_out "refs/heads/spectre/demo" "the skip names the ref it could not read"
 
 # 4c. The same class on the remote-tracking row, which is read the same way and
 #     would otherwise carry the same fail-open unnoticed.
 new_fixture
-git -C "$REPO" update-ref refs/remotes/origin/openspec/demo HEAD
-printf 'garbage\n' > "$REPO/.git/refs/remotes/origin/openspec/demo"
+git -C "$REPO" update-ref refs/remotes/origin/spectre/demo HEAD
+printf 'garbage\n' > "$REPO/.git/refs/remotes/origin/spectre/demo"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a corrupt remote-tracking ref does not block the terminal state"
 assert_out "SKIPPED" "a corrupt remote-tracking ref is reported as skipped"
-assert_out "refs/remotes/origin/openspec/demo" "the skip names the remote-tracking ref it could not read"
+assert_out "refs/remotes/origin/spectre/demo" "the skip names the remote-tracking ref it could not read"
 
 # 4d. An UNREADABLE loose ref — the permission half of the same class, which is
 #     the shape a real repack or a tightened umask produces. Skipped rather than
 #     asserted when this process can read a mode-000 file, for the reason the
 #     `skip` helper's comment gives.
 new_fixture
-git -C "$REPO" branch openspec/demo
-REF_FILE="$REPO/.git/refs/heads/openspec/demo"
+git -C "$REPO" branch spectre/demo
+REF_FILE="$REPO/.git/refs/heads/spectre/demo"
 if [ ! -f "$REF_FILE" ]; then
   skip "an unreadable local branch ref is reported as skipped" \
     "this git stores the ref packed rather than loose"
@@ -434,7 +434,7 @@ else
     chmod 644 "$REF_FILE"
     assert_verdict "COMPLETE:" "an unreadable local branch ref does not block the terminal state"
     assert_out "SKIPPED" "an unreadable local branch ref is reported as skipped"
-    assert_out "refs/heads/openspec/demo" "the skip names the unreadable ref"
+    assert_out "refs/heads/spectre/demo" "the skip names the unreadable ref"
   fi
 fi
 
@@ -449,13 +449,13 @@ assert_verdict "COMPLETE:" "a repository with no branch at all is still COMPLETE
 assert_not_out "SKIPPED" "a readable ref store produces no skip note"
 
 # 5. Registry row — the change directory, which must have been MOVED into the
-#    archive. One still sitting at openspec/changes/<name>/ means the archive
+#    archive. One still sitting at spectre/changes/<name>/ means the archive
 #    step did not happen.
 new_fixture
-mkdir -p "$REPO/openspec/changes/demo"
+mkdir -p "$REPO/spectre/changes/demo"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "an unarchived change directory is LEFTOVER"
-assert_reason "openspec/changes/demo" "an unarchived change directory names its row"
+assert_reason "spectre/changes/demo" "an unarchived change directory names its row"
 
 # 6. Registry row — the proposal artifact source in the state directory.
 new_fixture
@@ -467,13 +467,13 @@ assert_reason "proposal artifact source" "a surviving artifact source names its 
 # 7. Every row is matched by its FULL name, never by prefix. A neighbouring
 #    change called demo-other owns a worktree, a branch, a tracking ref, a
 #    change directory and an artifact source of its own; none of them belongs
-#    to demo. Without this case a guard grepping for `openspec/demo` reports
+#    to demo. Without this case a guard grepping for `spectre/demo` reports
 #    LEFTOVER over another change's live work and sends the operator hunting
 #    for something that is not there.
 new_fixture
-add_worktree openspec/demo-other
-git -C "$REPO" update-ref refs/remotes/origin/openspec/demo-other HEAD
-mkdir -p "$REPO/openspec/changes/demo-other"
+add_worktree spectre/demo-other
+git -C "$REPO" update-ref refs/remotes/origin/spectre/demo-other HEAD
+mkdir -p "$REPO/spectre/changes/demo-other"
 : > "$STATE/demo-other-proposal-artifact.html"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "another change's artifacts are not this change's leftovers"
@@ -482,13 +482,13 @@ assert_verdict "COMPLETE:" "another change's artifacts are not this change's lef
 #    contract allows, so the operator sees everything that remains in one
 #    report rather than one item per finish run.
 new_fixture
-git -C "$REPO" branch openspec/demo
-mkdir -p "$REPO/openspec/changes/demo"
+git -C "$REPO" branch spectre/demo
+mkdir -p "$REPO/spectre/changes/demo"
 : > "$STATE/demo-proposal-artifact.html"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "several leftovers still produce exactly one line"
 assert_reason "local branch" "the combined breakdown names the branch"
-assert_reason "openspec/changes/demo" "the combined breakdown names the change directory"
+assert_reason "spectre/changes/demo" "the combined breakdown names the change directory"
 assert_reason "proposal artifact source" "the combined breakdown names the artifact source"
 
 # 9. A repository that cannot be read is not a verdict: exit non-zero, nothing
@@ -545,7 +545,7 @@ done
 #      a real change directory and a real artifact source survive, and no name
 #      may produce COMPLETE over them.
 new_fixture
-mkdir -p "$REPO/openspec/changes/demo"
+mkdir -p "$REPO/spectre/changes/demo"
 : > "$STATE/demo-proposal-artifact.html"
 run_guard "$REPO" "../../nonexistent-decoy" "$STATE"
 [ -z "$OUT" ] && pass "a traversal-shaped name cannot report COMPLETE over a live change" \
@@ -1350,7 +1350,7 @@ assert_reason "linked-survivor" "the linked configuration's survivors command ra
 #     line the contract allows — the workspace row joins the existing breakdown
 #     rather than replacing or preempting it.
 new_fixture
-git -C "$REPO" branch openspec/demo
+git -C "$REPO" branch spectre/demo
 write_script survivors.sh "printf 'db-survivor-one\n'"
 declare_isolation '`./survivors.sh`'
 run_guard "$REPO" demo "$STATE"

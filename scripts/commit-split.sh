@@ -20,8 +20,8 @@
 # a message or a path.
 #
 # A PLANNING PATH THAT IS A TRACKED SYMLINK IS NEVER WORKED AROUND. If
-# `openspec/` or `docs/superpowers/` is a tracked symlink, `git add -A -- .
-# ':(exclude)openspec/' ':(exclude)docs/superpowers/'` exits 128 with a
+# `spectre/` or `docs/superpowers/` is a tracked symlink, `git add -A -- .
+# ':(exclude)spectre/' ':(exclude)docs/superpowers/'` exits 128 with a
 # message naming the path, and stages nothing. `set -euo pipefail` is what
 # propagates that exit code and message as-is — there is no trap or `||`
 # around that call to catch and reinterpret it. The only way past the stop is
@@ -32,8 +32,8 @@ set -euo pipefail
 
 worktree="$1" name="$2" impl_msg="$3" plan_msg="$4"
 
-git -C "$worktree" reset -q -- openspec/ docs/superpowers/
-git -C "$worktree" add -A -- . ':(exclude)openspec/' ':(exclude)docs/superpowers/'
+git -C "$worktree" reset -q -- spectre/ docs/superpowers/
+git -C "$worktree" add -A -- . ':(exclude)spectre/' ':(exclude)docs/superpowers/'
 git -C "$worktree" diff --cached --quiet \
   || git -C "$worktree" commit -m "$impl_msg"
 git -C "$worktree" add -A

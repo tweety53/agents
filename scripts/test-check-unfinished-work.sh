@@ -13,7 +13,7 @@
 # path is NOT, in either direction.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract in openspec/specs/myflow-finish-cleanup/spec.md — the requirement
+# contract in this repository's myflow-finish-cleanup spec — the requirement
 # "Run 1 refuses to integrate silently over unfinished work", which lives in
 # this change's delta spec until it is synced there. Never assert against
 # observed output. test-check-plan-provenance.sh's header records that suite
@@ -163,9 +163,9 @@ SDD_PANEL='.superpowers/sdd/final-review-panel.md'
 new_fixture() {
   WT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
   SANDBOXES+=("$WT")
-  mkdir -p "$WT/openspec/changes/demo" "$WT/.superpowers/sdd" "$WT/$REVIEWS"
+  mkdir -p "$WT/spectre/changes/demo" "$WT/.superpowers/sdd" "$WT/$REVIEWS"
   PANEL="$WT/$REVIEWS/2026-01-01-demo-panel.md"
-  printf -- '- [x] 1.1 done\n' > "$WT/openspec/changes/demo/tasks.md"
+  printf -- '- [x] 1.1 done\n' > "$WT/spectre/changes/demo/tasks.md"
   write_panel 1 fixed
 }
 
@@ -231,7 +231,7 @@ assert_verdict "CLEAR:" "a leftover docs/manual-test/ present at invocation time
 
 # 3. Signal one — the plan.
 new_fixture
-printf -- '- [ ] 1.1 not done\n' > "$WT/openspec/changes/demo/tasks.md"
+printf -- '- [ ] 1.1 not done\n' > "$WT/spectre/changes/demo/tasks.md"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "an unchecked plan item is OUTSTANDING"
 assert_reason "unchecked plan item" "an unchecked plan item names its signal"
@@ -242,14 +242,14 @@ assert_reason "unchecked plan item" "an unchecked plan item names its signal"
 #     guard exists to break. Both layouts the contract leaves open are covered;
 #     see the guard's comment on why it reads both.
 new_fixture
-mkdir -p "$WT/openspec/changes/demo-fix-1"
-printf -- '- [ ] 1.1 the fix is not done\n' > "$WT/openspec/changes/demo-fix-1/tasks.md"
+mkdir -p "$WT/spectre/changes/demo-fix-1"
+printf -- '- [ ] 1.1 the fix is not done\n' > "$WT/spectre/changes/demo-fix-1/tasks.md"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "an unchecked item in a sibling fix sub-change is OUTSTANDING"
 
 new_fixture
-mkdir -p "$WT/openspec/changes/demo/demo-fix-1"
-printf -- '- [ ] 1.1 the fix is not done\n' > "$WT/openspec/changes/demo/demo-fix-1/tasks.md"
+mkdir -p "$WT/spectre/changes/demo/demo-fix-1"
+printf -- '- [ ] 1.1 the fix is not done\n' > "$WT/spectre/changes/demo/demo-fix-1/tasks.md"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "an unchecked item in a nested fix sub-change is OUTSTANDING"
 
@@ -259,26 +259,26 @@ assert_verdict "OUTSTANDING:" "an unchecked item in a nested fix sub-change is O
 #     gate reported CLEAR over it. Both directions of the layout are covered:
 #     nested inside the change, and beside it.
 new_fixture
-mkdir -p "$WT/openspec/changes/demo/demo-fix-1/demo-fix-1-fix-2"
+mkdir -p "$WT/spectre/changes/demo/demo-fix-1/demo-fix-1-fix-2"
 printf -- '- [ ] 1.1 the fix of the fix is not done\n' \
-  > "$WT/openspec/changes/demo/demo-fix-1/demo-fix-1-fix-2/tasks.md"
+  > "$WT/spectre/changes/demo/demo-fix-1/demo-fix-1-fix-2/tasks.md"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a plan two levels deep under the change is OUTSTANDING"
 assert_reason "unchecked plan item" "a plan two levels deep names its signal"
 
 new_fixture
-mkdir -p "$WT/openspec/changes/demo-fix-1-fix-2"
+mkdir -p "$WT/spectre/changes/demo-fix-1-fix-2"
 printf -- '- [ ] 1.1 the sibling fix of the fix is not done\n' \
-  > "$WT/openspec/changes/demo-fix-1-fix-2/tasks.md"
+  > "$WT/spectre/changes/demo-fix-1-fix-2/tasks.md"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a sibling fix-of-a-fix plan is OUTSTANDING"
 
 # 3d. Another change's plan is not this change's signal. Reading every tasks.md
-#     under openspec/changes/ would report OUTSTANDING for every unrelated
+#     under spectre/changes/ would report OUTSTANDING for every unrelated
 #     change in flight, which is a guard the operator learns to click past.
 new_fixture
-mkdir -p "$WT/openspec/changes/other-change"
-printf -- '- [ ] 1.1 not our problem\n' > "$WT/openspec/changes/other-change/tasks.md"
+mkdir -p "$WT/spectre/changes/other-change"
+printf -- '- [ ] 1.1 not our problem\n' > "$WT/spectre/changes/other-change/tasks.md"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "another change's unchecked plan is not this change's signal"
 
@@ -288,16 +288,16 @@ assert_verdict "CLEAR:" "another change's unchecked plan is not this change's si
 #     "CLEAR: … every plan item is checked" — a claim about a plan that does not
 #     exist, and the exact silence-as-clearance this guard exists to break.
 new_fixture
-rm -rf "$WT/openspec/changes/demo"
+rm -rf "$WT/spectre/changes/demo"
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "a missing primary plan is OUTSTANDING, not CLEAR"
 assert_reason "no plan at" "a missing primary plan names its signal"
 
 new_fixture
-rm -rf "$WT/openspec"
+rm -rf "$WT/spectre"
 run_guard "$WT" demo
-assert_verdict "OUTSTANDING:" "no openspec tree at all is OUTSTANDING, not CLEAR"
-assert_reason "no plan at" "a missing openspec tree names the plan signal"
+assert_verdict "OUTSTANDING:" "no spectre tree at all is OUTSTANDING, not CLEAR"
+assert_reason "no plan at" "a missing spectre tree names the plan signal"
 
 # 4. Signal two — findings whose recorded status is not closed.
 #
@@ -771,7 +771,7 @@ assert_verdict "CLEAR:" "the record's other tables are not read as findings"
 #    this is the direct demonstration: an unchecked plan item and an open
 #    finding, both named in the single OUTSTANDING line.
 new_fixture
-printf -- '- [ ] 1.1 not done\n' > "$WT/openspec/changes/demo/tasks.md"
+printf -- '- [ ] 1.1 not done\n' > "$WT/spectre/changes/demo/tasks.md"
 write_panel 1 open
 run_guard "$WT" demo
 assert_verdict "OUTSTANDING:" "both signals firing at once is OUTSTANDING"
@@ -791,9 +791,9 @@ assert_reason "1 open finding(s)" "the combined line also names the findings sig
 #     root, where chmod 000 does not block reads.
 if [ "$(id -u)" -ne 0 ]; then
   new_fixture
-  chmod 000 "$WT/openspec/changes/demo/tasks.md"
+  chmod 000 "$WT/spectre/changes/demo/tasks.md"
   run_guard "$WT" demo
-  chmod 644 "$WT/openspec/changes/demo/tasks.md"
+  chmod 644 "$WT/spectre/changes/demo/tasks.md"
   [ "$RC" -ne 0 ] && pass "an unreadable tasks.md exits non-zero" \
     || fail "unreadable tasks.md: expected a non-zero exit, got rc=$RC out=$OUT"
   [ -z "$OUT" ] && pass "an unreadable tasks.md emits no verdict line" \
@@ -863,9 +863,9 @@ done
 #     here would produce a real CLEAR rather than a path-concatenation
 #     OUTSTANDING. NAME is therefore relative: $WT and $PLANTED are both
 #     mktemp -d siblings directly under the same TMPDIR, so
-#     "../../../$(basename "$PLANTED")/openspec/changes/clear", concatenated
-#     onto "$WT/openspec/changes/" by the guard, lands exactly on
-#     "$PLANTED/openspec/changes/clear" — a change with a fully-ticked
+#     "../../../$(basename "$PLANTED")/spectre/changes/clear", concatenated
+#     onto "$WT/spectre/changes/" by the guard, lands exactly on
+#     "$PLANTED/spectre/changes/clear" — a change with a fully-ticked
 #     tasks.md. The panel record is read from $WT's own fixture (already
 #     CLEAR via new_fixture's write_panel), never from $PLANTED: the change
 #     name reaches the panel path only as a filename component matched
@@ -885,9 +885,9 @@ done
 new_fixture
 PLANTED="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-planted.XXXXXX")"
 SANDBOXES+=("$PLANTED")
-mkdir -p "$PLANTED/openspec/changes/clear"
-printf -- '- [x] 1.1 done\n' > "$PLANTED/openspec/changes/clear/tasks.md"
-run_guard "$WT" "../../../$(basename "$PLANTED")/openspec/changes/clear"
+mkdir -p "$PLANTED/spectre/changes/clear"
+printf -- '- [x] 1.1 done\n' > "$PLANTED/spectre/changes/clear/tasks.md"
+run_guard "$WT" "../../../$(basename "$PLANTED")/spectre/changes/clear"
 [ "$RC" -eq 2 ] && pass "a traversal-shaped name is rejected by the allowlist before any path is built" \
   || fail "traversal: expected exit 2 from the allowlist, got rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "a traversal-shaped name reads nothing outside the worktree" \
