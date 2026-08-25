@@ -46,8 +46,14 @@ const columns: Column<CacheEfficiencyRow>[] = [
   },
 ];
 
-/** Same absence-is-never-zero sum this view's siblings use -- see
- * CostPerChange.tsx's own doc comment on why it stays local per file. */
+/** Sums a nullable numeric field across rows: null when none of the rows
+ * carry it, the sum of the present values otherwise -- the same
+ * absence-is-never-zero rule useRunDetail.ts's own summarize() already
+ * follows for the run-detail header, applied here to this view's stat
+ * panels. Kept local to this file rather than shared: there is no shared
+ * numeric-helpers module in this codebase, and each view's own
+ * "which field, over which rows" differs enough that a shared abstraction
+ * would need a callback per call site anyway. */
 function sumNullable(values: Array<number | null>): number | null {
   let total = 0;
   let any = false;

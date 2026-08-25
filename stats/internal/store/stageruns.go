@@ -212,11 +212,10 @@ func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, e
 // in, the same class of damage this rule exists to stop.
 //
 // The outcome is "superseded", not "abandoned": abandoned means the
-// daemon closed a run because its session went silent, and the
-// rework-rate view (aggregate.go) reads that outcome directly: folding a
-// dropped end mark into it would corrupt that statistic. A superseded
-// run is neither rework nor silence -- its own next mark is exactly what
-// discovered it was still open.
+// daemon closed a run because its session went silent, and folding a
+// dropped end mark into that outcome would corrupt a caller's count of
+// genuinely silent runs. A superseded run is neither rework nor silence --
+// its own next mark is exactly what discovered it was still open.
 //
 // Atomicity is not serialisability (design.md's
 // supersede-serialised-per-session): under READ COMMITTED, the pool's
@@ -636,8 +635,8 @@ func (s *Store) BindSession(ctx context.Context, sessionToken string, sessionID 
 // "abandoned", and returns how many rows it closed.
 //
 // An abandoned stage is a statistic worth having, not an error to
-// suppress: the rework-rate view reads the "abandoned" outcome directly,
-// exactly as it reads any other recorded outcome.
+// suppress: the outcome column records it exactly like any other outcome,
+// available to whichever aggregation later wants to read it.
 func (s *Store) SweepAbandoned(ctx context.Context, silentBefore time.Time) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE stage_runs

@@ -173,15 +173,15 @@ func TestReplayAppliesPendingStageMarks(t *testing.T) {
 		ChangeName:   "chg-1",
 		Harness:      "claude-code",
 		SessionToken: "mf-session-token-stage-replay",
-		Command:      "/myflow-do",
-		Stage:        "do.sdd-tdd",
+		Command:      "/flow",
+		Stage:        "flow.sdd-tdd",
 		StartedAt:    time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
 	}
 	end := client.EndStageRequest{
 		ProjectKey: "proj-stage-replay",
 		ChangeName: "chg-1",
-		Command:    "/myflow-do",
-		Stage:      "do.sdd-tdd",
+		Command:    "/flow",
+		Stage:      "flow.sdd-tdd",
 		EndedAt:    time.Date(2026, 8, 13, 10, 5, 0, 0, time.UTC),
 		Outcome:    "completed",
 		Metrics:    json.RawMessage(`{"fix_rounds":1}`),
@@ -237,8 +237,8 @@ func TestStageEndReplayWithNoOpenRunRetiresCleanly(t *testing.T) {
 	end := client.EndStageRequest{
 		ProjectKey: "proj-stage-noopen",
 		ChangeName: "chg-1",
-		Command:    "/myflow-do",
-		Stage:      "do.sdd-tdd",
+		Command:    "/flow",
+		Stage:      "flow.sdd-tdd",
 		EndedAt:    time.Date(2026, 8, 13, 10, 5, 0, 0, time.UTC),
 		Outcome:    "completed",
 	}
@@ -276,7 +276,7 @@ func TestUndocumentedStageMarkReplayRetiresAsRefused(t *testing.T) {
 		ProjectKey: "proj-stage-undoc",
 		ChangeName: "chg-1",
 		Harness:    "claude-code",
-		Command:    "/myflow-do",
+		Command:    "/flow",
 		Stage:      "a stage nobody documented",
 		StartedAt:  time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
 	}
@@ -366,12 +366,12 @@ func TestStageReplayInterruptedResumesWithoutDuplicating(t *testing.T) {
 	appendStageMark(t, root, "proj-stage-interrupt", "chg-a", "begin", client.BeginStageRequest{
 		ProjectKey: "proj-stage-interrupt", ChangeName: "chg-a", Harness: "claude-code",
 		SessionToken: "mf-session-token-interrupt-chg-a",
-		Command:      "/myflow-do", Stage: "do.sdd-tdd", StartedAt: time.Now(),
+		Command:      "/flow", Stage: "flow.sdd-tdd", StartedAt: time.Now(),
 	})
 	appendStageMark(t, root, "proj-stage-interrupt", "chg-b", "begin", client.BeginStageRequest{
 		ProjectKey: "proj-stage-interrupt", ChangeName: "chg-b", Harness: "claude-code",
 		SessionToken: "mf-session-token-interrupt-chg-b",
-		Command:      "/myflow-do", Stage: "do.sdd-tdd", StartedAt: time.Now(),
+		Command:      "/flow", Stage: "flow.sdd-tdd", StartedAt: time.Now(),
 	})
 
 	wrapped := &injectingStageStore{inner: st, failChangeName: "chg-b", failsRemaining: 1}
@@ -390,10 +390,10 @@ func TestStageReplayInterruptedResumesWithoutDuplicating(t *testing.T) {
 	if n := pendingStageCount(t, root, "proj-stage-interrupt", "chg-b"); n != 1 {
 		t.Fatalf("chg-b pending stage entries = %d, want 1 (unresolved, must remain)", n)
 	}
-	if openStageRun(t, st, "proj-stage-interrupt", "chg-a", "/myflow-do", "do.sdd-tdd") == nil {
+	if openStageRun(t, st, "proj-stage-interrupt", "chg-a", "/flow", "flow.sdd-tdd") == nil {
 		t.Error("chg-a has no open stage run after the first Run -- it should have been applied")
 	}
-	if openStageRun(t, st, "proj-stage-interrupt", "chg-b", "/myflow-do", "do.sdd-tdd") != nil {
+	if openStageRun(t, st, "proj-stage-interrupt", "chg-b", "/flow", "flow.sdd-tdd") != nil {
 		t.Error("chg-b has an open stage run after the first Run -- the injected failure should have prevented it")
 	}
 

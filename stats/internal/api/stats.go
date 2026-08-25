@@ -1,5 +1,5 @@
 // stats.go serves the statistics surface: GET /api/v1/stats/{view} over
-// task 3's eight aggregation methods, and GET /api/v1/stage-runs, a listing
+// task 3's aggregation methods, and GET /api/v1/stage-runs, a listing
 // endpoint parallel to GET /api/v1/changes that gives task 3.1's stage-run
 // query surface its first external caller (QueryStageRuns had none before
 // this task -- only this package's own findOpenStageRun, internal, used
@@ -37,7 +37,7 @@ import (
 const boundaryConvention = "a stage run is attributed to the period containing its start instant (started_at), never its end; periods are half-open [from, to)"
 
 // StatsStore is the store dependency the statistics endpoints need, defined
-// here at the consumer per go-interface-design: exactly task 3's eight
+// here at the consumer per go-interface-design: exactly task 3's
 // aggregation methods plus QueryStageRuns, which this file also uses for
 // the stage-runs listing endpoint and for resolving the earliest recorded
 // stage run (see recorded, below). A fake satisfying this needs no
@@ -48,9 +48,6 @@ type StatsStore interface {
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
 	CacheEfficiency(ctx context.Context, period store.Period, project, model *string) ([]store.CacheEfficiencyRow, error)
-	PanelEconomics(ctx context.Context, period store.Period, project, model *string) ([]store.PanelEconomicsRow, error)
-	ModelComparison(ctx context.Context, period store.Period, project, model *string) ([]store.ModelComparisonRow, error)
-	ReworkRate(ctx context.Context, period store.Period, project, model *string) ([]store.ReworkRateRow, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
@@ -84,7 +81,7 @@ type statsHandler struct {
 	logger *slog.Logger
 }
 
-// viewName is one of the eight statistics views' URL slugs, taken from
+// viewName is one of the statistics views' URL slugs, taken from
 // design.md's "The views" table.
 type viewName string
 
@@ -94,10 +91,6 @@ const (
 	viewStageLeaderboard viewName = "stage-leaderboard"
 	viewTrend            viewName = "trend"
 	viewCacheEfficiency  viewName = "cache-efficiency"
-	viewPanelEconomics   viewName = "panel-economics"
-	viewModelComparison  viewName = "model-comparison"
-	viewReworkRate       viewName = "rework-rate"
-	breakdownRepo                 = "repo"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -106,7 +99,7 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
-	viewCacheEfficiency, viewPanelEconomics, viewModelComparison, viewReworkRate,
+	viewCacheEfficiency,
 }
 
 func acceptedViewNames() string {
@@ -124,15 +117,14 @@ func acceptedViewNames() string {
 // surface) to "an unknown query *parameter*" on a route that has no
 // filter/sort surface of its own to delegate that check to.
 var statsQueryParams = map[string]bool{
-	"from": true, "to": true, "project": true, "breakdown": true, "change": true,
-	"command": true, "stage": true, "model": true,
+	"from": true, "to": true, "project": true, "change": true, "model": true,
 }
 
 // acceptedStatsQueryParamNames is statsQueryParams' keys, named in the
 // unrecognised-parameter error message -- kept as one literal alongside the
 // map it names, rather than duplicated at each call site, so adding a
 // parameter to the map cannot silently leave the error message stale.
-const acceptedStatsQueryParamNames = "from, to, project, breakdown, change, command, stage, model"
+const acceptedStatsQueryParamNames = "from, to, project, change, model"
 
 // statsResponse is the JSON envelope every view answers with: the request
 // that was actually served (never merely echoed -- From/To are the parsed
@@ -384,22 +376,6 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// "breakdown" sat in statsQueryParams so the unknown-parameter guard
-	// above passed it through on every view, and only rowsFor's
-	// viewCostPerChange case ever read it -- every other view silently
-	// discarded it and answered 200 with an ordinary, unbroken-down
-	// response (task 25, step 1). Rejecting it here, before any store
-	// call, mirrors the model rejection immediately above: name the view,
-	// and never let the parameter reach a view that has no way to honour
-	// it. cost-per-change's own breakdown=repo pairing rules (change,
-	// project, command, stage) are unchanged -- they still run inside
-	// rowsFor, downstream of this check.
-	if firstValue(values, "breakdown") != "" && name != viewCostPerChange {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf(
-			"view %q does not accept a breakdown restriction", name))
-		return
-	}
-
 	recorded, err := h.recorded(r.Context(), period, project)
 	if err != nil {
 		status, msg := mapStoreError(h.logger, "resolve recorded period for "+string(name), err)
@@ -461,10 +437,6 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 
 // rowsFor dispatches to the one view name names, returning either the
 // view's rows (status == 0) or the status and message to report instead.
-// breakdown="repo" is honoured only for cost-per-change -- design.md's
-// per-repository scenario is stated in terms of "a cost view", and every
-// other view already aggregates across many changes and has no single
-// change's repository set to break down in the first place.
 //
 // model is already known not to be set when name is viewStateBoard --
 // view rejects that combination before rowsFor is ever called -- so every
@@ -480,72 +452,20 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		return toStateBoardDTOs(board), 0, ""
 
 	case viewCostPerChange:
-		if breakdown := firstValue(values, "breakdown"); breakdown != "" {
-			if breakdown != breakdownRepo {
-				return nil, http.StatusBadRequest, fmt.Sprintf(`unrecognised breakdown %q; accepted: %q`, breakdown, breakdownRepo)
-			}
-			changeName := firstValue(values, "change")
-			if changeName == "" {
-				return nil, http.StatusBadRequest, `breakdown=repo requires a "change" parameter naming the change to break down`
-			}
-			// A change is keyed by (project, name) -- store.PutChange's own
-			// contract, exercised directly by TestSameNameInTwoProjectsCoexist
-			// -- so "change" alone is not enough to identify one: two
-			// projects can and do use the same change name. Every SQL-based
-			// view avoids this by grouping on c.project_key too; this
-			// breakdown does its own grouping in Go (costPerChangeByRepo's
-			// own doc comment explains why) and must apply the same
-			// discipline explicitly, so project is required here rather than
-			// silently blending every same-named change across every
-			// project into one breakdown -- a wrong, plausible-looking
-			// answer, not merely an incomplete one.
-			if project == nil {
-				return nil, http.StatusBadRequest, `breakdown=repo requires a "project" parameter: a change name alone does not identify one change across projects`
-			}
-			// command and stage are required too, and for the identical
-			// reason project is: viewCostPerChange's own non-breakdown rows
-			// are grouped by (project, name, command, stage) -- one row per
-			// stage, per design.md's "broken down by command and stage" --
-			// and the interface nests exactly one breakdown toggle under
-			// each of those rows (CostPerChange.tsx's RepoBreakdown). A
-			// breakdown scoped to the change as a whole, filtered only by
-			// project and name, would silently blend every stage's runs
-			// into one panel no matter which row's toggle opened it -- a
-			// panel that reconciles with none of them (post-commit review
-			// finding F1: reproduced live, two rows of one change opening
-			// to the identical, unreconciling total). There is no other
-			// caller of breakdown=repo that would want the change-wide
-			// figure instead, so command and stage are required rather than
-			// silently optional -- a request that omits either is rejected,
-			// never quietly widened to "the whole change".
-			command := firstValue(values, "command")
-			stage := firstValue(values, "stage")
-			if command == "" || stage == "" {
-				return nil, http.StatusBadRequest, `breakdown=repo requires "command" and "stage" parameters naming the row to break down`
-			}
-			rows, err := h.costPerChangeByRepo(ctx, period, *project, changeName, command, stage)
-			if err != nil {
-				s, m := mapStoreError(h.logger, "cost per change by repo", err)
-				return nil, s, m
-			}
-			return rows, 0, ""
-		}
 		cost, err := h.store.CostPerChange(ctx, period, project, model)
 		if err != nil {
 			s, m := mapStoreError(h.logger, "cost per change", err)
 			return nil, s, m
 		}
-		// "change" alone (no breakdown) scopes cost-per-change to one
-		// change, server-side -- task 21, step 5. Before this, only
-		// breakdown=repo ever read "change", so a caller wanting one
-		// change's own totals (the run-detail header, useRunDetail.ts) had
-		// to fetch every change in the project and filter client-side,
-		// which stayed correct only because this view is unpaged; the
-		// moment a limit is added here that shape silently under-reports.
-		// This is a plain Go slice filter, not a new store method, for the
-		// same reason costPerChangeByRepo's own doc comment gives: the
-		// result set CostPerChange already returned is small and bounded
-		// by construction, so re-filtering it here is the smaller surface.
+		// "change" scopes cost-per-change to one change, server-side --
+		// task 21, step 5. Before this, a caller wanting one change's own
+		// totals (the run-detail header, useRunDetail.ts) had to fetch
+		// every change in the project and filter client-side, which stayed
+		// correct only because this view is unpaged; the moment a limit is
+		// added here that shape silently under-reports. This is a plain Go
+		// slice filter, not a new store method: the result set CostPerChange
+		// already returned is small and bounded by construction, so
+		// re-filtering it here is the smaller surface.
 		if changeName := firstValue(values, "change"); changeName != "" {
 			cost = filterCostPerChangeByName(cost, changeName)
 		}
@@ -574,30 +494,6 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 			return nil, s, m
 		}
 		return toCacheEfficiencyDTOs(eff), 0, ""
-
-	case viewPanelEconomics:
-		panel, err := h.store.PanelEconomics(ctx, period, project, model)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "panel economics", err)
-			return nil, s, m
-		}
-		return toPanelEconomicsDTOs(panel), 0, ""
-
-	case viewModelComparison:
-		cmp, err := h.store.ModelComparison(ctx, period, project, model)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "model comparison", err)
-			return nil, s, m
-		}
-		return toModelComparisonDTOs(cmp), 0, ""
-
-	case viewReworkRate:
-		rework, err := h.store.ReworkRate(ctx, period, project, model)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "rework rate", err)
-			return nil, s, m
-		}
-		return toReworkRateDTOs(rework), 0, ""
 
 	default:
 		return nil, http.StatusBadRequest, fmt.Sprintf("unrecognised view %q; accepted: %s", name, acceptedViewNames())
@@ -791,66 +687,6 @@ func toCacheEfficiencyDTOs(rows []store.CacheEfficiencyRow) []cacheEfficiencyRow
 	return out
 }
 
-type panelEconomicsRowDTO struct {
-	ReviewPanelRoster string `json:"reviewPanelRoster"`
-
-	FindingsTotal   int64    `json:"findingsTotal"`
-	TokensTotal     *int64   `json:"tokensTotal"`
-	FindingsPerMTok *float64 `json:"findingsPerMtok"`
-}
-
-func toPanelEconomicsDTOs(rows []store.PanelEconomicsRow) []panelEconomicsRowDTO {
-	out := make([]panelEconomicsRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = panelEconomicsRowDTO{
-			ReviewPanelRoster: r.ReviewPanelRoster,
-			FindingsTotal:     r.FindingsTotal, TokensTotal: r.TokensTotal, FindingsPerMTok: r.FindingsPerMTok,
-		}
-	}
-	return out
-}
-
-type modelComparisonRowDTO struct {
-	Model   string `json:"model"`
-	Command string `json:"command"`
-	Stage   string `json:"stage"`
-
-	RunCount       int      `json:"runCount"`
-	MeanCostUSD    *float64 `json:"meanCostUsd"`
-	ReworkAttempts int      `json:"reworkAttempts"`
-}
-
-func toModelComparisonDTOs(rows []store.ModelComparisonRow) []modelComparisonRowDTO {
-	out := make([]modelComparisonRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = modelComparisonRowDTO{
-			Model: r.Model, Command: r.Command, Stage: r.Stage,
-			RunCount: r.RunCount, MeanCostUSD: r.MeanCostUSD, ReworkAttempts: r.ReworkAttempts,
-		}
-	}
-	return out
-}
-
-type reworkRateRowDTO struct {
-	Command string `json:"command"`
-	Stage   string `json:"stage"`
-
-	TotalAttempts  int `json:"totalAttempts"`
-	ReworkAttempts int `json:"reworkAttempts"`
-	AbandonedCount int `json:"abandonedCount"`
-}
-
-func toReworkRateDTOs(rows []store.ReworkRateRow) []reworkRateRowDTO {
-	out := make([]reworkRateRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = reworkRateRowDTO{
-			Command: r.Command, Stage: r.Stage,
-			TotalAttempts: r.TotalAttempts, ReworkAttempts: r.ReworkAttempts, AbandonedCount: r.AbandonedCount,
-		}
-	}
-	return out
-}
-
 // filterCostPerChangeByName narrows rows to changeName, preserving order.
 // Task 21, step 5's own doc comment (rowsFor's viewCostPerChange case)
 // explains why this is a Go filter over CostPerChange's already-fetched,
@@ -862,8 +698,8 @@ func toReworkRateDTOs(rows []store.ReworkRateRow) []reworkRateRowDTO {
 // useRunDetail.ts does; this filter does not itself enforce that pairing,
 // since a caller filtering within one project's own already-scoped result
 // (or accepting the small residual risk of a same-named change elsewhere)
-// is not the shape this step exists to forbid -- only the unbounded,
-// project-blind blend breakdown=repo's own comment describes there.
+// is not the shape this step exists to forbid -- only an unbounded,
+// project-blind blend across every same-named change is.
 func filterCostPerChangeByName(rows []store.CostPerChangeRow, changeName string) []store.CostPerChangeRow {
 	out := make([]store.CostPerChangeRow, 0, len(rows))
 	for _, r := range rows {
@@ -872,187 +708,6 @@ func filterCostPerChangeByName(rows []store.CostPerChangeRow, changeName string)
 		}
 	}
 	return out
-}
-
-// --- cost-per-change repository breakdown ---
-
-// costPerChangeRepoRowDTO is one repository's contribution to a single
-// change's cost -- design.md's "per-repository breakdown available on
-// request", requested via breakdown=repo&change=<name>. RepoRoot is nil
-// for stage runs recorded against the change as a whole (store.StageRun's
-// own nil-repo_root convention: "the whole unit of work", never "unknown
-// repository") -- summed here under its own row exactly like any other
-// repository, rather than folded into one of the named ones or dropped.
-type costPerChangeRepoRowDTO struct {
-	RepoRoot *string `json:"repoRoot"`
-
-	RunCount     int `json:"runCount"`
-	MeasuredRuns int `json:"measuredRuns"`
-
-	TotalTokensInput *int64   `json:"totalTokensInput"`
-	TotalCostUSD     *float64 `json:"totalCostUsd"`
-	TotalDurationMs  *int64   `json:"totalDurationMs"`
-}
-
-// repoBreakdownAccumulator sums one repository's contribution across the
-// stage runs costPerChangeByRepo groups under it. The have* flags are what
-// let a repository whose runs never once carried a given metric report that
-// field as nil rather than a fabricated zero -- the same
-// absence-is-not-a-value rule store.CostPerChange's own SQL already applies
-// via COUNT/SUM's native NULL-on-no-rows behaviour, reproduced here in Go
-// because this breakdown reads raw stage runs rather than issuing its own
-// GROUP BY (see costPerChangeByRepo's doc comment for why).
-type repoBreakdownAccumulator struct {
-	runCount     int
-	measuredRuns int
-
-	haveTokensInput bool
-	totalTokensIn   float64
-
-	haveCost  bool
-	totalCost float64
-
-	haveDuration    bool
-	totalDurationMs int64
-}
-
-func (a *repoBreakdownAccumulator) dto(repoRoot *string) costPerChangeRepoRowDTO {
-	dto := costPerChangeRepoRowDTO{RepoRoot: repoRoot, RunCount: a.runCount, MeasuredRuns: a.measuredRuns}
-	if a.haveTokensInput {
-		v := int64(a.totalTokensIn)
-		dto.TotalTokensInput = &v
-	}
-	if a.haveCost {
-		v := a.totalCost
-		dto.TotalCostUSD = &v
-	}
-	if a.haveDuration {
-		v := a.totalDurationMs
-		dto.TotalDurationMs = &v
-	}
-	return dto
-}
-
-// stageRunMetricsBag is the subset of a stage run's metrics bag
-// costPerChangeByRepo reads, decoded key-by-key (rather than into a single
-// fixed struct) so that a key's mere *presence* -- "tokens" as a whole, for
-// MeasuredRuns -- can be told apart from a key that is present but carries
-// no numeric value, exactly as store.CostPerChangeRow's own doc comment
-// distinguishes RunCount from MeasuredRuns.
-type stageRunTokensSubset struct {
-	Input *float64 `json:"input"`
-}
-
-// costPerChangeByRepo answers design.md's per-repository breakdown scenario
-// for one row of the cost-per-change view -- one (project, change, command,
-// stage) group, matching exactly what that view's own non-breakdown rows
-// are grouped by (store.CostPerChange's GROUP BY). It fetches that group's
-// stage runs starting within period via QueryStageRuns -- store's own
-// allowlisted query surface, never a bespoke SQL method -- and sums each
-// metric per distinct RepoRoot in Go.
-//
-// This is deliberately not a ninth store aggregation method. Every other
-// view aggregates over however many changes and stage runs a whole period
-// contains, which is exactly why they are SQL GROUP BYs: the data volume
-// makes summing in application code the wrong trade-off. This breakdown is
-// scoped to one caller-named row's own stage runs, a small, bounded set by
-// construction, so re-deriving store.CostPerChangeRow's arithmetic in Go
-// over an already-small result is the smaller surface, not a shortcut
-// around it -- and it reuses the one query surface store.go already
-// exposes externally (QueryStageRuns) rather than adding a new one.
-//
-// project is required, not optional: a change is keyed by (project, name),
-// and store.TestSameNameInTwoProjectsCoexist is exactly the scenario a
-// name-only filter here would silently blend together (post-commit review
-// finding F1) -- every SQL-based aggregation avoids this because its own
-// GROUP BY includes c.project_key, and this function must apply the same
-// discipline explicitly since it builds no SQL of its own.
-//
-// command and stage are required for the same reason, added by a later
-// review round (post-commit review finding F1, task 13): without them this
-// summed every stage run of the whole change into one panel, so two
-// differently-costed rows of the same change ("SDD + TDD per task" and
-// "5. The review panel", say) opened to the identical total, and that total
-// reconciled with neither row's own figures -- reproduced live against a
-// seeded database, not caught by any fixture, because a fixture with only
-// one stage per change cannot exhibit it. rowsFor refuses the request
-// before this is ever reached if project, command or stage is missing.
-func (h *statsHandler) costPerChangeByRepo(ctx context.Context, period store.Period, project, changeName, command, stage string) ([]costPerChangeRepoRowDTO, error) {
-	filters := []store.Filter{
-		{Field: "project", Op: store.OpEq, Value: project},
-		{Field: "name", Op: store.OpEq, Value: changeName},
-		{Field: "command", Op: store.OpEq, Value: command},
-		{Field: "stage", Op: store.OpEq, Value: stage},
-		{Field: "started_at", Op: store.OpGte, Value: period.From},
-		{Field: "started_at", Op: store.OpLt, Value: period.To},
-	}
-
-	runs, _, err := h.store.QueryStageRuns(ctx, store.Query{Filters: filters, Limit: store.NoLimit})
-	if err != nil {
-		return nil, err
-	}
-
-	byRepo := map[string]*repoBreakdownAccumulator{}
-	var order []string
-	keyFor := func(repoRoot *string) string {
-		if repoRoot == nil {
-			return ""
-		}
-		return *repoRoot
-	}
-
-	for _, run := range runs {
-		key := keyFor(run.RepoRoot)
-		acc, ok := byRepo[key]
-		if !ok {
-			acc = &repoBreakdownAccumulator{}
-			byRepo[key] = acc
-			order = append(order, key)
-		}
-		acc.runCount++
-
-		var bag map[string]json.RawMessage
-		if len(run.Metrics) > 0 {
-			if err := json.Unmarshal(run.Metrics, &bag); err != nil {
-				return nil, fmt.Errorf("api: decode metrics for stage run %d: %w", run.ID, err)
-			}
-		}
-		if tokensRaw, ok := bag["tokens"]; ok {
-			acc.measuredRuns++
-			var tok stageRunTokensSubset
-			if err := json.Unmarshal(tokensRaw, &tok); err != nil {
-				return nil, fmt.Errorf("api: decode tokens for stage run %d: %w", run.ID, err)
-			}
-			if tok.Input != nil {
-				acc.haveTokensInput = true
-				acc.totalTokensIn += *tok.Input
-			}
-		}
-		if costRaw, ok := bag["cost_usd"]; ok {
-			var cost float64
-			if err := json.Unmarshal(costRaw, &cost); err != nil {
-				return nil, fmt.Errorf("api: decode cost_usd for stage run %d: %w", run.ID, err)
-			}
-			acc.haveCost = true
-			acc.totalCost += cost
-		}
-		if run.EndedAt != nil {
-			acc.haveDuration = true
-			acc.totalDurationMs += run.EndedAt.Sub(run.StartedAt).Milliseconds()
-		}
-	}
-
-	sort.Strings(order)
-	out := make([]costPerChangeRepoRowDTO, 0, len(order))
-	for _, key := range order {
-		var repoRoot *string
-		if key != "" {
-			k := key
-			repoRoot = &k
-		}
-		out = append(out, byRepo[key].dto(repoRoot))
-	}
-	return out, nil
 }
 
 // --- GET /api/v1/stage-runs ---

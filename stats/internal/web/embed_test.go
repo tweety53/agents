@@ -137,7 +137,7 @@ func TestApiPathsAreNotSwallowedBySpaFallback(t *testing.T) {
 	}
 
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, nil, api.WithSPA(spaHandler))
+	srv, err := api.New(cfg, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, nil, api.WithSPA(spaHandler))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -363,18 +363,6 @@ func (fakeStore) CacheEfficiency(context.Context, store.Period, *string, *string
 	return nil, nil
 }
 
-func (fakeStore) PanelEconomics(context.Context, store.Period, *string, *string) ([]store.PanelEconomicsRow, error) {
-	return nil, nil
-}
-
-func (fakeStore) ModelComparison(context.Context, store.Period, *string, *string) ([]store.ModelComparisonRow, error) {
-	return nil, nil
-}
-
-func (fakeStore) ReworkRate(context.Context, store.Period, *string, *string) ([]store.ReworkRateRow, error) {
-	return nil, nil
-}
-
 func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, nil
 }
@@ -425,4 +413,17 @@ func (fakeStore) SetFindingStatus(context.Context, string, string, string, strin
 
 func (fakeStore) RunRecord(context.Context, string, string) (records.Run, error) {
 	return records.Run{}, nil
+}
+
+// GetSettings and PutSettings are here for the same reason
+// AllRecordedRunsUnmeasured's own doc comment gives: api.New gained a
+// fifth store parameter (task 2) for the settings routes, and every
+// implementer must keep compiling -- this file's fakeStore never
+// exercises /api/v1/settings.
+func (fakeStore) GetSettings(context.Context) (store.Settings, error) {
+	return store.Settings{}, nil
+}
+
+func (fakeStore) PutSettings(context.Context, store.Settings) error {
+	return nil
 }

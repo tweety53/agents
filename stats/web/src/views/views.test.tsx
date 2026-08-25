@@ -6,13 +6,9 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { StatsResponse, StatsViewParams, ViewName } from "../api";
+import type { StatsResponse, ViewName } from "../api";
 import { App } from "../App";
 import { CacheEfficiency } from "./CacheEfficiency";
-import { CostPerChange } from "./CostPerChange";
-import { ModelComparison } from "./ModelComparison";
-import { PanelEconomics } from "./PanelEconomics";
-import { ReworkRate } from "./ReworkRate";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
@@ -49,22 +45,6 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
       nextCommand: "/myflow-finish",
     },
   ]),
-  "cost-per-change": envelope("cost-per-change", [
-    {
-      projectKey: "kan-16-myflow-stats-app",
-      changeName: "kan-16-myflow-stats-app",
-      command: "/myflow-do",
-      stage: "SDD + TDD per task",
-      runCount: 4,
-      measuredRuns: 4,
-      totalTokensInput: 12000,
-      meanTokensInput: 3000,
-      totalCostUsd: 4.5678,
-      totalDurationMs: 90000,
-      mainTokens: 11000,
-      sidechainTokens: 1000,
-    },
-  ]),
   "stage-leaderboard": envelope("stage-leaderboard", [
     {
       command: "/myflow-do",
@@ -79,15 +59,6 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
   "cache-efficiency": envelope("cache-efficiency", [
     { command: "/myflow-do", stage: "measured-zero", cacheReadTotal: 0, cacheCreationTotal: 1000, ratio: 0 },
     { command: "/myflow-do", stage: "never-measured", cacheReadTotal: null, cacheCreationTotal: null, ratio: null },
-  ]),
-  "panel-economics": envelope("panel-economics", [
-    { reviewPanelRoster: "light", findingsTotal: 6, tokensTotal: 60000, findingsPerMtok: 100 },
-  ]),
-  "model-comparison": envelope("model-comparison", [
-    { model: "claude-sonnet-5", command: "/myflow-do", stage: "SDD + TDD per task", runCount: 4, meanCostUsd: 0.75, reworkAttempts: 1 },
-  ]),
-  "rework-rate": envelope("rework-rate", [
-    { command: "/myflow-do", stage: "SDD + TDD per task", totalAttempts: 5, reworkAttempts: 2, abandonedCount: 1 },
   ]),
 };
 
@@ -111,17 +82,6 @@ describe("views render their fixture response's actual values", () => {
     within(screen.getByRole("region", { name: "Changes" })).getByText("1");
   });
 
-  it("cost per change shows the run's cost and duration, and its own stat panels summed from the same rows", async () => {
-    render(<CostPerChange period={period} project={undefined} />);
-    expect(await screen.findByRole("cell", { name: "$4.5678" })).toBeInTheDocument();
-    expect(screen.getByText("1.5 min")).toBeInTheDocument();
-    // Stat panels: Runs (sum of runCount = 4), Total cost ($4.5678, the
-    // one row's own total) and Mean cost per run ($4.5678 / 4).
-    within(screen.getByRole("region", { name: "Runs" })).getByText("4");
-    within(screen.getByRole("region", { name: "Total cost" })).getByText("$4.5678");
-    within(screen.getByRole("region", { name: "Mean cost per run" })).getByText("$1.142");
-  });
-
   it("stage leaderboard shows mean, median and p90 cost, and its own stat panels", async () => {
     render(<StageLeaderboard period={period} project={undefined} />);
     expect(await screen.findByText("$1.50")).toBeInTheDocument();
@@ -142,37 +102,6 @@ describe("views render their fixture response's actual values", () => {
     within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
   });
 
-  it("panel economics shows findings and findings-per-Mtok, and its own stat panels", async () => {
-    render(<PanelEconomics period={period} project={undefined} />);
-    expect(await screen.findByText("light")).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "6" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "100.00" })).toBeInTheDocument();
-    within(screen.getByRole("region", { name: "Total findings" })).getByText("6");
-    within(screen.getByRole("region", { name: "Total tokens" })).getByText("60,000");
-  });
-
-  it("model comparison shows the model, its mean cost and rework attempts, and its own stat panels", async () => {
-    render(<ModelComparison period={period} project={undefined} />);
-    // "claude-sonnet-5" also names an <option> in the model filter dropdown
-    // (the column is filterable); role "cell" scopes this to the row.
-    expect(await screen.findByRole("cell", { name: "claude-sonnet-5" })).toBeInTheDocument();
-    expect(screen.getByText("$0.75")).toBeInTheDocument();
-    within(screen.getByRole("region", { name: "Models compared" })).getByText("1");
-    within(screen.getByRole("region", { name: "Total runs" })).getByText("4");
-  });
-
-  it("rework rate shows total attempts, rework attempts and abandoned count, and its own stat panels", async () => {
-    render(<ReworkRate period={period} project={undefined} />);
-    const row = (await screen.findByText("SDD + TDD per task")).closest("tr");
-    expect(row).not.toBeNull();
-    const cells = within(row as HTMLElement)
-      .getAllByRole("cell")
-      .map((c) => c.textContent);
-    expect(cells).toEqual(["/myflow-do", "SDD + TDD per task", "5", "2", "1"]);
-    within(screen.getByRole("region", { name: "Total attempts" })).getByText("5");
-    // 2 rework attempts over 5 total attempts.
-    within(screen.getByRole("region", { name: "Rework rate" })).getByText("40.0%");
-  });
 });
 
 describe("absence is rendered distinctly from a recorded zero", () => {
@@ -248,74 +177,6 @@ describe("absence is rendered distinctly from a recorded zero", () => {
   });
 });
 
-describe("cost-per-change repository breakdown is scoped to its own row", () => {
-  // Post-commit review finding F1: costPerChangeByRepo used to filter only
-  // on project + change name, so it summed *every* stage's runs into one
-  // panel regardless of which row's toggle asked for it. Two rows of the
-  // same change, with different (command, stage) and different totals,
-  // each expanded, must each reconcile with its own row -- not with each
-  // other and not with the whole change's sum.
-  const sddRow = {
-    projectKey: "kan-16-myflow-stats-app",
-    changeName: "kan-16-myflow-stats-app",
-    command: "/myflow-do",
-    stage: "SDD + TDD per task",
-    runCount: 2,
-    measuredRuns: 2,
-    totalTokensInput: 1000,
-    meanTokensInput: 500,
-    totalCostUsd: 2.1,
-    totalDurationMs: 60000,
-    mainTokens: 900,
-    sidechainTokens: 100,
-  };
-  const panelRow = {
-    ...sddRow,
-    command: "/myflow-do",
-    stage: "5. The review panel",
-    runCount: 1,
-    measuredRuns: 1,
-    totalCostUsd: 3.1,
-  };
-
-  beforeEach(() => {
-    fetchStatsViewMock.mockImplementation((view: ViewName, params: StatsViewParams) => {
-      if (view !== "cost-per-change") return Promise.resolve(fixtures[view]);
-      if (params.breakdown !== "repo") {
-        return Promise.resolve(envelope("cost-per-change", [sddRow, panelRow]));
-      }
-      // The row-scoped breakdown: each row's own repo total, distinct from
-      // the other row's and from the (2.1 + 3.1 =) 5.2 whole-change sum
-      // the pre-fix code would have returned for both.
-      const total = params.stage === sddRow.stage ? sddRow.totalCostUsd : panelRow.totalCostUsd;
-      return Promise.resolve(
-        envelope("cost-per-change", [
-          { repoRoot: "/repos/a", runCount: 1, measuredRuns: 1, totalTokensInput: 1, totalCostUsd: total, totalDurationMs: 1 },
-        ]),
-      );
-    });
-  });
-
-  it("each row's expanded panel reconciles with that row's own total, and the two differ", async () => {
-    const user = userEvent.setup();
-    render(<CostPerChange period={period} project={undefined} />);
-
-    const toggles = await screen.findAllByRole("button", { name: /Show repository breakdown/ });
-    expect(toggles).toHaveLength(2);
-
-    await user.click(toggles[0]);
-    const firstPanel = await screen.findByText(/Per-repository breakdown for/);
-    expect(firstPanel.closest("table")).toHaveTextContent("$2.10");
-    expect(firstPanel.closest("table")).not.toHaveTextContent("$5.20");
-
-    await user.click(toggles[1]);
-    const panels = screen.getAllByText(/Per-repository breakdown for/);
-    const secondPanel = panels[panels.length - 1];
-    expect(secondPanel.closest("table")).toHaveTextContent("$3.10");
-    expect(secondPanel.closest("table")).not.toHaveTextContent("$5.20");
-  });
-});
-
 describe("the state board is the only navigation path into a change's own dashboard", () => {
   it("links a row's change name to its run-detail route, round-tripping a URL-significant character in both segments", async () => {
     fetchStatsViewMock.mockImplementation((view: ViewName) =>
@@ -344,12 +205,11 @@ describe("the state board is the only navigation path into a change's own dashbo
 });
 
 // Task 2 (kan-183): the Project column names a project, it does not key
-// it. Both StateBoard and CostPerChange render the same shape of column,
-// so both get the same three assertions: the cell shows the display name,
-// the full key survives as the cell's title (the identity the operator
-// still needs when two checkouts share a basename), and the row's own
-// link target -- StateBoard's only one -- keeps the full key regardless,
-// since that is the route's identity and not this task's to shorten.
+// it. The cell shows the display name, the full key survives as the
+// cell's title (the identity the operator still needs when two checkouts
+// share a basename), and the row's own link target keeps the full key
+// regardless, since that is the route's identity and not this task's to
+// shorten.
 describe("the Project column names a project instead of keying it", () => {
   const PROJECT_KEY = "agents-a740d89c";
 
@@ -379,35 +239,6 @@ describe("the Project column names a project instead of keying it", () => {
     // key even though the cell beside it now reads short.
     const link = screen.getByRole("link", { name: "kan-1" });
     expect(link).toHaveAttribute("href", `#/run/${encodeURIComponent(PROJECT_KEY)}/${encodeURIComponent("kan-1")}`);
-  });
-
-  it("cost per change's Project cell shows the display name with the full key as its title", async () => {
-    fetchStatsViewMock.mockImplementation((view: ViewName) =>
-      Promise.resolve(
-        envelope(view, [
-          {
-            projectKey: PROJECT_KEY,
-            changeName: "kan-1",
-            command: "/myflow-do",
-            stage: "SDD + TDD per task",
-            runCount: 1,
-            measuredRuns: 1,
-            totalTokensInput: 100,
-            meanTokensInput: 100,
-            totalCostUsd: 1,
-            totalDurationMs: 1000,
-            mainTokens: 90,
-            sidechainTokens: 10,
-          },
-        ]),
-      ),
-    );
-
-    render(<CostPerChange period={period} project={undefined} />);
-
-    const cell = await screen.findByRole("cell", { name: "agents" });
-    expect(cell).toHaveTextContent(/^agents$/);
-    expect(cell.querySelector(`[title="${PROJECT_KEY}"]`)).not.toBeNull();
   });
 
   // Reversed from task 2's original assertion (F3, panel round 1): the

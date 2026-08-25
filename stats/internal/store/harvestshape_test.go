@@ -54,11 +54,6 @@ func TestAggregationsReadTheHarvesterSMetricsShape(t *testing.T) {
 	if err := st.MergeMetrics(ctx, run.ID, patchJSON); err != nil {
 		t.Fatalf("MergeMetrics(harvester-shaped patch): %v", err)
 	}
-	// A review panel's own findings, so PanelEconomics has something to
-	// divide by the token total.
-	if err := st.MergeMetrics(ctx, run.ID, json.RawMessage(`{"findings_by_severity":{"high":2,"low":1}}`)); err != nil {
-		t.Fatalf("MergeMetrics(findings): %v", err)
-	}
 	if err := st.EndStage(ctx, run.ID, in.StartedAt.Add(time.Minute), "completed"); err != nil {
 		t.Fatalf("EndStage: %v", err)
 	}
@@ -111,27 +106,5 @@ func TestAggregationsReadTheHarvesterSMetricsShape(t *testing.T) {
 	}
 	if cache.Ratio == nil {
 		t.Errorf("CacheEfficiency Ratio is nil, want a computed ratio over real cache totals")
-	}
-
-	panelRows, err := st.PanelEconomics(ctx, period, &projectKey, nil)
-	if err != nil {
-		t.Fatalf("PanelEconomics: %v", err)
-	}
-	if len(panelRows) != 1 {
-		t.Fatalf("PanelEconomics returned %d rows, want 1", len(panelRows))
-	}
-	panel := panelRows[0]
-	wantPanelTokens := patch.Tokens.Main.Input + patch.Tokens.Sidechain.Input +
-		patch.Tokens.Main.Output + patch.Tokens.Sidechain.Output +
-		patch.Tokens.Main.CacheCreation + patch.Tokens.Sidechain.CacheCreation +
-		patch.Tokens.Main.CacheRead + patch.Tokens.Sidechain.CacheRead
-	if panel.TokensTotal == nil {
-		t.Fatalf("PanelEconomics TokensTotal is nil, want %v computed over the harvester's real shape", wantPanelTokens)
-	}
-	if *panel.TokensTotal != wantPanelTokens {
-		t.Errorf("PanelEconomics TokensTotal = %v, want %v", *panel.TokensTotal, wantPanelTokens)
-	}
-	if panel.FindingsPerMTok == nil {
-		t.Errorf("PanelEconomics FindingsPerMTok is nil, want a computed findings-per-Mtok ratio")
 	}
 }

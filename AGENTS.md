@@ -31,13 +31,13 @@ Be precise about this, because the two halves are asymmetric:
 | **Commands** | ❌ absent — `~/.claude/commands/` and `~/.cursor/commands/` only. There is no `~/.codex/commands/` layer. |
 
 So a Codex session has the rules and the skills, but no slash-command layer: typing
-`/myflow-do` will not resolve, even though the skill it delegates to is installed.
+`/flow` will not resolve, even though the skill it delegates to is installed.
 
 **What to do today:** invoke the skill directly instead of through a command — read its
 `SKILL.md` out of the globally installed tree and follow it, e.g.
 
 ```
-Read file: ~/.codex/skills/myflow-do/SKILL.md
+Read file: ~/.codex/skills/flow/SKILL.md
 (then follow the instructions in that file)
 ```
 
@@ -96,97 +96,85 @@ conventions and the patterns already present in the surrounding code.
 
 ---
 
-## Project Skills (spectre / /myflow workflow)
+## Project Skills (spectre / /flow workflow)
 
 These skills live in `skills/` next to this file (or in `<project>/.codex/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
-Every skill below but `myflow-research` and `myflow-contracts` requires the `spectre` CLI to be
+Every skill below but `flow-research` and `myflow-contracts` requires the `spectre` CLI to be
 installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
 
 ### Skill index
 
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
-| `skills/myflow-start/` | `/myflow-start` | Proposal: brainstorming behind a design gate, the spectre artifacts, and a published proposal artifact. Re-run to revise, republishing to the **same** URL |
-| `skills/myflow-do/` | `/myflow-do` | Implementation: SDD + TDD in an isolated worktree, the review panel, and a staged diff whose handoff carries the run instructions. Re-run to fix; a fix never moves the state. Carries the reviewer prompts + `engineering-principles.md` |
-| `skills/myflow-finish/` | `/myflow-finish` | **Run 1** integrates the branch (PR by default, merge, or manual). **Run 2**, once merged, archives the change and removes what the pipeline created |
-| `skills/myflow-fast/` | `/myflow-fast` | Composite: chains `/myflow-start`'s brainstorming and `/myflow-do`'s implementation into one invocation, and `/myflow-finish`'s two runs into one when the chosen route needs no external merge — same three states, same state file, no human gate in between. Publishes no proposal artifact. See `skills/myflow-fast/SKILL.md` |
-| `skills/myflow-status/` | `/myflow-status` | Read-only state report for open changes |
-| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for any `/myflow-*` command) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/myflow-finish` run 1 files or joins a follow-up, `finish-contract.md` for `/myflow-finish`'s two-run procedure and no other command, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
-| `skills/myflow-research/` | `/myflow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state |
+| `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the fixed 3-slot review panel, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
+| `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
+| `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
+| `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
+| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
-### /myflow commands summary
+### /flow commands summary
 
 **Pipeline (3 states):** `STARTED` → `IN_PROGRESS` → `FINISHED`
 
 ```text
-/myflow-start  → STARTED      you: read the proposal artifact
-/myflow-do     → IN_PROGRESS  you: review the staged diff and run the apps
-/myflow-finish → FINISHED     terminal (second run — it integrates first)
+/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
+/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
+/flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```
 
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
-Codex loads this file into every session in this project, before any `/myflow-*` command runs and
+Codex loads this file into every session in this project, before `/flow` runs and
 before anything loads `skills/myflow-contracts/pipeline.md` — being present without that load is the
 whole job of the block, which is why the always-on rule `rules/myflow-manual-review.mdc` carries the
-same three lines. **What the copy reproduces is the states and the transitions, not the wording.**
-The canonical block under **States** (`skills/myflow-contracts/pipeline.md`) closes its third line
-by pointing at the finish contract — a pointer that resolves inside that file and nowhere else —
-so a copy read *before* that file loads states the fact instead, and the two are deliberately
-**not** kept byte-identical: a difference in what the three lines *say* is drift
-worth reporting; a difference in how the third one is phrased is not. Everything else is cited
-rather than copied: the state diagram lives under **States** (`skills/myflow-contracts/pipeline.md`),
-and each command's own stage sequence is spelled out in its own `SKILL.md` under `skills/`.
-`<agents repo>/README.md`'s "How the pipeline works" section covers the same ground for a reader browsing the
-repository directly — it is not copied by `<agents repo>/setup.sh` into any project, so it is not cited here as a
-source of record.
+same three lines. **What the copy reproduces is the states and the transitions, not the wording**,
+and the two are deliberately **not** kept byte-identical: a difference in what the lines *say* is
+drift worth reporting; a difference in how they are phrased is not. Everything else is cited
+rather than copied: the state diagram lives under **How the pipeline works** (`<agents repo>/README.md`),
+and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
 
 Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load
 `skills/myflow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
-`skills/myflow-contracts/finish-contract.md`, canonical for itself and loaded by `/myflow-finish`
-alone.
+`skills/myflow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s
+integrate/archive phase alone.
 
-`<name>` is **optional** on every command below — if omitted, the sole active (non-archived)
+`<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (non-archived)
 change relevant to that state is used automatically; if there are multiple, you're asked which.
 
-**No command takes a flag.** The only argument is the change name; anything else is reported
-rather than ignored.
+**No command takes a flag.** The only argument is the change name (or, on a creating `/flow` run, a
+description or Jira key); anything else is reported rather than ignored.
 
-**Model:** See "Model policy" in
-`skills/myflow-contracts/model-policy.md`, which is canonical.
+**Model:** See "Model resolution" in `skills/flow/SKILL.md`, canonical for `/flow`; "Model policy" in
+`skills/myflow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
 
 | Command | What it does |
 |---------|-------------|
-| `/myflow-start <name>` | **Asks the planning effort level once**, on the run that creates the change — the three levels and which of them is the default are defined under **Planning effort** in State file (`skills/myflow-contracts/state-file.md`) — it sizes the thinking inside the gates and never the gates themselves; that same run also asks which model implements the change, which one the review panel runs on and which one applies panel fixes, the three roles and their defaults being stated once under **Model policy** (`skills/myflow-contracts/model-policy.md`); it also asks which review-panel roster the panel runs under — `light`, `standard` or `full`, `light` the default — defined under **5. The review panel** (`skills/myflow-do/SKILL.md`); a revision round reuses the recorded level, models and roster instead of asking again. Its stages, in order, begin at **A. Resolve the change** (`skills/myflow-start/SKILL.md`); the run ends at `state: STARTED`. Re-run at `STARTED` to revise the plan, republishing to the **same** URL |
-| *(gate)* | **You** read the proposal artifact |
-| `/myflow-do <name>` | Implements the change under SDD + TDD behind a **review panel** sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots on the panel's model, Sonnet by default, per **5. The review panel** (`skills/myflow-do/SKILL.md`), which is canonical for what each preset means — which hands off only at **zero open findings at any severity**. Its stages, in order, begin at **1. Load context and validate the plan** (`skills/myflow-do/SKILL.md`); the run ends at `state: IN_PROGRESS`. Re-run to fix — a fix leaves the state unchanged |
-| *(gate)* | **You** review the staged diff **and** run the apps |
-| `/myflow-finish <name>` | Which run happens is `<agents repo>/scripts/check-finish-preflight.sh`'s verdict, taken once per worktree in the resolved set — `RUN1`, `RUN2` from every worktree, or `REFUSE`, which stops and asks you rather than guessing; an empty resolved set is never a vacuous `RUN2` either, per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`). Verdict `RUN1` integrates the branch — asking first how it should land, the choices being open a PR *(default)*, merge and push, or handle it manually — and stops at `IN_PROGRESS`. Verdict `RUN2`, reached once the branch has merged, archives the change, removes what the pipeline created, and ends at `state: FINISHED`. The stages of run 1, in order, begin at **Run 1 — integrate**, and the stages of run 2 begin at **Run 2 — archive and clean up** (both `skills/myflow-finish/SKILL.md`); which artifact is removed, when, and on what condition is likewise stated once under **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`). **Runs no tests, linters or coverage check** |
-| `/myflow-fast <name>` | Composite command: chains `/myflow-start`'s brainstorming (fully interactive, unchanged) directly into `/myflow-do`'s implementation and review panel on a creating run, and chains `/myflow-finish`'s run 1 into run 2 when the landing route is merge-and-push, with no operator action between the chained stages. Accepts **no state** (creates the change) or **`IN_PROGRESS`** — an argument at `IN_PROGRESS` is fix instructions, a bare invocation asks how to land the branch. Publishes no proposal artifact. Its stages, in order, are cited by section in `skills/myflow-fast/SKILL.md`; a creating or fix run ends at `state: IN_PROGRESS` — a fix leaves the state unchanged. A bare invocation ends at `state: IN_PROGRESS` or `state: FINISHED`, depending on the route chosen. Re-run to fix or to integrate |
-| `/myflow-status <name>` | Read-only state report for open changes |
+| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive, unchanged) and implementation behind the fixed 3-slot review panel (Primary, Principles, Code review (low); Bugbot and Security only when explicitly asked), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it asks how to land the branch — open PR *(default)*, merge and push, or manual — and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage** |
+| *(gate)* | **You** — creating run or fix: review the staged diff **and** run the apps; integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
+| `/flow-status <name>` | Read-only state report for open changes |
 
-The branch's merge status alone decides which `/myflow-finish` run happens — so a PR you merged on
-the forge and a merge it performed itself are indistinguishable to it, which is correct.
+The branch's merge status alone decides which `/flow` integrate/archive run happens — so a PR you
+merged on the forge and a merge it performed itself are indistinguishable to it, which is correct.
 
-**Verification runs during `/myflow-do` and nowhere else.** `/myflow-finish` has no verification
-gate: re-running tests immediately before the one irreversible step repeats finished work, and a
-gap found there routes back to `/myflow-do` anyway.
+**Verification runs during `/flow`'s implementation phase and nowhere else.** The integrate/archive
+phase has no verification gate: re-running tests immediately before the one irreversible step
+repeats finished work, and a gap found there routes back to a fix run anyway.
 
 ### How to invoke a skill
 
 Read the skill file, then follow it:
 
 ```
-Read file: skills/myflow-start/SKILL.md
+Read file: skills/flow/SKILL.md
 (then follow the instructions in that file)
 ```
 
 ### Superpowers general skills
 
 The Superpowers plugin provides general-purpose workflow skills (brainstorming, TDD,
-subagent-driven-development, etc.). These are referenced by the `/myflow-*` skills above.
+subagent-driven-development, etc.). These are referenced by the `/flow` skill above.
 
 Install Superpowers for Codex from its fork repo, per the Superpowers README (look for the
 Codex install section), and enable multi-agent support in `~/.codex/config.toml`:
@@ -195,5 +183,5 @@ Codex install section), and enable multi-agent support in `~/.codex/config.toml`
 multi_agent = true
 ```
 
-After install, general skills auto-trigger from their descriptions. Project-specific `/myflow-*`
+After install, general skills auto-trigger from their descriptions. Project-specific `/flow`
 skills are loaded on demand by reading their `SKILL.md` as described above.

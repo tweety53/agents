@@ -160,7 +160,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler))
+	srv, err := api.New(cfg, st, st, st, st, st, logger, api.WithSPA(spaHandler))
 	if err != nil {
 		// api.New calls config.Config.Validate itself, which keeps
 		// internal/api correct for any other caller, but the loopback

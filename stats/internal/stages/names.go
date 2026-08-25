@@ -38,23 +38,13 @@ import (
 type Command string
 
 const (
-	MyflowStart  Command = "/myflow-start"
-	MyflowDo     Command = "/myflow-do"
-	MyflowFinish Command = "/myflow-finish"
-	MyflowFast   Command = "/myflow-fast"
+	Flow Command = "/flow"
 )
 
 // Stage is one documented pipeline stage: a stable key, a human-readable
 // name, and every command that runs it.
 //
-// Commands is namespaced by the command that *defines* the stage, not by
-// the command that merely runs it: `/myflow-fast` chains `/myflow-start`,
-// `/myflow-do` and `/myflow-finish` without minting a single name of its
-// own, so a stage `/myflow-fast` can run simply lists MyflowFast alongside
-// whichever of the other three defines it. That is what makes a fast run
-// directly comparable, stage for stage, against the equivalent
-// start->do->finish sequence -- design.md's "`/myflow-fast` reuses the
-// chained commands' stage names".
+// Commands is namespaced by the command that *defines* the stage.
 type Stage struct {
 	Key      string
 	Name     string
@@ -65,54 +55,38 @@ type Stage struct {
 // "Level 1 -- the stages of each command" stages table. Row order here
 // matches the README table's row order; TestStagesMatchReadmeLevelOne
 // checks the two are identical, not merely set-equal.
-//
-// Every /myflow-start, /myflow-do and /myflow-finish stage also lists
-// MyflowFast in Commands: design.md's decision is that `/myflow-fast`'s
-// allowed stage set is the *union* of the three chained commands',
-// expressed here in the Commands column rather than restated as a fourth
-// set of names. /myflow-status marks no stages at all and so contributes
-// no rows.
 var Table = []Stage{
-	// /myflow-start
-	{Key: "start.resolve-change", Name: "Resolve the change", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.ask-options", Name: "Ask planning effort, models & panel roster (creating run only)", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.brainstorm", Name: "Brainstorm ▸", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.design-approval", Name: "Design approval", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.writing-plans", Name: "Writing-plans ▸", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.publish-proposal", Name: "Publish the proposal artifact", Commands: []Command{MyflowStart, MyflowFast}},
-	{Key: "start.write-started", Name: "Write `STARTED`", Commands: []Command{MyflowStart, MyflowFast}},
-
-	// /myflow-do
-	{Key: "do.state-gate", Name: "State gate", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.load-context", Name: "Load context and validate the plan", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.isolate-workspace", Name: "Isolate the workspace (first run only)", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.review-panel", Name: "The review panel ▸", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.run-instructions", Name: "Resolve the run instructions", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.workspace-export", Name: "Validate and export workspace isolation", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.lint-and-test", Name: "Run the project's lint and test commands", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.stage-diff", Name: "Stage, excluding the planning paths", Commands: []Command{MyflowDo, MyflowFast}},
-	{Key: "do.write-in-progress", Name: "Write `IN_PROGRESS`", Commands: []Command{MyflowDo, MyflowFast}},
-
-	// /myflow-finish
-	{Key: "finish.preflight", Name: "Preflight verdict (decides run 1 vs run 2) ▸", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.unfinished-work-gate", Name: "Unfinished-work gate (run 1) ▸", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.landing-question", Name: "The landing question (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.preserve-sessions", Name: "Preserve the session records (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.commit-two", Name: "Two commits, implementation first (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.landing-routes", Name: "The landing routes (run 1) ▸", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.write-in-progress", Name: "Write `IN_PROGRESS` (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.move-in-review", Name: "Move the issue to In Review (run 1)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.sync-archive", Name: "Position the checkout and archive (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.commit-archive", Name: "Commit the archive (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.self-review", Name: "Self-review (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
-	{Key: "finish.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{MyflowFinish, MyflowFast}},
+	// /flow -- mints its own flow.* namespace rather than reusing start./do./finish.,
+	// per design.md's flow-rename-content-split (see README.md's Level 1 table for why).
+	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{Flow}},
+	{Key: "flow.resolve-change", Name: "Resolve the change", Commands: []Command{Flow}},
+	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow}},
+	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow}},
+	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow}},
+	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow}},
+	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow}},
+	{Key: "flow.isolate-workspace", Name: "Isolate the workspace (first run only)", Commands: []Command{Flow}},
+	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow}},
+	{Key: "flow.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{Flow}},
+	{Key: "flow.review-panel", Name: "The review panel ▸", Commands: []Command{Flow}},
+	{Key: "flow.verify", Name: "Verify: workspace isolation, lint and test", Commands: []Command{Flow}},
+	{Key: "flow.stage-diff", Name: "Stage, excluding the planning paths", Commands: []Command{Flow}},
+	{Key: "flow.run-instructions", Name: "Resolve the run instructions", Commands: []Command{Flow}},
+	{Key: "flow.write-in-progress", Name: "Write `IN_PROGRESS`", Commands: []Command{Flow}},
+	{Key: "flow.preflight", Name: "Preflight verdict (decides run 1 vs run 2) ▸", Commands: []Command{Flow}},
+	{Key: "flow.unfinished-work-gate", Name: "Unfinished-work gate (run 1) ▸", Commands: []Command{Flow}},
+	{Key: "flow.landing-question", Name: "The landing question (run 1)", Commands: []Command{Flow}},
+	{Key: "flow.preserve-sessions", Name: "Preserve the session records (run 1)", Commands: []Command{Flow}},
+	{Key: "flow.commit-two", Name: "Two commits, implementation first (run 1)", Commands: []Command{Flow}},
+	{Key: "flow.landing-routes", Name: "The landing routes, including moving the issue to In Review (run 1) ▸", Commands: []Command{Flow}},
+	{Key: "flow.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.sync-archive", Name: "Position the checkout and archive (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.commit-archive", Name: "Commit the archive (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow}},
+	{Key: "flow.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.self-review", Name: "Self-review (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{Flow}},
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that
@@ -171,7 +145,7 @@ func Name(key string) (string, bool) {
 
 // ErrUnknownStage is returned by Validate when key is not a documented
 // stage key of command -- either because command itself runs no documented
-// stages (including `/myflow-status`, which marks none at all) or because
+// stages (including `/flow-status`, which marks none at all) or because
 // key is not among them.
 type ErrUnknownStage struct {
 	Command Command

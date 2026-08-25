@@ -1,1 +1,0 @@
-../../../scripts/check-panel-reproducers.sh

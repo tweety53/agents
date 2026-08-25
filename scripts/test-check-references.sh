@@ -91,10 +91,10 @@ run_guard "$FIXTURE"
 # member: with the only line's bold token suppressed, this file's own
 # checked-reference count is genuinely zero.
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research"
+mkdir -p "$FIXTURE/skills/flow-research"
 printf '## Gone\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 printf '**Do not** copy from `rules/never-touch-production.mdc` <!-- refs-guard:allow -->\n' \
-  > "$FIXTURE/skills/myflow-research/SKILL.md"
+  > "$FIXTURE/skills/flow-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "allow marker suppresses" || fail "allow marker: out=$OUT"
 
@@ -102,24 +102,24 @@ run_guard "$FIXTURE"
 # member: with the only candidate reference fenced out, this file's own
 # checked-reference count is genuinely zero.
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research"
+mkdir -p "$FIXTURE/skills/flow-research"
 printf '## Gone\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 {
   printf '```\n'
   printf 'see **State file** in `rules/never-touch-production.mdc`\n'
   printf '```\n'
-} > "$FIXTURE/skills/myflow-research/SKILL.md"
+} > "$FIXTURE/skills/flow-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "fenced block skipped" || fail "fenced block: out=$OUT"
 
 # 7. A path that does not resolve to a file is skipped, not failed. Written
-# to a declared expected-zero member (skills/myflow-research/SKILL.md):
+# to a declared expected-zero member (skills/flow-research/SKILL.md):
 # with the reference unresolvable, this file's own checked-reference count is
 # genuinely zero, and it is the only file in this fixture's corpus.
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research"
+mkdir -p "$FIXTURE/skills/flow-research"
 printf 'see **Whatever** in `spectre/changes/<name>/tasks.md`\n' \
-  > "$FIXTURE/skills/myflow-research/SKILL.md"
+  > "$FIXTURE/skills/flow-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unresolvable path skipped" || fail "unresolvable path: out=$OUT"
 
@@ -127,17 +127,17 @@ run_guard "$FIXTURE"
 # be vacuous — an unresolvable path is skipped, which also exits 0 — so the
 # failing half below is what proves the relative candidate is really opened.
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research"
-printf '## Panel re-runs\n\nbody\n' > "$FIXTURE/skills/myflow-research/SKILL.md"
-printf 'Follow **Panel re-runs** in `../myflow-research/SKILL.md`.\n' \
+mkdir -p "$FIXTURE/skills/flow-research"
+printf '## Panel re-runs\n\nbody\n' > "$FIXTURE/skills/flow-research/SKILL.md"
+printf 'Follow **Panel re-runs** in `../flow-research/SKILL.md`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "relative path resolves" || fail "relative path: out=$OUT"
 
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research"
-printf '## Something else\n\nbody\n' > "$FIXTURE/skills/myflow-research/SKILL.md"
-printf 'Follow **Panel re-runs** in `../myflow-research/SKILL.md`.\n' \
+mkdir -p "$FIXTURE/skills/flow-research"
+printf '## Something else\n\nbody\n' > "$FIXTURE/skills/flow-research/SKILL.md"
+printf 'Follow **Panel re-runs** in `../flow-research/SKILL.md`.\n' \
   > "$FIXTURE/skills/demo/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a stale reference through a relative path still fails" \
@@ -269,12 +269,12 @@ run_guard "$FIXTURE"
 # declared expected-zero member: with neither line's bold token associated to
 # a path, this file's own checked-reference count is genuinely zero.
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research"
+mkdir -p "$FIXTURE/skills/flow-research"
 printf '## State file\n\nbody\n' > "$FIXTURE/rules/never-touch-production.mdc"
 {
   printf '**Never** commit during apply. The contract lives in `rules/never-touch-production.mdc`.\n'
   printf 'Run it **after** step 2 — see the note in `rules/never-touch-production.mdc`.\n'
-} > "$FIXTURE/skills/myflow-research/SKILL.md"
+} > "$FIXTURE/skills/flow-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unassociated emphasis does not demand a heading" \
   || fail "unassociated emphasis: rc=$RC out=$OUT"
@@ -454,7 +454,7 @@ esac
 # `<project>/` the way `<agents repo>/` is stripped makes the citation
 # resolve to this real file, and the mismatched heading turns up as a
 # reported stale reference (RC=1) instead of a silent pass. Written to a
-# declared expected-zero member (skills/myflow-research/SKILL.md), as case
+# declared expected-zero member (skills/flow-research/SKILL.md), as case
 # 7 above does for the same reason: with the reference correctly left
 # unresolved, this file's own checked-reference count is genuinely zero.
 #
@@ -464,10 +464,10 @@ esac
 # sanity check on the current behavior, not a mutation-proven guarantee the
 # way the heading check above is.
 new_fixture
-mkdir -p "$FIXTURE/skills/myflow-research" "$FIXTURE/.myflow"
+mkdir -p "$FIXTURE/skills/flow-research" "$FIXTURE/.myflow"
 printf '## Something else\n\nbody\n' > "$FIXTURE/.myflow/project.md"
 printf 'see **Whatever** in `<project>/.myflow/project.md`\n' \
-  > "$FIXTURE/skills/myflow-research/SKILL.md"
+  > "$FIXTURE/skills/flow-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a project-prefixed citation is neither resolved nor refused" \
   || fail "project prefix: rc=$RC out=$OUT"
