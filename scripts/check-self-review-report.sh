@@ -81,18 +81,38 @@
 #
 # ADOPTED, NOT INVENTED: every guard in this repository holds to three
 # disciplines — `-a` on every grep, the `rc > 1` split between "no match"
-# and a real error, and `--` before every path. This guard uses no `grep`
-# at all (section and finding-line extraction is done in one `awk` pass
-# per file, then classified in bash),
-# so the first and third disciplines have no call site here, exactly as
-# scripts/lib/coverage.sh's own header states for the same reason. The
-# posture behind them still applies: `find` and the per-file `awk` call
-# below are both checked for a non-zero exit rather than folded into a
-# reassuring empty result.
+# and a real error, and `--` before every path. This guard uses neither
+# `grep` nor `awk` at all — each report is read line by line in bash and
+# every line is classified at the point it is read — so the first and third
+# disciplines have no call site here, exactly as scripts/lib/coverage.sh's
+# own header states for the same reason. The posture behind them still
+# applies: `find`'s enumeration and each report file's own read are the two
+# remaining I/O operations this guard has to face, and each is checked by its
+# own exit status rather than folded into a reassuring empty result. Neither
+# is checked by a precondition standing in for it — the status of the
+# operation, or nothing. What that still leaves uncovered — a read that fails
+# partway through a file it opened successfully — is recorded as a known
+# limit of the all-bash shape under KAN-211.
+#
+# NO RECORD PROTOCOL, DELIBERATELY (KAN-211). This guard used to classify
+# each report in one `awk` pass, serialize the result as records whose fields
+# were joined with ASCII Unit Separator (0x1F, never tab), and re-parse those
+# records back in bash. Three of KAN-200's findings — G2, G3 and H2 — were
+# taxes on that one seam, each a manifestation of the same fact: a value had
+# to survive a hand-written encoding across two languages with different
+# escaping and splitting rules. H2 reopened the class one fix round after G3
+# supposedly closed it, which is why KAN-211 collapsed the boundary rather
+# than patching a fourth manifestation. Do not reintroduce one: the
+# classification bodies below are already bash and already correct, and a
+# second language has nothing to do here but re-encode what bash can read
+# directly. A raw 0x1F byte in a report is ordinary content now — it was
+# rejected only because it was that protocol's field delimiter, and the rule
+# was retired with the protocol that created it.
 #
 # Exit codes: 0 clean, 1 violations found (including an undeclared-zero
 # report or an empty corpus), 2 cannot answer at all (a missing or
-# unreadable target directory, or an internal coverage.sh call failing).
+# unreadable target directory, an unreadable report file inside it, or an
+# internal coverage.sh call failing).
 set -uo pipefail
 
 die() {
@@ -124,7 +144,6 @@ fi
 
 # The five angle labels, in the report shape's own order.
 ANGLE_LABELS=(myflow-fix myflow-cost myflow-improvement myflow-automation myflow-stats-app)
-ANGLE_LABELS_JOINED="${ANGLE_LABELS[*]}"
 
 # Regex patterns are kept in variables and referenced unquoted in `[[ =~ ]]`
 # below rather than written inline: bash's quote-removal strips a literal
@@ -138,24 +157,14 @@ ANGLE_LABELS_JOINED="${ANGLE_LABELS[*]}"
 # zero) of horizontal whitespace, then `**[`. FINDING_LINE_RE is the STRICT
 # predicate a shape must additionally satisfy to be accepted as a
 # well-formed finding: exactly one space after the `-`, a `]**`, one space,
-# then text. Both scan_report's awk (the ORPHAN check, for a finding-shaped
-# line before any heading) and the in-section check below (for a
-# finding-shaped line that fails the strict pattern) test against this same
-# FINDING_SHAPE_RE variable, so the two can never disagree about what counts
-# as finding-shaped — before this fix they used separately hardcoded
+# then text. Both the orphan check below (for a finding-shaped line before
+# any heading) and the in-section check beside it (for a finding-shaped line
+# that fails the strict pattern) test against this same FINDING_SHAPE_RE
+# variable, so the two can never disagree about what counts as
+# finding-shaped — before this fix they used separately hardcoded
 # patterns that did disagree, letting a malformed line slip through silently
 # whenever it happened to fall inside a recognized section.
 FINDING_SHAPE_RE='^-[[:space:]]*\*\*\['
-# awk's `-v` assignment runs the same C-style backslash-escape processing as
-# an awk string literal, and — like glibc's regex compiler above, a
-# different tool hitting the same class of problem — silently drops the
-# backslash from any escape sequence it does not itself recognize (`\*` and
-# `\[` are not on that list), corrupting the pattern before scan_report's
-# dynamic regexp ever sees it. Doubling every backslash first survives that:
-# `\\*` is a recognized escape (a literal backslash), so what awk stores is
-# the same `\*` this variable already holds — derived here, not
-# hand-maintained a second time, so the two representations cannot drift.
-FINDING_SHAPE_RE_AWK="${FINDING_SHAPE_RE//\\/\\\\}"
 FINDING_LINE_RE='^-[[:space:]]\*\*\[([^]]+)\]\*\*[[:space:]](.+)$'
 DISPOSITION_FILED_RE='^filed:[[:space:]]*(.*)$'
 # An uppercase project key, a hyphen, and digits — e.g. `KAN-201`. Anything
@@ -225,100 +234,6 @@ is_declared_basename() {
   return 1
 }
 
-# scan_report <file> -> prints one record per line of output, fields
-# separated by ASCII Unit Separator (0x1F, "\037" — never tab): "HEADING<US>
-# <label><US><lineno>" for each of the five angle headings found, "BODY<US>
-# <label><US><lineno><US><line>" for every line under a recognized heading up
-# to the next heading (any level) or EOF, "ORPHAN<US><US><lineno><US>
-# <line>" (empty label field) for a finding-shaped line that appears before
-# any recognized heading has been seen (F6 — such a line was previously
-# dropped in silence), and "CTRLBYTE<US><US><lineno>" (empty label, no
-# trailing content field) for a report line that itself contains a raw 0x1F
-# byte — checked BEFORE any other classification, so a heading, body, or
-# orphan line carrying one is never misparsed as a different kind. The raw
-# line is deliberately NOT relayed in this record: a literal 0x1F inside it
-# would itself act as a field delimiter one field short, corrupting the
-# record protocol's own framing rather than surviving as content.
-#
-# US rather than tab (G3 — round 2): the original protocol joined fields with
-# a literal tab and split them back apart with `IFS=$'\t' read`, but tab is
-# an IFS-*whitespace* character, so bash's read collapses RUNS of it and
-# trims it at a record's edges. That silently ate a literal tab inside the
-# raw line carried in the last field (`rest`) — once at a trailing tab on a
-# `filed: <KEY>` line (letting a malformed disposition through validation
-# unchanged), and once at a leading tab on an indented finding-shaped body
-# line (collapsing it into the adjacent field delimiter and making the line
-# read as if un-indented, so a section that should have failed "neither a
-# finding nor the none-marker" silently passed instead). US is not an
-# IFS-whitespace character and never appears in a self-review report's prose,
-# so `IFS=$'\037' read` below splits on it literally: runs are not collapsed,
-# edges are not trimmed, and the `rest` field survives byte-for-byte for
-# every byte a report line can actually carry — which excludes 0x1F itself.
-# A raw 0x1F in the line is not relayed through `rest` at all: it is caught
-# by the CTRLBYTE check below, before this protocol's own framing would
-# otherwise have to treat it as an unplanned field boundary (a trailing one
-# is dropped by `read` the same way a trailing IFS-whitespace run is, which
-# would silently forgive a none-marker line differing from the real one only
-# by a trailing 0x1F). This replaces round 1's F6 fix, which gave the
-# ORPHAN record a non-empty placeholder label as a workaround for the same
-# root cause — the label field here is genuinely empty, because the protocol
-# itself no longer loses empty fields.
-#
-# A `##` heading whose text contains none of the five backtick-quoted labels
-# resets the current section to none, so lines under it are attributed to no
-# angle at all. A heading at ANY OTHER level (`#`, `###`, `####`, …) also
-# ends the current section — it only does not itself become a new one, since
-# the report shape's own headings are `##` (F3: a `###` heading used to fall
-# through neither check and be silently folded into the previous section's
-# body). A trailing `\r` is stripped from every line before any pattern is
-# tested, so a CRLF-saved report is read the same as an LF one (F9).
-#
-# The ORPHAN test uses `shape` (passed in as FINDING_SHAPE_RE_AWK, the
-# backslash-doubled relay of FINDING_SHAPE_RE — see that variable's own
-# comment for why the doubling is necessary) — the same loose finding-shape
-# predicate the in-section check below tests a BODY line against (G2 —
-# round 2) — so the two can never again disagree about what counts as
-# finding-shaped.
-#
-# One `awk` pass per file rather than five separate `grep` passes, so the
-# five checks below cannot disagree about where one section ends and the
-# next begins.
-scan_report() {
-  local file="$1"
-  awk -v labels="$ANGLE_LABELS_JOINED" -v shape="$FINDING_SHAPE_RE_AWK" '
-    BEGIN { n = split(labels, L, " "); cur = ""; US = sprintf("%c", 31) }
-    {
-      line = $0
-      sub(/\r$/, "", line)
-      if (index(line, US) > 0) {
-        printf "CTRLBYTE%s%s%s%d\n", US, "", US, NR
-        next
-      }
-      if (line ~ /^##[[:space:]]/) {
-        cur = ""
-        for (i = 1; i <= n; i++) {
-          pat = "`" L[i] "`"
-          if (index(line, pat) > 0) {
-            cur = L[i]
-            printf "HEADING%s%s%s%d\n", US, cur, US, NR
-            break
-          }
-        }
-        next
-      }
-      if (line ~ /^#+[[:space:]]/) {
-        cur = ""
-        next
-      }
-      if (cur != "") {
-        printf "BODY%s%s%s%d%s%s\n", US, cur, US, NR, US, line
-      } else if (line ~ shape) {
-        printf "ORPHAN%s%s%d%s%s\n", US, US, NR, US, line
-      }
-    }
-  ' "$file"
-}
-
 VIOLATIONS=0
 CHECKED_REPORTS=0
 DECLARED_COUNT=0
@@ -371,103 +286,168 @@ for f in "${FILES[@]:-}"; do
   # out of order (F4). -1 means no heading seen yet.
   LAST_IDX=-1
 
-  scan_rc=0
-  scan_out="$(scan_report "$f")" || scan_rc=$?
-  if [[ "$scan_rc" -ne 0 ]]; then
-    die "awk failed while scanning '$f' (exit $scan_rc)"
-  fi
+  # Each line is classified where it is read — no intermediate representation
+  # and no second language, per this file's own NO RECORD PROTOCOL note above.
+  # A `##` heading whose text carries one of the five backtick-quoted labels
+  # opens that angle's section; a `##` heading carrying none of them resets the
+  # current section to none, so lines under it are attributed to no angle at
+  # all. A heading at ANY OTHER level (`#`, `###`, `####`, …) also ends the
+  # current section — it only does not itself become a new one, since the
+  # report shape's own headings are `##` (F3: a `###` heading used to fall
+  # through neither check and be silently folded into the previous section's
+  # body). A trailing `\r` is stripped from every line before any pattern is
+  # tested, so a CRLF-saved report is read the same as an LF one (F9).
+  #
+  # Redirected from the file rather than piped into: the body assigns to
+  # VIOLATIONS and to the four per-angle arrays above, and a pipeline would run
+  # it in a subshell whose assignments are then discarded.
+  #
+  # `cur` is the label of the section currently open ("" for none) and `idx`
+  # its index into ANGLE_LABELS. The two are set together and `idx` is read
+  # only where `cur` is already non-empty, so it needs no reset here — unlike
+  # LAST_IDX above, which IS read before any heading is seen and so carries a
+  # -1 sentinel.
+  #
+  # Whether the read happened at all is answered by the loop's OWN exit
+  # status, captured immediately after `done < "$f"` below — the same
+  # discipline `find`'s check above already follows, and for the same reason:
+  # check the operation, never a precondition standing in for it. A failed
+  # `< "$f"` redirection aborts the compound command before the body runs even
+  # once, so the `while` exits non-zero; a loop that reached end-of-file exits
+  # with the status of the last command its body ran, which is 0 by
+  # construction (see the `:` closing the body). Measured on bash 3.2.57 — the
+  # floor, macOS's own /bin/bash — and on bash 5.3.15: 0 for a normal file, an
+  # empty file and a file with no trailing newline; 1 for a file the
+  # redirection could not open.
+  #
+  # Without that check bash writes "Permission denied" to stderr, the body
+  # never runs, every per-report counter stays at its reset zero, and the
+  # report is folded into `coverage_record "$rel" 0` — reported as an
+  # undeclared-zero coverage violation at exit 1, exactly like a genuinely
+  # unrecognizable report, instead of the "cannot answer" this guard's header
+  # promises.
+  #
+  # A `[[ -r "$f" ]]` precheck stood here and was removed (KAN-211 round 2):
+  # it tests `access()`'s permission bits rather than the `open()` that
+  # actually matters, and it opens a window in which the file can change
+  # between the test and the read. The loop's own status has neither problem.
 
-  while IFS=$'\037' read -r kind label lineno rest; do
-    [[ -n "$kind" ]] || continue
+  lineno=0
+  cur=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    lineno=$((lineno + 1))
+    line="${line%$'\r'}"
 
-    if [[ "$kind" == "ORPHAN" ]]; then
-      printf '%s:%s: finding line appears before any recognized section heading\n' "$rel" "$lineno"
-      VIOLATIONS=$((VIOLATIONS + 1))
+    if [[ "$line" =~ ^##[[:space:]] ]]; then
+      cur=""
+      for i in "${!ANGLE_LABELS[@]}"; do
+        quoted_label='`'"${ANGLE_LABELS[$i]}"'`'
+        if [[ "$line" == *"$quoted_label"* ]]; then
+          cur="${ANGLE_LABELS[$i]}"
+          idx="$i"
+          break
+        fi
+      done
+      [[ -n "$cur" ]] || continue
+
+      if [[ "${HEADING_FOUND[$idx]}" -eq 1 ]]; then
+        printf '%s:%s: duplicate section for angle `%s` (first seen at line %s)\n' \
+          "$rel" "$lineno" "$cur" "${HEADING_LINE[$idx]}"
+        VIOLATIONS=$((VIOLATIONS + 1))
+      fi
+      if [[ "$idx" -lt "$LAST_IDX" ]]; then
+        printf '%s:%s: section for angle `%s` is out of order (expected after `%s`)\n' \
+          "$rel" "$lineno" "$cur" "${ANGLE_LABELS[$LAST_IDX]}"
+        VIOLATIONS=$((VIOLATIONS + 1))
+      fi
+      HEADING_FOUND[$idx]=1
+      HEADING_LINE[$idx]="$lineno"
+      [[ "$idx" -gt "$LAST_IDX" ]] && LAST_IDX="$idx"
       continue
     fi
 
-    if [[ "$kind" == "CTRLBYTE" ]]; then
-      printf '%s:%s: unsupported control byte (0x1F, ASCII Unit Separator) in report content\n' \
-        "$rel" "$lineno"
-      VIOLATIONS=$((VIOLATIONS + 1))
+    if [[ "$line" =~ ^#+[[:space:]] ]]; then
+      cur=""
       continue
     fi
 
-    idx=-1
-    for i in "${!ANGLE_LABELS[@]}"; do
-      [[ "${ANGLE_LABELS[$i]}" == "$label" ]] && { idx="$i"; break; }
-    done
-    [[ "$idx" -ge 0 ]] || continue
+    if [[ -z "$cur" ]]; then
+      # A finding-shaped line appearing before any recognized section heading
+      # (F6 — such a line was previously dropped in silence). Tested against
+      # the same FINDING_SHAPE_RE the in-section malformed check below uses,
+      # so the two can never disagree about what counts as finding-shaped
+      # (G2 — round 2).
+      if [[ "$line" =~ $FINDING_SHAPE_RE ]]; then
+        printf '%s:%s: finding line appears before any recognized section heading\n' "$rel" "$lineno"
+        VIOLATIONS=$((VIOLATIONS + 1))
+      fi
+      continue
+    fi
 
-    case "$kind" in
-      HEADING)
-        if [[ "${HEADING_FOUND[$idx]}" -eq 1 ]]; then
-          printf '%s:%s: duplicate section for angle `%s` (first seen at line %s)\n' \
-            "$rel" "$lineno" "$label" "${HEADING_LINE[$idx]}"
+    if [[ "$line" == "_none — this angle produced no findings._" ]]; then
+      HAS_NONE[$idx]=1
+    elif [[ "$line" =~ $FINDING_LINE_RE ]]; then
+      # A well-formed finding line: exactly one space after the `-`.
+      # (G2 — round 2): checked BEFORE the loose FINDING_SHAPE_RE below,
+      # so a well-formed line is never also reported as malformed.
+      finding_label="${BASH_REMATCH[1]}"
+      finding_text="${BASH_REMATCH[2]}"
+      FINDING_COUNT[$idx]=$((FINDING_COUNT[$idx] + 1))
+
+      if [[ "$finding_label" != "$cur" ]]; then
+        printf '%s:%s: finding line label `%s` does not match its section `%s`\n' \
+          "$rel" "$lineno" "$finding_label" "$cur"
+        VIOLATIONS=$((VIOLATIONS + 1))
+      fi
+
+      disposition="${finding_text##*— }"
+      if [[ "$disposition" == "declined" ]]; then
+        :
+      elif [[ "$disposition" =~ $DISPOSITION_FILED_RE ]]; then
+        key="${BASH_REMATCH[1]}"
+        if [[ -z "$key" ]]; then
+          printf '%s:%s: finding line marked filed with no issue key\n' "$rel" "$lineno"
+          VIOLATIONS=$((VIOLATIONS + 1))
+        elif [[ ! "$key" =~ $ISSUE_KEY_RE ]]; then
+          printf '%s:%s: finding line marked filed with a malformed issue key `%s` (want an uppercase project key, a hyphen, digits — e.g. KAN-201)\n' \
+            "$rel" "$lineno" "$key"
           VIOLATIONS=$((VIOLATIONS + 1))
         fi
-        if [[ "$idx" -lt "$LAST_IDX" ]]; then
-          printf '%s:%s: section for angle `%s` is out of order (expected after `%s`)\n' \
-            "$rel" "$lineno" "$label" "${ANGLE_LABELS[$LAST_IDX]}"
-          VIOLATIONS=$((VIOLATIONS + 1))
-        fi
-        HEADING_FOUND[$idx]=1
-        HEADING_LINE[$idx]="$lineno"
-        [[ "$idx" -gt "$LAST_IDX" ]] && LAST_IDX="$idx"
-        ;;
-      BODY)
-        if [[ "$rest" == "_none — this angle produced no findings._" ]]; then
-          HAS_NONE[$idx]=1
-        elif [[ "$rest" =~ $FINDING_LINE_RE ]]; then
-          # A well-formed finding line: exactly one space after the `-`.
-          # (G2 — round 2): checked BEFORE the loose FINDING_SHAPE_RE below,
-          # so a well-formed line is never also reported as malformed.
-          finding_label="${BASH_REMATCH[1]}"
-          finding_text="${BASH_REMATCH[2]}"
-          FINDING_COUNT[$idx]=$((FINDING_COUNT[$idx] + 1))
+      else
+        printf '%s:%s: finding line disposition is neither `filed: <KEY>` nor `declined`\n' \
+          "$rel" "$lineno"
+        VIOLATIONS=$((VIOLATIONS + 1))
+      fi
+    elif [[ "$line" =~ $FINDING_SHAPE_RE ]]; then
+      # Finding-shaped (a `-`, optional whitespace, `**[`) but not
+      # well-formed — e.g. more than one space after the `-` (G2 —
+      # round 2). Without this branch such a line was silently dropped:
+      # not counted as a finding, not flagged, invisible to every check
+      # below. The same FINDING_SHAPE_RE the orphan check above tests a
+      # pre-heading line against is used here for an in-section one, so
+      # the two checks cannot disagree about what counts as
+      # finding-shaped — a plain prose line (no `-**[` prefix at all)
+      # still matches neither pattern and stays ignored, exactly as
+      # ordinary body prose should.
+      printf '%s:%s: finding-shaped line is malformed (want "- **[%s]** <text> — filed: <KEY>" or "- **[%s]** <text> — declined")\n' \
+        "$rel" "$lineno" "$cur" "$cur"
+      VIOLATIONS=$((VIOLATIONS + 1))
+    fi
 
-          if [[ "$finding_label" != "$label" ]]; then
-            printf '%s:%s: finding line label `%s` does not match its section `%s`\n' \
-              "$rel" "$lineno" "$finding_label" "$label"
-            VIOLATIONS=$((VIOLATIONS + 1))
-          fi
-
-          disposition="${finding_text##*— }"
-          if [[ "$disposition" == "declined" ]]; then
-            :
-          elif [[ "$disposition" =~ $DISPOSITION_FILED_RE ]]; then
-            key="${BASH_REMATCH[1]}"
-            if [[ -z "$key" ]]; then
-              printf '%s:%s: finding line marked filed with no issue key\n' "$rel" "$lineno"
-              VIOLATIONS=$((VIOLATIONS + 1))
-            elif [[ ! "$key" =~ $ISSUE_KEY_RE ]]; then
-              printf '%s:%s: finding line marked filed with a malformed issue key `%s` (want an uppercase project key, a hyphen, digits — e.g. KAN-201)\n' \
-                "$rel" "$lineno" "$key"
-              VIOLATIONS=$((VIOLATIONS + 1))
-            fi
-          else
-            printf '%s:%s: finding line disposition is neither `filed: <KEY>` nor `declined`\n' \
-              "$rel" "$lineno"
-            VIOLATIONS=$((VIOLATIONS + 1))
-          fi
-        elif [[ "$rest" =~ $FINDING_SHAPE_RE ]]; then
-          # Finding-shaped (a `-`, optional whitespace, `**[`) but not
-          # well-formed — e.g. more than one space after the `-` (G2 —
-          # round 2). Without this branch such a line was silently dropped:
-          # not counted as a finding, not flagged, invisible to every check
-          # below. The same FINDING_SHAPE_RE the ORPHAN check above tests a
-          # pre-heading line against is used here for an in-section one, so
-          # the two checks cannot disagree about what counts as
-          # finding-shaped — a plain prose line (no `-**[` prefix at all)
-          # still matches neither pattern and stays ignored, exactly as
-          # ordinary body prose should.
-          printf '%s:%s: finding-shaped line is malformed (want "- **[%s]** <text> — filed: <KEY>" or "- **[%s]** <text> — declined")\n' \
-            "$rel" "$lineno" "$label" "$label"
-          VIOLATIONS=$((VIOLATIONS + 1))
-        fi
-        ;;
-    esac
-  done <<<"$scan_out"
+    # Close the body with an explicit no-op so the loop's exit status means
+    # exactly one thing. bash reports a `while` with the status of the last
+    # command its body ran, so without this the classification chain above
+    # would decide it — harmless today, since every arm ends in a `printf` or
+    # an assignment and a chain matching no arm is itself 0, but one arm ever
+    # ending in a failing test or a `(( x++ ))` that evaluates to zero would
+    # silently turn a finished read into "cannot read report file". Every
+    # early exit from this body is a `continue`, which leaves 0 (measured on
+    # bash 3.2.57 and 5.3.15), so every iteration ends at 0 and only a failed
+    # redirection can make the loop non-zero.
+    :
+  done < "$f"
+  read_rc=$?
+  [[ "$read_rc" -eq 0 ]] || die "cannot read report file: $f"
 
   found_count=0
   for i in "${!ANGLE_LABELS[@]}"; do
