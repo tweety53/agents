@@ -264,6 +264,7 @@ cp "$GUARD" "$FIXTURE/scripts/plan-dispatch-bundles.sh"
 chmod +x "$FIXTURE/scripts/plan-dispatch-bundles.sh"
 cp "$SCRIPT_DIR/plan-dispatch-bundles.py" "$FIXTURE/scripts/plan-dispatch-bundles.py"
 cp "$SCRIPT_DIR/lib/resolve-file.sh" "$FIXTURE/scripts/lib/resolve-file.sh"
+cp "$SCRIPT_DIR/lib/spec-root.sh" "$FIXTURE/scripts/lib/spec-root.sh"
 ln -s ../../../scripts/plan-dispatch-bundles.sh \
   "$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.sh"
 ln -s ../../../scripts/plan-dispatch-bundles.py \

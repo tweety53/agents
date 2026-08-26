@@ -72,6 +72,16 @@ fi
 # walk of its own, so doing it here unconditionally does not reintroduce the
 # eager resolution the comment below opts out of — only the CALL is deferred.
 source "$SCRIPT_DIR/lib/resolve-file.sh"
+# Named as $SCRIPT_DIR/<name> and checked before sourcing, so
+# check-guard-symlinks.sh rule 2 can see the dependency and a missing
+# sibling names itself instead of surfacing as a bash error.
+SPEC_ROOT_LIB="$SCRIPT_DIR/lib/spec-root.sh"
+if [ ! -f "$SPEC_ROOT_LIB" ]; then
+  echo "plan-dispatch-bundles.sh: shared spec-root module not found: $SPEC_ROOT_LIB" >&2
+  exit 2
+fi
+source "$SPEC_ROOT_LIB"
+
 # The override is honoured WITHOUT resolving this script's own location, and the
 # ordering is deliberate rather than incidental. `${VAR:-expr}` evaluates `expr`
 # lazily, so the fixed-depth derivation this replaced never ran at all when
@@ -89,7 +99,7 @@ else
   }
   REPO_ROOT="$(cd "$(dirname "$SELF_REAL")/.." && pwd)"
 fi
-CHANGES_DIR="$REPO_ROOT/spectre/changes"
+CHANGES_DIR="$REPO_ROOT/$(spec_root_leaf "$REPO_ROOT")/changes"
 
 STATUS=0
 

@@ -125,7 +125,10 @@ if [ ! -d "$WORKTREE" ]; then
   exit 2
 fi
 
-CHANGES="$WORKTREE/spectre/changes"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/spec-root.sh"
+
+CHANGES="$WORKTREE/$(spec_root_leaf "$WORKTREE")/changes"
 PRIMARY_PLAN="$CHANGES/$NAME/tasks.md"
 
 REASONS=""

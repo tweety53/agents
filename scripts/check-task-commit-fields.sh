@@ -45,11 +45,22 @@ PYTHON_GUARD="$SCRIPT_DIR/check-task-commit-fields.py"
 # sibling dependency no guard can see — and a module that is missing should
 # say so rather than surface as a traceback.
 GRAMMAR_MODULE="$SCRIPT_DIR/lib/plan_grammar.py"
+# Named and checked for the same two reasons as the grammar module above:
+# a `source` is as invisible to check-guard-symlinks.sh rule 2 as an
+# import is unless the path appears as $SCRIPT_DIR/<name>, and a missing
+# sibling should say which one rather than surface as a bash error.
+SPEC_ROOT_LIB="$SCRIPT_DIR/lib/spec-root.sh"
 
 if [ ! -f "$GRAMMAR_MODULE" ]; then
   echo "check-task-commit-fields.sh: shared grammar module not found: $GRAMMAR_MODULE" >&2
   exit 2
 fi
+
+if [ ! -f "$SPEC_ROOT_LIB" ]; then
+  echo "check-task-commit-fields.sh: shared spec-root module not found: $SPEC_ROOT_LIB" >&2
+  exit 2
+fi
+source "$SPEC_ROOT_LIB"
 
 command -v python3 >/dev/null 2>&1 || {
   echo "check-task-commit-fields.sh: python3 not found on PATH — cannot run the guard" >&2
@@ -76,7 +87,7 @@ if [ ! -d "$WORKTREE" ]; then
   exit 2
 fi
 
-CHANGES_DIR="$WORKTREE/spectre/changes"
+CHANGES_DIR="$WORKTREE/$(spec_root_leaf "$WORKTREE")/changes"
 MATCHES=()
 NAMES=()
 if [ -d "$CHANGES_DIR" ]; then

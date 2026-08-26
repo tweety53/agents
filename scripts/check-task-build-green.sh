@@ -70,7 +70,8 @@ fi
 # CHECK_PLAN_PROVENANCE_ROOT), so a test harness can point this wrapper at a
 # sandboxed fixture tree instead of this repository's own spectre/changes/.
 REPO_ROOT="${CHECK_TASK_BUILD_GREEN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-CHANGES_DIR="$REPO_ROOT/spectre/changes"
+source "$SCRIPT_DIR/lib/spec-root.sh"
+CHANGES_DIR="$REPO_ROOT/$(spec_root_leaf "$REPO_ROOT")/changes"
 
 STATUS=0
 
