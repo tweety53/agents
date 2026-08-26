@@ -126,7 +126,7 @@ running one.
 
 A
 guard that resolves a neighbour from its own `$SCRIPT_DIR` at runtime — for example
-`check-unfinished-work.sh` needing `<agents repo>/scripts/lib/panel-record.sh`, `check-task-commit-fields.sh` needing
+`check-panel-reproducers.sh` needing `<agents repo>/scripts/reproducer-metachars.sh`, `check-task-commit-fields.sh` needing
 `check-task-commit-fields.py`, or `prepare-workspace.sh` needing `check-workspace-isolation.sh` —
 fails at the moment it reaches for that neighbour if the neighbour alone is missing, so a missing
 sibling is exactly as reportable as a missing guard, and the block names it the same way.

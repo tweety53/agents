@@ -105,11 +105,12 @@
 # exactly the concern that fails to apply here: the helper travels WITH the
 # guard, unconditionally, wherever the guard is reachable at all — never
 # absent, so never a way to be present-but-unrunnable. This is the identical
-# argument KAN-153's review (F7) accepted for check-unfinished-work.sh sourcing
-# scripts/lib/panel-record.sh, on the evidence that `setup.sh` installs
-# skills, not `scripts/`, so a guard and the library it sources always travel
-# together in this repository — see that review's Disposition section for the
-# full reasoning, carried forward here rather than re-litigated. Left
+# argument KAN-153's review (F7) accepted for check-unfinished-work.sh
+# sourcing a library of its own (since folded into the store rewrite): a
+# sourced helper travels WITH its guard, unconditionally, whenever
+# `setup.sh` installs skills rather than `scripts/` on their own — see that
+# review's Disposition section for the full reasoning, carried forward here
+# rather than re-litigated. Left
 # genuinely single-file, out of this change's scope: gather-self-review-context.sh,
 # which is copied into OTHER projects' own tooling standalone and cannot assume
 # any sibling travels with it.

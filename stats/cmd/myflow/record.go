@@ -16,6 +16,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
@@ -35,6 +37,45 @@ import (
 // list lives here rather than behind a package of its own.
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner"}
 
+// validateFindingStatus judges a finding's status the way validateRole
+// judges -role, before the store is ever contacted: "open" and "fixed" are
+// the two terminal words, and "withdrawn" is legal only carrying a reason
+// -- a bare "withdrawn" (or one trailing only whitespace) names nothing a
+// reader could act on, so it is refused here rather than stored.
+func validateFindingStatus(status string) error {
+	if status == "open" || status == "fixed" {
+		return nil
+	}
+	if rest, ok := strings.CutPrefix(status, "withdrawn"); ok {
+		first, _ := utf8.DecodeRuneInString(rest)
+		if unicode.IsSpace(first) && strings.TrimSpace(rest) != "" {
+			return nil
+		}
+	}
+	return fmt.Errorf("-status %q is not one of: open, fixed, withdrawn <reason>", status)
+}
+
+// validateFindingReproducer judges a finding's -reproducer before the store
+// is contacted. Empty is always an error -- a finding with no reproducer at
+// all is a finding nobody can act on. Where the first word is exactly
+// "none" the only legal form is "none — <reason>": a bare "none" claims
+// irreproducibility without saying why, which is the one shape this change's
+// `reproducer-safety-in-shell` decision still refuses here rather than
+// leaving to the guard. Any other non-empty value is a command, and this
+// validator has nothing further to say about its shape -- metacharacters,
+// absolute paths and ".." segments stay a guard-side check.
+func validateFindingReproducer(reproducer string) error {
+	if strings.TrimSpace(reproducer) == "" {
+		return fmt.Errorf("-reproducer is required")
+	}
+	if fields := strings.Fields(reproducer); len(fields) > 0 && fields[0] == "none" {
+		if rest, ok := strings.CutPrefix(reproducer, "none — "); !ok || strings.TrimSpace(rest) == "" {
+			return fmt.Errorf("-reproducer %q must be a command, or \"none — <reason>\"", reproducer)
+		}
+	}
+	return nil
+}
+
 const recordUsage = `usage: myflow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-agent-id id] [-diff-base sha]
@@ -49,6 +90,8 @@ const recordUsage = `usage: myflow record dispatch begin [-addr url] [-timeout d
                              [-reproducer cmd] [-dispatch-seq n] -note text
        myflow record status   [-addr url] [-timeout dur] [-C dir]
                              -change name -ref F<n> -status status
+       myflow record findings [-addr url] [-timeout dur] [-C dir]
+                             -change name
        myflow record render   [-addr url] [-timeout dur] [-C dir]
                              -change name -kind ledger|panel|all -repo dir
        myflow record journal-count [-C dir] -change name
@@ -75,9 +118,19 @@ identical reason: on any failure to reach or read the store it prints
 "unknown" and exits 0, rather than putting a handoff's own output behind a
 store that has no other reason to be up.
 
+findings prints one change's findings as a JSON array on stdout -- ref,
+status, and reproducer among the fields -- for a guard to query instead of
+parsing the Markdown render writes. A change the store has never heard of
+prints exactly "[]" and exits 0: no rows is a fact, not a failure. Unlike
+every write above, a failed read never journals and never exits 0 -- there
+is nothing to replay, so a store findings could not reach is reported to
+stderr and exits non-zero rather than printing a JSON array a caller could
+mistake for "no findings."
+
 The only non-zero exits are caller mistakes -- a missing required flag, an
 unrecognised -role, or a -session-token carrying a shell substitution --
-and a write the store was reached for and refused.
+a write the store was reached for and refused, and a read (findings) the
+store could not answer.
 
 A dispatch is recorded in TWO calls. "begin" writes the row as the
 dispatch starts; "end" closes it as the dispatch finishes. Both are
@@ -130,6 +183,8 @@ func runRecord(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return runRecordDispatchVerb(ctx, args[1:], stdout, stderr)
 	case "finding":
 		return runRecordFinding(ctx, args[1:], stdout, stderr)
+	case "findings":
+		return runRecordFindings(ctx, args[1:], stdout, stderr)
 	case "status":
 		return runRecordStatus(ctx, args[1:], stdout, stderr)
 	case "render":
@@ -569,8 +624,8 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 	slot := fset.String("slot", "", "the panel slot that raised it (required)")
 	severity := fset.String("severity", "", "the finding's severity (required)")
 	location := fset.String("location", "", "where the finding is, e.g. path:line")
-	status := fset.String("status", "", "the finding's status (required)")
-	reproducer := fset.String("reproducer", "", "the command that reproduces it, or \"none — <reason>\"")
+	status := fset.String("status", "", "one of: open, fixed, withdrawn <reason> (required)")
+	reproducer := fset.String("reproducer", "", "the command that reproduces it, or \"none — <reason>\" (required)")
 	note := fset.String("note", "", "the finding itself, in the slot's own words (required)")
 	// A dispatch's seq starts at 1, so 0 is an unambiguous "not given":
 	// a finding no single dispatch raised leaves dispatch_id NULL, which
@@ -587,6 +642,14 @@ func runRecordFinding(ctx context.Context, args []string, stdout, stderr io.Writ
 		[2]string{"-status", *status},
 		[2]string{"-note", *note},
 	) {
+		return 2
+	}
+	if err := validateFindingStatus(*status); err != nil {
+		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		return 2
+	}
+	if err := validateFindingReproducer(*reproducer); err != nil {
+		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		return 2
 	}
 
@@ -632,12 +695,16 @@ func runRecordStatus(ctx context.Context, args []string, stdout, stderr io.Write
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f)
 	ref := fset.String("ref", "", "the finding's reference, F<n> (required)")
-	status := fset.String("status", "", "the finding's new status (required)")
+	status := fset.String("status", "", "one of: open, fixed, withdrawn <reason> (required)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
 		return code
 	}
 	if !requireRecordFlags(stderr, [2]string{"-ref", *ref}, [2]string{"-status", *status}) {
+		return 2
+	}
+	if err := validateFindingStatus(*status); err != nil {
+		fmt.Fprintf(stderr, "myflow: %v\n", err)
 		return 2
 	}
 
@@ -966,6 +1033,68 @@ func runRecordRender(ctx context.Context, args []string, stdout, stderr io.Write
 		}
 		fmt.Fprintf(stdout, "rendered: %s\n", dests[k])
 	}
+	return 0
+}
+
+// runRecordFindings implements `myflow record findings`: a read-only verb
+// that prints one change's findings as a JSON array, so a guard can query
+// the store directly instead of re-deriving the same facts by parsing the
+// Markdown `record render` writes for human readers.
+//
+// It marshals Run.Findings ALONE, never the whole Run -- a guard consuming
+// this verb needs ref/status/reproducer, not dispatch rows it has no use
+// for and no reason to be coupled to.
+//
+// Unlike every write subcommand, a failed call here never journals: the
+// never-block guarantee exists so a write is not lost, but a read has
+// nothing to replay -- journalling a GET would queue a call that produces
+// no new information the second time either. So a store the call could not
+// reach is reported to stderr and this exits non-zero, exactly the
+// opposite of `record render`'s fallback, which prints "journalled:" and
+// exits 0. A caller must never be told "no findings" for a question this
+// command could not actually answer.
+func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("myflow record findings", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	switch {
+	case callErr == nil:
+	case errors.Is(callErr, client.ErrNotFound):
+		// The store was reached and has never heard of this change --
+		// "no rows" is a fact, not a failure, and prints as an empty
+		// array below exactly as runRecordRender treats it as MISSING
+		// rather than an error.
+		run = records.Run{Change: f.change, Findings: []records.Finding{}}
+	default:
+		fmt.Fprintf(stderr, "myflow: findings: %v\n", callErr)
+		return 1
+	}
+
+	if run.Findings == nil {
+		run.Findings = []records.Finding{}
+	}
+
+	body, err := json.Marshal(run.Findings)
+	if err != nil {
+		fmt.Fprintf(stderr, "myflow: encode findings: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
 	return 0
 }
 

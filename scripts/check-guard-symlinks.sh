@@ -72,8 +72,7 @@
 # refusal writes its reason to stderr and NOTHING to stdout — the caller must
 # never read an absent report as a clean one.
 #
-# THREE DISCIPLINES CARRIED HERE, adopted from scripts/lib/panel-record.sh's
-# header rather than invented fresh: `-a` on every grep (a stray NUL must not
+# THREE DISCIPLINES CARRIED HERE: `-a` on every grep (a stray NUL must not
 # put grep into binary "no match" mode and read a corrupted guard as a clean
 # one); the `rc > 1` split between "no match" (1, an answer) and a real
 # failure to look (2+, which this guard refuses on rather than reads as
@@ -165,8 +164,8 @@ source "$SCRIPT_DIR/lib/resolve-file.sh"
 # coverage_record / coverage_declare / coverage_report / coverage_verdict —
 # per-skill coverage reporting and the declared-vs-undeclared-zero decision,
 # owned once in lib/coverage.sh rather than reinvented here. See that file's
-# header for why (KAN-197) and the three disciplines it carries over from
-# panel-record.sh.
+# header for why (KAN-197) and for the same `-a`-on-every-grep, `rc > 1`-split,
+# and `--`-before-every-path disciplines this guard carries above.
 source "$SCRIPT_DIR/lib/coverage.sh"
 
 # ---------------------------------------------------------------------------

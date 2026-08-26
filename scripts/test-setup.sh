@@ -741,8 +741,8 @@ for skill in "${GUARD_SKILLS[@]}"; do
     [[ -e "$entry" || -L "$entry" ]] || continue
     name="${entry##*/}"
     # A guard's own executable bit is read from its real source, not assumed: some
-    # entries (reproducer-metachars.sh, lib/panel-record.sh) are sourced companions,
-    # never executed directly, and are not marked executable in the repository either.
+    # entries (reproducer-metachars.sh) are sourced companions, never executed
+    # directly, and are not marked executable in the repository either.
     want_exec=0
     [[ -f "$entry" && -x "$entry" ]] && want_exec=1
     for harness in "${GUARD_HARNESSES[@]}"; do
@@ -755,24 +755,29 @@ for skill in "${GUARD_SKILLS[@]}"; do
   done
 done
 
-group "check-unfinished-work.sh runs through the installed path and finds its lib/"
+group "check-panel-reproducers.sh runs through the installed path and finds its dependency"
 
-# The guard with the hardest dependency: it sources lib/panel-record.sh from its own
+# The guard with the hardest dependency: it sources reproducer-metachars.sh from its own
 # directory. Presence is not reachability — this actually RUNS it through the installed
 # symlink chain and inspects what it printed, not just that the file exists.
-GUARD_PATH="$home/.claude/skills/flow/scripts/check-unfinished-work.sh"
-assert_exists "the installed check-unfinished-work.sh exists to invoke" "$GUARD_PATH"
-GUARD_LOG="$SANDBOX/check-unfinished-work-installed.log"
-"$GUARD_PATH" >"$GUARD_LOG" 2>&1
+GUARD_PATH="$home/.claude/skills/flow/scripts/check-panel-reproducers.sh"
+assert_exists "the installed check-panel-reproducers.sh exists to invoke" "$GUARD_PATH"
+GUARD_LOG="$SANDBOX/check-panel-reproducers-installed.log"
+# One argument (a real directory, standing in for the worktree) and no change name: the
+# guard checks the worktree argument before the change name, so a true zero-argument call
+# would exit on the worktree check first. Supplying just the worktree still exercises the
+# dependency this group is about — reproducer-metachars.sh is sourced before either
+# argument is validated — while reaching the guard's own usage line.
+"$GUARD_PATH" "$SANDBOX" >"$GUARD_LOG" 2>&1
 GUARD_RC=$?
-# No arguments: the guard's own documented behaviour is to print a usage line and exit
+# No change name: the guard's own documented behaviour is to print a usage line and exit
 # 2. That is expected here and is NOT a failure — the failure this proves the absence
-# of is the guard reporting that it could not read its lib/.
-assert_rc_nonzero "check-unfinished-work.sh with no arguments exits non-zero (expected — not a failure)" "$GUARD_RC"
-assert_contains "check-unfinished-work.sh reaches its own usage message (proves lib/ was found, not just that the file exists)" \
-  "$GUARD_LOG" "usage: check-unfinished-work.sh"
-assert_not_contains "check-unfinished-work.sh through the installed path does not report a missing library" \
-  "$GUARD_LOG" "cannot determine the marker helper definitions"
+# of is the guard reporting that it could not read reproducer-metachars.sh.
+assert_rc_nonzero "check-panel-reproducers.sh with no change name exits non-zero (expected — not a failure)" "$GUARD_RC"
+assert_contains "check-panel-reproducers.sh reaches its own usage message (proves reproducer-metachars.sh was found, not just that the file exists)" \
+  "$GUARD_LOG" "usage: check-panel-reproducers.sh"
+assert_not_contains "check-panel-reproducers.sh through the installed path does not report a missing library" \
+  "$GUARD_LOG" "cannot determine the banned-character set"
 
 group "A pre-existing skill directory is moved outside the scanned tree"
 

@@ -11,8 +11,7 @@
 # carrying a space or a leading `-`, handled rather than mis-parsed. A short
 # "robustness" section beyond those five exercises the library's own
 # fail-fast argument validation (bad count, empty member, a duplicate
-# record/declare) — the same "reject rather than guess" posture
-# scripts/lib/panel-record.sh's header states, applied here to this
+# record/declare) — reject rather than guess, applied here to this
 # library's own arguments rather than to a grep call.
 #
 # Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
@@ -166,9 +165,9 @@ assert_zero_rc "case 5c: a declared odd-named zero exits 0" "$RC"
 
 # ---------------------------------------------------------------------------
 # 6. Robustness: the library's own argument validation fails fast rather
-#    than guessing. Not one of the five named cases, but the same posture
-#    scripts/lib/panel-record.sh's header states for every guard's grep
-#    calls, applied here to this library's own inputs.
+#    than guessing. Not one of the five named cases, but the same
+#    reject-rather-than-guess posture every guard's grep calls hold to,
+#    applied here to this library's own inputs.
 # ---------------------------------------------------------------------------
 coverage_reset
 set +e

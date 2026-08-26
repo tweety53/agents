@@ -79,11 +79,11 @@
 # one of them a coverage.sh "declared but never recorded" violation for a
 # member that was simply never part of that run's corpus at all.
 #
-# ADOPTED, NOT INVENTED: scripts/lib/panel-record.sh's header states three
-# disciplines for every guard in this repository — `-a` on every grep, the
-# `rc > 1` split between "no match" and a real error, and `--` before every
-# path. This guard uses no `grep` at all (section and finding-line
-# extraction is done in one `awk` pass per file, then classified in bash),
+# ADOPTED, NOT INVENTED: every guard in this repository holds to three
+# disciplines — `-a` on every grep, the `rc > 1` split between "no match"
+# and a real error, and `--` before every path. This guard uses no `grep`
+# at all (section and finding-line extraction is done in one `awk` pass
+# per file, then classified in bash),
 # so the first and third disciplines have no call site here, exactly as
 # scripts/lib/coverage.sh's own header states for the same reason. The
 # posture behind them still applies: `find` and the per-file `awk` call
