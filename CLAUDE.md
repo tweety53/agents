@@ -98,14 +98,14 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
 Claude Code loads this file into every session in this project, before `/flow` runs
 and before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is
-the whole job of the block, which is why the always-on rule `rules/myflow-manual-review.mdc` carries
+the whole job of the block, which is why the always-on rule `rules/flow-manual-review.mdc` carries
 the same three lines. **What the copy reproduces is the states and the transitions, not the
 wording**, and the two are deliberately **not** kept byte-identical: a difference in what the lines
 *say* is drift worth reporting; a difference in how they are phrased is not. Everything else is
 cited rather than copied: the state diagram lives under **How the pipeline works** (`<agents repo>/README.md`),
 and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
 
-Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load
+Also follow `rules/flow-manual-review.mdc` (always-on) — it is a stub, so **load
 `skills/flow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
 `skills/flow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s

@@ -13,7 +13,7 @@ not read `~/.claude/CLAUDE.md` or `~/.cursor/rules/`.
 `<agents repo>/setup.sh global` writes the always-on rules into a managed block in `~/.codex/AGENTS.md`,
 delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, using the same ordering check
 and self-poisoning guard as the Claude Code block. So a Codex session gets
-`myflow-manual-review.mdc` and `lint-fix-priority.mdc` globally, and opt-in rules (such as
+`flow-manual-review.mdc` and `lint-fix-priority.mdc` globally, and opt-in rules (such as
 the Kotlin backend standard) are deliberately excluded — a project activates those by
 naming them in `<project>/.flow/project.md`'s `## standards` section.
 
@@ -26,7 +26,7 @@ Be precise about this, because the two halves are asymmetric:
 
 | | After `<agents repo>/setup.sh global` |
 |---|---|
-| **Rules** | ✅ present — the managed block in `~/.codex/AGENTS.md` carries `myflow-manual-review.mdc` and `lint-fix-priority.mdc` |
+| **Rules** | ✅ present — the managed block in `~/.codex/AGENTS.md` carries `flow-manual-review.mdc` and `lint-fix-priority.mdc` |
 | **Skills** | ✅ present — `install_global` links every directory in `skills/` into `~/.codex/skills/`, alongside `~/.claude/skills/` and `~/.cursor/skills/` |
 | **Commands** | ❌ absent — `~/.claude/commands/` and `~/.cursor/commands/` only. There is no `~/.codex/commands/` layer. |
 
@@ -127,14 +127,14 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
 Codex loads this file into every session in this project, before `/flow` runs and
 before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is the
-whole job of the block, which is why the always-on rule `rules/myflow-manual-review.mdc` carries the
+whole job of the block, which is why the always-on rule `rules/flow-manual-review.mdc` carries the
 same three lines. **What the copy reproduces is the states and the transitions, not the wording**,
 and the two are deliberately **not** kept byte-identical: a difference in what the lines *say* is
 drift worth reporting; a difference in how they are phrased is not. Everything else is cited
 rather than copied: the state diagram lives under **How the pipeline works** (`<agents repo>/README.md`),
 and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
 
-Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load
+Also follow `rules/flow-manual-review.mdc` (always-on) — it is a stub, so **load
 `skills/flow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
 `skills/flow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s

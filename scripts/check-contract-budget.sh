@@ -147,7 +147,7 @@ rules/design-mockups-are-specs.mdc 3176
 rules/dispatch-carries-the-baseline.mdc 3918
 rules/kotlin-backend-development-standard.mdc 9641
 rules/lint-fix-priority.mdc 2961
-rules/myflow-manual-review.mdc 5630
+rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
 rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781

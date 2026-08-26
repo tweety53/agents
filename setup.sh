@@ -430,7 +430,7 @@ render_managed_block() {
     # that project's own CLAUDE.md, and pointing those at ~/.claude/rules/ would name a path
     # no install ever creates for an opt-in rule — so with an explicit rule list the whole
     # body is inlined exactly as before. An unmarked rule is likewise inlined whole, which is
-    # what keeps myflow-manual-review.mdc and every opt-in standard rendering unchanged.
+    # what keeps flow-manual-review.mdc and every opt-in standard rendering unchanged.
     # `if` rather than `grep … && flag=1`: under `set -e` an AND-list whose last command
     # fails IS a failing statement, so an unmarked rule — the common case — aborted the
     # render mid-block, leaving a begin delimiter with no end for the next run to trip over.
@@ -662,7 +662,7 @@ project_standards_entries() {
 # generated.
 #
 # Only entries that resolve to the SHARED library are rendered, per the resolution table in
-# rules/myflow-manual-review.mdc: a bare filename (no `/`) ending in `.mdc`. An entry
+# rules/flow-manual-review.mdc: a bare filename (no `/`) ending in `.mdc`. An entry
 # containing a `/` is a project path and is not a shared rule at all; any other bare filename
 # is the project's own file, already in the repo. Always-on rules are dropped too — they
 # reach every session through the global block, and rendering them again here is precisely
@@ -777,7 +777,7 @@ install_global() {
   # .cursor/skills/<skill>/SKILL.md, and there is no per-project copy any more.
   install_skills "$home_dir/.cursor/skills"
   # Codex too. The managed block written into ~/.codex/AGENTS.md below carries
-  # myflow-manual-review.mdc, which names the /myflow-* skills throughout; without this a
+  # flow-manual-review.mdc, which names the /myflow-* skills throughout; without this a
   # global install told Codex the rules and left it nothing to resolve them against. The
   # per-project mode already uses .codex/skills, and projects may not keep their own copies
   # once a global install exists, so this is the only place the skills can come from.

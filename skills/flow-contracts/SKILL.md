@@ -1,6 +1,6 @@
 ---
 name: flow-contracts
-description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/myflow-manual-review.mdc.
+description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/flow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -10,7 +10,7 @@ metadata:
 
 # myflow contracts
 
-myflow's pipeline and its contract definitions, split out of `rules/myflow-manual-review.mdc` so the
+myflow's pipeline and its contract definitions, split out of `rules/flow-manual-review.mdc` so the
 always-on rule layer carries only the trigger, without being asked to load anything.
 
 **Load the one file you need — not this whole directory.** The exception is `pipeline.md`: every

@@ -1,10 +1,10 @@
 ---
-description: myflow state machine — three states (STARTED, IN_PROGRESS, FINISHED) tracked in a state file, driven end to end by one command (/flow); a creating run writes STARTED at invocation and, in the same invocation, continues into implementation behind a fixed 3-slot review panel, ending at IN_PROGRESS; that run emits both the staged diff and the run instructions, so reviewing and testing are one human gate; the gate is a property of the state, so no command exists whose only job is to record it; every invocation is re-entrant and a fix never moves the state; no command takes a flag; a bare invocation at IN_PROGRESS asks how to land the branch — open PR by default, merge, or manual — then, on merge-and-push, continues in the same invocation through archive to FINISHED; no tests, linters or coverage run before integration
+description: flow state machine — three states (STARTED, IN_PROGRESS, FINISHED) tracked in a state file, driven end to end by one command (/flow); a creating run writes STARTED at invocation and, in the same invocation, continues into implementation behind a fixed 3-slot review panel, ending at IN_PROGRESS; that run emits both the staged diff and the run instructions, so reviewing and testing are one human gate; the gate is a property of the state, so no command exists whose only job is to record it; every invocation is re-entrant and a fix never moves the state; no command takes a flag; a bare invocation at IN_PROGRESS asks how to land the branch — open PR by default, merge, or manual — then, on merge-and-push, continues in the same invocation through archive to FINISHED; no tests, linters or coverage run before integration
 globs:
 alwaysApply: true
 ---
 
-# myflow — /flow, start to finish
+# flow — /flow, start to finish
 
 When running `/flow`, follow this **fixed three-state pipeline**:
 
