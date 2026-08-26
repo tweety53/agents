@@ -381,6 +381,13 @@ the one irreversible step.
    unverified cleanup is not a verified one. The exit code is checked as well as the line, because a
    caller that greps for `COMPLETE` in empty output finds nothing.
 
+   **None of this is a cue to bring the stack back up.** Once check 5 in **Worktree cleanup** below
+   has stopped the project's declared stack, every later run-2 step that touches it — a
+   reported-and-continued removal failure at step 5 above, or a `SKIPPED:` clause on a `COMPLETE:`
+   line here — is that same stack's absence showing up again, correctly, one step later. Restarting
+   it to make one of those steps succeed undoes what check 5 was for and answers a question this
+   procedure never asked.
+
    **A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
    `FINISHED` is terminal: `/myflow-finish` stops at it and `/myflow-status` does not list it, so a
    change written `FINISHED` over a known leftover has exactly one record of that leftover — the
@@ -564,6 +571,13 @@ git -C "$WT" ls-files --others --ignored --exclude-standard
 #    worked. Verifying that is the whole of what this check adds.
 check-worktree-processes.sh "$WT"
 ```
+
+**Check 6 requires the orchestrating shell's own cwd to be outside every worktree in the resolved
+set before it runs.** `check-worktree-processes.sh`'s own header treats a process whose working
+directory is at or under the worktree as held, and a shell that is itself `cd`'d into `$WT` (or into
+another worktree in the same set) is exactly such a process — it would report `HELD:` against
+itself, not against the stack this check exists to catch. `cd` out first, for every worktree, before
+this check runs for any of them.
 
 **Check 6 is a gate, and both of its bad outcomes are failures.** `HELD:` names each process
 holding the worktree, and exit 2 says the guard could not answer at all — the scanning tool is
