@@ -688,7 +688,7 @@ def resolve_folded_task(
     lines: List[str], task: TaskFields
 ) -> Tuple[TaskFields, List[str]]:
     """Resolve a folded task against the whole fold its commit carries, per
-    `myflow-task-commit-fields`'s requirement **A folded red task is checked
+    `flow-task-commit-fields`'s requirement **A folded red task is checked
     against its partner's commit**. Returns `(task to check, violations found
     resolving it)`; a non-empty violation list is a plan defect and the caller
     reports it instead of checking anything.
@@ -896,7 +896,7 @@ def _leading_jira_key(change_name: str) -> Optional[str]:
 
 def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
     """Fail when the **declared** `Commit:` field's scope — parsed out of
-    `task.commit`, never the real commit's subject, per myflow-commit-
+    `task.commit`, never the real commit's subject, per flow-commit-
     scope's requirement — equals the change name, the change name's bare
     Jira key, or a dotted/numeric task id. A field with no scope, or any
     other scope, passes: there is no vocabulary of legal module names to
@@ -996,7 +996,7 @@ def _commit_reverted(worktree: str, commit_sha: str):
     """Revert `commit_sha` in `worktree`'s working tree (uncommitted, via
     `git revert --no-commit`) for the body of the `with` block, then
     unconditionally restore the pre-revert state with `git reset --hard
-    commit_sha` on the way out — the "revert, ..., un-revert" `myflow-task-
+    commit_sha` on the way out — the "revert, ..., un-revert" `flow-task-
     commit-fields` describes for `Regression:`, reused for `Baseline:`'s
     "run at the parent commit" (a task commit's revert lands exactly on its
     parent's tree, since this runs immediately after that commit with
@@ -1132,7 +1132,7 @@ def check_task_commit(
     """Returns `(violations, notices)`: `violations` fail the run (exit 1),
     `notices` are skipped-not-verified reports from `Regression:`/
     `Baseline:` that are printed but never affect the exit code, per
-    `myflow-task-commit-fields`'s requirement **Regression and Baseline
+    `flow-task-commit-fields`'s requirement **Regression and Baseline
     checks skip, rather than fail, when unsupported**."""
     with open(tasks_md_path, "r", encoding="utf-8") as handle:
         lines = handle.read().splitlines()

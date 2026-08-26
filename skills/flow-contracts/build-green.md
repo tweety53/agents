@@ -33,7 +33,7 @@ its own, which is also what keeps spectre's malformed-task check off it.
 **The two columns of indent belong to the steps alone: a task's FIELDS sit at column 0.** The
 `Build:` tag is read as `^\*\*Build:\*\*\s+(green|red)\s*$` — anchored at column 0, exactly as the
 task line above it is — and `**Squash-with:**` is anchored the same way, as is every field the
-`myflow-task-commit-fields` family adds to a task. Indenting the fields along with the steps is the
+`flow-task-commit-fields` family adds to a task. Indenting the fields along with the steps is the
 natural reading of "the body sits beneath its task", and it is wrong in a way nothing catches
 kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
 task line to spectre than a step is, while this file's own guard reports

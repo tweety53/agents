@@ -236,7 +236,7 @@ check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
 A nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round slot.
 The parent sends the task back to the **same implementer** to correct it, then re-runs the guard.
 
-**When the script cannot be located**, apply `myflow-task-commit-fields`'s rules by hand: check the
+**When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 

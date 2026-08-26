@@ -346,7 +346,7 @@ and **kept**.
 
 While enriching `tasks.md`, also tag every task with `**Build:**` per **The build-green tag**
 (`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
-`myflow-task-commit-fields` requires:
+`flow-task-commit-fields` requires:
 
 - `**Files:**` — the paths this task's commit will touch, with an optional
   `**Allowed-collateral:**` glob.
