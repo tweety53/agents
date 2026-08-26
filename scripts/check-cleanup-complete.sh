@@ -729,7 +729,7 @@ run_survivors() {
   WS_RC=0
   WS_TIMED_OUT=0
 
-  WS_TMP="$(mktemp "${TMPDIR:-/tmp}/myflow-survivors.XXXXXX" 2>/dev/null)" || {
+  WS_TMP="$(mktemp "${TMPDIR:-/tmp}/flow-survivors.XXXXXX" 2>/dev/null)" || {
     WS_TMP=""
     return 1
   }

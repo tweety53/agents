@@ -289,7 +289,7 @@ esac
 # ===========================================================================
 # Case 12: a `### <id> <title>` heading opens no task. This guard keeps its
 # own copy of the task-line pattern, mirroring check-task-build-green.py's
-# rather than importing it, so the heading shape a myflow plan used to mark
+# rather than importing it, so the heading shape a flow plan used to mark
 # a task with has to be pinned as inert HERE too — a copy that drifted back
 # into accepting both shapes would put this guard and spectre right back
 # into the disagreement the checkbox line ended. The heading below declares

@@ -39,7 +39,7 @@ or drops them: not `docker compose down`, not `launchctl unload`, not a `kill` o
 and not to make a later step succeed. Bringing them back up does not repair a run that already fell
 through to the on-disk journal.
 
-**Only those.** A worktree's own derived `myflow_<id>` database and bucket are per-change artifacts,
+**Only those.** A worktree's own derived `flow_<id>` database and bucket are per-change artifacts,
 and `<project>/scripts/workspace.sh remove <id>` drops them during archive cleanup as it should.
 
 The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to

@@ -17,7 +17,7 @@ the integrate phase above (unless chained straight through from merge-and-push, 
 that same run's token — see **Model resolution** and the token note in `skills/flow/SKILL.md`).
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 1. **Verify the merge** — a PR CLI when usable, otherwise `git merge-base --is-ancestor`. Fetch
@@ -25,8 +25,8 @@ myflow stage begin -command '/flow' -stage flow.verify-merge -harness <harness> 
    nothing** — end this mark `-outcome not-run-2` and stop.
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.verify-merge -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.verify-merge -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 2. **Position the main checkout on the archive branch**, before anything else touches it. Resolve
@@ -53,8 +53,8 @@ myflow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> 
    leave the change at `IN_PROGRESS`.
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.sync-archive -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.sync-archive -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 4. **Commit the archive** on `chore/archive-<name>` in the main checkout — no push here; step 10
@@ -73,8 +73,8 @@ myflow stage begin -command '/flow' -stage flow.commit-archive -harness <harness
    this commit at step 9 by matching that subject line whole — **reproduce it exactly.**
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.commit-archive -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
@@ -95,8 +95,8 @@ myflow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -sess
 Steps 5 and 6 together are the one `flow.cleanup` stage:
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.cleanup -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.cleanup -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once per
@@ -108,14 +108,14 @@ myflow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness
    `LEFTOVER`.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.verify-cleanup -outcome completed <name>
+flow stage end -command '/flow' -stage flow.verify-cleanup -outcome completed <name>
 ```
 
 (`completed` on `COMPLETE:`, `leftover` on `LEFTOVER:` or on a missing verdict line — either way the
 run stops here, at `IN_PROGRESS`, and nothing below runs.)
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.write-finished -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.write-finished -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 8. **Write `FINISHED`** — reached only on `COMPLETE:` — clearing from `worktrees` **only the
@@ -124,8 +124,8 @@ myflow stage begin -command '/flow' -stage flow.write-finished -harness <harness
    write.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.write-finished -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end -command '/flow' -stage flow.write-finished -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Transition the issue to Done** after the state write, per **Jira integration**
@@ -166,7 +166,7 @@ myflow stage begin -command '/flow' -stage flow.self-review -harness <harness> -
    > - **<finding 2>**
    > - **None — file nothing** *(default, recommended)*
 
-   Then ask the operator to rate the run: **Rate this myflow run, 1 (rough) to 5 (excellent):**
+   Then ask the operator to rate the run: **Rate this flow run, 1 (rough) to 5 (excellent):**
 
    Write `<project>/docs/self-review/<name>-self-review.md` — one section per angle, all five
    present; each finding one line naming its angle's label, the finding, and its disposition; an
@@ -184,8 +184,8 @@ myflow stage begin -command '/flow' -stage flow.self-review -harness <harness> -
    `FINISHED` regardless.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 10. **Push the archive branch and open its pull request.** Push `chore/archive-<name>`; open a pull
@@ -199,7 +199,7 @@ myflow stage begin -command '/flow' -stage flow.push-archive -harness <harness> 
     archive branch. Runs inside step 10's mark.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.push-archive -outcome completed <name>
+flow stage end -command '/flow' -stage flow.push-archive -outcome completed <name>
 ```
 
 ```

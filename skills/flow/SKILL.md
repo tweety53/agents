@@ -1,7 +1,7 @@
 ---
 name: flow
 description: Single-command pipeline — brainstorm, implement behind a fixed 3-slot review panel, then integrate and archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
-allowed-tools: Bash(spectre:*), Bash(myflow:*)
+allowed-tools: Bash(spectre:*), Bash(flow:*)
 license: MIT
 ---
 
@@ -80,7 +80,7 @@ records.
 **This introduces a real, known gap**, disclosed rather than hidden: `<agents repo>/stats/internal/stages/names.go`
 (the CLI's documented-key table, mechanically derived from `<agents repo>/README.md`'s Level 1 stages table) does
 not yet list any `flow.*` key or a `/flow` command constant. Until a later task adds them, every
-`myflow stage begin -stage flow.*` call below is rejected by the CLI as an undocumented key — a
+`flow stage begin -stage flow.*` call below is rejected by the CLI as an undocumented key — a
 caller mistake, per **Stage marks** (`skills/flow-contracts/pipeline.md`) — and reports rather
 than blocks the run it marks, exactly as that section already requires for any rejected mark. This
 is exactly the kind of gap `check-references.sh` and this task's own dispatch note it is "fine and
@@ -104,11 +104,11 @@ The full key list, in the order each phase file marks them:
 **Resolve this once, near the top of every run, before any dispatch below reads it:**
 
 ```bash
-SETTINGS_JSON="$(myflow settings get)"
+SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 ```
 
-A non-zero exit from `myflow settings get` means the settings store could not be reached — there is
+A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
 `sonnet` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
 naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
@@ -132,7 +132,7 @@ a global default, per that command's own guardrails.
 ## Reading the state
 
 ```bash
-myflow state get <name-or-best-guess> -C <repo-root>
+flow state get <name-or-best-guess> -C <repo-root>
 ```
 
 - **Exit 1**, or exit 0 with `"synthetic": true` — **no state**: a creating run. See

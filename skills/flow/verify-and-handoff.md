@@ -13,7 +13,7 @@ immediately before the state write.
 below.
 
 ```bash
-myflow stage begin -command '/flow' \
+flow stage begin -command '/flow' \
   -stage flow.verify \
   -harness <harness> \
   -session-token mf-<literal-token> \
@@ -68,7 +68,7 @@ verification gate — so a non-zero exit blocks this handoff.
 **Confirm this run recorded a ledger:**
 
 ```bash
-myflow record render -change <name> -kind ledger -repo <abs-worktree>
+flow record render -change <name> -kind ledger -repo <abs-worktree>
 ```
 
 Read the outcome word, not the exit code. `rendered: <dest>` is ordinary. **`MISSING: ledger — no
@@ -78,13 +78,13 @@ gates or stops the run — unlike the lint and test exits above. The outcome wor
 **Rendering the session records** (`skills/flow-contracts/session-records.md`).
 
 ```bash
-myflow stage end -command '/flow' -stage flow.verify -outcome completed <name>
+flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
 ```
 
 ## Stage, excluding the planning paths
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one
@@ -109,7 +109,7 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 state file records a `prUrl`, a PR is already open, so this run also commits
 `<project>/spectre/changes/` and `<project>/docs/superpowers/` and pushes everything to the PR
 branch; otherwise this step commits and pushes nothing. On that path only — and in this order — run
-`myflow record render -change <name> -kind all -repo <worktree>`; then `commit-split.sh <worktree>
+`flow record render -change <name> -kind all -repo <worktree>`; then `commit-split.sh <worktree>
 <name> "<impl-msg>" "chore(spectre): plan and session records"`; then push the branch. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task
@@ -120,13 +120,13 @@ nothing was written — report it. **A non-zero exit means a destination was ref
 written** — report it, and continue committing the fix.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
+flow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
 ```
 
 ## Resolve the run instructions
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Resolve the run instructions for the handoff's `Run it:` section. It writes no file.
@@ -145,13 +145,13 @@ Resolve the run instructions for the handoff's `Run it:` section. It writes no f
   commands instead.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.run-instructions -outcome completed <name>
+flow stage end -command '/flow' -stage flow.run-instructions -outcome completed <name>
 ```
 
 ## Write `IN_PROGRESS`
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
@@ -162,19 +162,19 @@ records a value into the per-change state) and `prUrl` forward verbatim. The sta
 outside the repo — never `git add` it.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
+flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
 ```
 
 **Produce the handoff's `Records:` count**, one call per affected worktree:
 
 ```bash
-myflow record journal-count -change <name> -C <abs-worktree>
+flow record journal-count -change <name> -C <abs-worktree>
 ```
 
 **Produce the handoff's `Costs:` line the same way**, one call per affected worktree:
 
 ```bash
-myflow record cost-status -change <name>
+flow record cost-status -change <name>
 ```
 
 It exits 0 always — `unknown` included. Render exactly what it printed.
@@ -186,7 +186,7 @@ It exits 0 always — `unknown` included. Render exactly what it printed.
 **Panel:** clean — required: Primary, Principles, Code review (low); on-demand: <Bugbot and/or Security, or "none — not requested">
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
-**Costs:** <the line `myflow record cost-status` printed>
+**Costs:** <the line `flow record cost-status` printed>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
 

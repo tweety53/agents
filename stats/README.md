@@ -1,10 +1,10 @@
 # stats
 
-The myflow stats app: a PostgreSQL-backed Go service that replaces the
+The flow stats app: a PostgreSQL-backed Go service that replaces the
 per-machine JSON state file, records per-stage telemetry, and serves both the
 live pipeline state and aggregated statistics through a browser interface.
 
-Full design: `openspec/changes/kan-16-myflow-stats-app/design.md`.
+Full design: `openspec/changes/archive/2026-08-14-kan-16-myflow-stats-app/design.md`.
 
 ## Prerequisites
 
@@ -47,7 +47,7 @@ Nobody running `go test` needs to bring up the UI-test stack first.
 
 For testing the application's browser interface by hand, from the main
 checkout, against real data that is not the operator's own — separate from
-both the live daemon (port 4173, database `flow`) and any `/myflow-do`
+both the live daemon (port 4173, database `flow`) and any `/flow`
 worktree's own isolated stack (see `.flow/project.md`'s
 `## workspace isolation`).
 
@@ -58,7 +58,7 @@ make ui-test-up
 
 This drops and recreates the `flow_uitest` database in the same
 `flow-postgres` container the live stack uses (host port 5433), starts
-`myflowd` on port **4174** against it, waits for the daemon to answer, and
+`flowd` on port **4174** against it, waits for the daemon to answer, and
 seeds it with a fixed fixture — two projects, changes spanning `STARTED`,
 `IN_PROGRESS` and `FINISHED`, and stage runs carrying token usage, so the
 views render something rather than an empty interface.
@@ -74,28 +74,28 @@ Point a session or a browser tab at it:
 export FLOW_ADDR=http://127.0.0.1:4174
 ```
 
-`FLOW_ADDR` overrides the `myflow` CLI's default daemon address (see "A
+`FLOW_ADDR` overrides the `flow` CLI's default daemon address (see "A
 single variable targets the test stack" in this change's spec); opening
 `http://127.0.0.1:4174` directly in a browser reaches the same daemon's
 SPA. The live daemon on 4173 and the live database are untouched by
 either bring-up or by anything written during the test session.
 
 **`export` persists for the rest of that shell session, not just the next
-command.** Once exported, *every* subsequent `myflow state`/`myflow stage`
+command.** Once exported, *every* subsequent `flow state`/`flow stage`
 invocation in that shell — including ones run much later, unrelated to UI
 testing — silently targets the test stack on 4174 instead of the live
 daemon on 4173, until the shell exits or the variable is unset. No
-`/myflow-*` skill passes `-addr` explicitly, so nothing overrides this, and
+`/flow*` skill passes `-addr` explicitly, so nothing overrides this, and
 a successful `state set` exits 0 with no warning either way — there is no
 signal that a write landed on the test stack instead of the live one. To
 avoid that:
 
 - Prefer scoping it to one command instead of exporting it:
-  `FLOW_ADDR=http://127.0.0.1:4174 myflow state get <name>`, or
+  `FLOW_ADDR=http://127.0.0.1:4174 flow state get <name>`, or
 - Run the UI-test session in a separate subshell (`bash`, then `export`
   inside it, then `exit` when done), or
 - If you do `export` it in your main shell, `unset FLOW_ADDR` as soon as
-  you are done testing, before running any real `/myflow-*` command.
+  you are done testing, before running any real `/flow*` command.
 
 Tear it down when done:
 
@@ -108,7 +108,7 @@ second `make ui-test-down` is not an error.
 
 ## Pricing
 
-`myflowd` seeds the published Anthropic per-model rates (`internal/store
+`flowd` seeds the published Anthropic per-model rates (`internal/store
 /pricing_seed.go`, read from
 https://platform.claude.com/docs/en/about-claude/pricing on 2026-08-14)
 into the `pricing` table at every startup — an upsert, so this is a no-op
@@ -136,8 +136,8 @@ empty. Nothing failed loudly — it was found by a human staring at that
 empty dashboard and asking why. This is the same check, made a minute's
 work instead of an investigation.
 
-While a `flow-postgres` stack and `myflowd` are both running (see above),
-and while a real `/myflow-*` command is mid-run (so a change and at least
+While a `flow-postgres` stack and `flowd` are both running (see above),
+and while a real `/flow*` command is mid-run (so a change and at least
 one stage mark already exist):
 
 ```bash
@@ -201,7 +201,7 @@ launchctl unload ~/Library/LaunchAgents/com.tweety53.flowd.plist
 ```
 
 Unloading stops the daemon without removing the binary or the Postgres
-stack; every `myflow` CLI call falls back to the on-disk journal while it
+stack; every `flow` CLI call falls back to the on-disk journal while it
 is down, per the never-block guarantee, and replays automatically the
 next time the daemon starts.
 

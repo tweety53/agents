@@ -19,7 +19,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 ## 1. Load context and validate the plan
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 spectre validate "<name>"
 spectre list --json
 ```
@@ -50,7 +50,7 @@ Extract the **Global constraints** verbatim from the capability specs the propos
 `design.md` for the reviewers.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
+flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
 ```
 
 ## 2. Isolate the workspace (first run only)
@@ -59,7 +59,7 @@ myflow stage end -command '/flow' -stage flow.load-context -outcome completed <n
 creates are rows in it.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:using-git-worktrees**. Branch `spectre/<name>`. Never implement on the default
@@ -86,7 +86,7 @@ under **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — 
 by hand. Compute it once per run, on a fix run exactly as on the first.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed <name>
+flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed <name>
 ```
 
 ## 3. Documenting a fix, before implementing it
@@ -95,7 +95,7 @@ myflow stage end -command '/flow' -stage flow.isolate-workspace -outcome complet
 here:
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Record what changed **before** writing code, so the proposal never goes stale. Ask which of exactly
@@ -111,13 +111,13 @@ If the fix adds scope the linked Jira issue does not describe, sync the issue **
 transition the issue here.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
+flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
 ```
 
 ## 4. Execute (SDD + TDD)
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Gather the dispatch context bundle before dispatching any implementer.**
@@ -145,14 +145,14 @@ explicitly overrides `superpowers:subagent-driven-development`'s parallel dispat
 Immediately before dispatching:
 
 ```bash
-myflow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
+flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
   -key task-<n>-implementer -session-token mf-<literal-token> -started-at <ts>
 ```
 
 and as soon as that dispatch reports back, before the next one goes out:
 
 ```bash
-myflow record dispatch end -change <name> -key task-<n>-implementer \
+flow record dispatch end -change <name> -key task-<n>-implementer \
   -session-token mf-<literal-token> -commit <sha> -outcome completed -ended-at <ts> \
   -agent-id <id>
 ```
@@ -185,7 +185,7 @@ Bundling does not change the commit-per-task model — an implementer handed a b
 commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task still folds
 into the commit its `**Squash-with:**` field names. Every implementer dispatch **must** carry:
 
-> **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
+> **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer. The trailer identifies the task;
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **Never weaken or
@@ -257,7 +257,7 @@ that task passes spec **and** quality review; a step's checkbox tracks the step 
 On BLOCKED: pause and report. Never guess.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
+flow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
 ```
 
 Once this stage completes, continue into `skills/flow/review-panel.md`.

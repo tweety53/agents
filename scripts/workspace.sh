@@ -14,7 +14,7 @@
 # as it always has (`dropdb --if-exists`, no --force). Passed, it adds
 # Postgres' WITH (FORCE) to the drop, which succeeds against a database with
 # a live connection this process did not start. It changes nothing about id
-# validation or the refusal to operate on the shared "myflow" database below
+# validation or the refusal to operate on the shared "flow" database below
 # — both run identically whether or not --force is passed, so an id that
 # would be rejected today is rejected exactly the same way with --force.
 #
@@ -32,8 +32,8 @@
 # legitimately needs a forced drop of a non-uitest workspace would need
 # this rule revisited, not silently bypassed.
 #
-# The database service is the myflow-postgres container (superuser myflow,
-# database myflow, host port 5433). Every subcommand reaches it through
+# The database service is the flow-postgres container (superuser flow,
+# database flow, host port 5433). Every subcommand reaches it through
 # `docker exec`, since this machine has no host-installed psql/createdb/
 # dropdb client — the container's own copies are used instead, for `create`
 # and `remove` as well as `survivors`, so there is exactly one mechanism for
@@ -50,7 +50,7 @@
 # `create` is a no-op when the database already exists, so a re-run of the
 # pipeline in an existing worktree is not an error. `create` and `remove`
 # both refuse an empty or missing id rather than operating on the shared
-# "myflow" database.
+# "flow" database.
 #
 # `survivors` is read by scripts/check-cleanup-complete.sh under the rules in
 # project-configuration.md's "What `survivors` prints, and what its exit
@@ -77,8 +77,8 @@
 
 set -o pipefail
 
-CONTAINER="myflow-postgres"
-SUPERUSER="myflow"
+CONTAINER="flow-postgres"
+SUPERUSER="flow"
 
 usage() {
   echo "usage: $0 {create|remove|survivors} <id> [--force]" >&2

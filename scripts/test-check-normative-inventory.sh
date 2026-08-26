@@ -270,7 +270,7 @@ expect_exit 'a nested symlinked directory holding Markdown cannot be answered' 2
   "$FIX/nested-link-md"
 
 # The same shape carrying NO Markdown — this repository's own
-# skills/myflow-*/scripts/lib links, which point at a directory of `.sh` files.
+# skills/flow*/scripts/lib links, which point at a directory of `.sh` files.
 # Nothing is lost by not descending into one, so refusing it would fail the real
 # repository on every run for no lost sentence. It contributes nothing and the
 # run stays green.

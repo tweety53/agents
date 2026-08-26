@@ -1,7 +1,7 @@
 # Workspace isolation — rationale
 
 This file is the reasoning behind `skills/flow-contracts/workspace-isolation.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## The workspace id
 

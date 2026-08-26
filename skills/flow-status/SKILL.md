@@ -1,9 +1,9 @@
 ---
 name: flow-status
-description: Show every open myflow change with its pipeline state, PR, next command, and last update. Read-only. Use for /flow-status.
-allowed-tools: Bash(spectre:*), Bash(git:*), Bash(jq:*), Bash(myflow:*)
+description: Show every open flow change with its pipeline state, PR, next command, and last update. Read-only. Use for /flow-status.
+allowed-tools: Bash(spectre:*), Bash(git:*), Bash(jq:*), Bash(flow:*)
 license: MIT
-compatibility: Requires the spectre CLI, the myflow CLI, and jq.
+compatibility: Requires the spectre CLI, the flow CLI, and jq.
 metadata:
   author: gymie
   version: "2.0"
@@ -30,12 +30,12 @@ reimplements `check-finish-preflight.sh`'s other merge-status steps in prose rat
 that script (see the note there); only base-branch resolution is delegated to a real guard.
 
 Enumerate the candidate set exactly as **Change name resolution**
-(`skills/flow-contracts/pipeline.md`) defines it — through `myflow state list [-C dir]`, never a
+(`skills/flow-contracts/pipeline.md`) defines it — through `flow state list [-C dir]`, never a
 hand-written HTTP call:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
-BOARD="$(myflow state list -C "$MAIN_CHECKOUT")"
+BOARD="$(flow state list -C "$MAIN_CHECKOUT")"
 ```
 
 `$BOARD` is one JSON object: `"source"` (`"store"` or `"fallback"`), `"complete"`
@@ -59,17 +59,17 @@ For each change, resolve its record through the CLI, per **State file**
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
 ERR="$(mktemp)"
-RECORD="$(myflow state get "<name>" -C "$MAIN_CHECKOUT" 2>"$ERR")"
+RECORD="$(flow state get "<name>" -C "$MAIN_CHECKOUT" 2>"$ERR")"
 STATUS=$?
 WARNING="$(cat "$ERR")"; rm -f "$ERR"
 ```
 
 - **`STATUS=0` and `$WARNING` empty** — the record came from the store.
-- **`STATUS=0` and `$WARNING` reads `⚠ myflow: store unreachable — read local fallback`** — the
+- **`STATUS=0` and `$WARNING` reads `⚠ flow: store unreachable — read local fallback`** — the
   record came from the on-disk fallback file. Report this change's row as **source: fallback**. If
   `$RECORD` is also empty (no fallback file exists either), treat this exactly like `STATUS=1`
   below.
-- **`STATUS=1`** — the store was reached and correctly holds no record for this change (`myflow:
+- **`STATUS=1`** — the store was reached and correctly holds no record for this change (`flow:
   no state recorded for <project>/<name>` on stderr): report the change by name as **no state
   recorded** and omit it from the table, the same way a missing state file was always reported.
 - **Any other `STATUS`, or a `$RECORD` that is not valid JSON** — the record is unreadable: name the
@@ -148,7 +148,7 @@ Sort by state order per **States** in `skills/flow-contracts/pipeline.md` (`STAR
 archived.
 
 ```
-## myflow status
+## flow status
 
 | Change | Jira | State | PR | Next | Updated |
 |--------|------|-------|----|------|---------|
@@ -232,7 +232,7 @@ Add below the table:
 
 Then regenerate the change's full handoff block for its current state and print it. Load **Handoff
 blocks** (`skills/flow-contracts/handoff-blocks.md`) here — it is canonical for the per-state
-templates, and this is the only step of any `/myflow-*` command that loads it — and render from the
+templates, and this is the only step of any `/flow*` command that loads it — and render from the
 template that matches the current state. Build it from the record and the artifacts as they now
 stand; nothing is read back from a stored copy of an earlier run's text, because no command stores
 one.
@@ -267,8 +267,8 @@ one.
   **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`). Do not restate that
   reasoning here, and do not present the test as conclusive.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
-- **The `Run it:` section is resolved, never copied from a stored run.** Follow **6. Resolve the
-  run instructions** (`skills/myflow-do/SKILL.md`) — canonical for how those lines are produced —
+- **The `Run it:` section is resolved, never copied from a stored run.** Follow **Resolve the
+  run instructions** (`skills/flow/verify-and-handoff.md`) — canonical for how those lines are produced —
   and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the record
   and `<project>/.flow/project.md` — never the project's declared base — not from any text
   `/myflow-do` printed earlier. Do not restate the resolution *procedure* here — the steps that

@@ -13,7 +13,7 @@
 # accepted for CLI parity with this script's usage line and with the
 # <worktree> <name> <state-dir> shape the /myflow-finish record helper took
 # when this script was written — that helper has since been retired and its
-# work moved into `myflow record render`, but the argument stays for callers
+# work moved into `flow record render`, but the argument stays for callers
 # that already pass it; none of the four sources below currently read from
 # it. <repo-root> is OPTIONAL
 # (KAN-239): see the dedicated NOTE below for what it is, why it exists, and
@@ -140,7 +140,7 @@
 #      run 1 used before the rename ("plan, test guide and session records")
 #      are matched, so changes committed before the rename keep resolving.
 #
-# NOTE on sources 1 and 2: `myflow record render` writes these under
+# NOTE on sources 1 and 2: `flow record render` writes these under
 # docs/superpowers/{ledgers,reviews}/ with a LEADING DATE, e.g.
 # "2026-08-01-demo.md", never literally "<name>.md" — this script's messages
 # still name the source using the plain "<name>.md" / "<name>-panel.md" form,
@@ -152,7 +152,7 @@
 # NOTE on the "skipped:" stream: the design doc originally said stderr; this
 # was corrected to stdout to match that same kan-23-myflow-self-review delta
 # spec (which has always said stdout) and to match the pipeline's own convention of
-# printing every outcome word on stdout — `myflow record render` prints
+# printing every outcome word on stdout — `flow record render` prints
 # `rendered:`, `MISSING:` and `journalled:` there — since this script's own
 # bundle is a single stdout document by design.
 #

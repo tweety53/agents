@@ -1,14 +1,14 @@
-# myflow pipeline — rationale
+# flow pipeline — rationale
 
 This file is the reasoning behind `skills/flow-contracts/pipeline.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## States
 
 ## Stage exit — never the command's own judgment
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
-harmonised belong to the command itself — **Convergence** (`skills/myflow-start/SKILL.md`).
+harmonised belong to the command itself — **Convergence** (`skills/flow/brainstorm.md`).
 
 ## Command surface
 
@@ -31,7 +31,7 @@ at dispatch and resolved at completion would survive a crashed run as a permanen
 task, in a file two guards parse. The in-progress count comes from the harness's task list alone,
 which no run persists.
 
-**Stated against the mechanism, never against one harness's tool.** myflow runs in Claude Code,
+**Stated against the mechanism, never against one harness's tool.** flow runs in Claude Code,
 Cursor and Codex, and a rule written against one harness's API is unimplementable in the other two.
 Where a harness offers no task-list mechanism, the command prints the equivalent block in its output
 instead: a count line naming how many steps are done, in progress and open, followed by one line per
@@ -81,7 +81,7 @@ useful before a long run rather than after it; the rules govern what a command p
 *ends*, and these lines are not part of a handoff. The colour is one fixed value for every command
 and every change — `cyan`, chosen over `red`, `yellow` and `orange` because those already read as
 error and warning states in this pipeline's output — and it signifies only that a pipeline command
-owns the tab. `/myflow-status` prints neither line: a read-only report does not
+owns the tab. `/flow-status` prints neither line: a read-only report does not
 own the tab.
 
 **Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
@@ -102,7 +102,7 @@ as an oversight to correct:
 ## Artifact brevity
 
 Stated here rather than in each artifact-writing skill because this file is the one every
-`/myflow-*` command loads before any other step. Four skill-local copies would drift, and whichever
+`/flow*` command loads before any other step. Four skill-local copies would drift, and whichever
 skill lacked one would silently exempt its own artifacts.
 
 ## IntelliJ commands
@@ -115,7 +115,7 @@ and reuses a running instance.
 
 Resolution against the **running command's own** skill directory is what lets a contract loaded
 by more than one command — `skills/flow-contracts/finish-contract.md`, loaded by both
-`/myflow-finish` and `/myflow-status` — name a guard at all: the same basename resolves inside
+`/myflow-finish` and `/flow-status` — name a guard at all: the same basename resolves inside
 whichever command is actually running, never a fixed one of them.
 
 Carrying the prefix says which
@@ -185,7 +185,7 @@ defined; the two call sites point here rather than each describing them.
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a
    number of its own would renumber steps 7, 8 and 9, which are cited *by number* from
-   `skills/myflow-finish/SKILL.md` and from the capability specs frozen under `<agents repo>/openspec/specs/`.
+   `skills/flow/archive.md` and from the capability specs frozen under `<agents repo>/openspec/specs/`.
 
 ### Worktree cleanup
 
@@ -195,11 +195,11 @@ defined; the two call sites point here rather than each describing them.
 
 ## Jira integration
 
-## Change name resolution (all `/myflow-*` commands)
+## Change name resolution (all `/flow*` commands)
 
 Going through the CLI rather
 than a skill calling `curl` directly is deliberate, not a style preference: `state list` shares the
-same `Client.ListStateBoard` method every other read uses, so it inherits the `Myflow-Daemon`
+same `Client.ListStateBoard` method every other read uses, so it inherits the `Flow-Daemon`
 header check, the timeout, and the unreachable/refused classification once, in the one package that
 owns them, instead of every contract file that enumerates changes growing its own copy of that HTTP
 handling — the outcome `design.md`'s `daemon-owns-db` decision names and rejects.

@@ -2,10 +2,10 @@
 # Assertion harness for check-panel-reproducers.sh.
 #
 # THE GUARD NOW READS THE STORE, NOT RENDERED MARKDOWN. Every case below
-# builds a worktree-shaped sandbox and a stub `myflow` binary placed ahead of
+# builds a worktree-shaped sandbox and a stub `flow` binary placed ahead of
 # the real one on PATH inside that sandbox: the stub answers
 # `record findings -change <name> [-C <dir>]` with a canned JSON array (the
-# shape `myflow record findings` itself prints -- one object per finding with
+# shape `flow record findings` itself prints -- one object per finding with
 # at least `ref`, `status`, `reproducer`), or exits non-zero to simulate a
 # store the guard could not reach. No case writes a
 # docs/superpowers/reviews/*-panel.md file any more; that path, and the
@@ -57,7 +57,7 @@
 #   - the dash-prefixed relative worktree defeating a grep-as-options
 #     injection into the record path (old case 16) -- that hazard was grep
 #     parsing a path built from WORKTREE as options; once the record comes
-#     from `myflow record findings -C "$WORKTREE"`, no grep ever runs
+#     from `flow record findings -C "$WORKTREE"`, no grep ever runs
 #     against a path built from WORKTREE, so the premise is gone.
 #   - the prose-between-markers case (old case 18) -- marker-span; a decoded
 #     JSON array has no notion of two blocks that could be interrupted.
@@ -114,7 +114,7 @@ findings_json() {
 }
 
 # make_worktree_json <json-array> -- a worktree-shaped sandbox carrying a
-# stub `myflow` on its own bin/, which prints <json-array> for
+# stub `flow` on its own bin/, which prints <json-array> for
 # `record findings` and exits 0 regardless of the flags it was called with.
 # Prints the worktree path.
 make_worktree_json() {
@@ -132,17 +132,17 @@ make_worktree_json() {
   # prematurely close the quote and hand the shell a syntactically invalid
   # script -- a defect in the stub generator, not in anything under test.
   printf '%s' "$json" > "$wt/bin/findings.json"
-  cat > "$wt/bin/myflow" <<'STUB'
+  cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
 cat "$(dirname -- "$0")/findings.json"
 exit 0
 STUB
-  chmod +x "$wt/bin/myflow"
+  chmod +x "$wt/bin/flow"
   printf '%s' "$wt"
 }
 
 # make_worktree_store_unreachable -- a worktree-shaped sandbox whose stub
-# `myflow` exits non-zero and prints nothing useful to stdout, simulating a
+# `flow` exits non-zero and prints nothing useful to stdout, simulating a
 # store `record findings` could not reach.
 make_worktree_store_unreachable() {
   local wt
@@ -152,17 +152,17 @@ make_worktree_store_unreachable() {
   }
   WORKTREES+=("$wt")
   mkdir -p "$wt/bin"
-  cat > "$wt/bin/myflow" <<'STUB'
+  cat > "$wt/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-echo "myflow: connect: connection refused" >&2
+echo "flow: connect: connection refused" >&2
 exit 1
 STUB
-  chmod +x "$wt/bin/myflow"
+  chmod +x "$wt/bin/flow"
   printf '%s' "$wt"
 }
 
 # run_with_stub <guard-binary> <worktree> <name> -- runs <guard-binary>
-# against <worktree>/<name>, with <worktree>/bin (the stub myflow's home)
+# against <worktree>/<name>, with <worktree>/bin (the stub flow's home)
 # placed ahead of the real PATH. The env-prefix form scopes PATH to this one
 # command's execution environment alone, never leaking into the harness's
 # own shell.
@@ -240,7 +240,7 @@ expect_exit 'case 3: zero findings exits 0' 0 run_guard "$wt"
 # ===========================================================================
 # 4. The worktree argument is not a directory -- exit 2, naming the argument
 #    as not a directory. Unaffected by the store rewrite: this check runs
-#    before the guard ever resolves a stub or a real myflow.
+#    before the guard ever resolves a stub or a real flow.
 # ===========================================================================
 not_a_dir="$(mktemp "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
 expect_exit_and_names 'case 4: non-directory argument exits 2 and names it' 2 'not a directory' "$GUARD" "$not_a_dir" demo
@@ -393,10 +393,10 @@ fi
 # 20. A missing scripts/reproducer-metachars.sh is reported as "cannot
 #     answer" (exit 2), not "violations found" (exit 1) -- finding F56.
 #     Exercised against a REAL copy of the guard, sitting in its own sandbox
-#     directory with a well-formed stub myflow beside it but deliberately no
+#     directory with a well-formed stub flow beside it but deliberately no
 #     reproducer-metachars.sh, rather than editing the real scripts/
 #     directory this suite runs from. This check runs before the guard ever
-#     calls myflow, so it is unaffected by the store rewrite.
+#     calls flow, so it is unaffected by the store rewrite.
 # ===========================================================================
 wt="$(make_worktree_json "$(findings_json F1 fixed 'scripts/test-check-panel-reproducers.sh')")"
 MISSING_DEP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test-missing-dep.XXXXXX")"
@@ -422,7 +422,7 @@ done
 expect_exit_and_names 'case 21: a missing change name is rejected' 2 'usage:' run_with_stub "$GUARD" "$wt21" ""
 
 # ===========================================================================
-# 22. THE STORE IS UNREACHABLE -- stub myflow exits non-zero for
+# 22. THE STORE IS UNREACHABLE -- stub flow exits non-zero for
 #     `record findings`, and the guard must exit 2 ("cannot determine
 #     anything"), never 1 (there is no record to have found a violation in)
 #     and never 0 (a read it could not perform must never be reported as a
@@ -439,7 +439,7 @@ expect_exit_and_names 'case 21: a missing change name is rejected' 2 'usage:' ru
 #     record for ..." at exit 2 -- the right exit code by coincidence, but
 #     not the "cannot determine anything" wording this case asserts, so it
 #     correctly fails now and will only pass once task 6's guard actually
-#     calls myflow and surfaces its failure that way.
+#     calls flow and surfaces its failure that way.
 # ===========================================================================
 wt="$(make_worktree_store_unreachable)"
 expect_exit_and_names 'case 22: an unreachable store is cannot-answer, never violations-found or clean' 2 'cannot determine anything' run_guard "$wt"

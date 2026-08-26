@@ -9,7 +9,7 @@ each implementer and panel dispatch.
 This file is **canonical** for everything in it.
 
 The reasoning behind this file lives in `skills/flow-contracts/model-policy-rationale.md`;
-**a `/myflow-*` run never loads it.**
+**a `/flow*` run never loads it.**
 
 ## Model policy
 
@@ -21,7 +21,7 @@ that layer no longer governs.
 
 `/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
 and design benefit most from stronger reasoning. Every other
-`/myflow-*` command should run on
+`/flow*` command should run on
 **Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on the
 panel's model — Sonnet by default** — regardless of the parent model. Sonnet is the default rather
 than an absolute because a change may record its own panel model, per the three roles below; what
@@ -33,7 +33,7 @@ guidance. See **Model policy** (`skills/flow-contracts/model-policy-rationale.md
 guidance's cost savings do not apply here.
 
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
-review on the most capable model, and escalating the model in fix rounds 4-5.** myflow fixes every
+review on the most capable model, and escalating the model in fix rounds 4-5.** flow fixes every
 panel slot at the panel's model instead and escalates breadth (the conditional Security, Adversarial
 and extra-principle slots) rather than the model. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
@@ -96,7 +96,7 @@ neither the write into the store nor the render out of it invents a model slug. 
   it: `/myflow-do` must name the model on each implementer dispatch, and the ledger line for that
   task is what records that it did.
 - **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) —
-  each `.cursor/commands/myflow-*.md` file carries an explicit note; switch models manually in the
+  each `.cursor/commands/flow*.md` file carries an explicit note; switch models manually in the
   composer/chat picker.
 - **Codex**: no per-command/skill model override mechanism either — model is a session or profile
   level setting; switch manually before starting a new proposal.

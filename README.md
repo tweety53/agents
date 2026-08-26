@@ -1,6 +1,6 @@
 # agents-data
 
-Portable, project-agnostic agent configuration — the **myflow** pipeline (spectre +
+Portable, project-agnostic agent configuration — the **flow** pipeline (spectre +
 Superpowers), its skills, slash commands, and always-on rules.
 Contains the rule set, an index of the skills, and installation instructions for every
 supported AI harness.
@@ -20,7 +20,7 @@ agents-data/
 ├── AGENTS.md                          ← drop into project root for Codex / OpenAI CLI
 ├── setup.sh                           ← installer: `global` (recommended) or per-project harness installs
 ├── rules/
-│   ├── myflow-manual-review.mdc       ← myflow trigger + contract pointers (always-on stub, installed globally)
+│   ├── flow-manual-review.mdc       ← flow trigger + contract pointers (always-on stub, installed globally)
 │   ├── lint-fix-priority.mdc          ← never suppress/bypass linters (always-on, installed globally)
 │   ├── never-touch-production.mdc     ← no route to a production system, ever (always-on)
 │   ├── no-direct-pushes-to-main.mdc   ← land on the integration branch, promote by PR (always-on)
@@ -39,8 +39,8 @@ agents-data/
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
 ├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-research, /flow-settings)
 ├── commands-claude/                   ← Claude Code slash commands (the same four)
-├── skills/                            ← spectre / /myflow skills
-│   ├── README.md                      ← myflow command map
+├── skills/                            ← spectre / /flow skills
+│   ├── README.md                      ← flow command map
 │   ├── flow/                          ← /flow — brainstorm, implement behind the review panel, integrate and archive, one command
 │   ├── flow-status/                   ← read-only state report for open changes
 │   ├── flow-research/                 ← /flow-research — thinking-partner mode, stages research notes, touches no state
@@ -58,7 +58,7 @@ snapshot of today's set, not the definition; read the frontmatter to be sure.
 `/flow-status`, `/flow-research` for thinking-partner mode, and `/flow-settings` for global
 model/reviewer defaults.
 
-**myflow pipeline — three states.**
+**flow pipeline — three states.**
 
 `/flow` drives the full pipeline as one command. Each phase ends in the state named after it, and
 **the human gate is a property of the state** — which is why no command exists whose only job is
@@ -73,7 +73,7 @@ worktrees, and — after self-review — push that branch and open its pull requ
 pushes the base branch**; the merge-and-push route still does, when you choose it. It runs **no**
 tests, linters or coverage check — that happened during implementation.
 
-See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
+See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/flow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
 
 ---
 
@@ -416,9 +416,9 @@ symlinks and need no re-run.
 | Target | What lands there |
 |--------|------------------|
 | `~/.claude/skills/` | every directory in `skills/` (one symlink per skill) |
-| `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/myflow-*`/`/flow*` commands through these |
-| `~/.claude/commands/` | every file in `commands-claude/` — the `/myflow-*`/`/flow*` Claude Code commands |
-| `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*`/`/flow*` Cursor commands |
+| `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/flow*` commands through these |
+| `~/.claude/commands/` | every file in `commands-claude/` — the `/flow*` Claude Code commands |
+| `~/.cursor/commands/` | every file in `commands/` — the `/flow*` Cursor commands |
 | `~/.cursor/rules/` | whichever rules declare `alwaysApply: true` in their frontmatter, and only those |
 | `~/.claude/rules/` | the same always-on rules, symlinked as `<name>.md` — their **full text**, which the managed block's `Full rule:` pointers name. Plus `agent-baseline.md`, the file a dispatched subagent is told to read |
 | `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
@@ -656,7 +656,7 @@ Read file: .claude/skills/flow/SKILL.md
 (follow the instructions in that file)
 ```
 
-The `flow` skill (and the retiring `myflow-*` skills) internally reference Superpowers skills
+The `flow` skill (and the retiring `flow-*` skills) internally reference Superpowers skills
 (brainstorming, TDD, etc.). Without Superpowers those general skills won't auto-trigger, so the
 overall workflow is degraded but the spectre-specific steps still work.
 
@@ -713,14 +713,14 @@ different commands:
 
 | Rule kind | Where its text is copied | Re-install with |
 |-----------|--------------------------|-----------------|
-| `alwaysApply: true` (`lint-fix-priority`, `myflow-manual-review`) | the managed blocks in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` (plus a live symlink in `~/.cursor/rules/`) | `./setup.sh global` |
+| `alwaysApply: true` (`lint-fix-priority`, `flow-manual-review`) | the managed blocks in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` (plus a live symlink in `~/.cursor/rules/`) | `./setup.sh global` |
 | opt-in (`kotlin-backend-development-standard`) | the managed block in the `CLAUDE.md` and `AGENTS.md` of **each project that named it** in `.flow/project.md` | `./setup.sh <harness> /path/to/that/project`, once per adopting project |
 
 An opt-in rule edited here therefore changes nothing for any project until that project's
 install is re-run — and the projects that adopted it are listed nowhere but in their own
 `.flow/project.md` files, so a change to a widely-adopted opt-in rule needs a sweep.
 
-`AGENTS.md` / `CLAUDE.md` carry their own myflow summary tables — update those by hand
+`AGENTS.md` / `CLAUDE.md` carry their own flow summary tables — update those by hand
 when the pipeline description changes, and keep every command file in `commands/` and
 `commands-claude/` consistent with the skill it points at. A command that contradicts its
 skill is a defect, not a shorthand.

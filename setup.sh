@@ -151,7 +151,7 @@ always_on_rules() {
 # loops below iterate the CURRENT source tree — so an entry deleted from this repo leaves its
 # symlink behind at every destination it was ever installed to, forever.
 #
-# That is not cosmetic. A stale `~/.claude/commands/myflow-review.md` still matches the harness's
+# That is not cosmetic. A stale `~/.claude/commands/flow-review.md` still matches the harness's
 # command glob, so a command deleted from this repo goes on being offered and invoked; it then
 # fails on a broken link, or worse, serves cached content naming skills that are also gone. The
 # rename that retired twelve commands and fifteen skills is exactly when this bites.
@@ -244,7 +244,7 @@ install_codex() {
 install_rules_cursor() {
   local target_dir="$1" rule_name rule_file
   [[ -d "$RULES_SRC" ]] || return 0
-  info "Installing myflow rules into $target_dir"
+  info "Installing flow rules into $target_dir"
   mkdir -p "$target_dir"
   while IFS= read -r rule_name; do
     rule_file="$RULES_SRC/$rule_name"
@@ -758,7 +758,7 @@ install_global() {
   #     all, including the pipeline contract itself.
   local managed_files=("$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md")
   local managed_file
-  info "Setting up myflow globally under $home_dir"
+  info "Setting up flow globally under $home_dir"
 
   # PREFLIGHT — everything that can refuse this run must refuse BEFORE the first symlink.
   # These checks used to fire midway: install_rules_cursor had already linked an offending
@@ -777,7 +777,7 @@ install_global() {
   # .cursor/skills/<skill>/SKILL.md, and there is no per-project copy any more.
   install_skills "$home_dir/.cursor/skills"
   # Codex too. The managed block written into ~/.codex/AGENTS.md below carries
-  # flow-manual-review.mdc, which names the /myflow-* skills throughout; without this a
+  # flow-manual-review.mdc, which names the /flow* skills throughout; without this a
   # global install told Codex the rules and left it nothing to resolve them against. The
   # per-project mode already uses .codex/skills, and projects may not keep their own copies
   # once a global install exists, so this is the only place the skills can come from.

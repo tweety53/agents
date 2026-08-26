@@ -1644,7 +1644,7 @@ def strip_container_prefix(line: str) -> Tuple[str, FenceContext, int, int]:
             list_content_col += outer_ws_width
 
         # The checkbox is treated as an extension of the marker by this
-        # grammar (a myflow tasks.md convention GFM itself parses as
+        # grammar (a flow tasks.md convention GFM itself parses as
         # inline text), so its trailing whitespace is budgeted by exactly
         # the same rule — 1-4 columns credited to the content column, 5+
         # meaning one column credited and the rest left as the item's own

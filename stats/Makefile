@@ -120,7 +120,7 @@ down:
 # FLOW_TRANSCRIPTS_DIR every 5s (harvestInterval, cmd/flowd/main.go) and
 # writes into the live database -- during this repo's own development an agent
 # left running that way harvested 2,961 transcript offsets before anyone
-# noticed (see .myflow/project.md's `## run` section). That is the intended
+# noticed (see .flow/project.md's `## run` section). That is the intended
 # behaviour of the live stack, not a defect, but it is why this target restarts
 # the live daemon rather than silently starting one that was never running:
 # see the "was not running" branch below, which says so instead of assuming
@@ -132,7 +132,7 @@ override LIVE_LOG := /tmp/flow-live.log
 # Where `restart` installs the `flow` CLI. Hardcoded rather than
 # configurable: this is the one path already on the operator's PATH, and a
 # variable here would let a caller install the CLI somewhere that is not the
-# one every /myflow-* command actually invokes -- which is the failure this
+# one every /flow* command actually invokes -- which is the failure this
 # install exists to prevent, not a flexibility worth having.
 override LIVE_CLI := $(HOME)/.local/bin/flow
 
@@ -204,13 +204,13 @@ restart: build
 #   derives the database name from the id itself). Confirmed with
 #   `make ui-test-up UITEST_ID=kan-999-fake -n`: without `override` here the
 #   dry run prints `../scripts/workspace.sh remove kan-999-fake --force`,
-#   which would force-drop a real `myflow_kan_999_fake` workspace database --
-#   possibly one belonging to an active `/myflow-do` worktree -- since
-#   workspace.sh's own `myflow_` prefix check only ever protects the shared
-#   "myflow" database, not other workspace databases.
+#   which would force-drop a real `flow_kan_999_fake` workspace database --
+#   possibly one belonging to an active `/flow` worktree -- since
+#   workspace.sh's own `flow_` prefix check only ever protects the shared
+#   "flow" database, not other workspace databases.
 #
 # - `override UITEST_DB` protects UITEST_DSN below, which FLOWD_DSN points
-#   a second `myflowd` (and `uitest-seed`) at. cmd/flowd/main.go runs
+#   a second `flowd` (and `uitest-seed`) at. cmd/flowd/main.go runs
 #   RunMigrations and SeedPricing, and cmd/uitest-seed seeds its fixture,
 #   against whatever DSN they are handed, with no guard of their own -- so an
 #   unprotected UITEST_DB would let `make ui-test-up UITEST_DB=myflow` start
@@ -254,10 +254,10 @@ override UITEST_DSN := postgres://flow:flow@localhost:5433/$(UITEST_DB)?sslmode=
 # $(TMPDIR): deriving it would hand a caller the `kill` and `rm -f` target
 # that `override` exists to deny them.
 override UITEST_PIDFILE := /tmp/flowd-$(UITEST_PORT).pid
-override UITEST_BIN := /tmp/myflow-uitest-myflowd
-override UITEST_TRANSCRIPTS_DIR := /tmp/myflow-uitest-transcripts
-override UITEST_STATE_DIR := /tmp/myflow-uitest-state
-override UITEST_LOG := /tmp/myflow-uitest.log
+override UITEST_BIN := /tmp/flow-uitest-flowd
+override UITEST_TRANSCRIPTS_DIR := /tmp/flow-uitest-transcripts
+override UITEST_STATE_DIR := /tmp/flow-uitest-state
+override UITEST_LOG := /tmp/flow-uitest.log
 
 # Defence in depth for the `rm -rf` sites below: `override` (above) is what
 # actually stops an operator-controlled value from reaching them, but an
@@ -271,12 +271,12 @@ override UITEST_LOG := /tmp/myflow-uitest.log
 # WHAT THIS ACTUALLY CHECKS, NO MORE: the `case` below is a LEXICAL prefix
 # match on the string, not a resolved-path check -- it does not shell out to
 # `realpath`/`readlink -f`, so a value such as
-# `/tmp/myflow-uitest/../../etc` matches the pattern while naming `/etc`.
+# `/tmp/flow-uitest/../../etc` matches the pattern while naming `/etc`.
 # That is not reachable today: every caller of this macro passes one of the
 # `override`-protected literals declared above, none of which contains `..`.
 # But the guarantee this macro provides is exactly "the literal string
-# starts with `/tmp/myflow-uitest`", not "the path resolves under
-# `/tmp/myflow-uitest`" -- if a future edit ever passes this macro a path
+# starts with `/tmp/flow-uitest`", not "the path resolves under
+# `/tmp/flow-uitest`" -- if a future edit ever passes this macro a path
 # built from something other than those literals, re-derive that guarantee
 # rather than assume it still holds.
 #
@@ -293,14 +293,14 @@ override UITEST_LOG := /tmp/myflow-uitest.log
 override define UITEST_SAFE_RMRF
 for p in $(1); do \
 	case "$$p" in \
-		/tmp/myflow-uitest*) rm -rf "$$p" ;; \
+		/tmp/flow-uitest*) rm -rf "$$p" ;; \
 		*) echo "refusing to rm -rf unexpected path: $$p" >&2; exit 1 ;; \
 	esac; \
 done
 endef
 
 # ui-test-up resets the UI-test stack: drop and recreate flow_uitest in
-# the running myflow-postgres container, start myflowd against it on its
+# the running myflow-postgres container, start flowd against it on its
 # own port, wait for the daemon to answer, then seed a fixed fixture
 # (cmd/uitest-seed). Resetting on every bring-up -- rather than reusing
 # whatever the database already holds -- is the requirement itself, not
@@ -308,7 +308,7 @@ endef
 # accumulates the same way the live one did.
 #
 # FLOW_TRANSCRIPTS_DIR and FLOW_STATE_DIR are pointed at freshly
-# emptied temporary directories -- load-bearing, not tidiness. myflowd's
+# emptied temporary directories -- load-bearing, not tidiness. flowd's
 # transcript harvester scans FLOW_TRANSCRIPTS_DIR every 5 seconds
 # (harvestInterval, cmd/flowd/main.go); left on the real transcripts
 # root, flow_uitest would refill itself with the operator's genuine
@@ -330,7 +330,7 @@ endef
 #   PORT, not the drop: a daemon whose database was just force-dropped
 #   out from under it does not exit on its own -- confirmed by watching
 #   it keep running, still holding :4174 and answering 500s, for two
-#   minutes after its database was dropped. A second myflowd then fails
+#   minutes after its database was dropped. A second flowd then fails
 #   to bind :4174 ("address already in use") and this target aborts
 #   with the first daemon orphaned. Killing before the drop also means
 #   the drop is not racing a daemon that is still writing.
@@ -387,18 +387,18 @@ ui-test-up: web-build check-uitest-overrides
 	# /var/folders/.../T -- not /tmp. Without this the daemon would write a
 	# file neither the stop-previous-daemon block above nor ui-test-down
 	# below ever looks at, and both would silently take their "no daemon"
-	# branch. Nothing else in myflowd reads os.TempDir().
+	# branch. Nothing else in flowd reads os.TempDir().
 	FLOWD_PORT=$(UITEST_PORT) FLOWD_DSN="$(UITEST_DSN)" \
 		FLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
 		FLOW_STATE_DIR=$(UITEST_STATE_DIR) \
 		TMPDIR=/tmp \
 		$(UITEST_BIN) > $(UITEST_LOG) 2>&1 &
-	@echo "ui-test-up: waiting for myflowd to answer on :$(UITEST_PORT)"
+	@echo "ui-test-up: waiting for flowd to answer on :$(UITEST_PORT)"
 	@for i in $$(seq 1 60); do \
 		curl -sf http://127.0.0.1:$(UITEST_PORT)/api/v1/changes >/dev/null 2>&1 && exit 0; \
 		sleep 1; \
 	done; \
-	echo "ui-test-up: myflowd did not answer on :$(UITEST_PORT) within 60s -- see $(UITEST_LOG)" >&2; \
+	echo "ui-test-up: flowd did not answer on :$(UITEST_PORT) within 60s -- see $(UITEST_LOG)" >&2; \
 	exit 1
 	FLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
 	@echo "ui-test-up: ready -- export FLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
@@ -411,7 +411,7 @@ ui-test-up: web-build check-uitest-overrides
 # dropdb: unlike ui-test-up's drop, this one carries no --force -- it
 # relies on the daemon actually being gone by the time it runs, which is
 # why the SIGTERM below is followed by the same bounded wait ui-test-up's
-# stop-previous-daemon step uses (myflowd's shutdown grace is 15s;
+# stop-previous-daemon step uses (flowd's shutdown grace is 15s;
 # 30 one-second polls covers that with margin). Without the wait, an
 # unforced `dropdb` can race a daemon that is still holding its
 # connection open and fail intermittently. The pid signalled below is read

@@ -13,7 +13,7 @@
 # WHY THE CAP IS 2000. KAN-109's own measurement found a seven-slot review
 # panel costing 948k tokens to read a 9877-line diff. A cap at roughly a
 # fifth of that line count keeps a full panel pass in the low hundreds of
-# thousands of tokens while leaving ordinary myflow changes — almost all of
+# thousands of tokens while leaving ordinary flow changes — almost all of
 # which fall well under it — untouched.
 #
 # WHY BOTH COMMITTED WORK AND THE WORKING TREE COUNT. `final-review.diff`,

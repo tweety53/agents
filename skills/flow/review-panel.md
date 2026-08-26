@@ -6,7 +6,7 @@ slots**, always, per design.md's `review-panel-fixed-3` — this file carries no
 diff-size/touched-area trigger table; both are gone, not reduced.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Rebuild the dispatch context bundle at the start of this stage too** — never reused from
@@ -92,10 +92,10 @@ affected worktree. Never merge two slots into one prompt.
 records for an implementer:
 
 ```bash
-myflow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
+flow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
   -agent-id <id> -diff-base <sha> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -started-at <ts>
-myflow record dispatch end -change <name> -key panel-<round>-<slot> \
+flow record dispatch end -change <name> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
 
@@ -109,7 +109,7 @@ starts from, passed on a slot dispatched against a delta and on no other. `-mode
 own tool result, at launch.** Never invent one.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
-printed — `recorded: dispatch <seq>` — into each of that slot's `myflow record finding` calls as
+printed — `recorded: dispatch <seq>` — into each of that slot's `flow record finding` calls as
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
@@ -185,7 +185,7 @@ Record which standards files were passed, or that none resolved.
 raises a finding, record it — one call, as it is raised:
 
 ```bash
-myflow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
+flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
   -location <file:line> -status open -reproducer <command | none — reason> \
   -dispatch-seq <seq> -note <the finding>
 ```
@@ -195,7 +195,7 @@ the store's own constraint enforces it. **A fix round updates the finding it res
 appending a second row:**
 
 ```bash
-myflow record status -change <name> -ref F<n> -status fixed
+flow record status -change <name> -ref F<n> -status fixed
 ```
 
 **`-status` carries the whole status text the marker line shows** — a withdrawal passes its reason
@@ -204,7 +204,7 @@ with it: `-status 'withdrawn <the operator's reason>'`.
 **Render the record when the panel closes** — every slot's result clean, no finding open:
 
 ```bash
-myflow record render -change <name> -kind panel -repo <abs-worktree>
+flow record render -change <name> -kind panel -repo <abs-worktree>
 ```
 
 **A panel that raised nothing still renders**, declaring `findings-total: 0`. There is no
@@ -394,9 +394,9 @@ identity together with the reproducer output it carried back.
 **The fix subagent's own dispatch is recorded too, with `-role panel-fix`:**
 
 ```bash
-myflow record dispatch begin -change <name> -role panel-fix -model <m> \
+flow record dispatch begin -change <name> -role panel-fix -model <m> \
   -key panel-fix-<round> -session-token mf-<literal-token> -started-at <ts>
-myflow record dispatch end -change <name> -key panel-fix-<round> \
+flow record dispatch end -change <name> -key panel-fix-<round> \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
   -agent-id <id>
 ```
@@ -414,7 +414,7 @@ the run hands back to the operator, one finding at a time:
 Only that answer records `withdrawn`, and only with the reason the operator gives.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
+flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
 ```
 
 Once this stage ends clean — zero open findings at any severity, no stale result — continue into

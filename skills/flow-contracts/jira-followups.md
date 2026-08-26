@@ -9,7 +9,7 @@ them restate the contract. If a rule below and a skill ever disagree, this file 
 
 A **follow-up** is an issue the pipeline files for work a run left outstanding. It is titled
 `<KEY> follow-up`, where `<KEY>` is the change's linked issue; with no linked issue it is titled
-`myflow follow-up`. Labelling is unchanged, and is governed by
+`flow follow-up`. Labelling is unchanged, and is governed by
 **Labels on issues the pipeline creates** (`jira-integration.md`) — a follow-up is not special.
 
 **This naming governs every site that files a follow-up.** Today the only such site is
@@ -25,7 +25,7 @@ operator afterward would describe something they never agreed to.
 
 **Join an open follow-up rather than filing a second one.** Before creating a follow-up, search the
 project (`searchJiraIssuesUsingJql`) for an issue that carries the `AI-generated` label, is titled
-as this section names follow-ups — `myflow follow-up`, or `<KEY> follow-up` for any key — and sits
+as this section names follow-ups — `flow follow-up`, or `<KEY> follow-up` for any key — and sits
 at a To Do status. On a match, take the newest of them (most recently created), **confirm it with
 the operator**, and on an explicit yes join it and create nothing. With no match, create the
 follow-up as above.
@@ -103,7 +103,7 @@ somewhere to file. Everything this section says about who can plant a candidate 
 project — is true only because the clause is there.
 
 **"Titled as this section names follow-ups" is an exact match on two shapes, never a substring
-search.** After trimming leading and trailing whitespace, the title must equal `myflow follow-up`,
+search.** After trimming leading and trailing whitespace, the title must equal `flow follow-up`,
 or `<KEY> follow-up` where `<KEY>` matches `[A-Z]{2,10}-\d+` — the same key shape the resolution scan
 uses — nothing else, and no
 containment. This has to be said because JQL's `~` operator is a *contains* match: an implementation
@@ -216,7 +216,7 @@ follow-up is visible and mergeable, while a write to the wrong issue is neither.
 **Why the confirmation exists, stated rather than left to be re-derived.** The search selects a
 **write target** by label, title and status — and every one of those three is settable by any member
 of the project the search is scoped to. Anyone who can file a ticket there can add `AI-generated`,
-title it `myflow follow-up`, and leave it at `To Do`, and this pipeline will then append to it,
+title it `flow follow-up`, and leave it at `To Do`, and this pipeline will then append to it,
 retitle it and union its labels. Within that project the search is deliberately wide and
 deliberately not narrowed by which change filed the
 candidate, so the matched issue is *usually* one this run had nothing to do with. That is the
@@ -275,7 +275,7 @@ unchanged:
 - <one line describing an item the run left outstanding>
 ```
 
-`<KEY>` is the joining change's linked issue, and with none linked `myflow` stands in for it exactly
+`<KEY>` is the joining change's linked issue, and with none linked `flow` stands in for it exactly
 as it does in the title. A join is a description write like any other, so the pre-write assertion in
 **Description sync** (`jira-integration.md`) governs it in full — including the rule that the
 assertion is made against a read taken immediately before the write; a failed assertion makes no
@@ -303,7 +303,7 @@ at all — it is one per write:
    matching rule below). Without that check a re-entered run finds its own prior follow-up — it
    matches the search perfectly, being `AI-generated`, titled as a follow-up and still at To Do —
    and appends a second identical section every time it is retried.
-2. **The retitle** is re-attempted whenever the title is neither `myflow follow-up` nor this
+2. **The retitle** is re-attempted whenever the title is neither `flow follow-up` nor this
    change's own `<KEY> follow-up` — the two step 2 below defines as already correct. It is
    self-guarding already: step 2 compares the title and makes no call when it matches either, so a
    re-attempt on a completed join is a comparison and nothing else.
@@ -423,9 +423,9 @@ calls and any one of them can fail:
 
 1. **Append the items** to the description, under the assertion above. This is the payload — the
    record of work the run left outstanding.
-2. **Retitle to `myflow follow-up`**, on the first join only, because the issue no longer belongs to
+2. **Retitle to `flow follow-up`**, on the first join only, because the issue no longer belongs to
    the single source its original title named. **Two titles are already correct and are left as they
-   are, with no call made:** one already reading `myflow follow-up`, and one reading
+   are, with no call made:** one already reading `flow follow-up`, and one reading
    `<KEY> follow-up` for **this** change's own key. The second is the ordinary shape of a retry —
    run 1 re-entered against the follow-up this very change filed — and the reason for the retitle
    does not apply to it: the issue still belongs to exactly the source its title names. Renaming it

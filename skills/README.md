@@ -1,6 +1,6 @@
-# myflow skills
+# flow skills
 
-**myflow** = spectre + Superpowers **Basic Workflow** bridge with a **three-state** machine: a
+**flow** = spectre + Superpowers **Basic Workflow** bridge with a **three-state** machine: a
 kickoff marker, one combined review-and-test gate, and an integrate phase that merges before it
 archives.
 
@@ -11,7 +11,7 @@ on demand, beside the document it would be copying, exactly as `README.md` is. W
 three-line digest is the layer that is loaded into a session before anything reads the pipeline: the
 always-on rule, and a project's own `CLAUDE.md` / `AGENTS.md`.
 
-See also: `myflow-manual-review.mdc` — authored at `rules/myflow-manual-review.mdc` in this repo,
+See also: `flow-manual-review.mdc` — authored at `rules/flow-manual-review.mdc` in this repo,
 installed by `setup.sh global` to `~/.cursor/rules/` and inlined into the managed block in
 `~/.claude/CLAUDE.md`. It is a **stub**: the pipeline itself lives in
 `skills/flow-contracts/pipeline.md`, loaded on demand by `/flow`.
@@ -26,7 +26,7 @@ still apply.
 
 ## Superpowers Basic Workflow map
 
-| Step | Skill | myflow command |
+| Step | Skill | flow command |
 |------|-------|----------------|
 | **1** | brainstorming | `/flow` (creating run) |
 | **3** | writing-plans | `/flow` (creating run) |

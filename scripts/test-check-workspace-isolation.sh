@@ -226,7 +226,7 @@ run_guard "$REPO"
 assert_silent "a project with no .flow/project.md passes silently"
 
 # 1b. A project.md with no `## workspace isolation` section. This is the
-#     overwhelmingly common case across projects myflow is installed into.
+#     overwhelmingly common case across projects flow is installed into.
 new_project
 write_config "# fixture
 

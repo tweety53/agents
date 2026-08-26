@@ -99,10 +99,10 @@ assert_zero_rc "case 1: a non-zero count exits 0" "$RC"
 #    without a cited reason (task 5's "declaration should cite that reason").
 # ---------------------------------------------------------------------------
 coverage_reset
-coverage_record "myflow-status" 0
-coverage_declare "myflow-status" "read-only report; writes no stage marks by contract"
+coverage_record "flow-status" 0
+coverage_declare "flow-status" "read-only report; writes no stage marks by contract"
 assert_eq "case 2: a declared zero renders with its cited reason" \
-  "myflow-status 0 (declared: read-only report; writes no stage marks by contract)" \
+  "flow-status 0 (declared: read-only report; writes no stage marks by contract)" \
   "$(coverage_report)"
 run_verdict
 assert_eq "case 2: a declared zero produces no violation lines" "" "$VERDICT"
@@ -192,9 +192,9 @@ set -e
 assert_nonzero_rc "case 6c: recording the same member twice is rejected" "$RC"
 
 coverage_reset
-coverage_declare "myflow-status"
+coverage_declare "flow-status"
 set +e
-coverage_declare "myflow-status" "second reason" 2>/dev/null
+coverage_declare "flow-status" "second reason" 2>/dev/null
 RC=$?
 set -e
 assert_nonzero_rc "case 6d: declaring the same member twice is rejected" "$RC"

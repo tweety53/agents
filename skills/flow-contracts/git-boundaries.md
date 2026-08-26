@@ -8,7 +8,7 @@ between implementation and planning artifacts.
 This file is **canonical** for everything in it.
 
 The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-rationale.md`;
-**a `/myflow-*` run never loads it.**
+**a `/flow*` run never loads it.**
 
 ## Git boundaries
 
@@ -22,7 +22,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — and removes worktrees and branches |
 | `/myflow-finish` | run 2, during self-review | **Commits** the self-review report on `chore/archive-<name>` — a second, separate commit, and still no push |
 | `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, and opens its pull request — never pushes `<base>` |
-| `/myflow-status` | — | None — read-only |
+| `/flow-status` | — | None — read-only |
 
 **The planning paths** are the two that
 **Handoff output** (`skills/flow-contracts/pipeline.md`) names. `/myflow-do` clears them from the index and only

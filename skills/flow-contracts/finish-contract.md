@@ -93,7 +93,7 @@ The gate only fires because something really is unfinished, and finishing it is 
 three to recover from — Continue is the only course that reaches an irreversible step, and it exists
 for work the operator deliberately deferred, which is a judgment only they hold. Marking a
 recommendation is not a courtesy here: the planning-gate capability requires every choice a
-`/myflow-*` command offers to name its recommended option, and this prompt is one of them.
+`/flow*` command offers to name its recommended option, and this prompt is one of them.
 
 There is no fourth course, and in particular none that hands back to `/myflow-do` inline. The filed
 issue is labelled and linked per
@@ -145,7 +145,7 @@ literal `chore(spectre): plan and session records`. The ledger is rendered from 
 staging, by:
 
 ```bash
-myflow record render -change <name> -kind ledger -repo <abs-repo-root>
+flow record render -change <name> -kind ledger -repo <abs-repo-root>
 ```
 
 `<abs-repo-root>` is the apply worktree's own root — the tree this run is committing from, never the
@@ -154,7 +154,7 @@ from the same rows. Act on the command's outcome word per the table under **Rend
 records** (`session-records.md`), which is canonical for it and is deliberately not restated here.
 
 **The proposal artifact source is copied here, not rendered.** It is not a record: `/myflow-start`
-wrote it to the state directory and it was never in the store, so `myflow record render` — which
+wrote it to the state directory and it was never in the store, so `flow record render` — which
 renders from the store's rows — has no business with it. Run 1 copies it directly, in this same step
 and for the same reason the ledger is rendered here: the second `add` below carries no pathspec, so
 a copy written under `<project>/docs/superpowers/` before staging lands in the planning commit and
@@ -389,7 +389,7 @@ the one irreversible step.
    procedure never asked.
 
    **A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
-   `FINISHED` is terminal: `/myflow-finish` stops at it and `/myflow-status` does not list it, so a
+   `FINISHED` is terminal: `/myflow-finish` stops at it and `/flow-status` does not list it, so a
    change written `FINISHED` over a known leftover has exactly one record of that leftover — the
    console line — which is the transcript-only record this pipeline refuses everywhere else. Left at
    `IN_PROGRESS` instead, the change stays listed, stays re-runnable, and the state file it already
@@ -447,7 +447,7 @@ the one irreversible step.
    all five present; each finding is one line naming its angle's label, the finding, and its
    disposition — the issue key when filed, an explicit declined marker when not — and an angle with
    no findings carries an explicit none-marker instead of finding lines. **This procedure is
-   canonical here.** Step 9 of `skills/myflow-finish/SKILL.md`'s own run 2 carries only what is
+   canonical here.** Step 9 of `skills/flow/archive.md`'s own run 2 carries only what is
    specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
    and the report-commit shell. It is not a second statement of this rule.
 

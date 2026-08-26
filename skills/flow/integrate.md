@@ -33,9 +33,9 @@ worktrees** (`skills/flow-contracts/finish-contract.md`) — never a raw read of
 hand) then `flow.unfinished-work-gate`:
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.preflight -harness <harness> -session-token mf-<literal-token> <name>
-myflow stage end   -command '/flow' -stage flow.preflight -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.preflight -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.preflight -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ## 1. Check for unfinished work
@@ -64,7 +64,7 @@ confirmation, and how it is labelled; a filing that fails is one skipped-with-re
 run still continues.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>
+flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>
 ```
 
 (`completed` on **Continue** or **File or join…**, `stopped` on **Stop**.)
@@ -72,7 +72,7 @@ myflow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome comp
 ## 2. Ask how the branch should land
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 > **How should this branch land?**
@@ -86,7 +86,7 @@ Having asked once, run to completion without asking again.
 when one is usable — say so, open or closed-unmerged, before the operator answers.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.landing-question -outcome completed <name>
+flow stage end -command '/flow' -stage flow.landing-question -outcome completed <name>
 ```
 
 ## 3. Commit the staged work
@@ -94,7 +94,7 @@ myflow stage end -command '/flow' -stage flow.landing-question -outcome complete
 **Load `skills/flow-contracts/git-boundaries.md`** before either commit below.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Before any route commits, reshape the branch.** Run `git -C <worktree> reset --soft
@@ -110,15 +110,15 @@ the session records under `<project>/docs/superpowers/` — as **two** commits, 
 **Render the ledger first**, before staging:
 
 ```bash
-myflow record render -change <name> -kind ledger -repo <worktree>
+flow record render -change <name> -kind ledger -repo <worktree>
 ```
 
 **A change with no dispatch rows reports `MISSING: ledger` and exits 0** — never a failure. **A
 non-zero exit means a destination was refused or could not be written:** report it and continue.
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.preserve-sessions -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.commit-two -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.preserve-sessions -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.commit-two -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Then stage and commit twice, in this order:
@@ -140,13 +140,13 @@ symlinked-planning-path case are all under **Git boundaries**
 operator chose to integrate over at **1**. The state file is **not** committed.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
+flow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
 ```
 
 ## 4. Take the chosen route, write the state, and transition Jira
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 This stage carries three sub-steps under one mark, per this task's own resolution of open question
@@ -184,7 +184,7 @@ state write, never before, never blocking. A run that stopped on a failed push d
 transition.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.landing-routes -outcome completed <name>
+flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <name>
 ```
 
 ## No verification gate

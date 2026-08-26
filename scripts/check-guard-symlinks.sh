@@ -889,7 +889,7 @@ declare_if_present() {
 declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .flow/project.md, never one symlinked into its own scripts/ directory"
 declare_if_present "myflow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
 declare_if_present "flow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
-declare_if_present "flow-settings" "invokes no guard — a standalone settings command that only calls the myflow CLI, with no implementation or verification stage"
+declare_if_present "flow-settings" "invokes no guard — a standalone settings command that only calls the flow CLI, with no implementation or verification stage"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

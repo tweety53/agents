@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assertion harness for stats/Makefile: the `build` target's recipe, and the
-# UI-test stack's agreement with the pidfile myflowd writes for itself.
+# UI-test stack's agreement with the pidfile flowd writes for itself.
 #
 # THREE KINDS OF ASSERTION, and the split is deliberate:
 #
@@ -135,7 +135,7 @@ assert_recipe_matches "build target still compiles every package" \
   '(^|[[:space:]])go build[[:space:]]+\./\.\.\.([[:space:]]|$)'
 
 # ===========================================================================
-# 4. ui-test-up does not write the pidfile itself. myflowd writes
+# 4. ui-test-up does not write the pidfile itself. flowd writes
 #    $TMPDIR/flowd-<port>.pid on every start (internal/pidfile), so a
 #    `& echo $! > $(UITEST_PIDFILE)` here would be a SECOND writer of one
 #    file for one process -- and the two can disagree. `echo $!` records the
@@ -148,14 +148,14 @@ assert_recipe_matches "build target still compiles every package" \
 #    ANY redirection into $(UITEST_PIDFILE) is a second writer, whatever
 #    command produces it. `rm -f $(UITEST_PIDFILE)` is untouched by this --
 #    it has no `>` -- and is meant to stay: it clears a file left behind by
-#    a daemon this target killed, and myflowd overwriting a stale file does
+#    a daemon this target killed, and flowd overwriting a stale file does
 #    not make removing one wrong.
 # ===========================================================================
 assert_makefile_lacks "ui-test-up does not write its own pidfile" \
   '>[[:space:]]*\$\(UITEST_PIDFILE\)'
 
 # ===========================================================================
-# 5. UITEST_PIDFILE names the file myflowd actually writes, and stays
+# 5. UITEST_PIDFILE names the file flowd actually writes, and stays
 #    `override`. Both halves of one property, which is why they are one case:
 #
 #    - `override UITEST_PIDFILE := /tmp/flowd-$(UITEST_PORT).pid` --
@@ -186,7 +186,7 @@ assert_makefile_matches_all "UITEST_PIDFILE is override and derived from UITEST_
 # 6. Every place the UI-test stack reads a pid out of $(UITEST_PIDFILE)
 #    yields a pid `kill` accepts.
 #
-#    The file is myflowd's own, and it has TWO lines -- the decimal pid, then
+#    The file is flowd's own, and it has TWO lines -- the decimal pid, then
 #    the path of the executable that wrote it (stats/internal/pidfile: the
 #    second line is what lets the identity check recognise the UI-test
 #    stack's differently-named copy of the daemon). A `$(cat FILE)` therefore
@@ -213,7 +213,7 @@ FIXTURE_PID=$!
 trap 'kill "$FIXTURE_PID" 2>/dev/null || true; rm -f "$PIDFILE_FIXTURE"' EXIT
 # The executable line is the UI-test daemon's, so the fixture is the exact
 # file `make ui-test-down` reads on the stack this case is about.
-printf '%s\n/tmp/myflow-uitest-myflowd\n' "$FIXTURE_PID" > "$PIDFILE_FIXTURE"
+printf '%s\n/tmp/flow-uitest-flowd\n' "$FIXTURE_PID" > "$PIDFILE_FIXTURE"
 
 PID_READS="$(printf '%s\n' "$MAKEFILE_TEXT" | grep -oE '\$\$\([^()]+\$\(UITEST_PIDFILE\)\)' || true)"
 READ_COUNT=0

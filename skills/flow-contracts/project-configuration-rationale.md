@@ -1,7 +1,7 @@
 # Project configuration — rationale
 
 This file is the reasoning behind `skills/flow-contracts/project-configuration.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Where the agents repository is
 
@@ -24,8 +24,8 @@ install is a real `~/.claude/skills/` (likewise `~/.cursor/skills/` and `~/.code
 directories" and traverses it deliberately. Resolving the parent lands in `~/.claude`, which
 contains no per-skill scripts/ directory and is not a checkout of anything; resolving the skill's own directory lands
 in `<agents repo>/skills/<skill>/`, from which step 2 is right. Measured on a global install:
-`~/.claude/skills/` is a directory, `~/.claude/skills/myflow-do` is a symlink to
-`<agents repo>/skills/myflow-do/`, and the two-step rule yields the checkout root while resolving
+`~/.claude/skills/` is a directory, `~/.claude/skills/flow` is a symlink to
+`<agents repo>/skills/flow/`, and the two-step rule yields the checkout root while resolving
 the parent yields `~/.claude`.
 
 ### Project-local installs need no link
@@ -176,8 +176,9 @@ the rule follows the read, not the section.
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
 ran".** The guard runs at the point this section is *read*: `/myflow-do` runs it against each apply
-worktree before it resolves or exports a single row, per section 7 of `skills/myflow-do/SKILL.md`,
-and a non-zero exit stops that run. That is what makes the enforcement reach every project myflow is
+worktree before it resolves or exports a single row, per **Isolate the workspace** in
+`skills/flow/implement.md`,
+and a non-zero exit stops that run. That is what makes the enforcement reach every project flow is
 installed into, rather than only the repository the guard ships in — where it is *also* a lint step,
 which is a self-check on the agents repository's own configuration and nothing more. A project that
 declares no section passes silently in both places, which is the overwhelmingly common case.

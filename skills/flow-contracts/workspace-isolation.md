@@ -76,7 +76,7 @@ acceptable.
 (`skills/flow-contracts/workspace-isolation-rationale.md`) for the collision example this
 separates.
 
-**A change name outside `[a-z0-9-]`, stated rather than left to be discovered.** myflow change names
+**A change name outside `[a-z0-9-]`, stated rather than left to be discovered.** flow change names
 are `<lowercased-jira-key>-<slug>` in practice, so this is a boundary case rather than a daily one,
 and a boundary case nobody has written down is where two implementations drift apart. Step 2 defines
 it completely, and these are its consequences:

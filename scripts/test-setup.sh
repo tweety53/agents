@@ -80,14 +80,14 @@ END="$(read_literal CLAUDE_MD_END)"
 # The sandbox is created under /tmp explicitly, not under $TMPDIR: on macOS $TMPDIR is a
 # per-user path under /var/folders, and the safety claim this harness makes is the concrete
 # one — every byte it writes is under /tmp and is removed again.
-SANDBOX="$(mktemp -d /tmp/myflow-test-setup.XXXXXX)" || die "cannot create the sandbox under /tmp"
+SANDBOX="$(mktemp -d /tmp/flow-test-setup.XXXXXX)" || die "cannot create the sandbox under /tmp"
 cleanup() {
   if [[ -n "${KEEP_SANDBOX:-}" ]]; then
     echo "KEEP_SANDBOX set — sandbox left at $SANDBOX" >&2
     return 0
   fi
   # Belt and braces: only ever remove a path this script created under /tmp.
-  [[ "$SANDBOX" == /tmp/myflow-test-setup.* ]] && rm -rf "$SANDBOX"
+  [[ "$SANDBOX" == /tmp/flow-test-setup.* ]] && rm -rf "$SANDBOX"
 }
 trap cleanup EXIT
 
@@ -265,7 +265,7 @@ seed_project_md() {
   local bullets="" entry
   for entry in "$@"; do bullets+="- \`$entry\` — seeded by the harness"$'\n'; done
   seed_file "$proj/.flow/project.md" 644 <<EOF
-# myflow project configuration — fixture project
+# flow project configuration — fixture project
 
 ## test
 
@@ -507,7 +507,7 @@ claude_md="$home/.claude/CLAUDE.md"
 seed_file "$claude_md" 640 <<'EOF'
 # My own global instructions
 
-HANDWRITTEN-ABOVE — this line predates myflow.
+HANDWRITTEN-ABOVE — this line predates flow.
 EOF
 cp -p "$claude_md" "$SANDBOX/handwritten-original.md"
 

@@ -1,7 +1,7 @@
 ---
 name: /flow
 id: flow
-category: myflow
+category: flow
 description: Single-command pipeline — brainstorm, implement behind a fixed review panel, and integrate, pausing only at the human gates
 ---
 
@@ -28,7 +28,7 @@ produces the design. Asks no planning-effort, model, or review-panel-roster ques
 run — the panel is fixed at 3 required slots (Primary, Principles, Code review (low)) on every run;
 Bugbot and Security are dispatched only when you explicitly ask for either, at any point in the run.
 
-Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness
+Also follow the flow rule (`flow-manual-review.mdc`) — installed globally, so let your harness
 resolve it rather than assuming a project-local path. It is a stub: **load
 `skills/flow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git
 boundaries and the finish contract; `/flow`'s own stage keys are in `skills/flow/SKILL.md`'s own

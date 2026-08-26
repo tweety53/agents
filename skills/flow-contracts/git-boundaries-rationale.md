@@ -1,7 +1,7 @@
 # Git boundaries — rationale
 
 This file is the reasoning behind `skills/flow-contracts/git-boundaries.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Git boundaries
 

@@ -1,7 +1,7 @@
 # Handoff blocks — rationale
 
 This file is the reasoning behind `skills/flow-contracts/handoff-blocks.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Handoff blocks
 
@@ -9,7 +9,7 @@ This file is the reasoning behind `skills/flow-contracts/handoff-blocks.md`.
 
 ### Why regeneration beats storage
 
-`/myflow-status <name>` regenerates the block from the state file and the
+`/flow-status <name>` regenerates the block from the state file and the
 artifacts as they now stand; it never reads back a stored copy, because a stored copy reproduces the
 original exactly and then goes wrong silently the moment anything it names moves — a worktree
 removed, an artifact republished, a PR opened. Regeneration is the mechanism, not an implementation
@@ -20,7 +20,7 @@ detail of it.
 It is derived from an
 artifact on disk — the entries under `## Open questions` in the change's design whose status is
 still `open` — exactly as the decisions count beside it in the same `Recorded` line is, so
-`/myflow-status <name>` regenerates it rather than omitting it. The `Recorded` line sits next to the
+`/flow-status <name>` regenerates it rather than omitting it. The `Recorded` line sits next to the
 `Jira` line and is the opposite case to it: what makes `Jira` run-only is that nothing on disk holds
 it, and that test is about where the value lives, not about how close it sits to a line that failed
 it. A count that has changed since `/myflow-start` printed it — a revision round answered a question
@@ -59,13 +59,13 @@ leaving it implied by the two conditions alone.
 
 It reports the transition *this run made*, and nothing on disk
 records one: the state file carries the bare `jiraIssue` key and no transition history at all. Nor
-can the value be re-derived by asking the tracker — `/myflow-status` is forbidden from calling Jira,
+can the value be re-derived by asking the tracker — `/flow-status` is forbidden from calling Jira,
 its own guardrail being that the report is read-only and never transitions or queries an issue — and
 even a permitted read would not recover it, because a current status cannot separate `→ In Progress`
 from *already In Progress (no transition)* without the status as it stood before the run, which
 nothing records. Two of the line's three alternatives are therefore unreproducible, and the third,
 *none linked*, is not worth a line that would be wrong for every other change. The key itself is not
-lost with it: `/myflow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
+lost with it: `/flow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
 of its detail view, so what the omission drops is the transition, which is the run-only part.
 
 ### Why `IN_PROGRESS` needs two renderings
@@ -92,7 +92,7 @@ It names the roster *that run selected* — which optional slots fired
 and which did not — and no field carries it. The only on-disk trace is the panel record
 `/myflow-do` writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
 removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
-there and sometimes not is not a source `/myflow-status` can regenerate from, and reporting it
+there and sometimes not is not a source `/flow-status` can regenerate from, and reporting it
 *missing* on every change whose worktree is gone would name a fault where there is none. The
 durable copy is the preserved record under `<project>/docs/superpowers/reviews/`, which run 1 writes into the
 repository — an operator who needs the roster after the fact reads that, not a regenerated block.
@@ -112,11 +112,11 @@ the row cannot tell apart is a commit made by hand outside the pipeline, which n
 integrated; both renderings end in `/myflow-finish <name>`, so that costs the fields shown and never
 the command named.
 
-### Why `/myflow-status` cites this file instead of restating the check
+### Why `/flow-status` cites this file instead of restating the check
 
 **The pre-check paragraph and the recorded-merge-base one are the only statement of that
 ordering for a renderer.**
-`/myflow-status` performs the check and cites this section for why; it deliberately carries no copy
+`/flow-status` performs the check and cites this section for why; it deliberately carries no copy
 of the argument, because two copies of one piece of reasoning are two things to keep in step and the
 next editor would have no way to tell which was authoritative. Change it here and the consumer
 follows.

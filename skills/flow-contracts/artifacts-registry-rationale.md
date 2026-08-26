@@ -1,7 +1,7 @@
 # Temporary artifacts registry — rationale
 
 This file is the reasoning behind `skills/flow-contracts/artifacts-registry.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Temporary artifacts registry
 

@@ -11,7 +11,7 @@
 # WHO RUNS IT, AND WHY THAT IS TWO CALLERS RATHER THAN ONE. `/myflow-do` runs it
 # against each apply worktree before it resolves or exports a single row —
 # section 7 of skills/myflow-do/SKILL.md — and that is the call that reaches
-# every project myflow is installed into, because the read happens in the
+# every project flow is installed into, because the read happens in the
 # project rather than here. This repository ALSO lists it in its own `## lint`,
 # which is a self-check on this repository's own `## workspace isolation`
 # section and nothing more: a green lint run says nothing about any other

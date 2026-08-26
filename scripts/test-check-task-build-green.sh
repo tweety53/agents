@@ -685,7 +685,7 @@ run_guard "$TASKS_MD"
 # Case 27: a task's id is a FLAT integer. `- [ ] 1.1. …` is a "malformed task
 # line" finding to spectre and no task to it, so it is no task here either —
 # admitting one would recreate the same disagreement the checkbox line ended,
-# in a narrower form: myflow would gate a task spectre never counts. Both
+# in a narrower form: flow would gate a task spectre never counts. Both
 # halves are asserted from one fixture.
 #
 # 27a — the dotted line opens NO task: it carries no `**Build:**` tag, so a

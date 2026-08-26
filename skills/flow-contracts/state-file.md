@@ -1,12 +1,12 @@
 # State file
 
-**A change's state record lives in PostgreSQL, owned by the `myflowd` daemon.** No command reads or
+**A change's state record lives in PostgreSQL, owned by the `flowd` daemon.** No command reads or
 writes the database directly, and no command reads a JSON file for the live value. Every
-`/myflow-*` command reaches the record through two CLI subcommands that speak HTTP to the daemon:
+`/flow*` command reaches the record through two CLI subcommands that speak HTTP to the daemon:
 
 ```bash
-myflow state get [-C dir] <name>            # prints the record's JSON to stdout
-myflow state set [-C dir] <name> <<<"$JSON" # reads the whole record as JSON from stdin
+flow state get [-C dir] <name>            # prints the record's JSON to stdout
+flow state set [-C dir] <name> <<<"$JSON" # reads the whole record as JSON from stdin
 ```
 
 `-C dir` resolves the project key as if run from `dir` (default: the process's own working
@@ -26,7 +26,7 @@ store answers normally.
 /Users/tweety53/Agents/flow/state/<project-key>/<name>.journal
 ```
 
-`<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `myrepo-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous. It is the same key `myflow state get`/`set` send the daemon, so the store, the fallback file and the journal all address one record under one key.
+`<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `myrepo-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous. It is the same key `flow state get`/`set` send the daemon, so the store, the fallback file and the journal all address one record under one key.
 
 **Resolving the main checkout is load-bearing.** `git rev-parse --show-toplevel` returns the *worktree* root when run inside a worktree, which would give apply (in a worktree) and review (in the main checkout) two different keys for the same change. Always resolve via `--git-common-dir`, which points at the **main** repo's `<project>/.git` from anywhere, including inside a worktree:
 
@@ -35,7 +35,7 @@ MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
 PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"
 ```
 
-This derivation is now performed inside the CLI itself (`myflow state get`/`myflow state set`
+This derivation is now performed inside the CLI itself (`flow state get`/`flow state set`
 resolve it from `-C dir`, or the working directory) rather than by a skill running this recipe by
 hand — but the algorithm is unchanged, and it is stated here because it is what makes the store,
 the fallback file and the journal agree on one identity for one change.
@@ -62,22 +62,22 @@ answers with anything other than a success — this is deliberately broader than
 "never a gate", because a state write happens at the end of every command: an outage that stopped
 the write would strand a change at an unwritten state with the work already done.
 
-- `myflow state get <name>`: on success, prints the store's record and exits 0. If the store
+- `flow state get <name>`: on success, prints the store's record and exits 0. If the store
   correctly reports no record for this project and name, it prints that and **exits 1** — this is
   the store answering, not an outage, and is the one case `state get` does not fall back for. On
-  every other failure it prints one line, `⚠ myflow: store unreachable — read local fallback`, then
+  every other failure it prints one line, `⚠ flow: store unreachable — read local fallback`, then
   the on-disk fallback record if one exists — silently nothing if it does not, since there is
   nothing more honest to print — and **exits 0**.
-- `myflow state set <name>`: on success, exits 0 silently. On every failure it writes the payload
+- `flow state set <name>`: on success, exits 0 silently. On every failure it writes the payload
   to the on-disk fallback file, appends it to the journal, prints one line,
-  `⚠ myflow: store unreachable — wrote local journal`, and **exits 0**.
+  `⚠ flow: store unreachable — wrote local journal`, and **exits 0**.
 
 **A genuine refusal is the one outcome that is reported and exits non-zero**, and it is identified
 by a real answer from the daemon, never by a status code alone: a response is trusted as the
-daemon's own only when it carries the `Myflow-Daemon` response header, so a look-alike server
+daemon's own only when it carries the `Flow-Daemon` response header, so a look-alike server
 squatting the port cannot be mistaken for a genuine refusal. Under that guard, only an HTTP 409 —
-the monotonic-write refusal below — is reported: `myflow state set` prints
-`myflow: state set refused: ...` and **exits 1**, and the stored record is left exactly as it was.
+the monotonic-write refusal below — is reported: `flow state set` prints
+`flow: state set refused: ...` and **exits 1**, and the stored record is left exactly as it was.
 **Every other daemon response the CLI does not treat as success — a 400 for a malformed or
 undocumented-field payload included — is folded into the same "store failure" bucket as an outage**
 and takes the fallback path above, exiting 0. A skill that sends a malformed payload is therefore
@@ -143,7 +143,7 @@ field is how it gets erased.
   See **A change spanning repositories is one record** below.
 
   **A value is either JSON `null` or a 40-character lowercase hexadecimal sha, and nothing else** —
-  a worktree path, a short sha, an uppercase sha and an empty string are all refused. `myflow state
+  a worktree path, a short sha, an uppercase sha and an empty string are all refused. `flow state
   set` refuses one before the store is touched: it names the offending worktree path and the
   rejected value on stderr and exits 2, writing neither the on-disk fallback file nor a journal
   entry, because a malformed merge base is a local input error in the sense of **The pipeline never
@@ -215,7 +215,7 @@ field is how it gets erased.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
-- `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `myflow state set`
+- `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `flow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
   payload carried. The stamped instant is the one the store row, the on-disk fallback file and the
   journal entry all carry, so an entry replayed later orders by the instant its write actually
@@ -253,7 +253,7 @@ rule stated above:
 
 ## Writes are monotonic in both dimensions
 
-A write is refused (HTTP 409, `myflow state set` reports and exits 1) when it would move the record
+A write is refused (HTTP 409, `flow state set` reports and exits 1) when it would move the record
 backwards **in either dimension**: to a `state` earlier in the pipeline than the one stored, or —
 at the *same* `state` — to an `updatedAt` earlier than the one already recorded. The recorded
 instant is the primary ordering and the pipeline state is the tiebreaker, so a replayed or
@@ -273,8 +273,8 @@ already stored. Both are safe to retire without further action, which is exactly
 ## Carry the record forward on every write
 
 Because a write renders the whole record and omission clears a field (**The record** above), every
-command must first `myflow state get` the existing record and carry forward every field it does not
-itself own — `artifactUrl`, `jiraIssue`, `prUrl` and `worktrees` among them — before calling `myflow
+command must first `flow state get` the existing record and carry forward every field it does not
+itself own — `artifactUrl`, `jiraIssue`, `prUrl` and `worktrees` among them — before calling `flow
 state set`. Re-emit each as read (`null` only if it was already `null`). Dropping one erases it
 permanently: the published proposal link, the link to the Jira issue, the PR (which also silently
 downgrades the next fix from commit-and-push to staged-only), or the authoritative list of worktrees
@@ -355,8 +355,8 @@ until a command writes one for it.
 ## Read it, write it
 
 ```bash
-myflow state get "$NAME" -C "$DIR"                    # prints the record, or falls back — see above
-printf '%s' "$RECORD_JSON" | myflow state set "$NAME" -C "$DIR"
+flow state get "$NAME" -C "$DIR"                    # prints the record, or falls back — see above
+printf '%s' "$RECORD_JSON" | flow state set "$NAME" -C "$DIR"
 ```
 
 `state set` reads the whole object from stdin — always write every field, never a partial merge, per

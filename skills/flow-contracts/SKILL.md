@@ -1,6 +1,6 @@
 ---
 name: flow-contracts
-description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/flow-manual-review.mdc.
+description: The flow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/flow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -8,21 +8,21 @@ metadata:
   version: "2.0"
 ---
 
-# myflow contracts
+# flow contracts
 
-myflow's pipeline and its contract definitions, split out of `rules/flow-manual-review.mdc` so the
+flow's pipeline and its contract definitions, split out of `rules/flow-manual-review.mdc` so the
 always-on rule layer carries only the trigger, without being asked to load anything.
 
 **Load the one file you need — not this whole directory.** The exception is `pipeline.md`: every
-`/myflow-*` command needs it, so load it first, always.
+`/flow*` command needs it, so load it first, always.
 
 ## Index
 
 | File | Load it when you need to |
 |------|--------------------------|
-| [pipeline.md](pipeline.md) | **Run any `/myflow-*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, IntelliJ commands, guard resolution and stage marks |
+| [pipeline.md](pipeline.md) | **Run any `/flow*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, IntelliJ commands, guard resolution and stage marks |
 | [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution, resolving a change's worktrees, and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
-| [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/myflow-status` and no other command** |
+| [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/flow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
@@ -33,8 +33,8 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, and the guarded two-commit chain that enforces the split between implementation and planning artifacts. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |
 | [model-policy.md](model-policy.md) | Which model each role runs on, their defaults, how an override applies, and per-harness enforcement. **Loaded by `/myflow-start`, `/myflow-do` and `/myflow-fast`** |
 | [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/myflow-do`, `/myflow-finish` run 2 and `/myflow-fast`** |
-| [session-records.md](session-records.md) | The outcome table for `myflow record render`, and what each outcome means for the caller. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |
-| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/myflow-do`, `/myflow-finish`, `/myflow-status` and `/myflow-fast`** |
+| [session-records.md](session-records.md) | The outcome table for `flow record render`, and what each outcome means for the caller. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |
+| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/myflow-do`, `/myflow-finish`, `/flow-status` and `/myflow-fast`** |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins — and a skill should **point at** these files rather than restate them, because a second
@@ -60,7 +60,7 @@ nothing checks it:
 | [project-configuration-rationale.md](project-configuration-rationale.md) | [project-configuration.md](project-configuration.md) |
 | [workspace-isolation-rationale.md](workspace-isolation-rationale.md) | [workspace-isolation.md](workspace-isolation.md) |
 
-**A `/myflow-*` run never loads an appendix.** They exist for whoever *edits* a contract — the
+**A `/flow*` run never loads an appendix.** They exist for whoever *edits* a contract — the
 justification of an ordering, the alternatives that were rejected, the history, and the measurements
 behind a rule. A command that loads one has paid the cost the split exists to remove, which is why
 no appendix appears in the **Index** above: that index is what a command reads, and this section is
@@ -75,7 +75,7 @@ its appendix heading present with no body — present rather than absent, so it 
 section was examined rather than skipped.
 
 **The same split applies one level up.** `skills/myflow-do/`, `skills/myflow-start/` and
-`skills/myflow-finish/` each carry a `SKILL-rationale.md` that a `/myflow-*` run never loads — the
+`skills/myflow-finish/` each carry a `SKILL-rationale.md` that a `/flow*` run never loads — the
 reasoning behind that skill's `SKILL.md`, kept beside it. **A skill's appendix lives beside its own
 `SKILL.md`, not under `skills/flow-contracts/`** — this directory indexes only the contracts' own
 appendices, so it never appears in the table above or anywhere in this directory's listing.

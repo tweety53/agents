@@ -8,7 +8,7 @@ table names is created or removed.
 This file is **canonical** for everything in it.
 
 The reasoning behind this file lives in `skills/flow-contracts/artifacts-registry-rationale.md`;
-**a `/myflow-*` run never loads it.**
+**a `/flow*` run never loads it.**
 
 ## Temporary artifacts registry
 
@@ -19,7 +19,7 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
 | SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
-| Rendered ledger and panel record | `myflow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
+| Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
 | Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
 | Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |

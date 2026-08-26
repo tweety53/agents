@@ -1,7 +1,7 @@
 # Resolving a change's worktrees — rationale
 
 This file is the reasoning behind `skills/flow-contracts/worktree-resolution.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Resolving a change's worktrees
 

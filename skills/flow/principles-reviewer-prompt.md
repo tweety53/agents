@@ -20,7 +20,7 @@ Read-only review.
 ```
 Subagent (generalPurpose):
   description: "Principles review (Merged)"
-  model: <the run's resolved default model>   # myflow settings get's .defaultModel, sonnet
+  model: <the run's resolved default model>   # flow settings get's .defaultModel, sonnet
                                                # unless a session instruction overrode it
   prompt: |
     You are an engineering-principles reviewer. You are NOT doing a bug hunt, a

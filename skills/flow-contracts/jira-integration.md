@@ -4,9 +4,9 @@
 the contract. If a rule below and a skill ever disagree, this file wins.
 
 The reasoning behind this file lives in `skills/flow-contracts/jira-integration-rationale.md`;
-**a `/myflow-*` run never loads it.**
+**a `/flow*` run never loads it.**
 
-**Jira is a projection of pipeline state, never a source of it and never a gate.** myflow reads
+**Jira is a projection of pipeline state, never a source of it and never a gate.** flow reads
 and writes it through the Atlassian MCP tools available to the session (`getJiraIssue`,
 `getTransitionsForJiraIssue`, `transitionJiraIssue`, `editJiraIssue`). There is no Jira CLI on
 this machine — never shell out to one.
@@ -218,7 +218,7 @@ formatting in the prefix region. A skipped sync is a correct, non-blocking outco
 **The read that the assertion is made against is the one taken immediately before the write.** Do
 not assert against a description read earlier in the run — at resolution, at the transition, or when
 a search returned the issue. Between such a read and the write, anything may have edited the
-description: another person, an automation, or another `/myflow-*` run joining the same issue. The
+description: another person, an automation, or another `/flow*` run joining the same issue. The
 assertion would then hold against a copy that is already historical, and the write replaces the
 whole field, so the intervening edit is destroyed by an operation that reported success. Re-read,
 re-assert, write — with as little as possible between the read and the write.
@@ -234,7 +234,7 @@ and why, is under **Follow-up issues** (`jira-followups.md`).
 
 ### Labels on issues the pipeline creates
 
-An issue any `/myflow-*` command creates carries **every label on the change's linked issue, plus
+An issue any `/flow*` command creates carries **every label on the change's linked issue, plus
 `AI-generated`**. No label is invented: the parent's labels exist by construction, and
 `AI-generated` is applied only because the project already uses it. With no linked issue, the
 created issue carries `AI-generated` alone. Link the created issue to the change's issue whenever

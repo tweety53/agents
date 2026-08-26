@@ -37,7 +37,7 @@ approved and a proposal published. Write it here, at the top of this phase, rath
 bottom of it.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ```json
@@ -62,9 +62,9 @@ change: `/flow` asks no planning-effort or model question on a creating run
 `/flow` publishes no proposal artifact (`publish-proposal-removed`).
 
 ```bash
-myflow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.resolve-change -harness <harness> -session-token mf-<literal-token> <name>
-myflow stage end   -command '/flow' -stage flow.resolve-change -outcome completed <name>
+flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.resolve-change -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.resolve-change -outcome completed <name>
 ```
 
 **No further command runs before this point on a creating run** — the state write above is the
@@ -172,7 +172,7 @@ this note-found condition holds.
 ### The checklist
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
@@ -239,16 +239,16 @@ checklist itself; the **design approval** the HARD GATE requires is a separate, 
 same operator and gets its own mark:
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
 # … the operator approves the design — this is the HARD GATE above …
-myflow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
+flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
 ## C. Create the change and its artifacts
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
 spectre new "<name>"
 ```
 
@@ -322,13 +322,13 @@ What this section holds is what the `STARTED` handoff counted under the old `/my
 hand off** (`skills/flow/verify-and-handoff.md`) prints once implementation completes.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
+flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed <name>
 ```
 
 ## D. Basic Workflow #3 — Writing plans
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
@@ -371,7 +371,7 @@ Before continuing, run the project's configured plan-provenance guard and its co
 build-green guard, if the project declares them, and fix any hit.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
+flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
 ```
 
 Once this phase completes and the change's artifacts exist, continue — within the same invocation

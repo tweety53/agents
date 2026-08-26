@@ -17,7 +17,7 @@ Exit codes:
 
 Scope: `skills/**/*.md` and `rules/*.mdc` under the given project root
 (default: the repository this script lives in) — the files every
-`/myflow-*` run loads, and where torn text changes an agent's behaviour
+`/flow*` run loads, and where torn text changes an agent's behaviour
 rather than merely reading badly. Nothing else is scanned: not `docs/`,
 not `openspec/`, not the repository root's own Markdown.
 

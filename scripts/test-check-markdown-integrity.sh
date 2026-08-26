@@ -261,7 +261,7 @@ expect_exit 'case 14: a paragraph introducing a fenced command — exit 0' 0 \
 # Case 15 — a bold pseudo-heading directly above the list it introduces,
 # with no blank line between them and no terminal punctuation of its own
 # ("**Explore the problem space**" followed immediately by "- Ask..."),
-# is this repository's own established style in skills/myflow-research/
+# is this repository's own established style in skills/flow-research/
 # SKILL.md, not an orphaned marker.
 root="$(make_project 'skills/foo/SKILL.md' \
 '**Explore the problem space**

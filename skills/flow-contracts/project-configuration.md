@@ -4,7 +4,7 @@
 name; none of them restate the format. If a skill and this file ever disagree, this file
 wins.
 
-myflow is installed globally and runs in any repository, so it must never carry one project's
+flow is installed globally and runs in any repository, so it must never carry one project's
 apps, ports, task names, or credentials in its own files. Everything project-specific lives in
 an optional Markdown file **in the project being worked on**:
 
@@ -84,7 +84,7 @@ standards-as-data clause carried by `principles-reviewer-prompt.md`.
 
 ## Where the agents repository is
 
-`<agents repo>` is the root of the myflow agents repository on this machine — the checkout myflow
+`<agents repo>` is the root of the flow agents repository on this machine — the checkout flow
 is authored in and installed from. Everything that resolves against it is named here so that no
 skill has to work it out for itself.
 
@@ -93,7 +93,7 @@ machine with an unusual layout can state the answer instead of having one derive
 
 **Otherwise derive it from the skill you are reading, in two steps.**
 
-1. Take the directory holding that `SKILL.md` — `skills/myflow-do/`, `skills/myflow-status/`,
+1. Take the directory holding that `SKILL.md` — `skills/flow/`, `skills/flow-status/`,
    whichever one you are in — and resolve **that directory** to its physical path, following it if
    it is a symlink.
 2. `<agents repo>` is **two levels above** the resolved directory: up out of the skill's own
@@ -427,8 +427,8 @@ that order; and the section being declared at most once.
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
 ran".** The guard runs at the point this section is *read*: `/myflow-do` runs it against each apply
-worktree before it resolves or exports a single row, per section 7 of `skills/myflow-do/SKILL.md`,
-and a non-zero exit stops that run. A project that declares no section passes silently.
+worktree before it resolves or exports a single row, per **Isolate the workspace** in
+`skills/flow/implement.md`, and a non-zero exit stops that run. A project that declares no section passes silently.
 `/myflow-finish` deliberately does not repeat the validation. See **Where enforcement happens**
 (`skills/flow-contracts/project-configuration-rationale.md`) for why.
 

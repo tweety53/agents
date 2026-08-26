@@ -1,7 +1,7 @@
 # Jira integration — rationale
 
 This file is the reasoning behind `skills/flow-contracts/jira-integration.md`.
-**A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
+**A `/flow*` run never loads it — appendices are for whoever edits a contract.**
 
 ### Resolution (how `jiraIssue` is decided)
 
@@ -22,7 +22,7 @@ is canonical for it.
 
 ### Transitions
 
-**This assumes `TO DO URGENT` means *not yet started* in every project myflow is installed into** —
+**This assumes `TO DO URGENT` means *not yet started* in every project flow is installed into** —
 the mapping is global, not scoped per project. A project where that name means something else — an
 escalation flag on an in-flight item, say — loses the one consent gate an unrecognised status would
 otherwise have triggered before a forward-only transition, and has no per-project override to reach

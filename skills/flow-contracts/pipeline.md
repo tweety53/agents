@@ -1,10 +1,10 @@
-# myflow pipeline
+# flow pipeline
 
 The three-state pipeline itself: state definitions, the command→state transition table and the
 handoff shape. See **Finish contract** (`skills/flow-contracts/finish-contract.md`).
 
 **Load this file when running `/flow`.** It is split out of
-`rules/myflow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
+`rules/flow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
 whole state machine — the same reason the other contract files beside it were split out.
 
 This file is **canonical** for everything in it. Where a skill or command disagrees with it, this
@@ -152,8 +152,8 @@ harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 
 ## Stage marks
 
-`/flow` marks each of its own stages: `myflow stage begin` when the stage starts,
-`myflow stage end` when it closes, both naming the command, the stage and the change. The stage
+`/flow` marks each of its own stages: `flow stage begin` when the stage starts,
+`flow stage end` when it closes, both naming the command, the stage and the change. The stage
 identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
 (`<agents repo>/README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
 own README-parsing test (`<agents repo>/stats/internal/stages/names_test.go`) exists to make impossible. Each
@@ -192,11 +192,11 @@ write no transcript, so their runs are *explicitly unavailable* rather than zero
 way it rejects a substituted session token.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 # … the stage's own work …
-myflow stage end   -command '/flow' -stage flow.review-panel -outcome completed <name>
+flow stage end   -command '/flow' -stage flow.review-panel -outcome completed <name>
 # … a later stage in the same run reuses the same token, not a new one …
-myflow stage begin -command '/flow' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **The session token MUST be a literal, written directly into the command — never a shell
@@ -204,7 +204,7 @@ substitution.** `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any 
 backtick or a `$VAR` reference. See **Stage marks** (`skills/flow-contracts/pipeline-rationale.md`)
 for why. A reader who does not know this will
 "improve" the literal into a substitution the first chance they get, which is exactly the regression
-this paragraph, `<agents repo>/stats/cmd/myflow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
+this paragraph, `<agents repo>/stats/cmd/flow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
 `validateSessionTokenShape`, and `<agents repo>/scripts/check-stage-mark-calls.sh` all exist to stop. Write a
 concrete token in its place — `<literal-token>` above means "invent a short, unique string right
 here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
@@ -213,7 +213,7 @@ at every mark".
 **A mark never blocks, delays, or alters the stage it marks.** On any store failure the CLI
 journals the intent, prints one warning line, and exits 0 — the same never-block guarantee **State
 file** (`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
-`myflow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
+`flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
 still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
 the mark exactly the block it is required not to be. The only nonzero exit is a caller mistake — an
 undocumented stage key, a missing required flag, or a session token carrying a substitution shape —
@@ -431,20 +431,20 @@ and has its description synced — including that Jira is never a gate and never
 write. **Jira integration** (`skills/flow-contracts/jira-integration.md`) — load it before any
 Jira-related step.
 
-## Change name resolution (all `/myflow-*` commands)
+## Change name resolution (all `/flow*` commands)
 
 `<name>` is **optional** on `/flow` and `/flow-status`. When omitted, the candidate set is built
 from the store when the daemon answers, and from the filesystem only when it does not — and the
 command building it says which of the two produced the set, per **State file**
 (`skills/flow-contracts/state-file.md`).
 
-**The store is reached first, through the CLI — `myflow state list [-C dir]`, never a hand-written
+**The store is reached first, through the CLI — `flow state list [-C dir]`, never a hand-written
 HTTP call.** `state list` enumerates the store on the caller's behalf (`GET
 /api/v1/stats/state-board` under the hood, over a period wide enough to cover every change ever
 recorded, since the store starts empty per **State file**) and prints one JSON object:
 `"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`), and
 `"records"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`). See
-**Change name resolution (all `/myflow-*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
+**Change name resolution (all `/flow*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
 for why this goes through the CLI rather than a skill calling `curl` directly.
 
 **When `"source":"store"`**, the candidate set is every record's `name`, dropping one whose `state`
@@ -466,7 +466,7 @@ sources:
 From that union, drop any name whose `<project>/spectre/changes/<name>/` directory has already reached
 `<project>/spectre/changes/archive/`. The state directory is per-project rather than per-worktree, so a
 fallback record is reachable from the main checkout regardless of which worktree wrote it. See
-**Change name resolution (all `/myflow-*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
+**Change name resolution (all `/flow*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
 for why the filesystem source is needed at all now that the store is the normal path.
 
 **A record `state list` marks `"unreadable":true` is reported and skipped from the union — never
