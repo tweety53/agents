@@ -516,6 +516,37 @@ run_guard "" ""
 [ -z "$OUT" ] && pass "missing arguments: emits no verdict line" \
   || fail "missing arguments: emitted a verdict line: $OUT"
 
+# 11. THE CLI'S DIAGNOSTICS MUST NOT REACH THE JSON PARSER.
+#
+# `flow` writes diagnostics to stderr while the findings JSON goes to stdout --
+# most reliably the `flow: using FLOW_ADDR=...` line it prints whenever the
+# address is overridden, which is precisely what this repository's own ui-test
+# stack instructs an operator to do (`export FLOW_ADDR=http://127.0.0.1:4174`).
+# The guard used to capture both streams together, so that one diagnostic line
+# landed at the head of the payload and `jq` failed with a parse error on a run
+# that had actually succeeded -- reporting "cannot determine anything" for a
+# perfectly readable store. It broke only for the operator who followed the
+# documented instructions, which is why it is pinned here rather than tolerated.
+#
+# The stub below reproduces exactly that shape: a diagnostic on stderr, valid
+# JSON on stdout, exit 0. Reverting the guard to a `2>&1` capture makes this
+# case fail.
+new_fixture
+cat > "$WT/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+echo "flow: using FLOW_ADDR=http://127.0.0.1:4174" >&2
+echo "[]"
+exit 0
+STUB
+chmod +x "$WT/bin/flow"
+run_guard "$WT" demo
+[ "$RC" -eq 0 ] && pass "a diagnostic on stderr does not corrupt the findings JSON" \
+  || fail "stderr diagnostic: expected exit 0, got rc=$RC out=$OUT err=$ERR"
+case "$OUT$ERR" in
+  *"jq failed"*) fail "stderr diagnostic: the diagnostic reached jq" ;;
+  *) pass "a diagnostic on stderr never reaches jq" ;;
+esac
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

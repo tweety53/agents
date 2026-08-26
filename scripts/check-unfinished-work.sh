@@ -232,10 +232,24 @@ fi
 # "outstanding work found" and never exit 0's "clean". A change the store has
 # genuinely never heard of, or one that raised no findings, prints `[]` at
 # exit 0, which is the zero-findings case below, not a refusal.
-if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>&1)"; then
-  echo "check-unfinished-work: cannot read findings for '$NAME' from the store — cannot determine anything: $FINDINGS_JSON" >&2
+# STDOUT AND STDERR ARE CAPTURED SEPARATELY, and that separation is the whole
+# point. `flow` writes diagnostics to stderr -- most reliably the
+# `flow: using FLOW_ADDR=...` line it prints whenever the address is
+# overridden -- while the JSON this guard parses goes to stdout. Folding the
+# two together with `2>&1` puts that diagnostic line at the head of the
+# payload, and `jq` then fails with a parse error on a run that actually
+# succeeded. The failure mode is invisible in ordinary use and certain under
+# the one workflow this repository documents for pointing a session at a
+# second daemon (`export FLOW_ADDR=http://127.0.0.1:4174`, per the ui-test
+# stack), which is exactly the shape that makes it worth fixing rather than
+# tolerating: it breaks only for the operator who followed the instructions.
+FINDINGS_ERR="$(mktemp)"
+if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>"$FINDINGS_ERR")"; then
+  echo "check-unfinished-work: cannot read findings for '$NAME' from the store — cannot determine anything: $(cat "$FINDINGS_ERR")" >&2
+  rm -f "$FINDINGS_ERR"
   exit 2
 fi
+rm -f "$FINDINGS_ERR"
 
 # An open finding is any finding whose status is neither `fixed` nor a
 # `withdrawn <reason>` value — `startswith("withdrawn")` covers the whole
