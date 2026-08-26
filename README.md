@@ -1,6 +1,6 @@
 # agents-data
 
-Portable, project-agnostic agent configuration — the **myflow** pipeline (OpenSpec +
+Portable, project-agnostic agent configuration — the **myflow** pipeline (spectre +
 Superpowers), its skills, slash commands, and always-on rules.
 Contains the rule set, an index of the skills, and installation instructions for every
 supported AI harness.
@@ -37,40 +37,41 @@ agents-data/
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
-├── commands/                          ← Cursor slash commands (myflow + opsx:explore)
-├── commands-claude/                   ← Claude Code slash commands (myflow only)
-└── skills/                            ← OpenSpec / /myflow skills
-    ├── README.md                      ← myflow command map
-    ├── myflow-start/                  ← /myflow-start
-    ├── myflow-do/                     ← /myflow-do; carries the review-panel prompts + engineering-principles.md
-    ├── myflow-finish/                 ← /myflow-finish (integrate, then archive + clean up)
-    ├── myflow-fast/                   ← /myflow-fast (composite: brainstorm+implement, then integrate+archive, chained)
-    ├── myflow-status/                 ← read-only state report for open changes
-    ├── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
-    └── openspec-explore/              ← /opsx:explore — thinking-partner mode, touches no state
+├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-research, /flow-settings)
+├── commands-claude/                   ← Claude Code slash commands (the same four)
+├── skills/                            ← spectre / /myflow skills
+│   ├── README.md                      ← myflow command map
+│   ├── flow/                          ← /flow — brainstorm, implement behind the review panel, integrate and archive, one command
+│   ├── flow-status/                   ← read-only state report for open changes
+│   ├── flow-research/                 ← /flow-research — thinking-partner mode, stages research notes, touches no state
+│   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
+│   └── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
+├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
+└── openspec/                          ← frozen at the 2026-08-25 cutover: the record of how this repository got here, never written to again
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in
 its own frontmatter. The tree above is an illustrative
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
-**Skills** (loaded on demand): `/myflow-start`, `/myflow-do`, `/myflow-finish`, `/myflow-fast`
-(the composite that chains the other three), plus the read-only `/myflow-status`, and
-`/opsx:explore` for thinking-partner mode.
+**Skills** (loaded on demand): `/flow` — the single-command pipeline — plus the read-only
+`/flow-status`, `/flow-research` for thinking-partner mode, and `/flow-settings` for global
+model/reviewer defaults.
 
-**myflow pipeline — three states, three commands.**
+**myflow pipeline — three states.**
 
-Each command ends in the state named after it, and **the human gate is a property of the state** —
-which is why no command exists whose only job is to record that a review happened. `/myflow-do`
-emits both the staged diff and the run instructions, so reviewing and testing are one sitting.
-Every command is re-entrant, and a fix never moves the state.
+`/flow` drives the full pipeline as one command. Each phase ends in the state named after it, and
+**the human gate is a property of the state** — which is why no command exists whose only job is
+to record that a review happened. Every invocation is re-entrant, and a fix never moves the state.
 
-`/myflow-finish` runs **twice**: once to integrate the branch (open a PR by default, merge and
-push, or leave it to you), and again once the branch is merged, to sync delta specs, archive and
-commit onto a `chore/archive-<name>` branch, remove the worktrees, and — after self-review — push
-that branch and open its pull request. **Run 2 never pushes the base branch**; run 1's merge-and-push
-route still does, when you choose it. It runs **no** tests, linters or coverage check — that
-happened during `/myflow-do`.
+`/flow` ends a creating or fix run at `IN_PROGRESS` with both the staged diff and the run
+instructions, so reviewing and testing are one sitting. Once `IN_PROGRESS`, a bare invocation asks
+how the branch should land — open a PR by default, merge and push, or leave it to you — and stops
+there unless merge-and-push was chosen, in which case the same invocation continues straight into
+archive once the merge lands: sync and commit onto a `chore/archive-<name>` branch, remove the
+worktrees, and — after self-review — push that branch and open its pull request. **Archive never
+pushes the base branch**; the merge-and-push route still does, when you choose it. It runs **no**
+tests, linters or coverage check — that happened during implementation.
 
 See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
 
@@ -80,22 +81,20 @@ See **How the pipeline works** (`README.md`) below for the state diagram and the
 
 ```mermaid
 stateDiagram-v2
-    [*] --> STARTED: /myflow-start
-    STARTED --> STARTED: /myflow-start (revise the proposal)
-    STARTED --> IN_PROGRESS: /myflow-do
-    IN_PROGRESS --> IN_PROGRESS: /myflow-do (fix — never moves the state)
-    IN_PROGRESS --> IN_PROGRESS: /myflow-finish (run 1 — integrate)
-    IN_PROGRESS --> FINISHED: /myflow-finish (run 2 — after the merge)
-    [*] --> IN_PROGRESS: /myflow-fast (brainstorm + implement)
-    IN_PROGRESS --> IN_PROGRESS: /myflow-fast (fix — argument present)
-    IN_PROGRESS --> FINISHED: /myflow-fast (merge+push route)
+    [*] --> STARTED: /flow (kickoff)
+    STARTED --> STARTED: /flow (resume before implementation)
+    STARTED --> IN_PROGRESS: /flow (same invocation, into implementation)
+    IN_PROGRESS --> IN_PROGRESS: /flow (fix — argument present, never moves the state)
+    IN_PROGRESS --> IN_PROGRESS: /flow (bare — integrate, open PR or manual route)
+    IN_PROGRESS --> FINISHED: /flow (bare — integrate, merge+push route, chained into archive)
     FINISHED --> [*]
 ```
 
 ### Level 1 — the stages of each command
 
-Two tables. The first is the stage vocabulary itself — every documented stage, across the five
-commands this pipeline has (three pipeline commands, one composite command, one read-only, exactly
+Two tables. The first is the stage vocabulary itself — every documented stage, across the
+commands this pipeline has (three pipeline commands, one composite command, and `/flow` — the
+single command that replaces all four — plus two read-only/no-state commands, exactly
 as **Command surface** (`skills/myflow-contracts/pipeline.md`) names them). The second is the human
 gate that *follows* each command's run — a property of the state the command ends in, never a stage
 of its own, so it is kept out of the first table rather than repeated per stage.
@@ -105,69 +104,70 @@ human-readable **name** that may be reworded without splitting recorded history,
 that runs it. A name marked ▸ hides substructure and is expanded at level 2 below.
 
 A key is namespaced by the command that *defines* the stage, never by the command that merely runs
-it. `/myflow-fast` chains `/myflow-start`, `/myflow-do` and `/myflow-finish` without minting a
-single stage name of its own: its allowed stage set is the **union** of the three, expressed here by
-listing `/myflow-fast` in the Commands column of every row those three define, so a fast run is
-directly comparable, stage for stage, against the equivalent start→do→finish sequence. See design.md
-under kan-172 for the rejected alternatives. `/myflow-status` marks no stages at all and contributes
-no rows.
+it — a distinction the previous, four-command surface needed and `/flow`, the single command left,
+does not: every row below is both defined and run by `/flow`. See design.md under kan-172 for the
+rejected alternatives to that older namespacing. `/flow-status` marks no stages at all and
+contributes no rows.
+
+`/flow` mints its own namespace, `flow.*`, rather than reusing `start.*`/`do.*`/`finish.*` — several
+of its stages are not the old stage unchanged (`flow.verify` merges two, `flow.landing-routes`
+absorbs `finish.move-in-review`, `flow.kickoff` is new), so a reused key would sometimes mean
+something different than its history records (design.md's `flow-rename-content-split`, and the
+stage-keys note in `skills/flow/SKILL.md`). Which phase file under `skills/flow/` marks each `flow.*`
+key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a column here.
 
 | Key | Name | Commands |
 |-----|------|----------|
-| `start.resolve-change` | Resolve the change | `/myflow-start`, `/myflow-fast` |
-| `start.ask-options` | Ask planning effort, models & panel roster (creating run only) | `/myflow-start`, `/myflow-fast` |
-| `start.brainstorm` | Brainstorm ▸ | `/myflow-start`, `/myflow-fast` |
-| `start.design-approval` | Design approval | `/myflow-start`, `/myflow-fast` |
-| `start.create-artifacts` | Create the OpenSpec artifacts | `/myflow-start`, `/myflow-fast` |
-| `start.writing-plans` | Writing-plans ▸ | `/myflow-start`, `/myflow-fast` |
-| `start.publish-proposal` | Publish the proposal artifact | `/myflow-start`, `/myflow-fast` |
-| `start.write-started` | Write `STARTED` | `/myflow-start`, `/myflow-fast` |
-| `do.state-gate` | State gate | `/myflow-do`, `/myflow-fast` |
-| `do.load-context` | Load context and validate the plan | `/myflow-do`, `/myflow-fast` |
-| `do.isolate-workspace` | Isolate the workspace (first run only) | `/myflow-do`, `/myflow-fast` |
-| `do.document-fix` | Document the fix (re-runs only) | `/myflow-do`, `/myflow-fast` |
-| `do.sdd-tdd` | SDD + TDD per task ▸ | `/myflow-do`, `/myflow-fast` |
-| `do.review-panel` | The review panel ▸ | `/myflow-do`, `/myflow-fast` |
-| `do.run-instructions` | Resolve the run instructions | `/myflow-do`, `/myflow-fast` |
-| `do.workspace-export` | Validate and export workspace isolation | `/myflow-do`, `/myflow-fast` |
-| `do.lint-and-test` | Run the project's lint and test commands | `/myflow-do`, `/myflow-fast` |
-| `do.stage-diff` | Stage, excluding the planning paths | `/myflow-do`, `/myflow-fast` |
-| `do.write-in-progress` | Write `IN_PROGRESS` | `/myflow-do`, `/myflow-fast` |
-| `finish.preflight` | Preflight verdict (decides run 1 vs run 2) ▸ | `/myflow-finish`, `/myflow-fast` |
-| `finish.unfinished-work-gate` | Unfinished-work gate (run 1) ▸ | `/myflow-finish`, `/myflow-fast` |
-| `finish.landing-question` | The landing question (run 1) | `/myflow-finish`, `/myflow-fast` |
-| `finish.preserve-sessions` | Preserve the session records (run 1) | `/myflow-finish`, `/myflow-fast` |
-| `finish.commit-two` | Two commits, implementation first (run 1) | `/myflow-finish`, `/myflow-fast` |
-| `finish.landing-routes` | The landing routes (run 1) ▸ | `/myflow-finish`, `/myflow-fast` |
-| `finish.write-in-progress` | Write `IN_PROGRESS` (run 1) | `/myflow-finish`, `/myflow-fast` |
-| `finish.move-in-review` | Move the issue to In Review (run 1) | `/myflow-finish`, `/myflow-fast` |
-| `finish.verify-merge` | Verify the merge (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.sync-archive` | Position the checkout, sync delta specs and archive (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.commit-archive` | Commit the archive (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.cleanup` | Cleanup (run 2) ▸ | `/myflow-finish`, `/myflow-fast` |
-| `finish.verify-cleanup` | Verify the cleanup (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.write-finished` | Write `FINISHED` (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.self-review` | Self-review (run 2) | `/myflow-finish`, `/myflow-fast` |
-| `finish.push-archive` | Push the archive branch and open its PR (run 2) | `/myflow-finish`, `/myflow-fast` |
+| `flow.kickoff` | Kickoff — write `STARTED` | `/flow` |
+| `flow.resolve-change` | Resolve the change | `/flow` |
+| `flow.brainstorm` | Brainstorm ▸ | `/flow` |
+| `flow.design-approval` | Design approval | `/flow` |
+| `flow.create-artifacts` | Create the spectre artifacts | `/flow` |
+| `flow.writing-plans` | Writing-plans ▸ | `/flow` |
+| `flow.load-context` | Load context and validate the plan | `/flow` |
+| `flow.isolate-workspace` | Isolate the workspace (first run only) | `/flow` |
+| `flow.document-fix` | Document the fix (re-runs only) | `/flow` |
+| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow` |
+| `flow.review-panel` | The review panel ▸ | `/flow` |
+| `flow.verify` | Verify: workspace isolation, lint and test | `/flow` |
+| `flow.stage-diff` | Stage, excluding the planning paths | `/flow` |
+| `flow.run-instructions` | Resolve the run instructions | `/flow` |
+| `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow` |
+| `flow.preflight` | Preflight verdict (decides run 1 vs run 2) ▸ | `/flow` |
+| `flow.unfinished-work-gate` | Unfinished-work gate (run 1) ▸ | `/flow` |
+| `flow.landing-question` | The landing question (run 1) | `/flow` |
+| `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow` |
+| `flow.commit-two` | Two commits, implementation first (run 1) | `/flow` |
+| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow` |
+| `flow.verify-merge` | Verify the merge (run 2) | `/flow` |
+| `flow.sync-archive` | Position the checkout and archive (run 2) | `/flow` |
+| `flow.commit-archive` | Commit the archive (run 2) | `/flow` |
+| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow` |
+| `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
+| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow` |
+| `flow.self-review` | Self-review (run 2) | `/flow` |
+| `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow` |
 
-**Gate after it.** `/myflow-finish` is one command with two runs, so its row carries both, labelled:
-the preflight verdict picks which one a given invocation performs, and the run is never a command of
-its own.
+`/flow` has no `start.ask-options`/`start.publish-proposal` equivalent (design.md's
+`ask-options-removed`, `publish-proposal-removed`) and no `finish.write-in-progress` (run 1)
+equivalent — resolved as folded away rather than kept, per design.md's open question
+`write-in-progress-fold`, since that stage wrote `IN_PROGRESS` → `IN_PROGRESS` with no state change
+of its own.
+
+**Gate after it.** `/flow` is one command with several runs — creating, resuming, fix, integrate,
+archive — so its row states the gate for each.
 
 | Command | Gate after it |
 |---------|---------------|
-| `/myflow-start` | you read the proposal artifact |
-| `/myflow-do` | you review the staged diff **and** run the apps |
-| `/myflow-finish` | after run 1, you wait for the branch to merge; after run 2, nothing — the state is terminal |
-| `/myflow-fast` | creating run or fix: you review the staged diff **and** run the apps; open PR or manual: you wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
-| `/myflow-status` | — |
+| `/flow` | creating run or fix: you review the staged diff **and** run the apps; integrate with open PR or manual: you wait for the branch to merge (or finish your manual steps); integrate with merge-and-push, chained into archive: nothing — the state is terminal |
+| `/flow-status` | — |
+| `/flow-research` | — |
 
-`/myflow-finish` run 2's sequence ends with `push-archive`; the row before it, `self-review`,
+`/flow`'s run-2 sequence ends with `flow.push-archive`. The row before it, `flow.self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
-**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9. The
-requirement to change first when that procedure changes is
-**Requirement: Self-review runs only after FINISHED is written**
-(`openspec/specs/myflow-self-review/spec.md`).
+**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9 — which is
+also the file to change when that procedure changes, since the requirements layer that once sat
+above it is frozen with the rest of the `openspec/` tree at the spectre cutover.
 
 ### Level 2 — the stages that hide substructure
 
@@ -178,9 +178,9 @@ copied here is a copy that can go wrong silently the next time the owning file c
 #### Brainstorm — `/myflow-start`
 
 superpowers:brainstorming runs its checklist in full and ends with the operator approving the
-design, which is a hard gate: nothing is created under `openspec/changes/` until that approval
+design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
 lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
-change's OpenSpec design artifact — adapted, never duplicated into a conflicting second design.
+change's `design.md` artifact — adapted, never duplicated into a conflicting second design.
 
 The stage iterates rather than passing once. After every planning-stage exchange — a round of
 clarifying questions, the approval of a design section, the operator's review of the written spec —
@@ -189,7 +189,7 @@ while it does, another round opens or is offered. The stage closes only the way 
 does — **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`).
 
 The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
-both honest are **Convergence** (`skills/myflow-start/SKILL.md`).
+both honest are **Convergence** (`skills/flow/brainstorm.md`).
 
 The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
 gate itself. The three levels and which of them is the default are owned by **Planning effort**
@@ -229,8 +229,10 @@ Which model a dispatch runs on, and the rule that every dispatch records it, are
 
 A change records one of three review panel rosters — `light` *(default)*, `standard` or `full` — and
 every preset dispatches exactly three required slots, whichever is recorded; `full` reproduces the
-roster in force before presets existed. What each preset means, and the roster table itself, are
-canonical under **5. The review panel** (`skills/myflow-do/SKILL.md`). Four
+roster in force before presets existed. This preset/roster system was later retired in favor of a
+fixed 3-slot panel — see **The review panel — `/flow`** below and design.md's
+`review-panel-fixed-3`; **The three required slots** and **The two on-demand slots**
+(`skills/flow/review-panel.md`) are canonical for the panel's current shape. Four
 further slots stay conditional under every preset — Security, Adversarial and the two extra principle
 lenses, B for simplicity and state, C for robustness and ops — selected from what the diff touches. Each
 selected slot is a **separate** subagent with its own prompt, in every affected worktree; two slots are
@@ -248,7 +250,8 @@ a finding survives its last fix round the run hands back to the operator, one fi
 with named options.
 
 The tuned values are cited rather than copied: which diff sizes and which touched areas select a
-conditional slot is **Optional slot selection** in `skills/myflow-do/SKILL.md`; the conditions that
+conditional slot was **Optional slot selection** in the retired `myflow-do/SKILL.md` — replaced by
+**The two on-demand slots**, now explicit-only (`skills/flow/review-panel.md`); the conditions that
 force a full re-run in place of a targeted one are **Panel re-runs** in the same file.
 
 #### The preflight verdict — `/myflow-finish`
@@ -312,6 +315,82 @@ What is removed, when, and on what condition is **Temporary artifacts registry**
 (`skills/myflow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
 the rows it removes is **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
 
+#### Brainstorm — `/flow`
+
+superpowers:brainstorming runs its checklist in full and ends with the operator approving the
+design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
+lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
+change's `design.md` artifact — adapted, never duplicated into a conflicting second design. Before
+the checklist opens, the stage checks `docs/superpowers/research/` for a staged note matching this
+topic (per `/flow-research`'s staging behaviour below) and, if found, seeds the round from it
+without ever skipping straight to artifact-writing (design.md's `flow-research-staging`).
+
+The stage iterates rather than passing once, the same way `/myflow-start`'s does — see
+**Convergence** (`skills/flow/brainstorm.md`) for the threshold, the two prompts, and the bounded
+exception, which apply unchanged.
+
+No planning-effort, model, or review-panel-roster question runs on a creating run — the three
+questions design.md's `ask-options-removed` retired. The panel is fixed at 3 required slots on every
+run instead; see **The review panel** below.
+
+#### Writing-plans — `/flow`
+
+superpowers:writing-plans enriches `tasks.md` the same way it does for `/myflow-start` — see
+**Writing-plans — `/myflow-start`** above for the provenance-tag rule, which applies unchanged.
+`/flow` publishes no proposal artifact (design.md's `publish-proposal-removed`), so a revision round
+re-enters at this stage without republishing anything.
+
+#### SDD + TDD per task — `/flow`
+
+Same dispatch shape as `/myflow-do`'s — see **SDD + TDD per task — `/myflow-do`** above. Which model
+a dispatch runs on is **Model resolution** in `skills/flow/SKILL.md` — one default for implementer,
+panel, and panel-fix roles, read from the settings store rather than asked per change (design.md's
+`model-default-sonnet`, `settings-scope`); the per-harness enforcement notes in **Model policy**
+(`skills/myflow-contracts/model-policy.md`) still apply, but that file's three-role table does not.
+
+#### The review panel — `/flow`
+
+Every run dispatches exactly **3 required slots**, unconditionally — Primary, Principles (merged
+lens), and Code review (low) — no roster, no preset, no diff-size or touched-area trigger
+(design.md's `review-panel-fixed-3`). Two further slots, Bugbot and Security, are **on-demand only**:
+included solely when the operator explicitly names one, checked at the start of the panel stage and
+again at every fix round — never by an automatic trigger. Each included slot is a **separate**
+subagent with its own prompt, in every affected worktree; two slots are never merged into one. The
+slot table itself is canonical under **The three required slots** and **The two on-demand slots**
+(`skills/flow/review-panel.md`).
+
+Every slot runs on `DEFAULT_MODEL` — the settings-store default, or this run's session-instruction
+override — except the two dispatched by `subagent_type`. Bugbot and Security Review carry their own
+agent definitions and take no model override. There is no parent-model inheritance and no economy
+tier: the panel's cost does not depend on the model the operator happens to be running.
+
+No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
+critical one does. A fix round re-checks for an explicit Bugbot/Security instruction before it
+dispatches; when a finding survives its last fix round the run hands back to the operator, one
+finding at a time, with named options.
+
+#### The preflight verdict — `/flow` integrate
+
+Same `scripts/check-finish-preflight.sh` decision `/myflow-finish` uses — see **The preflight
+verdict — `/myflow-finish`** above, which applies unchanged.
+
+#### The unfinished-work gate — `/flow` integrate, run 1
+
+Same `scripts/check-unfinished-work.sh` gate `/myflow-finish` run 1 uses — see **The unfinished-work
+gate — `/myflow-finish` run 1** above, which applies unchanged except that "hands back to
+`/myflow-do` inline" reads as "hands back to the implement phase inline."
+
+#### The landing routes — `/flow` integrate, run 1
+
+Same three routes `/myflow-finish` run 1 offers — see **The landing routes — `/myflow-finish` run
+1** above — except that moving the linked issue to In Review is folded into this stage as an
+unconditional sub-step rather than a row of its own (design.md's `move-in-review-fold`).
+
+#### Cleanup — `/flow` archive, run 2
+
+Same re-entrant remove-or-move-if-present cleanup `/myflow-finish` run 2 uses — see **Cleanup —
+`/myflow-finish` run 2** above, which applies unchanged.
+
 ---
 
 ## Installation
@@ -337,14 +416,19 @@ symlinks and need no re-run.
 | Target | What lands there |
 |--------|------------------|
 | `~/.claude/skills/` | every directory in `skills/` (one symlink per skill) |
-| `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/myflow-*` commands through these |
-| `~/.claude/commands/` | every file in `commands-claude/` — the `/myflow-*` Claude Code commands |
-| `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*` and `/opsx:*` Cursor commands |
+| `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/myflow-*`/`/flow*` commands through these |
+| `~/.claude/commands/` | every file in `commands-claude/` — the `/myflow-*`/`/flow*` Claude Code commands |
+| `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*`/`/flow*` Cursor commands |
 | `~/.cursor/rules/` | whichever rules declare `alwaysApply: true` in their frontmatter, and only those |
 | `~/.claude/rules/` | the same always-on rules, symlinked as `<name>.md` — their **full text**, which the managed block's `Full rule:` pointers name. Plus `agent-baseline.md`, the file a dispatched subagent is told to read |
 | `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
 | `~/.claude/CLAUDE.md` | a managed block, delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, containing each always-on rule's **core** and a pointer to its full text — Claude Code's global rule layer |
 | `~/.codex/AGENTS.md` | the **same** managed block, same delimiters, same rendered text — Codex's global rule layer. A global install writes this file even if you never ran a Codex-specific install |
+
+Both the `skills/` and `commands*/` install steps discover their targets by walking the tree —
+`skills/*/` and `commands*/*.md` — rather than from a fixed list, so a new skill or command
+directory (like `flow/`, `flow-status/`, `flow-research/`, `flow-settings/`) is installed the next
+time you run `./setup.sh global` with no change to `setup.sh` itself.
 
 ### Core and full text are one source
 
@@ -482,14 +566,14 @@ Step 3 also renders any opt-in rule the project named in its `.myflow/project.md
 managed block in `CLAUDE.md` (and `AGENTS.md`), so run it **after** step 2 — the block goes
 into the file step 2 put there.
 
-Without `.claude/commands/`, `/myflow-*` typed in the CLI will fail with "Unknown command" —
-Claude Code only auto-discovers skills by their `SKILL.md` `name:` (e.g. `myflow-do`),
-not by the `/myflow-*` alias. The `commands-claude/*.md` files are thin wrappers that map the
-`/myflow-*` name to the underlying skill.
+Without `.claude/commands/`, `/flow` typed in the CLI will fail with "Unknown
+command" — Claude Code only auto-discovers skills by their `SKILL.md` `name:` (e.g. `flow`),
+not by the slash-command alias. The `commands-claude/*.md` files are thin wrappers that map the
+command name to the underlying skill.
 
 **Verify**: In a new Claude Code session, ask: *"What project skills do you have?"*
-The agent should be able to list and describe the `/myflow-*` skills, and typing `/myflow-do`
-should resolve without an "Unknown command" error.
+The agent should be able to list and describe the `flow`/`flow-status`/`flow-research`/
+`flow-settings` skills, and typing `/flow` should resolve without an "Unknown command" error.
 
 ---
 
@@ -539,7 +623,7 @@ The `setup.sh codex` form (unlike the manual loop) also renders any opt-in rule 
 named in its `.myflow/project.md` into the managed block in `AGENTS.md` and `CLAUDE.md`.
 Run it **after** step 2.
 
-**Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `myflow-start` (the `/myflow-start` equivalent); the rest of the pipeline is fine on your default.
+**Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `flow` (the `/flow` equivalent) on a creating run; the rest of the pipeline is fine on your default.
 
 ---
 
@@ -568,44 +652,44 @@ If Superpowers is **not** installed, the agent can still use the project skills
 by reading the `SKILL.md` file directly:
 
 ```
-Read file: .claude/skills/myflow-start/SKILL.md
+Read file: .claude/skills/flow/SKILL.md
 (follow the instructions in that file)
 ```
 
-The `/myflow-*` skills internally reference Superpowers skills (brainstorming, TDD, etc.).
-Without Superpowers those general skills won't auto-trigger, so the overall workflow is
-degraded but the OpenSpec-specific steps still work.
+The `flow` skill (and the retiring `myflow-*` skills) internally reference Superpowers skills
+(brainstorming, TDD, etc.). Without Superpowers those general skills won't auto-trigger, so the
+overall workflow is degraded but the spectre-specific steps still work.
 
 ---
 
-## /myflow commands reference
+## /flow commands reference
 
 `<name>` is **optional** on every command below — if omitted, the sole active (non-archived) change relevant to that state is used automatically; if there are multiple, you're asked which.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** See "Model policy" in `skills/myflow-contracts/model-policy.md`.
+**Model:** `/flow` reads its model from `skills/flow/SKILL.md`'s own **Model resolution**; see "Model policy" in `skills/myflow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|
-| `/myflow-start <name>` | `myflow-start` | Turns an idea into an approved plan: brainstorming behind a design-approval gate, the OpenSpec artifacts, and a published proposal artifact. Ends at `STARTED`; re-run to revise, republishing to the **same** URL. |
-| *(gate)* | You | Read the proposal artifact |
-| `/myflow-do <name>` | `myflow-do` | Implements that plan under SDD + TDD behind the **review panel**, sized by the recorded `reviewPanelRoster` — `light` *(default)*, `standard` or `full`, each dispatching exactly three required slots, with Security, Adversarial and extra lenses staying conditional under every preset — which hands off only at **zero open findings at any severity**. Ends at `IN_PROGRESS`; re-run to fix, which never moves the state. |
-| *(gate)* | You | Review the staged diff **and** run the apps |
-| `/myflow-finish <name>` | `myflow-finish` | Integrates the branch on its first run — after checking each worktree for unfinished work, it asks how to land it: open a PR (default), merge and push, or handle it manually — and, on its second run once the branch has merged, archives the change and removes what the pipeline created. Runs no tests, linters or coverage check. |
-| `/myflow-fast <name>` | `myflow-fast` | Composite command: chains `/myflow-start`'s brainstorming (fully interactive, unchanged) directly into `/myflow-do`'s implementation and review panel with no gate in between, and chains `/myflow-finish`'s run 1 into run 2 when the chosen landing route is merge and push. Accepts no state (creates the change) or `IN_PROGRESS` — an argument at `IN_PROGRESS` is fix instructions, a bare invocation asks how to land the branch. Publishes no proposal artifact. A creating or fix run ends at `IN_PROGRESS` — a fix leaves the state unchanged; a bare invocation ends at `IN_PROGRESS` or `FINISHED`, depending on the route chosen. Re-run to fix or to integrate. |
-| `/myflow-status [name]` | `myflow-status` | Read-only state report for open changes |
-| `/opsx:explore` | `openspec-explore` | Thinking-partner mode — no implementation, no state |
+| `/flow <name>` | `flow` | Single-command pipeline. No state: creates the change, writes `STARTED`, and — same invocation — runs brainstorming (unchanged, fully interactive) then implementation behind the fixed 3-slot review panel, ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question and publishes no proposal artifact. `IN_PROGRESS` with an argument: fix run, state unchanged. `IN_PROGRESS` bare: asks how to land the branch — open PR (default), merge and push, or manual — then, on merge-and-push, continues in the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. Runs no tests, linters or coverage check outside implementation's own verify stage. |
+| *(gate)* | You | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
+| `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
+| `/flow-research` | `flow-research` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/superpowers/research/` for `/flow`'s brainstorming to seed from |
+| `/flow-settings` | `flow-settings` | Reads/writes the global model and reviewer defaults every `/flow` run reads from |
 
 Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
 each — are stated once under
 **Level 1 — the stages of each command** (`README.md`) above and are deliberately not repeated
 here — one ordered list rather than two competing ones in the same file.
 
-The branch's merge status alone decides which `/myflow-finish` run happens, so a PR you merged on
-the forge and a merge it performed itself are indistinguishable to it — which is correct.
+The branch's merge status alone decides which run `/flow`'s integrate/archive phase performs, so a
+PR you merged on the forge and a merge it performed itself are indistinguishable to it — which is
+correct.
 
-All skills require the `openspec` CLI (`npm install -g openspec` or check project README).
+Every skill above but `flow-research` requires the `spectre` CLI
+(`go install github.com/tweety53/spectre/cmd/spectre@latest`, with `$(go env GOPATH)/bin` on your
+`PATH`). `flow-research` needs none — reading a spectre tree is reading markdown.
 
 ---
 
@@ -615,7 +699,7 @@ All skills require the `openspec` CLI (`npm install -g openspec` or check projec
 
 ```bash
 cd /path/to/agents-data
-$EDITOR skills/myflow-do/SKILL.md   # or any rule / command / skill
+$EDITOR skills/flow/SKILL.md   # or any rule / command / skill
 ./setup.sh global
 ```
 

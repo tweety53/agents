@@ -3,13 +3,13 @@
 # planning context into a single bundle, so every dispatch in a /myflow-do
 # stage (each panel slot, each implementer, each fix subagent) is given
 # demonstrably identical inputs instead of separately locating and reading
-# proposal.md, design.md, tasks.md, the delta specs and the engineering
-# principles on its own.
+# proposal.md, design.md, tasks.md and the engineering principles on its
+# own.
 #
 # Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path>
 #
 # <worktree> and <change-root> are absolute paths; <change-root> is expected
-# to sit under <worktree> (openspec/changes/<name>/, but this script does not
+# to sit under <worktree> (spectre/changes/<name>/, but this script does not
 # assume that literal shape — it only requires containment). <principles-path>
 # is the absolute path of engineering-principles.md, resolved by the CALLER
 # (skills/myflow-do/SKILL.md's own [PRINCIPLES_PATH] rule) and never derived
@@ -23,21 +23,33 @@
 # whose leaf resolves outside <change-root> (see LEAF VALIDATION below), one
 # "skipped: <src> (absent)" line per missing source; then each found source
 # under its own "## " heading, in this fixed order: proposal.md, design.md,
-# tasks.md, every <change-root>/specs/*/spec.md, then the principles file.
+# tasks.md, then the principles file.
+#
+# THERE IS NO SPEC SOURCE, AND ADDING ONE BACK WOULD BE A MISTAKE. This
+# script used to also carry every <change-root>/specs/*/spec.md — the
+# OpenSpec delta specs. Under spectre a change has no specs/ subdirectory at
+# all: spec edits go straight into <project>/spectre/specs/<capability>.md on
+# the change's own branch, so there was nothing left for that glob to find
+# and it reported "skipped: specs/*/spec.md (absent)" on every run of every
+# change. The capability specs themselves are NOT bundled in its place —
+# which ones a change touches is a judgement from its proposal, and this
+# script is deterministic collection, not judgement; skills/myflow-do/SKILL.md
+# names them for the reader instead.
 #
 # `## standards` entries are NEVER read or carried here — the spec's own
 # Requirement forbids it: they resolve through the entry-form table and
 # containment rule in skills/myflow-contracts/project-configuration.md,
 # belong to the principles slot alone, and re-implementing that containment
 # logic here would duplicate the contract it depends on. This script globs
-# nothing under <change-root>/specs/ except "*/spec.md", so any other file
-# placed there (a standards file, a stray note) never reaches the bundle.
+# nothing anywhere under <change-root>: it reads three leaves by exact name,
+# so any other file placed there (a standards file, a stray note) never
+# reaches the bundle.
 #
 # Exit 2 on a malformed invocation: a missing argument, a change name outside
 # the allowlist below, or any of the three paths failing validation (see
 # below). Exit 0 in every other case, including every missing source — a
-# change may legitimately carry no design.md, no delta specs at all, and
-# this script performs no judgement about that.
+# change may legitimately carry no design.md, and this script performs no
+# judgement about that.
 #
 # VALIDATION. Modelled on scripts/gather-self-review-context.sh's own
 # mechanism — read that script's header before touching this one. Each of
@@ -77,8 +89,8 @@
 # gather-self-review-context.sh: one leading alphanumeric, then letters,
 # digits, '.', '_' and '-'.
 #
-# LEAF VALIDATION. The five CONTENT sources (proposal.md, design.md,
-# tasks.md and every specs/*/spec.md) are never passed as arguments, so the
+# LEAF VALIDATION. The three CONTENT sources (proposal.md, design.md and
+# tasks.md) are never passed as arguments, so the
 # exit-2 VALIDATION above does not apply to them — a change legitimately
 # carries no design.md, and a symlinked leaf must not abort a whole
 # dispatching stage the way a malformed invocation does. Each is instead
@@ -236,7 +248,6 @@ PRINCIPLES_REAL="$VALIDATE_REAL"
 PROPOSAL_FILE="$CHANGE_ROOT_REAL/proposal.md"
 DESIGN_FILE="$CHANGE_ROOT_REAL/design.md"
 TASKS_FILE="$CHANGE_ROOT_REAL/tasks.md"
-SPECS_DIR="$CHANGE_ROOT_REAL/specs"
 
 FOUND_LABELS=()
 FOUND_PATHS=()
@@ -257,7 +268,7 @@ REFUSED_LABELS=()
 REFUSED_REASONS=()
 
 # add_fixed_source <path> <label> — unlike <worktree>/<change-root>/
-# <principles-path> above, these five content sources are never passed as
+# <principles-path> above, these three content sources are never passed as
 # arguments, so validate_path()'s exit-2-on-mismatch contract does not apply
 # to them: a change legitimately carries no design.md, and "this leaf is a
 # symlink" must not abort a whole dispatching stage. Instead this mirrors
@@ -298,30 +309,6 @@ add_fixed_source() {
 add_fixed_source "$PROPOSAL_FILE" "proposal.md"
 add_fixed_source "$DESIGN_FILE" "design.md"
 add_fixed_source "$TASKS_FILE" "tasks.md"
-
-# Every <change-root>/specs/*/spec.md, sorted — the ONLY glob this script
-# runs under specs/. A `## standards` file or anything else placed there
-# never matches "spec.md" and never reaches the bundle. `find` (no `-L`)
-# lists a symlinked spec.md as itself, never following it during traversal,
-# so a symlinked leaf is still discovered here and then goes through the
-# same add_fixed_source() boundary check as the three fixed sources above.
-SPEC_FILES=()
-if [ -d "$SPECS_DIR" ]; then
-  while IFS= read -r f; do
-    [ -n "$f" ] && SPEC_FILES+=("$f")
-  done < <(find "$SPECS_DIR" -mindepth 2 -maxdepth 2 -name 'spec.md' 2>/dev/null | sort)
-fi
-if [ "${#SPEC_FILES[@]}" -eq 0 ]; then
-  SKIPPED_LABELS+=("specs/*/spec.md")
-else
-  i=0
-  while [ "$i" -lt "${#SPEC_FILES[@]}" ]; do
-    f="${SPEC_FILES[$i]}"
-    rel="${f#"$CHANGE_ROOT_REAL"/}"
-    add_fixed_source "$f" "$rel"
-    i=$((i + 1))
-  done
-fi
 
 if [ -n "$PRINCIPLES_REAL" ] && [ -f "$PRINCIPLES_REAL" ]; then
   FOUND_LABELS+=("$PRINCIPLES_PATH")

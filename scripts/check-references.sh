@@ -434,7 +434,7 @@ check_file() {
         continue
       fi
       # A path that resolves to nothing is out of scope: templated paths like
-      # openspec/changes/<name>/tasks.md are legitimate and must not fail the guard.
+      # spectre/changes/<name>/tasks.md are legitimate and must not fail the guard.
       [ -n "$resolved" ] || continue
 
       local heads matched token
@@ -522,15 +522,19 @@ EOF
 #   same bold span as its citing verb (the command-dispatch-stub shape), or
 #   with no bold nearby at all.
 EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
+  "commands-claude/flow-research.md"
+  "commands-claude/flow-settings.md"
+  "commands-claude/flow-status.md"
+  "commands-claude/flow.md"
   "commands-claude/myflow-do.md"
   "commands-claude/myflow-fast.md"
   "commands-claude/myflow-start.md"
-  "commands-claude/myflow-status.md"
+  "commands/flow-research.md"
+  "commands/flow-settings.md"
+  "commands/flow-status.md"
   "commands/myflow-do.md"
   "commands/myflow-fast.md"
   "commands/myflow-start.md"
-  "commands/myflow-status.md"
-  "commands/opsx-explore.md"
 )
 EXPECTED_ZERO_COMMAND_DISPATCH_REASON="command-dispatch stub — every path it cites sits inside the SAME bold span as the verb citing it (e.g. \"**load \`path\` first**\"); looks_like_section rejects any bold span containing '/', so no candidate section name ever forms adjacent to the path"
 
@@ -557,6 +561,8 @@ EXPECTED_ZERO_CONTRACT_DOCS=(
 EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path"
 
 EXPECTED_ZERO_REVIEWER_PROMPTS=(
+  "skills/flow/engineering-principles.md"
+  "skills/flow/security-reviewer-prompt.md"
   "skills/myflow-do/adversarial-reviewer-prompt.md"
   "skills/myflow-do/bug-hunter-reviewer-prompt.md"
   "skills/myflow-do/engineering-principles.md"
@@ -566,10 +572,10 @@ EXPECTED_ZERO_REVIEWER_PROMPTS=(
 EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name"
 
 EXPECTED_ZERO_RATIONALE_DOCS=(
+  "skills/flow-research/SKILL.md"
   "skills/myflow-contracts/git-boundaries-rationale.md"
   "skills/myflow-contracts/worktree-resolution-rationale.md"
   "skills/myflow-fast/SKILL-rationale.md"
-  "skills/openspec-explore/SKILL.md"
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"
 

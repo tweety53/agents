@@ -26,10 +26,15 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
 | Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |
-| Change directory | `/myflow-start` | `<project>/openspec/changes/<name>/` | moved to the archive, never deleted |
+| Change directory | `/myflow-start` | `<project>/spectre/changes/<name>/` | moved to the archive, never deleted |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |
+
+**A change's spec edits are not an artifact and carry no row.** `/myflow-do`'s implementer writes
+them directly into `<project>/spectre/specs/<capability>.md` on the change's branch, in the task
+commit that implements the requirement, where they are ordinary source: the merge lands them and
+there is nothing temporary to remove.
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it. **Worktree cleanup**

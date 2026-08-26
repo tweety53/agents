@@ -35,8 +35,8 @@ run_guard() {
 
 new_fixture() {
   FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-test.XXXXXX")"
-  mkdir -p "$FIXTURE/openspec/changes/demo-change" \
-    "$FIXTURE/openspec/changes/archive/old-change" \
+  mkdir -p "$FIXTURE/spectre/changes/demo-change" \
+    "$FIXTURE/spectre/changes/archive/old-change" \
     "$FIXTURE/skills/foo"
 }
 
@@ -51,7 +51,7 @@ new_fixture
   printf '```bash verified:ran it locally\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "verified: block passes" || fail "verified: block: rc=$RC out=$OUT"
 
@@ -61,7 +61,7 @@ new_fixture
   printf '```bash unverified:confirm the flag name\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "unverified: block passes" || fail "unverified: block: rc=$RC out=$OUT"
 
@@ -78,11 +78,11 @@ new_fixture
   printf '```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "untagged block fails" || fail "untagged block: expected non-zero"
 case "$OUT" in
-  *"openspec/changes/demo-change/tasks.md:2"*) pass "untagged block reports file:line" ;;
+  *"spectre/changes/demo-change/tasks.md:2"*) pass "untagged block reports file:line" ;;
   *) fail "untagged block file:line: out=$OUT" ;;
 esac
 
@@ -97,17 +97,17 @@ new_fixture
 {
   printf 'Baseline: 197 tests\n'
   printf '<!-- measured: ./gradlew test @ c515c42 -->\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "measured: comment satisfies numeric claim" || fail "measured: out=$OUT"
 
 # 5. A numeric claim with no provenance comment fails.
 new_fixture
-printf 'Baseline: 197 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Baseline: 197 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "unattributed numeric claim fails" || fail "unattributed numeric claim: expected non-zero"
 case "$OUT" in
-  *"openspec/changes/demo-change/tasks.md:1"*) pass "unattributed claim reports file:line" ;;
+  *"spectre/changes/demo-change/tasks.md:1"*) pass "unattributed claim reports file:line" ;;
   *) fail "unattributed claim file:line: out=$OUT" ;;
 esac
 
@@ -116,7 +116,7 @@ new_fixture
 {
   printf 'After the deletion: 186 tests\n'
   printf '<!-- predicted: ./gradlew test after task 1 -->\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "predicted: comment satisfies numeric claim" || fail "predicted: out=$OUT"
 
@@ -126,7 +126,7 @@ run_guard "$FIXTURE"
 # false rc=2.
 clean_tasks_md() {
   printf '```bash verified:ran it locally\necho hi\n```\n' \
-    > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+    > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 }
 
 # ===========================================================================
@@ -134,14 +134,14 @@ clean_tasks_md() {
 # (resumes at case 17 with the "zero non-archived changes" steady state)
 # ===========================================================================
 
-# 7. An untagged block under openspec/changes/archive/ is not scanned.
+# 7. An untagged block under spectre/changes/archive/ is not scanned.
 new_fixture
 clean_tasks_md
 {
   printf '```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/archive/old-change/tasks.md"
+} > "$FIXTURE/spectre/changes/archive/old-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "archived tasks.md is not scanned" || fail "archive: out=$OUT"
 
@@ -152,7 +152,7 @@ clean_tasks_md
   printf '```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/proposal.md"
+} > "$FIXTURE/spectre/changes/demo-change/proposal.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "proposal.md is in scope" || fail "proposal.md: rc=$RC out=$OUT"
 
@@ -183,7 +183,7 @@ new_fixture
   printf 'override val toolWindowIds: Array<String>\n'
   printf '```\n'
   printf '````\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "4-backtick block containing a 3-backtick block passes" \
   || fail "nested fence: rc=$RC out=$OUT"
@@ -203,7 +203,7 @@ new_fixture
   printf 'Error reported at line 452.\n'
   printf 'Tracked as IU-262 and KAN-14.\n'
   printf 'Upgrade to version 2.1.0 of the library.\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "step/line/ticket/version numbers do not over-fire" \
   || fail "over-firing: rc=$RC out=$OUT"
@@ -217,28 +217,28 @@ run_guard "$FIXTURE"
 # case 11 above.
 new_fixture
 printf 'We migrated 10 filesystems last week.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'10 filesystems' does not match 'files' as a prefix" \
   || fail "files-prefix over-fire: rc=$RC out=$OUT"
 
 new_fixture
 printf 'It took 5 minuteswalk to get there.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'5 minuteswalk' does not match 'minutes' as a prefix" \
   || fail "minutes-prefix over-fire: rc=$RC out=$OUT"
 
 new_fixture
 printf 'Found 10 errorsome behaviors.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'10 errorsome' does not match 'errors' as a prefix" \
   || fail "errors-prefix over-fire: rc=$RC out=$OUT"
 
 new_fixture
 printf 'The batch processed 20 testsuite runs overnight.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'20 testsuite' does not match 'tests' as a prefix" \
   || fail "tests-prefix over-fire: rc=$RC out=$OUT"
@@ -251,7 +251,7 @@ new_fixture
   printf 'Baseline: 197 tests\n'
   printf 'a blank note line\n'
   printf '<!-- measured: ./gradlew test @ c515c42 -->\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a provenance comment 2 lines after the claim satisfies it" \
   || fail "2-lines-away: rc=$RC out=$OUT"
@@ -262,14 +262,14 @@ new_fixture
   printf 'a blank note line\n'
   printf 'another blank note line\n'
   printf '<!-- measured: ./gradlew test @ c515c42 -->\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a provenance comment 3 lines after the claim does not satisfy it" \
   || fail "3-lines-away: expected non-zero, out=$OUT"
 
 # ===========================================================================
 # SECTION: Exit codes — environment (exit 2)
-# (resumes at case 18 with a missing openspec/changes/)
+# (resumes at case 18 with a missing spectre/changes/)
 # ===========================================================================
 
 # 12. A root that is not a directory exits non-zero with an error, never a
@@ -281,18 +281,18 @@ set -e
 [ "$RC" -eq 2 ] && pass "a nonexistent CHECK_PLAN_PROVENANCE_ROOT exits 2" \
   || fail "nonexistent root: rc=$RC out=$OUT"
 
-# 13. A tree with an openspec/changes/ directory but zero matching tasks.md
+# 13. A tree with an spectre/changes/ directory but zero matching tasks.md
 # (e.g. one sitting at the wrong depth) must never report a clean run — a
 # false "0 files, all provenance stated, exit 0" would mask a broken find
 # glob or a misconfigured root exactly the way check-references.sh's own
 # "no Markdown files found" refusal exists to prevent.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/demo-change/nested"
+mkdir -p "$FIXTURE/spectre/changes/demo-change/nested"
 {
   printf '```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/nested/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/nested/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "zero matching tasks.md refuses to report a clean run" \
   || fail "zero scanned: rc=$RC out=$OUT"
@@ -312,7 +312,7 @@ new_fixture
   printf '  ```bash\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "an indented untagged fence is detected" \
   || fail "indented fence: expected non-zero, out=$OUT"
@@ -329,7 +329,7 @@ new_fixture
   printf '  ```bash verified:ran it locally\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an indented tagged fence passes" \
   || fail "indented tagged fence: rc=$RC out=$OUT"
@@ -346,7 +346,7 @@ new_fixture
 {
   printf 'Baseline: 197 tests\n'
   printf '<!-- not actually measured: just a guess -->\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "'not actually measured:' does not satisfy provenance" \
   || fail "negated measured: expected non-zero, out=$OUT"
@@ -355,7 +355,7 @@ new_fixture
 {
   printf 'Baseline: 197 tests\n'
   printf '<!-- unmeasured: revisit -->\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "'unmeasured:' does not satisfy provenance" \
   || fail "unmeasured: expected non-zero, out=$OUT"
@@ -365,21 +365,21 @@ run_guard "$FIXTURE"
 # must not over-fire.
 new_fixture
 printf 'Run sha256 tests to confirm the binary.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'sha256 tests' does not over-fire" \
   || fail "sha256 over-fire: rc=$RC out=$OUT"
 
 new_fixture
 printf 'Normalize utf8 lines before comparing.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'utf8 lines' does not over-fire" \
   || fail "utf8 over-fire: rc=$RC out=$OUT"
 
 new_fixture
 printf 'Track ticket KAN256 for the follow-up.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'KAN256' (no unit word) does not over-fire" \
   || fail "KAN256 over-fire: rc=$RC out=$OUT"
@@ -388,7 +388,7 @@ run_guard "$FIXTURE"
 # left-boundary fix must not turn CLAIM_RE toothless.
 new_fixture
 printf 'It found 256 failures overnight.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a genuine boundary-satisfying numeric claim still fires" \
   || fail "genuine claim: expected non-zero, out=$OUT"
@@ -397,22 +397,22 @@ run_guard "$FIXTURE"
 # SECTION: Scope (cont'd) — "nothing in flight" steady state
 # ===========================================================================
 
-# 17. Zero non-archived changes under an existing openspec/changes/ is this
+# 17. Zero non-archived changes under an existing spectre/changes/ is this
 # repository's ordinary steady state between /myflow-finish and the next
 # /myflow-start, and must exit 0 — not the exit-2 "cannot determine" refusal
 # reserved for a missing/unreadable changes directory.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "zero non-archived changes exits 0 (nothing in flight)" \
   || fail "zero non-archived changes: rc=$RC out=$OUT"
 
-# 17b. Same shape, but openspec/changes/ holds only the archive/ directory —
+# 17b. Same shape, but spectre/changes/ holds only the archive/ directory —
 # still zero non-archived changes, still exit 0.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/archive/old-change"
-printf '```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/archive/old-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/archive/old-change"
+printf '```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/archive/old-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "only archive/ present still exits 0" \
   || fail "only-archive: rc=$RC out=$OUT"
@@ -421,12 +421,12 @@ run_guard "$FIXTURE"
 # SECTION: Exit codes (cont'd) — environment (exit 2)
 # ===========================================================================
 
-# 18. Missing openspec/changes/ entirely is still "cannot determine" — exit 2
+# 18. Missing spectre/changes/ entirely is still "cannot determine" — exit 2
 # — distinct from case 17/17b above.
 new_fixture
-rm -rf "$FIXTURE/openspec"
+rm -rf "$FIXTURE/spectre"
 run_guard "$FIXTURE"
-[ "$RC" -eq 2 ] && pass "missing openspec/changes/ exits 2 (cannot determine)" \
+[ "$RC" -eq 2 ] && pass "missing spectre/changes/ exits 2 (cannot determine)" \
   || fail "missing changes dir: rc=$RC out=$OUT"
 
 # ===========================================================================
@@ -439,8 +439,8 @@ run_guard "$FIXTURE"
 new_fixture
 mkdir -p "$FIXTURE/real-changes/evil-change"
 printf '```bash\necho hi\n```\n' > "$FIXTURE/real-changes/evil-change/tasks.md"
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-ln -s "$FIXTURE/real-changes/evil-change" "$FIXTURE/openspec/changes/evil-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+ln -s "$FIXTURE/real-changes/evil-change" "$FIXTURE/spectre/changes/evil-change"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a symlinked change directory is not bypassed" \
   || fail "symlinked change dir bypass: expected non-zero, out=$OUT"
@@ -449,7 +449,7 @@ run_guard "$FIXTURE"
 # than opened directly — an out-of-tree read at best, an unbounded-read hang
 # at worst (a symlink to /dev/zero never yields EOF).
 new_fixture
-ln -sf /dev/zero "$FIXTURE/openspec/changes/demo-change/tasks.md"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "a symlinked tasks.md is refused, not opened (exit 3, containment)" \
   || fail "symlinked tasks.md: rc=$RC out=$OUT"
@@ -465,7 +465,7 @@ new_fixture
   printf '```bash preverified:not a real tag\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "'preverified:' does not satisfy the fence-tag rule" \
   || fail "preverified: expected non-zero, out=$OUT"
@@ -484,7 +484,7 @@ new_fixture
   printf '> ```bash\n'
   printf '> rm -rf /\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a blockquoted untagged fence is detected" \
   || fail "blockquoted fence: expected non-zero, out=$OUT"
@@ -500,7 +500,7 @@ new_fixture
   printf '> ```bash verified:ran it locally\n'
   printf '> echo hi\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a blockquoted tagged fence passes" \
   || fail "blockquoted tagged fence: rc=$RC out=$OUT"
@@ -516,7 +516,7 @@ new_fixture
   printf '  echo hi\n'
   printf '  ```\n'
   printf 'Baseline: 42 tests\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a bulleted untagged fence is detected" \
   || fail "bulleted fence: expected non-zero, out=$OUT"
@@ -544,7 +544,7 @@ new_fixture
   printf -- '- - ```bash\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a doubled list marker on a fence line aborts loudly (exit 4, content-classification)" \
   || fail "doubled list marker: expected rc=4, got rc=$RC out=$OUT"
@@ -560,7 +560,7 @@ new_fixture
   printf '1. 2. ```bash\n'
   printf '   echo hi\n'
   printf '   ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a doubled ordered-list marker on a fence line aborts loudly (exit 4, content-classification)" \
   || fail "doubled ordered marker: expected rc=4, got rc=$RC out=$OUT"
@@ -581,7 +581,7 @@ new_fixture
   printf -- '-- ```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "glued '--' with no space is prose, not a doubled marker; the later bare fence is reported unclosed (rc=1)" \
   || fail "glued dashes as prose: expected rc=1, got rc=$RC out=$OUT"
@@ -606,7 +606,7 @@ new_fixture
   printf '```bash\n'
   printf 'echo second block, untagged\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "checkbox-fence regression: guard still fails the file" \
   || fail "checkbox-fence regression: expected non-zero, out=$OUT"
@@ -633,7 +633,7 @@ new_fixture
   printf -- '- [ ] ```bash\n'
   printf '      echo hi\n'
   printf '      ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "an untagged checkbox-fence is detected" \
   || fail "untagged checkbox-fence: expected non-zero, out=$OUT"
@@ -650,7 +650,7 @@ new_fixture
   printf -- '- [x] ```bash unverified:confirm the flag name\n'
   printf '      echo hi\n'
   printf '      ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a tagged checked-checkbox-fence passes" \
   || fail "checked checkbox-fence: rc=$RC out=$OUT"
@@ -665,7 +665,7 @@ new_fixture
   printf -- '> - [ ] ```bash verified:ran it locally\n'
   printf '>       echo hi\n'
   printf '>       ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a blockquoted checkbox-fence, tagged, passes" \
   || fail "blockquoted checkbox-fence: rc=$RC out=$OUT"
@@ -679,7 +679,7 @@ new_fixture
   printf -- '- > ```bash verified:ran it locally\n'
   printf '  > echo hi\n'
   printf '  > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a list-item-containing-a-blockquote fence, tagged, passes" \
   || fail "list-then-blockquote fence: rc=$RC out=$OUT"
@@ -692,7 +692,7 @@ new_fixture
   printf -- '[ ] ```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a bare checkbox with no list marker aborts loudly (exit 4, content-classification)" \
   || fail "bare checkbox: expected rc=4, got rc=$RC out=$OUT"
@@ -710,7 +710,7 @@ run_guard "$FIXTURE"
 # doubled-list-marker cases above, unaffected by this change.
 new_fixture
 printf '= ```bash``` is an assignment-like example, not a real fence.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'= \`\`\`bash\`\`\`' is read as prose, not aborted" \
   || fail "unknown prefix character as prose: rc=$RC out=$OUT"
@@ -720,7 +720,7 @@ run_guard "$FIXTURE"
 # it is never a fence-open/close candidate in the first place.
 new_fixture
 printf 'Note that ```bash``` marks a fence inline, not as a real block.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a mid-sentence mention of a fence run does not abort" \
   || fail "mid-sentence fence mention: rc=$RC out=$OUT"
@@ -734,7 +734,7 @@ new_fixture
   printf '3.4. ```bash verified:ran it locally\n'
   printf '     echo hi\n'
   printf '     ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a compound-numbered (3.4.) tagged fence passes" \
   || fail "compound-numbered tagged fence: rc=$RC out=$OUT"
@@ -746,7 +746,7 @@ new_fixture
   printf '3.4. ```bash\n'
   printf '     echo hi\n'
   printf '     ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a compound-numbered (3.4.) untagged fence is detected" \
   || fail "compound-numbered untagged fence: expected non-zero, out=$OUT"
@@ -764,7 +764,7 @@ new_fixture
   printf '1.2.3) ```bash verified:ran it locally\n'
   printf '       echo hi\n'
   printf '       ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a compound-numbered (1.2.3)) tagged fence passes" \
   || fail "1.2.3) tagged fence: rc=$RC out=$OUT"
@@ -775,7 +775,7 @@ run_guard "$FIXTURE"
 # task number ("3.4 explains how fences work below").
 new_fixture
 printf '3.4 explains how the ```bash``` fence marker works inline, not as a real block.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an unterminated compound number mentioning a fence mid-sentence does not abort" \
   || fail "unterminated compound number mid-sentence: rc=$RC out=$OUT"
@@ -792,7 +792,7 @@ new_fixture
   printf '```bash verified:closes a fresh opener, not the = line\n'
   printf 'more\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'= \`\`\`bash' is prose; the real fence below it is still parsed normally" \
   || fail "= fence as prose: rc=$RC out=$OUT"
@@ -802,7 +802,7 @@ new_fixture
   printf -- '[ ] ```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a bare checkbox with no list marker still aborts loudly (exit 4, content-classification)" \
   || fail "bare checkbox still aborts: expected rc=4, got rc=$RC out=$OUT"
@@ -815,28 +815,28 @@ run_guard "$FIXTURE"
 # fixes.
 new_fixture
 printf '`git diff` shows changes; wrap snippets in ```bash fences with a tag.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a line led by a single-backtick code span does not abort" \
   || fail "backtick-led prose: rc=$RC out=$OUT"
 
 new_fixture
 printf '"```" is the fence marker used here, see docs.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a line led by a double-quote does not abort" \
   || fail "quote-led prose: rc=$RC out=$OUT"
 
 new_fixture
 printf '(wrap snippets in ```lang blocks with a tag)\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a line led by a parenthesis does not abort" \
   || fail "paren-led prose: rc=$RC out=$OUT"
 
 new_fixture
 printf '**Note:** wrap the snippet in ```bash blocks with a tag.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a line led by bold markdown (**) does not abort" \
   || fail "bold-markdown-led prose: rc=$RC out=$OUT"
@@ -853,7 +853,7 @@ new_fixture
   printf '# See ```example``` for illustration\n'
   printf 'echo "end"\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a fence run behind punctuation as CONTENT inside an open fence does not abort" \
   || fail "content-line fence mention: rc=$RC out=$OUT"
@@ -875,7 +875,7 @@ new_fixture
   printf '%s```bash\n' "$MANY_MARKERS"
   printf 'echo hi\n'
   printf '%s```\n' "$MANY_MARKERS"
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 DOS_START=$(date +%s%N)
 run_guard "$FIXTURE"
 DOS_END=$(date +%s%N)
@@ -908,7 +908,7 @@ new_fixture
   printf '> ```\n'
   printf 'echo "ran 200 tests"\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a blockquote-shaped fence run as CONTENT inside a bare-opened fence does not falsely close it" \
   || fail "container-scoping-on-close: rc=$RC out=$OUT"
@@ -921,14 +921,14 @@ run_guard "$FIXTURE"
 # must pass cleanly, not abort.
 new_fixture
 printf -- '- Confirmed the fence style uses ```: markers, not tildes.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "bullet-prefixed prose mentioning a fence run does not abort" \
   || fail "bullet-prefixed prose: rc=$RC out=$OUT"
 
 new_fixture
 printf '> See the ``` marker used below for illustration.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "blockquote-prefixed prose mentioning a fence run does not abort" \
   || fail "blockquote-prefixed prose: rc=$RC out=$OUT"
@@ -938,7 +938,7 @@ run_guard "$FIXTURE"
 # by an abort that never should have fired in the first place.
 new_fixture
 printf -- '- 42 tests pass in the suite, see ```bash for reference\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "bullet-prefixed prose with an accompanying numeric claim is not swallowed by an abort" \
   || fail "bullet-prefixed prose + claim: expected non-zero, out=$OUT"
@@ -965,7 +965,7 @@ new_fixture
   printf '```bash verified:generated fixture\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 LARGE_START=$(date +%s%N)
 run_guard "$FIXTURE"
 LARGE_END=$(date +%s%N)
@@ -993,7 +993,7 @@ new_fixture
   printf '```\n'
   printf '> echo "ran 111 tests"\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "depth-1 fence: a bare (zero-level) line does not close it; the matching one-level line does" \
   || fail "depth-1 blockquote fence: rc=$RC out=$OUT"
@@ -1010,7 +1010,7 @@ new_fixture
   printf '> ```\n'
   printf '> > echo "ran 999 tests"\n'
   printf '> > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "depth-2 fence: a one-level-deep line does not falsely close it (the pass-6 brief repro)" \
   || fail "depth-2 blockquote fence: rc=$RC out=$OUT"
@@ -1030,7 +1030,7 @@ new_fixture
   printf '> > ```\n'
   printf '> > > echo "ran 777 tests"\n'
   printf '> > > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "depth-3 fence: neither a one-level nor a two-level line falsely closes it; the matching three-level line does" \
   || fail "depth-3 blockquote fence: rc=$RC out=$OUT"
@@ -1043,7 +1043,7 @@ new_fixture
   printf '> > ```bash\n'
   printf '> > echo hi\n'
   printf '> > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "depth-2 fence: a genuinely untagged block, correctly closed at depth 2, is still flagged" \
   || fail "depth-2 untagged fence: expected non-zero, out=$OUT"
@@ -1071,7 +1071,7 @@ new_fixture
   printf 'echo hi\n'
   printf '```\n'
   printf 'Baseline: 999 tests\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a BOM-prefixed fence opens/closes correctly; the trailing unattributed claim is reported" \
   || fail "BOM-prefixed fixture: expected non-zero, out=$OUT"
@@ -1096,7 +1096,7 @@ new_fixture
 python3 -c "
 n = 16000
 print(','.join(str(i) for i in range(1, n)) + ' widgets')
-" > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+" > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 REDOS_START=$(date +%s%N)
 run_guard "$FIXTURE"
 REDOS_END=$(date +%s%N)
@@ -1118,10 +1118,10 @@ REDOS_MS=$(( (REDOS_END - REDOS_START) / 1000000 ))
 # traceback).
 new_fixture
 printf 'Baseline: 197 tests\n<!-- measured: ./gradlew test @ c515c42 -->\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
-chmod 644 "$FIXTURE/openspec/changes/demo-change/tasks.md"
+chmod 644 "$FIXTURE/spectre/changes/demo-change/tasks.md"
 [ "$RC" -ne 1 ] && pass "chmod 000 on tasks.md exits classified (rc=$RC), never rc=1 (violations-found)" \
   || fail "chmod 000: expected rc != 1, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -1170,7 +1170,7 @@ esac
 # claim.
 new_fixture
 printf 'Baseline: 197 tests\n<!-- measured: ./gradlew test @ c515c42 -->\n\xff\xfe not valid utf-8\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "invalid UTF-8 exits 2 (same taxonomy code as the chmod-000 OSError case)" \
   || fail "invalid UTF-8: expected rc=2, got rc=$RC out=$OUT"
@@ -1190,7 +1190,7 @@ esac
 # is only ever tested against the tag pattern.
 new_fixture
 printf -- '```bash verified:ran 500 tests\necho hi\n```\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "a numeric claim in a fence's info string is reported" \
   || fail "info-string claim: expected non-zero, out=$OUT"
@@ -1209,7 +1209,7 @@ new_fixture
   printf '<!-- measured: ./gradlew test @ c515c42 -->\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an info-string claim with a measured: comment in the lookahead window passes" \
   || fail "info-string claim with provenance: rc=$RC out=$OUT"
@@ -1225,12 +1225,12 @@ run_guard "$FIXTURE"
 # silently dropped: the unattributed claim inside it must never be read as
 # "clean" simply because this guard could not look it up.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/locked-change"
-printf 'Baseline: 123 tests\n' > "$FIXTURE/openspec/changes/locked-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/locked-change"
+mkdir -p "$FIXTURE/spectre/changes/locked-change"
+printf 'Baseline: 123 tests\n' > "$FIXTURE/spectre/changes/locked-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/locked-change"
 clean_tasks_md
 run_guard "$FIXTURE"
-chmod 755 "$FIXTURE/openspec/changes/locked-change"
+chmod 755 "$FIXTURE/spectre/changes/locked-change"
 [ "$RC" -eq 2 ] && pass "a locked (chmod 000) change dir beside a clean one aborts classified, never a clean run" \
   || fail "locked dir: expected rc=2, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -1242,8 +1242,8 @@ esac
 # "nothing in flight" — that message is reserved for genuinely ZERO
 # non-archived entries, not for an entry this guard cannot classify.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-ln -s "$FIXTURE/openspec/changes/does-not-exist" "$FIXTURE/openspec/changes/dangling-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+ln -s "$FIXTURE/spectre/changes/does-not-exist" "$FIXTURE/spectre/changes/dangling-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "a dangling symlink change dir aborts classified, never 'nothing in flight'" \
   || fail "dangling symlink (alone): expected rc=2, got rc=$RC out=$OUT"
@@ -1257,7 +1257,7 @@ esac
 # entire (clean) picture.
 new_fixture
 clean_tasks_md
-ln -s "$FIXTURE/openspec/changes/does-not-exist" "$FIXTURE/openspec/changes/dangling-change"
+ln -s "$FIXTURE/spectre/changes/does-not-exist" "$FIXTURE/spectre/changes/dangling-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "a dangling symlink beside a real change aborts classified, never a clean run" \
   || fail "dangling symlink (beside real): expected rc=2, got rc=$RC out=$OUT"
@@ -1270,8 +1270,8 @@ esac
 # never silently resolve to "not a directory" and be skipped.
 new_fixture
 clean_tasks_md
-ln -s "$FIXTURE/openspec/changes/circular-a" "$FIXTURE/openspec/changes/circular-b"
-ln -s "$FIXTURE/openspec/changes/circular-b" "$FIXTURE/openspec/changes/circular-a"
+ln -s "$FIXTURE/spectre/changes/circular-a" "$FIXTURE/spectre/changes/circular-b"
+ln -s "$FIXTURE/spectre/changes/circular-b" "$FIXTURE/spectre/changes/circular-a"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "a circular symlink change dir aborts classified, never silently skipped" \
   || fail "circular symlink: expected rc=2, got rc=$RC out=$OUT"
@@ -1291,7 +1291,7 @@ esac
 # 55. 0 columns: an ordinary, correctly tagged fence still opens/closes
 # normally (non-regression baseline for the cap).
 new_fixture
-printf -- '```bash verified:ci\necho hi\n```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '```bash verified:ci\necho hi\n```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "0-column fence still opens/closes normally" \
   || fail "0-column fence: rc=$RC out=$OUT"
@@ -1299,7 +1299,7 @@ run_guard "$FIXTURE"
 # 56. 3 columns: still within CommonMark's un-contained budget — a real
 # fence, tagged, must still be recognised as one (no false claim report).
 new_fixture
-printf -- '   ```bash verified:ci\n   echo hi\n   ```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '   ```bash verified:ci\n   echo hi\n   ```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "3-column fence is still a real fence" \
   || fail "3-column fence: rc=$RC out=$OUT"
@@ -1324,7 +1324,7 @@ new_fixture
   printf '    echo hi\n'
   printf '    Suite finished: ran 500 tests.\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a 4-column bare fence-like run aborts (content-classification), not read as an indented code block" \
   || fail "4-column pseudo-fence (backtick): expected rc=4, got rc=$RC out=$OUT"
@@ -1343,7 +1343,7 @@ new_fixture
   printf '        echo hi\n'
   printf '        Suite finished: ran 777 tests.\n'
   printf '        ~~~\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "an 8-column bare fence-like run (tilde) aborts identically to the 4-column backtick case" \
   || fail "8-column pseudo-fence (tilde): expected rc=4, got rc=$RC out=$OUT"
@@ -1359,7 +1359,7 @@ new_fixture
   printf '    ```\n'
   printf '    Baseline: ran 321 tests.\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a 4-column untagged bare fence-like run aborts rather than being misread either as a fence or as prose" \
   || fail "4-column untagged pseudo-fence: expected rc=4, got rc=$RC out=$OUT"
@@ -1378,53 +1378,53 @@ esac
 
 # 60. Left boundary, em dash (U+2014), glued directly to the digit.
 new_fixture
-printf 'Result—42 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result—42 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "em dash (left, glued) is caught" || fail "em dash left: rc=$RC out=$OUT"
 
 # 61. Left boundary, curly opening quote (U+2018), glued directly to the
 # digit.
 new_fixture
-printf 'Result‘42 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result‘42 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "curly quote (left, glued) is caught" || fail "curly quote left: rc=$RC out=$OUT"
 
 # 62. Left boundary, fullwidth left parenthesis (U+FF08), glued directly to
 # the digit.
 new_fixture
-printf '（42 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf '（42 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "fullwidth paren (left, glued) is caught" || fail "fullwidth paren left: rc=$RC out=$OUT"
 
 # 63. Right boundary, em dash, glued directly after the unit word.
 new_fixture
-printf 'Result: 42 tests—confirmed\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result: 42 tests—confirmed\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "em dash (right, glued) is caught" || fail "em dash right: rc=$RC out=$OUT"
 
 # 64. Right boundary, curly closing quote (U+2019), glued directly after
 # the unit word.
 new_fixture
-printf 'Result: “42 tests’\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result: “42 tests’\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "curly quote (right, glued) is caught" || fail "curly quote right: rc=$RC out=$OUT"
 
 # 65. Right boundary, fullwidth right parenthesis (U+FF09), glued directly
 # after the unit word.
 new_fixture
-printf 'Result: (42 tests）\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result: (42 tests）\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "fullwidth paren (right, glued) is caught" || fail "fullwidth paren right: rc=$RC out=$OUT"
 
 # 66. Non-regression: the already-working spaced em dash and ASCII hyphen
 # shapes from the brief's own table must still be caught.
 new_fixture
-printf 'Result — 42 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result — 42 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "em dash (left, spaced) is still caught" || fail "em dash spaced: rc=$RC out=$OUT"
 
 new_fixture
-printf 'Result-42 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'Result-42 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "ASCII hyphen (left, glued) is still caught" || fail "ASCII hyphen: rc=$RC out=$OUT"
 
@@ -1441,7 +1441,7 @@ import sys
 path = sys.argv[1]
 with open(path, 'wb') as f:
     f.write(b'x' * (10 * 1024 * 1024 + 1024))
-" "$FIXTURE/openspec/changes/demo-change/tasks.md"
+" "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "a tasks.md over the 10 MiB cap is refused (exit 2)" \
   || fail "size cap: expected rc=2, got rc=$RC out=$OUT"
@@ -1460,9 +1460,9 @@ esac
 # genuine unattributed claim: the violation in the good file must still be
 # reported (exit 1), not masked by the bad file's environment failure.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/bad-encoding-change"
-printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/openspec/changes/bad-encoding-change/tasks.md"
-printf 'Baseline: 197 tests\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/bad-encoding-change"
+printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/spectre/changes/bad-encoding-change/tasks.md"
+printf 'Baseline: 197 tests\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a bad-encoding file elsewhere does not mask a real violation (exit 1, not 2)" \
   || fail "mixed bad-encoding + violation: expected rc=1, got rc=$RC out=$OUT"
@@ -1479,9 +1479,9 @@ esac
 # 69. Two changes, BOTH bad-encoding, no real violations anywhere: must
 # still refuse a clean run (exit 2), never exit 0.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/bad-encoding-change"
-printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/openspec/changes/bad-encoding-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/bad-encoding-change"
+printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/spectre/changes/bad-encoding-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 2 ] && pass "a bad-encoding file with no other violations still refuses a clean run (exit 2)" \
   || fail "bad-encoding only: expected rc=2, got rc=$RC out=$OUT"
@@ -1505,7 +1505,7 @@ new_fixture
   printf '>```bash verified:t\n'
   printf '>ran 500 tests\n'
   printf '>```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "blockquote rel indent 0: real fence recognized (no false claim report)" \
   || fail "blockquote rel indent 0: rc=$RC out=$OUT"
@@ -1518,7 +1518,7 @@ new_fixture
   printf '>   ```bash verified:t\n'
   printf '>   ran 500 tests\n'
   printf '>   ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "blockquote rel indent 2 (coordinator's exact repro): real fence recognized" \
   || fail "blockquote rel indent 2: rc=$RC out=$OUT"
@@ -1533,7 +1533,7 @@ new_fixture
   printf '>    ```bash verified:t\n'
   printf '>    ran 500 tests\n'
   printf '>    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "blockquote rel indent 3: real fence recognized" \
   || fail "blockquote rel indent 3: rc=$RC out=$OUT"
@@ -1546,7 +1546,7 @@ new_fixture
   printf '>     ```bash verified:t\n'
   printf '>     ran 500 tests\n'
   printf '>     ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "blockquote rel indent 4: over budget, claim reported (not a fence)" \
   || fail "blockquote rel indent 4: expected non-zero, out=$OUT"
@@ -1568,7 +1568,7 @@ new_fixture
   printf '  ```bash verified:t\n'
   printf '  ran 500 tests\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "list rel indent 0 (absolute column 2): bare fence within the 0-3 budget, unconditionally a fence" \
   || fail "list rel indent 0: rc=$RC out=$OUT"
@@ -1590,7 +1590,7 @@ new_fixture
   printf '     ```bash verified:t\n'
   printf '     echo hi\n'
   printf '     ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "list rel indent 3 (absolute column 5): now aborts (content-classification) instead of silently resolving via list context" \
   || fail "list rel indent 3: expected rc=4, got rc=$RC out=$OUT"
@@ -1613,7 +1613,7 @@ new_fixture
   printf '      ```bash verified:t\n'
   printf '      ran 500 tests\n'
   printf '      ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "list rel indent 4 (absolute column 6): aborts (content-classification)" \
   || fail "list rel indent 4: expected rc=4, got rc=$RC out=$OUT"
@@ -1623,25 +1623,25 @@ run_guard "$FIXTURE"
 # indented code block and scanned past — same reversal as cases 75/76,
 # generalised to the case with no enclosing list or blockquote at all.
 new_fixture
-printf -- '```bash verified:t\nran 500 tests\n```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '```bash verified:t\nran 500 tests\n```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "un-contained rel/abs indent 0: still a real fence" \
   || fail "un-contained 0 (regression): rc=$RC out=$OUT"
 
 new_fixture
-printf -- '   ```bash verified:t\n   ran 500 tests\n   ```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '   ```bash verified:t\n   ran 500 tests\n   ```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "un-contained rel/abs indent 3: still a real fence" \
   || fail "un-contained 3 (regression): rc=$RC out=$OUT"
 
 new_fixture
-printf -- '    ```bash verified:t\n    ran 500 tests\n    ```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '    ```bash verified:t\n    ran 500 tests\n    ```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "un-contained rel/abs indent 4: aborts (content-classification), no active list/blockquote to be relative to" \
   || fail "un-contained 4 (pass-8 reversal): expected rc=4, got rc=$RC out=$OUT"
 
 new_fixture
-printf -- '        ```bash verified:t\n        ran 500 tests\n        ```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '        ```bash verified:t\n        ran 500 tests\n        ```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "un-contained rel/abs indent 8: aborts (content-classification)" \
   || fail "un-contained 8 (pass-8 reversal): expected rc=4, got rc=$RC out=$OUT"
@@ -1651,7 +1651,7 @@ run_guard "$FIXTURE"
 # line at 4+ columns, so this now aborts (content-classification), same
 # reversal as cases 75-77.
 new_fixture
-printf -- '\t```bash verified:t\n\tran 500 tests\n\t```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '\t```bash verified:t\n\tran 500 tests\n\t```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a tab-indented un-contained fence (tab = 4 columns): aborts (content-classification)" \
   || fail "tab-indented fence: expected rc=4, got rc=$RC out=$OUT"
@@ -1684,7 +1684,7 @@ new_fixture
   printf ' -\t```bash verified:t\n'
   printf '    ran 1 tests\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "tab after bullet marker, tagged, true content col 4: exit 0" \
   || fail "tab after bullet marker, tagged: rc=$RC out=$OUT"
@@ -1694,7 +1694,7 @@ new_fixture
   printf ' -\t```bash\n'
   printf '    ran 1 tests\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after bullet marker, untagged, true content col 4: exit 1" \
   || fail "tab after bullet marker, untagged: expected rc=1, got rc=$RC out=$OUT"
@@ -1712,7 +1712,7 @@ new_fixture
   printf ' 1.\t```bash verified:t\n'
   printf '    ran 1 tests\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "tab after ordered marker, tagged, true content col 4: exit 0" \
   || fail "tab after ordered marker, tagged: rc=$RC out=$OUT"
@@ -1722,7 +1722,7 @@ new_fixture
   printf ' 1.\t```bash\n'
   printf '    ran 1 tests\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after ordered marker, untagged, true content col 4: exit 1" \
   || fail "tab after ordered marker, untagged: expected rc=1, got rc=$RC out=$OUT"
@@ -1740,7 +1740,7 @@ new_fixture
   printf -- '- [ ]\t```bash verified:t\n'
   printf '        ran 1 tests\n'
   printf '        ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "tab after checkbox, tagged, true content col 8: exit 0" \
   || fail "tab after checkbox, tagged: rc=$RC out=$OUT"
@@ -1750,7 +1750,7 @@ new_fixture
   printf -- '- [ ]\t```bash\n'
   printf '        ran 1 tests\n'
   printf '        ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after checkbox, untagged, true content col 8: exit 1" \
   || fail "tab after checkbox, untagged: expected rc=1, got rc=$RC out=$OUT"
@@ -1781,7 +1781,7 @@ new_fixture
   printf '```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after blockquote marker + later untagged fence: exit 1, not silently swallowed" \
   || fail "tab after blockquote marker + later untagged fence: expected rc=1, got rc=$RC out=$OUT"
@@ -1799,7 +1799,7 @@ new_fixture
   printf '>```bash\n'
   printf '>ran 500 tests\n'
   printf '>```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 case "$OUT" in
   *"tasks.md:1: fenced code block has no verified:/unverified: tag"*) \
@@ -1818,7 +1818,7 @@ new_fixture
   printf '  >```bash verified:t\n'
   printf '  >ran 500 tests\n'
   printf '  >```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "nested blockquote-inside-list, rel indent 0: real fence recognized" \
   || fail "nested blockquote-in-list: rc=$RC out=$OUT"
@@ -1840,7 +1840,7 @@ new_fixture
   printf '  ```bash verified:t\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "'- item' then a 2-space-indented tagged fence: still exit 0 (unambiguous)" \
   || fail "list then 2-space fence: rc=$RC out=$OUT"
@@ -1852,7 +1852,7 @@ new_fixture
   printf '   ```bash verified:t\n'
   printf '   echo hi\n'
   printf '   ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a 3-space-indented bare tagged fence: exit 0" \
   || fail "3-space bare fence: rc=$RC out=$OUT"
@@ -1864,7 +1864,7 @@ new_fixture
   printf '    ```bash verified:t\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "a 4-space-indented bare fence run aborts (exit 4)" \
   || fail "4-space bare fence: expected rc=4, got rc=$RC out=$OUT"
@@ -1887,7 +1887,7 @@ new_fixture
   printf '    ```bash\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "'- - -' (thematic break) then a 4-space fence: no longer a silent miss — aborts (exit 4)" \
   || fail "thematic break '- - -': expected rc=4, got rc=$RC out=$OUT"
@@ -1899,7 +1899,7 @@ new_fixture
   printf '    ```bash\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "'* * *' (thematic break) then a 4-space fence: aborts (exit 4)" \
   || fail "thematic break '* * *': expected rc=4, got rc=$RC out=$OUT"
@@ -1918,7 +1918,7 @@ new_fixture
   printf '    ```bash\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "'-      item' (wide gap) then a 4-space fence: no longer a silent miss — aborts (exit 4)" \
   || fail "wide-gap list item: expected rc=4, got rc=$RC out=$OUT"
@@ -1937,7 +1937,7 @@ new_fixture
   printf '  ```bash verified:t\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "nested list, dedent, fence at 2-space indent: exit 0" \
   || fail "nested list dedent: rc=$RC out=$OUT"
@@ -1950,7 +1950,7 @@ run_guard "$FIXTURE"
 # 4-space (or list-relative) indentation for ordinary continuation prose.
 new_fixture
 printf '    Baseline: ran 500 tests with no fence in sight.\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "4-space-indented ordinary prose with an untagged claim: exit 1, not an abort" \
   || fail "4-space prose claim: expected rc=1, got rc=$RC out=$OUT"
@@ -1977,7 +1977,7 @@ new_fixture
   printf -- '- ```bash verified:t\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "list-marker-prefixed fence (relative 0, same line): exit 0" \
   || fail "list-prefixed fence rel 0: rc=$RC out=$OUT"
@@ -1996,14 +1996,14 @@ run_guard "$FIXTURE"
 # even opened. After the fix: both are scanned, the violation is reported,
 # and the violation's exit code (1) outranks the abort's (4).
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/aaa-abort-change" "$FIXTURE/openspec/changes/zzz-violation-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/aaa-abort-change" "$FIXTURE/spectre/changes/zzz-violation-change"
 {
   printf '    ```bash\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/aaa-abort-change/tasks.md"
-printf 'Baseline: 197 tests\n' > "$FIXTURE/openspec/changes/zzz-violation-change/tasks.md"
+} > "$FIXTURE/spectre/changes/aaa-abort-change/tasks.md"
+printf 'Baseline: 197 tests\n' > "$FIXTURE/spectre/changes/zzz-violation-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "abort dir sorts first: violation elsewhere still wins (exit 1, not 4)" \
   || fail "abort-first ordering: expected rc=1, got rc=$RC out=$OUT"
@@ -2025,14 +2025,14 @@ esac
 # leaving it at 1 — "a violation elsewhere still wins" must hold regardless
 # of which directory is visited first.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/aaa-violation-change" "$FIXTURE/openspec/changes/zzz-abort-change"
-printf 'Baseline: 197 tests\n' > "$FIXTURE/openspec/changes/aaa-violation-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/aaa-violation-change" "$FIXTURE/spectre/changes/zzz-abort-change"
+printf 'Baseline: 197 tests\n' > "$FIXTURE/spectre/changes/aaa-violation-change/tasks.md"
 {
   printf '    ```bash\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/zzz-abort-change/tasks.md"
+} > "$FIXTURE/spectre/changes/zzz-abort-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "violation dir sorts first: the exit code is still 1, not overwritten to 4 by a later abort" \
   || fail "violation-first ordering: expected rc=1, got rc=$RC out=$OUT"
@@ -2052,14 +2052,14 @@ esac
 # proving exit 4 is still reachable as a clean-file's own outcome, not
 # merely downgraded to always losing.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/aaa-abort-change" "$FIXTURE/openspec/changes/zzz-clean-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/aaa-abort-change" "$FIXTURE/spectre/changes/zzz-clean-change"
 {
   printf '    ```bash\n'
   printf '    echo hi\n'
   printf '    ```\n'
-} > "$FIXTURE/openspec/changes/aaa-abort-change/tasks.md"
-printf '```bash verified:t\necho hi\n```\n' > "$FIXTURE/openspec/changes/zzz-clean-change/tasks.md"
+} > "$FIXTURE/spectre/changes/aaa-abort-change/tasks.md"
+printf '```bash verified:t\necho hi\n```\n' > "$FIXTURE/spectre/changes/zzz-clean-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "an abort beside a CLEAN directory (no violations anywhere): exit 4" \
   || fail "abort beside clean: expected rc=4, got rc=$RC out=$OUT"
@@ -2084,7 +2084,7 @@ new_fixture
   printf '      ```\n'
   printf 'Ran 500 tests and it passed.\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an over-indented (6-column) closer does not close the fence early; the real closer does" \
   || fail "over-indented closer: rc=$RC out=$OUT"
@@ -2104,7 +2104,7 @@ new_fixture
   printf '>       ```\n'
   printf '> Ran 500 tests and it passed.\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "blockquoted over-indented closer does not close the fence early; the real closer does" \
   || fail "blockquoted over-indented closer: rc=$RC out=$OUT"
@@ -2136,7 +2136,7 @@ marker_width_case() {
     printf '%s```bash verified:ran it locally\n' "$marker"
     printf '%secho hi\n' "$pad"
     printf '%s```\n' "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq 0 ] && pass "$label: tagged fence, continuation/closer at true content column ($col): exit 0" \
     || fail "$label: tagged, col=$col: rc=$RC out=$OUT"
@@ -2146,7 +2146,7 @@ marker_width_case() {
     printf '%s```bash\n' "$marker"
     printf '%secho hi\n' "$pad"
     printf '%s```\n' "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -ne 0 ] && pass "$label: untagged fence at the same content column is still caught (exit 1)" \
     || fail "$label: untagged, col=$col: expected non-zero, out=$OUT"
@@ -2176,7 +2176,7 @@ new_fixture
   printf -- '- [ ] ```bash verified:ran it locally\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "checkbox fence, closer at col 2 (short of true content column 6): no longer a false close" \
   || fail "checkbox short-closer false-positive: expected non-zero, out=$OUT"
@@ -2193,7 +2193,7 @@ new_fixture
   printf '10. ```bash verified:ran it locally\n'
   printf '  echo hi\n'
   printf '  ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "ordered '10. ' fence, closer at col 2 (short of true content column 4): no longer a false close" \
   || fail "ordered short-closer false-positive: expected non-zero, out=$OUT"
@@ -2249,7 +2249,7 @@ bq_list_gap_case() {
     printf '```python\n'
     printf 'echo untagged fence 2\n'
     printf '```\n'
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq 1 ] && pass "$label (gap=$gap): exit 1, not masked" \
     || fail "$label (gap=$gap): expected rc=1, got rc=$RC out=$OUT"
@@ -2295,7 +2295,7 @@ new_fixture
   printf '>  - ```bash verified:manual\n'
   printf '>    code line one\n'
   printf '>    ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "gap-1 fixture: closer at the TRUE content column (gap+marker) closes correctly, exit 0" \
   || fail "gap-1 fixture (true column): rc=$RC out=$OUT"
@@ -2310,7 +2310,7 @@ new_fixture
   printf '>    code line one\n'
   printf '>    ```\n'
   printf 'Baseline: 55 tests\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "gap-1 fixture: claim after the real closer is reported, not masked" \
   || fail "gap-1 fixture (claim after real closer): expected rc=1, got rc=$RC out=$OUT"
@@ -2329,7 +2329,7 @@ new_fixture
   printf '>  - ```bash verified:manual\n'
   printf '>    code line one\n'
   printf '>   ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -ne 0 ] && pass "gap-1 fixture: a closer one column short of the true content column does not falsely close" \
   || fail "gap-1 fixture (short closer): expected non-zero, out=$OUT"
@@ -2369,7 +2369,7 @@ new_fixture
   printf '>     echo x\n'
   printf '>     ```\n'
   printf 'Baseline: 42 tests\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "4+ column gap, list marker, untagged fence: loud abort (exit 4), never silent prose" \
   || fail "4+ column gap after blockquote: expected rc=4, got rc=$RC out=$OUT"
@@ -2392,7 +2392,7 @@ esac
 new_fixture
 {
   printf '>     Confirmed the fence style uses ``` markers, all good.\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "genuine prose mentioning a fence behind a 4+ column blockquote gap: still prose, no abort" \
   || fail "prose behind wide gap: expected rc=0, got rc=$RC out=$OUT"
@@ -2418,7 +2418,7 @@ run_guard "$FIXTURE"
 # unattributed numeric claim.
 violating_sibling_case_dir() {
   local prefix="$1"
-  local dir="$FIXTURE/openspec/changes/${prefix}-violating-change"
+  local dir="$FIXTURE/spectre/changes/${prefix}-violating-change"
   mkdir -p "$dir"
   printf 'Baseline: 321 tests\n' > "$dir/tasks.md"
 }
@@ -2426,13 +2426,13 @@ violating_sibling_case_dir() {
 # 110-111. Locked (chmod 000) change directory beside a violating sibling,
 # both sort orders.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/locked-change"
-printf 'irrelevant\n' > "$FIXTURE/openspec/changes/locked-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/locked-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/locked-change"
+printf 'irrelevant\n' > "$FIXTURE/spectre/changes/locked-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/locked-change"
 violating_sibling_case_dir "a"   # "a-violating-change" sorts BEFORE "locked-change"
 run_guard "$FIXTURE"
-chmod 755 "$FIXTURE/openspec/changes/locked-change"
+chmod 755 "$FIXTURE/spectre/changes/locked-change"
 [ "$RC" -eq 1 ] && pass "locked dir + violating sibling (violation sorts first): exit 1, not masked" \
   || fail "locked dir + violation (violation first): expected rc=1, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -2442,13 +2442,13 @@ case "$OUT" in
 esac
 
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/locked-change"
-printf 'irrelevant\n' > "$FIXTURE/openspec/changes/locked-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/locked-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/locked-change"
+printf 'irrelevant\n' > "$FIXTURE/spectre/changes/locked-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/locked-change"
 violating_sibling_case_dir "z"   # "z-violating-change" sorts AFTER "locked-change"
 run_guard "$FIXTURE"
-chmod 755 "$FIXTURE/openspec/changes/locked-change"
+chmod 755 "$FIXTURE/spectre/changes/locked-change"
 [ "$RC" -eq 1 ] && pass "locked dir + violating sibling (violation sorts last): exit 1, not masked" \
   || fail "locked dir + violation (violation last): expected rc=1, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -2460,8 +2460,8 @@ esac
 # 112-113. Dangling symlink change directory beside a violating sibling,
 # both sort orders.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-ln -s "$FIXTURE/openspec/changes/does-not-exist" "$FIXTURE/openspec/changes/dangling-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+ln -s "$FIXTURE/spectre/changes/does-not-exist" "$FIXTURE/spectre/changes/dangling-change"
 violating_sibling_case_dir "a"   # sorts before "dangling-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "dangling symlink + violating sibling (violation sorts first): exit 1, not masked" \
@@ -2473,8 +2473,8 @@ case "$OUT" in
 esac
 
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-ln -s "$FIXTURE/openspec/changes/does-not-exist" "$FIXTURE/openspec/changes/dangling-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+ln -s "$FIXTURE/spectre/changes/does-not-exist" "$FIXTURE/spectre/changes/dangling-change"
 violating_sibling_case_dir "z"   # sorts after "dangling-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "dangling symlink + violating sibling (violation sorts last): exit 1, not masked" \
@@ -2488,9 +2488,9 @@ esac
 # 114-115. Circular symlink (ELOOP) change directory beside a violating
 # sibling, both sort orders.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-ln -s "$FIXTURE/openspec/changes/circular-a" "$FIXTURE/openspec/changes/circular-b"
-ln -s "$FIXTURE/openspec/changes/circular-b" "$FIXTURE/openspec/changes/circular-a"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+ln -s "$FIXTURE/spectre/changes/circular-a" "$FIXTURE/spectre/changes/circular-b"
+ln -s "$FIXTURE/spectre/changes/circular-b" "$FIXTURE/spectre/changes/circular-a"
 violating_sibling_case_dir "a"   # sorts before "circular-a"/"circular-b"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "circular symlink + violating sibling (violation sorts first): exit 1, not masked" \
@@ -2502,9 +2502,9 @@ case "$OUT" in
 esac
 
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-ln -s "$FIXTURE/openspec/changes/circular-a" "$FIXTURE/openspec/changes/circular-b"
-ln -s "$FIXTURE/openspec/changes/circular-b" "$FIXTURE/openspec/changes/circular-a"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+ln -s "$FIXTURE/spectre/changes/circular-a" "$FIXTURE/spectre/changes/circular-b"
+ln -s "$FIXTURE/spectre/changes/circular-b" "$FIXTURE/spectre/changes/circular-a"
 violating_sibling_case_dir "z"   # sorts after "circular-a"/"circular-b"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "circular symlink + violating sibling (violation sorts last): exit 1, not masked" \
@@ -2518,12 +2518,12 @@ esac
 # 116-117. Unreadable (chmod 000) tasks.md beside a violating sibling, both
 # sort orders.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/unreadable-change"
-printf 'irrelevant\n' > "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/unreadable-change"
+printf 'irrelevant\n' > "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
 violating_sibling_case_dir "a"   # sorts before "unreadable-change"
 run_guard "$FIXTURE"
-chmod 644 "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
+chmod 644 "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
 [ "$RC" -eq 1 ] && pass "unreadable tasks.md + violating sibling (violation sorts first): exit 1, not masked" \
   || fail "unreadable tasks.md + violation (violation first): expected rc=1, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -2533,12 +2533,12 @@ case "$OUT" in
 esac
 
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/unreadable-change"
-printf 'irrelevant\n' > "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/unreadable-change"
+printf 'irrelevant\n' > "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
 violating_sibling_case_dir "z"   # sorts after "unreadable-change"
 run_guard "$FIXTURE"
-chmod 644 "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
+chmod 644 "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
 [ "$RC" -eq 1 ] && pass "unreadable tasks.md + violating sibling (violation sorts last): exit 1, not masked" \
   || fail "unreadable tasks.md + violation (violation last): expected rc=1, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -2551,8 +2551,8 @@ esac
 # orders (Important 8's original guarantee, re-verified in the specific
 # shape the harness blind spot demands).
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/bad-encoding-change"
-printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/openspec/changes/bad-encoding-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/bad-encoding-change"
+printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/spectre/changes/bad-encoding-change/tasks.md"
 violating_sibling_case_dir "a"   # sorts before "bad-encoding-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "bad encoding + violating sibling (violation sorts first): exit 1, not masked" \
@@ -2564,8 +2564,8 @@ case "$OUT" in
 esac
 
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/bad-encoding-change"
-printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/openspec/changes/bad-encoding-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/bad-encoding-change"
+printf '\xff\xfe not valid utf-8\n' > "$FIXTURE/spectre/changes/bad-encoding-change/tasks.md"
 violating_sibling_case_dir "z"   # sorts after "bad-encoding-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "bad encoding + violating sibling (violation sorts last): exit 1, not masked" \
@@ -2579,8 +2579,8 @@ esac
 # 120-121. Oversized (> MAX_SCANNED_FILE_BYTES) tasks.md beside a violating
 # sibling, both sort orders.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/oversized-change"
-python3 -c "open('$FIXTURE/openspec/changes/oversized-change/tasks.md', 'wb').write(b'a' * (10 * 1024 * 1024 + 1))"
+mkdir -p "$FIXTURE/spectre/changes/oversized-change"
+python3 -c "open('$FIXTURE/spectre/changes/oversized-change/tasks.md', 'wb').write(b'a' * (10 * 1024 * 1024 + 1))"
 violating_sibling_case_dir "a"   # sorts before "oversized-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "oversized tasks.md + violating sibling (violation sorts first): exit 1, not masked" \
@@ -2592,8 +2592,8 @@ case "$OUT" in
 esac
 
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/oversized-change"
-python3 -c "open('$FIXTURE/openspec/changes/oversized-change/tasks.md', 'wb').write(b'a' * (10 * 1024 * 1024 + 1))"
+mkdir -p "$FIXTURE/spectre/changes/oversized-change"
+python3 -c "open('$FIXTURE/spectre/changes/oversized-change/tasks.md', 'wb').write(b'a' * (10 * 1024 * 1024 + 1))"
 violating_sibling_case_dir "z"   # sorts after "oversized-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "oversized tasks.md + violating sibling (violation sorts last): exit 1, not masked" \
@@ -2610,8 +2610,8 @@ esac
 # violation elsewhere must still be reported and win the exit code (exit 1
 # outranks exit 4, per main()'s own documented priority).
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/abort-change"
-printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/abort-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/abort-change"
+printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/abort-change/tasks.md"
 violating_sibling_case_dir "a"   # sorts before "abort-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "classification abort + violating sibling (violation sorts first): exit 1, not masked by exit 4" \
@@ -2623,8 +2623,8 @@ case "$OUT" in
 esac
 
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/abort-change"
-printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/abort-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/abort-change"
+printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/abort-change/tasks.md"
 violating_sibling_case_dir "z"   # sorts after "abort-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "classification abort + violating sibling (violation sorts last): exit 1, not masked by exit 4" \
@@ -2738,7 +2738,7 @@ indent_closer_case() {
       printf '%s- ```bash verified:ran it locally\n' "$marker_pad"
       printf '%secho hi\n' "$pad"
       printf '%s```\n' "$pad"
-    } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+    } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
     run_guard "$FIXTURE"
     [ "$RC" -eq 4 ] && pass "$label: tagged, indent=$indent, closer=content_col+$offset: exit 4 (outer indent capped before container recognition)" \
       || fail "$label: tagged, indent=$indent, closer=content_col+$offset: expected rc=4, got rc=$RC out=$OUT"
@@ -2749,7 +2749,7 @@ indent_closer_case() {
       printf '%s- ```bash\n' "$marker_pad"
       printf '%secho hi\n' "$pad"
       printf '%s```\n' "$pad"
-    } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+    } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
     run_guard "$FIXTURE"
     [ "$RC" -eq 4 ] && pass "$label: untagged, indent=$indent, closer=content_col+$offset: exit 4 (tag is irrelevant to a refusal)" \
       || fail "$label: untagged, indent=$indent, closer=content_col+$offset: expected rc=4, got rc=$RC out=$OUT"
@@ -2762,7 +2762,7 @@ indent_closer_case() {
     printf '%s- ```bash verified:ran it locally\n' "$marker_pad"
     printf '%secho hi\n' "$pad"
     printf '%s```\n' "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq 0 ] && pass "$label: tagged, indent=$indent, closer=content_col+$offset: exit 0" \
     || fail "$label: tagged, indent=$indent, closer=content_col+$offset: rc=$RC out=$OUT"
@@ -2772,7 +2772,7 @@ indent_closer_case() {
     printf '%s- ```bash\n' "$marker_pad"
     printf '%secho hi\n' "$pad"
     printf '%s```\n' "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq 1 ] && pass "$label: untagged, indent=$indent, closer=content_col+$offset: exit 1" \
     || fail "$label: untagged, indent=$indent, closer=content_col+$offset: expected rc=1, got rc=$RC out=$OUT"
@@ -2822,7 +2822,7 @@ blockquote_indent_case() {
       printf '%s> ```bash verified:ran it locally\n' "$marker_pad"
       printf '%s> %secho hi\n' "$marker_pad" "$pad"
       printf '%s> %s```\n' "$marker_pad" "$pad"
-    } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+    } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
     run_guard "$FIXTURE"
     [ "$RC" -eq 4 ] && pass "$label: tagged, indent=$indent, closer=+$offset: exit 4 (outer indent capped before container recognition)" \
       || fail "$label: tagged, indent=$indent, closer=+$offset: expected rc=4, got rc=$RC out=$OUT"
@@ -2833,7 +2833,7 @@ blockquote_indent_case() {
       printf '%s> ```bash\n' "$marker_pad"
       printf '%s> %secho hi\n' "$marker_pad" "$pad"
       printf '%s> %s```\n' "$marker_pad" "$pad"
-    } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+    } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
     run_guard "$FIXTURE"
     [ "$RC" -eq 4 ] && pass "$label: untagged, indent=$indent, closer=+$offset: exit 4 (tag is irrelevant to a refusal)" \
       || fail "$label: untagged, indent=$indent, closer=+$offset: expected rc=4, got rc=$RC out=$OUT"
@@ -2846,7 +2846,7 @@ blockquote_indent_case() {
     printf '%s> ```bash verified:ran it locally\n' "$marker_pad"
     printf '%s> %secho hi\n' "$marker_pad" "$pad"
     printf '%s> %s```\n' "$marker_pad" "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq 0 ] && pass "$label: tagged, indent=$indent, closer=+$offset: exit 0" \
     || fail "$label: tagged, indent=$indent, closer=+$offset: rc=$RC out=$OUT"
@@ -2856,7 +2856,7 @@ blockquote_indent_case() {
     printf '%s> ```bash\n' "$marker_pad"
     printf '%s> %secho hi\n' "$marker_pad" "$pad"
     printf '%s> %s```\n' "$marker_pad" "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq 1 ] && pass "$label: untagged, indent=$indent, closer=+$offset: exit 1" \
     || fail "$label: untagged, indent=$indent, closer=+$offset: expected rc=1, got rc=$RC out=$OUT"
@@ -2892,7 +2892,7 @@ done
 # `<changes_dir>/<name>` (a symlink's realpath, by definition, is never the
 # symlink's own path), so any symlinked change directory always fails
 # containment as a "directory escape", whether it points outside the repo
-# entirely or merely to another directory inside `openspec/changes/`. Both
+# entirely or merely to another directory inside `spectre/changes/`. Both
 # shapes are exercised below for honesty about what's actually being
 # constructed, even though the guard code takes one branch for both. The
 # other two `sys.exit(3)` pairs (`cannot resolve containing directory` /
@@ -2906,9 +2906,9 @@ done
 # 124-125. `tasks.md` itself is a symlink, beside a violating sibling, both
 # sort orders.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/symlinked-tasks-change"
-ln -sf /dev/zero "$FIXTURE/openspec/changes/symlinked-tasks-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/symlinked-tasks-change"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/symlinked-tasks-change/tasks.md"
 violating_sibling_case_dir "a"   # sorts before "symlinked-tasks-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "symlinked tasks.md + violating sibling (violation sorts first): exit 3, scan continues" \
@@ -2924,9 +2924,9 @@ case "$OUT" in
 esac
 
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/symlinked-tasks-change"
-ln -sf /dev/zero "$FIXTURE/openspec/changes/symlinked-tasks-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/symlinked-tasks-change"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/symlinked-tasks-change/tasks.md"
 violating_sibling_case_dir "z"   # sorts after "symlinked-tasks-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "symlinked tasks.md + violating sibling (violation sorts last): exit 3, scan continues" \
@@ -2941,10 +2941,10 @@ esac
 # repository's changes tree entirely ("directory escape"), beside a
 # violating sibling, both sort orders.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
 mkdir -p "$FIXTURE/outside-changes/escaped-change"
 printf 'irrelevant\n' > "$FIXTURE/outside-changes/escaped-change/tasks.md"
-ln -s "$FIXTURE/outside-changes/escaped-change" "$FIXTURE/openspec/changes/escaped-change"
+ln -s "$FIXTURE/outside-changes/escaped-change" "$FIXTURE/spectre/changes/escaped-change"
 violating_sibling_case_dir "a"   # sorts before "escaped-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "directory escape + violating sibling (violation sorts first): exit 3, scan continues" \
@@ -2960,10 +2960,10 @@ case "$OUT" in
 esac
 
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
 mkdir -p "$FIXTURE/outside-changes/escaped-change"
 printf 'irrelevant\n' > "$FIXTURE/outside-changes/escaped-change/tasks.md"
-ln -s "$FIXTURE/outside-changes/escaped-change" "$FIXTURE/openspec/changes/escaped-change"
+ln -s "$FIXTURE/outside-changes/escaped-change" "$FIXTURE/spectre/changes/escaped-change"
 violating_sibling_case_dir "z"   # sorts after "escaped-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "directory escape + violating sibling (violation sorts last): exit 3, scan continues" \
@@ -2975,14 +2975,14 @@ case "$OUT" in
 esac
 
 # 128-129. Change directory entry is itself a symlink, but pointing to
-# ANOTHER real change directory INSIDE `openspec/changes/` (same source
+# ANOTHER real change directory INSIDE `spectre/changes/` (same source
 # branch as 126-127 — see this section's NOTE — different fixture shape),
 # beside a violating sibling, both sort orders.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/real-target-change"
-printf 'irrelevant\n' > "$FIXTURE/openspec/changes/real-target-change/tasks.md"
-ln -s "$FIXTURE/openspec/changes/real-target-change" "$FIXTURE/openspec/changes/aliased-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/real-target-change"
+printf 'irrelevant\n' > "$FIXTURE/spectre/changes/real-target-change/tasks.md"
+ln -s "$FIXTURE/spectre/changes/real-target-change" "$FIXTURE/spectre/changes/aliased-change"
 violating_sibling_case_dir "a"   # sorts before "aliased-change"/"real-target-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "symlinked change directory (in-tree target) + violating sibling (violation sorts first): exit 3" \
@@ -2994,10 +2994,10 @@ case "$OUT" in
 esac
 
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/real-target-change"
-printf 'irrelevant\n' > "$FIXTURE/openspec/changes/real-target-change/tasks.md"
-ln -s "$FIXTURE/openspec/changes/real-target-change" "$FIXTURE/openspec/changes/aliased-change"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/real-target-change"
+printf 'irrelevant\n' > "$FIXTURE/spectre/changes/real-target-change/tasks.md"
+ln -s "$FIXTURE/spectre/changes/real-target-change" "$FIXTURE/spectre/changes/aliased-change"
 violating_sibling_case_dir "z"   # sorts after "aliased-change"/"real-target-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "symlinked change directory (in-tree target) + violating sibling (violation sorts last): exit 3" \
@@ -3013,8 +3013,8 @@ esac
 # orders. `os.stat` on a FIFO never blocks (unlike `open()`), so this is
 # safe to construct and check without a reader/writer on the other end.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/fifo-change"
-mkfifo "$FIXTURE/openspec/changes/fifo-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/fifo-change"
+mkfifo "$FIXTURE/spectre/changes/fifo-change/tasks.md"
 violating_sibling_case_dir "a"   # sorts before "fifo-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "non-regular tasks.md (FIFO) + violating sibling (violation sorts first): exit 3, scan continues" \
@@ -3030,8 +3030,8 @@ case "$OUT" in
 esac
 
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/fifo-change"
-mkfifo "$FIXTURE/openspec/changes/fifo-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/fifo-change"
+mkfifo "$FIXTURE/spectre/changes/fifo-change/tasks.md"
 violating_sibling_case_dir "z"   # sorts after "fifo-change"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "non-regular tasks.md (FIFO) + violating sibling (violation sorts last): exit 3, scan continues" \
@@ -3047,11 +3047,11 @@ esac
 # failure kind must still be reported, and containment (exit 3) must still
 # win the exit code over the abort (exit 4) and the violation (exit 1).
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/abort-change"
-printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/abort-change/tasks.md"
-mkdir -p "$FIXTURE/openspec/changes/m-symlinked-tasks-change"
-ln -sf /dev/zero "$FIXTURE/openspec/changes/m-symlinked-tasks-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/abort-change"
+printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/abort-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/m-symlinked-tasks-change"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/m-symlinked-tasks-change/tasks.md"
 violating_sibling_case_dir "a"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "containment + abort + violation, all three directories: exit 3 wins" \
@@ -3084,14 +3084,14 @@ esac
 # violation, no abort anywhere): exit 3 must still win over exit 2, and
 # both messages must still be reported.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/unreadable-change"
-printf 'no claims, no fences\n' > "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/unreadable-change/tasks.md"
-mkdir -p "$FIXTURE/openspec/changes/m-symlinked-tasks-change"
-ln -sf /dev/zero "$FIXTURE/openspec/changes/m-symlinked-tasks-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/unreadable-change"
+printf 'no claims, no fences\n' > "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/unreadable-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/m-symlinked-tasks-change"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/m-symlinked-tasks-change/tasks.md"
 run_guard "$FIXTURE"
-chmod 644 "$FIXTURE/openspec/changes/unreadable-change/tasks.md" 2>/dev/null || true
+chmod 644 "$FIXTURE/spectre/changes/unreadable-change/tasks.md" 2>/dev/null || true
 [ "$RC" -eq 3 ] && pass "containment + environment-failure-only sibling: exit 3 wins" \
   || fail "containment + environment-only: expected rc=3, got rc=$RC out=$OUT"
 case "$OUT" in
@@ -3107,11 +3107,11 @@ esac
 # environment failure anywhere): exit 3 must still win over exit 4, and
 # both messages must still be reported.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/abort-change"
-printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/abort-change/tasks.md"
-mkdir -p "$FIXTURE/openspec/changes/m-symlinked-tasks-change"
-ln -sf /dev/zero "$FIXTURE/openspec/changes/m-symlinked-tasks-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/abort-change"
+printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/abort-change/tasks.md"
+mkdir -p "$FIXTURE/spectre/changes/m-symlinked-tasks-change"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/m-symlinked-tasks-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "containment + abort-only sibling: exit 3 wins" \
   || fail "containment + abort-only: expected rc=3, got rc=$RC out=$OUT"
@@ -3141,7 +3141,7 @@ esac
 # 133. Exit 1 (violations) banner, in isolation: an untagged fence with no
 # other channel present.
 new_fixture
-printf 'intro\n```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'intro\n```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "exit 1 banner fixture: rc=1" || fail "exit 1 banner fixture: rc=$RC out=$OUT"
 case "$OUT" in
@@ -3157,7 +3157,7 @@ esac
 # 134. Exit 4 (content-classification) banner, in isolation: a doubled
 # list marker, no violation and no file-read failure anywhere.
 new_fixture
-printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '- - ```bash\necho hi\n```\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "exit 4 banner fixture: rc=4" || fail "exit 4 banner fixture: rc=$RC out=$OUT"
 case "$OUT" in
@@ -3172,10 +3172,10 @@ esac
 # pin: it must say "environment failure — a permission, encoding or size
 # problem on disk", never "could not be classified" (exit 4's phrase).
 new_fixture
-printf 'no claims, no fences here\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
-chmod 000 "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'no claims, no fences here\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+chmod 000 "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
-chmod 644 "$FIXTURE/openspec/changes/demo-change/tasks.md" 2>/dev/null || true
+chmod 644 "$FIXTURE/spectre/changes/demo-change/tasks.md" 2>/dev/null || true
 [ "$RC" -eq 2 ] && pass "exit 2 banner fixture: rc=2" || fail "exit 2 banner fixture: rc=$RC out=$OUT"
 case "$OUT" in
   *"1 file(s) could not be read (environment failure — a permission, encoding or size problem on disk, see above) — refusing to report a clean run"*) \
@@ -3193,7 +3193,7 @@ esac
 #
 # The noun in this banner is "path(s)", deliberately generic, since
 # Critical 5 of the pass-14 fix wave: the same counter carries refusals on
-# things that are not planning artifacts at all — `openspec/changes`
+# things that are not planning artifacts at all — `spectre/changes`
 # ITSELF, which is a directory. Naming the noun after any one scanned file
 # would make the banner state something false for that case, which is the
 # shape this change exists to police. (The banner is also older than the
@@ -3202,9 +3202,9 @@ esac
 # reason for the generic noun is the directory case, not the file set.)
 # The exit code, the stream and the rest of the sentence are unchanged.
 new_fixture
-rm -rf "$FIXTURE/openspec/changes/demo-change"
-mkdir -p "$FIXTURE/openspec/changes/demo-change"
-ln -sf /dev/zero "$FIXTURE/openspec/changes/demo-change/tasks.md"
+rm -rf "$FIXTURE/spectre/changes/demo-change"
+mkdir -p "$FIXTURE/spectre/changes/demo-change"
+ln -sf /dev/zero "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "exit 3 banner fixture: rc=3" || fail "exit 3 banner fixture: rc=$RC out=$OUT"
 case "$OUT" in
@@ -3248,7 +3248,7 @@ new_fixture
   printf 'echo hi\n'
   printf '```\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after '>' + trailing close: exit 1, no longer a silent clean run" \
   || fail "tab after '>' + trailing close: expected rc=1, got rc=$RC out=$OUT"
@@ -3276,7 +3276,7 @@ new_fixture
   printf 'echo hi\n'
   printf '```\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "6 spaces after '>' (same column width as the tab shape): exit 1" \
   || fail "6 spaces after '>': expected rc=1, got rc=$RC out=$OUT"
@@ -3297,7 +3297,7 @@ new_fixture
   printf '```bash\n'
   printf 'echo hi\n'
   printf '```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after '>' without a trailing close: exit 1" \
   || fail "tab after '>' without a trailing close: expected rc=1, got rc=$RC out=$OUT"
@@ -3313,7 +3313,7 @@ esac
 # indented code, literal text. Before the fix it opened a fence that was
 # never closed, inventing a violation on a file that has none.
 new_fixture
-printf '>\t   ```bash\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf '>\t   ```bash\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "no-list-marker false positive ('>' + tab + 3 spaces + fence run): not a fence, exit 0" \
   || fail "no-list-marker false positive: expected rc=0, got rc=$RC out=$OUT"
@@ -3347,7 +3347,7 @@ bq_tab_list_closer_case() {
     printf '>\t- ```text verified:x\n'
     printf '> hello\n'
     printf '> %s```\n' "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq "$expect" ] && pass "$label: closer at bq-relative column $n: exit $expect" \
     || fail "$label: closer at bq-relative column $n: expected rc=$expect, got rc=$RC out=$OUT"
@@ -3370,7 +3370,7 @@ new_fixture
   printf '>\t- ```text\n'
   printf '> hello\n'
   printf '>     ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "tab after '>' then a bullet, untagged: exit 1" \
   || fail "tab after '>' then a bullet, untagged: expected rc=1, got rc=$RC out=$OUT"
@@ -3387,7 +3387,7 @@ esac
 # at col 6, and the following 3 spaces put the backtick run at col 11 — 5
 # columns in, an indented code block, not a fence.
 new_fixture
-printf '>\t>\t   ```bash\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf '>\t>\t   ```bash\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "depth-2 tabs, run 5 columns inside the quote: not a fence, exit 0" \
   || fail "depth-2 tabs, run 5 columns inside the quote: expected rc=0, got rc=$RC out=$OUT"
@@ -3400,7 +3400,7 @@ new_fixture
   printf '>\t> ```text verified:x\n'
   printf '>\t> echo hi\n'
   printf '>\t> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "depth-2 tabs, run at relative indent 0: real fence, opens and closes, exit 0" \
   || fail "depth-2 tabs, run at relative indent 0: expected rc=0, got rc=$RC out=$OUT"
@@ -3410,7 +3410,7 @@ new_fixture
   printf '>\t> ```text\n'
   printf '>\t> echo hi\n'
   printf '>\t> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 case "$OUT" in
   *"tasks.md:1: fenced code block has no verified:/unverified: tag"*) \
@@ -3438,7 +3438,7 @@ bq2_tab_list_closer_case() {
     printf '>\t>\t- ```text verified:x\n'
     printf '>\t> hello\n'
     printf '>\t>\t%s```\n' "$pad"
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   [ "$RC" -eq "$expect" ] && pass "$label: closer with $n extra spaces: exit $expect" \
     || fail "$label: closer with $n extra spaces: expected rc=$expect, got rc=$RC out=$OUT"
@@ -3471,7 +3471,7 @@ new_fixture
   printf '> ```text verified:x\n'
   printf '> echo hi\n'
   printf '    > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "open at outer indent 0, close at outer indent 4: not a close, fence reported as never closed" \
   || fail "open outer 0 / close outer 4: expected rc=1, got rc=$RC out=$OUT"
@@ -3487,7 +3487,7 @@ new_fixture
   printf '> ```text verified:x\n'
   printf '> echo hi\n'
   printf '   > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "open at outer indent 0, close at outer indent 3: still a valid close, exit 0" \
   || fail "open outer 0 / close outer 3: expected rc=0, got rc=$RC out=$OUT"
@@ -3501,7 +3501,7 @@ new_fixture
   printf '   > ```text verified:x\n'
   printf '   > echo hi\n'
   printf '> ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "open at outer indent 3, close at outer indent 0: still a valid close, exit 0" \
   || fail "open outer 3 / close outer 0: expected rc=0, got rc=$RC out=$OUT"
@@ -3513,7 +3513,7 @@ new_fixture
   printf '   > ```text verified:x\n'
   printf '   > echo hi\n'
   printf '    > ```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "open at outer indent 3, close at outer indent 4: not a close" \
   || fail "open outer 3 / close outer 4: expected rc=1, got rc=$RC out=$OUT"
@@ -3528,7 +3528,7 @@ run_guard "$FIXTURE"
 # 144. The exact shape from the fix-wave brief: a tab (4 columns from col
 # 0) before a `- ` marker, then a tab before the backtick run.
 new_fixture
-printf -- '\t- \t```bash\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '\t- \t```bash\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "over-indented line that DOES carry a marker: exit 4" \
   || fail "over-indented line with a marker: expected rc=4, got rc=$RC out=$OUT"
@@ -3543,7 +3543,7 @@ esac
 # new text must not have replaced it, or one wrong shared message would
 # simply have become another.
 new_fixture
-printf -- '\t```bash\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '\t```bash\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "bare over-indented line: exit 4" \
   || fail "bare over-indented line: expected rc=4, got rc=$RC out=$OUT"
@@ -3592,7 +3592,7 @@ for w in 1 2 3 4 5 6; do
     printf -- '-%*s```bash verified:x\n' "$w" ''
     printf 'took 5 ms\n'
     printf -- '%*s```\n' "$((w + 1))" ''
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   if [ "$w" -le 4 ]; then
     [ "$RC" -eq 0 ] && pass "list marker + $w space(s): rule 1, fence opens, claim is content" \
@@ -3611,7 +3611,7 @@ done
 # violation. Without this, the W>=5 rows above could be passing because the
 # claim text is not recognised rather than because it is reachable.
 new_fixture
-printf 'took 5 ms\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'took 5 ms\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "claim-alone control: reported" \
   || fail "claim-alone control: expected rc=1, got rc=$RC out=$OUT"
@@ -3624,7 +3624,7 @@ new_fixture
   printf -- '-\t```bash verified:x\n'
   printf 'took 5 ms\n'
   printf -- '\t```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "list marker + one tab (W=3): rule 1, fence opens" \
   || fail "list marker + one tab: expected rc=0, got rc=$RC out=$OUT"
@@ -3638,7 +3638,7 @@ new_fixture
   printf -- '-\t\t```bash verified:x\n'
   printf 'took 5 ms\n'
   printf -- '\t\t```\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "list marker + two tabs (W=7): rule 2 (spec Tabs ex. 7), claim reported" \
   || fail "list marker + two tabs: expected rc=1, got rc=$RC out=$OUT"
@@ -3653,7 +3653,7 @@ for w in 1 2 3 4 5 6; do
     printf -- '- [ ]%*s```bash verified:x\n' "$w" ''
     printf 'took 5 ms\n'
     printf -- '%*s```\n' "$((w + 5))" ''
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   if [ "$w" -le 4 ]; then
     [ "$RC" -eq 0 ] && pass "checkbox + $w space(s): rule 1, fence opens" \
@@ -3679,7 +3679,7 @@ for n in 0 1 2 3 4 5; do
     printf -- '>%*s> ```bash\n' "$n" ''
     printf 'x\n'
     printf -- '>%*s> ```\n' "$n" ''
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   if [ "$n" -le 4 ]; then
     [ "$RC" -eq 1 ] && pass "bq gap $n (<=3 cols before the nested >): depth 2, untagged fence reported" \
@@ -3717,7 +3717,7 @@ for n in 0 1 2 3 4 5 6 7 8 10 15 20; do
     printf -- '> - > ```text verified:manual\n'
     printf 'inside\n'
     printf -- '>%*s> ```\n' "$n" ''
-  } > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  } > "$FIXTURE/spectre/changes/demo-change/tasks.md"
   run_guard "$FIXTURE"
   if [ "$n" -ge 3 ] && [ "$n" -le 6 ]; then
     [ "$RC" -eq 0 ] && pass "bq_pre+bq_post closer at N=$n: legal, fence closes" \
@@ -3745,7 +3745,7 @@ new_fixture
   printf 'x\n'
   printf -- '```\n'
   printf 'took 7 ms\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "bq_pre+bq_post: downstream findings survive the fence" \
   || fail "bq_pre+bq_post downstream: expected rc=1, got rc=$RC out=$OUT"
@@ -3764,7 +3764,7 @@ esac
 # a `>` is refused (the guard will not guess); the closer sweep above
 # refuses the mirror shape at N=7. One question, one answer.
 new_fixture
-printf -- '> -     > ```bash\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf -- '> -     > ```bash\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 4 ] && pass "bq_post gap 4+ as an OPENER: refused, same budget as the closer" \
   || fail "bq_post gap as opener: expected rc=4, got rc=$RC out=$OUT"
@@ -3779,7 +3779,7 @@ run_guard "$FIXTURE"
 # 181. A python3 that exists and is executable but fails, exactly as the
 # xcrun stub does. Must be exit 2 (environment), never exit 1.
 new_fixture
-printf 'clean\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'clean\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 FAKEBIN="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-fakebin.XXXXXX")"
 {
   printf '#!/bin/sh\n'
@@ -3827,7 +3827,7 @@ run_guard "$FIXTURE"
   || fail "working python3: expected rc=0, got rc=$RC out=$OUT"
 
 # ===========================================================================
-# SECTION: Pass-14 fix wave — Critical 5: `openspec/changes` may itself be a
+# SECTION: Pass-14 fix wave — Critical 5: `spectre/changes` may itself be a
 # symlink. Containment anchored every per-file decision on
 # realpath(changes_dir) and never validated that anchor, while `main()`
 # reached it through `os.path.isdir`, which follows symlinks. The guard
@@ -3839,18 +3839,18 @@ run_guard "$FIXTURE"
 # elsewhere in the tree. This reported exit 0, "nothing in flight" — the
 # false clean run the module docstring calls the one impermissible outcome.
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-test.XXXXXX")"
-mkdir -p "$FIXTURE/openspec" "$FIXTURE/decoy" "$FIXTURE/real/plan-change"
+mkdir -p "$FIXTURE/spectre" "$FIXTURE/decoy" "$FIXTURE/real/plan-change"
 {
   printf -- '```untagged\n'
   printf 'x\n'
   printf -- '```\n'
 } > "$FIXTURE/real/plan-change/tasks.md"
-ln -s "$FIXTURE/decoy" "$FIXTURE/openspec/changes"
+ln -s "$FIXTURE/decoy" "$FIXTURE/spectre/changes"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "changes/ symlinked to a decoy: exit 3, not a clean run" \
   || fail "changes/ decoy symlink: expected rc=3, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"openspec/changes is a symlink"*) pass "changes/ decoy symlink: names the anchor" ;;
+  *"spectre/changes is a symlink"*) pass "changes/ decoy symlink: names the anchor" ;;
   *) fail "changes/ decoy symlink: message missing: out=$OUT" ;;
 esac
 
@@ -3858,13 +3858,13 @@ esac
 # tree and reported exit 1 with repo-relative paths that concealed it.
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-test.XXXXXX")"
 OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-outside.XXXXXX")"
-mkdir -p "$FIXTURE/openspec" "$OUTSIDE/evil"
+mkdir -p "$FIXTURE/spectre" "$OUTSIDE/evil"
 {
   printf -- '```untagged\n'
   printf 'x\n'
   printf -- '```\n'
 } > "$OUTSIDE/evil/tasks.md"
-ln -s "$OUTSIDE" "$FIXTURE/openspec/changes"
+ln -s "$OUTSIDE" "$FIXTURE/spectre/changes"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "changes/ symlinked outside the root: exit 3" \
   || fail "changes/ outside symlink: expected rc=3, got rc=$RC out=$OUT"
@@ -3874,13 +3874,13 @@ run_guard "$FIXTURE"
 # has not simply subsumed the per-file one.
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-test.XXXXXX")"
 OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-outside.XXXXXX")"
-mkdir -p "$FIXTURE/openspec/changes" "$OUTSIDE/evil"
+mkdir -p "$FIXTURE/spectre/changes" "$OUTSIDE/evil"
 {
   printf -- '```untagged\n'
   printf 'x\n'
   printf -- '```\n'
 } > "$OUTSIDE/evil/tasks.md"
-ln -s "$OUTSIDE/evil" "$FIXTURE/openspec/changes/evil"
+ln -s "$OUTSIDE/evil" "$FIXTURE/spectre/changes/evil"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "changes/<name> symlink control: still exit 3" \
   || fail "changes/<name> symlink control: expected rc=3, got rc=$RC out=$OUT"
@@ -3890,20 +3890,20 @@ case "$OUT" in
   *) fail "changes/<name> symlink control: per-file message missing: out=$OUT" ;;
 esac
 
-# 187. `openspec/` itself symlinked, with a real `changes` inside it — the
+# 187. `spectre/` itself symlinked, with a real `changes` inside it — the
 # realpath half of the anchor check rather than the islink half.
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-test.XXXXXX")"
 OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/plan-prov-outside.XXXXXX")"
 mkdir -p "$OUTSIDE/changes/demo-change"
 printf 'clean\n' > "$OUTSIDE/changes/demo-change/tasks.md"
-ln -s "$OUTSIDE" "$FIXTURE/openspec"
+ln -s "$OUTSIDE" "$FIXTURE/spectre"
 run_guard "$FIXTURE"
-[ "$RC" -eq 3 ] && pass "openspec/ itself symlinked: exit 3 via the realpath check" \
-  || fail "openspec/ symlink: expected rc=3, got rc=$RC out=$OUT"
+[ "$RC" -eq 3 ] && pass "spectre/ itself symlinked: exit 3 via the realpath check" \
+  || fail "spectre/ symlink: expected rc=3, got rc=$RC out=$OUT"
 
 # 188. An ordinary, non-symlinked tree is untouched by the anchor check.
 new_fixture
-printf 'clean\n' > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+printf 'clean\n' > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "real changes/ directory: anchor check does not fire" \
   || fail "real changes/ directory: expected rc=0, got rc=$RC out=$OUT"
@@ -3921,7 +3921,7 @@ run_guard "$FIXTURE"
 # word-constituent.
 new_fixture
 printf 'catches the KAN-6 errors in one pass\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "issue key followed by a unit word is not a claim" \
   || fail "KAN-6 adjacency: rc=$RC out=$OUT"
@@ -3931,7 +3931,7 @@ run_guard "$FIXTURE"
 # to catch.
 new_fixture
 printf 'the suite reported 6 errors\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a bare digit run before a unit word is still a claim" \
   || fail "bare claim control: rc=$RC out=$OUT"
@@ -3947,7 +3947,7 @@ run_guard "$FIXTURE"
 # it, so there is nothing for a measured:/predicted: comment to attribute.
 new_fixture
 printf 'a baseline of "194 tests" was invented, not measured\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "straight-quoted number is not a claim" \
   || fail "straight quotes: rc=$RC out=$OUT"
@@ -3960,7 +3960,7 @@ run_guard "$FIXTURE"
 # re-add the class without anything objecting.
 new_fixture
 printf 'the offending line read `85 lines` with no tag\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a number in a code span is an ordinary claim, not a quotation" \
   || fail "code span no longer exempts: rc=$RC out=$OUT"
@@ -3978,7 +3978,7 @@ esac
 # width any more, because backticks are not delimiters at all.
 new_fixture
 printf 'the log read ``a ` tick and 7 errors`` verbatim\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a number in a multi-backtick span is an ordinary claim too" \
   || fail "wide code span no longer exempts: rc=$RC out=$OUT"
@@ -3988,7 +3988,7 @@ run_guard "$FIXTURE"
 # boundary's ASCII-only allowlist (see the CLAIM_RE comment block).
 new_fixture
 printf 'quoting \342\200\234194 tests\342\200\235 from the earlier plan\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "curly-quoted number is not a claim" \
   || fail "curly quotes: rc=$RC out=$OUT"
@@ -3998,7 +3998,7 @@ run_guard "$FIXTURE"
 # where the number is demonstrably enclosed.
 new_fixture
 printf 'it ran "and then reported 12 failures\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "unmatched delimiter does not exempt" \
   || fail "fail-closed: rc=$RC out=$OUT"
@@ -4008,7 +4008,7 @@ run_guard "$FIXTURE"
 # repository's documentation.
 new_fixture
 printf "the guard's own suite reported 12 failures\n" \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "apostrophe is not a quotation delimiter" \
   || fail "apostrophe: rc=$RC out=$OUT"
@@ -4018,7 +4018,7 @@ run_guard "$FIXTURE"
 # number cannot mask a bare one beside it.
 new_fixture
 printf 'we quoted "194 tests" but then asserted 12 failures\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a bare claim beside a quoted one is still reported" \
   || fail "mixed line: rc=$RC out=$OUT"
@@ -4043,7 +4043,7 @@ run_guard "$FIXTURE"
 # the line does not exempt a number that is genuinely asserted between them.
 new_fixture
 printf 'a "quote" and a stray " mark, then 99 tests ran, "done"\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "stray quote plus a later pair does not exempt" \
   || fail "stray quote: rc=$RC out=$OUT"
@@ -4069,7 +4069,7 @@ esac
 # that it is no longer reached through a veto.
 new_fixture
 printf 'a `span` and a stray ` then 50 files were read `ok`\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a backtick run does not create a quotation" \
   || fail "stray backtick: rc=$RC out=$OUT"
@@ -4089,7 +4089,7 @@ esac
 # where the claim follows the unclosed opener.
 new_fixture
 printf 'a matched "194 tests" pair, then a dangling "\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "an opener unclosed at end of line exempts nothing" \
   || fail "dangling opener: rc=$RC out=$OUT"
@@ -4102,7 +4102,7 @@ run_guard "$FIXTURE"
 # accept and a correct nearest-pair scan accepts for the right reason.
 new_fixture
 printf 'the log read "a tick" then "7 errors" then "done" verbatim\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an enclosed claim between unrelated pairs stays exempt" \
   || fail "enclosed claim between pairs: rc=$RC out=$OUT"
@@ -4115,7 +4115,7 @@ run_guard "$FIXTURE"
 new_fixture
 clean_tasks_md
 printf 'the suite reported 197 tests\n' \
-  > "$FIXTURE/openspec/changes/demo-change/design.md"
+  > "$FIXTURE/spectre/changes/demo-change/design.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "design.md numeric claim is in scope" \
   || fail "design.md: rc=$RC out=$OUT"
@@ -4125,9 +4125,9 @@ run_guard "$FIXTURE"
 # that shape.
 new_fixture
 clean_tasks_md
-mkdir -p "$FIXTURE/openspec/changes/demo-change/specs/some-capability"
+mkdir -p "$FIXTURE/spectre/changes/demo-change/specs/some-capability"
 printf 'a baseline of 197 tests\n' \
-  > "$FIXTURE/openspec/changes/demo-change/specs/some-capability/spec.md"
+  > "$FIXTURE/spectre/changes/demo-change/specs/some-capability/spec.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "change specs/ is not scanned" || fail "specs/: rc=$RC out=$OUT"
 
@@ -4136,7 +4136,7 @@ run_guard "$FIXTURE"
 new_fixture
 clean_tasks_md
 printf 'the suite reported 197 tests\n' \
-  > "$FIXTURE/openspec/changes/archive/old-change/design.md"
+  > "$FIXTURE/spectre/changes/archive/old-change/design.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "archived design.md is not scanned" \
   || fail "archived design.md: rc=$RC out=$OUT"
@@ -4145,9 +4145,9 @@ run_guard "$FIXTURE"
 # change, not the "broken glob" scan-integrity failure: a change mid-planning
 # legitimately has no tasks.md yet.
 new_fixture
-rm -f "$FIXTURE/openspec/changes/demo-change/tasks.md"
+rm -f "$FIXTURE/spectre/changes/demo-change/tasks.md"
 printf '```bash verified:ran it locally\necho hi\n```\n' \
-  > "$FIXTURE/openspec/changes/demo-change/design.md"
+  > "$FIXTURE/spectre/changes/demo-change/design.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "design.md alone is a scanned change, not a broken glob" \
   || fail "design.md alone: rc=$RC out=$OUT"
@@ -4155,7 +4155,7 @@ run_guard "$FIXTURE"
 # 205. Containment applies to every scanned file, not only tasks.md.
 new_fixture
 clean_tasks_md
-ln -s /etc/hosts "$FIXTURE/openspec/changes/demo-change/design.md"
+ln -s /etc/hosts "$FIXTURE/spectre/changes/demo-change/design.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "a symlinked design.md is a containment refusal" \
   || fail "design.md symlink: rc=$RC out=$OUT"
@@ -4165,9 +4165,9 @@ run_guard "$FIXTURE"
 new_fixture
 clean_tasks_md
 printf 'ran the suite, 3 tests <!-- measured: pytest -q -->\n' \
-  > "$FIXTURE/openspec/changes/demo-change/design.md"
+  > "$FIXTURE/spectre/changes/demo-change/design.md"
 printf 'ran the suite, 3 tests <!-- measured: pytest -q -->\n' \
-  > "$FIXTURE/openspec/changes/demo-change/proposal.md"
+  > "$FIXTURE/spectre/changes/demo-change/proposal.md"
 run_guard "$FIXTURE"
 [ "$OUT" = "check-plan-provenance: 3 file(s) scanned, all provenance stated" ] \
   && pass "every scanned planning artifact is counted" \
@@ -4212,19 +4212,19 @@ run_guard "$FIXTURE"
 #      the two failures can never again be confused for each other.
 new_fixture
 printf 'not a planning artifact\n' > "$FIXTURE/symlink-target.txt"
-rm -f "$FIXTURE/openspec/changes/demo-change/tasks.md"
-ln -s "$FIXTURE/symlink-target.txt" "$FIXTURE/openspec/changes/demo-change/tasks.md"
+rm -f "$FIXTURE/spectre/changes/demo-change/tasks.md"
+ln -s "$FIXTURE/symlink-target.txt" "$FIXTURE/spectre/changes/demo-change/tasks.md"
 printf 'the suite reported 197 tests\n' \
-  > "$FIXTURE/openspec/changes/demo-change/design.md"
-[ -L "$FIXTURE/openspec/changes/demo-change/tasks.md" ] \
-  && [ -s "$FIXTURE/openspec/changes/demo-change/design.md" ] \
+  > "$FIXTURE/spectre/changes/demo-change/design.md"
+[ -L "$FIXTURE/spectre/changes/demo-change/tasks.md" ] \
+  && [ -s "$FIXTURE/spectre/changes/demo-change/design.md" ] \
   && pass "sibling candidate: fixture built (symlinked tasks.md, non-empty design.md)" \
   || fail "sibling candidate: fixture construction failed before the guard ran"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "sibling candidate: rc=3 (containment outranks the violation)" \
   || fail "sibling candidate: rc=$RC out=$OUT"
 case "$OUT" in
-  *"openspec/changes/demo-change/design.md:1: numeric claim with no measured:/predicted: provenance comment"*) \
+  *"spectre/changes/demo-change/design.md:1: numeric claim with no measured:/predicted: provenance comment"*) \
     pass "sibling candidate: the violating design.md was still scanned and reported" ;;
   *) fail "sibling candidate: refused tasks.md swallowed its sibling design.md: out=$OUT" ;;
 esac
@@ -4235,19 +4235,19 @@ esac
 new_fixture
 printf 'not a planning artifact\n' > "$FIXTURE/symlink-target.txt"
 printf 'the suite reported 197 tests\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
-ln -s "$FIXTURE/symlink-target.txt" "$FIXTURE/openspec/changes/demo-change/design.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
+ln -s "$FIXTURE/symlink-target.txt" "$FIXTURE/spectre/changes/demo-change/design.md"
 printf 'ran the suite, 3 tests <!-- measured: pytest -q -->\n' \
-  > "$FIXTURE/openspec/changes/demo-change/proposal.md"
-[ -L "$FIXTURE/openspec/changes/demo-change/design.md" ] \
-  && [ -s "$FIXTURE/openspec/changes/demo-change/tasks.md" ] \
+  > "$FIXTURE/spectre/changes/demo-change/proposal.md"
+[ -L "$FIXTURE/spectre/changes/demo-change/design.md" ] \
+  && [ -s "$FIXTURE/spectre/changes/demo-change/tasks.md" ] \
   && pass "sibling candidate (mirror): fixture built" \
   || fail "sibling candidate (mirror): fixture construction failed before the guard ran"
 run_guard "$FIXTURE"
 [ "$RC" -eq 3 ] && pass "sibling candidate (mirror): rc=3" \
   || fail "sibling candidate (mirror): rc=$RC out=$OUT"
 case "$OUT" in
-  *"openspec/changes/demo-change/tasks.md:1: numeric claim with no measured:/predicted: provenance comment"*) \
+  *"spectre/changes/demo-change/tasks.md:1: numeric claim with no measured:/predicted: provenance comment"*) \
     pass "sibling candidate (mirror): the violating tasks.md was still reported" ;;
   *) fail "sibling candidate (mirror): violation missing: out=$OUT" ;;
 esac
@@ -4280,7 +4280,7 @@ mod = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
-changes_dir = os.path.join(sys.argv[2], "openspec", "changes")
+changes_dir = os.path.join(sys.argv[2], "spectre", "changes")
 guard = mod.ProvenanceGuard()
 # A real, regular, contained file inside the right change directory, but
 # under a DIFFERENT name than the one being confirmed.
@@ -4314,7 +4314,7 @@ print(guard.verify_scanned_file_containment(path, changes_dir, "design.md"))
 # the difference.
 new_fixture
 printf '`a``b` and then we saw 99 tests happen ``\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a backtick run neither exempts nor vetoes (leftover run)" \
   || fail "leftover backtick run: rc=$RC out=$OUT"
@@ -4323,7 +4323,7 @@ run_guard "$FIXTURE"
 # after the claim. Same verdict, same reason: no quotation delimiters.
 new_fixture
 printf 'the log said ``a ` b`` and 42 files changed ` done\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a backtick run neither exempts nor vetoes (trailing run)" \
   || fail "trailing backtick run: rc=$RC out=$OUT"
@@ -4339,7 +4339,7 @@ new_fixture
   printf '## Task\n'
   printf '\n'
   printf '`a` "b` and 7 tests failed" c\n'
-} > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+} > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a matched quotation is read without consulting backticks" \
   || fail "quotation beside backticks: rc=$RC out=$OUT"
@@ -4355,7 +4355,7 @@ run_guard "$FIXTURE"
 # visibly between two quotation marks on the page.
 new_fixture
 printf 'the tool printed `\342\200\234` before 8 failures and \342\200\235 after, plus ` more\n' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a curly pair spanning a backtick run exempts (the accepted cost)" \
   || fail "curly across backticks: rc=$RC out=$OUT"
@@ -4368,11 +4368,11 @@ run_guard "$FIXTURE"
 # SCANNED_FILENAMES, each naming a DIFFERENT one, because collapsing them
 # would mean deciding for the operator that the three failures share one cause.
 new_fixture
-mkdir -p "$FIXTURE/openspec/changes/locked-change"
-chmod 000 "$FIXTURE/openspec/changes/locked-change"
+mkdir -p "$FIXTURE/spectre/changes/locked-change"
+chmod 000 "$FIXTURE/spectre/changes/locked-change"
 clean_tasks_md
 run_guard "$FIXTURE"
-chmod 755 "$FIXTURE/openspec/changes/locked-change"
+chmod 755 "$FIXTURE/spectre/changes/locked-change"
 CANNOT_COUNT="$(printf '%s\n' "$OUT" | grep -c 'cannot determine whether .* exists' || true)"
 [ "$CANNOT_COUNT" -eq 3 ] \
   && pass "a locked change dir emits one 'cannot determine' per scanned filename" \
@@ -4406,7 +4406,7 @@ CANNOT_NAMES="$(printf '%s\n' "$OUT" \
 # assertion is what distinguishes that from a veto firing on the old set.
 new_fixture
 printf '%s\n' 'Escape it as \` in the shell, and `grep -c` reported 42 files after the \` fix' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "an escaped backtick is an ordinary character now" \
   || fail "escaped backticks around a real span: rc=$RC out=$OUT"
@@ -4422,7 +4422,7 @@ esac
 # claim's being asserted.
 new_fixture
 printf '%s\n' 'Escape it as X in the shell, and `grep -c` reported 42 files after the X fix' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "the unescaped control for 214 reports identically" \
   || fail "unescaped control: rc=$RC out=$OUT"
@@ -4432,7 +4432,7 @@ run_guard "$FIXTURE"
 # Neither the invention nor its veto exists any more; the claim is asserted.
 new_fixture
 printf '%s\n' 'Write \` to escape a backtick; the run then reported 99 tests and exited \` cleanly' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a pair of escaped backticks exempts nothing" \
   || fail "escaped backtick pair: rc=$RC out=$OUT"
@@ -4443,7 +4443,7 @@ run_guard "$FIXTURE"
 # exempts a bare asserted claim.
 new_fixture
 printf '%s\n' 'Use \" for a literal quote; the run reported 99 tests, then printed \" done' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a pair of escaped straight quotes is not a quotation" \
   || fail "escaped quote pair: rc=$RC out=$OUT"
@@ -4465,7 +4465,7 @@ esac
 # anything, not because a veto fired.
 new_fixture
 printf '%s\n' 'the suite ran \`99 tests\` today' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "escaped backticks hugging the claim do not exempt it" \
   || fail "escaped delimiters hugging the claim: rc=$RC out=$OUT"
@@ -4478,7 +4478,7 @@ run_guard "$FIXTURE"
 # the one that proves the veto has not swallowed the exemption whole.
 new_fixture
 printf '%s\n' 'notes: \\"99 tests\\" recorded' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "an escaped backslash leaves the following quote live" \
   || fail "escaped backslash then live quote: rc=$RC out=$OUT"
@@ -4487,7 +4487,7 @@ run_guard "$FIXTURE"
 # the line carries no quotation. The claim is asserted.
 new_fixture
 printf '%s\n' 'notes: \\\"99 tests\\\" recorded' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "an odd backslash run escapes the delimiter after it" \
   || fail "odd backslash run: rc=$RC out=$OUT"
@@ -4499,7 +4499,7 @@ run_guard "$FIXTURE"
 # a silent false negative, and this exemption may only ever REMOVE a finding.
 new_fixture
 printf '%s\n' 'the baseline was "99 tests", and a literal quote is written \"' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "an escaped quote withdraws a sound quotation elsewhere on the line" \
   || fail "escape veto is whole-line: rc=$RC out=$OUT"
@@ -4531,7 +4531,7 @@ run_guard "$FIXTURE"
 # into a region that swallows the claim and the guard exits 0 on a bare number.
 new_fixture
 printf '%s\n' 'See <!--"--> the benchmark ran 77 tests <!--"-->.' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "quotes inside an HTML comment are not live delimiters" \
   || fail "html comment delimiters: rc=$RC out=$OUT"
@@ -4556,7 +4556,7 @@ esac
 # design refuses to repeat.
 new_fixture
 printf '%s\n' 'the baseline was "99 tests", per <a href="x">the report</a>' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "an HTML tag on the line withdraws the whole line" \
   || fail "html tag attribute: rc=$RC out=$OUT"
@@ -4571,7 +4571,7 @@ run_guard "$FIXTURE"
 # the guard's own scan scope.
 new_fixture
 printf '%s\n' 'the baseline was "194 tests" <!-- see the earlier plan -->' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a \`<\` with no delimiter in it still withdraws the exemption" \
   || fail "angle bracket without delimiters: rc=$RC out=$OUT"
@@ -4580,7 +4580,7 @@ run_guard "$FIXTURE"
 # the whole delimiter set at once, because it never looks at the delimiters.
 new_fixture
 printf '%s\n' 'See <!--\342\200\234--> the benchmark ran 77 tests <!--\342\200\235-->.' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "curly quotes inside an HTML comment are not live delimiters" \
   || fail "html comment curly delimiters: rc=$RC out=$OUT"
@@ -4592,7 +4592,7 @@ run_guard "$FIXTURE"
 # coarse rule has not swallowed the exemption whole.
 new_fixture
 printf '%s\n' 'See " the benchmark ran 77 tests ".' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "the angle-bracket-free control for 222 exempts the claim" \
   || fail "angle-bracket control: rc=$RC out=$OUT"
@@ -4605,7 +4605,7 @@ run_guard "$FIXTURE"
 # rule there is nothing to truncate.
 new_fixture
 printf '%s\n' "<a b='>\"'> the benchmark ran 77 tests \"" \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a \`>\` inside a single-quoted attribute cannot hide a delimiter" \
   || fail "attribute-value reproducer: rc=$RC out=$OUT"
@@ -4618,7 +4618,7 @@ run_guard "$FIXTURE"
 # there is a `<`.
 new_fixture
 printf '%s\n' 'the range a <b and c covers 5 tests' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a bare \`<\` withdraws the exemption" \
   || fail "bare angle bracket: rc=$RC out=$OUT"
@@ -4639,7 +4639,7 @@ esac
 # untruthfully to silence a guard.
 new_fixture
 printf '%s\n' 'a "quote" and a stray " mark, then 99 tests ran, "done"' \
-  > "$FIXTURE/openspec/changes/demo-change/tasks.md"
+  > "$FIXTURE/spectre/changes/demo-change/tasks.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "banner case: the vetoed claim is reported" \
   || fail "banner case: rc=$RC out=$OUT"

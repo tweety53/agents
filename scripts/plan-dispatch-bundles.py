@@ -2,8 +2,9 @@
 """plan-dispatch-bundles.py — group a tasks.md's unchecked tasks into
 dispatch bundles by the overlap of their declared **Files:** paths.
 
-Rule (canonical definition: openspec/changes/kan-109-optimize-myflow-agent-
-token-and-time-cost/specs/myflow-dispatch-economy/spec.md, "Requirement:
+Rule (canonical definition: this repository's archived
+kan-109-optimize-myflow-agent-token-and-time-cost change's
+myflow-dispatch-economy spec, "Requirement:
 Implementer dispatches are bundled by declared file overlap" — do not
 restate it here, the same Single Source of Truth discipline check-task-
 build-green.py's own docstring already states). Two unchecked tasks join
@@ -23,7 +24,7 @@ Exit codes:
      (document) order. A file with zero unchecked tasks prints nothing and
      still exits 0.
   1  one or more unchecked tasks carry no **Files:** field at all — printed
-     one per line as `<path>:<heading line>: task <id> has no **Files:**
+     one per line as `<path>:<task line>: task <id> has no **Files:**
      field`, naming every such task rather than stopping at the first.
   2  invocation error — wrong argument count, the file cannot be read, or
      it cannot be decoded as text.
@@ -31,23 +32,29 @@ Exit codes:
 Parsing model
 -------------
 
-A task begins at a line (outside any fenced code block) matching `^###
-(DOTTED_ID)(?:\\s|$)`, the same TASK_HEADING_RE grammar check-task-build-
-green.py uses. Its body runs to the next line matching `^#{2,3}(?:\\s|$)`
-or end of file, the same BODY_BOUNDARY_RE. Fenced code blocks (three or
-more backticks or tildes, toggling fence state each time one is seen) are
-opaque to this parser exactly as they are to check-task-build-green.py: a
-heading, a checkbox, or a `**Files:**` line inside a fence is worked
-example text, not real structure.
+A task begins at a line (outside any fenced code block) matching
+`^- \\[([ x])\\] (\\d+)\\. `, the same TASK_LINE_RE grammar check-task-
+build-green.py uses — the spectre checkbox line, whose id is a flat
+integer. Its body runs to the next
+such line, to the next line matching `^#{2,3}(?:\\s|$)`, or to end of file,
+the same BODY_BOUNDARY_RE. Fenced code blocks (three or more backticks or
+tildes, toggling fence state each time one is seen) are opaque to this
+parser exactly as they are to check-task-build-green.py: a task line, a
+checkbox, or a `**Files:**` line inside a fence is worked example text, not
+real structure.
+
+A task is UNCHECKED when the mark on its OWN task line is a space
+(`- [ ] 3. ...`); one marked `- [x] 3. ...` is done and takes no part in
+any bundle — it is simply not read for its **Files:** field, and never
+reported as missing one. That mark is where done-ness lives now, and it is
+the same bit `spectre list` counts as progress. The
+`  - [x] **Step N: ...**` checkboxes beneath a task are indented two
+columns, are part of its body, are never tasks of their own, and this guard
+no longer reads them for anything: a task whose own line is unchecked is
+dispatched however many of its steps are already marked.
 
 Within a task's body:
 
-  - a line matching `^- \\[([ xX])\\]` is one of that task's step
-    checkboxes. A task is UNCHECKED when it has at least one such line
-    whose mark is exactly a space (`- [ ]`); a task with zero such lines,
-    or whose checkboxes are all `[x]`/`[X]`, takes no part in any bundle —
-    it is simply not read for its **Files:** field, and never reported as
-    missing one.
   - the first line matching `^\\*\\*Files:\\*\\*` opens the Files field. Its
     entries are every immediately following line matching `^- ` (a bullet),
     read until the first line that is not such a bullet (a blank line, a
@@ -78,17 +85,18 @@ import sys
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-# DOTTED_ID / TASK_HEADING_RE / FENCE_RE / BODY_BOUNDARY_RE mirror check-
+# TASK_ID / TASK_LINE_RE / FENCE_RE / BODY_BOUNDARY_RE mirror check-
 # task-build-green.py's own constants exactly, so the two guards never read
-# the same tasks.md's structure two different ways.
-DOTTED_ID = r"\d+(?:\.\d+)*"
-TASK_HEADING_RE = re.compile(rf"^### ({DOTTED_ID})(?:\s|$)")
+# the same tasks.md's structure two different ways. TASK_LINE_RE is
+# spectre's own task grammar character for character: group "state" is the
+# mark between the brackets, a space for an open task and an `x` for a done
+# one, and group "id" is the task's id, a flat integer. The dotted id
+# grammar lives on in lib/plan_grammar.py for `Squash-with:` partner ids,
+# and is deliberately not mirrored here — this guard reads no partner.
+TASK_ID = r"\d+"
+TASK_LINE_RE = re.compile(rf"^- \[(?P<state>[ x])\] (?P<id>{TASK_ID})\. ")
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 BODY_BOUNDARY_RE = re.compile(r"^#{2,3}(?:\s|$)")
-
-# CHECKBOX_RE — a task step's checkbox. Group "mark" is the character
-# between the brackets: a literal space means the step is unchecked.
-CHECKBOX_RE = re.compile(r"^- \[(?P<mark>[ xX])\]")
 
 # FILES_FIELD_RE / COLLATERAL_FIELD_RE / ANY_FIELD_RE — the bold field
 # lines that open, and that stop, a **Files:** bullet run. ANY_FIELD_RE
@@ -102,14 +110,13 @@ ANY_FIELD_RE = re.compile(
     r"Build|Squash-with):\*\*"
 )
 
-# BULLET_RE — a Files field entry line. CHECKBOX_RE describes a strict
-# subset of what this pattern would otherwise accept (both start with
-# `- `), so a checkbox line immediately following a **Files:** bullet run,
-# with no blank line between them, would be consumed as a bogus file-path
-# entry instead of falling through to the checkbox check below. The
-# negative lookahead excludes exactly the `- [ ]` / `- [x]` / `- [X]`
-# prefix CHECKBOX_RE matches, so the two patterns partition the line space
-# instead of overlapping.
+# BULLET_RE — a Files field entry line. A checkbox line starts with `- `
+# too, so a task's step checkbox immediately following a **Files:** bullet
+# run, with no blank line between them, would be consumed as a bogus
+# file-path entry. The negative lookahead excludes exactly the `- [ ]` /
+# `- [x]` / `- [X]` prefix a checkbox line carries, so a step never
+# contributes a path — and neither does the next task's own line, which
+# carries the same prefix.
 BULLET_RE = re.compile(r"^- (?!\[[ xX]\])\s*(.*)$")
 
 # ENTRY_PREFIX_RE — the recognised Create:/Modify:/Delete: prefix on one
@@ -128,7 +135,7 @@ class Task:
     """One task found in a tasks.md file."""
 
     id: str
-    heading_line: int
+    task_line: int
     unchecked: bool = False
     files_present: bool = False
     files: List[str] = field(default_factory=list)
@@ -149,8 +156,8 @@ def _extract_paths(entry_text: str) -> List[str]:
 
 def parse_tasks(lines: List[str]) -> List[Task]:
     """Split `lines` (0-indexed in the list, 1-indexed as line numbers) into
-    tasks, then resolve each task's unchecked status and **Files:** field
-    from its own body."""
+    tasks, reading each task's unchecked status off its own task line and
+    its **Files:** field out of its body."""
     tasks: List[Task] = []
     current: Optional[Task] = None
     body_start = 0
@@ -179,13 +186,7 @@ def parse_tasks(lines: List[str]) -> List[Task]:
                     continue
                 in_files = False
                 # Fall through: this line still needs its own checks below
-                # (it may itself open a new field or be a checkbox).
-            if CHECKBOX_RE.match(body_line):
-                mark = CHECKBOX_RE.match(body_line).group("mark")
-                if mark == " ":
-                    current.unchecked = True
-                offset += 1
-                continue
+                # (it may itself open a new field).
             if FILES_FIELD_RE.match(body_line):
                 current.files_present = True
                 in_files = True
@@ -203,10 +204,14 @@ def parse_tasks(lines: List[str]) -> List[Task]:
             continue
         if in_fence:
             continue
-        heading_match = TASK_HEADING_RE.match(line)
-        if heading_match:
+        task_match = TASK_LINE_RE.match(line)
+        if task_match:
             close_body(index)
-            current = Task(id=heading_match.group(1), heading_line=index + 1)
+            current = Task(
+                id=task_match.group("id"),
+                task_line=index + 1,
+                unchecked=task_match.group("state") == " ",
+            )
             tasks.append(current)
             body_start = index + 1
             continue
@@ -218,10 +223,10 @@ def parse_tasks(lines: List[str]) -> List[Task]:
     return tasks
 
 
-def _id_key(task_id: str) -> Tuple[int, ...]:
-    """Numeric sort key for a dotted task id, so "1.10" sorts after "1.2"
-    rather than before it."""
-    return tuple(int(part) for part in task_id.split("."))
+def _id_key(task_id: str) -> int:
+    """Numeric sort key for a task id, so "10" sorts after "2" rather than
+    before it as its text would."""
+    return int(task_id)
 
 
 class UnionFind:
@@ -256,7 +261,7 @@ def compute_bundles(tasks: List[Task]) -> Tuple[List[List[Task]], List[str]]:
     missing = [t for t in unchecked if not t.files_present]
     if missing:
         return [], [
-            f"{t.heading_line}: task {t.id} has no **Files:** field"
+            f"{t.task_line}: task {t.id} has no **Files:** field"
             for t in missing
         ]
 

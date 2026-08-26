@@ -829,18 +829,6 @@ func (stubStageStore) CacheEfficiency(context.Context, store.Period, *string, *s
 	return nil, errStageStoreNotImplemented
 }
 
-func (stubStageStore) PanelEconomics(context.Context, store.Period, *string, *string) ([]store.PanelEconomicsRow, error) {
-	return nil, errStageStoreNotImplemented
-}
-
-func (stubStageStore) ModelComparison(context.Context, store.Period, *string, *string) ([]store.ModelComparisonRow, error) {
-	return nil, errStageStoreNotImplemented
-}
-
-func (stubStageStore) ReworkRate(context.Context, store.Period, *string, *string) ([]store.ReworkRateRow, error) {
-	return nil, errStageStoreNotImplemented
-}
-
 func (stubStageStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, errStageStoreNotImplemented
 }
@@ -897,6 +885,21 @@ func (stubStageStore) ProjectKeysByDisplayName(context.Context, string) ([]strin
 
 var _ api.StatsStore = stubStageStore{}
 
+// GetSettings and PutSettings are here for the same reason
+// ProjectKeysByDisplayName's own doc comment gives: api.New gained a
+// fifth store parameter (task 2) for the settings routes, and every
+// implementer must keep compiling -- this file's tests never exercise
+// /api/v1/settings.
+func (stubStageStore) GetSettings(context.Context) (store.Settings, error) {
+	return store.Settings{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) PutSettings(context.Context, store.Settings) error {
+	return errStageStoreNotImplemented
+}
+
+var _ api.SettingsStore = stubStageStore{}
+
 // TestClientAgreesWithRealDaemonOverDaemonHeader is F6's fix: the daemon
 // header value exists in three places -- api.DaemonHeaderValue (the
 // source), internal/client's own literal copy (necessary, per the CLI's
@@ -921,7 +924,7 @@ var _ api.StatsStore = stubStageStore{}
 func TestClientAgreesWithRealDaemonOverDaemonHeader(t *testing.T) {
 	cs := newInMemoryChangeStore()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	apiServer, err := api.New(cfg, cs, stubStageStore{}, stubStageStore{}, stubStageStore{}, nil)
+	apiServer, err := api.New(cfg, cs, stubStageStore{}, stubStageStore{}, stubStageStore{}, stubStageStore{}, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

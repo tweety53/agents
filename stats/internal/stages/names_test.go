@@ -193,8 +193,9 @@ func TestStageKeysFollowNamingConvention(t *testing.T) {
 // generous headroom for reasonable rewording -- not from any inherent
 // limit on prose. This guards against the specific defect this task
 // exists to fix: a stage "name" that is really a 400-character sentence
-// describing an entire command's run, which is what let `/myflow-fast`
-// record one giant "stage" per invocation instead of several real ones
+// describing an entire command's run, which is what let the pipeline's
+// former composite command record one giant "stage" per invocation
+// instead of several real ones
 // (tasks.md, "Step 4: The test that would catch the next one"). A name
 // anywhere near this bound is a description standing in for a stage list,
 // not a stage name, whichever command it was written for.
@@ -213,51 +214,21 @@ func TestNoDocumentedStageNameIsImplausiblyLong(t *testing.T) {
 	}
 }
 
-// TestMyflowFastStageSetIsUnionOfChainedCommands pins design.md's decision
-// that `/myflow-fast`'s allowed stage set is exactly the union of
-// `/myflow-start`'s, `/myflow-do`'s and `/myflow-finish`'s -- composed via
-// the Commands column, never restated as a fourth set of names (tasks.md,
-// "Step 2: Compose rather than duplicate").
-func TestMyflowFastStageSetIsUnionOfChainedCommands(t *testing.T) {
-	union := map[string]bool{}
-	for _, cmd := range []stages.Command{stages.MyflowStart, stages.MyflowDo, stages.MyflowFinish} {
-		for _, s := range stages.Table {
-			if stages.Valid(cmd, s.Key) {
-				union[s.Key] = true
-			}
-		}
-	}
-
-	fastKeys := map[string]bool{}
-	for _, s := range stages.Table {
-		if stages.Valid(stages.MyflowFast, s.Key) {
-			fastKeys[s.Key] = true
-		}
-	}
-
-	if !reflect.DeepEqual(fastKeys, union) {
-		t.Errorf("/myflow-fast's allowed stage set is not the union of the three chained commands'\n  fast:  %v\n  union: %v", fastKeys, union)
-	}
-	if len(union) == 0 {
-		t.Fatal("union of /myflow-start, /myflow-do and /myflow-finish's stages is empty -- the test itself is broken")
-	}
-}
-
 // TestUndocumentedStageKeyIsRejected pins Validate's rejection of a key
 // absent from the documented table, and that the rejection names the
 // documented alternatives -- exactly what the CLI needs to report a useful
 // error instead of a bare "invalid".
 func TestUndocumentedStageKeyIsRejected(t *testing.T) {
-	err := stages.Validate(stages.MyflowDo, "do.a-key-nobody-documented")
+	err := stages.Validate(stages.Flow, "flow.a-key-nobody-documented")
 	if err == nil {
 		t.Fatal("Validate: got nil error for an undocumented stage key, want a rejection")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "do.a-key-nobody-documented") {
+	if !strings.Contains(msg, "flow.a-key-nobody-documented") {
 		t.Errorf("error %q does not name the rejected key", msg)
 	}
 	for _, s := range stages.Table {
-		if !stages.Valid(stages.MyflowDo, s.Key) {
+		if !stages.Valid(stages.Flow, s.Key) {
 			continue
 		}
 		if !strings.Contains(msg, s.Key) {
@@ -269,8 +240,8 @@ func TestUndocumentedStageKeyIsRejected(t *testing.T) {
 	if !asErrUnknownStage(err, &unknown) {
 		t.Fatalf("Validate's error is not an *ErrUnknownStage: %v (%T)", err, err)
 	}
-	if unknown.Command != stages.MyflowDo || unknown.Stage != "do.a-key-nobody-documented" {
-		t.Errorf("ErrUnknownStage = %+v, want Command=%s Stage=%q", unknown, stages.MyflowDo, "do.a-key-nobody-documented")
+	if unknown.Command != stages.Flow || unknown.Stage != "flow.a-key-nobody-documented" {
+		t.Errorf("ErrUnknownStage = %+v, want Command=%s Stage=%q", unknown, stages.Flow, "flow.a-key-nobody-documented")
 	}
 }
 
@@ -299,36 +270,32 @@ func TestValidStageKeyIsAccepted(t *testing.T) {
 
 // TestStageKeyIsRejectedForTheWrongCommand pins that a key documented for
 // one command is not silently valid for another -- Valid must key on
-// (command, key) together, not merely check key against the union of
-// every command's stages.
+// (command, key) together, not merely check key against the table as a
+// whole.
 func TestStageKeyIsRejectedForTheWrongCommand(t *testing.T) {
-	// "start.brainstorm" is documented for /myflow-start (and, via the
-	// union, /myflow-fast) -- never for /myflow-do or /myflow-finish on
-	// their own.
-	if stages.Valid(stages.MyflowDo, "start.brainstorm") {
-		t.Error(`Valid(MyflowDo, "start.brainstorm") = true, want false -- that key is not documented for /myflow-do`)
+	// "flow.brainstorm" is documented for /flow only -- never for the
+	// read-only /flow-status, which marks no stages at all.
+	if stages.Valid(stages.Command("/flow-status"), "flow.brainstorm") {
+		t.Error(`Valid("/flow-status", "flow.brainstorm") = true, want false -- that key is not documented for /flow-status`)
 	}
-	if stages.Valid(stages.MyflowFinish, "start.brainstorm") {
-		t.Error(`Valid(MyflowFinish, "start.brainstorm") = true, want false -- that key is not documented for /myflow-finish`)
-	}
-	if !stages.Valid(stages.MyflowStart, "start.brainstorm") {
-		t.Error(`Valid(MyflowStart, "start.brainstorm") = false, want true`)
+	if !stages.Valid(stages.Flow, "flow.brainstorm") {
+		t.Error(`Valid(Flow, "flow.brainstorm") = false, want true`)
 	}
 }
 
-// TestMyflowStatusHasNoDocumentedStages pins that /myflow-status -- which
+// TestFlowStatusHasNoDocumentedStages pins that /flow-status -- which
 // README.md documents as read-only, marking nothing -- validates no key at
 // all.
-func TestMyflowStatusHasNoDocumentedStages(t *testing.T) {
+func TestFlowStatusHasNoDocumentedStages(t *testing.T) {
 	for _, s := range stages.Table {
 		for _, c := range s.Commands {
-			if c == "/myflow-status" {
-				t.Errorf("stage %q lists /myflow-status in Commands, want none -- it is read-only and marks no stages", s.Key)
+			if c == "/flow-status" {
+				t.Errorf("stage %q lists /flow-status in Commands, want none -- it is read-only and marks no stages", s.Key)
 			}
 		}
 	}
-	if err := stages.Validate("/myflow-status", "start.resolve-change"); err == nil {
-		t.Error("Validate(/myflow-status, ...) = nil, want a rejection naming that the command has no documented stages")
+	if err := stages.Validate("/flow-status", "flow.resolve-change"); err == nil {
+		t.Error("Validate(/flow-status, ...) = nil, want a rejection naming that the command has no documented stages")
 	}
 }
 
@@ -337,15 +304,15 @@ func TestMyflowStatusHasNoDocumentedStages(t *testing.T) {
 // the zero value and false, rather than panicking or returning a
 // misleadingly-present empty name.
 func TestNameLooksUpDocumentedKey(t *testing.T) {
-	got, ok := stages.Name("do.review-panel")
+	got, ok := stages.Name("flow.review-panel")
 	if !ok {
-		t.Fatal(`Name("do.review-panel") ok = false, want true`)
+		t.Fatal(`Name("flow.review-panel") ok = false, want true`)
 	}
 	if got != "The review panel ▸" {
-		t.Errorf(`Name("do.review-panel") = %q, want "The review panel ▸"`, got)
+		t.Errorf(`Name("flow.review-panel") = %q, want "The review panel ▸"`, got)
 	}
 
-	if _, ok := stages.Name("do.a-key-nobody-documented"); ok {
+	if _, ok := stages.Name("flow.a-key-nobody-documented"); ok {
 		t.Error("Name: ok = true for an undocumented key, want false")
 	}
 }

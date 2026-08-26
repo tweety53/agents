@@ -47,6 +47,19 @@
 # exactly how the file inventory in myflow-contract-distribution went stale
 # through three changes before anyone noticed.
 #
+# THE FROZEN openspec/specs/ TREE CARRIES NO ROWS ANY MORE, though it once did:
+# it was the largest single piece of the 79-file, 462-KB widening described
+# above, 33 rows' worth. Those rows are gone now because the tree they measured
+# is no longer part of the corpus at all: scripts/lib/owned-corpus.sh's scope
+# roots name spectre/specs/, not openspec/specs/, so owned_corpus_files no
+# longer enumerates a single file under the old tree, and "every covered file
+# needs a row" above already excuses it, the same way it excuses everything
+# else outside the library's scope roots. A ratchet exists to catch REGROWTH,
+# and a frozen tree cannot regrow — nothing under openspec/ is edited again,
+# by this guard's own corpus definition. Do not re-add its rows: that tree is
+# history now, not something this guard measures, no matter how large or
+# small it happens to sit.
+#
 # THE TABLE IS HAND-MAINTAINED AND HAS NO REGENERATE MODE. A guard that can
 # rewrite its own bound from current sizes makes regeneration the path of least
 # resistance, and a ratchet whose bound is recomputed on demand does not
@@ -104,50 +117,26 @@ budgets() {
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 47306
+commands-claude/flow-research.md 1174
+commands-claude/flow-settings.md 993
+commands-claude/flow-status.md 1632
+commands-claude/flow.md 3188
 commands-claude/myflow-do.md 2240
 commands-claude/myflow-fast.md 2536
 commands-claude/myflow-finish.md 3163
+commands-claude/myflow-research.md 972
 commands-claude/myflow-start.md 1815
 commands-claude/myflow-status.md 1637
+commands/flow-research.md 1227
+commands/flow-settings.md 1188
+commands/flow-status.md 1970
+commands/flow.md 3874
 commands/myflow-do.md 2738
 commands/myflow-fast.md 3040
 commands/myflow-finish.md 3507
+commands/myflow-research.md 1038
 commands/myflow-start.md 2178
 commands/myflow-status.md 1981
-commands/opsx-explore.md 9288
-openspec/specs/agents-repo-verification/spec.md 33525
-openspec/specs/myflow-artifact-economy/spec.md 3412
-openspec/specs/myflow-base-branch-resolution/spec.md 12796
-openspec/specs/myflow-build-green/spec.md 4181
-openspec/specs/myflow-citation-roots/spec.md 19301
-openspec/specs/myflow-command-surface/spec.md 13563
-openspec/specs/myflow-commit-scope/spec.md 9341
-openspec/specs/myflow-contract-distribution/spec.md 30051
-openspec/specs/myflow-contract-economy/spec.md 28200
-openspec/specs/myflow-dashboard-period/spec.md 6501
-openspec/specs/myflow-debugging-dispatch/spec.md 3323
-openspec/specs/myflow-dispatch-economy/spec.md 14245
-openspec/specs/myflow-fast-command/spec.md 11811
-openspec/specs/myflow-finish-cleanup/spec.md 43331
-openspec/specs/myflow-handoff-output/spec.md 27522
-openspec/specs/myflow-jira-projection/spec.md 34381
-openspec/specs/myflow-model-policy/spec.md 13905
-openspec/specs/myflow-plan-provenance/spec.md 17138
-openspec/specs/myflow-planning-effort/spec.md 11232
-openspec/specs/myflow-planning-gate/spec.md 15748
-openspec/specs/myflow-progress-visibility/spec.md 5351
-openspec/specs/myflow-review-panel-economics/spec.md 91461
-openspec/specs/myflow-review-panel-roster/spec.md 11918
-openspec/specs/myflow-run-record/spec.md 31150
-openspec/specs/myflow-run-telemetry/spec.md 30260
-openspec/specs/myflow-self-review/spec.md 30591
-openspec/specs/myflow-state-machine/spec.md 14270
-openspec/specs/myflow-state-store/spec.md 9801
-openspec/specs/myflow-stats-views/spec.md 23658
-openspec/specs/myflow-task-commit-fields/spec.md 33148
-openspec/specs/myflow-task-commits/spec.md 6668
-openspec/specs/myflow-ui-test-stack/spec.md 7435
-openspec/specs/myflow-workspace-isolation/spec.md 15100
 rules/agent-baseline.md 6883
 rules/be-brief.mdc 7782
 rules/build-the-simplest-thing.mdc 3660
@@ -162,10 +151,23 @@ rules/myflow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
 rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
+skills/flow-research/SKILL.md 13047
+skills/flow-settings/SKILL.md 5439
+skills/flow-status/SKILL.md 23118
+skills/flow/SKILL.md 16278
+skills/flow/archive.md 18748
+skills/flow/brainstorm.md 26964
+skills/flow/engineering-principles.md 10732
+skills/flow/implement.md 16559
+skills/flow/integrate.md 14370
+skills/flow/principles-reviewer-prompt.md 13103
+skills/flow/review-panel.md 27420
+skills/flow/security-reviewer-prompt.md 1540
+skills/flow/verify-and-handoff.md 14598
 skills/myflow-contracts/SKILL.md 9665
 skills/myflow-contracts/artifacts-registry-rationale.md 6981
 skills/myflow-contracts/artifacts-registry.md 7620
-skills/myflow-contracts/build-green.md 4698
+skills/myflow-contracts/build-green.md 6678
 skills/myflow-contracts/finish-contract.md 54286
 skills/myflow-contracts/git-boundaries-rationale.md 2317
 skills/myflow-contracts/git-boundaries.md 5535
@@ -200,10 +202,10 @@ skills/myflow-fast/SKILL-rationale.md 3241
 skills/myflow-fast/SKILL.md 25636
 skills/myflow-finish/SKILL-rationale.md 5786
 skills/myflow-finish/SKILL.md 50207
+skills/myflow-research/SKILL.md 4600
 skills/myflow-start/SKILL-rationale.md 7030
 skills/myflow-start/SKILL.md 38342
 skills/myflow-status/SKILL.md 22856
-skills/openspec-explore/SKILL.md 14345
 EOF
 }
 

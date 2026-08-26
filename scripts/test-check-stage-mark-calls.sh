@@ -463,7 +463,7 @@ esac
 # so a sandboxed fixture path can never coincide with one of the guard's own
 # repo-relative declared names — proving "declared passes" instead requires
 # running the guard bare, against the real repository it ships in, which
-# tasks 1-4 already require to be clean. skills/myflow-status/SKILL.md is
+# tasks 1-4 already require to be clean. skills/flow-status/SKILL.md is
 # declared with its own by-contract reason (task 5's own note); a second,
 # ordinary declared member (skills/myflow-contracts/SKILL.md — the guard's
 # own default corpus post-F1-narrowing is only SKILL.md/pipeline.md files, so
@@ -478,9 +478,9 @@ set -e
 [ "$REAL_RC" -eq 0 ] && pass "case 24: the real repository's own tree is clean" \
   || fail "case 24: rc=$REAL_RC out=$REAL_OUT"
 case "$REAL_OUT" in
-  *"skills/myflow-status/SKILL.md 0 (declared: read-only status report"*) \
-    pass "case 24: myflow-status's declared zero carries its by-contract reason" ;;
-  *) fail "case 24: expected myflow-status's declared-zero reason in the breakdown, out=$REAL_OUT" ;;
+  *"skills/flow-status/SKILL.md 0 (declared: read-only status report"*) \
+    pass "case 24: flow-status's declared zero carries its by-contract reason" ;;
+  *) fail "case 24: expected flow-status's declared-zero reason in the breakdown, out=$REAL_OUT" ;;
 esac
 case "$REAL_OUT" in
   *"skills/myflow-contracts/SKILL.md 0 (declared:"*) \

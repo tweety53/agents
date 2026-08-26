@@ -57,7 +57,7 @@
 #
 # "AT OR UNDER" IS NOT "STARTS WITH". A path matches when it equals the worktree
 # or begins with the worktree plus a slash. A bare string-prefix test reports
-# .../openspec-kan-1 as held by a process running in .../openspec-kan-12, which
+# .../spectre-kan-1 as held by a process running in .../spectre-kan-12, which
 # is a false block on a worktree the operator cannot clear — and this pipeline's
 # own branch naming produces exactly those pairs.
 #

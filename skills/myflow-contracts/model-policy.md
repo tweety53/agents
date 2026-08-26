@@ -15,10 +15,9 @@ The reasoning behind this file lives in `skills/myflow-contracts/model-policy-ra
 
 See **Model policy** (`skills/myflow-contracts/model-policy-rationale.md`).
 
-**Change the capability first and bring this section with it: a section that contradicts the
-OpenSpec requirement is this file's defect, not the spec's.** See **Model policy**
-(`skills/myflow-contracts/model-policy-rationale.md`) for which file governs which layer and why runtime
-reads this section rather than the live spec.
+**There is no requirements layer above this one; change this section.** See **Model policy**
+(`skills/myflow-contracts/model-policy-rationale.md`) for where the rule was first written and why
+that layer no longer governs.
 
 `/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
 and design benefit most from stronger reasoning. Every other

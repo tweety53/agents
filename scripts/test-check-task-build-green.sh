@@ -47,9 +47,9 @@ new_fixture() {
 new_fixture
 {
   printf '## 1 Group\n\n'
-  printf '### 1.1 First task\n\n'
+  printf -- '- [ ] 1. First task\n\n'
   printf '**Build:** green\n\n'
-  printf '### 1.2 Second task\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
@@ -61,14 +61,14 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 new_fixture
 {
-  printf '### 2.1 Untagged task\n\n'
+  printf -- '- [ ] 1. Untagged task\n\n'
   printf 'Some body text, no build tag at all.\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 2: missing tag fails" || fail "case 2: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 2.1 has no **Build:** tag"*) pass "case 2: names the task id" ;;
-  *) fail "case 2: expected message naming task 2.1, out=$OUT" ;;
+  *"task 1 has no **Build:** tag"*) pass "case 2: names the task id" ;;
+  *) fail "case 2: expected message naming task 1, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -80,31 +80,31 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 3.1 Red with no partner\n\n'
+  printf -- '- [ ] 1. Red with no partner\n\n'
   printf '**Build:** red\n\n'
   printf '**Squash-with:** Task ,\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 3: red with no partner fails" || fail "case 3: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 3.1 is red with no merge partner named"*) pass "case 3: names the task id" ;;
-  *) fail "case 3: expected message naming task 3.1, out=$OUT" ;;
+  *"task 1 is red with no merge partner named"*) pass "case 3: names the task id" ;;
+  *) fail "case 3: expected message naming task 1, out=$OUT" ;;
 esac
 
 # ===========================================================================
-# Case 4: Squash-with: Task 9.9, where no task 9.9 exists -> exit 1.
+# Case 4: Squash-with: Task 9, where no task 9 exists -> exit 1.
 # ===========================================================================
 new_fixture
 {
-  printf '### 4.1 Red with nonexistent partner\n\n'
+  printf -- '- [ ] 1. Red with nonexistent partner\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 9.9\n'
+  printf '**Squash-with:** Task 9\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 4: nonexistent partner fails" || fail "case 4: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 4.1 merges with Task 9.9, which does not exist in this plan"*) pass "case 4: names the missing partner" ;;
-  *) fail "case 4: expected message naming missing partner 9.9, out=$OUT" ;;
+  *"task 1 merges with Task 9, which does not exist in this plan"*) pass "case 4: names the missing partner" ;;
+  *) fail "case 4: expected message naming missing partner 9, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -114,10 +114,10 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 1 First task\n\n'
+  printf -- '- [ ] 1. First task\n\n'
   printf '**Build:** red\n\n'
   printf '**Squash-with:** Task 2\n\n'
-  printf '### 2 Second task\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
   printf '**Build:** red\n\n'
   printf '**Squash-with:** Task 1\n'
 } > "$TASKS_MD"
@@ -133,10 +133,10 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 1 First task\n\n'
+  printf -- '- [ ] 1. First task\n\n'
   printf '**Build:** red\n\n'
   printf '**Squash-with:** Task 2\n\n'
-  printf '### 2 Second task\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
@@ -149,13 +149,13 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 new_fixture
 {
-  printf '### 7.1 Malformed tag\n\n'
+  printf -- '- [ ] 1. Malformed tag\n\n'
   printf '**Build:** yellow\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 7: malformed tag fails" || fail "case 7: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 7.1 has no **Build:** tag"*) pass "case 7: reported as missing tag" ;;
+  *"task 1 has no **Build:** tag"*) pass "case 7: reported as missing tag" ;;
   *) fail "case 7: expected missing-tag message, out=$OUT" ;;
 esac
 
@@ -167,7 +167,7 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 8.1 Untagged real task\n\n'
+  printf -- '- [ ] 1. Untagged real task\n\n'
   printf 'Example of the wrong way:\n\n'
   printf '```markdown\n'
   printf '**Build:** green\n'
@@ -176,30 +176,30 @@ new_fixture
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 8: fenced example tag does not count as real" || fail "case 8: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 8.1 has no **Build:** tag"*) pass "case 8: still reports missing tag" ;;
+  *"task 1 has no **Build:** tag"*) pass "case 8: still reports missing tag" ;;
   *) fail "case 8: expected missing-tag message, out=$OUT" ;;
 esac
 
 # ===========================================================================
-# Case 9: a tagged real task whose body ALSO contains a fenced example
-# heading + tag (```markdown ### 9.9 Example / **Build:** red / **Squash-
-# with:** Task 9.9```) must report clean -- the fenced heading must not
+# Case 9: a tagged real task whose body ALSO contains a fenced example task
+# line + tag (```markdown - [ ] 9. Example / **Build:** red / **Squash-
+# with:** Task 9```) must report clean -- the fenced task line must not
 # spawn a phantom task, and must not swallow or corrupt the real task's own
 # tag (F2, false positive / body corruption).
 # ===========================================================================
 new_fixture
 {
-  printf '### 9.1 Tagged real task\n\n'
+  printf -- '- [ ] 1. Tagged real task\n\n'
   printf 'Example of the wrong way:\n\n'
   printf '```markdown\n'
-  printf '### 9.9 Example\n'
+  printf -- '- [ ] 9. Example\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 9.9\n'
+  printf '**Squash-with:** Task 9\n'
   printf '```\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
-[ "$RC" -eq 0 ] && pass "case 9: fenced heading+tag does not corrupt real task" || fail "case 9: rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "case 9: fenced task line+tag does not corrupt real task" || fail "case 9: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 9: no output" || fail "case 9: expected no output, got: $OUT"
 
 # ===========================================================================
@@ -208,59 +208,61 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 new_fixture
 {
-  printf '### 10.1 First\n'
+  printf -- '- [ ] 1. First\n'
   printf '**Build:** green\n'
-  printf '### 10.1 Duplicate id\n'
+  printf -- '- [ ] 1. Duplicate id\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 10: duplicate id fails" || fail "case 10: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 10.1 is defined more than once (first at line 1)"*) pass "case 10: names the duplicate and first line" ;;
+  *"task 1 is defined more than once (first at line 1)"*) pass "case 10: names the duplicate and first line" ;;
   *) fail "case 10: expected duplicate-id message, out=$OUT" ;;
 esac
 
 # ===========================================================================
-# Case 11: a heading with an id but no trailing title text (`### 11.1` at
-# end of line) must still be recognised as a task -- proven here by giving
+# Case 11: a task line with an id but no title text after it (`- [ ] 1. `
+# at end of line) must still be recognised as a task -- proven here by giving
 # it no tag at all, so the only way this case can fail is if the task was
-# never parsed in the first place (F4).
+# never parsed in the first place (F4). The space after the dot is required,
+# here and in spectre both: `- [ ] 1.` with nothing after the dot is a
+# "malformed task line" finding there and no task at all here.
 # ===========================================================================
 new_fixture
 {
-  printf '### 11.1\n'
+  printf -- '- [ ] 1. \n'
   printf 'Some body text, no tag.\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
-[ "$RC" -eq 1 ] && pass "case 11: titleless heading recognised as a task" || fail "case 11: rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 11: titleless task line recognised as a task" || fail "case 11: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 11.1 has no **Build:** tag"*) pass "case 11: reports the missing tag for 11.1" ;;
-  *) fail "case 11: expected missing-tag message naming 11.1, out=$OUT" ;;
+  *"task 1 has no **Build:** tag"*) pass "case 11: reports the missing tag for 1" ;;
+  *) fail "case 11: expected missing-tag message naming 1, out=$OUT" ;;
 esac
 
 # ===========================================================================
 # Case 12: a partner id named twice in one Squash-with: field
-# ("Squash-with: Task 12.2, 12.2") must produce exactly ONE violation line
+# ("Squash-with: Task 2, 2") must produce exactly ONE violation line
 # for that pair, not one per occurrence (F10).
 # ===========================================================================
 new_fixture
 {
-  printf '### 12.1 First\n\n'
+  printf -- '- [ ] 1. First\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 12.2, 12.2\n\n'
-  printf '### 12.2 Second\n\n'
+  printf '**Squash-with:** Task 2, 2\n\n'
+  printf -- '- [ ] 2. Second\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 12.1\n'
+  printf '**Squash-with:** Task 1\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 12: duplicate partner id fails" || fail "case 12: rc=$RC out=$OUT"
-OCCURRENCES="$(printf '%s\n' "$OUT" | grep -c "task 12.1 merges with Task 12.2, which is itself red" || true)"
+OCCURRENCES="$(printf '%s\n' "$OUT" | grep -c "task 1 merges with Task 2, which is itself red" || true)"
 [ "$OCCURRENCES" -eq 1 ] && pass "case 12: exactly one violation line for the duplicated partner" \
   || fail "case 12: expected exactly one violation line, got $OCCURRENCES: $OUT"
 
 # ===========================================================================
 # Case 13: the wrapper's no-argument scan path (F5), exercised as a smoke
-# test against this repository's OWN openspec/changes tree. check-task-
+# test against this repository's OWN spectre/changes tree. check-task-
 # build-green.sh derives REPO_ROOT from its own script location (not the
 # invocation cwd) unless CHECK_TASK_BUILD_GREEN_ROOT overrides it, so the
 # no-arg default path can only be exercised for real against the real repo
@@ -284,21 +286,21 @@ set -e
 # archived change) is excluded from the scan entirely.
 # ===========================================================================
 AGG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/task-build-green-agg-test.XXXXXX")"
-mkdir -p "$AGG_ROOT/openspec/changes/change-a" \
-  "$AGG_ROOT/openspec/changes/change-b" \
-  "$AGG_ROOT/openspec/changes/archive/2024-01-01-old-change"
+mkdir -p "$AGG_ROOT/spectre/changes/change-a" \
+  "$AGG_ROOT/spectre/changes/change-b" \
+  "$AGG_ROOT/spectre/changes/archive/2024-01-01-old-change"
 {
-  printf '### 1.1 Clean task\n\n'
+  printf -- '- [ ] 1. Clean task\n\n'
   printf '**Build:** green\n'
-} > "$AGG_ROOT/openspec/changes/change-a/tasks.md"
+} > "$AGG_ROOT/spectre/changes/change-a/tasks.md"
 {
-  printf '### 1.1 Untagged task\n\n'
+  printf -- '- [ ] 1. Untagged task\n\n'
   printf 'No tag here.\n'
-} > "$AGG_ROOT/openspec/changes/change-b/tasks.md"
+} > "$AGG_ROOT/spectre/changes/change-b/tasks.md"
 {
-  printf '### 1.1 Archived, also untagged\n\n'
+  printf -- '- [ ] 1. Archived, also untagged\n\n'
   printf 'No tag here either -- must never be scanned.\n'
-} > "$AGG_ROOT/openspec/changes/archive/2024-01-01-old-change/tasks.md"
+} > "$AGG_ROOT/spectre/changes/archive/2024-01-01-old-change/tasks.md"
 
 run_guard_root "$AGG_ROOT"
 [ "$RC" -ne 0 ] && pass "case 14: aggregation reports non-zero when any file violates" \
@@ -319,10 +321,10 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 15.1 Red task\n\n'
+  printf -- '- [ ] 1. Red task\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 15.2\n\n'
-  printf '### 15.2 Green partner\n\n'
+  printf '**Squash-with:** Task 2\n\n'
+  printf -- '- [ ] 2. Green partner\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
@@ -337,13 +339,13 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 new_fixture
 {
-  printf '### 16.1 Red with no Squash-with field\n\n'
+  printf -- '- [ ] 1. Red with no Squash-with field\n\n'
   printf '**Build:** red\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 16: red with no Squash-with: field fails" || fail "case 16: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 16.1 is red with no **Squash-with:** field"*) pass "case 16: names the missing-field violation" ;;
+  *"task 1 is red with no **Squash-with:** field"*) pass "case 16: names the missing-field violation" ;;
   *) fail "case 16: expected missing-Squash-with-field message, out=$OUT" ;;
 esac
 
@@ -354,18 +356,18 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 17.1 First task\n\n'
+  printf -- '- [ ] 1. First task\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 17.2\n\n'
-  printf '### 17.2 Second task\n\n'
+  printf '**Squash-with:** Task 2\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 17.1\n'
+  printf '**Squash-with:** Task 1\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 17: Squash-with: partner must be green fails" || fail "case 17: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 17.1 merges with Task 17.2, which is itself red"*) pass "case 17: reported against task 17.1" ;;
-  *) fail "case 17: expected message reported against task 17.1, out=$OUT" ;;
+  *"task 1 merges with Task 2, which is itself red"*) pass "case 17: reported against task 1" ;;
+  *) fail "case 17: expected message reported against task 1, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -385,26 +387,26 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 18.1 Red task whose Squash-with value carries free text\n\n'
+  printf -- '- [ ] 1. Red task whose Squash-with value carries free text\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 18.2 (see step 3)\n\n'
-  printf '### 18.2 Green partner\n\n'
+  printf '**Squash-with:** Task 2 (see step 3)\n\n'
+  printf -- '- [ ] 2. Green partner\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 18: a Squash-with value that does not gate fails" || fail "case 18: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 18.1 is red with no **Squash-with:** field"*) pass "case 18: an ungated value is reported as no field at all" ;;
+  *"task 1 is red with no **Squash-with:** field"*) pass "case 18: an ungated value is reported as no field at all" ;;
   *) fail "case 18: expected the missing-field message, out=$OUT" ;;
 esac
 
 new_fixture
 {
-  printf '### 18.3 Red task whose Squash-with is followed by prose\n\n'
+  printf -- '- [ ] 3. Red task whose Squash-with is followed by prose\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 18.4\n'
+  printf '**Squash-with:** Task 4\n'
   printf 'The fold is described in the paragraph above.\n\n'
-  printf '### 18.4 Green partner\n\n'
+  printf -- '- [ ] 4. Green partner\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
@@ -422,11 +424,11 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 new_fixture
 {
-  printf '### 19.1 Red task whose first Squash-with line does not gate\n\n'
+  printf -- '- [ ] 1. Red task whose first Squash-with line does not gate\n\n'
   printf '**Build:** red\n\n'
-  printf '**Squash-with:** Task 19.2 (see note below)\n'
-  printf '**Squash-with:** Task 19.2\n\n'
-  printf '### 19.2 Green partner named by the gating line\n\n'
+  printf '**Squash-with:** Task 2 (see note below)\n'
+  printf '**Squash-with:** Task 2\n\n'
+  printf -- '- [ ] 2. Green partner named by the gating line\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
@@ -446,7 +448,7 @@ run_guard "$TASKS_MD"
 # ===========================================================================
 new_fixture
 {
-  printf '### 20.1 Clean task\n\n'
+  printf -- '- [ ] 1. Clean task\n\n'
   printf '**Build:** green\n'
 } > "$TASKS_MD"
 # Resolved through cd/pwd so the path matches the one the wrapper prints,
@@ -475,15 +477,15 @@ rm -rf "$STRIPPED"
 # ===========================================================================
 new_fixture
 {
-  printf '### 21.1 Red task carrying two Build lines\n\n'
+  printf -- '- [ ] 1. Red task carrying two Build lines\n\n'
   printf '**Build:** red\n'
   printf '**Build:** green\n\n'
-  printf '**Squash-with:** Task 21.9\n'
+  printf '**Squash-with:** Task 9\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 21: the first Build line is the tag, so the task is red" || fail "case 21: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 21.1 merges with Task 21.9, which does not exist in this plan"*) pass "case 21: the red task's missing partner is reported" ;;
+  *"task 1 merges with Task 9, which does not exist in this plan"*) pass "case 21: the red task's missing partner is reported" ;;
   *) fail "case 21: expected the missing-partner message, out=$OUT" ;;
 esac
 
@@ -496,69 +498,69 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 22.1 Red task whose tag line is followed by prose\n\n'
+  printf -- '- [ ] 1. Red task whose tag line is followed by prose\n\n'
   printf '**Build:** red\n'
   printf 'this sentence explains the tag and is not part of it\n\n'
-  printf '**Squash-with:** Task 22.9\n'
+  printf '**Squash-with:** Task 9\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 22: a prose line under the tag does not unset it" || fail "case 22: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 22.1 merges with Task 22.9, which does not exist in this plan"*) pass "case 22: the red task's missing partner is reported" ;;
+  *"task 1 merges with Task 9, which does not exist in this plan"*) pass "case 22: the red task's missing partner is reported" ;;
   *) fail "case 22: expected the missing-partner message, out=$OUT" ;;
 esac
 
 # ===========================================================================
-# Case 23 (fix round 9): a fenced example task heading opens no task, so the
+# Case 23 (fix round 9): a fenced example task line opens no task, so the
 # defective fold shown inside it is documentation and not a violation.
 # Case 9 pins the same rule for this guard's own body parsing; this body is
 # the one asserted against check-task-commit-fields.sh as its own case 60,
-# where the fenced heading used to open a real task whose ungated
+# where the fenced task line used to open a real task whose ungated
 # `Squash-with:` failed every task in the plan.
 # ===========================================================================
 new_fixture
 {
-  printf '### 23.1 Real task with a worked example in its body\n\n'
+  printf -- '- [ ] 1. Real task with a worked example in its body\n\n'
   printf '**Build:** green\n\n'
   printf 'Example of a fold, shown but never declared:\n\n'
   printf '```\n'
-  printf '### 23.9 Example red task\n'
+  printf -- '- [ ] 9. Example red task\n'
   printf '**Build:** red\n'
-  printf '**Squash-with:** Task 23.8 (see the note)\n'
+  printf '**Squash-with:** Task 8 (see the note)\n'
   printf '```\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
-[ "$RC" -eq 0 ] && pass "case 23: a fenced example heading opens no task" || fail "case 23: rc=$RC out=$OUT"
+[ "$RC" -eq 0 ] && pass "case 23: a fenced example task line opens no task" || fail "case 23: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 23: no output" || fail "case 23: expected no output, got: $OUT"
 
 # ===========================================================================
-# Case 24 (fix round 9): WHICH task a duplicated id names. Task 24.3's
-# partner lookup resolves against the FIRST heading carrying id 24.1 — the
+# Case 24 (fix round 9): WHICH task a duplicated id names. Task 3's
+# partner lookup resolves against the FIRST task line carrying id 1 — the
 # green one — so no "itself red" violation is reported for it, however many
-# later headings reuse that id. The duplicate itself is still reported (case
+# later task lines reuse that id. The duplicate itself is still reported (case
 # 10's rule). The same body is asserted against
 # check-task-commit-fields.sh as its own case 61, where the id used to
-# resolve to the LAST heading instead.
+# resolve to the LAST task line instead.
 # ===========================================================================
 new_fixture
 {
-  printf '### 24.1 First heading for this id\n\n'
+  printf -- '- [ ] 1. First task line for this id\n\n'
   printf '**Build:** green\n\n'
-  printf '### 24.1 Second heading reusing the id\n\n'
+  printf -- '- [ ] 1. Second task line reusing the id\n\n'
   printf '**Build:** red\n\n'
-  printf '### 24.3 Red task folding into Task 24.1\n\n'
+  printf -- '- [ ] 3. Red task folding into Task 1\n\n'
   printf '**Build:** red\n'
-  printf '**Squash-with:** Task 24.1\n'
+  printf '**Squash-with:** Task 1\n'
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 24: the duplicate id is still reported" || fail "case 24: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 24.1 is defined more than once (first at line 1)"*) pass "case 24: names the duplicate and first line" ;;
+  *"task 1 is defined more than once (first at line 1)"*) pass "case 24: names the duplicate and first line" ;;
   *) fail "case 24: expected duplicate-id message, out=$OUT" ;;
 esac
 case "$OUT" in
-  *"task 24.3 merges with Task 24.1, which is itself red"*) fail "case 24: the id resolved to the last heading, not the first, out=$OUT" ;;
-  *) pass "case 24: a duplicated id resolves to its first heading" ;;
+  *"task 3 merges with Task 1, which is itself red"*) fail "case 24: the id resolved to the last task line, not the first, out=$OUT" ;;
+  *) pass "case 24: a duplicated id resolves to its first task line" ;;
 esac
 
 # ===========================================================================
@@ -574,7 +576,7 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '### 1 Task whose body opens a fence it never closes\n\n'
+  printf -- '- [ ] 1. Task whose body opens a fence it never closes\n\n'
   printf '~~~\n\n'
   printf '**Build:** green\n'
   printf '**Files:** `alpha.txt`\n'
@@ -595,7 +597,7 @@ esac
 # and the tag above it is read exactly as before.
 new_fixture
 {
-  printf '### 1 Task whose body closes the fence it opens\n\n'
+  printf -- '- [ ] 1. Task whose body closes the fence it opens\n\n'
   printf '**Build:** green\n'
   printf '**Files:** `alpha.txt`\n'
   printf '**Commit:** test: add alpha\n\n'
@@ -605,6 +607,139 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 25: a closed fence is not reported as unclosed" || fail "case 25: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 26: a task IS the spectre checkbox line `- [ ] <id>. <title>`, and a
+# step checkbox beneath it is NOT a task. This is the distinction spectre's
+# own parser makes -- it reads `- [ ] <n>. <text>` and nothing else -- and
+# the whole reason the task shape moved off the `###` heading: while the two
+# grammars disagreed, `spectre list` reported 0/0 for a real plan, `spectre
+# validate` reported one false "malformed task line" per step checkbox, and
+# `spectre archive` refused with "tasks.md has no tasks".
+#
+# 26a proves the checkbox line opens a task: the task carries no tag at all,
+# so the only way this can pass is if the line was parsed as a task in the
+# first place.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Untagged task\n\n'
+  printf 'Some body text, no build tag at all.\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 26a: a checkbox line opens a task" || fail "case 26a: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 1 has no **Build:** tag"*) pass "case 26a: names the task id read off the checkbox line" ;;
+  *) fail "case 26a: expected missing-tag message naming 1, out=$OUT" ;;
+esac
+
+# 26b: a `[x]` checkbox is a task too -- the mark carries whether the task is
+# DONE, never whether it is a task. An untagged done task is still a
+# violation here, exactly as an untagged open one is.
+new_fixture
+{
+  printf -- '- [x] 2. Untagged done task\n\n'
+  printf 'Some body text, no build tag at all.\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 26b: a checked task line is still a task" || fail "case 26b: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 2 has no **Build:** tag"*) pass "case 26b: names the checked task's id" ;;
+  *) fail "case 26b: expected missing-tag message naming 2, out=$OUT" ;;
+esac
+
+# 26c: the step checkboxes beneath a task are not tasks. The task itself is
+# tagged, so any step read as a task would surface as a second, untagged one.
+# The steps are indented two columns, as a plan writes them: the indent is
+# what also keeps `spectre validate`'s malformed-task-line check off them,
+# which tests the raw line for a `- [` prefix at column 0.
+new_fixture
+{
+  printf -- '- [ ] 3. Tagged task with steps\n\n'
+  printf '**Build:** green\n\n'
+  printf -- '  - [ ] **Step 1: a step, never a task**\n'
+  printf -- '  - [x] **Step 2: a done step, still never a task**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 26c: step checkboxes are not tasks" || fail "case 26c: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 26c: no output" || fail "case 26c: expected no output, got: $OUT"
+
+# 26d: a `### <id> <title>` heading is NOT a task any more. Accepting both
+# shapes would leave this guard and spectre disagreeing exactly as they did
+# before, so the heading is inert here. The real task comes FIRST and carries
+# the only tag in the file, and the heading below it closes that task's body:
+# a grammar that still read the heading as a task would find it untagged and
+# fail.
+new_fixture
+{
+  printf -- '- [ ] 5. The only real task\n\n'
+  printf '**Build:** green\n\n'
+  printf '### 4 A heading, not a task\n\n'
+  printf 'No tag here.\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 26d: a level-3 heading opens no task" || fail "case 26d: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 26d: no output" || fail "case 26d: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 27: a task's id is a FLAT integer. `- [ ] 1.1. …` is a "malformed task
+# line" finding to spectre and no task to it, so it is no task here either —
+# admitting one would recreate the same disagreement the checkbox line ended,
+# in a narrower form: myflow would gate a task spectre never counts. Both
+# halves are asserted from one fixture.
+#
+# 27a — the dotted line opens NO task: it carries no `**Build:**` tag, so a
+# grammar that read it as a task would report it as untagged. It sits inside
+# task 1's body instead, which is why task 1 stays clean.
+#
+# 27b — a dotted id in a `**Squash-with:**` field therefore names nothing.
+# `DOTTED_ID` still extracts `1.1` as a partner id, deliberately, so the
+# missing partner is reported by its real name rather than silently dropped
+# or half-parsed as `1`.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Green task\n\n'
+  printf '**Build:** green\n\n'
+  printf -- '- [ ] 1.1. A dotted task line, which is no task\n\n'
+  printf -- '- [ ] 2. Red task whose partner id is dotted\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 1.1\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 27: a dotted partner id fails" || fail "case 27: rc=$RC out=$OUT"
+case "$OUT" in
+  *"has no **Build:** tag"*) fail "case 27a: the dotted line was read as a task, out=$OUT" ;;
+  *) pass "case 27a: a dotted task line opens no task" ;;
+esac
+case "$OUT" in
+  *"task 2 merges with Task 1.1, which does not exist in this plan"*) pass "case 27b: the dotted partner id names no task, by its own name" ;;
+  *) fail "case 27b: expected the missing-partner message naming 1.1, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 28: TASK_LINE_RE is anchored at COLUMN 0, and that anchor is the whole
+# mechanism the two-column step indent rests on. spectre's malformed-task
+# check tests the RAW line for a `- [` prefix, so an indented line is not a
+# task to it and must not be one here either: a grammar anchored `^\s*-` (or
+# any other relaxation) would read the indented line below as a task that
+# spectre never counts, which is the disagreement this whole task exists to
+# end, reintroduced one indent at a time.
+#
+# The indented line is task-SHAPED — `  - [ ] 2. …`, not a `**Step N:**` —
+# because a step line could never match the pattern anyway and so proves
+# nothing about the anchor. It carries no `**Build:**` tag, so a relaxed
+# anchor reads it as a second, untagged task and this case fails.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Green task\n\n'
+  printf '**Build:** green\n\n'
+  printf -- '  - [ ] 2. An indented task-shaped line, which is no task\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 28: an indented task-shaped line opens no task" || fail "case 28: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 28: no output" || fail "case 28: expected no output, got: $OUT"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

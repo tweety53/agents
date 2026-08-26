@@ -44,7 +44,7 @@ trap 'chmod -R u+rwX "$FIX" 2>/dev/null || true; rm -rf "$FIX"' EXIT
 # A root missing one of them is an exit-2 case, exercised deliberately below;
 # every other case starts from a complete root so it tests what it says it does.
 mkroot() {
-  mkdir -p "$1/skills" "$1/rules" "$1/openspec/specs" "$1/commands" \
+  mkdir -p "$1/skills" "$1/rules" "$1/spectre/specs" "$1/commands" \
     "$1/commands-claude" "$1/.myflow"
 }
 
@@ -176,7 +176,7 @@ fi
 #
 # Each excluded path carries a normative sentence that must not appear. The
 # exclusions are structural — a path component named node_modules or
-# .superpowers anywhere, and the openspec/changes/archive and docs/superpowers
+# .superpowers anywhere, and the spectre/changes/archive and docs/superpowers
 # prefixes — never a list of filenames, so these fixtures use ordinary names
 # that would otherwise be scanned.
 
@@ -188,7 +188,7 @@ printf 'The owned corpus SHALL be scanned.\n' > "$FIX/excluded-plus/skills/a.md"
 mkdir -p "$FIX/excluded-plus/skills/vendor/node_modules/pkg" \
   "$FIX/excluded-plus/.superpowers/sdd" \
   "$FIX/excluded-plus/docs/superpowers/skills" \
-  "$FIX/excluded-plus/openspec/changes/archive/kan-1/specs"
+  "$FIX/excluded-plus/spectre/changes/archive/kan-1/specs"
 printf 'A vendored package SHALL not be inventoried.\n' \
   > "$FIX/excluded-plus/skills/vendor/node_modules/pkg/a.md"
 printf 'A session record SHALL not be inventoried.\n' \
@@ -196,7 +196,7 @@ printf 'A session record SHALL not be inventoried.\n' \
 printf 'A vendored skill SHALL not be inventoried.\n' \
   > "$FIX/excluded-plus/docs/superpowers/skills/a.md"
 printf 'An archived spec SHALL not be inventoried.\n' \
-  > "$FIX/excluded-plus/openspec/changes/archive/kan-1/specs/a.md"
+  > "$FIX/excluded-plus/spectre/changes/archive/kan-1/specs/a.md"
 
 if [ "$(inv "$FIX/excluded-base")" = "$(inv "$FIX/excluded-plus")" ]; then
   ok 'an excluded tree contributes nothing'
@@ -374,7 +374,7 @@ fi
 # glued to another word is not the keyword.
 
 mkroot "$FIX/keywords"
-cat > "$FIX/keywords/openspec/specs/a.md" <<'EOF'
+cat > "$FIX/keywords/spectre/specs/a.md" <<'EOF'
 The guard SHOULD be fast. It MAY print a count.
 
 A caller MUST_NOT_TOUCH the table.

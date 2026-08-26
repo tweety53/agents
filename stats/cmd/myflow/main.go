@@ -30,10 +30,13 @@ commands:
   record dispatch     record one subagent dispatch of a change's run record
   record finding      record one review-panel finding, or replace it
   record status       set one recorded finding's status
+  record findings     print a change's findings as a JSON array
   record render       render a change's run record from the store
   record journal-count  count a change's record writes still pending in the journal
   record cost-status  print how many of a change's dispatches carry no cost figure, and why
   journal flush        replay every pending journal entry into the store
+  settings get         print the harness-wide settings record
+  settings set         write the harness-wide settings record
 `
 
 func main() {
@@ -61,6 +64,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runRecord(ctx, args[1:], stdout, stderr)
 	case "journal":
 		return runJournal(ctx, args[1:], stdout, stderr)
+	case "settings":
+		return runSettings(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "myflow: unknown command %q\n", args[0])
 		fmt.Fprint(stderr, usage)

@@ -102,7 +102,7 @@ trap 'rm -rf "$FIX"' EXIT
 # full set here keeps every exit code below attributable to the behaviour under
 # test.
 mkroot() {
-  mkdir -p "$1/skills/myflow-contracts" "$1/rules" "$1/openspec/specs" \
+  mkdir -p "$1/skills/myflow-contracts" "$1/rules" "$1/spectre/specs" \
     "$1/commands" "$1/commands-claude" "$1/.myflow"
 }
 
@@ -389,9 +389,9 @@ printf 'x\n' > "$FIX/skill-undeclared/skills/mystery-skill/SKILL.md"
 expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared"
 
 # Two skills whose SKILL.md files carry different budgets in the real table —
-# skills/openspec-explore/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
+# skills/myflow-research/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
 # much larger one). skills/myflow-do/SKILL.md is sized to the midpoint between
-# the two real rows, read from the guard itself: above openspec-explore's row,
+# the two real rows, read from the guard itself: above myflow-research's row,
 # below myflow-do's row, by construction rather than by a number that must stay
 # between two rows that can each move independently. If the table were still
 # keyed on the bare basename "SKILL.md" — the collision this key fixes —
@@ -400,27 +400,27 @@ expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared
 # hand it. Keyed on the path relative to the repository root, each file is
 # checked against its own row and both pass.
 mkroot "$FIX/skill-distinct"
-mkdir -p "$FIX/skill-distinct/skills/openspec-explore" "$FIX/skill-distinct/skills/myflow-do"
+mkdir -p "$FIX/skill-distinct/skills/myflow-research" "$FIX/skill-distinct/skills/myflow-do"
 printf 'x\n' > "$FIX/skill-distinct/skills/myflow-contracts/build-green.md"
-printf 'x\n' > "$FIX/skill-distinct/skills/openspec-explore/SKILL.md"
-openspec_explore_budget="$(budget_row_bytes 'skills/openspec-explore/SKILL.md')"
+printf 'x\n' > "$FIX/skill-distinct/skills/myflow-research/SKILL.md"
+myflow_research_budget="$(budget_row_bytes 'skills/myflow-research/SKILL.md')"
 myflow_do_budget="$(budget_row_bytes 'skills/myflow-do/SKILL.md')"
 
 # The fixture only discriminates the basename-collision bug when mid_size
 # lands STRICTLY BETWEEN the two rows. If the rows ever converge, integer
-# division makes mid_size collapse onto openspec_explore_budget and the case
+# division makes mid_size collapse onto myflow_research_budget and the case
 # below would keep reporting "ok" even with the collision bug back in place —
 # F15's own defect class (a fixture that stops discriminating when its
 # premise erodes), reintroduced by the round that fixed F15 (F16). Assert the
 # premise rather than assume it, and fail the whole harness loudly, naming
 # both rows, when it does not hold: a fixture that cannot be constructed to
 # discriminate must say so, never quietly pass.
-if [ "$((myflow_do_budget - openspec_explore_budget))" -lt 2 ]; then
-  printf 'cannot construct a discriminating fixture: skills/openspec-explore/SKILL.md is %s bytes and skills/myflow-do/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
-    "$openspec_explore_budget" "$myflow_do_budget" >&2
+if [ "$((myflow_do_budget - myflow_research_budget))" -lt 2 ]; then
+  printf 'cannot construct a discriminating fixture: skills/myflow-research/SKILL.md is %s bytes and skills/myflow-do/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
+    "$myflow_research_budget" "$myflow_do_budget" >&2
   exit 2
 fi
-mid_size=$((openspec_explore_budget + (myflow_do_budget - openspec_explore_budget) / 2))
+mid_size=$((myflow_research_budget + (myflow_do_budget - myflow_research_budget) / 2))
 head -c "$mid_size" /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
 expect 'two skills with different budgets are each checked against their own row' \
   0 "$FIX/skill-distinct"
@@ -465,42 +465,72 @@ fi
 # trusted: the three exit-1 cases below reported exit 0 there, because the file
 # they name was not covered at all.
 
-# A file under openspec/specs/ is covered. Before the widening this whole tree
-# was outside the ratchet — 462 KB of text nothing held back.
-mkroot "$FIX/spec-over"
-mkdir -p "$FIX/spec-over/openspec/specs/myflow-build-green"
-printf 'x\n' > "$FIX/spec-over/skills/myflow-contracts/build-green.md"
-spec_budget="$(budget_row_bytes 'openspec/specs/myflow-build-green/spec.md')"
-head -c "$((spec_budget + 500))" /dev/zero | tr '\0' 'x' \
-  > "$FIX/spec-over/openspec/specs/myflow-build-green/spec.md"
-expect 'a spec file over budget fails' 1 "$FIX/spec-over"
-out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/spec-over" "$GUARD" 2>&1 || true)"
-if printf '%s' "$out" | grep -q '^openspec/specs/myflow-build-green/spec\.md: '; then
-  printf 'ok   an over-budget spec file is named\n'
+# THE FROZEN openspec/specs/ TREE IS NOT COVERED, however large a file placed
+# there is. It was covered before this guard's corpus moved to spectre/specs/
+# — 462 KB of text a change under the old tree could grow without this guard
+# ever noticing was the reason it was widened onto that path in the first
+# place — but that tree is history now: scripts/lib/owned-corpus.sh's scope
+# roots no longer name it, so owned_corpus_files never enumerates a file
+# under it, and this guard cannot ratchet what it never sees. Modeled on the
+# "excluded tree" cases below: the verdict COUNT is asserted, not just the
+# exit code, because a guard that covered this file would fail it for having
+# no row, while a guard that merely counted it and found a row would pass
+# with the count inflated — only the count tells the two apart.
+mkroot "$FIX/frozen-tree"
+mkdir -p "$FIX/frozen-tree/openspec/specs/myflow-build-green"
+printf 'x\n' > "$FIX/frozen-tree/skills/myflow-contracts/build-green.md"
+head -c 300000 /dev/zero | tr '\0' 'x' \
+  > "$FIX/frozen-tree/openspec/specs/myflow-build-green/spec.md"
+expect 'a file under the frozen openspec/specs/ tree is not covered' 0 "$FIX/frozen-tree"
+out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/frozen-tree" "$GUARD" 2>&1 || true)"
+if printf '%s' "$out" | grep -q '^BUDGET-OK: 1 owned Markdown file(s) within budget$'; then
+  printf 'ok   the frozen tree contributes nothing to the count\n'
 else
-  printf 'FAIL the over-budget spec file was not named: %s\n' "$out"
+  printf 'FAIL the frozen tree was counted: %s\n' "$out"
   failures=$((failures + 1))
 fi
 
-# A DIRECTORY TOTAL IS NOT A SUBSTITUTE FOR PER-FILE ROWS. Two files under
-# openspec/specs/: one a few hundred bytes over its own row, the other a
-# two-byte stub whose row is an order of magnitude larger. Their combined size
-# is far below any plausible total for the directory, so a guard that resolved
-# openspec/specs/ to one directory budget would report the tree clean. Replacing
-# every openspec/specs row with a single `openspec/specs 500000` and letting
-# budget_for resolve a row that is a path prefix of the wanted file does exactly
-# that: this case goes from exit 1 to exit 0 under that mutation, while the
-# guard as written names the one file that grew.
+# THE LIVE spectre/specs/ TREE IS COVERED. Its own positive counterpart to the
+# frozen-tree case above: a file placed under spectre/specs/ with no budget
+# row fails exactly the way any other covered-but-undeclared file does. This
+# is the only case in the suite that would notice spectre/specs/ silently
+# falling out of OWNED_CORPUS_SCOPE_DIRS — every other case that touches that
+# root (mkroot's own skeleton, or a plain directory-existence check) is
+# satisfied by an EMPTY spectre/specs/, which today's real spectre/specs/
+# actually is (a bare .gitkeep, no budget rows of its own yet). Mutation-
+# proved below, in the report: deleting spectre/specs from the scope array
+# turns this case's exit 1 into exit 0, and restoring it turns it back.
+mkroot "$FIX/live-spec-tree"
+mkdir -p "$FIX/live-spec-tree/spectre/specs"
+printf 'x\n' > "$FIX/live-spec-tree/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/live-spec-tree/spectre/specs/some-capability.md"
+expect 'a file under the live spectre/specs/ tree is covered' 1 "$FIX/live-spec-tree"
+out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/live-spec-tree" "$GUARD" 2>&1 || true)"
+if printf '%s' "$out" | grep -q '^spectre/specs/some-capability\.md: no budget declared'; then
+  printf 'ok   the live spec-tree file is named\n'
+else
+  printf 'FAIL the live spec-tree file was not named: %s\n' "$out"
+  failures=$((failures + 1))
+fi
+
+# A DIRECTORY TOTAL IS NOT A SUBSTITUTE FOR PER-FILE ROWS. Two real covered
+# files sharing one directory (skills/myflow-contracts/), deliberately picked
+# for a huge budget gap between them: build-green.md a few hundred bytes over
+# its own (small) row, finish-contract.md a two-byte stub next to its own row
+# — more than ten times larger. Their combined size is far below any
+# plausible total for the two rows summed, so a guard that resolved
+# skills/myflow-contracts/ to one combined directory budget would report both
+# clean. Replacing budget_for's per-file lookup with a directory-prefix match
+# does exactly that: this case goes from exit 1 to exit 0 under that
+# mutation, while the guard as written names the one file that grew.
 mkroot "$FIX/dirtotal"
-mkdir -p "$FIX/dirtotal/openspec/specs/myflow-build-green" \
-  "$FIX/dirtotal/openspec/specs/myflow-review-panel-economics"
-printf 'x\n' > "$FIX/dirtotal/skills/myflow-contracts/build-green.md"
-head -c "$((spec_budget + 500))" /dev/zero | tr '\0' 'x' \
-  > "$FIX/dirtotal/openspec/specs/myflow-build-green/spec.md"
-printf 'x\n' > "$FIX/dirtotal/openspec/specs/myflow-review-panel-economics/spec.md"
+build_green_budget="$(budget_row_bytes 'skills/myflow-contracts/build-green.md')"
+head -c "$((build_green_budget + 500))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/dirtotal/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/dirtotal/skills/myflow-contracts/finish-contract.md"
 expect 'a large sibling does not absorb a file over its own row' 1 "$FIX/dirtotal"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/dirtotal" "$GUARD" 2>&1 || true)"
-if printf '%s' "$out" | grep -q '^openspec/specs/myflow-build-green/spec\.md: ' \
+if printf '%s' "$out" | grep -q '^skills/myflow-contracts/build-green\.md: ' \
   && printf '%s' "$out" | grep -q '^BUDGET-FAIL: 1 file(s) over budget or undeclared$'; then
   printf 'ok   exactly the file over its own row is reported\n'
 else

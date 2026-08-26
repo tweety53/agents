@@ -147,7 +147,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
 				"-severity", "major", "-location", "stats/cmd/myflow/record.go:1",
-				"-status", "open", "-note", "the note"},
+				"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -183,7 +183,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-round", "1", "-slot", "principles",
-				"-severity", "major", "-status", "open", "-note", "restated"},
+				"-severity", "major", "-status", "open", "-reproducer", "scripts/x.sh", "-note", "restated"},
 			strings.NewReader(""), &stdout, &stderr)
 
 		if code != 0 {
@@ -269,7 +269,8 @@ func TestRecordWriteFallsBackToJournalAndExitsZero(t *testing.T) {
 		{
 			name: "finding",
 			args: []string{"record", "finding", "-change", "kan-258", "-ref", "F1", "-round", "0",
-				"-slot", "principles", "-severity", "major", "-status", "open", "-note", "the note"},
+				"-slot", "principles", "-severity", "major", "-status", "open",
+				"-reproducer", "scripts/x.sh", "-note", "the note"},
 			kind: "finding",
 		},
 		{
@@ -892,7 +893,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
 
-	planDir := filepath.Join(repo, "openspec", "changes", "demo")
+	planDir := filepath.Join(repo, "spectre", "changes", "demo")
 	if err := os.MkdirAll(planDir, 0o755); err != nil {
 		t.Fatalf("mkdir plan dir: %v", err)
 	}
@@ -1404,5 +1405,454 @@ func TestRecordFindingStillRefusesAnUnknownRef(t *testing.T) {
 	}
 	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
 		t.Error("a refused ref wrote a record journal -- a replay of it could never succeed")
+	}
+}
+
+// --- write-time validation: status and reproducer ---
+
+// TestRecordFindingRejectsUnknownStatus pins that an unrecognised status is
+// refused before the store is contacted, exactly as an unrecognised role is
+// in TestRecordRejectsUnknownRoleWithoutContactingStore: were it checked
+// after, the fallback would swallow the caller's own mistake as if it were
+// a store outage.
+func TestRecordFindingRejectsUnknownStatus(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"ref":"F1","round":0,"slot":"principles","severity":"major","note":"n","status":"open"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+			"-severity", "major", "-status", "in-review", "-reproducer", "scripts/x.sh",
+			"-note", "the note"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an unrecognised status -- it must be refused first")
+	}
+	for _, want := range []string{"open", "fixed", "withdrawn"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr does not name the accepted vocabulary %q:\n%s", want, stderr.String())
+		}
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Error("an unrecognised status wrote a record journal")
+	}
+}
+
+// TestRecordFindingRejectsWithdrawnWithNoReason pins that a bare "withdrawn"
+// -- with no reason following it, whitespace-only counting as none -- is
+// refused before the store is contacted.
+func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
+	for _, status := range []string{"withdrawn", "withdrawn   "} {
+		t.Run(status, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+					"-severity", "major", "-status", status, "-reproducer", "scripts/x.sh",
+					"-note", "the note"},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a withdrawn status with no reason -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "withdrawn") {
+				t.Errorf("stderr does not name the accepted vocabulary:\n%s", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Error("a reasonless withdrawn status wrote a record journal")
+			}
+		})
+	}
+}
+
+// TestRecordFindingRejectsEmptyReproducer pins that an empty -reproducer is
+// refused before the store is contacted.
+func TestRecordFindingRejectsEmptyReproducer(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+			"-severity", "major", "-status", "open", "-reproducer", "",
+			"-note", "the note"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an empty reproducer -- it must be refused first")
+	}
+	if !strings.Contains(stderr.String(), "reproducer") {
+		t.Errorf("stderr does not name the reproducer field:\n%s", stderr.String())
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Error("an empty reproducer wrote a record journal")
+	}
+}
+
+// TestRecordFindingRejectsBareNoneReproducer pins that a "none" reproducer
+// with no reason following it -- whitespace-only counting as none -- is
+// refused before the store is contacted, since "none — <reason>" is the
+// only legal way to say "not reproducible."
+func TestRecordFindingRejectsBareNoneReproducer(t *testing.T) {
+	for _, reproducer := range []string{"none", "none  "} {
+		t.Run(reproducer, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+					"-severity", "major", "-status", "open", "-reproducer", reproducer,
+					"-note", "the note"},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a bare none reproducer -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "none — ") {
+				t.Errorf("stderr does not name the required \"none — <reason>\" form:\n%s", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Error("a bare none reproducer wrote a record journal")
+			}
+		})
+	}
+}
+
+// TestRecordFindingAcceptsWellFormedStatusAndReproducer is the control
+// case: a well-formed status and reproducer still reach the fake server,
+// so the validation above rejects only what it names and nothing else.
+func TestRecordFindingAcceptsWellFormedStatusAndReproducer(t *testing.T) {
+	cases := []struct {
+		name       string
+		status     string
+		reproducer string
+	}{
+		{"open with a command reproducer", "open", "scripts/x.sh"},
+		{"withdrawn with a reason and a none reproducer", "withdrawn duplicate of F1", "none — duplicate"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"ref":"F1","round":0,"slot":"principles","severity":"major","note":"n","status":"open"}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
+					"-severity", "major", "-status", c.status, "-reproducer", c.reproducer,
+					"-note", "the note"},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 0 {
+				t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+			}
+			if !contacted {
+				t.Error("a well-formed status and reproducer never reached the fake server")
+			}
+		})
+	}
+}
+
+// TestRecordStatusRejectsUnknownStatus pins that `record status` applies
+// the same status vocabulary check as `record finding`, before the store
+// is contacted.
+func TestRecordStatusRejectsUnknownStatus(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-ref", "F1", "-status", "in-review"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an unrecognised status -- it must be refused first")
+	}
+	for _, want := range []string{"open", "fixed", "withdrawn"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr does not name the accepted vocabulary %q:\n%s", want, stderr.String())
+		}
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Error("an unrecognised status wrote a record journal")
+	}
+}
+
+// TestRecordStatusRejectsWithdrawnWithNoReason pins that `record status`
+// applies the same reasonless-withdrawn check as `record finding`.
+func TestRecordStatusRejectsWithdrawnWithNoReason(t *testing.T) {
+	for _, status := range []string{"withdrawn", "withdrawn   "} {
+		t.Run(status, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "status", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-change", "kan-258", "-ref", "F1", "-status", status},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for a withdrawn status with no reason -- it must be refused first")
+			}
+			if !strings.Contains(stderr.String(), "withdrawn") {
+				t.Errorf("stderr does not name the accepted vocabulary:\n%s", stderr.String())
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Error("a reasonless withdrawn status wrote a record journal")
+			}
+		})
+	}
+}
+
+// --- findings (read verb) ---
+
+// TestRecordFindingsPrintsJSONArray pins the success shape: the store's
+// two findings come back as a JSON array on stdout, decodable into objects
+// carrying ref/status/reproducer -- the only fields a guard consuming this
+// verb needs.
+func TestRecordFindingsPrintsJSONArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	body := `{"change":"demo","dispatches":[],"findings":[
+	  {"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"},
+	  {"ref":"F2","round":0,"slot":"Security","severity":"Major","location":"b.go:2","note":"n2","status":"open","reproducer":"scripts/x.sh"}
+	]}`
+	srv := httptest.NewServer(renderDaemon(t, body))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got []struct {
+		Ref        string `json:"ref"`
+		Status     string `json:"status"`
+		Reproducer string `json:"reproducer"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode stdout as JSON array: %v\nstdout:\n%s", err, stdout.String())
+	}
+	if len(got) != 2 {
+		t.Fatalf("findings = %d, want 2:\n%s", len(got), stdout.String())
+	}
+	if got[0].Ref != "F1" || got[0].Status != "fixed" || got[0].Reproducer != "none — prose only" {
+		t.Errorf("got[0] = %+v, want F1/fixed/\"none — prose only\"", got[0])
+	}
+	if got[1].Ref != "F2" || got[1].Status != "open" || got[1].Reproducer != "scripts/x.sh" {
+		t.Errorf("got[1] = %+v, want F2/open/scripts/x.sh", got[1])
+	}
+}
+
+// TestRecordFindingsWithNoRowsPrintsEmptyArray pins the "no rows for this
+// change" outcome -- the store answering 404/ErrNotFound, exactly as
+// TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing's own
+// no-rows case -- as an empty JSON array and exit 0, not a failure: a
+// change the store has never heard of has no findings, which is a fact,
+// not an error.
+func TestRecordFindingsWithNoRowsPrintsEmptyArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("findings sent a %s request; a read only reads", r.Method)
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if got := strings.TrimRight(stdout.String(), "\n"); got != "[]" {
+		t.Fatalf("stdout = %q, want exactly []", got)
+	}
+}
+
+// TestRecordFindingsStoreUnreachableExitsNonZero pins the
+// new-findings-verb decision: unlike `record render`'s `journalled:`
+// fallback, a failed read has nothing to replay, so it must never report
+// success for a question it could not answer -- non-zero exit, and no
+// JSON array on stdout for a caller to misread as "no findings."
+func TestRecordFindingsStoreUnreachableExitsNonZero(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "findings", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
+	}
+	if strings.Contains(stdout.String(), "[") {
+		t.Errorf("stdout = %q, want no JSON array when the store is unreachable", stdout.String())
+	}
+}
+
+// TestRecordFindingsRequiresChange pins that `findings` shares the same
+// caller-mistake contract every other record subcommand uses:
+// requireRecordFlags's message, exit 2.
+func TestRecordFindingsRequiresChange(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "findings", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stdout:\n%s stderr:\n%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-change is required") {
+		t.Errorf("stderr = %q, want it to name -change as required", stderr.String())
+	}
+}
+
+// TestValidateFindingStatusRejectsWithdrawnConcatenatedNoSpace pins panel
+// finding F1 (kan-271): strings.CutPrefix(status, "withdrawn") strips only
+// the literal prefix, with no separator check, so a concatenated value like
+// "withdrawnfoo" is wrongly accepted as a legal status.
+func TestValidateFindingStatusRejectsWithdrawnConcatenatedNoSpace(t *testing.T) {
+	if err := validateFindingStatus("withdrawnfoo"); err == nil {
+		t.Fatal(`validateFindingStatus("withdrawnfoo") = nil, want an error -- no space before the reason`)
+	}
+}
+
+// TestValidateFindingReproducerRejectsWhitespaceOnly pins panel finding F2
+// (kan-271): strings.Fields(" ") returns an empty slice, so a whitespace-only
+// reproducer is treated as neither empty nor a bare "none" and wrongly
+// accepted as a legal reproducer.
+func TestValidateFindingReproducerRejectsWhitespaceOnly(t *testing.T) {
+	if err := validateFindingReproducer(" "); err == nil {
+		t.Fatal(`validateFindingReproducer(" ") = nil, want an error -- whitespace-only is not a legal reproducer`)
+	}
+}
+
+// TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray pins
+// panel finding F5 (kan-271): a change that exists (carries dispatch rows)
+// but has raised zero findings must still print "[]", not the literal
+// "null" a nil Findings slice marshals to -- both rewritten guards' jq
+// pipelines start with ".[]" and crash on a top-level null under
+// set -euo pipefail.
+func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	body := `{"change":"demo","dispatches":[{"id":1,"seq":1,"role":"implementer","model":"sonnet","startedAt":"2026-01-01T00:00:00Z"}],"findings":null}`
+	srv := httptest.NewServer(renderDaemon(t, body))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "findings", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	got := strings.TrimRight(stdout.String(), "\n")
+	if got != "[]" {
+		t.Errorf("stdout = %q, want exactly \"[]\" for a change with dispatches but zero findings", got)
 	}
 }

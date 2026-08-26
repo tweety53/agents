@@ -10,18 +10,18 @@ The field shape, and the rule that an absent key reads as *not recorded*, belong
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/myflow-*` command is required to
-load this file before acting, and none of them loads `<agents repo>/openspec/specs/`, so the file runtime actually
+load this file before acting, and none of them loads `<agents repo>/spectre/specs/`, so the file runtime actually
 reads is the file the rule has to live in. **State file** (`skills/myflow-contracts/state-file.md`)
 cites this section for the `models` field rather than defining the roles a second time, and
 `<project>/CLAUDE.md` and `<project>/AGENTS.md` name this section for the same reason.
 
-**Which file to change first.** The normative requirements behind this section belong to the
-OpenSpec capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`<agents repo>/openspec/specs/myflow-model-policy/spec.md`) anchors the defaults. That capability is the requirement; this section is the **operational form the commands read**, and the two-layer split is the same one **Planning effort** (`skills/myflow-contracts/state-file.md`) already uses. Change the capability first and bring this section with it: a section that contradicts the requirement is this file's defect, not the spec's. A live spec is also behind by construction while a change is open — its delta lands in `<agents repo>/openspec/specs/` only at finish run 2 — which is the second reason runtime reads this section rather than that file.
+**There is no requirements layer above this one; change this section.** The rules behind it were
+first written as the capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`<agents repo>/openspec/specs/myflow-model-policy/spec.md`) anchored the defaults. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not migrated, so it records where the defaults came from and governs nothing. The two-layer split it was half of has ended everywhere, including at **Planning effort** (`skills/myflow-contracts/state-file.md`), which lost the same layer for the same reason: this section is now the requirement as well as the operational form the commands read. The split's second argument died with it — a live spec used to be behind by construction while a change was open, because its delta reached the specs tree only at finish run 2, and under spectre a change edits the specs tree directly on its branch, so no spec lags a change any more.
 
-That citation is a **checked** one, not a courtesy: the guard associates a bold token with the path
-beside it and matches it against the target's headings, and an OpenSpec `### Requirement: …` heading
-is a heading like any other, so naming the requirement in full is what makes
-`<agents repo>/scripts/check-references.sh` fire when it moves. A bare backticked path with no bold token beside
+The citation is still a **checked** one, not a courtesy: the guard associates a bold token with the path
+beside it and matches it against the target's headings, a `### Requirement: …` heading
+is a heading like any other, and the frozen file resolves — so naming the requirement in full is what makes
+`<agents repo>/scripts/check-references.sh` fire if the heading is ever renamed. A bare backticked path with no bold token beside
 it is **not** checked and rots silently — which is what this bullet's predecessor did.
 
 The two rules point in opposite directions on purpose. A reviewer's job is to be many independent

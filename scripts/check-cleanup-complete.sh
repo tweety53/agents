@@ -138,8 +138,8 @@
 # A ref whose ANCESTOR DIRECTORY is unreadable is not: git enumerates the refs
 # it can reach and reports nothing at all about the ones it cannot, in
 # `show-ref`, in `rev-parse`, in `for-each-ref` and in `ls-remote` alike, with
-# and without --quiet, so `refs/heads/openspec/` at mode 000 is indistinguishable
-# from an empty `refs/heads/openspec/`. There is no channel to read, so there is
+# and without --quiet, so `refs/heads/spectre/` at mode 000 is indistinguishable
+# from an empty `refs/heads/spectre/`. There is no channel to read, so there is
 # nothing this guard can do but say so here.
 #
 # WHAT AN OPERATOR SHOULD KNOW. In that one shape a COMPLETE verdict does not
@@ -147,7 +147,7 @@
 # guard was able to look. It is silent — no skip note, because the condition is
 # unobservable from here — so it is the one leftover this guard cannot promise
 # to report. If a run 2 that verified COMPLETE is followed by `git branch` still
-# listing `openspec/<name>`, check the modes on `.git/refs/heads/` and its
+# listing `spectre/<name>`, check the modes on `.git/refs/heads/` and its
 # subdirectories before suspecting anything else. Every OTHER unreadable input
 # in this guard — the repository, the state directory, packed-refs, the project
 # configuration, the survivors command — refuses or reports SKIPPED.
@@ -170,8 +170,17 @@
 # "your command is slow" and "your command is broken" have different remedies.
 #
 # THE ARCHIVED CHANGE DIRECTORY IS NOT A LEFTOVER. The registry says the change
-# directory is MOVED into openspec/changes/archive/ and never deleted, so only
-# one still sitting at openspec/changes/<name>/ counts.
+# directory is MOVED into spectre/changes/archive/ and never deleted, so only
+# one still sitting at spectre/changes/<name>/ counts.
+#
+# A <name>-fix-N SUB-CHANGE COUNTS TOO, and used not to. Under spectre a
+# sub-change is a FLAT SIBLING of its parent under spectre/changes/, never a
+# directory inside it -- `spectre new` refuses an id that is not a single flat
+# directory name -- so `spectre archive <name>` cannot reach one and each
+# sub-change needs its own call (run 2 step 3,
+# skills/myflow-contracts/finish-contract.md). Before this row the guard
+# reported COMPLETE with the parent archived and the child left behind, and
+# nothing anywhere said so.
 set -euo pipefail
 
 REPO="${1:-}"
@@ -346,19 +355,19 @@ WT_PORCELAIN="$(git -C "$REPO" worktree list --porcelain 2>/dev/null)" || {
 # is truncated at the first one by a field reference, and the operator is then
 # sent to a path that does not exist. The branch, on the next line, is a ref
 # name and cannot contain a space, so $2 is right for it — and the comparison
-# is for EQUALITY, so a neighbouring change's openspec/<name>-something is not
+# is for EQUALITY, so a neighbouring change's spectre/<name>-something is not
 # reported as this change's leftover.
 #
 # A worktree still listed after `git worktree prune` should have run is a
 # leftover whether or not its directory survives: the registration is what run
 # 2 is required to remove.
-WT_PATHS="$(printf '%s\n' "$WT_PORCELAIN" | awk -v b="refs/heads/openspec/$NAME" '
+WT_PATHS="$(printf '%s\n' "$WT_PORCELAIN" | awk -v b="refs/heads/spectre/$NAME" '
   /^worktree / { w = substr($0, 10) }
   /^branch /   { if ($2 == b) { out = out (n++ ? ", " : "") w } }
   END          { if (n) print out }
 ')"
 if [ -n "$WT_PATHS" ]; then
-  add "worktree(s) still registered for openspec/$NAME at $WT_PATHS"
+  add "worktree(s) still registered for spectre/$NAME at $WT_PATHS"
 fi
 
 # Rows two and three — the local branch and the remote branch. The remote one
@@ -395,7 +404,7 @@ fi
 # THE ONE SHAPE THIS STILL CANNOT SEE is an unreadable ref DIRECTORY — an
 # ancestor of the ref with its execute bit removed. git enumerates what it can
 # reach and says nothing whatever about what it cannot, in every command tried,
-# so `refs/heads/openspec/` at mode 000 is reported exactly as an empty one. The
+# so `refs/heads/spectre/` at mode 000 is reported exactly as an empty one. The
 # header carries that carve-out; it is not closed here because there is nothing
 # to read it from.
 ref_state() {
@@ -433,24 +442,44 @@ ref_state() {
 # rejects. Skipped is never passed, and the clause is relayed word for word by
 # step 6 of **Run 2 — the branch is merged**
 # (`skills/myflow-contracts/pipeline.md`).
-LOCAL_REF="refs/heads/openspec/$NAME"
+LOCAL_REF="refs/heads/spectre/$NAME"
 case "$(ref_state "$LOCAL_REF")" in
-  present) add "the local branch openspec/$NAME still exists" ;;
+  present) add "the local branch spectre/$NAME still exists" ;;
   unreadable)
     note "SKIPPED: the local branch row — git could not read $LOCAL_REF in $REPO, so whether it survives was not established; a failure to look is not an absence" ;;
 esac
 
-REMOTE_REF="refs/remotes/origin/openspec/$NAME"
+REMOTE_REF="refs/remotes/origin/spectre/$NAME"
 case "$(ref_state "$REMOTE_REF")" in
-  present) add "the remote-tracking ref origin/openspec/$NAME still exists" ;;
+  present) add "the remote-tracking ref origin/spectre/$NAME still exists" ;;
   unreadable)
     note "SKIPPED: the remote-tracking ref row — git could not read $REMOTE_REF in $REPO, so whether it survives was not established; a failure to look is not an absence" ;;
 esac
 
 # Row four — the change directory, which run 2 moves into the archive.
-if [ -d "$REPO/openspec/changes/$NAME" ]; then
-  add "openspec/changes/$NAME was never moved into the archive"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/spec-root.sh"
+CHANGES_LEAF="$(spec_root_leaf "$REPO")"
+if [ -d "$REPO/$CHANGES_LEAF/changes/$NAME" ]; then
+  add "$CHANGES_LEAF/changes/$NAME was never moved into the archive"
 fi
+
+# Row four, second half — each <name>-fix-N sub-change, archived by its own
+# call and therefore missable on its own. See the header note above.
+#
+# THE SUFFIX MUST BE `-fix-` FOLLOWED BY DIGITS AND NOTHING ELSE. A change
+# merely named like a neighbour — `demo-other`, or `demo-fix-the-parser` — is a
+# change of its own with its own finish run, and reporting it here would send
+# the operator hunting for another change's live work: the same prefix-matching
+# failure every other row above is matched by full name to avoid.
+for sub in "$REPO/$CHANGES_LEAF/changes/$NAME"-fix-*; do
+  [ -d "$sub" ] || continue
+  sub_leaf="${sub##*/}"
+  case "${sub_leaf#"$NAME"-fix-}" in
+    '' | *[!0-9]*) continue ;;
+  esac
+  add "$CHANGES_LEAF/changes/$sub_leaf, a sub-change of $NAME, was never moved into the archive"
+done
 
 # Row five — the proposal artifact source, whose removal at run 2 is
 # conditional on a preserved copy existing. This guard reports it as remaining;
@@ -1006,7 +1035,7 @@ else
 fi
 
 if [ -z "$LEFT" ]; then
-  VERDICT="COMPLETE: $REPO — no worktree, local branch, remote-tracking ref, unarchived change directory or proposal artifact source remains for openspec/$NAME"
+  VERDICT="COMPLETE: $REPO — no worktree, local branch, remote-tracking ref, unarchived change directory or proposal artifact source remains for spectre/$NAME"
 else
   VERDICT="LEFTOVER: $REPO — $LEFT"
 fi

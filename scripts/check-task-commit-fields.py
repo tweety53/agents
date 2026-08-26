@@ -2,10 +2,11 @@
 """check-task-commit-fields.py — check a task's declared `Files:`, `Tests:`
 and `Commit:` fields in `tasks.md` against the real commit that closed it.
 
-Rule (canonical definition: openspec/changes/kan-100-myflow-get-rid-of-
-staging-use-commits/specs/myflow-task-commit-fields/spec.md — "A runtime
-guard checks each field against the real commit", and "Regression and
-Baseline checks skip, rather than fail, when unsupported"). `Files:`,
+Rule (canonical definition, in the frozen tree:
+openspec/changes/archive/2026-08-09-kan-100-myflow-get-rid-of-staging-
+use-commits/specs/myflow-task-commit-fields/spec.md — "A runtime guard
+checks each field against the real commit", and "Regression and Baseline
+checks skip, rather than fail, when unsupported"). `Files:`,
 `Tests:` and `Commit:` are checked directly against git (`check_files`,
 `check_tests`, `check_commit_subject`). `Regression:` and `Baseline:`
 (`check_regression`, `check_baseline`) additionally need the project's
@@ -90,10 +91,17 @@ are about what THIS task declared, not about which commit survived.
 Field grammar
 -------------
 
-A task's body runs from its `### <DOTTED_ID> ...` heading to the next line
-matching `^#{2,3}(?:\\s|$)` or end of file, fenced examples excluded and a
-duplicated id resolving to its FIRST heading — all of which is
-lib/plan_grammar.py's `select_task`, not a scan in this file (fix round 9).
+A task's body runs from its `- [ ] <TASK_ID>. ...` task line to the next
+task line, to the next line matching `^#{2,3}(?:\\s|$)`, or to end of file,
+fenced examples excluded and a duplicated id resolving to its FIRST task
+line — all of which is lib/plan_grammar.py's `select_task`, not a scan in
+this file (fix round 9). The task line is the spectre checkbox line, whose
+mark carries whether the task is DONE; the `  - [ ] **Step N: ...**` step
+checkboxes below it are indented two columns, are part of the body, and are
+never tasks of their own. A task's id is a flat integer — `TASK_ID`, not
+`DOTTED_ID` — because a dotted id is no task to spectre. `DOTTED_ID` stays
+this module's `Squash-with:` partner grammar and, below, the shape of the
+task-id-shaped commit scope this guard refuses.
 
 A body that opens a fence and never closes it is a PLAN DEFECT, reported on
 its own by `check_task_commit` and replacing every other check for that
@@ -248,7 +256,9 @@ BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 # closing paren and the colon, or a subject like
 # `feat(kan-202-commit-split-and-module-scopes)!: add alpha` bypassed the
 # scope check entirely — a real, valid Conventional Commits shape this
-# guard has to see. TASK_ID_SCOPE_RE reuses DOTTED_ID: a scope that is
+# guard has to see. TASK_ID_SCOPE_RE reuses DOTTED_ID rather than the
+# narrower task-id grammar, deliberately: a scope written `1.2` names no
+# task any more and is still exactly the mistake this refuses. A scope that is
 # nothing but digits and dots is a task id, never a module.
 SUBJECT_SCOPE_RE = re.compile(r"^[A-Za-z]+\(([^)]*)\)!?:")
 TASK_ID_SCOPE_RE = re.compile(rf"^{DOTTED_ID}$")
@@ -328,7 +338,7 @@ class CheckOutcome(NamedTuple):
 
 
 class TaskNotFoundError(Exception):
-    """Raised when the requested task id has no heading in tasks.md."""
+    """Raised when the requested task id has no task line in tasks.md."""
 
 
 def _extract_backtick_tokens(value: str) -> List[str]:
@@ -362,7 +372,7 @@ def _parse_test_specs(value: str) -> List[TestSpec]:
 
 
 def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
-    """Find `task_id`'s heading in `lines` and read its declared fields."""
+    """Find `task_id`'s task line in `lines` and read its declared fields."""
     found = select_task(lines, task_id)
     if found is None:
         raise TaskNotFoundError(f"task {task_id} not found")
@@ -471,7 +481,7 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
 
 
 def collect_task_ids(lines: List[str]) -> List[str]:
-    """Every task id with a heading in `lines`, in document order — the plan
+    """Every task id with a task line in `lines`, in document order — the plan
     resolve_folded_task searches for a red task naming a given partner."""
     ids: List[str] = []
     for task in iter_tasks(lines):

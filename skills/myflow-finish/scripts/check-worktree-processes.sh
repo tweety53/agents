@@ -1,1 +1,0 @@
-../../../scripts/check-worktree-processes.sh

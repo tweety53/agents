@@ -59,12 +59,19 @@ source "$SCRIPT_DIR/lib/coverage.sh"
 # The default scan set: everything in this repo that can carry the vocabulary. Kept here
 # and nowhere else, so callers only ever have to say `scripts/check-vocabulary.sh`.
 #
-# Scanning `openspec/specs` was tried and reverted: a requirement that forbids a retired term
-# has to name that term to do its job (e.g. "SHALL NOT contain `gates`, `tested`, ..."), so a
-# live spec written correctly still trips a bare vocabulary scan. There is no honest fix for
-# that false positive — rewording deletes the requirement, and a suppression marker is
-# forbidden by this repo's own lint policy. Don't re-add `openspec/specs` here; if drift in
-# specs needs catching, it needs a check that understands requirement structure, not a flat
+# `openspec/specs` is not in this list because that tree is FROZEN — history, this repository's
+# convention no matter which guard is asking (see scripts/lib/owned-corpus.sh's corpus
+# definition for the guards that literally source it; this one does not — it has always had its
+# own DEFAULT_TARGETS, never that library's scope roots — but the same tree gets the same answer
+# either way), never linted again no matter what vocabulary it still carries. That is reason
+# enough on its own today. It is also, separately,
+# a record of an earlier decision made while the tree was still live: scanning `openspec/specs`
+# was tried and reverted back then, because a requirement that forbids a retired term has to
+# name that term to do its job (e.g. "SHALL NOT contain `gates`, `tested`, ..."), so a live spec
+# written correctly still tripped a bare vocabulary scan. There was no honest fix for that false
+# positive — rewording deletes the requirement, and a suppression marker is forbidden by this
+# repo's own lint policy. Don't re-add `openspec/specs` here for either reason; if drift in a
+# live spec needs catching, it needs a check that understands requirement structure, not a flat
 # grep over retired literals.
 DEFAULT_TARGETS=(skills rules commands commands-claude scripts README.md AGENTS.md CLAUDE.md)
 

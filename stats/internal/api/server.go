@@ -263,16 +263,16 @@ func rejectEncodedSlash(next http.Handler) http.Handler {
 //
 // logger may be nil, in which case slog.Default() is used.
 //
-// cs, ss, sts and rs are accepted as four separate interfaces, per
+// cs, ss, sts, rs and sets are accepted as five separate interfaces, per
 // go-interface-design (each handler depends on exactly the methods it
 // calls), even though every real caller passes the same *store.Store for
-// all four -- it satisfies ChangeStore, StageStore, StatsStore and
-// RecordStore alike.
+// all five -- it satisfies ChangeStore, StageStore, StatsStore,
+// RecordStore and SettingsStore alike.
 //
 // opts is variadic and, absent WithSPA, changes nothing about the mux this
 // function has always built -- see WithSPA's own doc comment for why the
 // SPA route is opt-in here rather than a fixed part of every Server.
-func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs RecordStore, logger *slog.Logger, opts ...Option) (*Server, error) {
+func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs RecordStore, sets SettingsStore, logger *slog.Logger, opts ...Option) (*Server, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("api: %w", err)
 	}
@@ -289,6 +289,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	sh := &stageHandler{store: ss, logger: logger}
 	sth := &statsHandler{store: sts, logger: logger}
 	rh := &recordHandler{store: rs, logger: logger}
+	seth := &settingsHandler{store: sets, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
 	mux.HandleFunc("GET /api/v1/changes/{project}/{name}", h.get)
@@ -304,6 +305,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", rh.recordFinding)
 	mux.HandleFunc("PATCH /api/v1/records/{project}/{change}/findings/{ref}", rh.setFindingStatus)
+	mux.HandleFunc("GET /api/v1/settings", seth.get)
+	mux.HandleFunc("PUT /api/v1/settings", seth.put)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("no such API route: %s %s", r.Method, r.URL.Path))
 	})

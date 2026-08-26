@@ -231,7 +231,7 @@ var _ api.StageStore = (*fakeStore)(nil)
 func newStageTestServer(t *testing.T, fs *fakeStore) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fs, fs, fs, fs, nil)
+	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -281,8 +281,8 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 		"harness":      "claude-code",
 		"sessionId":    session,
 		"sessionToken": "mf-session-token-identity",
-		"command":      "/myflow-do",
-		"stage":        "do.sdd-tdd",
+		"command":      "/flow",
+		"stage":        "flow.sdd-tdd",
 		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
@@ -294,11 +294,11 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 		t.Fatalf("len(stageRuns) = %d, want 1", len(fs.stageRuns))
 	}
 	run := fs.stageRuns[0].run
-	if run.Command != "/myflow-do" {
-		t.Errorf("Command = %q, want /myflow-do", run.Command)
+	if run.Command != "/flow" {
+		t.Errorf("Command = %q, want /flow", run.Command)
 	}
-	if run.Stage != "do.sdd-tdd" {
-		t.Errorf("Stage = %q, want %q", run.Stage, "do.sdd-tdd")
+	if run.Stage != "flow.sdd-tdd" {
+		t.Errorf("Stage = %q, want %q", run.Stage, "flow.sdd-tdd")
 	}
 	if run.Harness != "claude-code" {
 		t.Errorf("Harness = %q, want claude-code", run.Harness)
@@ -343,7 +343,7 @@ func TestStageBeginRejectsUndocumentedStage(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"harness":    "claude-code",
-		"command":    "/myflow-do",
+		"command":    "/flow",
 		"stage":      "a stage nobody documented",
 		"startedAt":  "2026-08-13T10:00:00Z",
 	}
@@ -386,8 +386,8 @@ func TestStageBeginRejectsInvalidSessionToken(t *testing.T) {
 				"projectKey": "proj",
 				"changeName": "chg",
 				"harness":    "claude-code",
-				"command":    "/myflow-do",
-				"stage":      "do.sdd-tdd",
+				"command":    "/flow",
+				"stage":      "flow.sdd-tdd",
 				"startedAt":  "2026-08-13T10:00:00Z",
 			}
 			if tc.sessionToken != nil {
@@ -421,8 +421,8 @@ func TestMarkForUnknownChangeIsStored(t *testing.T) {
 		"changeName":       "chg-nobody-made",
 		"harness":          "claude-code",
 		"sessionToken":     "mf-session-token-unknown-change",
-		"command":          "/myflow-do",
-		"stage":            "do.sdd-tdd",
+		"command":          "/flow",
+		"stage":            "flow.sdd-tdd",
 		"startedAt":        "2026-08-13T10:00:00Z",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
@@ -467,8 +467,8 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 		"changeName":   "chg",
 		"harness":      "claude-code",
 		"sessionToken": "mf-session-token-end-metrics",
-		"command":      "/myflow-do",
-		"stage":        "do.sdd-tdd",
+		"command":      "/flow",
+		"stage":        "flow.sdd-tdd",
 		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
@@ -486,8 +486,8 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 	endReq := map[string]any{
 		"projectKey": "proj",
 		"changeName": "chg",
-		"command":    "/myflow-do",
-		"stage":      "do.sdd-tdd",
+		"command":    "/flow",
+		"stage":      "flow.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 		"metrics":    json.RawMessage(`{"fix_rounds":2,"tokens":{"output":50}}`),
@@ -558,8 +558,8 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"harness":    "claude-code",
-		"command":    "/myflow-do",
-		"stage":      "do.sdd-tdd",
+		"command":    "/flow",
+		"stage":      "flow.sdd-tdd",
 	}
 
 	// A normal begin -- attempt 1.
@@ -588,8 +588,8 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 	endReq := map[string]any{
 		"projectKey": "proj",
 		"changeName": "chg",
-		"command":    "/myflow-do",
-		"stage":      "do.sdd-tdd",
+		"command":    "/flow",
+		"stage":      "flow.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}
@@ -622,8 +622,8 @@ func TestStageEndWithNoOpenRunIsNotFound(t *testing.T) {
 	endReq := map[string]any{
 		"projectKey": "proj",
 		"changeName": "chg",
-		"command":    "/myflow-do",
-		"stage":      "do.sdd-tdd",
+		"command":    "/flow",
+		"stage":      "flow.sdd-tdd",
 		"outcome":    "completed",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", endReq)
@@ -653,8 +653,8 @@ func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
 		"projectKey":   "proj",
 		"changeName":   "chg",
 		"harness":      "claude-code",
-		"command":      "/myflow-do",
-		"stage":        "do.sdd-tdd",
+		"command":      "/flow",
+		"stage":        "flow.sdd-tdd",
 		"startedAt":    "2026-08-13T10:00:00Z",
 		"sessionToken": "mf-session-token-race-with-supersede",
 	}
@@ -669,8 +669,8 @@ func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
 	endReq := map[string]any{
 		"projectKey": "proj",
 		"changeName": "chg",
-		"command":    "/myflow-do",
-		"stage":      "do.sdd-tdd",
+		"command":    "/flow",
+		"stage":      "flow.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}
@@ -696,8 +696,8 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 		"changeName":   "chg",
 		"harness":      harness,
 		"sessionToken": "mf-session-token-" + harness,
-		"command":      "/myflow-do",
-		"stage":        "do.sdd-tdd",
+		"command":      "/flow",
+		"stage":        "flow.sdd-tdd",
 		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
@@ -707,8 +707,8 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 	endReq := map[string]any{
 		"projectKey": "proj",
 		"changeName": "chg",
-		"command":    "/myflow-do",
-		"stage":      "do.sdd-tdd",
+		"command":    "/flow",
+		"stage":      "flow.sdd-tdd",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}

@@ -3,9 +3,10 @@
 # repository per case under TMPDIR; never touches the real repository tree.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract — the Requirements and Scenarios in
-# openspec/changes/kan-201-reduce-context-rediscovery-across-review-panel/specs/myflow-dispatch-economy/spec.md
-# — never against whatever the script happens to print.
+# contract — the Requirements and Scenarios in this repository's archived
+# kan-201-reduce-context-rediscovery-across-review-panel change's
+# myflow-dispatch-economy spec — never against whatever the script happens to
+# print.
 # scripts/test-check-plan-provenance.sh's header records that suite encoding
 # the guard's own defects as its specification more than once, which then
 # made each defect look verified; the same mistake is possible here.
@@ -34,8 +35,9 @@ trap cleanup EXIT
 
 # new_repo -> sets REPO (a real git repository), CHANGE_ROOT (a fully
 # populated change directory under it) and PRINCIPLES (a principles file).
-# The fixture shape tasks.md records: a proposal, a design, a plan, one
-# delta spec under specs/<cap>/spec.md, and a principles file.
+# The fixture shape tasks.md records: a proposal, a design, a plan and a
+# principles file. There is no specs/ leaf: under spectre a change has no
+# specs/ subdirectory, and the script no longer reads one.
 #
 # REPO is canonicalized (`cd -P` / `pwd -P`) immediately after creation —
 # the same step gather-self-review-context.sh's own F23 test fixture takes
@@ -55,12 +57,11 @@ new_repo() {
       && git config user.name test \
       && git commit -q --allow-empty -m "init"
   )
-  CHANGE_ROOT="$REPO/openspec/changes/demo"
-  mkdir -p "$CHANGE_ROOT/specs/cap"
+  CHANGE_ROOT="$REPO/spectre/changes/demo"
+  mkdir -p "$CHANGE_ROOT"
   printf 'PROPOSAL-BODY\n' > "$CHANGE_ROOT/proposal.md"
   printf 'DESIGN-BODY\n' > "$CHANGE_ROOT/design.md"
   printf 'TASKS-BODY\n' > "$CHANGE_ROOT/tasks.md"
-  printf 'SPEC-BODY\n' > "$CHANGE_ROOT/specs/cap/spec.md"
   PRINCIPLES="$REPO/PRINCIPLES.md"
   printf 'PRINCIPLES-BODY\n' > "$PRINCIPLES"
 }
@@ -94,10 +95,6 @@ case "$OUT" in
   *) fail "all sources present: tasks content missing: $OUT" ;;
 esac
 case "$OUT" in
-  *SPEC-BODY*) pass "all sources present: delta spec content in bundle" ;;
-  *) fail "all sources present: delta spec content missing: $OUT" ;;
-esac
-case "$OUT" in
   *PRINCIPLES-BODY*) pass "all sources present: principles content in bundle" ;;
   *) fail "all sources present: principles content missing: $OUT" ;;
 esac
@@ -126,12 +123,11 @@ esac
 
 new_repo
 rm -f "$CHANGE_ROOT/proposal.md" "$CHANGE_ROOT/design.md" "$CHANGE_ROOT/tasks.md"
-rm -rf "$CHANGE_ROOT/specs"
 rm -f "$PRINCIPLES"
 run_it
 [ "$RC" -eq 0 ] && pass "every source absent: exits 0" \
   || fail "every source absent: rc=$RC out=$OUT"
-for label in "proposal.md" "design.md" "tasks.md" "specs/*/spec.md"; do
+for label in "proposal.md" "design.md" "tasks.md"; do
   case "$OUT" in
     *"skipped: $label (absent)"*) pass "every source absent: $label reported skipped" ;;
     *) fail "every source absent: $label not reported skipped: $OUT" ;;
@@ -142,38 +138,10 @@ case "$OUT" in
   *) fail "every source absent: principles not reported skipped: $OUT" ;;
 esac
 
-# ===========================================================================
-# CASE 4: two delta specs
-# ===========================================================================
-
-new_repo
-mkdir -p "$CHANGE_ROOT/specs/cap-two"
-printf 'SPEC-TWO-BODY\n' > "$CHANGE_ROOT/specs/cap-two/spec.md"
-run_it
-[ "$RC" -eq 0 ] && pass "two delta specs: exits 0" \
-  || fail "two delta specs: rc=$RC out=$OUT"
-case "$OUT" in
-  *SPEC-BODY*) pass "two delta specs: first spec content present" ;;
-  *) fail "two delta specs: first spec content missing: $OUT" ;;
-esac
-case "$OUT" in
-  *SPEC-TWO-BODY*) pass "two delta specs: second spec content present" ;;
-  *) fail "two delta specs: second spec content missing: $OUT" ;;
-esac
-
-# ===========================================================================
-# CASE 5: no specs/ directory at all
-# ===========================================================================
-
-new_repo
-rm -rf "$CHANGE_ROOT/specs"
-run_it
-[ "$RC" -eq 0 ] && pass "no specs directory: exits 0" \
-  || fail "no specs directory: rc=$RC out=$OUT"
-case "$OUT" in
-  *"skipped: specs/*/spec.md (absent)"*) pass "no specs directory: reported as skipped" ;;
-  *) fail "no specs directory: not reported as skipped: $OUT" ;;
-esac
+# CASES 4 AND 5 ARE GONE, not renumbered: they covered two delta specs and an
+# absent specs/ directory, and the delta-spec source they exercised was removed
+# with the spectre cutover. The numbering below is left as it was so a case's
+# name still means the same case it always did.
 
 # ===========================================================================
 # CASE 6: header carries a generated instant
@@ -200,13 +168,16 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# CASE 8: a standards-shaped file in the fixture must not leak into the
-# bundle — only specs/*/spec.md is globbed, nothing else under specs/
+# CASE 8: a standards-shaped file in the change root must not leak into the
+# bundle. The script globs nothing anywhere under change-root — it reads three
+# leaves by exact name — so a `## standards` file dropped beside them is never
+# read. The Requirement forbidding it is unchanged by the spectre cutover; only
+# where such a file could plausibly be dropped changed, since there is no
+# specs/ directory to drop it in any more.
 # ===========================================================================
 
 new_repo
-mkdir -p "$CHANGE_ROOT/specs/other-cap"
-printf 'STANDARDS-MARKER-CONTENT\n' > "$CHANGE_ROOT/specs/other-cap/standards.md"
+printf 'STANDARDS-MARKER-CONTENT\n' > "$CHANGE_ROOT/standards.md"
 run_it
 [ "$RC" -eq 0 ] && pass "standards-shaped file present: exits 0" \
   || fail "standards-shaped file present: rc=$RC out=$OUT"
@@ -264,10 +235,10 @@ OUTSIDE_12="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-outside12.XXXXXX")
 TREES+=("$OUTSIDE_12")
 mkdir -p "$OUTSIDE_12/changes/demo"
 printf 'TOP-SECRET-12\n' > "$OUTSIDE_12/changes/demo/tasks.md"
-mkdir -p "$REPO/openspec-symlink"
-rm -rf "$REPO/openspec-symlink"
-ln -s "$OUTSIDE_12" "$REPO/openspec-symlink"
-SYMLINKED_CHANGE_ROOT="$REPO/openspec-symlink/changes/demo"
+mkdir -p "$REPO/spectre-symlink"
+rm -rf "$REPO/spectre-symlink"
+ln -s "$OUTSIDE_12" "$REPO/spectre-symlink"
+SYMLINKED_CHANGE_ROOT="$REPO/spectre-symlink/changes/demo"
 set +e
 OUT="$("$SCRIPT" "$REPO" "$SYMLINKED_CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
 RC=$?
@@ -375,29 +346,10 @@ case "$OUT" in
   *) fail "symlinked proposal.md outside change-root: not reported refused: $OUT" ;;
 esac
 
-# ===========================================================================
-# CASE 17: a delta spec (specs/*/spec.md) is a symlink resolving outside
-# change-root. Same disposition as case 15, different source.
-# ===========================================================================
-
-new_repo
-OUTSIDE_16="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-outside16.XXXXXX")"
-TREES+=("$OUTSIDE_16")
-printf 'TOP-SECRET-16\n' > "$OUTSIDE_16/secret-spec.md"
-rm -f "$CHANGE_ROOT/specs/cap/spec.md"
-ln -s "$OUTSIDE_16/secret-spec.md" "$CHANGE_ROOT/specs/cap/spec.md"
-run_it
-[ "$RC" -eq 0 ] && pass "symlinked delta spec outside change-root: exits 0" \
-  || fail "symlinked delta spec outside change-root: rc=$RC out=$OUT"
-case "$OUT" in
-  *TOP-SECRET-16*) fail "symlinked delta spec outside change-root: target content leaked: $OUT" ;;
-  *) pass "symlinked delta spec outside change-root: target content not in bundle" ;;
-esac
-case "$OUT" in
-  *"refused: specs/cap/spec.md (resolves outside the change directory)"*) \
-    pass "symlinked delta spec outside change-root: reported refused" ;;
-  *) fail "symlinked delta spec outside change-root: not reported refused: $OUT" ;;
-esac
+# CASE 17 IS GONE, not renumbered: it pinned the refusal disposition for a
+# symlinked delta spec, and there is no delta-spec source left to symlink.
+# Case 15 above pins the same disposition on proposal.md, which is the source
+# that still exists.
 
 # ===========================================================================
 # CASE 18: design.md is a symlink resolving to another file INSIDE

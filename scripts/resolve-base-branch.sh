@@ -28,8 +28,8 @@
 # invocation corrects.
 #
 # WHY HEAD@{upstream} IS NEVER CONSULTED. Inside an apply worktree, HEAD *is*
-# the change's own branch, openspec/<name>, by construction. Its upstream is
-# origin/openspec/<name>, so HEAD@{upstream} would compare the branch with
+# the change's own branch, spectre/<name>, by construction. Its upstream is
+# origin/spectre/<name>, so HEAD@{upstream} would compare the branch with
 # itself the moment it is pushed — always "true", never useful. The base
 # branch is resolved from origin/HEAD (or the `git remote show origin`
 # fallback), never from HEAD's own upstream.

@@ -4,8 +4,7 @@
 // a timeout and sets outcome = 'abandoned'."
 //
 // An abandoned stage is a statistic worth having, not an error to
-// suppress: the rework-rate view (task 11) reads the "abandoned" outcome
-// directly, exactly as it reads any other recorded outcome.
+// suppress: the outcome column records it exactly like any other outcome.
 //
 // This package owns none of the closing logic itself -- that lives in
 // internal/store's SweepAbandoned (task 3), a single atomic UPDATE that is

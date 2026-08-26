@@ -3,7 +3,6 @@ package records_test
 import (
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -12,78 +11,6 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
-
-// guardPath is scripts/check-unfinished-work.sh, resolved from this
-// package's own directory rather than from the working directory, so the
-// tests below run the REAL guard rather than a re-implementation of its
-// parsing. That is the whole point of the first test in this file: the
-// marker contract is defined by that script, and a test that re-derived
-// its rules would agree with itself while the guard disagreed.
-func guardPath(t *testing.T) string {
-	t.Helper()
-	abs, err := filepath.Abs(filepath.Join("..", "..", "..", "scripts", "check-unfinished-work.sh"))
-	if err != nil {
-		t.Fatalf("resolve guard path: %v", err)
-	}
-	if _, err := os.Stat(abs); err != nil {
-		t.Fatalf("the real guard must be runnable from this test, not stubbed: %v", err)
-	}
-	return abs
-}
-
-// guardWorktree lays out the two paths check-unfinished-work.sh reads for
-// change: a plan with every box ticked (so signal one contributes nothing
-// and the verdict is entirely about the panel record) and the rendered
-// panel record. It returns the worktree root.
-//
-// THE RECORD IS WRITTEN WHERE records.Destination SAYS IT GOES, never at
-// a path this helper spells out for itself, and never copied into
-// .superpowers/sdd/. An earlier version of this helper wrote the
-// rendering into that sdd path -- which is where the guard used to read
-// it -- so the renderer and the guard were free to disagree about the
-// record's location while every case here still passed. Asking
-// Destination where the record goes, and letting the real guard find it
-// there, is what makes these cases evidence that the two sides agree
-// rather than evidence that one fixture satisfied both.
-func guardWorktree(t *testing.T, change, panel string) string {
-	t.Helper()
-	root := t.TempDir()
-
-	planDir := filepath.Join(root, "openspec", "changes", change)
-	if err := os.MkdirAll(planDir, 0o755); err != nil {
-		t.Fatalf("mkdir plan dir: %v", err)
-	}
-	plan := "# Tasks\n\n- [x] 1 done\n- [x] 2 done\n"
-	if err := os.WriteFile(filepath.Join(planDir, "tasks.md"), []byte(plan), 0o644); err != nil {
-		t.Fatalf("write plan: %v", err)
-	}
-
-	dest, err := records.Destination(root, "panel", change, time.Now())
-	if err != nil {
-		t.Fatalf("resolve the panel record's destination: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		t.Fatalf("mkdir record dir: %v", err)
-	}
-	if err := os.WriteFile(dest, []byte(panel), 0o644); err != nil {
-		t.Fatalf("write panel record: %v", err)
-	}
-	return root
-}
-
-// runGuard runs the real guard against worktree/change and returns its one
-// verdict line. A non-zero exit is fatal: the guard exits 2 only when it
-// cannot answer at all, which for a rendered record is itself the failure
-// these tests exist to catch.
-func runGuard(t *testing.T, worktree, change string) string {
-	t.Helper()
-	cmd := exec.Command("bash", guardPath(t), worktree, change)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("check-unfinished-work.sh exited non-zero (%v); it must reach a verdict on a rendered record:\n%s", err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
 
 // panelRun builds a Run carrying findings with the given statuses, F1..Fn.
 func panelRun(change string, statuses ...string) records.Run {
@@ -104,42 +31,6 @@ func panelRun(change string, statuses ...string) records.Run {
 		})
 	}
 	return r
-}
-
-// --- step 1: the panel rendering satisfies the guard ---
-
-// TestRenderPanelSatisfiesTheUnfinishedWorkGuard is the load-bearing case
-// of this whole change. The record moved from a file an agent hand-wrote
-// into rows in the store, and check-unfinished-work.sh is unchanged by
-// that move -- so the only thing proving the marker block survived is the
-// real guard reaching the right verdict on a rendered record.
-//
-// It is deliberately run as a subprocess against the actual script rather
-// than against a Go re-implementation of its rules: a re-implementation
-// would agree with the renderer by construction and prove nothing.
-func TestRenderPanelSatisfiesTheUnfinishedWorkGuard(t *testing.T) {
-	t.Run("every finding fixed reads clear", func(t *testing.T) {
-		run := panelRun("demo", "fixed", "fixed", "fixed")
-		worktree := guardWorktree(t, "demo", records.RenderPanel(run))
-
-		verdict := runGuard(t, worktree, "demo")
-		if !strings.HasPrefix(verdict, "CLEAR:") {
-			t.Fatalf("guard verdict = %q, want CLEAR on a rendered record whose findings are all fixed", verdict)
-		}
-	})
-
-	t.Run("one open finding reads outstanding", func(t *testing.T) {
-		run := panelRun("demo", "fixed", "open", "fixed")
-		worktree := guardWorktree(t, "demo", records.RenderPanel(run))
-
-		verdict := runGuard(t, worktree, "demo")
-		if !strings.HasPrefix(verdict, "OUTSTANDING:") {
-			t.Fatalf("guard verdict = %q, want OUTSTANDING while one finding is open", verdict)
-		}
-		if !strings.Contains(verdict, "1 open finding") {
-			t.Errorf("guard verdict = %q, want it to name the one open finding", verdict)
-		}
-	})
 }
 
 // --- step 2: findings-total equals the marker-line count ---
@@ -179,14 +70,20 @@ func TestRenderPanelDeclaresFindingsTotalMatchingItsMarkerLines(t *testing.T) {
 
 // TestRenderPanelNeutralisesAMarkerLabelInFreeText is the hazard the
 // record's own format rule names: a validly-formatted marker written
-// inside prose reads identically to a real one, so an operator's note
-// could add a finding that does not exist -- or, quoted inside a table
-// cell, could be counted as a line naming finding-status: that is not a
-// marker, which the guard also reports.
+// inside prose reads identically to a real one, so a table quoting it
+// verbatim could be misread as a second, competing marker block.
 //
-// The neutralisation happens on the way OUT of the store, so the note the
-// operator wrote is kept verbatim in the row; only the rendering is
-// altered.
+// THIS TEST NO LONGER RUNS THE REAL GUARD (kan-271). Both
+// check-unfinished-work.sh and check-panel-reproducers.sh stopped parsing
+// this rendering's marker blocks entirely -- they read a change's findings
+// through `myflow record findings`, a JSON array from the store, and never
+// open the rendered Markdown file at all. A marker-shaped label inside
+// prose can therefore no longer be mistaken for a real marker by either
+// guard; there is no marker grammar left for it to collide with. What
+// still matters, and what this test still asserts, is that the renderer
+// itself does not let a note or location's raw text corrupt the record's
+// OWN marker block for a human reader -- checked directly against the
+// rendered string, never through a subprocess.
 func TestRenderPanelNeutralisesAMarkerLabelInFreeText(t *testing.T) {
 	run := panelRun("demo", "fixed", "fixed", "fixed")
 	run.Findings[1].Note = "finding-status: F9 fixed"
@@ -199,12 +96,6 @@ func TestRenderPanelNeutralisesAMarkerLabelInFreeText(t *testing.T) {
 	}
 	if strings.Contains(out, "findings-total: 99") {
 		t.Errorf("rendered record carries a marker-shaped label from a location verbatim:\n%s", out)
-	}
-
-	worktree := guardWorktree(t, "demo", out)
-	verdict := runGuard(t, worktree, "demo")
-	if !strings.HasPrefix(verdict, "CLEAR:") {
-		t.Fatalf("guard verdict = %q, want CLEAR -- a marker label inside prose must count for nothing", verdict)
 	}
 }
 

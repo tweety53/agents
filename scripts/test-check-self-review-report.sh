@@ -9,6 +9,57 @@
 # fixtures live under mktemp -d, the guard is invoked via a thin run_guard
 # helper that captures RC/OUT, and every case ends with an explicit
 # pass/fail assertion.
+#
+# THE MUTATION MATRIX (KAN-211). Every classification branch in
+# check-self-review-report.sh, plus the post-loop status check on the read
+# they all sit inside, was reverted one at a time — the branch's own
+# condition forced false, or its violation deleted, with the guard restored
+# before the next mutation — this harness re-run after each, and the case
+# numbers that failed recorded below. This is the mutation proof KAN-197
+# requires of every guard in this repository, written down so a later reader
+# can check it against the code instead of taking a commit message's word
+# for it. Re-measure it whenever a branch is added, moved or removed; a row
+# naming a case that no longer covers its branch is worse than no row.
+#
+#   branch reverted                            harness cases that failed
+#   ------------------------------------------ -------------------------
+#   post-loop `read_rc` check                  24
+#   `##`-heading label match                   1, 2, 3, 4, 5, 6, 7, 13,
+#                                              14, 16, 17, 18, 19, 20, 21
+#   other-heading reset (any `#+` level)       12
+#   none-marker comparison                     1, 16, 18
+#   FINDING_LINE_RE acceptance                 1, 4, 5, 6, 7, 16, 18, 19
+#   label-mismatch check                       4
+#   disposition split, `declined` arm          1, 7, 18
+#   disposition split, neither-arm violation   22
+#   empty-issue-key check                      5
+#   issue-key shape check                      6, 19
+#   loose-shape malformed branch               23 (message assertion only)
+#   orphan branch                              12, 15
+#   duplicate-section check                    14
+#   out-of-order check                         13
+#   missing-section check                      2, 17
+#   neither-marker-nor-finding check           3, 20, 21
+#   both-marker-and-finding check              16
+#
+# Case 7 appears in several rows because it alone runs the guard bare over
+# the repository's real docs/self-review/ corpus, so a broadly-scoped
+# reversion shows up there as well as in a fixture case.
+#
+# TWO ROWS — the disposition neither-arm and the loose-shape malformed
+# branch — WERE MEASURED UNCOVERED when this matrix was first written:
+# deleting either branch left every one of the harness's then forty-four
+# assertions green. Neither was dead code, which was checked rather than
+# assumed, so each gained a fixture reaching it directly instead of being
+# deleted as a rule nobody wanted. Cases 22 and 23 are those fixtures.
+#
+# The loose-shape row is annotated `message assertion only` because case
+# 23's exit status is NOT a detector for its branch: the same fixture trips
+# the post-loop neither-marker-nor-finding check, which holds the exit code
+# at 1 with the loose-shape branch removed. Only the message assertion
+# fails, and that was observed against a mutated guard, not predicted. Case
+# 23's own comment below carries the full reasoning; anything that touches
+# its assertions must read it first.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -333,7 +384,7 @@ esac
 # Case 12 (F3 regression): a `###` heading ends the current section just as a
 # `##` one does, rather than falling through both checks and being folded
 # into the previous section's body. The finding-shaped line that follows the
-# `###` here must surface as an ORPHAN (no section open), not be silently
+# `###` here must surface as an orphan (no section open), not be silently
 # absorbed into `myflow-fix`'s own none-marker above it.
 # ===========================================================================
 new_fixture
@@ -633,13 +684,37 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 21 (round 3 Code review/H2): a REAL 0x1F (ASCII Unit Separator) byte
-# inside report content must be a named violation, never silently swallowed.
-# `read`'s trailing-delimiter trim (the same mechanism case 19/20 exploit for
-# tab) applies to 0x1F too: a none-marker line differing from the real one
-# only by a trailing 0x1F would otherwise be accepted as compliant. The
+# Case 21 (byte fidelity, alongside cases 19 and 20): a REAL 0x1F (ASCII Unit
+# Separator) byte inside report content reaches the classifier byte for byte,
+# so a line differing from the none-marker only by a trailing 0x1F is NOT
+# equal to the none-marker and does not silently satisfy its section. The
 # `myflow-improvement` section's none-marker line here carries one genuine
-# trailing 0x1F byte, appended via ANSI-C quoting.
+# trailing 0x1F byte, appended via ANSI-C quoting; that section therefore
+# carries neither a finding line nor the none-marker and is flagged for that
+# reason.
+#
+# 0x1F is ordinary report content now — it is not itself a violation. It was
+# one while the guard serialized its classification as 0x1F-delimited records
+# for bash to re-parse (a trailing 0x1F was trimmed by `read` exactly as a
+# trailing tab is in cases 19 and 20, silently forgiving the line); KAN-211
+# deleted that protocol, and the rule went with it. What this case still
+# proves is the same thing it always did: a trailing control byte does not
+# buy a non-compliant line a pass.
+#
+# WHY THIS CASE CARRIES TWO MESSAGE ASSERTIONS, and what each one is for.
+# The first states the collapsed guard's behaviour: the section is flagged
+# as carrying neither a finding line nor the none-marker. The second — that
+# `unsupported control byte` appears nowhere in the output — is the one that
+# catches a REVERT of KAN-211, and it is the only assertion in this harness
+# that can. That is a measured fact, not a precaution: run against the
+# pre-change guard, this fixture produces BOTH violations, the control-byte
+# one at the none-marker's own line and the section-level one at the heading,
+# because `CTRLBYTE` consumed the none-marker line before it could be
+# classified and the post-loop neither-marker-nor-finding check then fired
+# for that section anyway. So the first assertion passes in both states and
+# would let a restored record protocol through in silence. Asserting the
+# retired violation's ABSENCE is what makes the revert loud. Keep both:
+# neither one is redundant with the other.
 # ===========================================================================
 new_fixture
 {
@@ -660,8 +735,126 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 21: a raw 0x1F byte in report content is caught, not silently swallowed" \
   || fail "case 21: rc=$RC out=$OUT"
 case "$OUT" in
-  *"unsupported control byte"*) pass "case 21: the violation names the unsupported control byte" ;;
-  *) fail "case 21: expected an unsupported-control-byte finding, out=$OUT" ;;
+  *'`myflow-improvement`'*"neither a finding line nor the none-marker"*) \
+    pass "case 21: the improvement section is flagged as neither a finding nor the none-marker" ;;
+  *) fail "case 21: expected a neither-finding-nor-none-marker finding, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"unsupported control byte"*) \
+    fail "case 21: the retired 0x1F violation is back — a record protocol has been reintroduced, out=$OUT" ;;
+  *) pass "case 21: the retired unsupported-control-byte violation is absent" ;;
+esac
+
+# ===========================================================================
+# Case 22 (KAN-211, mutation-matrix gap): a well-formed finding line whose
+# disposition is neither `filed: <KEY>` nor `declined`. The fixture is
+# `compliant_report` with the `myflow-cost` finding's disposition replaced by
+# `maybe later` — everything else about the line, and about the report, stays
+# compliant. The line still matches FINDING_LINE_RE, so FINDING_COUNT
+# increments and the section is not flagged for anything else; the ONLY
+# defect the fixture carries is the disposition. Delete the neither-arm and
+# the guard drops to exit 0 on this fixture, which is what makes the
+# exit-status assertion below a genuine detector for that branch.
+# ===========================================================================
+new_fixture
+compliant_report | sed 's/filed: KAN-201$/maybe later/' >"$FIXTURE/fixture-self-review.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 22: an unrecognized finding-line disposition is caught" \
+  || fail "case 22: rc=$RC out=$OUT"
+case "$OUT" in
+  *'finding line disposition is neither `filed: <KEY>` nor `declined`'*) \
+    pass "case 22: the violation names the unrecognized disposition rule" ;;
+  *) fail "case 22: expected an unrecognized-disposition finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 23 (G2 regression, KAN-211 mutation-matrix gap): a finding-shaped line
+# that is malformed — TWO spaces after the leading `-`, so it matches the
+# loose FINDING_SHAPE_RE but not the strict FINDING_LINE_RE. This is the
+# branch KAN-200 added as its G2 fix, precisely so such a line would stop
+# being silently dropped: before it, the line was not counted as a finding,
+# not flagged, and invisible to every check below. It has been untested since
+# that fix landed, which is why this case exists.
+#
+# WHY THE MESSAGE ASSERTION IS THE DETECTOR HERE, not the exit status. The
+# malformed line leaves its `myflow-fix` section with no recognized finding
+# and no none-marker, so the post-loop neither-marker-nor-finding check fires
+# on this same fixture and holds the exit code at 1 EVEN WITH the loose-shape
+# branch deleted. An assertion on exit status alone therefore passes in both
+# states and proves nothing about this branch. Asserting the malformed-line
+# message itself is what makes the branch's removal loud — the same
+# discipline case 21 documents for its own assertion pair. Keep both: the
+# exit-status assertion states the guard's contract, the message assertion
+# is the mutation detector.
+# ===========================================================================
+new_fixture
+cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
+## Problems and fixes — `myflow-fix`
+
+-  **[myflow-fix]** two spaces after the dash is malformed — declined
+
+## Cost — `myflow-cost`
+
+_none — this angle produced no findings._
+
+## What went well — `myflow-improvement`
+
+_none — this angle produced no findings._
+
+## Automation — `myflow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `myflow-stats-app`
+
+_none — this angle produced no findings._
+EOF
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 23: a malformed finding-shaped line is not silently dropped" \
+  || fail "case 23: rc=$RC out=$OUT"
+case "$OUT" in
+  *"finding-shaped line is malformed"*) \
+    pass "case 23: the violation names the line as finding-shaped but malformed" ;;
+  *) fail "case 23: expected a malformed finding-shaped-line finding, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 24 (KAN-211 round-1 F1 regression): a report file the guard cannot
+# open. The fixture is an otherwise fully compliant report, `chmod 000` so
+# the loop's own `done < "$f"` redirection fails. This is an I/O failure, not
+# report content, so it must reach exit 2 ("cannot answer") with a die naming
+# the file — never exit 1, which would classify an unread file as a content
+# violation.
+#
+# It is a regression case: collapsing the awk boundary removed the one place
+# that checked a per-file read for failure. `scan_report "$f"` returned awk's
+# non-zero status and the guard died on it; reading the file directly instead
+# left bash printing "Permission denied" to stderr while every per-report
+# counter stayed at its reset zero, so the file was recorded with count 0 and
+# surfaced as an undeclared-zero coverage violation at exit 1 — the exact
+# "reassuring empty result" this guard's header says it does not produce.
+#
+# BOTH assertions are detectors here, unlike cases 21 and 23. Delete the
+# guard's `read_rc` check after `done < "$f"` and the exit status drops from
+# 2 to 1 AND the die message disappears, because coverage.sh reports the zero
+# count instead. The permission bits are restored before the case ends so the
+# fixture directory stays deletable.
+#
+# What this case does NOT cover, and no case in this harness can: a read that
+# fails partway through a file that opened successfully — see **Known limits**
+# in KAN-211's `design.md` for why, which is canonical for it.
+# ===========================================================================
+new_fixture
+compliant_report >"$FIXTURE/fixture-self-review.md"
+chmod 000 "$FIXTURE/fixture-self-review.md"
+run_guard "$FIXTURE"
+chmod 644 "$FIXTURE/fixture-self-review.md"
+[ "$RC" -eq 2 ] && pass "case 24: an unreadable report file is 'cannot answer', not a violation" \
+  || fail "case 24: rc=$RC out=$OUT"
+case "$OUT" in
+  *"cannot read report file"*"fixture-self-review.md"*) \
+    pass "case 24: the die message names the unreadable file" ;;
+  *) fail "case 24: expected a cannot-read-report-file die naming the file, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then

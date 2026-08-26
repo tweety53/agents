@@ -72,8 +72,7 @@
 # refusal writes its reason to stderr and NOTHING to stdout — the caller must
 # never read an absent report as a clean one.
 #
-# THREE DISCIPLINES CARRIED HERE, adopted from scripts/lib/panel-record.sh's
-# header rather than invented fresh: `-a` on every grep (a stray NUL must not
+# THREE DISCIPLINES CARRIED HERE: `-a` on every grep (a stray NUL must not
 # put grep into binary "no match" mode and read a corrupted guard as a clean
 # one); the `rc > 1` split between "no match" (1, an answer) and a real
 # failure to look (2+, which this guard refuses on rather than reads as
@@ -165,8 +164,8 @@ source "$SCRIPT_DIR/lib/resolve-file.sh"
 # coverage_record / coverage_declare / coverage_report / coverage_verdict —
 # per-skill coverage reporting and the declared-vs-undeclared-zero decision,
 # owned once in lib/coverage.sh rather than reinvented here. See that file's
-# header for why (KAN-197) and the three disciplines it carries over from
-# panel-record.sh.
+# header for why (KAN-197) and for the same `-a`-on-every-grep, `rc > 1`-split,
+# and `--`-before-every-path disciplines this guard carries above.
 source "$SCRIPT_DIR/lib/coverage.sh"
 
 # ---------------------------------------------------------------------------
@@ -863,7 +862,7 @@ done < "$SKILL_NAMES_FILE"
 # this repository). Declaring a name that is not part of the current corpus
 # at all would make it a KAN-197 F3 "declared but never recorded" violation
 # for every fixture that does not happen to carry a "myflow-start" or
-# "openspec-explore" directory of its own — not a real staleness, just a
+# "myflow-research" directory of its own — not a real staleness, just a
 # mismatch between this guard's own hardcoded real-repo names and a smaller
 # sandboxed tree. Gating on actual corpus membership keeps F3's protection
 # meaningful for the real repository (both names are real directories here
@@ -888,7 +887,9 @@ declare_if_present() {
 }
 
 declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .myflow/project.md, never one symlinked into its own scripts/ directory"
-declare_if_present "openspec-explore" "invokes no guard — a thinking-partner exploration mode with no implementation or verification stage"
+declare_if_present "myflow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
+declare_if_present "flow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
+declare_if_present "flow-settings" "invokes no guard — a standalone settings command that only calls the myflow CLI, with no implementation or verification stage"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

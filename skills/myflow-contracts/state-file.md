@@ -94,7 +94,7 @@ reaches the network.
 ```json
 {
   "state": "IN_PROGRESS",
-  "branch": "openspec/<name>",
+  "branch": "spectre/<name>",
   "worktrees": {
     "/absolute/path/to/worktree": "<merge-base sha>"
   },
@@ -102,14 +102,11 @@ reaches the network.
   "jiraIssue": null,
   "planningEffort": null,
   "models": {
-    "implementation": null,
-    "reviewPanel": null,
-    "panelFix": null
+    "default": null
   },
-  "reviewPanelRoster": null,
   "prUrl": null,
   "updatedAt": "2026-07-28T10:00:00Z",
-  "updatedBy": "/myflow-do"
+  "updatedBy": "/flow"
 }
 ```
 
@@ -138,10 +135,10 @@ field is how it gets erased.
 
 - `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
   `STARTED`, `IN_PROGRESS`, `FINISHED`.
-- `branch` — the change's branch, `openspec/<name>`; `null` before one exists.
+- `branch` — the change's branch, `spectre/<name>`; `null` before one exists.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
   that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
-  legitimately carry a non-empty map:** `/myflow-finish` clears only the entries whose removal
+  legitimately carry a non-empty map:** `/flow`'s archive phase clears only the entries whose removal
   actually succeeded, so a worktree that could not be removed stays listed and remains findable.
   See **A change spanning repositories is one record** below.
 
@@ -163,31 +160,31 @@ field is how it gets erased.
   preflight is handed `-` and refuses, the merge status is `inconclusive`, and the review command
   falls back to the staged diff. A `null` value is therefore never a licence to infer a merge base —
   it is the refusal to.
-- `artifactUrl` — the published proposal artifact's URL; `null` until `/myflow-start` publishes one.
-- `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only by `/myflow-start`; every other command **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
+- `artifactUrl` — `null` for the life of the change: `/flow` publishes no proposal artifact
+  (design.md's `publish-proposal-removed`), so nothing ever writes this field a non-null value. It
+  is kept in the record rather than dropped so a change created before that decision, whose
+  `artifactUrl` is still populated, is not read as malformed.
+- `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only on the run that **creates** the change; every other invocation **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
 - `planningEffort` — the level chosen for this change's planning, or `null` when none was chosen.
-  Written only by `/myflow-start`, on the run that **creates** the change; every other command
-  **carries it forward verbatim**. It governs `/myflow-start`'s own reasoning depth and nothing
+  Written only on the run that **creates** the change; every other invocation
+  **carries it forward verbatim**. It governs the creating run's own reasoning depth and nothing
   else — no command derives behaviour from it, and the review panel's breadth is never scaled from
   it. The levels, and which of them is offered as the recommendation, are stated once under
   **Planning effort** (`state-file.md`) below.
-- `models` — an object carrying `implementation`, `reviewPanel` and `panelFix`, each naming the
-  model chosen for that role, or `null` where none was chosen. Written only by `/myflow-start`, on
-  the run that **creates** the change; every other command **carries it forward verbatim**. Its
-  live consumer is `/myflow-do`, which dispatches on those values. The roles, their defaults and
-  how an operator override applies are stated once under
-  **Model policy** (`skills/myflow-contracts/model-policy.md`), which is canonical for them; a second
-  copy here is what this repository's reference guard exists to prevent. These fields record what
-  was *chosen* — the SDD ledger remains the only record of what a dispatch actually ran on.
+- `models` — an object carrying one field, `default`, naming the model chosen for the change, or
+  `null` where none was chosen. Written only on the run that **creates** the
+  change; every other invocation **carries it forward verbatim**. Its live consumer is `/flow`,
+  which dispatches on that value. The model's default and how an operator override applies are
+  stated once under **Model resolution** (`skills/flow/SKILL.md`), which is canonical
+  for them; a second copy here is what this repository's reference guard exists to prevent. This
+  field records what was *chosen* — the SDD ledger remains the only record of what a dispatch
+  actually ran on.
 
-  **A record that omits `planningEffort`, `models` or `reviewPanelRoster` entirely is valid**, and
-  each absent key is read as *not recorded*. Without this exception, `state get` would hand back a
-  record it treats as malformed for every change written before these fields existed — a spurious
-  report against a value nobody had the chance to set. The carve-out covers a key that is
-  **absent**: `artifactUrl`, `jiraIssue` and `prUrl` are all *present and nullable*, which is a
-  different thing from *absent*. For `reviewPanelRoster`, *not recorded* resolves to the default
-  preset rather than leaving the panel unconfigured, so a command never has to ask which roster to
-  use at panel time.
+  **A record that omits `planningEffort` or `models` entirely is valid**, and each absent key is
+  read as *not recorded*. Without this exception, `state get` would hand back a record it treats as
+  malformed for every change written before these fields existed — a spurious report against a
+  value nobody had the chance to set. The carve-out covers a key that is **absent**: `artifactUrl`,
+  `jiraIssue` and `prUrl` are all *present and nullable*, which is a different thing from *absent*.
 
   **A record carrying the retired `effort` key is read as recording the equivalent level** —
   `medium` as `default`, `high` as `detailed`, `low` as `low` — and is rewritten under
@@ -200,7 +197,7 @@ field is how it gets erased.
   command that reads only `planningEffort` reports a record recording a real level as having
   recorded none — the exact outcome this exception exists to prevent, and a promise made in prose
   and implemented nowhere is not a promise. The mechanical form is `(.planningEffort // .effort)`,
-  as `/myflow-status` reads it.
+  as `/flow-status` reads it.
 
   **When a record carries both keys, `planningEffort` wins.** Both are individually excepted from
   the closed-schema rule, so such a record is valid, and it needs a stated answer rather than an
@@ -215,14 +212,8 @@ field is how it gets erased.
   and surfacing the raw value would put a level this pipeline does not have in front of the
   operator. *Not recorded* is what remains once an unrecognisable value is discarded, and it is the
   honest answer for a value with no defined target.
-- `reviewPanelRoster` — carries the review panel roster preset chosen for the change, one of
-  `light`, `standard` or `full`. Written only by `/myflow-start`, on the run that **creates** the
-  change; every other command **carries it forward verbatim**. Its live consumer is `/myflow-do`,
-  which selects the panel's required slots and the per-task review's shape from it.
-  `skills/myflow-do/SKILL.md` is canonical for what each preset means. The field is top-level rather
-  than nested under `models` because a roster is not a model.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
-  records that a PR was opened, so no separate boolean exists. It is also what tells `/myflow-do`
+  records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
 - `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `myflow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
@@ -232,10 +223,10 @@ field is how it gets erased.
   emits it. A payload still carrying the field is accepted with its value ignored rather than
   refused. A journal entry written before this rule replays unchanged for an unrelated reason: the
   daemon decodes such an entry's own body rather than routing it back through the CLI, and that
-  decoder accepts a second-precision instant and a sub-second one alike. `/myflow-status` reports
+  decoder accepts a second-precision instant and a sub-second one alike. `/flow-status` reports
   "last update" from this field, and the store uses it to order same-state writes (see **Writes are
   monotonic in both dimensions** below).
-- `updatedBy` — the command that last wrote the record, e.g. `/myflow-do`.
+- `updatedBy` — the command that last wrote the record, always `/flow`.
 
 **This record carries no human confirmation and no fix origin.** No command observes whether the
 human ran the apps, so nothing could honestly confirm that a human reviewed the work. And a fix
@@ -283,11 +274,11 @@ already stored. Both are safe to retire without further action, which is exactly
 
 Because a write renders the whole record and omission clears a field (**The record** above), every
 command must first `myflow state get` the existing record and carry forward every field it does not
-itself own — `artifactUrl`, `jiraIssue`, `prUrl`, `reviewPanelRoster` and `worktrees` among them —
-before calling `myflow state set`. Re-emit each as read (`null` only if it was already `null`).
-Dropping one erases it permanently: the published proposal link, the link to the Jira issue, the PR
-(which also silently downgrades the next fix from commit-and-push to staged-only), the chosen review
-panel roster preset, or the authoritative list of worktrees for a multi-repo change.
+itself own — `artifactUrl`, `jiraIssue`, `prUrl` and `worktrees` among them — before calling `myflow
+state set`. Re-emit each as read (`null` only if it was already `null`). Dropping one erases it
+permanently: the published proposal link, the link to the Jira issue, the PR (which also silently
+downgrades the next fix from commit-and-push to staged-only), or the authoritative list of worktrees
+for a multi-repo change.
 
 **Carrying the planning effort forward is what performs the rewrite**, and it is the one field where
 *verbatim* needs saying precisely. A record read through the retired-key fallback above is carried
@@ -340,7 +331,7 @@ this: it writes `worktrees` exactly as it always has, and never supplies a repos
 separately.
 
 The **key set of `worktrees` is the authoritative recorded list of affected worktrees** — it is
-what `/myflow-finish` cleans up, and what resolves an app's root when a handoff needs an absolute
+what `/flow`'s archive phase cleans up, and what resolves an app's root when a handoff needs an absolute
 path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
 first, per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`), rather than
 looping over this map directly. The scalar `branch` names the shared branch only. Never infer a
@@ -348,8 +339,8 @@ worktree path from a conventional layout; layout differs per repository.
 
 ```json
 "worktrees": {
-  "/Users/tweety53/Projects/agents-worktrees/openspec-<name>": "5ee4c9a…",
-  "/Users/tweety53/Projects/other-worktrees/openspec-<name>": "b31f7c2…"
+  "/Users/tweety53/Projects/agents-worktrees/spectre-<name>": "5ee4c9a…",
+  "/Users/tweety53/Projects/other-worktrees/spectre-<name>": "b31f7c2…"
 }
 ```
 
@@ -375,20 +366,20 @@ committed, never staged, and never archived** — nothing here is part of the ch
 
 ## Planning effort
 
-**Which file to change first.** The normative requirement — that three levels exist, that `default`
-is the level offered as the recommendation, and that no level may switch a gate off — is
+**There is no requirements layer above this one; change this file.** The rule — that three levels
+exist, that `default` is the level offered as the recommendation, and that no level may switch a gate
+off — was first written as
 **Requirement: Planning effort scales the reasoning spent inside the gates, never the gates themselves** (`<agents repo>/openspec/specs/myflow-planning-effort/spec.md`).
-Naming the requirement in full, rather than giving the path alone, is what makes
-`<agents repo>/scripts/check-references.sh` check this pointer — an OpenSpec `### Requirement: …` heading is a
-heading like any other. The guard skips a path that does not resolve, so this one is checked only
-once the capability lands in `<agents repo>/openspec/specs/` at finish run 2; until then it is a reference nobody
-verifies, which is said here rather than left to look otherwise. That spec is the requirement; the
-table below is the
-**operational form the commands read**, and it exists here so `/myflow-start` has one place to look
-rather than a requirements document to interpret. Change the spec first and bring this table with
-it: a table that contradicts the requirement is this file's defect, not the spec's.
+That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not
+migrated, so it records where the rule came from and governs nothing: the table below is both the
+requirement and the **operational form the commands read**, and it exists here so `/flow`
+has one place to look rather than a requirements document to interpret. Naming the requirement in
+full, rather than giving the path alone, is still what makes
+`<agents repo>/scripts/check-references.sh` check the pointer — a `### Requirement: …` heading is a
+heading like any other, and the frozen file it names does resolve, so the citation stays checked
+rather than rotting silently.
 
-Three levels, offered by `/myflow-start` on the run that creates a change, with `default` the level
+Three levels, offered by `/flow` on the run that creates a change, with `default` the level
 offered as the recommendation:
 
 | Level | What it changes |

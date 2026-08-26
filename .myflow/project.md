@@ -21,10 +21,18 @@ can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist
 review panel passes and seven fix waves that found defect class after defect class in the Bash
 version — canonical enumeration and full history in `check-plan-provenance.py`'s own module
 docstring (this file does not restate the count, since a copied number is exactly what let an
-earlier, wrong count survive six review passes) and
-`openspec/changes/kan-14-plan-provenance/design.md`'s "Post-review reshape" section. Every other
-guard in this repository remains Bash-only; adding Python here was a deliberate, recorded widening
-of the toolchain, not a drift.
+earlier, wrong count survive six review passes) and in
+`openspec/changes/archive/2026-07-29-kan-14-plan-provenance/design.md` — frozen and historical, a
+record of why the wrapper exists rather than a live artifact — under its "Post-review reshape"
+section. Every other guard in this repository remains Bash-only; adding Python here was a
+deliberate, recorded widening of the toolchain, not a drift.
+
+### artifact tree
+
+The pipeline's artifact tree is `spectre/`. `openspec/` is frozen at the 2026-08-25 cutover and is
+never written to again. The two changes left open in it —
+`kan-295-cut-pipeline-load-cost-split-by-consumer` and `kan-327-review-per-round-delta-after-round-1`
+— are abandoned.
 
 ## run
 
@@ -148,7 +156,7 @@ written count went stale the first time a guard was added to it, and the same se
 stale again on the next.
 
 **`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
-file — every one under `skills/`, `rules/`, `openspec/specs/`, `commands/`, `commands-claude/`,
+file — every one under `skills/`, `rules/`, `spectre/specs/`, `commands/`, `commands-claude/`,
 `.myflow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
 budget declared for it in the guard's own `budgets()` table, or carries no budget at all. The table
 is keyed on the path relative to the repository root, not on the bare basename, because every skill
@@ -180,23 +188,23 @@ needs a change in flight.
 is installed into** — and conflating the two made a permanently vacuous lint step read as
 enforcement. The run here checks this repository's own `## workspace isolation` section below; a
 green lint run therefore says nothing whatever about any other project's declaration. What covers
-those is `/myflow-do`, which runs this guard against
-each apply worktree before it resolves the section, per section 7 of `skills/myflow-do/SKILL.md` —
+those is `/flow`, which runs this guard against
+each apply worktree before it resolves the section, per **Verify** in `skills/flow/verify-and-handoff.md` —
 so a declaration is validated where it is read, in whichever repository holds it. The lint entry
 stays because this repository's own configuration is one more configuration worth checking, and
 because it keeps the guard runnable from a bare tree.
 
 **`check-finish-preflight.sh`, `check-unfinished-work.sh`, `check-cleanup-complete.sh` and
-`check-worktree-processes.sh` are deliberately not lint steps.** All four are `/myflow-finish`
+`check-worktree-processes.sh` are deliberately not lint steps.** All four are `/flow` integrate/archive
 helpers that need a change in flight and a real worktree, a repository or a state directory passed
 in as arguments; they answer a question about one change, not about the state of the repository's
 text. A lint step that cannot run against a bare tree would fail on every unrelated invocation, so
 the omission is a decision, not an oversight. They are covered instead by their harnesses under
 `## test`.
 `check-panel-diff-size.sh`, `plan-dispatch-bundles.sh`, `check-panel-reproducers.sh` and
-`run-reproducer.sh` are excluded for the same reason: they are `/myflow-do` helpers that likewise
-need a change in flight and a worktree passed in, so they are covered by their own harnesses under
-`## test` instead.
+`run-reproducer.sh` are excluded for the same reason: they are `/flow` implementation helpers that
+likewise need a change in flight and a worktree passed in, so they are covered by their own
+harnesses under `## test` instead.
 
 **`check-installed-citations.sh` belongs in the list for the opposite reason those are excluded.**
 It takes no change-in-flight state — it derives the installed set by running a sandboxed `setup.sh`
@@ -224,24 +232,48 @@ clean/nothing-in-flight, 1 violations found, 2 environment, 3 containment, 4
 content-classification; a caller that treats "non-zero" uniformly, as this repository's own lint
 step does, is unaffected by that split. The long-standing exception recorded here previously — a
 block of unattributed fenced snippets in `kan-8-myflow-updates`'s plan — cleared on its own when
-that change archived, exactly as predicted, because the guard excludes `openspec/changes/archive/`
-by design. There is no known exception left. A future non-zero exit is a real hit on a plan in
-flight: fix the offending line by stating its provenance, never by narrowing the guard's scope or
-adding a suppression marker.
+that change archived, exactly as predicted, because the guard excludes `changes/archive/` by
+design — `spectre/changes/archive/` today, `openspec/changes/archive/` in the frozen tree where
+that change actually sits. There is no known exception left. A future non-zero exit is a real hit
+on a plan in flight: fix the offending line by stating its provenance, never by narrowing the
+guard's scope or adding a suppression marker.
 
 ## stop
 
-The manual, foreground `myflowd` started above stops with Ctrl-C or `kill` on its PID — it shuts
-down gracefully, draining in-flight requests before its connection pool closes.
+**This key declares no command, and that is the answer rather than an omission.** `/flow`'s
+worktree-cleanup check 5 runs whatever this key declares before removing a worktree; there is
+nothing here for it to run.
 
-```bash
-cd stats && docker compose down           # stops myflow-postgres; does not touch other stacks
-launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist   # only if the login agent is loaded
-```
+**What is protected is the dev workspace's service and its storage, and only those** — the empty-id
+case of `## workspace isolation` below, which is what the main checkout resolves:
 
-The launchd agent line is a no-op if the agent was never loaded — see `stats/README.md`. This key
-is present rather than omitted so that `/myflow-finish`'s stack-stopped check runs against a real
-answer, not a recorded "nothing to stop" that stopped being true when `stats/` landed.
+| Protected — never stopped, dropped or removed by any agent action | Why |
+|---|---|
+| `myflowd` on `127.0.0.1:4173` | the store every `myflow` call in every project writes through |
+| the `myflow-postgres` container on host port 5433 | the **service**, shared by every workspace |
+| the default `myflow` database inside it | the dev workspace's own storage |
+
+Not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid, and not to make
+a later step succeed. Stopping any of them mid-run silently degrades the rest of that run's writes to
+the on-disk journal and takes the store away from every other session on this machine; restarting
+afterwards does not repair it, because whatever fell through to the journal while it was down stays
+there.
+
+**A workspace's own derived resources are not protected, and removing them is correct.** The
+`myflow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
+`scripts/workspace.sh remove <id>` drops them during archive cleanup exactly as the registry
+requires, and that must keep working. The line is the one **Workspace isolation**
+(`skills/myflow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
+resource, never the service that holds it. This section protects the service and the dev workspace's
+own logical resources; it says nothing about anyone else's.
+
+**Nothing worktree-local exists for check 5 to stop.** A worktree gets its own database and port, and
+no `/flow` step starts a daemon against them. Check 6, `check-worktree-processes.sh`, is what proves
+no process holds a worktree, and it remains a gate.
+
+Stopping the dev stack is an **operator** action, deliberately. The commands live where the operator
+starts it: `## run` above, and `stats/README.md`'s "Running the daemon at login" section for the
+launchd agent.
 
 ## standards
 

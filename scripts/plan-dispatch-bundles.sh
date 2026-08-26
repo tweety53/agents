@@ -13,7 +13,7 @@
 # This wrapper is what resolves WHICH files that means:
 #
 #   - no arguments: scan every non-archived change's tasks.md under
-#     openspec/changes/*/tasks.md (excluding openspec/changes/archive/),
+#     spectre/changes/*/tasks.md (excluding spectre/changes/archive/),
 #     calling the Python script once per file and aggregating exit codes —
 #     non-zero if ANY file reports a violation or cannot be read, printing
 #     each file's own bundles or violations as the Python script emits
@@ -55,7 +55,7 @@ fi
 # explicitly (the same opt-in override check-task-build-green.sh accepts as
 # CHECK_TASK_BUILD_GREEN_ROOT), so a test harness can point this wrapper at
 # a sandboxed fixture tree instead of this repository's own
-# openspec/changes/.
+# spectre/changes/.
 #
 # "One level above $SCRIPT_DIR" is NOT enough to derive that root, because
 # this script is now reachable from more than one directory — its real home
@@ -72,6 +72,16 @@ fi
 # walk of its own, so doing it here unconditionally does not reintroduce the
 # eager resolution the comment below opts out of — only the CALL is deferred.
 source "$SCRIPT_DIR/lib/resolve-file.sh"
+# Named as $SCRIPT_DIR/<name> and checked before sourcing, so
+# check-guard-symlinks.sh rule 2 can see the dependency and a missing
+# sibling names itself instead of surfacing as a bash error.
+SPEC_ROOT_LIB="$SCRIPT_DIR/lib/spec-root.sh"
+if [ ! -f "$SPEC_ROOT_LIB" ]; then
+  echo "plan-dispatch-bundles.sh: shared spec-root module not found: $SPEC_ROOT_LIB" >&2
+  exit 2
+fi
+source "$SPEC_ROOT_LIB"
+
 # The override is honoured WITHOUT resolving this script's own location, and the
 # ordering is deliberate rather than incidental. `${VAR:-expr}` evaluates `expr`
 # lazily, so the fixed-depth derivation this replaced never ran at all when
@@ -89,15 +99,15 @@ else
   }
   REPO_ROOT="$(cd "$(dirname "$SELF_REAL")/.." && pwd)"
 fi
-CHANGES_DIR="$REPO_ROOT/openspec/changes"
+CHANGES_DIR="$REPO_ROOT/$(spec_root_leaf "$REPO_ROOT")/changes"
 
 STATUS=0
 
 if [ -d "$CHANGES_DIR" ]; then
   # The glob below (one directory level under CHANGES_DIR) never descends
-  # into openspec/changes/archive/*/tasks.md in the first place — an
+  # into spectre/changes/archive/*/tasks.md in the first place — an
   # archived change's tasks.md is nested a level deeper, at
-  # archive/<date-name>/tasks.md, so the glob's own depth already excludes
+  # archive/<name>/tasks.md, so the glob's own depth already excludes
   # every archived file without any extra filtering here.
   for tasks_file in "$CHANGES_DIR"/*/tasks.md; do
     [ -e "$tasks_file" ] || continue
