@@ -67,7 +67,14 @@ branch without explicit consent. Record each worktree's merge base and absolute 
 own working notes as soon as the worktree exists — the state file's `worktrees` map is written only
 at the end of `skills/flow/verify-and-handoff.md`.
 
-On a fix run, resume the existing worktree. **Never create a second one.**
+**First run only:** copy `<project>/spectre/changes/<name>/` from the main checkout into the same
+relative path inside the new worktree, then remove the main checkout's own copy of that directory.
+From this point on, the worktree's copy is the one that gets edited and eventually committed — the
+main checkout's copy is stale and untracked, and nothing later in the pipeline removes it. Leaving
+it in place is what made `prepare-archive-branch.sh` refuse on a dirty main checkout during KAN-271's
+own run.
+
+On a fix run, resume the existing worktree and make no such copy. **Never create a second one.**
 
 **This run's resolved worktree set — the set `skills/flow/verify-and-handoff.md` iterates — is the
 worktree just created or resumed above, plus any additional worktree this change affects.** Per
