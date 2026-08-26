@@ -186,7 +186,7 @@ func TestReadStateFileMissingIsAnError(t *testing.T) {
 
 func TestListStateFileNamesFindsEveryJSONFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("MYFLOW_STATE_DIR", root)
+	t.Setenv("FLOW_STATE_DIR", root)
 
 	for _, name := range []string{"kan-1", "kan-2", "kan-3"} {
 		if err := fallback.WriteStateFile(fallback.StateFilePath("proj", name), []byte(`{}`)); err != nil {
@@ -218,7 +218,7 @@ func TestListStateFileNamesFindsEveryJSONFile(t *testing.T) {
 
 func TestListStateFileNamesMissingDirectoryIsNotAnError(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("MYFLOW_STATE_DIR", root)
+	t.Setenv("FLOW_STATE_DIR", root)
 
 	names, err := fallback.ListStateFileNames("never-written-to")
 	if err != nil {

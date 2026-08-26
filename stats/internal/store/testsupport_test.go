@@ -17,7 +17,7 @@ import (
 // at the myflow-postgres compose stack from task 1, on host port 5433, and
 // can be overridden for environments that run Postgres elsewhere.
 func adminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
 	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"

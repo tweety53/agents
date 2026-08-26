@@ -71,10 +71,10 @@ rather than accumulating the way the live database did.
 Point a session or a browser tab at it:
 
 ```bash
-export MYFLOW_ADDR=http://127.0.0.1:4174
+export FLOW_ADDR=http://127.0.0.1:4174
 ```
 
-`MYFLOW_ADDR` overrides the `myflow` CLI's default daemon address (see "A
+`FLOW_ADDR` overrides the `myflow` CLI's default daemon address (see "A
 single variable targets the test stack" in this change's spec); opening
 `http://127.0.0.1:4174` directly in a browser reaches the same daemon's
 SPA. The live daemon on 4173 and the live database are untouched by
@@ -91,10 +91,10 @@ signal that a write landed on the test stack instead of the live one. To
 avoid that:
 
 - Prefer scoping it to one command instead of exporting it:
-  `MYFLOW_ADDR=http://127.0.0.1:4174 myflow state get <name>`, or
+  `FLOW_ADDR=http://127.0.0.1:4174 myflow state get <name>`, or
 - Run the UI-test session in a separate subshell (`bash`, then `export`
   inside it, then `exit` when done), or
-- If you do `export` it in your main shell, `unset MYFLOW_ADDR` as soon as
+- If you do `export` it in your main shell, `unset FLOW_ADDR` as soon as
   you are done testing, before running any real `/myflow-*` command.
 
 Tear it down when done:
@@ -144,7 +144,7 @@ one stage mark already exist):
 # 1. Find the change's most recent stage run.
 curl -s 'http://127.0.0.1:4173/api/v1/stage-runs?project=<project-key>&name=<change-name>&sort=-started_at&limit=1' | jq .
 
-# 2. Wait one harvest cycle (5s, cmd/myflowd's harvestInterval) -- longer
+# 2. Wait one harvest cycle (5s, cmd/flowd's harvestInterval) -- longer
 #    if the mark's own turn hasn't flushed to the transcript yet.
 sleep 6
 

@@ -21,7 +21,7 @@ import (
 // DSN config.DefaultDSN already names -- and can be overridden for
 // environments that run Postgres elsewhere.
 func adminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
 	return config.DefaultDSN

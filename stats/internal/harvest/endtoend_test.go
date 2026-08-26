@@ -43,7 +43,7 @@ import (
 // --- real-store test support, mirroring internal/store/testsupport_test.go ---
 
 func e2eAdminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
 	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"

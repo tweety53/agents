@@ -14,10 +14,10 @@ import (
 )
 
 // dsn returns the connection string for the dedicated myflow-postgres
-// container defined in stats/docker-compose.yml. MYFLOW_STATS_DSN overrides
+// container defined in stats/docker-compose.yml. FLOW_STATS_DSN overrides
 // it for environments that run Postgres elsewhere.
 func dsn() string {
-	if v := os.Getenv("MYFLOW_STATS_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_DSN"); v != "" {
 		return v
 	}
 	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"

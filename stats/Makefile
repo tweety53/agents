@@ -117,7 +117,7 @@ down:
 # rather than the terminal for the same reason.
 #
 # A DETACHED LIVE DAEMON HARVESTS TRANSCRIPTS UNATTENDED. It scans the real
-# MYFLOW_TRANSCRIPTS_DIR every 5s (harvestInterval, cmd/flowd/main.go) and
+# FLOW_TRANSCRIPTS_DIR every 5s (harvestInterval, cmd/flowd/main.go) and
 # writes into the live database -- during this repo's own development an agent
 # left running that way harvested 2,961 transcript offsets before anyone
 # noticed (see .myflow/project.md's `## run` section). That is the intended
@@ -209,7 +209,7 @@ restart: build
 #   workspace.sh's own `myflow_` prefix check only ever protects the shared
 #   "myflow" database, not other workspace databases.
 #
-# - `override UITEST_DB` protects UITEST_DSN below, which MYFLOWD_DSN points
+# - `override UITEST_DB` protects UITEST_DSN below, which FLOWD_DSN points
 #   a second `myflowd` (and `uitest-seed`) at. cmd/flowd/main.go runs
 #   RunMigrations and SeedPricing, and cmd/uitest-seed seeds its fixture,
 #   against whatever DSN they are handed, with no guard of their own -- so an
@@ -307,9 +307,9 @@ endef
 # an optimisation: a test stack whose contents persist between sessions
 # accumulates the same way the live one did.
 #
-# MYFLOW_TRANSCRIPTS_DIR and MYFLOW_STATE_DIR are pointed at freshly
+# FLOW_TRANSCRIPTS_DIR and FLOW_STATE_DIR are pointed at freshly
 # emptied temporary directories -- load-bearing, not tidiness. myflowd's
-# transcript harvester scans MYFLOW_TRANSCRIPTS_DIR every 5 seconds
+# transcript harvester scans FLOW_TRANSCRIPTS_DIR every 5 seconds
 # (harvestInterval, cmd/flowd/main.go); left on the real transcripts
 # root, myflow_uitest would refill itself with the operator's genuine
 # session data within seconds of starting, defeating the entire point of
@@ -388,9 +388,9 @@ ui-test-up: web-build check-uitest-overrides
 	# file neither the stop-previous-daemon block above nor ui-test-down
 	# below ever looks at, and both would silently take their "no daemon"
 	# branch. Nothing else in myflowd reads os.TempDir().
-	MYFLOWD_PORT=$(UITEST_PORT) MYFLOWD_DSN="$(UITEST_DSN)" \
-		MYFLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
-		MYFLOW_STATE_DIR=$(UITEST_STATE_DIR) \
+	FLOWD_PORT=$(UITEST_PORT) FLOWD_DSN="$(UITEST_DSN)" \
+		FLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
+		FLOW_STATE_DIR=$(UITEST_STATE_DIR) \
 		TMPDIR=/tmp \
 		$(UITEST_BIN) > $(UITEST_LOG) 2>&1 &
 	@echo "ui-test-up: waiting for myflowd to answer on :$(UITEST_PORT)"
@@ -400,8 +400,8 @@ ui-test-up: web-build check-uitest-overrides
 	done; \
 	echo "ui-test-up: myflowd did not answer on :$(UITEST_PORT) within 60s -- see $(UITEST_LOG)" >&2; \
 	exit 1
-	MYFLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
-	@echo "ui-test-up: ready -- export MYFLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
+	FLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
+	@echo "ui-test-up: ready -- export FLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
 
 # ui-test-down stops the daemon and drops myflow_uitest, both
 # idempotently: a second `make ui-test-down` exits 0 rather than erroring

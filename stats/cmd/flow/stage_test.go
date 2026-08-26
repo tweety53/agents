@@ -88,13 +88,13 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 }
 
 // TestStageBeginDefaultsHarnessWhenUnset pins that a begin mark with no
-// -harness flag and no MYFLOW_HARNESS still carries a non-empty harness --
+// -harness flag and no FLOW_HARNESS still carries a non-empty harness --
 // stage_runs.harness is NOT NULL, so an empty value would be rejected by
 // the store rather than merely "missing".
 func TestStageBeginDefaultsHarnessWhenUnset(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
-	t.Setenv("MYFLOW_HARNESS", "")
+	t.Setenv("FLOW_HARNESS", "")
 
 	var gotBody []byte
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {

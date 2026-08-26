@@ -19,7 +19,7 @@ import (
 
 // journalPath mirrors fallback.JournalFilePath's own "<root>/<project>/<name>.journal"
 // shape, built directly against a test's own root rather than through
-// fallback.StateRoot()/MYFLOW_STATE_DIR -- reconcile.New already takes an
+// fallback.StateRoot()/FLOW_STATE_DIR -- reconcile.New already takes an
 // explicit root, so these tests never need to touch that env var.
 func journalPath(root, project, name string) string {
 	return filepath.Join(root, project, name+".journal")

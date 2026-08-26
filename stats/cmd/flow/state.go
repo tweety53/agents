@@ -27,7 +27,7 @@ import (
 const defaultAddr = "http://127.0.0.1:4173"
 
 // resolveDefaultAddr returns the value the three -addr flag registrations
-// (two in state.go, one in stage.go) take as their default: MYFLOW_ADDR
+// (two in state.go, one in stage.go) take as their default: FLOW_ADDR
 // when it is set to a non-empty value, defaultAddr otherwise -- mirroring
 // how internal/config.FromEnv already treats an empty environment
 // variable as unset.
@@ -35,29 +35,29 @@ const defaultAddr = "http://127.0.0.1:4173"
 // The -addr flag itself already existed and was never the problem: it
 // simply was not passed. What was missing was a way to set the address
 // once per session instead of remembering it on every single command --
-// MYFLOW_ADDR is that mechanism. An explicit -addr still wins, since the
+// FLOW_ADDR is that mechanism. An explicit -addr still wins, since the
 // flag's default is all this changes.
 func resolveDefaultAddr() string {
-	if v := os.Getenv("MYFLOW_ADDR"); v != "" {
+	if v := os.Getenv("FLOW_ADDR"); v != "" {
 		return v
 	}
 	return defaultAddr
 }
 
 // noteAddrEnvUsage prints one line to stderr naming the address a command
-// is about to use, but only when that address came from MYFLOW_ADDR rather
+// is about to use, but only when that address came from FLOW_ADDR rather
 // than from an explicit -addr flag on this invocation: fset.Visit only
 // calls back for a flag actually set on the command line, so "addr" not
 // appearing there means the flag's value is exactly what
 // resolveDefaultAddr() returned as its default.
 //
-// This exists because MYFLOW_ADDR is meant to be exported once per shell
+// This exists because FLOW_ADDR is meant to be exported once per shell
 // session (see README.md's "The UI-test stack"), and an export outlives
 // the command that motivated it -- every `myflow state`/`myflow stage`
 // run afterwards in that shell silently inherits it, with no other signal,
 // since a successful write exits 0 the same way whether it reached the
 // live daemon or a test one. Call this after fset.Parse succeeds, once
-// per command, so a stray or stale MYFLOW_ADDR is visible before its
+// per command, so a stray or stale FLOW_ADDR is visible before its
 // effect is.
 func noteAddrEnvUsage(fset *flag.FlagSet, stderr io.Writer) {
 	explicit := false
@@ -69,8 +69,8 @@ func noteAddrEnvUsage(fset *flag.FlagSet, stderr io.Writer) {
 	if explicit {
 		return
 	}
-	if v := os.Getenv("MYFLOW_ADDR"); v != "" {
-		fmt.Fprintf(stderr, "myflow: using MYFLOW_ADDR=%s\n", v)
+	if v := os.Getenv("FLOW_ADDR"); v != "" {
+		fmt.Fprintf(stderr, "myflow: using FLOW_ADDR=%s\n", v)
 	}
 }
 

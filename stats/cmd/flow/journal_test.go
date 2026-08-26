@@ -20,7 +20,7 @@ import (
 // same dedicated myflow-postgres compose stack every other package's tests
 // use.
 func adminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
 	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"

@@ -19,7 +19,7 @@ import (
 )
 
 // defaultHarness is used when `stage begin` is not told which harness is
-// running it (-harness, or the MYFLOW_HARNESS environment variable).
+// running it (-harness, or the FLOW_HARNESS environment variable).
 // stage_runs.harness is NOT NULL (design.md's data model), so this must
 // never be empty -- "unknown" is an honest value the harvester and every
 // statistics view can filter on, distinct from a harness that genuinely
@@ -111,13 +111,13 @@ func finishStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) error {
 	return nil
 }
 
-// resolveHarness returns harnessFlag if set, else MYFLOW_HARNESS, else
+// resolveHarness returns harnessFlag if set, else FLOW_HARNESS, else
 // defaultHarness -- never empty, since stage_runs.harness is NOT NULL.
 func resolveHarness(harnessFlag string) string {
 	if harnessFlag != "" {
 		return harnessFlag
 	}
-	if v := os.Getenv("MYFLOW_HARNESS"); v != "" {
+	if v := os.Getenv("FLOW_HARNESS"); v != "" {
 		return v
 	}
 	return defaultHarness
@@ -264,7 +264,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f)
-	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $MYFLOW_HARNESS, or \"unknown\")")
+	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
 	if err := fset.Parse(args); err != nil {

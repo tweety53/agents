@@ -17,7 +17,7 @@ import (
 // same dedicated myflow-postgres compose stack internal/store's own tests
 // use (task 1), overridable for environments that run Postgres elsewhere.
 func adminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
 	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"

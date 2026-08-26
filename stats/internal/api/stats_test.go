@@ -1098,8 +1098,8 @@ func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _ 
 }
 
 func TestStatsViewTimesOutCleanly(t *testing.T) {
-	if os.Getenv("MYFLOW_STATS_SKIP_SLOW_TESTS") != "" {
-		t.Skip("MYFLOW_STATS_SKIP_SLOW_TESTS set")
+	if os.Getenv("FLOW_STATS_SKIP_SLOW_TESTS") != "" {
+		t.Skip("FLOW_STATS_SKIP_SLOW_TESTS set")
 	}
 	sts := &slowStatsFake{}
 	ts := newStatsTestServer(t, sts)
@@ -1144,7 +1144,7 @@ func TestStatsViewTimesOutCleanly(t *testing.T) {
 // ==========================================================================
 
 func statsAdminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
 	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"

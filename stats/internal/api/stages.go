@@ -477,14 +477,14 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 //
 // mark carries no harness -- deliberately. An earlier version of this
 // task (task 10's own first commit) had `stage end` re-resolve
-// $MYFLOW_HARNESS/-harness itself and send tokens_available: false
+// $FLOW_HARNESS/-harness itself and send tokens_available: false
 // whenever that value was not "claude-code". Post-commit review (finding
 // F1) found this unsound: nothing ties an end mark's own harness
 // resolution to the harness BeginStage actually recorded for this run, so
 // design.md's own canonical example --
 // `myflow stage end --change ... --outcome completed`, no -harness given
 // -- would mark a genuine claude-code run's tokens unavailable the moment
-// $MYFLOW_HARNESS was unset in the ending shell, producing exactly the
+// $FLOW_HARNESS was unset in the ending shell, producing exactly the
 // false-negative this task exists to prevent: an internally inconsistent
 // row carrying both real, harvested tokens.* figures and a flag claiming
 // they don't exist.

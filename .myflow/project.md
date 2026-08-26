@@ -51,8 +51,8 @@ cd stats && make build                    # builds the SPA, then both binaries i
 cd stats && ./bin/myflowd
 ```
 
-`myflowd` binds `127.0.0.1:4173` (override with `MYFLOWD_PORT`) and refuses to start on any other
-interface or on an unparsable `MYFLOWD_PORT` rather than defaulting silently. Running it this way is
+`myflowd` binds `127.0.0.1:4173` (override with `FLOWD_PORT`) and refuses to start on any other
+interface or on an unparsable `FLOWD_PORT` rather than defaulting silently. Running it this way is
 for manual, foreground verification only — for a daemon that survives logout and restarts on
 failure, see `stats/README.md`'s "Running the daemon at login" section and its launchd agent.
 **No skill loads that agent**; loading it is an operator step, deliberately, because an agent left
@@ -62,7 +62,7 @@ database before anyone noticed.
 **The UI-test stack**, for ad-hoc testing from the main checkout rather than from an apply worktree:
 `make ui-test-up` and `make ui-test-down` (`stats/Makefile`) bring a second, disposable `myflowd` up
 on port 4174 against `myflow_uitest`, seeded with a fixed fixture, and tear it down again. Point a
-session at it with `MYFLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated by the
+session at it with `FLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated by the
 `## workspace isolation` section below — that section covers apply worktrees, and this stack is a
 single, main-checkout-only fixture instead.
 
@@ -299,9 +299,9 @@ launchd agent.
 
 | Resource | Variable | Default | In a workspace |
 |----------|----------|---------|----------------|
-| `database` | `MYFLOWD_DSN` | `postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable` | `postgres://myflow:myflow@localhost:5433/myflow_<id_underscored>?sslmode=disable` |
-| `port` | `MYFLOWD_PORT` | `4173` | `+<offset>` |
-| `url` | `MYFLOW_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:<value:MYFLOWD_PORT>` |
+| `database` | `FLOWD_DSN` | `postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable` | `postgres://myflow:myflow@localhost:5433/myflow_<id_underscored>?sslmode=disable` |
+| `port` | `FLOWD_PORT` | `4173` | `+<offset>` |
+| `url` | `FLOW_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:<value:FLOWD_PORT>` |
 
 | Command | Runs |
 |---------|------|
@@ -309,7 +309,7 @@ launchd agent.
 | `remove` | `scripts/workspace.sh remove <id>` |
 | `survivors` | `scripts/workspace.sh survivors <id>` |
 
-**`MYFLOW_STATE_DIR` and `MYFLOW_TRANSCRIPTS_DIR` are deliberately not isolated.** The `Resource`
+**`FLOW_STATE_DIR` and `FLOW_TRANSCRIPTS_DIR` are deliberately not isolated.** The `Resource`
 column above is a closed vocabulary — `database`, `bucket`, `cache index`, `port`, `url`, and no
 other word — and a directory path is none of those five, so neither variable gets a row; this is a
 decision, not an oversight. The consequence is bounded: every worktree's `myflowd` still harvests

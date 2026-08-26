@@ -49,13 +49,13 @@ func gitRepo(t *testing.T) string {
 	return dir
 }
 
-// isolatedStateRoot points MYFLOW_STATE_DIR at a fresh temp directory for
+// isolatedStateRoot points FLOW_STATE_DIR at a fresh temp directory for
 // the duration of the test, so a test never touches the real
 // /Users/tweety53/Agents/myflow/state tree.
 func isolatedStateRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	t.Setenv("MYFLOW_STATE_DIR", root)
+	t.Setenv("FLOW_STATE_DIR", root)
 	return root
 }
 
@@ -1188,11 +1188,11 @@ func TestResolveDefaultAddr(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.set {
-				t.Setenv("MYFLOW_ADDR", tt.env)
+				t.Setenv("FLOW_ADDR", tt.env)
 			} else {
-				t.Setenv("MYFLOW_ADDR", "")
-				if err := os.Unsetenv("MYFLOW_ADDR"); err != nil {
-					t.Fatalf("unset MYFLOW_ADDR: %v", err)
+				t.Setenv("FLOW_ADDR", "")
+				if err := os.Unsetenv("FLOW_ADDR"); err != nil {
+					t.Fatalf("unset FLOW_ADDR: %v", err)
 				}
 			}
 			if got := resolveDefaultAddr(); got != tt.want {
@@ -1205,7 +1205,7 @@ func TestResolveDefaultAddr(t *testing.T) {
 func TestResolveDefaultAddrFlagBeatsEnvironment(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
-	t.Setenv("MYFLOW_ADDR", "http://127.0.0.1:4174")
+	t.Setenv("FLOW_ADDR", "http://127.0.0.1:4174")
 
 	var handled string
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {

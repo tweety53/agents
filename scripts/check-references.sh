@@ -44,7 +44,7 @@ set -euo pipefail
 # of silently scanning nothing and reporting a false "clean".
 #
 # CHECK_REFERENCES_ROOT is an explicit, opt-in override honored only when set
-# (mirrors the MYFLOW_STATE_FILE idiom used elsewhere in this plan). It exists
+# (mirrors the FLOW_STATE_FILE idiom used elsewhere in this plan). It exists
 # solely so the companion harness (test-check-references.sh) can point the
 # guard at a sandboxed fixture tree under /tmp without touching this repo —
 # never set it for a normal invocation.

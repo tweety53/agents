@@ -1,6 +1,6 @@
 // Command myflowd is the daemon that owns the myflow PostgreSQL pool and
 // serves the state API. It binds loopback only -- a non-loopback
-// MYFLOWD_HOST is refused before any listener is opened -- and shuts down
+// FLOWD_HOST is refused before any listener is opened -- and shuts down
 // gracefully: in-flight requests complete before the connection pool
 // closes.
 //
@@ -41,7 +41,7 @@ import (
 const shutdownGrace = 15 * time.Second
 
 // harvestInterval is how often the transcript watcher scans
-// ~/.claude/projects (or MYFLOW_TRANSCRIPTS_DIR) for new bytes. Like
+// ~/.claude/projects (or FLOW_TRANSCRIPTS_DIR) for new bytes. Like
 // reconnectPingInterval below, this is off the pipeline's hot path --
 // nothing a CLI command does waits on it -- so it favors a short enough
 // interval that token figures show up in the statistics views soon after
@@ -89,7 +89,7 @@ func main() {
 func run(logger *slog.Logger) error {
 	cfg, err := config.FromEnv()
 	if err != nil {
-		// A malformed MYFLOWD_PORT lands here: refused before anything
+		// A malformed FLOWD_PORT lands here: refused before anything
 		// else starts, per config.ErrInvalidPort -- never silently
 		// defaulted to a working-but-wrong port.
 		return err
@@ -165,7 +165,7 @@ func run(logger *slog.Logger) error {
 		// api.New calls config.Config.Validate itself, which keeps
 		// internal/api correct for any other caller, but the loopback
 		// rule is no longer enforced here for this daemon: acquireStartup
-		// above already refused a non-loopback MYFLOWD_HOST, before the
+		// above already refused a non-loopback FLOWD_HOST, before the
 		// listener it hands to Serve below was opened.
 		return err
 	}

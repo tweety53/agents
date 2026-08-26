@@ -18,9 +18,9 @@ import (
 
 // DefaultTranscriptsRootEnv, when set, overrides DefaultTranscriptsRoot --
 // a test's own isolated root, the same pattern
-// internal/fallback.StateRoot's MYFLOW_STATE_DIR already uses for the
+// internal/fallback.StateRoot's FLOW_STATE_DIR already uses for the
 // state directory.
-const DefaultTranscriptsRootEnv = "MYFLOW_TRANSCRIPTS_DIR"
+const DefaultTranscriptsRootEnv = "FLOW_TRANSCRIPTS_DIR"
 
 // DefaultTranscriptsRoot returns the directory Claude Code writes session
 // transcripts under: DefaultTranscriptsRootEnv when set, otherwise

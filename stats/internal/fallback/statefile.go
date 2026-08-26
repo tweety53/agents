@@ -20,10 +20,10 @@ import (
 const DefaultStateRoot = "/Users/tweety53/Agents/myflow/state"
 
 // StateRoot returns the root of every project's state directory:
-// MYFLOW_STATE_DIR when set (a test's own isolated root), DefaultStateRoot
+// FLOW_STATE_DIR when set (a test's own isolated root), DefaultStateRoot
 // otherwise.
 func StateRoot() string {
-	if v := os.Getenv("MYFLOW_STATE_DIR"); v != "" {
+	if v := os.Getenv("FLOW_STATE_DIR"); v != "" {
 		return v
 	}
 	return DefaultStateRoot
