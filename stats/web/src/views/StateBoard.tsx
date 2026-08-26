@@ -1,4 +1,4 @@
-// The live state board -- the default route (skills/myflow-do/SKILL.md's
+// The live state board -- the default route (skills/flow/SKILL.md's
 // three-state pipeline, surfaced here instead of a `jq` read of the state
 // file). Spec: "it lists every non-archived change with its state, its
 // last update, and the command that should run next".

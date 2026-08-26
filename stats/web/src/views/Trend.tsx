@@ -1,4 +1,4 @@
-// Trend over time -- is the pipeline getting cheaper per change as myflow
+// Trend over time -- is the pipeline getting cheaper per change as flow
 // changes? One measure (daily total cost) over time is a time series's job.
 //
 // Recomposed onto the panel primitives (task 20, step 2): the bespoke
@@ -55,7 +55,7 @@ export function Trend({ period, onPeriodChange, project, model }: ViewProps) {
   const state = useStatsView<TrendPoint[]>("trend", { from: period.from, to: period.to, project, model });
 
   return (
-    <ViewFrame title="Trend over time" description="Is the pipeline getting cheaper per change as myflow changes?">
+    <ViewFrame title="Trend over time" description="Is the pipeline getting cheaper per change as flow changes?">
       <div className="dashboard-stat-row">
         <Panel title="Days" state={state}>
           {(data) => <StatPanel label="Days" value={data.rows.length} format={formatInt} />}

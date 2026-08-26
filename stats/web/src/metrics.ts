@@ -206,7 +206,7 @@ export function readSidechainTokens(bag: unknown): number | null {
 /**
  * Every top-level key in the bag this file does not otherwise expose a
  * dedicated reader for, so an unrecognised metric (a key design.md's table
- * does not name, or one added by a later myflow change without a matching
+ * does not name, or one added by a later flow change without a matching
  * reader here) is still displayed rather than silently dropped. Returns an
  * empty object for an absent or malformed bag, never null -- callers spread
  * this directly into a detail view.
