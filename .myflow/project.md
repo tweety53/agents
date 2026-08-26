@@ -92,6 +92,7 @@ scripts/test-run-reproducer.sh
 scripts/test-check-markdown-integrity.sh
 scripts/test-check-uitest-overrides.sh
 scripts/test-check-guard-symlinks.sh
+scripts/test-check-reproduce-not-read.sh
 scripts/test-resolve-base-branch.sh
 scripts/test-prepare-archive-branch.sh
 scripts/test-check-stage-mark-calls.sh
@@ -136,6 +137,7 @@ scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
+scripts/check-reproduce-not-read.sh
 scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
@@ -213,6 +215,15 @@ other guard above does and exits identically regardless of what change, if any, 
 the only guard in this list that shells out to the installer rather than only reading files already
 on disk, which costs it real time; see the runtime note under `## test`, next to the entry its
 harness added there.
+
+**`check-reproduce-not-read.sh` keeps the REPRODUCE, DON'T READ dispatch paragraph from silently
+disappearing.** It is argument-free and self-scoped exactly like `check-guard-symlinks.sh`: the
+scan root is this repository's own root, resolved from the script's own location. It checks a fixed
+required-site table — `skills/flow/review-panel.md` and `skills/flow/implement.md` — for the
+paragraph's label and a handful of load-bearing phrases per variant, held as short literals rather
+than a copy of the whole blockquote, so a body reworded around those phrases passes clean. A green
+run proves only that the paragraph is present at both sites and carries its phrases — never that any
+reviewer or implementer actually obeyed it.
 
 **`check-installed-rules.sh` is the one guard in this list that reads outside the repository.**
 It compares the always-on rules this checkout declares against what `setup.sh global` last installed
