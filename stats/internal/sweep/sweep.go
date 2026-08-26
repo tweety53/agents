@@ -29,7 +29,7 @@ import (
 // AbandonedSweeper is the store dependency this package needs -- defined
 // here, at the consumer, per go-interface-design, so Sweeper is testable
 // against a fake with no database at all. store.Store.SweepAbandoned
-// (task 3) already matches this signature exactly; cmd/myflowd/main.go
+// (task 3) already matches this signature exactly; cmd/flowd/main.go
 // wires the real store in with no adapter, exactly as it already does for
 // harvest.WindowSource and harvest.HarvestSink.
 type AbandonedSweeper interface {

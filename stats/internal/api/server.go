@@ -258,7 +258,7 @@ func rejectEncodedSlash(next http.Handler) http.Handler {
 // config.ErrNonLoopbackHost when cfg.Host is not loopback. This validation
 // happens here, before any listener is opened -- New itself never calls
 // net.Listen -- so a non-loopback configuration is a startup error the
-// caller (cmd/myflowd's main) can exit on immediately, never a runtime
+// caller (cmd/flowd's main) can exit on immediately, never a runtime
 // option a request could trip over later.
 //
 // logger may be nil, in which case slog.Default() is used.

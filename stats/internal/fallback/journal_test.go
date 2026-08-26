@@ -180,7 +180,7 @@ func TestReadStateFileMissingIsAnError(t *testing.T) {
 
 // --- ListStateFileNames ---
 //
-// cmd/myflow's `state list` (F1's fix) reads the fallback directory
+// cmd/flow's `state list` (F1's fix) reads the fallback directory
 // through this function when the store cannot be reached -- these tests
 // are its own coverage, independent of the CLI command built on top of it.
 

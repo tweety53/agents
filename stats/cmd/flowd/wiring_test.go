@@ -28,7 +28,7 @@ import (
 // Run against the unfixed newTranscriptWatcher (harvest.WithPricer(st)
 // only, no harvest.WithSessionTokenBinder(st)), this test failed:
 //
-//	watcher has no session-token binder: cmd/myflowd built it without
+//	watcher has no session-token binder: cmd/flowd built it without
 //	harvest.WithSessionTokenBinder -- no stage run can ever be bound
 //
 // which is exactly the live defect this task fixes: a real mark recorded
@@ -44,10 +44,10 @@ func TestNewTranscriptWatcherWiresBinderAndPricer(t *testing.T) {
 	w := newTranscriptWatcher(t.TempDir(), st, attributor, nil)
 
 	if !w.HasPricer() {
-		t.Error("watcher has no pricer: cmd/myflowd built it without harvest.WithPricer -- no stage run would ever be priced")
+		t.Error("watcher has no pricer: cmd/flowd built it without harvest.WithPricer -- no stage run would ever be priced")
 	}
 	if !w.HasSessionTokenBinder() {
-		t.Error("watcher has no session-token binder: cmd/myflowd built it without harvest.WithSessionTokenBinder -- no stage run can ever be bound")
+		t.Error("watcher has no session-token binder: cmd/flowd built it without harvest.WithSessionTokenBinder -- no stage run can ever be bound")
 	}
 	// KAN-258 extends this test to the second attribution pass rather than
 	// writing a second one: the defect it guards against is identical --
@@ -55,7 +55,7 @@ func TestNewTranscriptWatcherWiresBinderAndPricer(t *testing.T) {
 	// harvests every transcript exactly as before and leaves every
 	// dispatch's metrics bag empty forever, with nothing failing.
 	if !w.HasDispatchAttribution() {
-		t.Error("watcher has no dispatch attribution: cmd/myflowd built it without harvest.WithDispatchAttribution -- no dispatch would ever be charged for the usage it caused")
+		t.Error("watcher has no dispatch attribution: cmd/flowd built it without harvest.WithDispatchAttribution -- no dispatch would ever be charged for the usage it caused")
 	}
 }
 

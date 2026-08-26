@@ -279,7 +279,7 @@ func TestPutChangeFallsBackOnMalformedResponseBody(t *testing.T) {
 	}
 }
 
-// --- ListStateBoard: F1's own fix. cmd/myflow's `state list` (and, through
+// --- ListStateBoard: F1's own fix. cmd/flow's `state list` (and, through
 // it, skills/myflow-status/SKILL.md's enumeration) is required to go
 // through this method rather than a hand-written curl call, specifically
 // so it inherits the header check, the ErrUnavailable classification and
@@ -912,8 +912,8 @@ var _ api.SettingsStore = stubStageStore{}
 // sends.
 //
 // This test is the one thing that does: it wires a real *api.Server
-// (internal/api, the same package cmd/myflowd serves) directly to a real
-// *client.Client (internal/client, the same package cmd/myflow drives) --
+// (internal/api, the same package cmd/flowd serves) directly to a real
+// *client.Client (internal/client, the same package cmd/flow drives) --
 // no fake server standing in for either side -- and asserts a genuine PUT
 // round-trips as success, a genuine GET returns it, and a genuine
 // monotonic refusal surfaces as client.ErrRefused. If internal/client's

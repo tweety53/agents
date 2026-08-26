@@ -147,7 +147,7 @@ func run(logger *slog.Logger) error {
 	// exist and contain a real build -- go:embed itself refuses to
 	// compile this binary otherwise (internal/web/embed.go's own doc
 	// comment), which is this task's "fails loudly at compile time, not
-	// silently at runtime" requirement. cmd/myflowd is therefore the one
+	// silently at runtime" requirement. cmd/flowd is therefore the one
 	// package in this daemon that requires `vite build` to have run
 	// first; internal/api's own tests do not, since api.WithSPA is the
 	// only place that dependency is wired in.

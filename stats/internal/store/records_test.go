@@ -798,7 +798,7 @@ func TestRecordDispatchReturnsID(t *testing.T) {
 //
 // It is a test rather than a bare method because the failure it guards
 // against is silent in exactly the way this repository has already been
-// bitten by (cmd/myflowd's own wiring test records the same lesson): a
+// bitten by (cmd/flowd's own wiring test records the same lesson): a
 // join that resolves nothing returns no windows, no window attributes no
 // record, and every dispatch's metrics bag simply stays empty with nothing
 // failing anywhere.

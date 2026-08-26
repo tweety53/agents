@@ -104,7 +104,7 @@ WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducers: wo
 # exit 1's "violations found" and never exit 0's "clean". `myflow record
 # findings` itself never journals and never falls back to "no findings" for
 # a store it could not reach (see its own doc comment in
-# stats/cmd/myflow/record.go): a change the store has genuinely never heard
+# stats/cmd/flow/record.go): a change the store has genuinely never heard
 # of prints `[]` at exit 0, and only a real connection failure reaches this
 # branch.
 if ! FINDINGS_JSON="$(myflow record findings -change "$NAME" -C "$WORKTREE" 2>&1)"; then

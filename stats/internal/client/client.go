@@ -32,7 +32,7 @@ const maxResponseBytes = 1 << 20
 // daemonHeaderName and daemonHeaderValue must match internal/api's
 // DaemonHeader and DaemonHeaderValue exactly. They are kept as literal
 // constants here, rather than imported, for the same reason
-// cmd/myflow/state.go names myflowd's default address again instead of
+// cmd/flow/state.go names myflowd's default address again instead of
 // importing internal/config: per design.md's "Boundaries", the CLI knows
 // only HTTP, never the daemon's internal packages, so the two sides are
 // allowed to agree on a string constant without sharing a package.

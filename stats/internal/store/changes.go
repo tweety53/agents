@@ -63,11 +63,11 @@ var ErrInvalidMergeBase = errors.New("store: invalid merge base")
 // in the pipeline is `git merge-base`, which emits lowercase, so an
 // uppercase value is a hand-edit and worth reporting as one.
 //
-// stats/cmd/myflow/state.go carries this same pattern for the CLI's own
+// stats/cmd/flow/state.go carries this same pattern for the CLI's own
 // check, and the duplication is deliberate rather than an oversight: the
 // two are independent defences at opposite ends of the write path
 // (design.md, "Where a merge base is refused"), and sharing one constant
-// would make cmd/myflow import this package, pulling the store and pgx
+// would make cmd/flow import this package, pulling the store and pgx
 // into the CLI's dependency graph for a single regular expression.
 var mergeBasePattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 

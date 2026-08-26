@@ -27,7 +27,7 @@
 # containing `$(`, a backtick, or `$` immediately followed by a shell
 # variable-name character is rejected here, in the skill source, before a
 # reader ever has the chance to run it — the same three shapes
-# `stats/cmd/myflow/stage.go`'s `validateSessionToken` rejects at the CLI, and
+# `stats/cmd/flow/stage.go`'s `validateSessionToken` rejects at the CLI, and
 # `internal/api/stages.go`'s `validateSessionTokenShape` rejects again at the store,
 # as defence in depth.
 #

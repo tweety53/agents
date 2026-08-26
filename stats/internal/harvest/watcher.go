@@ -47,7 +47,7 @@ func DefaultTranscriptsRoot() (string, error) {
 // daemon wires a real implementation backed directly by *store.Store,
 // whose GetHarvestOffset and CommitHarvestBatch methods are written to
 // match this interface exactly (structural typing, no adapter needed --
-// cmd/myflowd/main.go asserts this at compile time).
+// cmd/flowd/main.go asserts this at compile time).
 //
 // This interface, and the offset it makes this package's sole authority
 // for, replaces an earlier design (this package's own git history) in
@@ -124,7 +124,7 @@ type DispatchMetricsSink interface {
 // WindowSource and HarvestSink above: internal/harvest never imports
 // internal/store, so *store.Store.Price (whose signature already matches
 // this interface exactly, no adapter needed) is wired in only by the
-// daemon (cmd/myflowd/main.go, via WithPricer).
+// daemon (cmd/flowd/main.go, via WithPricer).
 type Pricer interface {
 	Price(ctx context.Context, stageRunID int64) error
 }
@@ -140,7 +140,7 @@ type Pricer interface {
 // deterministically (drive RunOnce N times), where a wall-clock bound
 // would make the same test depend on either a fake clock threaded
 // through this package for no other purpose, or a real sleep. At
-// cmd/myflowd's own harvestInterval (5s, main.go), 60 cycles is 5
+// cmd/flowd's own harvestInterval (5s, main.go), 60 cycles is 5
 // minutes -- ample time for a live harness's transcript line to be
 // flushed and read even under load, while bounding the cost of a
 // harness that never will to a few minutes of per-cycle map lookups
@@ -409,7 +409,7 @@ type Watcher struct {
 
 // WatcherOption configures optional Watcher behaviour not every caller
 // needs -- currently just WithPricer. Following the same functional-option
-// shape internal/api.WithSPA already uses (cmd/myflowd/main.go) rather
+// shape internal/api.WithSPA already uses (cmd/flowd/main.go) rather
 // than growing NewWatcher's positional parameter list keeps every
 // existing call site (this package's own tests included) compiling
 // unchanged: a Watcher built with no options simply never prices, exactly
@@ -455,14 +455,14 @@ func WithDispatchAttribution(a *DispatchAttributor, sink DispatchMetricsSink) Wa
 
 // HasDispatchAttribution reports whether this Watcher was configured with
 // WithDispatchAttribution. See HasPricer's doc comment for why this exists
-// and why cmd/myflowd's wiring test asserts the constructed value rather
+// and why cmd/flowd's wiring test asserts the constructed value rather
 // than main.go's source text.
 func (w *Watcher) HasDispatchAttribution() bool {
 	return w.dispatchAttributor != nil && w.dispatchMetrics != nil
 }
 
 // HasPricer reports whether this Watcher was configured with WithPricer.
-// Exported for cmd/myflowd's own wiring test (KAN-172, task 7): asserting
+// Exported for cmd/flowd's own wiring test (KAN-172, task 7): asserting
 // the constructed value here, rather than grepping main.go's source text
 // for "WithPricer", is what still catches a refactor that keeps the call
 // site's text but drops its effect.
@@ -1152,7 +1152,7 @@ var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end)\b`)
 //  2. sessionToken is the exact value bound to -session-token in that
 //     same command, whether written as two fields ("-session-token
 //     TOKEN") or joined with "=" ("-session-token=TOKEN") -- both are
-//     valid to the flag package cmd/myflow/stage.go builds on.
+//     valid to the flag package cmd/flow/stage.go builds on.
 //
 // Requirement 2 is field-based (strings.Fields), not a second substring
 // test on the whole command: a token that merely follows the word

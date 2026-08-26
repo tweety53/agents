@@ -17,9 +17,9 @@
 // unexported test helpers: package store_test's helpers are deliberately
 // internal to that package) against the myflow-postgres compose stack on
 // host port 5433, wired in as harvest.HarvestSink, harvest.WindowSource
-// (via a local adapter mirroring cmd/myflowd/main.go's storeWindowSource),
+// (via a local adapter mirroring cmd/flowd/main.go's storeWindowSource),
 // harvest.SessionTokenBinder and harvest.Pricer all at once -- exactly how
-// cmd/myflowd/main.go wires a real Watcher, and nothing like the
+// cmd/flowd/main.go wires a real Watcher, and nothing like the
 // per-interface fakes the rest of this package's tests use. A test here
 // skips cleanly, with a clear message, when the stack is not reachable.
 package harvest_test
@@ -124,7 +124,7 @@ func newEndToEndStore(t *testing.T) *store.Store {
 }
 
 // e2eWindowSource adapts *store.Store to harvest.WindowSource, exactly as
-// cmd/myflowd/main.go's own storeWindowSource does -- duplicated here
+// cmd/flowd/main.go's own storeWindowSource does -- duplicated here
 // rather than exported, since that type is unexported in package main and
 // this is the one other place a real Watcher is wired against a real
 // store in this repository.

@@ -46,7 +46,7 @@ func (nopRecordStore) SetFindingStatus(context.Context, string, string, string, 
 
 var _ api.RecordWriter = nopRecordStore{}
 
-// recordJournalPath mirrors cmd/myflow/record.go's own recordJournalPath
+// recordJournalPath mirrors cmd/flow/record.go's own recordJournalPath
 // (the state journal path with ".record" appended) -- reproduced here
 // rather than imported, for the same reason stageJournalPath is: record.go
 // lives in a main package, and nothing may import one. See reconcile.go's
@@ -56,7 +56,7 @@ func recordJournalPath(root, project, name string) string {
 	return journalPath(root, project, name) + ".record"
 }
 
-// recordEnvelope is cmd/myflow/record.go's own recordJournalBody shape,
+// recordEnvelope is cmd/flow/record.go's own recordJournalBody shape,
 // reproduced here for the same reason recordJournalPath is: no import
 // across the main-package boundary.
 type recordEnvelope struct {
@@ -64,7 +64,7 @@ type recordEnvelope struct {
 	Request any    `json:"request"`
 }
 
-// recordStatusRequest is cmd/myflow/record.go's own recordStatusRequest:
+// recordStatusRequest is cmd/flow/record.go's own recordStatusRequest:
 // the ref the wire PATCH carries in its URL, alongside the status its body
 // carries, so a journalled status write is replayable from what it holds
 // rather than from a route this test would have to encode a second time.
@@ -73,7 +73,7 @@ type recordStatusRequest struct {
 	Status string `json:"status"`
 }
 
-// appendRecordWrite journals kind/req exactly as cmd/myflow/record.go's
+// appendRecordWrite journals kind/req exactly as cmd/flow/record.go's
 // journalRecordWrite does -- the same envelope, the same
 // fallback.AppendJournalEntry call, at the same suffixed path -- so a test
 // using this exercises reconcile's real decoder against the real shape the
@@ -203,7 +203,7 @@ func testDispatchEnd() records.DispatchEnd {
 // observable in the store after a replay ---
 
 // TestReplayAppliesPendingRecordEntries is the delta spec's "a journalled
-// record write is replayed" scenario: every entry cmd/myflow/record.go's
+// record write is replayed" scenario: every entry cmd/flow/record.go's
 // fallback path can write -- a dispatch begin, a dispatch end, a finding
 // and a status -- must reach the store, in the order the file holds them, and be retired.
 // Before replayRecordFile existed, nothing walked "*.journal.record" at

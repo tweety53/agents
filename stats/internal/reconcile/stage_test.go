@@ -47,7 +47,7 @@ func (nopStageStore) PutChange(context.Context, store.Change) error {
 
 var _ api.StageStore = nopStageStore{}
 
-// stageJournalPath mirrors cmd/myflow/stage.go's own stageJournalPath
+// stageJournalPath mirrors cmd/flow/stage.go's own stageJournalPath
 // (the state journal path with ".stage" appended) -- reproduced here
 // rather than imported, since stage.go lives in a main package and
 // nothing may import one. See reconcile.go's stageMarkJournalBody doc
@@ -57,7 +57,7 @@ func stageJournalPath(root, project, name string) string {
 	return journalPath(root, project, name) + ".stage"
 }
 
-// stageMarkEnvelope is cmd/myflow/stage.go's own stageMarkJournalBody
+// stageMarkEnvelope is cmd/flow/stage.go's own stageMarkJournalBody
 // shape, reproduced here for the same reason stageJournalPath is: no
 // import across the main-package boundary.
 type stageMarkEnvelope struct {
@@ -65,7 +65,7 @@ type stageMarkEnvelope struct {
 	Request any    `json:"request"`
 }
 
-// appendStageMark journals kind/req exactly as cmd/myflow/stage.go's
+// appendStageMark journals kind/req exactly as cmd/flow/stage.go's
 // journalStageMark does -- the same envelope, the same
 // fallback.AppendJournalEntry call, at the same suffixed path -- so a test
 // using this exercises reconcile's real decoder against the real shape the
@@ -155,7 +155,7 @@ func allStageRuns(t *testing.T, st *store.Store, project, name string) []store.S
 // the store after a replay ---
 
 // TestReplayAppliesPendingStageMarks is the coordinator's own scenario:
-// a begin and an end mark, journalled exactly as cmd/myflow/stage.go's
+// a begin and an end mark, journalled exactly as cmd/flow/stage.go's
 // fallback would have written them while the store was unreachable, must
 // both be applied -- and retired -- once the store is reachable and Run
 // replays them. Before this task's fix, nothing walked "*.journal.stage"

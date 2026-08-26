@@ -111,7 +111,7 @@ func LockJournal(journalPath string) (unlock func(), err error) {
 // as the real exposure. 50ms -- roughly ten times the measured critical
 // section -- leaves headroom for that section running slower than
 // measured here without meaningfully being noticed: the CLI's own store
-// round trip already budgets 2s (defaultTimeout, cmd/myflow/state.go)
+// round trip already budgets 2s (defaultTimeout, cmd/flow/state.go)
 // before falling back to this path at all, so an additional worst-case
 // 50ms on top of that is not the kind of latency a pipeline command's own
 // human-facing timing would register. The never-block guarantee is still

@@ -550,7 +550,7 @@ func (s *Store) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64,
 // DispatchWindowsForSession returns every dispatch attributable to
 // sessionID, as the harvest.DispatchWindow shape attribution needs and
 // nothing more -- the dispatch-grain counterpart of the stage windows
-// storeWindowSource resolves through QueryStageRuns (cmd/myflowd/main.go).
+// storeWindowSource resolves through QueryStageRuns (cmd/flowd/main.go).
 //
 // A dispatch names its session the same way a stage run does: by the
 // literal session_token its dispatcher was running under, which is the
@@ -587,7 +587,7 @@ func (s *Store) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64,
 //
 // Returning harvest.DispatchWindow directly, rather than a store-local
 // type an adapter converts, is what lets *store.Store satisfy
-// harvest.DispatchWindowSource with no adapter at all (cmd/myflowd asserts
+// harvest.DispatchWindowSource with no adapter at all (cmd/flowd asserts
 // it at compile time). The dependency runs store -> harvest, which is the
 // direction that keeps internal/harvest importing nothing from
 // internal/store -- the property TestHarvestNeedsNoDatabase rests on.

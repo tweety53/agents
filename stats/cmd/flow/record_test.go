@@ -146,7 +146,7 @@ func TestRecordWritePrintsOneLineAndExitsZero(t *testing.T) {
 		code := run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
 				"-change", "kan-258", "-ref", "F1", "-round", "0", "-slot", "principles",
-				"-severity", "major", "-location", "stats/cmd/myflow/record.go:1",
+				"-severity", "major", "-location", "stats/cmd/flow/record.go:1",
 				"-status", "open", "-reproducer", "scripts/x.sh", "-note", "the note"},
 			strings.NewReader(""), &stdout, &stderr)
 

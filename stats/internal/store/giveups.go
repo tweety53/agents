@@ -40,7 +40,7 @@ func (s *Store) RecordSessionTokenGiveUp(ctx context.Context, token, reason stri
 // adapter, exactly as DispatchWindowsForSession (records.go) already
 // returns harvest.DispatchWindow: the give-up type is declared in
 // internal/harvest, not here, so *Store satisfies the widened
-// harvest.SessionTokenBinder with no adapter either (cmd/myflowd's own
+// harvest.SessionTokenBinder with no adapter either (cmd/flowd's own
 // compile-time check). The dependency runs store -> harvest, never the
 // reverse, which is what keeps internal/harvest's TestHarvestNeedsNoDatabase
 // true even as that interface grows.

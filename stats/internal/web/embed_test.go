@@ -114,7 +114,7 @@ func TestUnknownPathServesIndexNotFound(t *testing.T) {
 
 // TestApiPathsAreNotSwallowedBySpaFallback exercises the full routing
 // split -- internal/api.New wired with WithSPA(web's handler), exactly as
-// cmd/myflowd wires it -- in both directions this task's own requirement
+// cmd/flowd wires it -- in both directions this task's own requirement
 // names: a real API route must still be handled as an API route, and an
 // API-shaped path that matches no real route must be rejected as an API
 // request (JSON, 404, naming the path) rather than "answered" with the

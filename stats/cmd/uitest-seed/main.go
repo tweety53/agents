@@ -11,7 +11,7 @@
 // (specs/myflow-ui-test-stack/spec.md, "Destructive test-stack paths
 // refuse to act on any other database").
 //
-// It does not seed pricing: cmd/myflowd/main.go already calls
+// It does not seed pricing: cmd/flowd/main.go already calls
 // store.SeedPricing at startup, and make ui-test-up (task 6) starts the
 // daemon before running this seeder, so the pricing table is already
 // populated by the time this runs. Duplicating that call here would be a

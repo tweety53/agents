@@ -28,8 +28,8 @@
 # WHY THIS FILE EXISTS. `make build` ran `go build ./...` alone, which
 # compiles every package and then discards the resulting binaries. The
 # documented launch sequence therefore needed a second, hand-written
-# `go build -o bin/myflowd ./cmd/myflowd` after it, and an operator who
-# skipped that half ran whatever stale `bin/myflowd` was already on disk.
+# `go build -o bin/flowd ./cmd/flowd` after it, and an operator who
+# skipped that half ran whatever stale `bin/flowd` was already on disk.
 # Cases 1-3 were written and run against the OLD recipe first, and cases 1
 # and 2 failed there; cases 4 and 5 were written and run against the OLD
 # Makefile first, and both failed there; case 6 was written and run against
@@ -115,15 +115,15 @@ $hits"
 
 # ===========================================================================
 # 1-2. The target emits both binaries. Each `-o` path is anchored on a
-#      following space or end-of-line so `bin/myflow` cannot be satisfied by
-#      the `bin/myflowd` line, and the whitespace between the `-o` path and
+#      following space or end-of-line so `bin/flow` cannot be satisfied by
+#      the `bin/flowd` line, and the whitespace between the `-o` path and
 #      the package is `[[:space:]]+` so the Makefile is free to align the
 #      two lines with extra spaces.
 # ===========================================================================
-assert_recipe_matches "build target emits bin/myflowd" \
-  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/myflowd[[:space:]]+\./cmd/myflowd([[:space:]]|$)'
-assert_recipe_matches "build target emits bin/myflow" \
-  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/myflow[[:space:]]+\./cmd/myflow([[:space:]]|$)'
+assert_recipe_matches "build target emits bin/flowd" \
+  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flowd[[:space:]]+\./cmd/flowd([[:space:]]|$)'
+assert_recipe_matches "build target emits bin/flow" \
+  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flow[[:space:]]+\./cmd/flow([[:space:]]|$)'
 
 # ===========================================================================
 # 3. The compile-all pass survives. Replacing `go build ./...` with the two

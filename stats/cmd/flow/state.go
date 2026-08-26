@@ -19,7 +19,7 @@ import (
 )
 
 // defaultAddr is myflowd's default bind address (internal/config.DefaultHost
-// and DefaultPort), named again here rather than imported: cmd/myflow does
+// and DefaultPort), named again here rather than imported: cmd/flow does
 // not otherwise depend on internal/config, and importing it for one string
 // would pull the daemon's own configuration surface into the CLI for no
 // reason -- the two are allowed to agree on a string constant without

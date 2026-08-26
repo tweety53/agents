@@ -108,7 +108,7 @@ func (w Window) contains(ts time.Time) bool {
 // TestHarvestNeedsNoDatabase in particular -- is testable with nothing
 // but a fake satisfying this one method, no PostgreSQL required. The
 // daemon wires a real implementation backed by store.Store.QueryStageRuns
-// (cmd/myflowd/main.go).
+// (cmd/flowd/main.go).
 type WindowSource interface {
 	WindowsForSession(ctx context.Context, sessionID string) ([]Window, error)
 }
@@ -528,7 +528,7 @@ func groupBySession(records []Record, keep func(Record) bool) (map[string][]Reco
 // The same-instant Attempt tiebreak is *not* the ordinary replay path,
 // despite once having been described as one. A replayed begin mark does
 // carry the original attempt's own StartedAt unchanged -- the CLI
-// captures it once, before the RPC attempt (cmd/myflow/stage.go's
+// captures it once, before the RPC attempt (cmd/flow/stage.go's
 // runStageBegin), and internal/reconcile.go's applyStageMarkEntry replays
 // that same instant (StartedAt: req.StartedAt) -- but
 // store.insertStageRunAndSupersede then closes the earlier attempt with
@@ -630,7 +630,7 @@ func (w DispatchWindow) contains(ts time.Time) bool {
 // really was that dispatch's spend regardless of when the row was closed.
 //
 // The daemon wires a real implementation backed by
-// store.Store.DispatchWindowsForSession (cmd/myflowd/main.go).
+// store.Store.DispatchWindowsForSession (cmd/flowd/main.go).
 type DispatchWindowSource interface {
 	DispatchWindowsForSession(ctx context.Context, sessionID string) ([]DispatchWindow, error)
 }
