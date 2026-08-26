@@ -18,8 +18,9 @@
 # and is named here so a future editor of this line knows where it is kept.
 #
 # Exit 0 whenever a verdict was reached; exit 2 when it cannot answer at all —
-# an unreadable repository or state directory, or a change name outside the
-# allowlist. The VERDICT carries the answer, not the exit status
+# an unreadable repository or state directory, a change name outside the
+# allowlist, or a repository carrying the retired `.myflow/` and no `.flow/`
+# (design.md's dotmyflow-hard-cutover). The VERDICT carries the answer, not the exit status
 # — see check-finish-preflight.sh's header for why this repository separates
 # them. Finish runs this once per repository, so each verdict names the
 # repository it judged; a bare COMPLETE would be unattributable across several.
@@ -59,7 +60,7 @@
 # bucket live inside services this guard knows nothing about, and it must stay
 # project-agnostic — it can hold neither `psql -l` nor any project's
 # object-store client. So the project answers for them: it declares a
-# `survivors` command in its .myflow/project.md, this guard runs it, and its
+# `survivors` command in its .flow/project.md, this guard runs it, and its
 # output and exit code are the row's verdict. Both are specified under "What
 # `survivors` prints, and what its exit code means" in
 # skills/myflow-contracts/project-configuration.md, which is canonical; the
@@ -198,7 +199,7 @@ fi
 # THE VERDICT LINE IS THE ONE THING AN OPERATOR READS AND ACTS ON, and most of
 # what it can carry comes from outside this guard: a survivor line is whatever
 # the project tooling printed, and the `survivors` command quoted in a SKIPPED
-# clause comes straight out of `.myflow/project.md`. Both are already this guard
+# clause comes straight out of `.flow/project.md`. Both are already this guard
 # documented trust boundary — anyone who can land a pull request can set them —
 # and both were spliced into the verdict with only `\r` removed.
 #
@@ -786,7 +787,19 @@ run_survivors() {
   return 0
 }
 
-CFG="$REPO/.myflow/project.md"
+CFG="$REPO/.flow/project.md"
+
+# A project carrying the retired `.myflow/` and no `.flow/` is NOT the
+# ordinary "no project configuration at all" case handled below — it is
+# the hard cutover design.md's dotmyflow-hard-cutover states: never fall
+# back to the old path, never read both, and never silently report
+# "nothing declared" for a project this guard never actually read.
+# `~/Projects/gymie` and `~/Projects/spectre-e2e` are in exactly this
+# state on this machine and are not renamed by this change.
+if { [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; } && { [ -e "$REPO/.myflow" ] || [ -L "$REPO/.myflow" ]; }; then
+  echo "check-cleanup-complete: $REPO carries .myflow/ and no .flow/ — rename it before this project's configuration can be read: git -C $REPO mv .myflow .flow" >&2
+  exit 2
+fi
 
 # The heading rule, written once and used by both the presence test and the
 # extraction below. Two spellings of it would be two answers to "is this project
@@ -796,7 +809,7 @@ ISO_HEADING='^##[[:space:]]+workspace isolation[[:space:]]*$'
 # THE FILE TYPE IS TESTED BEFORE ITS READABILITY, AND THE GREPS HAVE THREE
 # ANSWERS EACH. `-r` is true of a DIRECTORY, and `grep -q` then fails with "Is a
 # directory" while its exit status is indistinguishable from "no match" — so
-# `ln -s somedir .myflow/project.md` read as "declared no isolation": nothing
+# `ln -s somedir .flow/project.md` read as "declared no isolation": nothing
 # derived, nothing run, and not even a SKIPPED note, which is silence where this
 # guard promises a report. `-f` follows symlinks, so a configuration that IS a
 # symlink to a real file is still read; what it excludes is a directory, a fifo

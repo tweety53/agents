@@ -48,7 +48,7 @@ Nobody running `go test` needs to bring up the UI-test stack first.
 For testing the application's browser interface by hand, from the main
 checkout, against real data that is not the operator's own — separate from
 both the live daemon (port 4173, database `flow`) and any `/myflow-do`
-worktree's own isolated stack (see `.myflow/project.md`'s
+worktree's own isolated stack (see `.flow/project.md`'s
 `## workspace isolation`).
 
 ```bash

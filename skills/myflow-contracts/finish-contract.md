@@ -671,7 +671,7 @@ fi
 - **The remote delete is not gated on the local one succeeding.** Gating it would leave the remote
   branch behind whenever anything unrelated failed, which is the state this step exists to end.
 
-The stack-stopped check reads the optional `## stop` key from `<project>/.myflow/project.md` —
+The stack-stopped check reads the optional `## stop` key from `<project>/.flow/project.md` —
 see **Project configuration** in `skills/myflow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
 the other checks — check 6 among them, which is what makes an undeclared `## stop` key survivable:

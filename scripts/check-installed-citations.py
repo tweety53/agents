@@ -461,7 +461,7 @@ def extract_backtick_tokens(line):
     past the first word is an argument, not a citation. That theory is
     right about `global` (see below), but the mechanism was wrong: it
     dropped every OTHER word in the span too, including a genuine second
-    citation — `` `see .myflow/project.md` `` — which then went not merely
+    citation — `` `see .flow/project.md` `` — which then went not merely
     unreported but NEVER SEEN, the exact recognised-versus-never-seen
     collapse this guard's own test suite exists to catch (see
     agents-repo-prefix-bogus-path and placeholder-rooted-is-recognised).
@@ -647,8 +647,8 @@ def classify_token(token, repo_root_files):
     # Panel round 3: narrowed to a NON-FINAL segment. The original,
     # unbounded version tested every segment, including the last — which
     # silently dropped a real citation carrying a trailing colon inside
-    # its own span (`.myflow/project.md:`, e.g. from prose reading "see
-    # `.myflow/project.md:` for the list"). `measured:/predicted:` still
+    # its own span (`.flow/project.md:`, e.g. from prose reading "see
+    # `.flow/project.md:` for the list"). `measured:/predicted:` still
     # excludes correctly: its non-final segment `measured:` still ends in
     # `:`. Only a colon on a segment that is NOT the path's own last
     # component signals "this is not a path" — a real citation's own

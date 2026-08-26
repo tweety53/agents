@@ -1,6 +1,6 @@
 # Project configuration
 
-**This file is the canonical definition of `<project>/.myflow/project.md`.** Skills reference it by
+**This file is the canonical definition of `<project>/.flow/project.md`.** Skills reference it by
 name; none of them restate the format. If a skill and this file ever disagree, this file
 wins.
 
@@ -9,7 +9,7 @@ apps, ports, task names, or credentials in its own files. Everything project-spe
 an optional Markdown file **in the project being worked on**:
 
 ```text
-<main checkout>/.myflow/project.md
+<main checkout>/.flow/project.md
 ```
 
 It is a normal Markdown document, committed with the project, read by whichever skill needs it.
@@ -50,7 +50,7 @@ Resolve each entry to an absolute path before passing it to any reviewer. **An e
 to no existing file is reported by name and dropped** — never silently ignored, never substituted
 with a standard from another project.
 
-**Containment — `## standards` is attacker-influenced input.** `<project>/.myflow/project.md` is tracked in
+**Containment — `## standards` is attacker-influenced input.** `<project>/.flow/project.md` is tracked in
 the repository and editable in any pull request, and every resolved entry is read by a review
 subagent whose output is written into `<abs-worktree>/.superpowers/sdd/final-review-panel.md` — a file that is
 committed in any project that tracks that directory.
@@ -416,7 +416,7 @@ run — a reader who assumed the whole of this section were checked would trust 
 than it goes.
 
 **Mechanically enforced** by `<agents repo>/scripts/check-workspace-isolation.sh`, which reads
-`<project>/.myflow/project.md` and reports each failing row by name with the rule it broke: the closed
+`<project>/.flow/project.md` and reports each failing row by name with the rule it broke: the closed
 `Resource` vocabulary; the `Variable` shape; the bare-integer `Default` on a `port` and a
 `cache index` row; each of the four `In a workspace` cell forms against the `Resource` that selects
 it; `<value:…>` resolving to a row that exists and is neither a `url` row nor a `cache index` row;
@@ -481,7 +481,7 @@ workspace id resolves to, are stated under **The empty id** (`skills/myflow-cont
 
 - **Absent file, or absent key** → **auto-detect from the repository**: read the build files,
   scripts, and existing docs actually present, and derive what is needed from them.
-- **Never fail** because the file is missing. A project with no `<project>/.myflow/project.md` is a
+- **Never fail** because the file is missing. A project with no `<project>/.flow/project.md` is a
   supported, ordinary case, not an error.
 - **Never assume another project's layout.** If a value cannot be detected, say so and ask, or
   emit an explicit `TBD` in generated output. Do not fall back to app names, ports, Gradle or

@@ -15,7 +15,7 @@ delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, using the same ord
 and self-poisoning guard as the Claude Code block. So a Codex session gets
 `myflow-manual-review.mdc` and `lint-fix-priority.mdc` globally, and opt-in rules (such as
 the Kotlin backend standard) are deliberately excluded — a project activates those by
-naming them in `<project>/.myflow/project.md`'s `## standards` section.
+naming them in `<project>/.flow/project.md`'s `## standards` section.
 
 Project-mode `<agents repo>/setup.sh codex` installs skills and this file but no rules, symmetrically
 with `claude-code`. Run `<agents repo>/setup.sh global` for the rule layer.
@@ -61,14 +61,14 @@ The fix-first lint policy is a **global rule**, installed into the managed block
 `~/.codex/AGENTS.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
-What is project-specific is which commands it means. Full list in `<project>/.myflow/project.md`'s `## lint`
+What is project-specific is which commands it means. Full list in `<project>/.flow/project.md`'s `## lint`
 section — named here so this file states them rather than leaving a placeholder:
 
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
 scripts/check-vocabulary.sh                              # plus every other scripts/check-*.sh guard
-scripts/check-references.sh                               # named in .myflow/project.md's `## lint`
+scripts/check-references.sh                               # named in .flow/project.md's `## lint`
 cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
 cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
 ```
@@ -88,7 +88,7 @@ expand that list without user approval.
      that lacks an `<project>/AGENTS.md`, so a standard hardcoded to one stack would be wrong in
      every other project. A standard meant to apply across *many* projects belongs in
      `<agents repo>/rules/` as an opt-in rule instead, activated per project by naming it in
-     `<project>/.myflow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
+     `<project>/.flow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
      is the worked example of that pattern. -->
 
 This project has not declared one yet. Until it does, follow the language's published

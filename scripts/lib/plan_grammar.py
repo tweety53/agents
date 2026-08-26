@@ -74,7 +74,7 @@ check-task-commit-fields.py's task-body field loop uses since fix round 10
 indented example block was invisible to it alone and the `**Files:**`
 written inside a worked example overwrote the task's real declaration
 (F21). check-task-commit-fields.py's remaining `FENCE_LINE_RE` parses
-`.myflow/project.md`'s `## test` block, which is a different file with its
+`.flow/project.md`'s `## test` block, which is a different file with its
 own cases.
 
 Standard library only (see check-plan-provenance.py's module docstring for

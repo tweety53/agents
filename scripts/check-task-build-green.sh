@@ -4,7 +4,7 @@
 # All classification logic lives in check-task-build-green.py (Python 3,
 # standard library only), following the same split check-plan-provenance.sh
 # uses and for the same reason: this file exists only so
-# .myflow/project.md's declared lint/test commands and an operator's muscle
+# .flow/project.md's declared lint/test commands and an operator's muscle
 # memory invoking this exact filename keep working, while the block-parsing
 # logic underneath gets a real language rather than a hand-rolled Bash ERE
 # allowlist.

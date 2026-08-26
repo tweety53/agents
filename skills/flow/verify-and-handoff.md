@@ -59,7 +59,7 @@ the project's applications, per **Project configuration**
 (`skills/myflow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
-Run the `## lint` and `## test` commands from `<project>/.myflow/project.md` (auto-detect if
+Run the `## lint` and `## test` commands from `<project>/.flow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/flow`'s integrate phase has no
 verification gate — so a non-zero exit blocks this handoff.
 
@@ -134,13 +134,13 @@ Resolve the run instructions for the handoff's `Run it:` section. It writes no f
 - **Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path, and never a main-checkout path while a worktree holds the
   work.
-- **Every start command comes from `<project>/.myflow/project.md`'s `## run`**, with every path
+- **Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path
   made absolute.
 - **Every URL is the one this worktree resolved**, never the project's declared base. Resolve each
   URL from this worktree's workspace id. A project that declares no isolation resolves nothing.
   An application whose port is fixed outside that project's own repository keeps its default,
   named with a short note.
-- Apps in scope come from `## apps` in `<project>/.myflow/project.md`, or auto-detection.
+- Apps in scope come from `## apps` in `<project>/.flow/project.md`, or auto-detection.
 - **Where the project declares no runnable application**, resolve the `## lint` and `## test`
   commands instead.
 

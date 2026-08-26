@@ -270,7 +270,7 @@ one.
 - **The `Run it:` section is resolved, never copied from a stored run.** Follow **6. Resolve the
   run instructions** (`skills/myflow-do/SKILL.md`) — canonical for how those lines are produced —
   and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the record
-  and `<project>/.myflow/project.md` — never the project's declared base — not from any text
+  and `<project>/.flow/project.md` — never the project's declared base — not from any text
   `/myflow-do` printed earlier. Do not restate the resolution *procedure* here — the steps that
   compute each app root, start command and URL; a second copy of those steps is the failure this
   repository's contracts are built to avoid, and naming the invariant above is not one.

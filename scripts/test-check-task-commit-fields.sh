@@ -48,12 +48,12 @@ write_tasks_md() {
 }
 
 # write_project_md_test_section <repo> <command-line> -> writes a
-# `.myflow/project.md` whose `## test` section names exactly one command —
+# `.flow/project.md` whose `## test` section names exactly one command —
 # the shape check-task-commit-fields.py's read_single_test_command requires
 # in order to target Regression:/Baseline: at all.
 write_project_md_test_section() {
-  mkdir -p "$1/.myflow"
-  printf '## test\n\n```\n%s\n```\n' "$2" > "$1/.myflow/project.md"
+  mkdir -p "$1/.flow"
+  printf '## test\n\n```\n%s\n```\n' "$2" > "$1/.flow/project.md"
 }
 
 # write_test_runner <repo> -> a synthetic `## test` command
@@ -87,7 +87,7 @@ RUNNER
   git -C "$1" add run_suite.sh suite.txt
   git -C "$1" commit -q -m "fixture: add run_suite.sh test runner"
   write_project_md_test_section "$1" "./run_suite.sh"
-  git -C "$1" add .myflow/project.md
+  git -C "$1" add .flow/project.md
   git -C "$1" commit -q -m "fixture: configure ## test"
 }
 
@@ -103,7 +103,7 @@ RUNNER
   git -C "$1" add run_dumb.sh
   git -C "$1" commit -q -m "fixture: add run_dumb.sh test runner"
   write_project_md_test_section "$1" "./run_dumb.sh"
-  git -C "$1" add .myflow/project.md
+  git -C "$1" add .flow/project.md
   git -C "$1" commit -q -m "fixture: configure ## test"
 }
 

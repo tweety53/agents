@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # workspace.sh — create, remove and report this repository's per-workspace
 # database, the `create`/`remove`/`survivors` triple named in
-# .myflow/project.md's `## workspace isolation` section per
+# .flow/project.md's `## workspace isolation` section per
 # skills/myflow-contracts/project-configuration.md (canonical for what each
 # command runs, what `survivors` prints, and what its exit code means).
 #

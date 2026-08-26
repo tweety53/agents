@@ -3,7 +3,7 @@
 #
 # All classification logic now lives in check-plan-provenance.py (Python 3,
 # standard library only). This file exists only so that
-# .myflow/project.md's declared lint command, the myflow harness
+# .flow/project.md's declared lint command, the myflow harness
 # (test-check-plan-provenance.sh), and any operator's muscle memory
 # invoking this exact filename keep working unchanged — the CLI contract
 # (exit codes, CHECK_PLAN_PROVENANCE_ROOT, argv, stdout/stderr shape) is

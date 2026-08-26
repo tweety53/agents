@@ -93,7 +93,7 @@ fi
 # CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=1 asks the guard to append each
 # validated resource row to its own report, as a `#ROW` line, once it has
 # finished validating — see check-workspace-isolation.sh's own comment on
-# that variable. This is the ONE parse of `.myflow/project.md`'s resource
+# that variable. This is the ONE parse of `.flow/project.md`'s resource
 # table this script needs: the guard already walked the file's cells to
 # validate them, and the rows below are extracted from that same walk rather
 # than a second one this script would otherwise have to run itself.
@@ -107,14 +107,17 @@ if [ "$GUARD_RC" -ne 0 ]; then
   exit "$GUARD_RC"
 fi
 
-CFG="$WORKTREE/.myflow/project.md"
+CFG="$WORKTREE/.flow/project.md"
 ISO_HEADING='^##[[:space:]]+workspace isolation[[:space:]]*$'
 
-# No `.myflow/project.md`, or one declaring no `## workspace isolation`
+# No `.flow/project.md`, or one declaring no `## workspace isolation`
 # section, is a no-op: nothing exported, nothing printed. The guard above
-# already confirmed this file — if present — is well formed, so the only
-# question left here is whether the section exists at all, exactly mirroring
-# the guard's own no-op case for a project with no such section.
+# already confirmed this file — if present — is well formed, and refused
+# with an actionable error rather than a silent no-op if the worktree still
+# carried only the retired `.myflow/`, per design.md's dotmyflow-hard-cutover
+# — so the only question left here is whether the section exists at all,
+# exactly mirroring the guard's own no-op case for a project with no such
+# section.
 if [ ! -f "$CFG" ]; then
   exit 0
 fi
@@ -149,7 +152,7 @@ ID_UNDERSCORED="${ID//-/_}"
 OFFSET=$(( (16#$DIGEST % 400 + 1) * 10 ))
 
 # The resource table's rows, already parsed and validated — extracted from
-# the guard's own report rather than re-reading `.myflow/project.md`. Every
+# the guard's own report rather than re-reading `.flow/project.md`. Every
 # line of $GUARD_OUT that starts `#ROW\t` is one resource row the guard's awk
 # program walked while validating it (see check-workspace-isolation.sh's
 # check_resource_row and its CHECK_WORKSPACE_ISOLATION_PRINT_ROWS comment);

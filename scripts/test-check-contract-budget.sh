@@ -103,7 +103,7 @@ trap 'rm -rf "$FIX"' EXIT
 # test.
 mkroot() {
   mkdir -p "$1/skills/myflow-contracts" "$1/rules" "$1/spectre/specs" \
-    "$1/commands" "$1/commands-claude" "$1/.myflow"
+    "$1/commands" "$1/commands-claude" "$1/.flow"
 }
 
 # --- budget_row_bytes's own behaviour (F17, F18, F22) ----------------------
@@ -235,7 +235,7 @@ expect 'a missing scope root cannot be answered' 2 "$FIX/nodir"
 # the remaining file rather than exiting 2 through the empty-corpus refusal for
 # the wrong reason.
 mkroot "$FIX/symlinked-root"
-printf 'x\n' > "$FIX/symlinked-root/.myflow/project.md"
+printf 'x\n' > "$FIX/symlinked-root/.flow/project.md"
 mkdir -p "$FIX/symlinked-root/real-skills/myflow-contracts"
 printf 'x\n' > "$FIX/symlinked-root/real-skills/myflow-contracts/build-green.md"
 rm -rf "$FIX/symlinked-root/skills"

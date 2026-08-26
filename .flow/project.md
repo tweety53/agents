@@ -159,7 +159,7 @@ stale again on the next.
 
 **`check-contract-budget.sh` is a ratchet, not a target.** It fails when an owned `.md` or `.mdc`
 file — every one under `skills/`, `rules/`, `spectre/specs/`, `commands/`, `commands-claude/`,
-`.myflow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
+`.flow/` and the repository root, resolved through `scripts/lib/owned-corpus.sh` — outgrows the
 budget declared for it in the guard's own `budgets()` table, or carries no budget at all. The table
 is keyed on the path relative to the repository root, not on the bare basename, because every skill
 directory has a file literally named `SKILL.md` and a basename key would collide across skills. Each
@@ -182,7 +182,7 @@ cannot disagree about which files this repository owns.
 
 **`check-workspace-isolation.sh` is a lint step where the other `## workspace isolation` guard is
 not.** It takes a project root, defaults to this repository when given none, and answers a question
-about the text of `.myflow/project.md` — so it runs against a bare tree like every other guard here.
+about the text of `.flow/project.md` — so it runs against a bare tree like every other guard here.
 `check-cleanup-complete.sh` reads the same section and is excluded below for the opposite reason: it
 needs a change in flight.
 

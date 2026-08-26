@@ -105,7 +105,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # "One level above $SCRIPT_DIR" is safe here, unlike the two guards KAN-73's
 # task 1 fixed: this script is a project-configured guard (resolved through
-# .myflow/project.md's own `## lint` list, exactly like check-references.sh)
+# .flow/project.md's own `## lint` list, exactly like check-references.sh)
 # and is never itself symlinked into any skill's scripts/ directory — it has
 # exactly one home, so it has exactly one answer for where it lives.
 if [ -n "${CHECK_GUARD_SYMLINKS_ROOT:-}" ]; then
@@ -418,7 +418,7 @@ BEGIN {
   fence_len = 0; fence_lang = ""
   # The six project-configured guards named in design.md, "Two families of
   # guard, and only one of them ships": these are resolved through a
-  # project'"'"'s own .myflow/project.md, never invoked by a command directly,
+  # project'"'"'s own .flow/project.md, never invoked by a command directly,
   # so prose naming them keeps its repository-relative form legitimately —
   # rule 3 governs INVOKED guards only. Keyed by name so membership is a
   # single lookup rather than an alternation repeated at every call site.
@@ -886,7 +886,7 @@ declare_if_present() {
   fi
 }
 
-declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .myflow/project.md, never one symlinked into its own scripts/ directory"
+declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .flow/project.md, never one symlinked into its own scripts/ directory"
 declare_if_present "myflow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
 declare_if_present "flow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
 declare_if_present "flow-settings" "invokes no guard — a standalone settings command that only calls the myflow CLI, with no implementation or verification stage"

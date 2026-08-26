@@ -234,12 +234,12 @@ fi
 
 assert_case "project-prefix" "skills/myflow-do/SKILL.md" \
   '# myflow-do fixture
-`<project>/.myflow/project.md`
+`<project>/.flow/project.md`
 ' "not-reported"
 
 assert_case "unrooted-directory" "skills/myflow-do/SKILL.md" \
   '# myflow-do fixture
-`.myflow/project.md`
+`.flow/project.md`
 ' "reported"
 
 assert_case "unrooted-script" "skills/myflow-do/SKILL.md" \
@@ -473,7 +473,7 @@ assert_case "origin-directory-is-a-citation" "skills/myflow-do/SKILL.md" \
 ' "reported"
 
 assert_case "second-word-in-backtick-span-is-seen" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
-`see .myflow/project.md`
+`see .flow/project.md`
 ' "reported"
 
 assert_case "shell-example-second-word-not-path-shaped" "skills/myflow-do/SKILL.md"   '# myflow-do fixture
@@ -590,11 +590,11 @@ assert_case "colon-segment-is-not-a-citation" "skills/myflow-do/SKILL.md"   '# m
 # final-colon-segment-is-a-citation — panel round 3's finding: the
 # ORIGINAL rule tested EVERY segment including the last, which silently
 # dropped a real citation carrying a trailing colon inside its own span
-# (e.g. "see `.myflow/project.md:` for the list"). Only a colon on a
+# (e.g. "see `.flow/project.md:` for the list"). Only a colon on a
 # NON-FINAL segment signals "not a path" now.
 assert_case "final-colon-segment-is-a-citation" "skills/myflow-do/SKILL.md" \
   '# myflow-do fixture
-`.myflow/project.md:`
+`.flow/project.md:`
 ' "reported"
 
 # redirection-is-not-merged-into-a-citation — panel round 2's finding: the
@@ -732,7 +732,7 @@ fi
 # A fixture with two violations.
 new_fixture_repo
 write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
-`.myflow/project.md`
+`.flow/project.md`
 `scripts/check-vocabulary.sh`
 '
 run_guard "$FIXTURE"

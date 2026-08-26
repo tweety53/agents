@@ -42,7 +42,7 @@ as the *filing* site resolves it: the project key(s) the `## jira` section names
 **Resolution (how `jiraIssue` is decided)** (`jira-integration.md`) applies to a candidate key.
 
 **Every key that reaches the clause matches `[A-Z]{2,10}` in its entirety, or it does not reach it.**
-`<project>/.myflow/project.md` is tracked in the repository and editable in any pull request — the file whose
+`<project>/.flow/project.md` is tracked in the repository and editable in any pull request — the file whose
 `## standards` entries are constrained for that reason by
 **Project configuration** (`project-configuration.md`) — and this value is interpolated into a query
 string. An entry carrying JQL rather than a key (`KAN" OR project != "KAN`, or a bare `OR` between

@@ -365,7 +365,7 @@ own skill directory buys.
 
 **Prose describing this repository's own guard is not an invocation.** A guard invoked by name
 uses the basename form above. Prose that describes **this repository's own** lint and test
-guards — resolved through `<agents repo>/.myflow/project.md`'s `## lint` and `## test` lists
+guards — resolved through `<agents repo>/.flow/project.md`'s `## lint` and `## test` lists
 rather than through `<skill-dir>/scripts/` — names the guard as
 `<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
 resolves, for a reader standing in an installed project, against that project's own tree, so the
@@ -419,7 +419,7 @@ before reading or writing a state file.
 
 ## Project configuration
 
-The contract governing `<project>/.myflow/project.md` — its optional keys, how a `## standards` entry
+The contract governing `<project>/.flow/project.md` — its optional keys, how a `## standards` entry
 resolves to a file, and the containment rules that keep resolution safe.
 **Project configuration** (`skills/myflow-contracts/project-configuration.md`) — load it before
 resolving project configuration.

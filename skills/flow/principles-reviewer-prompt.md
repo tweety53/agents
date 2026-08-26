@@ -171,7 +171,7 @@ Subagent (generalPurpose):
   list. Verify the file exists before dispatching; if it does not, stop and say so rather
   than dispatching a reviewer with no principles.
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
-  1. the entries listed under the `## standards` section of `<project>/.myflow/project.md`, when the
+  1. the entries listed under the `## standards` section of `<project>/.flow/project.md`, when the
      project has one — resolved to absolute paths **per the entry-form table and the
      containment rule in `skills/myflow-contracts/project-configuration.md`**,
      which is canonical. Entries are not paths to use as-is: a bare `*.mdc` filename means

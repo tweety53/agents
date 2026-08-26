@@ -113,7 +113,7 @@ source "$SCRIPT_DIR/lib/owned-corpus.sh"
 # path-relative-to-repo-root<space>max-bytes, one row per covered file.
 budgets() {
   cat <<'EOF'
-.myflow/project.md 20396
+.flow/project.md 20396
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 47306

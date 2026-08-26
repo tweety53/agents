@@ -31,7 +31,7 @@ agents-data/
 │   ├── context7.mdc                   ← fetch library docs through Context7, not from memory (always-on)
 │   ├── dispatch-carries-the-baseline.mdc  ← every subagent dispatch carries the agent-baseline pointer (always-on)
 │   ├── agent-baseline.md              ← NOT a rule: the file a dispatched subagent is told to read, listing every rule above and pointing at its installed full text
-│   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.myflow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
+│   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.flow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── hooks/
 │   └── enforce-agent-baseline.py      ← PreToolUse hook: denies a subagent dispatch whose prompt omits the agent-baseline pointer
 ├── scripts/
@@ -453,7 +453,7 @@ Two things are deliberate:
   `alwaysApply: true` is never installed globally — not into `~/.cursor/rules/`, not into
   either managed block. The Kotlin backend standard is one: it applies to Kotlin backends,
   not to every project on the machine. Such a rule reaches a project only through that
-  project's own `.myflow/project.md`, and only a **per-project** install renders it — see
+  project's own `.flow/project.md`, and only a **per-project** install renders it — see
   [Opt-in rules land in the project](#opt-in-rules-land-in-the-project) below.
 - **The managed blocks are inlined, not referenced — in `~/.claude/CLAUDE.md` *and*
   `~/.codex/AGENTS.md`.** Neither Claude Code nor Codex reads `~/.cursor/rules/`, so for
@@ -481,7 +481,7 @@ rule they came from.
 
 Every **per-project** install (`cursor`, `claude-code`, `codex`, `all`) closes that gap:
 
-1. It reads `<project>/.myflow/project.md` and takes the `## standards` section. No file, or
+1. It reads `<project>/.flow/project.md` and takes the `## standards` section. No file, or
    no such section, and it does nothing at all — silently.
 2. It keeps the entries that resolve to the shared rule library: a **bare filename ending in
    `.mdc`** (`kotlin-backend-development-standard.mdc` → `<agents repo>/rules/<name>`). An
@@ -562,7 +562,7 @@ for f in /path/to/agents-data/commands-claude/*.md; do
 done
 ```
 
-Step 3 also renders any opt-in rule the project named in its `.myflow/project.md` into the
+Step 3 also renders any opt-in rule the project named in its `.flow/project.md` into the
 managed block in `CLAUDE.md` (and `AGENTS.md`), so run it **after** step 2 — the block goes
 into the file step 2 put there.
 
@@ -620,7 +620,7 @@ done
 ```
 
 The `setup.sh codex` form (unlike the manual loop) also renders any opt-in rule the project
-named in its `.myflow/project.md` into the managed block in `AGENTS.md` and `CLAUDE.md`.
+named in its `.flow/project.md` into the managed block in `AGENTS.md` and `CLAUDE.md`.
 Run it **after** step 2.
 
 **Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `flow` (the `/flow` equivalent) on a creating run; the rest of the pipeline is fine on your default.
@@ -714,11 +714,11 @@ different commands:
 | Rule kind | Where its text is copied | Re-install with |
 |-----------|--------------------------|-----------------|
 | `alwaysApply: true` (`lint-fix-priority`, `myflow-manual-review`) | the managed blocks in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` (plus a live symlink in `~/.cursor/rules/`) | `./setup.sh global` |
-| opt-in (`kotlin-backend-development-standard`) | the managed block in the `CLAUDE.md` and `AGENTS.md` of **each project that named it** in `.myflow/project.md` | `./setup.sh <harness> /path/to/that/project`, once per adopting project |
+| opt-in (`kotlin-backend-development-standard`) | the managed block in the `CLAUDE.md` and `AGENTS.md` of **each project that named it** in `.flow/project.md` | `./setup.sh <harness> /path/to/that/project`, once per adopting project |
 
 An opt-in rule edited here therefore changes nothing for any project until that project's
 install is re-run — and the projects that adopted it are listed nowhere but in their own
-`.myflow/project.md` files, so a change to a widely-adopted opt-in rule needs a sweep.
+`.flow/project.md` files, so a change to a widely-adopted opt-in rule needs a sweep.
 
 `AGENTS.md` / `CLAUDE.md` carry their own myflow summary tables — update those by hand
 when the pipeline description changes, and keep every command file in `commands/` and

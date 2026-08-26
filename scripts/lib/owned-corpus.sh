@@ -12,7 +12,7 @@
 #
 # THE CORPUS is every `.md` and `.mdc` file under these scope roots:
 #
-#   skills/  rules/  spectre/specs/  commands/  commands-claude/  .myflow/
+#   skills/  rules/  spectre/specs/  commands/  commands-claude/  .flow/
 #
 # plus the `.md`/`.mdc` files sitting directly at the repository root
 # (README.md, AGENTS.md, CLAUDE.md today). The root is deliberately NOT scanned
@@ -100,7 +100,7 @@
 
 # The scope roots, relative to the repository root. A bash array rather than a
 # function printing lines, so a caller iterates it without word-splitting.
-OWNED_CORPUS_SCOPE_DIRS=(skills rules spectre/specs commands commands-claude .myflow)
+OWNED_CORPUS_SCOPE_DIRS=(skills rules spectre/specs commands commands-claude .flow)
 
 # owned_corpus_excluded <path-relative-to-repo-root> -> exit 0 when the path is
 # excluded from the corpus, 1 otherwise. Every test is a path-component or

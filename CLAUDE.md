@@ -13,14 +13,14 @@ The fix-first lint policy is a **global rule**, installed into the managed block
 `~/.claude/CLAUDE.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
-What is project-specific is which commands it means. Full list in `<project>/.myflow/project.md`'s `## lint`
+What is project-specific is which commands it means. Full list in `<project>/.flow/project.md`'s `## lint`
 section — named here so this file states them rather than leaving a placeholder:
 
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
 scripts/check-vocabulary.sh                              # plus every other scripts/check-*.sh guard
-scripts/check-references.sh                               # named in .myflow/project.md's `## lint`
+scripts/check-references.sh                               # named in .flow/project.md's `## lint`
 cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
 cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
 ```
@@ -43,7 +43,7 @@ through to the on-disk journal.
 and `<project>/scripts/workspace.sh remove <id>` drops them during archive cleanup as it should.
 
 The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to
-run, are the `## stop` section of `<project>/.myflow/project.md` — canonical for it, and not
+run, are the `## stop` section of `<project>/.flow/project.md` — canonical for it, and not
 restated here. Stopping the dev stack is an operator action; the commands live in that file's
 `## run` section and in `<project>/stats/README.md`.
 
@@ -59,7 +59,7 @@ restated here. Stopping the dev stack is an operator action; the commands live i
      that lacks a `<project>/CLAUDE.md`, so a standard hardcoded to one stack would be wrong in
      every other project. A standard meant to apply across *many* projects belongs in
      `<agents repo>/rules/` as an opt-in rule instead, activated per project by naming it in
-     `<project>/.myflow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
+     `<project>/.flow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
      is the worked example of that pattern. -->
 
 This project has not declared one yet. Until it does, follow the language's published

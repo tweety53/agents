@@ -10,7 +10,7 @@ checks skip, rather than fail, when unsupported"). `Files:`,
 `Tests:` and `Commit:` are checked directly against git (`check_files`,
 `check_tests`, `check_commit_subject`). `Regression:` and `Baseline:`
 (`check_regression`, `check_baseline`) additionally need the project's
-`## test` command, read out of `.myflow/project.md` in the worktree
+`## test` command, read out of `.flow/project.md` in the worktree
 (`read_single_test_command`) — when that command cannot be targeted at a
 single named test or does not report a parseable count, both checks report
 skipped-not-verified instead of failing the run.
@@ -279,8 +279,8 @@ TARGETED_RESULT_RE = re.compile(r"^RESULT\s+(\S+):\s*(pass|fail)\s*$", re.MULTIL
 TOTAL_COUNT_RE = re.compile(r"^COUNT:\s*(\d+)\s*$", re.MULTILINE)
 
 # PROJECT_TEST_SECTION_RE / MARKDOWN_HEADING_RE / FENCE_LINE_RE — read the
-# fenced command list under `.myflow/project.md`'s own `## test` heading,
-# the same section `.myflow/project.md`'s own prose documents as the source
+# fenced command list under `.flow/project.md`'s own `## test` heading,
+# the same section `.flow/project.md`'s own prose documents as the source
 # of truth for this repository's test commands. FENCE_LINE_RE is scoped to
 # that file: it gates the whole physical line on three backticks, which is
 # all `## test`'s own block has ever used. A task body's fences are
@@ -940,7 +940,7 @@ def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
 
 
 def read_single_test_command(worktree: str) -> Optional[str]:
-    """Read `<worktree>/.myflow/project.md`'s `## test` section and return
+    """Read `<worktree>/.flow/project.md`'s `## test` section and return
     its one command line, or `None` when the section is absent, empty, or
     names more than one command.
 
@@ -953,7 +953,7 @@ def read_single_test_command(worktree: str) -> Optional[str]:
     fallback exists for; it is not a parsing failure, so this returns
     `None` rather than raising.
     """
-    project_md = os.path.join(worktree, ".myflow", "project.md")
+    project_md = os.path.join(worktree, ".flow", "project.md")
     try:
         with open(project_md, "r", encoding="utf-8") as handle:
             lines = handle.read().splitlines()

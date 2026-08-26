@@ -242,7 +242,7 @@ associations_of() {
     }
     # A bold span is a candidate SECTION NAME only if it reads like one. Bold is
     # used for emphasis far more often than for section names in this repo
-    # ("**only** in projects whose `.myflow/project.md`", "**absolute** path of
+    # ("**only** in projects whose `.flow/project.md`", "**absolute** path of
     # `engineering-principles.md`"), and an emphasis word next to a filename is
     # not a cross-reference. Every heading in the referenced files starts with a
     # capital, carries no "." and no trailing ":", so those three cheap tests
@@ -289,7 +289,7 @@ associations_of() {
         i = e + 1
       }
       # A bold token belongs to at most ONE path: the nearest it is associated
-      # with. Without this, a line naming .myflow/project.md and then saying
+      # with. Without this, a line naming .flow/project.md and then saying
       # "(see **Project configuration** in skills/.../project-configuration.md)"
       # would demand a "Project configuration" heading in BOTH files, and fail on
       # the one the token was never about.

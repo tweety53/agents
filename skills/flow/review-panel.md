@@ -175,7 +175,7 @@ of `engineering-principles.md` **beside this file** — `skills/flow/`, always. 
 exists before spawning; if it does not, stop and report rather than dispatching a blind reviewer.
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in
-`<project>/.myflow/project.md`, per **Project configuration**
+`<project>/.flow/project.md`, per **Project configuration**
 (`skills/myflow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
 

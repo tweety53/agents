@@ -417,7 +417,7 @@ assert_silent "a repository-relative path in a descriptive sentence is prose, no
 
 # 4c. F3 — the six project-configured guards named in design.md are exempt
 #     from rule 3 wherever they appear, in a fence or in imperative prose,
-#     since they resolve through the project's own .myflow/project.md rather
+#     since they resolve through the project's own .flow/project.md rather
 #     than being invoked by any command. A future "Run
 #     `scripts/check-vocabulary.sh` before committing" must not fail CI
 #     wrongly.

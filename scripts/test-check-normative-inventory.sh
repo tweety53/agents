@@ -45,7 +45,7 @@ trap 'chmod -R u+rwX "$FIX" 2>/dev/null || true; rm -rf "$FIX"' EXIT
 # every other case starts from a complete root so it tests what it says it does.
 mkroot() {
   mkdir -p "$1/skills" "$1/rules" "$1/spectre/specs" "$1/commands" \
-    "$1/commands-claude" "$1/.myflow"
+    "$1/commands-claude" "$1/.flow"
 }
 
 # inv <root> — the inventory for <root>. A non-zero exit here is a harness

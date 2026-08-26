@@ -256,7 +256,7 @@ seed_stale_skill_dir() {
   printf '# stale copy\nSENTINEL-PREEXISTING-SKILL\n' >"$1/SKILL.md"
 }
 
-# seed_project_md <project-dir> <standards-entry>… — a `.myflow/project.md` whose
+# seed_project_md <project-dir> <standards-entry>… — a `.flow/project.md` whose
 # `## standards` section lists the given entries, one bullet each, in the backticked form
 # real project files use. Sections before and after it are included so the section-boundary
 # parsing is exercised rather than assumed.
@@ -264,7 +264,7 @@ seed_project_md() {
   local proj="$1"; shift
   local bullets="" entry
   for entry in "$@"; do bullets+="- \`$entry\` — seeded by the harness"$'\n'; done
-  seed_file "$proj/.myflow/project.md" 644 <<EOF
+  seed_file "$proj/.flow/project.md" 644 <<EOF
 # myflow project configuration — fixture project
 
 ## test
@@ -806,7 +806,7 @@ assert_eq "the stale copy is no longer reachable from the skills tree" 0 "$scann
 # An opt-in rule is installed nowhere by path, so before this existed the only way a project
 # could actually load one was to paste a copy into its own CLAUDE.md and AGENTS.md — two
 # copies with nothing keeping them in step with the rule they came from. The installer now
-# renders whatever the project's `.myflow/project.md ## standards` section names into a
+# renders whatever the project's `.flow/project.md ## standards` section names into a
 # managed block in both files.
 #
 # Everything below is a containment or convergence claim about a file the user WROTE
@@ -893,14 +893,52 @@ assert_absent "global writes no project AGENTS.md" "$proj/AGENTS.md"
 
 group "A project with nothing to render is left alone, silently"
 
-# No .myflow/project.md at all.
+# No .flow/project.md at all, and no retired .myflow/ either.
 new_home; home="$HOME_DIR"
 proj="$SANDBOX/project-noconfig-$CASE_SEQ"
 mkdir -p "$proj"
 run_setup "$FIXTURE" "$home" cursor "$proj"
-assert_rc_zero "a project with no .myflow/project.md installs cleanly" "$RUN_RC" "$RUN_LOG"
+assert_rc_zero "a project with no .flow/project.md installs cleanly" "$RUN_RC" "$RUN_LOG"
 assert_absent "no CLAUDE.md is created for a project with no config" "$proj/CLAUDE.md"
 assert_absent "no AGENTS.md is created for a project with no config" "$proj/AGENTS.md"
+
+group "The .myflow/ -> .flow/ hard cutover (design.md's dotmyflow-hard-cutover)"
+
+# A project carrying only the retired .myflow/ and no .flow/ is NOT the ordinary
+# "nothing to render" case above — the installer refuses rather than silently installing
+# nothing for a project it never actually read. ~/Projects/gymie and ~/Projects/spectre-e2e
+# are in exactly this state on this machine and are not renamed by this change; this case is
+# a fixture this suite owns rather than a read of either.
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-stale-myflow-$CASE_SEQ"
+mkdir -p "$proj/.myflow"
+run_setup "$FIXTURE" "$home" cursor "$proj"
+assert_rc_nonzero "a project carrying only the retired .myflow/ aborts the run" "$RUN_RC"
+assert_contains "the refusal names the project root and the exact rename to perform" "$RUN_LOG" \
+  "git -C $proj mv .myflow .flow"
+assert_absent "no CLAUDE.md is created for a project carrying only the retired .myflow/" "$proj/CLAUDE.md"
+assert_absent "no AGENTS.md is created for a project carrying only the retired .myflow/" "$proj/AGENTS.md"
+
+# A project carrying BOTH directories mid-cutover reads .flow/ without ever consulting
+# .myflow/ — the retired .myflow/project.md below names a standards entry
+# (empty-marker.mdc) that does not exist under $RULES_SRC, so a guard that fell back to it
+# would abort with "does not exist"; reading .flow/'s own well-formed, empty-of-standards
+# declaration instead installs cleanly.
+new_home; home="$HOME_DIR"
+proj="$SANDBOX/project-both-dirs-$CASE_SEQ"
+mkdir -p "$proj/.myflow"
+seed_file "$proj/.myflow/project.md" 644 <<'EOF'
+# fixture project configuration
+
+## standards
+
+- `empty-marker.mdc` — names a rule that does not exist under $RULES_SRC
+EOF
+seed_project_md "$proj"
+run_setup "$FIXTURE" "$home" cursor "$proj"
+assert_rc_zero "a project carrying both directories installs cleanly, reading .flow/ only" "$RUN_RC" "$RUN_LOG"
+assert_not_contains "the retired .myflow/project.md's standards entry was never consulted" "$RUN_LOG" \
+  "empty-marker.mdc"
 
 # A project.md that names only its own files — no shared rule to render, so no block.
 new_home; home="$HOME_DIR"

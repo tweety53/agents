@@ -42,12 +42,12 @@ stale copy of the state machine — the failure this split exists to prevent.
 Narrower contracts sit beside it; load the one a step actually needs, not the directory. **The table
 is the list, and this sentence deliberately carries no count of it** — a written count goes stale the
 first time a contract is added, nothing checks it against the table, and that is the same reason
-`<project>/.myflow/project.md` cites its own guard list by count nowhere:
+`<project>/.flow/project.md` cites its own guard list by count nowhere:
 
 | Contract | Load it before |
 |----------|----------------|
 | **State file** (`skills/myflow-contracts/state-file.md`) | reading or writing a change's state file |
-| **Project configuration** (`skills/myflow-contracts/project-configuration.md`) | resolving `<project>/.myflow/project.md` |
+| **Project configuration** (`skills/myflow-contracts/project-configuration.md`) | resolving `<project>/.flow/project.md` |
 | **Jira integration** (`skills/myflow-contracts/jira-integration.md`) | any Jira-related step |
 | **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 only |
 | **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
