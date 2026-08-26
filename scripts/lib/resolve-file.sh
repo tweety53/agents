@@ -7,10 +7,13 @@
 # check-guard-symlinks.sh's copy put `--` before every `readlink`, `dirname`
 # and `cd` argument; plan-dispatch-bundles.sh's and check-workspace-isolation.sh's
 # did not. KAN-73's own review panel caught the drift (see that change's
-# final-review-panel.md, F1) — the same shape of defect
-# scripts/lib/panel-record.sh's header records for the two guards it was
-# extracted from. One definition, sourced by every guard that can safely
-# reach it, is what stops that drift from happening a second time.
+# final-review-panel.md, F1) — the same shape of defect that split
+# check-unfinished-work.sh's and check-panel-reproducers.sh's near-identical
+# copies of a shared total-count pattern before those two were folded into
+# one library of their own: one guard's copy carried a bound a crash had
+# taught it to add, the other guard's copy never got the fix. One
+# definition, sourced by every guard that can safely reach it, is what stops
+# that drift from happening a second time.
 #
 # "SAFELY REACH IT" IS THE OPERATIVE PHRASE, and not every guard carrying a
 # copy of this function qualifies. A guard reached only by hand-copying a
@@ -19,9 +22,9 @@
 # because the farm already symlinks `lib` as a directory beside every guard
 # that needs it (KAN-73's design.md, "The guard-to-skill map") — the
 # identical argument KAN-153's F7 accepted for check-unfinished-work.sh
-# sourcing scripts/lib/panel-record.sh, on the evidence that setup.sh
-# distributes skills, not scripts/, so a guard and the library it sources
-# always travel together in this repository.
+# sourcing a library of its own (since folded into the store rewrite): a
+# sourced helper travels WITH its guard, unconditionally, whenever
+# setup.sh distributes skills rather than scripts/ on their own.
 #
 # ONE INLINE COPY IS LEFT, and it is a gap rather than a deliberate
 # exemption. scripts/gather-self-review-context.sh carries its own
@@ -43,8 +46,8 @@
 # `--` BEFORE EVERY readlink, dirname AND cd ARGUMENT — the hardened form,
 # carried here rather than the un-hardened one four of the five original
 # copies used, so a path beginning with `-` is never read as an option. This
-# is the same discipline scripts/lib/panel-record.sh's header states for
-# every guard in this repository.
+# is the same `--`-before-every-path discipline every guard's grep calls in
+# this repository hold to, applied here to readlink, dirname and cd instead.
 #
 # resolve_file <path> -> prints the path's resolved PHYSICAL location on
 # stdout, or returns 1 if it cannot. macOS /bin/sh has no `readlink -f`, so

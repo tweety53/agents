@@ -29,18 +29,17 @@
 # restate the assumption the zero already encodes, which is exactly the case
 # this library exists to fail instead of pass.
 #
-# ADOPTED, NOT INVENTED: scripts/lib/panel-record.sh's header states three
-# disciplines for every guard in this repository — `-a` on every grep, the
-# `rc > 1` split between "no match" and a real error, and `--` before every
-# path. This library reads no file and takes no path argument — it only
-# keeps in-process state a guard feeds it — so the first and third have no
-# call site here. The posture behind all three still does: reject anything
-# that is not unambiguously valid rather than fold it into a reassuring
-# default. coverage_record's count argument is the one place this library
-# validates input from a caller, and it is rejected outright (a non-zero
-# return, not a coerced 0) the moment it is not a plain non-negative
-# integer — the same "never fail toward reassurance" rule panel-record.sh's
-# header states for a grep's `rc > 1`.
+# ADOPTED, NOT INVENTED: every guard in this repository holds to three
+# disciplines — `-a` on every grep, the `rc > 1` split between "no match"
+# and a real error, and `--` before every path. This library reads no file
+# and takes no path argument — it only keeps in-process state a guard feeds
+# it — so the first and third have no call site here. The posture behind
+# all three still does: reject anything that is not unambiguously valid
+# rather than fold it into a reassuring default. coverage_record's count
+# argument is the one place this library validates input from a caller, and
+# it is rejected outright (a non-zero return, not a coerced 0) the moment it
+# is not a plain non-negative integer — the same "never fail toward
+# reassurance" rule behind a grep's `rc > 1` split.
 #
 # Not meant to be executed directly — a caller sources it and calls its
 # functions; it sets no `set -euo pipefail` of its own and relies on the

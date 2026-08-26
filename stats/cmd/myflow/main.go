@@ -30,6 +30,7 @@ commands:
   record dispatch     record one subagent dispatch of a change's run record
   record finding      record one review-panel finding, or replace it
   record status       set one recorded finding's status
+  record findings     print a change's findings as a JSON array
   record render       render a change's run record from the store
   record journal-count  count a change's record writes still pending in the journal
   record cost-status  print how many of a change's dispatches carry no cost figure, and why
