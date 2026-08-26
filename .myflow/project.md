@@ -240,17 +240,40 @@ guard's scope or adding a suppression marker.
 
 ## stop
 
-The manual, foreground `myflowd` started above stops with Ctrl-C or `kill` on its PID — it shuts
-down gracefully, draining in-flight requests before its connection pool closes.
+**This key declares no command, and that is the answer rather than an omission.** `/flow`'s
+worktree-cleanup check 5 runs whatever this key declares before removing a worktree; there is
+nothing here for it to run.
 
-```bash
-cd stats && docker compose down           # stops myflow-postgres; does not touch other stacks
-launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist   # only if the login agent is loaded
-```
+**What is protected is the dev workspace's service and its storage, and only those** — the empty-id
+case of `## workspace isolation` below, which is what the main checkout resolves:
 
-The launchd agent line is a no-op if the agent was never loaded — see `stats/README.md`. This key
-is present rather than omitted so that `/flow`'s stack-stopped check runs against a real
-answer, not a recorded "nothing to stop" that stopped being true when `stats/` landed.
+| Protected — never stopped, dropped or removed by any agent action | Why |
+|---|---|
+| `myflowd` on `127.0.0.1:4173` | the store every `myflow` call in every project writes through |
+| the `myflow-postgres` container on host port 5433 | the **service**, shared by every workspace |
+| the default `myflow` database inside it | the dev workspace's own storage |
+
+Not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid, and not to make
+a later step succeed. Stopping any of them mid-run silently degrades the rest of that run's writes to
+the on-disk journal and takes the store away from every other session on this machine; restarting
+afterwards does not repair it, because whatever fell through to the journal while it was down stays
+there.
+
+**A workspace's own derived resources are not protected, and removing them is correct.** The
+`myflow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
+`scripts/workspace.sh remove <id>` drops them during archive cleanup exactly as the registry
+requires, and that must keep working. The line is the one **Workspace isolation**
+(`skills/myflow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
+resource, never the service that holds it. This section protects the service and the dev workspace's
+own logical resources; it says nothing about anyone else's.
+
+**Nothing worktree-local exists for check 5 to stop.** A worktree gets its own database and port, and
+no `/flow` step starts a daemon against them. Check 6, `check-worktree-processes.sh`, is what proves
+no process holds a worktree, and it remains a gate.
+
+Stopping the dev stack is an **operator** action, deliberately. The commands live where the operator
+starts it: `## run` above, and `stats/README.md`'s "Running the daemon at login" section for the
+launchd agent.
 
 ## standards
 

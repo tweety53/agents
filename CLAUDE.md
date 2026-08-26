@@ -30,6 +30,25 @@ expand that list without user approval.
 
 ---
 
+### Never stop the dev workspace's stats service or its storage
+
+`myflowd` on `127.0.0.1:4173`, the `myflow-postgres` container on host port 5433, and the default
+`myflow` database inside it are the **dev workspace's** service and storage — the store every
+`myflow` call in every project writes state, stage marks and records through. No agent action stops
+or drops them: not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid,
+and not to make a later step succeed. Bringing them back up does not repair a run that already fell
+through to the on-disk journal.
+
+**Only those.** A worktree's own derived `myflow_<id>` database and bucket are per-change artifacts,
+and `<project>/scripts/workspace.sh remove <id>` drops them during archive cleanup as it should.
+
+The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to
+run, are the `## stop` section of `<project>/.myflow/project.md` — canonical for it, and not
+restated here. Stopping the dev stack is an operator action; the commands live in that file's
+`## run` section and in `<project>/stats/README.md`.
+
+---
+
 ### Project-specific standards
 
 <!-- Replace this section with the coding standard this project actually follows:
