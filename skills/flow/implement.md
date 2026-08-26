@@ -220,6 +220,12 @@ as it stands after the fold.
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
 > contradicts the plan** (`skills/myflow-contracts/plan-provenance.md`).
 
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one test you write MUST exercise the real
+> thing. A test backed by a fake or a hand-built value passes while the real integration is broken:
+> the shape you construct by hand is not the shape the real producer emits. Build the value the way
+> production builds it, or assert against the real boundary.
+
 **Guard the commit before dispatching review.** As soon as the implementer reports the task's
 commit sha back, and **before** the parent dispatches that task for review:
 
@@ -241,6 +247,12 @@ DEFAULT_MODEL`. **The per-task review is a single combined reviewer**, covering 
 code quality together, dispatched on `DEFAULT_MODEL` — `/flow`'s panel carries no roster, so there
 is no `full`-preset split into two per-task reviewers. Mark a **task's** checkbox `[x]` only after
 that task passes spec **and** quality review; a step's checkbox tracks the step and gates nothing.
+
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one check you make MUST exercise the real
+> thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
+> and a passing test can each read plausibly and be false. Run it before you accept it, and run it
+> before you reject it.
 
 On BLOCKED: pause and report. Never guess.
 
