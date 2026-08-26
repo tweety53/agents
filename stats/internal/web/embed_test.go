@@ -63,7 +63,7 @@ func TestEmbeddedAssetsArePresent(t *testing.T) {
 
 // TestUnknownPathServesIndexNotFound: a path the build did not produce as
 // a static file (a client-side route the SPA's own router owns, e.g.
-// "/changes/kan-16-myflow-stats-app") is answered with the SPA's
+// "/changes/kan-16-flow-stats-app") is answered with the SPA's
 // index.html, 200 OK -- not a 404 -- so the client-side router can take
 // over, per design.md's "unknown non-API paths fall through to
 // index.html for client-side routing".
@@ -82,7 +82,7 @@ func TestUnknownPathServesIndexNotFound(t *testing.T) {
 		t.Fatalf("reading index.html: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/changes/kan-16-myflow-stats-app", nil)
+	req := httptest.NewRequest(http.MethodGet, "/changes/kan-16-flow-stats-app", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -206,7 +206,7 @@ func TestApiPathsAreNotSwallowedBySpaFallback(t *testing.T) {
 	// "/api/" before "/", relying on order instead of specificity) would
 	// still be caught.
 	t.Run("a non-api path still reaches the SPA", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/changes/kan-16-myflow-stats-app", nil)
+		req := httptest.NewRequest(http.MethodGet, "/changes/kan-16-flow-stats-app", nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 

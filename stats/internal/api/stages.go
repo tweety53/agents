@@ -242,7 +242,7 @@ func IsDefinitiveMarkOutcome(err error) bool {
 	case errors.As(err, &unknownStage):
 		// The caller (or a journalled mark replaying against a README
 		// table that has since changed) named a stage this build of
-		// myflowd does not document. That will not resolve itself by
+		// flowd does not document. That will not resolve itself by
 		// retrying the identical entry.
 		return true
 	case errors.Is(err, ErrInvalidSessionToken):
@@ -482,7 +482,7 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 // F1) found this unsound: nothing ties an end mark's own harness
 // resolution to the harness BeginStage actually recorded for this run, so
 // design.md's own canonical example --
-// `myflow stage end --change ... --outcome completed`, no -harness given
+// `flow stage end --change ... --outcome completed`, no -harness given
 // -- would mark a genuine claude-code run's tokens unavailable the moment
 // $FLOW_HARNESS was unset in the ending shell, producing exactly the
 // false-negative this task exists to prevent: an internally inconsistent
@@ -498,7 +498,7 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 // that could disagree with it.
 //
 // Unlike EndStage/MergeMetrics in internal/store, this never learns a
-// stage run id from its caller -- design.md's own example (`myflow stage
+// stage run id from its caller -- design.md's own example (`flow stage
 // end --change ... --outcome completed`) names none either -- so it
 // resolves the run itself: the most recent (highest attempt) stage run
 // for mark's project, change, command and stage that has no end mark yet,

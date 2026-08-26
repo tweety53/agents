@@ -263,7 +263,7 @@ type TrendPoint struct {
 
 // TrendOverTime buckets cost by day across period, optionally restricted
 // to one project, so a reader can see whether the pipeline is getting
-// cheaper or more expensive as myflow itself changes.
+// cheaper or more expensive as flow itself changes.
 //
 // model, when non-nil, restricts to stage runs whose metrics recorded that
 // model (per CostPerChange's own doc comment) and sums that model's own

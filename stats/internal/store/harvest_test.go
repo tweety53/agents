@@ -482,7 +482,7 @@ func TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits(t *t
 // TestCommitHarvestBatchConcurrentCallersOnlyOneApplies is F7's own test:
 // two CommitHarvestBatch calls for the same transcriptPath, both reading
 // the same starting offset and computing overlapping deltas -- exactly
-// what two myflowd processes (a stale one alongside a freshly started
+// what two flowd processes (a stale one alongside a freshly started
 // one; nothing prevents this) racing over the same transcript would
 // produce. Exactly one call must apply; the other must return
 // applied=false with a nil error; and the stored metrics must equal a
@@ -582,7 +582,7 @@ func TestCommitHarvestBatchConcurrentCallersOnlyOneApplies(t *testing.T) {
 // coordinator found, by deleting "AND byte_offset = $3" from the UPDATE,
 // that the entire suite stayed green. That guard protects the more
 // important race in practice -- a steady-state collision between two
-// myflowd processes happens on every cycle they overlap, where a
+// flowd processes happens on every cycle they overlap, where a
 // first-ever-commit collision happens once per transcript.
 //
 // This test seeds an existing harvest_offsets row first (a real prior

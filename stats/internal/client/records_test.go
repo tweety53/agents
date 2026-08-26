@@ -65,7 +65,7 @@ func TestRecordDispatchReturnsTheRecordedRow(t *testing.T) {
 // fix round's restated finding to the journal for a write that had already
 // landed.
 //
-// The created result is why the split exists at all: `myflow record
+// The created result is why the split exists at all: `flow record
 // finding` prints "recorded: F<n>" on an insert and "updated: F<n>" on a
 // replace, so a panel run can tell a new finding from a restated one. A
 // client that dropped the flag would make the store's own created result,

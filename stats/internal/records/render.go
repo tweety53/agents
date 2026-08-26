@@ -227,7 +227,7 @@ type tokenBucket struct {
 // "NOTHING MEASURED" IS THE ABSENCE OF THE `tokens` KEY, NOT THE ABSENCE
 // OF BYTES. internal/store's insertDispatch defaults an empty Metrics to
 // the JSON object `{}` on the way in -- never zero-length, never SQL NULL
-// -- so `{}` is the shape of every dispatch between `myflow record
+// -- so `{}` is the shape of every dispatch between `flow record
 // dispatch` and the harvester running, and the PERMANENT shape of every
 // dispatch on Cursor and Codex, which write no transcript at all. It
 // unmarshals silently into a zero-valued struct, so a `len(raw) == 0` test

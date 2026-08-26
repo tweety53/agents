@@ -93,7 +93,7 @@ down:
 #
 # THIS KILL IS PORT-DRIVEN, deliberately -- and it stays port-driven now that
 # a pidfile exists. flowd writes a pidfile on EVERY start, however it was
-# started: internal/pidfile claims $TMPDIR/myflowd-<port>.pid before the store
+# started: internal/pidfile claims $TMPDIR/flowd-<port>.pid before the store
 # is opened, so the hand-started `./bin/flowd` this target usually finds has
 # one too. The old reason for not reading a pidfile here -- that a pidfile
 # *this target* wrote would be absent exactly when it is needed -- is
@@ -243,9 +243,9 @@ override UITEST_DB := flow_uitest
 # into one.
 override UITEST_ID := uitest
 override UITEST_PORT := 4174
-override UITEST_DSN := postgres://myflow:myflow@localhost:5433/$(UITEST_DB)?sslmode=disable
-# The pidfile myflowd writes for ITSELF, not one this Makefile writes:
-# internal/pidfile claims filepath.Join(os.TempDir(), "myflowd-<port>.pid") at
+override UITEST_DSN := postgres://flow:flow@localhost:5433/$(UITEST_DB)?sslmode=disable
+# The pidfile flowd writes for ITSELF, not one this Makefile writes:
+# internal/pidfile claims filepath.Join(os.TempDir(), "flowd-<port>.pid") at
 # startup, before it opens the store. Port-derived on both sides, so the live
 # stack (4173) and this one (4174) never contend for one file. The daemon's
 # TMPDIR is pinned to /tmp on the launch below -- see the comment there --
@@ -253,7 +253,7 @@ override UITEST_DSN := postgres://myflow:myflow@localhost:5433/$(UITEST_DB)?sslm
 # /var/folders/.../T and is not /tmp. Hardcoded here rather than derived from
 # $(TMPDIR): deriving it would hand a caller the `kill` and `rm -f` target
 # that `override` exists to deny them.
-override UITEST_PIDFILE := /tmp/myflowd-$(UITEST_PORT).pid
+override UITEST_PIDFILE := /tmp/flowd-$(UITEST_PORT).pid
 override UITEST_BIN := /tmp/myflow-uitest-myflowd
 override UITEST_TRANSCRIPTS_DIR := /tmp/myflow-uitest-transcripts
 override UITEST_STATE_DIR := /tmp/myflow-uitest-state

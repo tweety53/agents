@@ -15,7 +15,7 @@
 // duplicated here for the same reason internal/reconcile's
 // testsupport_test.go duplicates it rather than importing internal/store's
 // unexported test helpers: package store_test's helpers are deliberately
-// internal to that package) against the myflow-postgres compose stack on
+// internal to that package) against the flow-postgres compose stack on
 // host port 5433, wired in as harvest.HarvestSink, harvest.WindowSource
 // (via a local adapter mirroring cmd/flowd/main.go's storeWindowSource),
 // harvest.SessionTokenBinder and harvest.Pricer all at once -- exactly how
@@ -28,6 +28,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,11 +47,23 @@ func e2eAdminDSN() string {
 	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
-	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 }
 
+// Derives from e2eAdminDSN so FLOW_STATS_ADMIN_DSN moves both connections
+// together; see internal/store/testsupport_test.go's testDSN for why repeating
+// the credentials here makes the override only half-work.
 func e2eTestDSN(dbName string) string {
-	return fmt.Sprintf("postgres://myflow:myflow@localhost:5433/%s?sslmode=disable", dbName)
+	out, err := dsnutil.ForDatabase(e2eAdminDSN(), dbName)
+	if err != nil {
+		// Panic rather than return a best-effort string. This helper's
+		// predecessor answered confidently when it could not do the job and
+		// silently handed back a corrupted DSN; a test that then connects
+		// reports whatever that connection says, which is the wrong question
+		// answered convincingly.
+		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
+	}
+	return out
 }
 
 // newEndToEndStore creates a uniquely-named, migrated database against the
@@ -70,14 +83,14 @@ func newEndToEndStore(t *testing.T) *store.Store {
 
 	adminPool, err := pgxpool.New(ctx, e2eAdminDSN())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 
-	dbName := fmt.Sprintf("myflow_test_e2e_%d_%d", os.Getpid(), time.Now().UnixNano())
+	dbName := fmt.Sprintf("flow_test_e2e_%d_%d", os.Getpid(), time.Now().UnixNano())
 	ident := pgx.Identifier{dbName}.Sanitize()
 	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
 		adminPool.Close()
@@ -238,7 +251,7 @@ func writeLines(t *testing.T, path string, lines ...[]byte) {
 }
 
 // TestMarkedStageBindsToRealSessionEndToEnd is task 6's own test: mark a
-// stage with a session token exactly as `myflow stage begin` would (a real
+// stage with a session token exactly as `flow stage begin` would (a real
 // BeginStageInput carrying SessionToken, unbound), write a synthetic
 // transcript containing that token in the recorded-command position
 // (message.content[].type == "tool_use", name == "Bash",
@@ -272,7 +285,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 		Name:             changeName,
 		State:            store.StateInProgress,
 		UpdatedAt:        time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC),
-		UpdatedBy:        "myflow-do",
+		UpdatedBy:        "flow-do",
 	}); err != nil {
 		t.Fatalf("PutChange: %v", err)
 	}
@@ -300,7 +313,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 	dir := t.TempDir()
 	transcriptPath := filepath.Join(dir, "session.jsonl")
 
-	// The mark's own turn: the assistant message a real `myflow stage begin
+	// The mark's own turn: the assistant message a real `flow stage begin
 	// -stage do.tests -session-token mf-e2e-... -harness claude-code kan-1`
 	// invocation leaves in its own session's transcript (design.md, "bind
 	// after the fact, by a correlator the caller writes") -- a Bash
@@ -319,7 +332,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 			Content: []wireContentBlock{{
 				Type:  "tool_use",
 				Name:  "Bash",
-				Input: &wireBashInput{Command: "myflow stage begin -command /myflow-do -stage do.tests -session-token " + sessionToken + " -harness claude-code kan-1"},
+				Input: &wireBashInput{Command: "flow stage begin -command /myflow-do -stage do.tests -session-token " + sessionToken + " -harness claude-code kan-1"},
 			}},
 		},
 	})
@@ -427,7 +440,7 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 		Name:             changeName,
 		State:            store.StateInProgress,
 		UpdatedAt:        time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC),
-		UpdatedBy:        "myflow-do",
+		UpdatedBy:        "flow-do",
 	}); err != nil {
 		t.Fatalf("PutChange: %v", err)
 	}

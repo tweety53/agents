@@ -1,4 +1,4 @@
-// Command myflow is the thin CLI every myflow skill shells out to for
+// Command flow is the thin CLI every flow skill shells out to for
 // state. `state get`/`state set` know only HTTP (internal/client) and the
 // on-disk fallback format (internal/fallback) -- never SQL, never the
 // daemon's internals -- so that fallback path is testable with the daemon
@@ -7,7 +7,7 @@
 // `journal flush` (journal.go) is the one deliberate exception: an
 // explicit, on-demand operator command to reconcile the journal right now,
 // not a pipeline write on the hot path, so it talks to internal/store and
-// internal/reconcile directly rather than through myflowd's HTTP API.
+// internal/reconcile directly rather than through flowd's HTTP API.
 package main
 
 import (
@@ -19,7 +19,7 @@ import (
 	"syscall"
 )
 
-const usage = `usage: myflow <command> [arguments]
+const usage = `usage: flow <command> [arguments]
 
 commands:
   state get <name>    print the change's current state
@@ -67,7 +67,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	case "settings":
 		return runSettings(ctx, args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "myflow: unknown command %q\n", args[0])
+		fmt.Fprintf(stderr, "flow: unknown command %q\n", args[0])
 		fmt.Fprint(stderr, usage)
 		return 2
 	}

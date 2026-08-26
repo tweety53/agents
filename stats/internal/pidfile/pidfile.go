@@ -1,4 +1,4 @@
-// Package pidfile keeps a second myflowd from starting beside a live one.
+// Package pidfile keeps a second flowd from starting beside a live one.
 // The daemon records its own pid and the path of its own executable in a
 // file named after the port it is about to serve, and refuses to start
 // when that file names a process that is both alive and running the
@@ -74,7 +74,7 @@ const filePerm fs.FileMode = 0o600
 // path and filepath.Base recovers the name the identity check compares.
 // On Linux it prints the kernel's comm, truncated to 15 characters, so a
 // recorded executable with a longer basename -- the UI-test daemon's
-// /tmp/myflow-uitest-myflowd is 21 -- would never compare equal, and a
+// /tmp/flow-uitest-flowd is 17 -- would never compare equal, and a
 // live instance of it would be read as stale and started beside. This
 // repository is developed on macOS and has no CI, so the plain comparison
 // is what is coded; a Linux port has to widen the comparison to allow for
@@ -110,7 +110,7 @@ type Lock struct {
 // path and reads no environment variable: a path a caller can name is a
 // path a caller can point at someone else's process.
 func Path(port int) string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("myflowd-%d.pid", port))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("flowd-%d.pid", port))
 }
 
 // Check returns an error wrapping ErrAlreadyRunning when path names a live
@@ -162,7 +162,7 @@ func Check(path string, logger *slog.Logger) error {
 		return nil
 	}
 	// The comparison is against the executable recorded in the file, not
-	// a fixed "myflowd": the UI-test stack runs the same daemon from a
+	// a fixed "flowd": the UI-test stack runs the same daemon from a
 	// differently-named copy, and a fixed name would not recognise it.
 	if want := filepath.Base(executable); name != want {
 		logger.Warn("stale pidfile, overwriting",

@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// TestSettingsCmd_Get asserts `myflow settings get` prints the store's
+// TestSettingsCmd_Get asserts `flow settings get` prints the store's
 // settings record as one line of JSON and exits 0 -- the same shape
 // `state get` already prints for a change record (state_test.go), applied
 // to task 2's GET /api/v1/settings instead.
@@ -53,7 +53,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 	}
 }
 
-// TestSettingsCmd_Set_PrintsRejectionReason asserts `myflow settings set`
+// TestSettingsCmd_Set_PrintsRejectionReason asserts `flow settings set`
 // against an invalid -model/-reviewers value surfaces the API's 400
 // rejection reason on stderr and exits non-zero -- unlike `state`/`stage`'s
 // never-block-on-store-failure pattern, this is a caller mistake with no

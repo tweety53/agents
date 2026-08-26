@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,13 +18,13 @@ import (
 )
 
 // adminDSN is the DSN used to create and drop per-test databases -- the
-// same dedicated myflow-postgres compose stack every other package's tests
+// same dedicated flow-postgres compose stack every other package's tests
 // use.
 func adminDSN() string {
 	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
-	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 }
 
 // newTestStoreDSN creates a uniquely-named, migrated database against the
@@ -40,14 +41,14 @@ func newTestStoreDSN(t *testing.T) string {
 
 	adminPool, err := pgxpool.New(ctx, adminDSN())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 
-	dbName := fmt.Sprintf("myflow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
+	dbName := fmt.Sprintf("flow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
 	ident := pgx.Identifier{dbName}.Sanitize()
 	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
 		adminPool.Close()
@@ -69,7 +70,7 @@ func newTestStoreDSN(t *testing.T) string {
 		}
 	})
 
-	dsn := fmt.Sprintf("postgres://myflow:myflow@localhost:5433/%s?sslmode=disable", dbName)
+	dsn := dsnForDatabase(dbName)
 
 	openCtx, openCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer openCancel()
@@ -86,17 +87,17 @@ func newTestStoreDSN(t *testing.T) string {
 	return dsn
 }
 
-// TestJournalFlushCommandReplaysOnDemand pins `myflow journal flush`
+// TestJournalFlushCommandReplaysOnDemand pins `flow journal flush`
 // end-to-end: a pending journal entry on disk is replayed into a real
 // store when the command runs, reported on stdout, and retired from the
-// journal -- without myflowd running at all, since this command talks to
+// journal -- without flowd running at all, since this command talks to
 // the store directly (journal.go's own doc comment).
 func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 	dsn := newTestStoreDSN(t)
 	root := t.TempDir()
 
 	journalPath := filepath.Join(root, "proj-flush", "chg-flush.journal")
-	body := []byte(`{"state":"STARTED","mainCheckoutPath":"/tmp/journal-flush-test","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"myflow-start"}`)
+	body := []byte(`{"state":"STARTED","mainCheckoutPath":"/tmp/journal-flush-test","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"flow-start"}`)
 	if err := fallback.AppendJournalEntry(journalPath, "proj-flush", "chg-flush", body, time.Now()); err != nil {
 		t.Fatalf("append journal entry: %v", err)
 	}
@@ -138,7 +139,7 @@ func TestJournalFlushCommandReplaysOnDemand(t *testing.T) {
 	}
 }
 
-// TestJournalFlushCommandUnknownSubcommand asserts `myflow journal <bogus>`
+// TestJournalFlushCommandUnknownSubcommand asserts `flow journal <bogus>`
 // is rejected with usage rather than silently doing nothing.
 func TestJournalFlushCommandUnknownSubcommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
@@ -160,9 +161,28 @@ func TestJournalFlushCommandConnectFailure(t *testing.T) {
 	root := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	code := runJournal(context.Background(),
-		[]string{"flush", "-root", root, "-dsn", "postgres://myflow:myflow@127.0.0.1:1/myflow?sslmode=disable", "-timeout", "200ms"},
+		[]string{"flush", "-root", root, "-dsn", "postgres://flow:flow@127.0.0.1:1/flow?sslmode=disable", "-timeout", "200ms"},
 		&stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
+}
+
+// dsnForDatabase rewrites adminDSN's database segment, so FLOW_STATS_ADMIN_DSN
+// moves the admin connection and every per-test connection together. Repeating
+// the credentials here instead made the override half-work: the admin step
+// followed the environment while the per-test connection stayed pinned to the
+// literal, so a Postgres with different credentials failed every test while the
+// admin step succeeded.
+func dsnForDatabase(dbName string) string {
+	out, err := dsnutil.ForDatabase(adminDSN(), dbName)
+	if err != nil {
+		// Panic rather than return a best-effort string. This helper's
+		// predecessor answered confidently when it could not do the job and
+		// silently handed back a corrupted DSN; a test that then connects
+		// reports whatever that connection says, which is the wrong question
+		// answered convincingly.
+		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
+	}
+	return out
 }

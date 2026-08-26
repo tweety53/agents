@@ -79,12 +79,12 @@ func deadPortAddr(t *testing.T) string {
 // answering with a status the CLI would otherwise trust as a genuine
 // store answer.
 const (
-	daemonHeaderName  = "Myflow-Daemon"
-	daemonHeaderValue = "myflowd/1"
+	daemonHeaderName  = "Flow-Daemon"
+	daemonHeaderValue = "flowd/1"
 )
 
 // genuineDaemon wraps handler so every response it writes carries the
-// header a real myflowd sets on every response. Tests exercising the CLI
+// header a real flowd sets on every response. Tests exercising the CLI
 // against a store that genuinely answered use this; tests exercising F1's
 // look-alike-server fallback deliberately do not.
 func genuineDaemon(handler http.HandlerFunc) http.HandlerFunc {
@@ -363,7 +363,7 @@ func TestMonotonicRefusalIsNotAFallback(t *testing.T) {
 
 // TestStateSetTreatsForeignServer409AsFallback is the CLI-level
 // reproduction of F1: pointing `-addr` at a bare server that answers every
-// PUT with 409 -- no myflowd behind it, no DaemonHeader on the response --
+// PUT with 409 -- no flowd behind it, no DaemonHeader on the response --
 // previously made the CLI trust it as a genuine monotonic refusal and
 // exit 1, stopping the pipeline with no store involved at all. It must
 // instead take the fallback path: state file and journal written, exactly
@@ -373,7 +373,7 @@ func TestStateSetTreatsForeignServer409AsFallback(t *testing.T) {
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// A bare foreign server: no Myflow-Daemon header, ever -- the
+		// A bare foreign server: no Flow-Daemon header, ever -- the
 		// generic shape of "something is listening on this port, and it
 		// happens to answer 409" that F1 was found against.
 		w.WriteHeader(http.StatusConflict)
@@ -817,7 +817,7 @@ func TestStateGetFallsBackAndSaysSo(t *testing.T) {
 
 // TestStateGetTreatsForeignServer404AsFallback is the CLI-level
 // reproduction of F1 on the read path: pointing `-addr` at a bare server
-// that answers every GET with 404 -- no myflowd behind it -- previously
+// that answers every GET with 404 -- no flowd behind it -- previously
 // made the CLI report "no such change" and exit 1, skipping the on-disk
 // fallback read entirely even with a valid local record present. It must
 // instead take the fallback path and return the on-disk record.
@@ -835,7 +835,7 @@ func TestStateGetTreatsForeignServer404AsFallback(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// A bare foreign server: no Myflow-Daemon header, ever.
+		// A bare foreign server: no Flow-Daemon header, ever.
 		w.WriteHeader(http.StatusNotFound)
 		_, _ = w.Write([]byte(`Not Found`))
 	}))
@@ -964,7 +964,7 @@ func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
 
 // --- state list ---
 //
-// `state list` is F1's fix: skills/myflow-status/SKILL.md and
+// `state list` is F1's fix: skills/flow-status/SKILL.md and
 // skills/myflow-contracts/pipeline.md's Change name resolution enumerate
 // through this command rather than a hand-written curl call against GET
 // /api/v1/stats/state-board, so they inherit the daemon-header check, the
@@ -1091,7 +1091,7 @@ func TestStateListFallbackReportsLocalRecords(t *testing.T) {
 
 // TestStateListFallbackReportsUnreadableFileByName is this command's own
 // version of the CLI-wide "an unreadable record is named, never rebuilt by
-// inference" rule (skills/myflow-status/SKILL.md, skills/myflow-contracts/
+// inference" rule (skills/flow-status/SKILL.md, skills/myflow-contracts/
 // state-file.md): a fallback file that does not even parse as JSON must
 // still appear in the list, marked unreadable, rather than silently
 // vanish from an enumeration that is already degraded.
@@ -1127,7 +1127,7 @@ func TestStateListFallbackReportsUnreadableFileByName(t *testing.T) {
 // TestStateListTreatsForeignServerAsFallback is F1's CLI-level
 // reproduction for `state list`, parallel to
 // TestStateGetTreatsForeignServer404AsFallback: a bare look-alike server
-// with no myflowd behind it, answering 200 with a plausible board body,
+// with no flowd behind it, answering 200 with a plausible board body,
 // must still be treated as unreachable rather than trusted as a complete
 // list.
 func TestStateListTreatsForeignServerAsFallback(t *testing.T) {
@@ -1135,7 +1135,7 @@ func TestStateListTreatsForeignServerAsFallback(t *testing.T) {
 	isolatedStateRoot(t)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// No Myflow-Daemon header -- not a real myflowd.
+		// No Flow-Daemon header -- not a real flowd.
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"view":"state-board","rows":[{"name":"forged","state":"FINISHED"}]}`))
 	}))

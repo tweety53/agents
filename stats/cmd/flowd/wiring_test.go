@@ -82,7 +82,7 @@ const unparsableDSN = "kan-170: acquireStartup must never open a store"
 // the kernel choose the port at bind time, so concurrent tests never race
 // for a fixed one; pidfile.Path is derived from that same 0, which is why
 // TMPDIR has to move as well -- otherwise every test in this file would
-// share /tmp/myflowd-0.pid with every other run on the machine.
+// share /tmp/flowd-0.pid with every other run on the machine.
 func startupConfig(t *testing.T) config.Config {
 	t.Helper()
 	t.Setenv("TMPDIR", t.TempDir())

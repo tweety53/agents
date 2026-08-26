@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"fmt"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"testing"
 	"time"
@@ -14,18 +15,42 @@ import (
 )
 
 // adminDSN is the DSN used to create and drop per-test databases. It points
-// at the myflow-postgres compose stack from task 1, on host port 5433, and
+// at the flow-postgres compose stack from task 1, on host port 5433, and
 // can be overridden for environments that run Postgres elsewhere.
 func adminDSN() string {
 	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
-	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 }
 
 // testDSN returns the DSN for a database created by newTestDatabase.
+//
+// IT DERIVES FROM adminDSN RATHER THAN HARDCODING THE SAME CREDENTIALS AGAIN,
+// so that FLOW_STATS_ADMIN_DSN moves BOTH connections together. Hardcoding them
+// here made the override only half-work: the admin connection followed the
+// environment while the per-test connection stayed pinned to the literal, so
+// pointing the suite at a Postgres with different credentials failed on every
+// test while the admin step succeeded.
+//
+// That is not hypothetical. During the flow rename this literal and adminDSN's
+// were updated together to `flow:flow@.../flow`, which is what a fresh compose
+// stack creates -- but the operator's own container is not renamed until the
+// documented cutover step. With no working override, the whole suite reached an
+// unreachable Postgres and SKIPPED: `internal/store` reported `ok` while running
+// 4 tests and skipping 155. A green package that ran almost nothing is the exact
+// failure this repository's REPRODUCE, DON'T READ rule exists to catch.
 func testDSN(dbName string) string {
-	return fmt.Sprintf("postgres://myflow:myflow@localhost:5433/%s?sslmode=disable", dbName)
+	out, err := dsnutil.ForDatabase(adminDSN(), dbName)
+	if err != nil {
+		// Panic rather than return a best-effort string. This helper's
+		// predecessor answered confidently when it could not do the job and
+		// silently handed back a corrupted DSN; a test that then connects
+		// reports whatever that connection says, which is the wrong question
+		// answered convincingly.
+		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
+	}
+	return out
 }
 
 // newTestDatabase creates a uniquely-named, empty (unmigrated) database
@@ -40,14 +65,14 @@ func newTestDatabase(t *testing.T) string {
 
 	adminPool, err := pgxpool.New(ctx, adminDSN())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 
-	dbName := fmt.Sprintf("myflow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
+	dbName := fmt.Sprintf("flow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
 	ident := pgx.Identifier{dbName}.Sanitize()
 	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
 		adminPool.Close()

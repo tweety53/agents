@@ -64,7 +64,7 @@ func TestSeedPricingRatesRoundTrip(t *testing.T) {
 	}
 }
 
-// TestSeedPricingIsIdempotent proves step 3's "myflowd upserts them at
+// TestSeedPricingIsIdempotent proves step 3's "flowd upserts them at
 // startup ... whose ON CONFLICT already makes re-seeding a no-op" claim
 // directly: calling SeedPricing twice must not error (a naive INSERT
 // without ON CONFLICT would violate the (model, effective_from) primary

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ import (
 )
 
 // adminDSN is the DSN used to create and drop the throwaway database this
-// test seeds into. It points at the myflow-postgres compose stack on host
+// test seeds into. It points at the flow-postgres compose stack on host
 // port 5433 -- the same stack internal/store's own tests use, and the same
 // DSN config.DefaultDSN already names -- and can be overridden for
 // environments that run Postgres elsewhere.
@@ -27,14 +28,29 @@ func adminDSN() string {
 	return config.DefaultDSN
 }
 
+// It derives from adminDSN rather than repeating the credentials, so that
+// FLOW_STATS_ADMIN_DSN moves both connections together. Hardcoding them here
+// made the override only half-work -- the admin connection followed the
+// environment while the per-test one stayed pinned, so a Postgres with
+// different credentials failed every test while the admin step succeeded. See
+// internal/store/testsupport_test.go's testDSN for the measured case.
 func testDSN(dbName string) string {
-	return fmt.Sprintf("postgres://myflow:myflow@localhost:5433/%s?sslmode=disable", dbName)
+	out, err := dsnutil.ForDatabase(adminDSN(), dbName)
+	if err != nil {
+		// Panic rather than return a best-effort string. This helper's
+		// predecessor answered confidently when it could not do the job and
+		// silently handed back a corrupted DSN; a test that then connects
+		// reports whatever that connection says, which is the wrong question
+		// answered convincingly.
+		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
+	}
+	return out
 }
 
 // newUitestDatabase creates a uniquely-named database whose name ends in
 // "_uitest" -- so requireUitestDatabase admits it -- and registers a
 // cleanup that drops it once the test finishes. It never touches the live
-// "myflow" database or the shared "myflow_uitest" one: both are named
+// "flow" database or the shared "flow_uitest" one: both are named
 // explicitly here only as the admin connection used to create and drop
 // this test's own, disposable database. It skips cleanly, with a clear
 // message, when the compose stack is not reachable, exactly as
@@ -47,11 +63,11 @@ func newUitestDatabase(t *testing.T) string {
 
 	adminPool, err := pgxpool.New(ctx, adminDSN())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 
 	dbName := fmt.Sprintf("uitest_seed_test_%d_%d_uitest", os.Getpid(), time.Now().UnixNano())
@@ -86,7 +102,7 @@ func newUitestDatabase(t *testing.T) string {
 // requires: two projects, a change in every one of the three pipeline
 // states, and at least one stage run carrying token usage a cost view
 // could render. It runs against its own throwaway "..._uitest" database,
-// never the live "myflow" database or the shared "myflow_uitest" one.
+// never the live "flow" database or the shared "flow_uitest" one.
 func TestSeedPopulatesFixture(t *testing.T) {
 	dsn := newUitestDatabase(t)
 	if err := requireUitestDatabase(dsn); err != nil {

@@ -14,8 +14,8 @@ import (
 	"github.com/tweety53/agents/stats/internal/client"
 )
 
-const settingsUsage = `usage: myflow settings get [-addr url] [-timeout dur]
-       myflow settings set [-addr url] [-timeout dur] -model name -reviewers a,b,c
+const settingsUsage = `usage: flow settings get [-addr url] [-timeout dur]
+       flow settings set [-addr url] [-timeout dur] -model name -reviewers a,b,c
 
 settings get prints the harness-wide settings record (default model and
 reviewer slots) as one line of JSON.
@@ -39,7 +39,7 @@ func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	case "set":
 		return runSettingsSet(ctx, args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "myflow: unknown settings command %q\n", args[0])
+		fmt.Fprintf(stderr, "flow: unknown settings command %q\n", args[0])
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
@@ -55,16 +55,16 @@ type settingsConnFlags struct {
 }
 
 func registerSettingsConnFlags(fset *flag.FlagSet, f *settingsConnFlags) {
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout")
 }
 
-// runSettingsGet implements `myflow settings get`. Unlike `state get`,
+// runSettingsGet implements `flow settings get`. Unlike `state get`,
 // a store failure here is reported and exits non-zero rather than falling
 // back to a local file: there is no per-change on-disk fallback for a
 // harness-wide record, and this task adds none.
 func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow settings get", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow settings get", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f settingsConnFlags
 	registerSettingsConnFlags(fset, &f)
@@ -72,26 +72,26 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
 	noteAddrEnvUsage(fset, stderr)
 	if fset.NArg() != 0 {
-		fmt.Fprintln(stderr, "myflow: settings get takes no positional arguments")
+		fmt.Fprintln(stderr, "flow: settings get takes no positional arguments")
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
 
 	s, err := getSettings(ctx, f.addr, f.timeout)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: settings get: %v\n", err)
+		fmt.Fprintf(stderr, "flow: settings get: %v\n", err)
 		return 1
 	}
 	return writeSettingsOutput(stdout, stderr, s)
 }
 
-// runSettingsSet implements `myflow settings set`. A successful write
+// runSettingsSet implements `flow settings set`. A successful write
 // prints the record the store echoes back and exits 0. A rejection
 // (client.ErrSettingsRejected -- the API's 400, naming the bad value) is a
 // caller mistake: it is printed and this exits 1, never silently falling
@@ -100,7 +100,7 @@ func runSettingsGet(ctx context.Context, args []string, stdout, stderr io.Writer
 // non-zero: unlike `state set`, there is no fallback value to record for
 // settings that were never successfully validated.
 func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow settings set", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow settings set", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f settingsConnFlags
 	registerSettingsConnFlags(fset, &f)
@@ -110,18 +110,18 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
 	noteAddrEnvUsage(fset, stderr)
 	if fset.NArg() != 0 {
-		fmt.Fprintln(stderr, "myflow: settings set takes no positional arguments")
+		fmt.Fprintln(stderr, "flow: settings set takes no positional arguments")
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
 	if *model == "" || *reviewers == "" {
-		fmt.Fprintln(stderr, "myflow: -model and -reviewers are both required")
+		fmt.Fprintln(stderr, "flow: -model and -reviewers are both required")
 		fmt.Fprint(stderr, settingsUsage)
 		return 2
 	}
@@ -132,10 +132,10 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	case err == nil:
 		return writeSettingsOutput(stdout, stderr, s)
 	case errors.Is(err, client.ErrSettingsRejected):
-		fmt.Fprintf(stderr, "myflow: settings set refused: %v\n", err)
+		fmt.Fprintf(stderr, "flow: settings set refused: %v\n", err)
 		return 1
 	default:
-		fmt.Fprintf(stderr, "myflow: settings set: %v\n", err)
+		fmt.Fprintf(stderr, "flow: settings set: %v\n", err)
 		return 1
 	}
 }
@@ -145,7 +145,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 func writeSettingsOutput(stdout, stderr io.Writer, s client.Settings) int {
 	encoded, err := json.Marshal(s)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: settings: encode output: %v\n", err)
+		fmt.Fprintf(stderr, "flow: settings: encode output: %v\n", err)
 		return 1
 	}
 	_, _ = stdout.Write(encoded)

@@ -9,12 +9,12 @@ import (
 // database name does not *end in* "_uitest" is refused, with a reason,
 // before any statement would be issued. The live DSN in URL form is the
 // failure this task exists to close off; the same DSN in keyword form
-// ("host=... dbname=myflow") is included too, since pgxpool.ParseConfig
+// ("host=... dbname=flow") is included too, since pgxpool.ParseConfig
 // accepts both forms and the guard must refuse the target regardless of
-// which syntax named it. The "myflow_uitest_real" case is deliberately
+// which syntax named it. The "flow_uitest_real" case is deliberately
 // included even though the database name contains "uitest" -- the
 // requirement is a suffix match, not a substring match, so a database
-// named "..._real" is exactly as unprotected as "myflow" itself and must
+// named "..._real" is exactly as unprotected as "flow" itself and must
 // refuse too.
 func TestGuardRefusesNonUitestDSN(t *testing.T) {
 	cases := []struct {
@@ -23,15 +23,15 @@ func TestGuardRefusesNonUitestDSN(t *testing.T) {
 	}{
 		{
 			name: "the live DSN",
-			dsn:  "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable",
+			dsn:  "postgres://flow:flow@localhost:5433/flow?sslmode=disable",
 		},
 		{
 			name: "the live DSN in keyword form",
-			dsn:  "host=localhost port=5433 user=myflow password=myflow dbname=myflow sslmode=disable",
+			dsn:  "host=localhost port=5433 user=flow password=flow dbname=flow sslmode=disable",
 		},
 		{
 			name: "a DSN whose database name merely contains uitest in the middle",
-			dsn:  "postgres://myflow:myflow@localhost:5433/myflow_uitest_real?sslmode=disable",
+			dsn:  "postgres://flow:flow@localhost:5433/flow_uitest_real?sslmode=disable",
 		},
 	}
 
@@ -51,7 +51,7 @@ func TestGuardRefusesNonUitestDSN(t *testing.T) {
 // TestGuardAcceptsUitestDSN is the guard's other half: a DSN whose
 // database name ends in "_uitest" is admitted.
 func TestGuardAcceptsUitestDSN(t *testing.T) {
-	if err := requireUitestDatabase("postgres://myflow:myflow@localhost:5433/myflow_uitest?sslmode=disable"); err != nil {
+	if err := requireUitestDatabase("postgres://flow:flow@localhost:5433/flow_uitest?sslmode=disable"); err != nil {
 		t.Fatalf("requireUitestDatabase: expected acceptance, got %v", err)
 	}
 }

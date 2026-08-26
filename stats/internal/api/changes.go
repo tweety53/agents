@@ -205,7 +205,7 @@ func DecodeChangeBody(project, name string, body []byte) (store.Change, error) {
 // stage is: the entry's own content is what is wrong, and replaying it
 // again produces the identical refusal every time. store.ErrInvalidMergeBase
 // reaches this path only from a hand-edited or out-of-band-modified fallback
-// file -- `myflow state set` refuses a malformed merge base before it can be
+// file -- `flow state set` refuses a malformed merge base before it can be
 // journalled at all -- and that is exactly the entry that would otherwise
 // block every entry queued behind it forever. store.ErrDuplicateRepoRoot is
 // included for the same symmetry -- a payload naming one repo root twice

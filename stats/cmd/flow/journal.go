@@ -22,7 +22,7 @@ import (
 // (this file's own package doc comment in main.go): it is an explicit,
 // on-demand operator action rather than a pipeline write on the hot path,
 // so unlike `state get`/`state set` it talks to the store directly through
-// internal/store and internal/reconcile instead of going through myflowd's
+// internal/store and internal/reconcile instead of going through flowd's
 // HTTP API and falling back to disk on any failure.
 const defaultJournalDSN = "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 
@@ -35,10 +35,10 @@ const defaultJournalDSN = "postgres://flow:flow@localhost:5433/flow?sslmode=disa
 // against a database that is merely slow to accept a new connection.
 const defaultJournalConnectTimeout = 5 * time.Second
 
-const journalUsage = `usage: myflow journal flush [-root dir] [-dsn url] [-timeout dur]
+const journalUsage = `usage: flow journal flush [-root dir] [-dsn url] [-timeout dur]
 
 flush replays every pending journal entry found under root into the store,
-connecting to it directly (not through myflowd's HTTP API).
+connecting to it directly (not through flowd's HTTP API).
 `
 
 func runJournal(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -51,13 +51,13 @@ func runJournal(ctx context.Context, args []string, stdout, stderr io.Writer) in
 	case "flush":
 		return runJournalFlush(ctx, args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "myflow: unknown journal command %q\n", args[0])
+		fmt.Fprintf(stderr, "flow: unknown journal command %q\n", args[0])
 		fmt.Fprint(stderr, journalUsage)
 		return 2
 	}
 }
 
-// runJournalFlush implements `myflow journal flush`: it connects to the
+// runJournalFlush implements `flow journal flush`: it connects to the
 // store, replays every journal file under -root (default
 // fallback.StateRoot()), and reports the outcome on stdout. Unlike `state
 // get`/`state set`, this command does not have a fallback of its own to
@@ -65,7 +65,7 @@ func runJournal(ctx context.Context, args []string, stdout, stderr io.Writer) in
 // "reconcile now" request -- so a connection failure or a replay error is
 // reported and this exits non-zero.
 func runJournalFlush(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow journal flush", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow journal flush", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	root := fset.String("root", fallback.StateRoot(), "root of every project's state directory")
 	dsn := fset.String("dsn", defaultJournalDSN, "store connection string")
@@ -74,12 +74,12 @@ func runJournalFlush(ctx context.Context, args []string, stdout, stderr io.Write
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, journalUsage)
 		return 2
 	}
 	if fset.NArg() != 0 {
-		fmt.Fprint(stderr, "myflow: journal flush takes no positional arguments\n")
+		fmt.Fprint(stderr, "flow: journal flush takes no positional arguments\n")
 		fmt.Fprint(stderr, journalUsage)
 		return 2
 	}
@@ -88,7 +88,7 @@ func runJournalFlush(ctx context.Context, args []string, stdout, stderr io.Write
 	defer cancel()
 	st, err := store.Open(connectCtx, *dsn)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: journal flush: connect to store: %v\n", err)
+		fmt.Fprintf(stderr, "flow: journal flush: connect to store: %v\n", err)
 		return 1
 	}
 	defer st.Close()
@@ -96,7 +96,7 @@ func runJournalFlush(ctx context.Context, args []string, stdout, stderr io.Write
 	reconciler := reconcile.New(st, st, st, *root, slog.New(slog.NewTextHandler(stderr, nil)))
 	result, err := reconciler.Run(ctx)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: journal flush: %v\n", err)
+		fmt.Fprintf(stderr, "flow: journal flush: %v\n", err)
 		return 1
 	}
 

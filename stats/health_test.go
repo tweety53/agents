@@ -13,14 +13,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// dsn returns the connection string for the dedicated myflow-postgres
+// dsn returns the connection string for the dedicated flow-postgres
 // container defined in stats/docker-compose.yml. FLOW_STATS_DSN overrides
 // it for environments that run Postgres elsewhere.
 func dsn() string {
 	if v := os.Getenv("FLOW_STATS_DSN"); v != "" {
 		return v
 	}
-	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 }
 
 func TestModuleConnectsToComposeStack(t *testing.T) {
@@ -29,11 +29,11 @@ func TestModuleConnectsToComposeStack(t *testing.T) {
 
 	pool, err := pgxpool.New(ctx, dsn())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	defer pool.Close()
 
 	if err := pool.Ping(ctx); err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 }

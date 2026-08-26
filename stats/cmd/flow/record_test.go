@@ -488,7 +488,7 @@ func TestRecordRejectsSessionTokenSubstitution(t *testing.T) {
 
 // --- usage ---
 
-// TestRecordWithNoSubcommandPrintsUsage pins that `myflow record` alone is
+// TestRecordWithNoSubcommandPrintsUsage pins that `flow record` alone is
 // a usage error naming all four subcommands, so an operator who typed the
 // verb and stopped is told what it takes rather than nothing.
 func TestRecordWithNoSubcommandPrintsUsage(t *testing.T) {

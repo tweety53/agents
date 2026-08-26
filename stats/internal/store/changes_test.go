@@ -41,7 +41,7 @@ func baseChange(projectKey, name string) store.Change {
 		MainCheckoutPath:  "/Users/tweety53/Projects/" + projectKey,
 		Name:              name,
 		State:             store.StateStarted,
-		Branch:            ptr("kan-16-myflow-stats-app"),
+		Branch:            ptr("kan-16-flow-stats-app"),
 		Worktrees:         json.RawMessage(`{"do":"/tmp/wt-do"}`),
 		ArtifactURL:       ptr("https://claude.ai/artifacts/abc"),
 		JiraIssue:         ptr("KAN-16"),
@@ -50,7 +50,7 @@ func baseChange(projectKey, name string) store.Change {
 		ReviewPanelRoster: ptr("light"),
 		PRURL:             ptr("https://github.com/example/agents/pull/1"),
 		UpdatedAt:         time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC),
-		UpdatedBy:         "myflow-do",
+		UpdatedBy:         "flow-do",
 	}
 }
 
@@ -58,7 +58,7 @@ func TestPutChangeRoundTripsEveryField(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 
-	want := baseChange("agents", "kan-16-myflow-stats-app")
+	want := baseChange("agents", "kan-16-flow-stats-app")
 	if err := st.PutChange(ctx, want); err != nil {
 		t.Fatalf("PutChange: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestPutChangeRefusesIdenticalRetry(t *testing.T) {
 	c := baseChange("agents", "kan-16-identical-retry")
 	c.State = store.StateInProgress
 	c.UpdatedAt = time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
-	c.UpdatedBy = "myflow-do"
+	c.UpdatedBy = "flow-do"
 	if err := st.PutChange(ctx, c); err != nil {
 		t.Fatalf("PutChange(first): %v", err)
 	}
@@ -314,7 +314,7 @@ func TestPutChangeIsWholeObject(t *testing.T) {
 		State:      store.StateInProgress,
 		Worktrees:  json.RawMessage(`{}`),
 		UpdatedAt:  c.UpdatedAt.Add(time.Minute),
-		UpdatedBy:  "myflow-finish",
+		UpdatedBy:  "flow-finish",
 	}
 	if err := st.PutChange(ctx, overwrite); err != nil {
 		t.Fatalf("second PutChange: %v", err)
@@ -336,8 +336,8 @@ func TestPutChangeIsWholeObject(t *testing.T) {
 	if got.PRURL != nil {
 		t.Errorf("PRURL = %v after an omitting write, want nil", *got.PRURL)
 	}
-	if got.UpdatedBy != "myflow-finish" {
-		t.Errorf("UpdatedBy = %q, want %q", got.UpdatedBy, "myflow-finish")
+	if got.UpdatedBy != "flow-finish" {
+		t.Errorf("UpdatedBy = %q, want %q", got.UpdatedBy, "flow-finish")
 	}
 }
 

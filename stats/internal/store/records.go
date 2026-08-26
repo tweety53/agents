@@ -114,7 +114,7 @@ const maxDispatchSeqRetries = 100
 //
 // A dispatch recorded with an empty Key is inserted and never deduplicated:
 // the constraint spans nullable columns, and SQL treats two NULLs as
-// distinct. `myflow record dispatch begin` requires the flag, so that path
+// distinct. `flow record dispatch begin` requires the flag, so that path
 // is not reachable from this repository's own callers.
 func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	for range maxDispatchSeqRetries {

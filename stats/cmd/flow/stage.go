@@ -31,9 +31,9 @@ import (
 // end mark supplies, rather than from this recorded value, was unsound.
 const defaultHarness = "unknown"
 
-const stageUsage = `usage: myflow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
+const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
                           -command cmd -stage key -session-token token <change>
-       myflow stage end [-addr url] [-timeout dur] [-C dir]
+       flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
                         [-fix-rounds n] [-panel-rounds n] [-findings json] <change>
 
@@ -67,7 +67,7 @@ func runStage(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	case "end":
 		return runStageEnd(ctx, args[1:], stderr)
 	default:
-		fmt.Fprintf(stderr, "myflow: unknown stage command %q\n", args[0])
+		fmt.Fprintf(stderr, "flow: unknown stage command %q\n", args[0])
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
@@ -86,10 +86,10 @@ type stageIdentityFlags struct {
 }
 
 func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
-	fset.StringVar(&f.command, "command", "", "the myflow command this stage belongs to, e.g. /myflow-do")
+	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /myflow-do")
 	fset.StringVar(&f.stage, "stage", "", "the stage key, exactly as README.md's Level 1 table's Key column documents it -- never its prose name")
 }
 
@@ -242,10 +242,10 @@ func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer) 
 	if err == nil {
 		_ = fallback.AppendJournalEntry(stageJournalPath(projectKey, name), projectKey, name, body, time.Now())
 	}
-	fmt.Fprintln(stderr, "⚠ myflow: store unreachable — wrote local journal")
+	fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
 }
 
-// runStageBegin implements `myflow stage begin`. It validates the stage
+// runStageBegin implements `flow stage begin`. It validates the stage
 // key against internal/stages' documented table -- README.md's Level 1
 // table, transcribed there -- before ever contacting the store: an
 // undocumented stage key is a defect in the caller, not a store failure,
@@ -260,7 +260,7 @@ func journalStageMark(projectKey, name, kind string, req any, stderr io.Writer) 
 // function `state set`'s fallback already uses, not a second
 // implementation) and one warning line is printed.
 func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow stage begin", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow stage begin", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f)
@@ -271,13 +271,13 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
 	noteAddrEnvUsage(fset, stderr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
@@ -286,23 +286,23 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		// exit non-zero naming the flag, exactly as -command/-stage above
 		// already do -- the one class of nonzero exit the never-block
 		// rule permits (tasks.md, "Step 1: The column and the flags").
-		fmt.Fprintln(stderr, "myflow: -session-token is required")
+		fmt.Fprintln(stderr, "flow: -session-token is required")
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
 
 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
 
 	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
 
@@ -333,7 +333,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		// of the request (ErrStageMarkRejected, e.g. a missing required
 		// field). Report it and exit non-zero either way: this is the
 		// store answering correctly, not a reason to fall back.
-		fmt.Fprintf(stderr, "myflow: stage begin refused: %v\n", beginErr)
+		fmt.Fprintf(stderr, "flow: stage begin refused: %v\n", beginErr)
 		return 1
 	default:
 		journalStageMark(projectKey, f.name, "begin", req, stderr)
@@ -359,14 +359,14 @@ func beginStage(ctx context.Context, addr string, timeout time.Duration, req cli
 	return cl.BeginStage(reqCtx, req)
 }
 
-// runStageEnd implements `myflow stage end`. It resolves no stage run id
+// runStageEnd implements `flow stage end`. It resolves no stage run id
 // itself -- the daemon finds the currently open run for
 // (project, change, command, stage), exactly as design.md's own example
-// (`myflow stage end --change ... --outcome completed`) never names one
+// (`flow stage end --change ... --outcome completed`) never names one
 // either. Its never-block and fallback behaviour mirror runStageBegin's
 // exactly.
 func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow stage end", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow stage end", flag.ContinueOnError)
 	fset.SetOutput(stderr)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f)
@@ -378,37 +378,37 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
 	noteAddrEnvUsage(fset, stderr)
 	if err := finishStageIdentityFlags(fset, &f); err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
 	if *outcome == "" {
-		fmt.Fprintln(stderr, "myflow: -outcome is required")
+		fmt.Fprintln(stderr, "flow: -outcome is required")
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
 
 	if err := stages.Validate(stages.Command(f.command), f.stage); err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
 
 	metrics, err := buildEndMetrics(*fixRounds, *panelRounds, *findings)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stageUsage)
 		return 2
 	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
 
@@ -427,7 +427,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 	case endErr == nil:
 		return 0
 	case errors.Is(endErr, client.ErrUndocumentedStage), errors.Is(endErr, client.ErrStageMarkRejected):
-		fmt.Fprintf(stderr, "myflow: stage end refused: %v\n", endErr)
+		fmt.Fprintf(stderr, "flow: stage end refused: %v\n", endErr)
 		return 1
 	default:
 		// ErrUnavailable, ErrNotFound (no open run -- the store was
@@ -459,7 +459,7 @@ func runStageEnd(ctx context.Context, args []string, stderr io.Writer) int {
 // 10's post-commit review, finding F1): an end mark carrying its own,
 // separately-resolved harness could disagree with the one actually
 // recorded at begin, and design.md's own canonical
-// `myflow stage end --change ... --outcome completed` example never
+// `flow stage end --change ... --outcome completed` example never
 // passes -harness at all, so a claude-code run ended without it would
 // have been marked unavailable despite being genuinely measured.
 func buildEndMetrics(fixRounds, panelRounds int, findings string) (json.RawMessage, error) {

@@ -1174,7 +1174,7 @@ func TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres(t *te
 //
 // The distinction is the whole point of the test. insertDispatch defaults
 // an empty Metrics to the JSON object `{}` on the way in, so the shape a
-// dispatch actually has between `myflow record dispatch` and the harvester
+// dispatch actually has between `flow record dispatch` and the harvester
 // running -- and the PERMANENT shape of every dispatch on Cursor and
 // Codex, which write no transcript at all -- is two bytes, never
 // zero-length and never SQL NULL. A renderer that decided "nothing was

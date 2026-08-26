@@ -1,4 +1,4 @@
-// Command myflowd is the daemon that owns the myflow PostgreSQL pool and
+// Command flowd is the daemon that owns the flow PostgreSQL pool and
 // serves the state API. It binds loopback only -- a non-loopback
 // FLOWD_HOST is refused before any listener is opened -- and shuts down
 // gracefully: in-flight requests complete before the connection pool
@@ -81,7 +81,7 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
 	if err := run(logger); err != nil {
-		logger.Error("myflowd exiting", "error", err)
+		logger.Error("flowd exiting", "error", err)
 		os.Exit(1)
 	}
 }
@@ -105,7 +105,7 @@ func run(logger *slog.Logger) error {
 	}
 	defer func() {
 		if err := lock.Release(logger); err != nil {
-			logger.Error("myflowd could not remove its pidfile", "error", err)
+			logger.Error("flowd could not remove its pidfile", "error", err)
 		}
 	}()
 	// This covers the window between the listener opening and srv.Serve
@@ -222,13 +222,13 @@ func run(logger *slog.Logger) error {
 
 	serveErr := make(chan error, 1)
 	go func() {
-		logger.Info("myflowd listening", "addr", cfg.Addr())
+		logger.Info("flowd listening", "addr", cfg.Addr())
 		serveErr <- srv.Serve(ln)
 	}()
 
 	select {
 	case <-ctx.Done():
-		logger.Info("myflowd shutting down", "signal", ctx.Err())
+		logger.Info("flowd shutting down", "signal", ctx.Err())
 	case err := <-serveErr:
 		return err
 	}
@@ -288,7 +288,7 @@ func acquireStartup(cfg config.Config, logger *slog.Logger) (*pidfile.Lock, net.
 	if err != nil {
 		// Nothing to undo: Check wrote nothing, so a daemon that loses
 		// this bind leaves the winner's pidfile exactly as it found it.
-		return nil, nil, fmt.Errorf("myflowd: listen on %s: %w", cfg.Addr(), err)
+		return nil, nil, fmt.Errorf("flowd: listen on %s: %w", cfg.Addr(), err)
 	}
 
 	lock, err := pidfile.Write(path)
@@ -297,7 +297,7 @@ func acquireStartup(cfg config.Config, logger *slog.Logger) (*pidfile.Lock, net.
 		// about to exit, and a held port it never serves would refuse
 		// the next start for no reason.
 		if closeErr := ln.Close(); closeErr != nil {
-			logger.Error("myflowd could not close its listener after failing to write its pidfile", "error", closeErr)
+			logger.Error("flowd could not close its listener after failing to write its pidfile", "error", closeErr)
 		}
 		return nil, nil, err
 	}
@@ -390,16 +390,16 @@ var (
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure
 // is deliberately not fatal to the daemon -- reconcile.Reconciler.Run
 // already leaves anything it could not resolve safely in the journal for
-// the next trigger (startup, reconnect, or `myflow journal flush`) to pick
+// the next trigger (startup, reconnect, or `flow journal flush`) to pick
 // up, so logging and continuing is correct here, not a swallowed error.
 func logReconcileResult(logger *slog.Logger, trigger string, result reconcile.Result, err error) {
 	if err != nil {
-		logger.Error("myflowd journal replay failed", "trigger", trigger, "error", err,
+		logger.Error("flowd journal replay failed", "trigger", trigger, "error", err,
 			"journals", result.Journals, "applied", result.Applied, "refused", result.Refused)
 		return
 	}
 	if result.Applied > 0 || result.Refused > 0 {
-		logger.Info("myflowd journal replay", "trigger", trigger,
+		logger.Info("flowd journal replay", "trigger", trigger,
 			"journals", result.Journals, "applied", result.Applied, "refused", result.Refused)
 	}
 }

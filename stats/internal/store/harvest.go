@@ -56,7 +56,7 @@ func (s *Store) GetHarvestOffset(ctx context.Context, transcriptPath string) (in
 // UPDATE (or, when expectedFound is false, the INSERT) only succeeds if
 // the row is still in the state the caller read it in. This closes a
 // race nothing else in this method's shape prevents: GetHarvestOffset
-// reads outside any transaction, so two callers -- two myflowd processes,
+// reads outside any transaction, so two callers -- two flowd processes,
 // one stale, is the concrete case this guards against, the same shape
 // task 6's cross-process retire race already had to be closed rather
 // than assumed away -- can both read the same offset, compute

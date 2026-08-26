@@ -343,7 +343,7 @@ func TestConsecutiveRunsOverUnchangedFileAddNothing(t *testing.T) {
 // against a local harvest-offsets.json file, now proved against the
 // store instead -- the offset a fresh Watcher reads via
 // HarvestSink.GetHarvestOffset comes from wherever a *previous* Watcher
-// (a previous myflowd process, in production) left it, not from
+// (a previous flowd process, in production) left it, not from
 // anything this process remembers. A brand-new Watcher, built fresh
 // (never having called RunOnce before) but pointed at a sink that
 // already has this file's true end offset committed, must add nothing.
@@ -352,7 +352,7 @@ func TestFreshWatcherOverAlreadyHarvestedTranscriptAddsNothing(t *testing.T) {
 	copyFixtureInto(t, dir, "session.jsonl", mainThreadFixture)
 	windows := func() *fakeWindowSource { return &fakeWindowSource{bySession: openWindowForMainSession(1)} }
 
-	// A first Watcher plays the role of "the previous myflowd process":
+	// A first Watcher plays the role of "the previous flowd process":
 	// it harvests the file completely and then is discarded -- nothing
 	// about it survives into the second Watcher below except what it
 	// committed to the (shared) sink.
@@ -369,7 +369,7 @@ func TestFreshWatcherOverAlreadyHarvestedTranscriptAddsNothing(t *testing.T) {
 	// A brand-new Watcher value -- not the same Go struct, and carrying
 	// no in-memory state of its own (this package no longer has any: no
 	// OffsetState, no local file) -- built against the same sink, the way
-	// a restarted myflowd would reconnect to the same Postgres database.
+	// a restarted flowd would reconnect to the same Postgres database.
 	freshWatcher := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows()), nil)
 	touched, err := freshWatcher.RunOnce(context.Background())
 	if err != nil {
@@ -1366,7 +1366,7 @@ func TestCrossedSessionTokensBindEachRunToItsOwnSession(t *testing.T) {
 	sessionBetaPath := filepath.Join(dir, "a-session-beta.jsonl")
 
 	writeMark := func(path, sessionID, sessionToken string) {
-		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -stage do.tests -session-token %s -harness claude-code"}}]}}`+"\n", sessionID, sessionToken)
+		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -stage do.tests -session-token %s -harness claude-code"}}]}}`+"\n", sessionID, sessionToken)
 		if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
@@ -1577,7 +1577,7 @@ func TestSessionTokenResolvesOnALaterCycleWithinTheBound(t *testing.T) {
 	}
 
 	path := filepath.Join(dir, "late.jsonl")
-	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-late","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-later-cycle"}}]}}` + "\n"
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-late","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-later-cycle"}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
@@ -1605,7 +1605,7 @@ func TestSessionTokenMatchedByTwoSessionsRecordsNoSessionAndStopsRetrying(t *tes
 	binder := &countingSessionTokenBinder{sessionToken: "mf-ambiguous", stageRunID: 7}
 
 	writeMark := func(name, sessionID string) {
-		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-ambiguous"}}]}}`+"\n", sessionID)
+		line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-ambiguous"}}]}}`+"\n", sessionID)
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
 			t.Fatalf("write %s: %v", name, err)
 		}
@@ -1670,7 +1670,7 @@ func TestSessionTokenStopsBeingScannedAfterBoundedGiveUp(t *testing.T) {
 	// The sessionToken's transcript line finally appears -- too late. It must
 	// not be looked for any more.
 	path := filepath.Join(dir, "toolate.jsonl")
-	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-toolate","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-never-appears"}}]}}` + "\n"
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-toolate","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-never-appears"}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
@@ -1700,7 +1700,7 @@ func TestAlreadyBoundRunIsNeverReconsidered(t *testing.T) {
 	binder.bound = map[int64]string{5: "session-original"}
 
 	path := filepath.Join(dir, "session.jsonl")
-	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-imposter","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-already-bound"}}]}}` + "\n"
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-imposter","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-already-bound"}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
@@ -1746,7 +1746,7 @@ func TestBindMarkAndFirstUsageInSameBatchAreBothAttributed(t *testing.T) {
 	}}
 
 	path := filepath.Join(dir, "session.jsonl")
-	content := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-same-batch","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-same-batch"}}]}}` + "\n" +
+	content := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-same-batch","message":{"model":"claude-opus-5","usage":{"input_tokens":5,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-same-batch"}}]}}` + "\n" +
 		`{"type":"assistant","timestamp":"2025-12-01T00:00:02Z","sessionId":"session-same-batch","message":{"model":"claude-opus-5","usage":{"input_tokens":333,"output_tokens":1}}}` + "\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
@@ -1810,7 +1810,7 @@ func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
 	}}
 
 	path := filepath.Join(dir, "session.jsonl")
-	content := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-shared","message":{"model":"claude-opus-5","usage":{"input_tokens":77,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-shared"}}]}}` + "\n"
+	content := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-shared","message":{"model":"claude-opus-5","usage":{"input_tokens":77,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-shared"}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
@@ -1929,7 +1929,7 @@ func TestMentionAfterOwnMarkIsConsumedDoesNotMisattribute(t *testing.T) {
 	// pending map), so the offset commits past it exactly as it did on
 	// the live daemon before its SessionTokenBinder was wired in.
 	sessionAPath := filepath.Join(dir, "session-a.jsonl")
-	markLine := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-a","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -stage do.tests -session-token ` + token + ` -harness claude-code"}}]}}` + "\n"
+	markLine := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-a","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -stage do.tests -session-token ` + token + ` -harness claude-code"}}]}}` + "\n"
 	if err := os.WriteFile(sessionAPath, []byte(markLine), 0o644); err != nil {
 		t.Fatalf("write %s: %v", sessionAPath, err)
 	}
@@ -1997,7 +1997,7 @@ func runMarkCommand(t *testing.T, token string, stageRunID int64, sessionID, com
 // TestMarkRecognizedWhereverItSitsInTheCommand is KAN-174's regression
 // corpus: real marks are emitted inside shell blocks carrying variable
 // assignments, directory changes and other statements before the
-// `myflow stage begin`/`stage end` invocation itself, per design.md
+// `flow stage begin`/`stage end` invocation itself, per design.md
 // ("recognise a mark by its invocation, not by its position") and the
 // spec's "A mark inside a larger shell block" scenario. Every shape here
 // was measured against the merged (pre-fix) matcher and found rejected --
@@ -2010,47 +2010,47 @@ func TestMarkRecognizedWhereverItSitsInTheCommand(t *testing.T) {
 	}{
 		{
 			name:    "bare invocation",
-			command: "myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+			command: "flow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
 		},
 		{
 			name:    "behind cd &&",
-			command: "cd /repo && myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+			command: "cd /repo && flow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
 		},
 		{
 			name:    "after variable assignments on the same line",
-			command: "N=kan; T=mf-x; myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+			command: "N=kan; T=mf-x; flow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
 		},
 		{
 			name:    "after variable assignments and a cd, same line",
-			command: "N=kan; T=mf-x; cd /repo && myflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+			command: "N=kan; T=mf-x; cd /repo && flow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
 		},
 		{
 			name:    "on a later line after variable assignments and a bare cd",
-			command: "N=kan; T=mf-x; cd /repo\nmyflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+			command: "N=kan; T=mf-x; cd /repo\nflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
 		},
 		{
 			name:    "on a later line of a multi-statement block, one statement per line",
-			command: "WT=/repo\ncd \"$WT\"\nmyflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
+			command: "WT=/repo\ncd \"$WT\"\nflow stage begin -stage do.tests -session-token TOKEN -harness claude-code",
 		},
 		{
 			name:    "flags reordered, -harness before -session-token",
-			command: "cd /repo && myflow stage begin -harness claude-code -stage do.tests -session-token TOKEN change-name",
+			command: "cd /repo && flow stage begin -harness claude-code -stage do.tests -session-token TOKEN change-name",
 		},
 		{
 			name:    "token quoted",
-			command: `myflow stage begin -stage do.tests -session-token 'TOKEN' -harness claude-code`,
+			command: `flow stage begin -stage do.tests -session-token 'TOKEN' -harness claude-code`,
 		},
 		{
 			name:    "-session-token=value form",
-			command: "myflow stage begin -stage do.tests -session-token=TOKEN -harness claude-code",
+			command: "flow stage begin -stage do.tests -session-token=TOKEN -harness claude-code",
 		},
 		{
 			name:    "-session-token=value form, quoted",
-			command: `myflow stage begin -stage do.tests -session-token="TOKEN" -harness claude-code`,
+			command: `flow stage begin -stage do.tests -session-token="TOKEN" -harness claude-code`,
 		},
 		{
 			name:    "line-continuation form (backslash-newline), as skills/myflow-do/SKILL.md emits",
-			command: "myflow stage begin -command '/myflow-do' \\\n  -stage do.workspace-export \\\n  -harness claude-code \\\n  -session-token TOKEN \\\n  change-name",
+			command: "flow stage begin -command '/myflow-do' \\\n  -stage do.workspace-export \\\n  -harness claude-code \\\n  -session-token TOKEN \\\n  change-name",
 		},
 	}
 
@@ -2087,7 +2087,7 @@ func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
 		},
 		{
 			name:    "psql query naming the token",
-			command: `psql -U myflow -d myflow -tAc "SELECT id FROM stage_runs WHERE session_token='TOKEN'"`,
+			command: `psql -U flow -d flow -tAc "SELECT id FROM stage_runs WHERE session_token='TOKEN'"`,
 		},
 		{
 			name:    "piped cat",
@@ -2116,14 +2116,14 @@ func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
 // echoed-example false positive, and say so" decision, locked in as a
 // test rather than left as prose: dropping the position anchor
 // (isSessionMarkCommand's own doc comment) means a command that only
-// PRINTS a mark-shaped string -- echo "myflow stage begin ...
+// PRINTS a mark-shaped string -- echo "flow stage begin ...
 // -session-token <token> ..." -- now satisfies both remaining
 // requirements (contains "stage begin"/"stage end"; binds the token as
 // -session-token's value) and binds, exactly like a genuine invocation.
 //
 // This is deliberate, not a regression of F5: the alternative is a
 // position anchor, and every anchor tried (KAN-172's `cd ... &&`-only
-// anchor, chosen alternative "anchor myflow at a command position") either
+// anchor, chosen alternative "anchor flow at a command position") either
 // re-rejects a real multi-line mark or is defeated by the same newline the
 // real shapes already contain. The asymmetry is the argument (design.md):
 // a false negative here is silent and total -- no stage run ever binds,
@@ -2134,7 +2134,7 @@ func TestCommandsThatOnlyMentionTokenNeverBind(t *testing.T) {
 func TestEchoedMarkExampleIsAnAcceptedResidual(t *testing.T) {
 	token := "mf-k174-echoed-example"
 	binder := runMarkCommand(t, token, 404, "session-echoer",
-		`echo "myflow stage begin -stage do.tests -session-token `+token+` -harness claude-code"`)
+		`echo "flow stage begin -stage do.tests -session-token `+token+` -harness claude-code"`)
 	if binder.bindCalls != 1 {
 		t.Fatalf("bindCalls = %d, want 1: an echoed mark-shaped example is an accepted residual false positive (design.md), not rejected", binder.bindCalls)
 	}
@@ -2225,7 +2225,7 @@ func TestGiveUpIsPersisted(t *testing.T) {
 		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 502}
 
 		writeMark := func(name, sessionID string) {
-			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
+			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
 			if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
 				t.Fatalf("write %s: %v", name, err)
 			}
@@ -2307,7 +2307,7 @@ func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
 		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 802}
 
 		writeMark := func(name, sessionID string) {
-			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
+			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
 			if err := os.WriteFile(filepath.Join(dir, name), []byte(line), 0o644); err != nil {
 				t.Fatalf("write %s: %v", name, err)
 			}
@@ -2417,7 +2417,7 @@ func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
 		// assertions below meaningful: a wrongly-attributing scan would
 		// have somewhere to attribute these 1000+500 tokens to, not merely
 		// nowhere to put them.
-		line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-consumed","message":{"model":"claude-opus-5","usage":{"input_tokens":1000,"output_tokens":500},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token ` + token + `"}}]}}` + "\n"
+		line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-consumed","message":{"model":"claude-opus-5","usage":{"input_tokens":1000,"output_tokens":500},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token ` + token + `"}}]}}` + "\n"
 		if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
@@ -2482,7 +2482,7 @@ func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
 		binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
 
 		writeConsumed := func(name, sessionID string) string {
-			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
+			line := fmt.Sprintf(`{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":%q,"message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token `+token+`"}}]}}`+"\n", sessionID)
 			p := filepath.Join(dir, name)
 			if err := os.WriteFile(p, []byte(line), 0o644); err != nil {
 				t.Fatalf("write %s: %v", name, err)
@@ -2568,7 +2568,7 @@ func TestPersistedGiveUpIsRetriedOnStart(t *testing.T) {
 	binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session-never-bound", Retries: 1}}
 
 	path := filepath.Join(dir, "recovered.jsonl")
-	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-recovered","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token ` + token + `"}}]}}` + "\n"
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-recovered","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token ` + token + `"}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}

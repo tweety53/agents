@@ -185,7 +185,7 @@ func TestSweepIsIdempotent(t *testing.T) {
 
 // TestConcurrentSweepersDoNotDoubleCloseOrCollide covers the concurrency
 // half of "the sweeper must not fight the harvester": two Sweeper
-// instances (modelling two myflowd processes, or one racing itself)
+// instances (modelling two flowd processes, or one racing itself)
 // sweeping the same set of silent stage runs at once must, in total,
 // close each row exactly once -- never report the same row closed twice,
 // and never error.

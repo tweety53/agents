@@ -136,7 +136,7 @@ assert_recipe_matches "build target still compiles every package" \
 
 # ===========================================================================
 # 4. ui-test-up does not write the pidfile itself. myflowd writes
-#    $TMPDIR/myflowd-<port>.pid on every start (internal/pidfile), so a
+#    $TMPDIR/flowd-<port>.pid on every start (internal/pidfile), so a
 #    `& echo $! > $(UITEST_PIDFILE)` here would be a SECOND writer of one
 #    file for one process -- and the two can disagree. `echo $!` records the
 #    pid of the shell's background job, which for this recipe is the daemon
@@ -158,7 +158,7 @@ assert_makefile_lacks "ui-test-up does not write its own pidfile" \
 # 5. UITEST_PIDFILE names the file myflowd actually writes, and stays
 #    `override`. Both halves of one property, which is why they are one case:
 #
-#    - `override UITEST_PIDFILE := /tmp/myflowd-$(UITEST_PORT).pid` --
+#    - `override UITEST_PIDFILE := /tmp/flowd-$(UITEST_PORT).pid` --
 #      port-derived, so the live stack (4173) and the UI-test stack (4174)
 #      never contend for one file, and `override` so no command-line or
 #      environment assignment can aim ui-test-down's `kill` and `rm -f` at a
@@ -170,7 +170,7 @@ assert_makefile_lacks "ui-test-up does not write its own pidfile" \
 #    - `TMPDIR=/tmp` on the daemon's launch. pidfile.Path joins
 #      os.TempDir(), NOT a hardcoded /tmp, and on macOS os.TempDir() is the
 #      per-user $TMPDIR (/var/folders/.../T/) -- so without this pin the
-#      daemon would write /var/folders/.../T/myflowd-4174.pid while this
+#      daemon would write /var/folders/.../T/flowd-4174.pid while this
 #      Makefile looked in /tmp, and every `[ -f $(UITEST_PIDFILE) ]` guard
 #      below would silently take the "no previous daemon" branch. Pinning
 #      the daemon's TMPDIR is what keeps the literal path above honest, and
@@ -179,7 +179,7 @@ assert_makefile_lacks "ui-test-up does not write its own pidfile" \
 #      that `override` exists to deny them.
 # ===========================================================================
 assert_makefile_matches_all "UITEST_PIDFILE is override and derived from UITEST_PORT" \
-  '^override[[:space:]]+UITEST_PIDFILE[[:space:]]*:=[[:space:]]*/tmp/myflowd-\$\(UITEST_PORT\)\.pid[[:space:]]*$' \
+  '^override[[:space:]]+UITEST_PIDFILE[[:space:]]*:=[[:space:]]*/tmp/flowd-\$\(UITEST_PORT\)\.pid[[:space:]]*$' \
   '(^|[[:space:]])TMPDIR=/tmp([[:space:]]|$)'
 
 # ===========================================================================

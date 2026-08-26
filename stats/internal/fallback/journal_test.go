@@ -44,7 +44,7 @@ func initRepo(t *testing.T, dir string) {
 
 // contractPath is skills/myflow-contracts/state-file.md's location relative
 // to this package -- stats/internal/fallback is three directories below the
-// repository root (fallback -> internal -> stats -> root), and the myflow
+// repository root (fallback -> internal -> stats -> root), and the flow
 // skills live at the root alongside the stats Go module, not inside it.
 const contractPath = "../../../skills/myflow-contracts/state-file.md"
 
@@ -294,7 +294,7 @@ func TestAppendJournalEntryAppendsInCallOrder(t *testing.T) {
 
 // TestAppendJournalEntryIsSafeUnderConcurrentWriters reproduces the
 // scenario F2 found: parallel worktrees is a real shape of this pipeline,
-// so concurrent `myflow state set` invocations appending to the same
+// so concurrent `flow state set` invocations appending to the same
 // project's journal at the same time is expected, not hypothetical. Every
 // one of goroutineCount concurrent appends must land as its own complete
 // entry -- O_APPEND's atomicity is what this function relies on for safety

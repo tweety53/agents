@@ -685,7 +685,7 @@ func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
 // beginThenEnd runs a full begin/end round trip against srv: a begin mark
 // carrying harness, followed by an end mark carrying no harness at all --
 // the wire shape design.md's own canonical example
-// (`myflow stage end --change ... --outcome completed`) uses, and the only
+// (`flow stage end --change ... --outcome completed`) uses, and the only
 // shape `stage end` has sent since task 10's post-commit review (finding
 // F1; cmd/flow/stage.go no longer has a -harness flag on `stage end`).
 func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {

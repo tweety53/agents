@@ -66,7 +66,7 @@ func DefaultTranscriptsRoot() (string, error) {
 // CommitHarvestBatch's expectedOffset/expectedFound parameters exist for
 // a second reason, found in the same review's follow-up (F7): reading
 // the offset and committing the batch are still two separate calls, so
-// nothing prevents two Watchers -- two myflowd processes, one stale
+// nothing prevents two Watchers -- two flowd processes, one stale
 // alongside a freshly started one -- from both reading the same offset,
 // computing overlapping deltas, and both attempting to commit. Passing
 // back exactly what GetHarvestOffset returned lets the store guard the
@@ -1128,7 +1128,7 @@ func (w *Watcher) matchSessionTokens(pending map[int64]string, commands []Comman
 
 // stageMarkInvocationPattern matches the `stage begin` / `stage end`
 // subcommand shape as two adjacent words -- design.md's and stage.go's
-// own usage string (`myflow stage begin ...` / `myflow stage end ...`),
+// own usage string (`flow stage begin ...` / `flow stage end ...`),
 // with whatever whitespace (including a newline, inside a multi-line
 // shell block) separates them. It deliberately imposes no flag ordering
 // of its own: stage.go's own flag registration imposes none on -harness,

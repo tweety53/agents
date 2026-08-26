@@ -23,7 +23,7 @@ import (
 // journal is exactly the sequence concurrent CLI invocations issued their
 // writes in. That is deliberately not recorded as a separate field:
 // parallel worktrees against the same project are a real, expected shape
-// of this pipeline (not a hypothetical), so concurrent `myflow state set`
+// of this pipeline (not a hypothetical), so concurrent `flow state set`
 // processes appending to one journal is the normal case, and any field
 // computed from "entries already in the file" (a prior version of this
 // type carried a Sequence assigned as len(existing)+1) is a read-then-act

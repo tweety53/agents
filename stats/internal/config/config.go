@@ -1,4 +1,4 @@
-// Package config resolves myflowd's daemon configuration -- the address it
+// Package config resolves flowd's daemon configuration -- the address it
 // binds and the database it connects to -- from the environment, and
 // enforces the one non-negotiable rule about that address: it must be
 // loopback-only. Binding any other interface is a configuration error the
@@ -17,7 +17,7 @@ import (
 // Defaults, applied when the corresponding environment variable is unset.
 // DefaultDSN points at the dedicated flow-postgres compose stack's
 // declaration (stats/docker-compose.yml), on host port 5433. It no longer
-// matches the "myflow" DSN stats/health_test.go and internal/store's test
+// matches the "flow" DSN stats/health_test.go and internal/store's test
 // helpers still hardcode: the running container has not been renamed yet
 // (an operator step, KAN-289's task 19), so those tests keep targeting the
 // role and database that container actually has, while this default states
@@ -28,7 +28,7 @@ const (
 	DefaultDSN  = "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 )
 
-// Config is myflowd's resolved configuration.
+// Config is flowd's resolved configuration.
 type Config struct {
 	Host string
 	Port int

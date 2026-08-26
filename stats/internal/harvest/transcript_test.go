@@ -260,7 +260,7 @@ func TestReadNewRecordsOffsetBeyondEOFIsReported(t *testing.T) {
 // writing this fixture, not assumed). ParseCommandRecords must recover
 // that literal string, alongside the session it was recorded under.
 func TestParseCommandRecordsFindsBashToolUse(t *testing.T) {
-	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"running the mark"},{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code","description":"begin stage"}}]}}` + "\n")
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"text","text":"running the mark"},{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code","description":"begin stage"}}]}}` + "\n")
 
 	got := harvest.ParseCommandRecords(line)
 	if len(got) != 1 {
@@ -269,7 +269,7 @@ func TestParseCommandRecordsFindsBashToolUse(t *testing.T) {
 	if got[0].SessionID != "session-x" {
 		t.Errorf("SessionID = %q, want %q", got[0].SessionID, "session-x")
 	}
-	want := "myflow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code"
+	want := "flow stage begin -stage do.tests -session-token mf-abc123 -harness claude-code"
 	if got[0].Command != want {
 		t.Errorf("Command = %q, want %q", got[0].Command, want)
 	}
@@ -297,10 +297,10 @@ func TestParseCommandRecordsSkipsNonBashToolsAndTextBlocks(t *testing.T) {
 // parser should depend on to find a session token) must still yield its
 // command.
 func TestParseCommandRecordsIgnoresMissingUsage(t *testing.T) {
-	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-xyz"}}]}}` + "\n")
+	line := []byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-xyz"}}]}}` + "\n")
 
 	got := harvest.ParseCommandRecords(line)
-	if len(got) != 1 || got[0].Command != "myflow stage begin -session-token mf-xyz" {
+	if len(got) != 1 || got[0].Command != "flow stage begin -session-token mf-xyz" {
 		t.Fatalf("got %+v, want one command record for mf-xyz", got)
 	}
 }
@@ -444,7 +444,7 @@ func TestReadDispatchMetaMalformed(t *testing.T) {
 func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
-	content := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"myflow stage begin -session-token mf-abc123"}}]}}` + "\n"
+	content := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","sessionId":"session-x","message":{"model":"claude-opus-5","usage":{"input_tokens":1,"output_tokens":1},"content":[{"type":"tool_use","name":"Bash","input":{"command":"flow stage begin -session-token mf-abc123"}}]}}` + "\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
@@ -456,7 +456,7 @@ func TestReadNewRecordsAlsoReturnsCommands(t *testing.T) {
 	if len(records) != 1 {
 		t.Fatalf("got %d token records, want 1", len(records))
 	}
-	if len(commands) != 1 || commands[0].Command != "myflow stage begin -session-token mf-abc123" {
+	if len(commands) != 1 || commands[0].Command != "flow stage begin -session-token mf-abc123" {
 		t.Fatalf("got %+v, want one command record for mf-abc123", commands)
 	}
 	if int(newOffset) != len(content) {

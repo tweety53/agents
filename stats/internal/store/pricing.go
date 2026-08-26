@@ -269,7 +269,7 @@ type dispatchBucket struct {
 // result, not a failed one.
 //
 // Price also prices every entry under the metrics bag's "dispatches" key
-// (KAN-201, myflow-stats-views spec.md's "Per-dispatch cost SHALL be
+// (KAN-201, flow-stats-views spec.md's "Per-dispatch cost SHALL be
 // derived through the same pricing path every other cost figure uses"),
 // writing "dispatches.<agentId>.cost_usd" through the identical rate
 // resolution and chargeableTokens.cost arithmetic used for "models.

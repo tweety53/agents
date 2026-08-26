@@ -44,7 +44,7 @@ import (
 // (change, session token, key), and SQL's NULLs-distinct rule means an
 // unlabelled row conflicts with nothing, including another unlabelled
 // row. Such a row can be inserted but never deduplicated and never closed
-// by DispatchEnd, which is why `myflow record dispatch begin` requires
+// by DispatchEnd, which is why `flow record dispatch begin` requires
 // the flag.
 //
 // AgentID is the harness's own identifier for the subagent this dispatch
@@ -173,7 +173,7 @@ type Run struct {
 // why -- one count per raw reason a producer stamped
 // (internal/harvest/watcher.go's resolveSessionTokens and
 // internal/store's MarkDispatchesUnattributed /
-// MarkDispatchesUnattributedByID). It exists so `myflow record cost-status`
+// MarkDispatchesUnattributedByID). It exists so `flow record cost-status`
 // can state a change's cost honestly, at a handoff, without deriving the
 // figure by hand -- see that command's own doc comment.
 //

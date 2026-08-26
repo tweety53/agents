@@ -18,7 +18,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/stages"
 )
 
-// defaultAddr is myflowd's default bind address (internal/config.DefaultHost
+// defaultAddr is flowd's default bind address (internal/config.DefaultHost
 // and DefaultPort), named again here rather than imported: cmd/flow does
 // not otherwise depend on internal/config, and importing it for one string
 // would pull the daemon's own configuration surface into the CLI for no
@@ -53,7 +53,7 @@ func resolveDefaultAddr() string {
 //
 // This exists because FLOW_ADDR is meant to be exported once per shell
 // session (see README.md's "The UI-test stack"), and an export outlives
-// the command that motivated it -- every `myflow state`/`myflow stage`
+// the command that motivated it -- every `flow state`/`flow stage`
 // run afterwards in that shell silently inherits it, with no other signal,
 // since a successful write exits 0 the same way whether it reached the
 // live daemon or a test one. Call this after fset.Parse succeeds, once
@@ -70,14 +70,14 @@ func noteAddrEnvUsage(fset *flag.FlagSet, stderr io.Writer) {
 		return
 	}
 	if v := os.Getenv("FLOW_ADDR"); v != "" {
-		fmt.Fprintf(stderr, "myflow: using FLOW_ADDR=%s\n", v)
+		fmt.Fprintf(stderr, "flow: using FLOW_ADDR=%s\n", v)
 	}
 }
 
 // defaultTimeout bounds how long `state get`/`state set` waits for the
 // store before taking the fallback path. It is short on purpose: every
 // second spent waiting on a store that turns out to be down is a second
-// added to every `/myflow-*` command's runtime, and the whole point of the
+// added to every `/flow` command's runtime, and the whole point of the
 // fallback is that the pipeline must not feel an outage.
 const defaultTimeout = 2 * time.Second
 
@@ -87,9 +87,9 @@ const defaultTimeout = 2 * time.Second
 // locally instead of buffering an unbounded stream first.
 const maxStdinBytes = 1 << 20
 
-const stateUsage = `usage: myflow state get  [-addr url] [-timeout dur] [-C dir] <name>
-       myflow state set  [-addr url] [-timeout dur] [-C dir] <name>
-       myflow state list [-addr url] [-timeout dur] [-C dir]
+const stateUsage = `usage: flow state get  [-addr url] [-timeout dur] [-C dir] <name>
+       flow state set  [-addr url] [-timeout dur] [-C dir] <name>
+       flow state list [-addr url] [-timeout dur] [-C dir]
 
 state set reads the change's whole state as JSON from stdin.
 state list enumerates every change the store holds for the resolved
@@ -115,7 +115,7 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 	case "list":
 		return runStateList(ctx, args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "myflow: unknown state command %q\n", args[0])
+		fmt.Fprintf(stderr, "flow: unknown state command %q\n", args[0])
 		fmt.Fprint(stderr, stateUsage)
 		return 2
 	}
@@ -136,7 +136,7 @@ type stateFlags struct {
 func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateFlags{}
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	if err := fset.Parse(args); err != nil {
@@ -193,7 +193,7 @@ func markSyntheticIfNeeded(body []byte) []byte {
 	return out
 }
 
-// runStateGet implements `myflow state get <name>`. It prints the store's
+// runStateGet implements `flow state get <name>`. It prints the store's
 // record to stdout on success. On any store failure -- unreachable daemon,
 // timeout, malformed response, any non-2xx status other than a legitimate
 // 404 -- it reads the on-disk fallback record instead, says so on stderr in
@@ -201,20 +201,20 @@ func markSyntheticIfNeeded(body []byte) []byte {
 // pipeline any more than a `state set` may (design.md, "The pipeline never
 // blocks on this subsystem", is not scoped to writes).
 func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow state get", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow state get", flag.ContinueOnError)
 	f, err := parseStateFlags(fset, args, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stateUsage)
 		return 2
 	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
 
@@ -224,7 +224,7 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		_, _ = stdout.Write(markSyntheticIfNeeded(body))
 		return 0
 	case errors.Is(getErr, client.ErrNotFound):
-		fmt.Fprintf(stderr, "myflow: no state recorded for %s/%s\n", projectKey, f.name)
+		fmt.Fprintf(stderr, "flow: no state recorded for %s/%s\n", projectKey, f.name)
 		return 1
 	default:
 		// Every other outcome -- ErrUnavailable, or a panic recovered
@@ -233,7 +233,7 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		// exists (silently nothing if it does not: there is nothing more
 		// honest to print, and a missing fallback file is not a second
 		// error on top of the one just reported).
-		fmt.Fprintln(stderr, "⚠ myflow: store unreachable — read local fallback")
+		fmt.Fprintln(stderr, "⚠ flow: store unreachable — read local fallback")
 		statePath := fallback.StateFilePath(projectKey, f.name)
 		if diskBody, readErr := fallback.ReadStateFile(statePath); readErr == nil {
 			_, _ = stdout.Write(markSyntheticIfNeeded(diskBody))
@@ -242,35 +242,35 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 	}
 }
 
-// runStateSet implements `myflow state set <name>`, reading the whole
+// runStateSet implements `flow state set <name>`, reading the whole
 // record as JSON from stdin. A successful write to the store exits 0
 // silently. A monotonic refusal (the store was reached and correctly said
 // no) is reported and exits non-zero. Every other failure mode takes the
 // fallback: write the on-disk state file, append the journal entry, print
 // exactly one warning line, exit 0.
 func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow state set", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow state set", flag.ContinueOnError)
 	f, err := parseStateFlags(fset, args, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stateUsage)
 		return 2
 	}
 
 	body, err := io.ReadAll(io.LimitReader(stdin, maxStdinBytes+1))
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: read state from stdin: %v\n", err)
+		fmt.Fprintf(stderr, "flow: read state from stdin: %v\n", err)
 		return 1
 	}
 	if len(body) > maxStdinBytes {
-		fmt.Fprintf(stderr, "myflow: state on stdin exceeds %d bytes\n", maxStdinBytes)
+		fmt.Fprintf(stderr, "flow: state on stdin exceeds %d bytes\n", maxStdinBytes)
 		return 2
 	}
 	if !isJSONObject(body) {
-		fmt.Fprintln(stderr, "myflow: state on stdin must be a JSON object")
+		fmt.Fprintln(stderr, "flow: state on stdin must be a JSON object")
 		return 2
 	}
 
@@ -279,7 +279,7 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 	// variable further down, so one clock read reaches all three.
 	body, err = stampUpdatedAt(body)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: stamp updatedAt: %v\n", err)
+		fmt.Fprintf(stderr, "flow: stamp updatedAt: %v\n", err)
 		return 1
 	}
 
@@ -287,13 +287,13 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 	// fallback destination exists to be written to -- see
 	// validateWorktreeMergeBases for why the refusal must write nothing.
 	if err := validateWorktreeMergeBases(body); err != nil {
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		return 2
 	}
 
 	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
 
@@ -302,7 +302,7 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 	case putErr == nil:
 		return 0
 	case errors.Is(putErr, client.ErrRefused):
-		fmt.Fprintf(stderr, "myflow: state set refused: %v\n", putErr)
+		fmt.Fprintf(stderr, "flow: state set refused: %v\n", putErr)
 		return 1
 	default:
 		// ErrUnavailable, or a panic recovered inside putChange: the store
@@ -313,7 +313,7 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 		journalPath := fallback.JournalFilePath(projectKey, f.name)
 		_ = fallback.WriteStateFile(statePath, body)
 		_ = fallback.AppendJournalEntry(journalPath, projectKey, f.name, body, time.Now())
-		fmt.Fprintln(stderr, "⚠ myflow: store unreachable — wrote local journal")
+		fmt.Fprintln(stderr, "⚠ flow: store unreachable — wrote local journal")
 		return 0
 	}
 }
@@ -332,7 +332,7 @@ type stateListFlags struct {
 func parseStateListFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, error) {
 	fset.SetOutput(stderr)
 	f := stateListFlags{}
-	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "myflowd base URL")
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
 	if err := fset.Parse(args); err != nil {
@@ -368,7 +368,7 @@ type stateListRecord struct {
 }
 
 // stateListOutput is the one JSON object `state list` prints to stdout.
-// Source and Complete are what let a caller (skills/myflow-status/SKILL.md,
+// Source and Complete are what let a caller (skills/flow-status/SKILL.md,
 // skills/myflow-contracts/pipeline.md's Change name resolution) tell a
 // live enumeration apart from a degraded one without parsing stderr:
 // Complete is true only for Source == "store" -- the fallback directory
@@ -381,7 +381,7 @@ type stateListOutput struct {
 	Records  []stateListRecord `json:"records"`
 }
 
-// runStateList implements `myflow state list`. On success it prints every
+// runStateList implements `flow state list`. On success it prints every
 // change the store holds for the resolved project, source "store",
 // complete true. On any store failure -- unreachable daemon, timeout, a
 // non-2xx response, a response missing the daemon header -- it prints one
@@ -390,20 +390,20 @@ type stateListOutput struct {
 // must never block the pipeline any more than a single record's read or
 // write may.
 func runStateList(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("myflow state list", flag.ContinueOnError)
+	fset := flag.NewFlagSet("flow state list", flag.ContinueOnError)
 	f, err := parseStateListFlags(fset, args, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprintf(stderr, "myflow: %v\n", err)
+		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, stateUsage)
 		return 2
 	}
 
 	projectKey, _, err := fallback.ProjectKey(f.dir)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: resolve project key: %v\n", err)
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
 
@@ -420,10 +420,10 @@ func runStateList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	// panic recovered inside listStateBoard -- takes the fallback: the
 	// local directory, reported as exactly what it is, never dressed up as
 	// a complete list.
-	fmt.Fprintln(stderr, "⚠ myflow: store unreachable — listing local fallback files (partial: only failed writes are recorded there)")
+	fmt.Fprintln(stderr, "⚠ flow: store unreachable — listing local fallback files (partial: only failed writes are recorded there)")
 	records, fbErr := fallbackStateListRecords(projectKey)
 	if fbErr != nil {
-		fmt.Fprintf(stderr, "myflow: state list: read local fallback directory: %v\n", fbErr)
+		fmt.Fprintf(stderr, "flow: state list: read local fallback directory: %v\n", fbErr)
 	}
 	return writeStateListOutput(stdout, stderr, stateListOutput{
 		Source:   "fallback",
@@ -439,7 +439,7 @@ func runStateList(ctx context.Context, args []string, stdout, stderr io.Writer) 
 func writeStateListOutput(stdout, stderr io.Writer, out stateListOutput) int {
 	encoded, err := json.Marshal(out)
 	if err != nil {
-		fmt.Fprintf(stderr, "myflow: state list: encode output: %v\n", err)
+		fmt.Fprintf(stderr, "flow: state list: encode output: %v\n", err)
 		return 1
 	}
 	_, _ = stdout.Write(encoded)
@@ -464,7 +464,7 @@ func toStateListRecords(rows []client.StateBoardRow) []stateListRecord {
 // JSON object with the expected fields is still reported -- name and
 // Unreadable: true -- never silently dropped from the list, per this
 // command's own never-rebuild-by-inference rule (the same one `state get`
-// and skills/myflow-status/SKILL.md already follow for a single record).
+// and skills/flow-status/SKILL.md already follow for a single record).
 func fallbackStateListRecords(projectKey string) ([]stateListRecord, error) {
 	names, err := fallback.ListStateFileNames(projectKey)
 	if err != nil {

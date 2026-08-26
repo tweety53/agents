@@ -1,7 +1,7 @@
 // Package reconcile replays the CLI's write-ahead journal
 // (internal/fallback) into the store (internal/store): at daemon startup,
 // whenever the daemon regains a database connection, and on demand via
-// `myflow journal flush`. It consumes task 5's journal format and task 2's
+// `flow journal flush`. It consumes task 5's journal format and task 2's
 // change repository directly -- it does not go through internal/api's HTTP
 // surface -- but decodes a journal entry's Body with the exact same
 // api.DecodeChangeBody the PUT handler uses, so a body the live API would
@@ -618,7 +618,7 @@ type recordStatusRequest struct {
 // errRecordEntryDecodeFailed wraps any failure to make sense of a record
 // journal entry's body -- an envelope that does not decode, a request that
 // does not decode as the shape its Kind names, or a Kind naming none of the
-// three writes `myflow record` performs. It is the record journal's
+// three writes `flow record` performs. It is the record journal's
 // counterpart to errChangeEntryDecodeFailed, and it is definitive for the
 // identical reason: a body that fails to decode now will fail identically
 // on every future replay, so retiring it is what stops one bad entry from
@@ -801,7 +801,7 @@ func isDefinitiveRecordOutcome(err error) bool {
 //
 // This lock also protects something Reconciler.Run's in-process mutex
 // cannot: two separate *processes* retiring the same journal at once (two
-// myflowd instances, or a daemon racing a concurrent `myflow journal
+// flowd instances, or a daemon racing a concurrent `flow journal
 // flush`). The in-process mutex stays in place too -- it is cheaper for
 // the common, single-process case, and does not conflict with also
 // holding this lock.
