@@ -1,7 +1,7 @@
 # myflow pipeline
 
 The three-state pipeline itself: state definitions, the command→state transition table and the
-handoff shape. See **Finish contract** (`skills/myflow-contracts/finish-contract.md`).
+handoff shape. See **Finish contract** (`skills/flow-contracts/finish-contract.md`).
 
 **Load this file when running `/flow`.** It is split out of
 `rules/myflow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
@@ -10,7 +10,7 @@ whole state machine — the same reason the other contract files beside it were 
 This file is **canonical** for everything in it. Where a skill or command disagrees with it, this
 file wins.
 
-The reasoning behind this file lives in `skills/myflow-contracts/pipeline-rationale.md`;
+The reasoning behind this file lives in `skills/flow-contracts/pipeline-rationale.md`;
 **a `/flow` run never loads it.**
 
 **Five sections that reach fewer than every command live beside this file, not in it** — a
@@ -142,13 +142,13 @@ completion state would be one that guard cannot see.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
 count comes from the harness's task list alone, which no run persists. See **Progress visibility**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
+(`skills/flow-contracts/pipeline-rationale.md`) for why a marker would be unsafe.
 
 **Stated against the mechanism, never against one harness's tool.** Where a harness offers no
 task-list mechanism, the command prints the equivalent block instead — a count line naming how many
 steps are done, in progress and open, followed by one line per step marked done or not done — and no
 harness has to gain a task tool to satisfy the rule. See **Progress visibility**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why the rule is stated against the mechanism.
+(`skills/flow-contracts/pipeline-rationale.md`) for why the rule is stated against the mechanism.
 
 ## Stage marks
 
@@ -173,12 +173,12 @@ same run; do not invent a fresh one per mark. `-harness` names the harness actua
 — `claude-code`, `cursor` or `codex`.
 
 **The token is per run, generated fresh, never reused across runs.** See **Stage marks**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why. A run
+(`skills/flow-contracts/pipeline-rationale.md`) for why. A run
 that starts identifies itself with its own new token; a run that already has one (mid-run, at a
 later mark) reuses it.
 
 **The `<change>` argument is always a resolved change name, never a guess.** See **Stage marks**
-(`skills/myflow-contracts/pipeline-rationale.md`) for what marking writes when it is not.
+(`skills/flow-contracts/pipeline-rationale.md`) for what marking writes when it is not.
 `<agents repo>/scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
 written as a placeholder naming a guess.
 
@@ -201,7 +201,7 @@ myflow stage begin -command '/flow' -stage flow.verify -harness <harness> -sessi
 
 **The session token MUST be a literal, written directly into the command — never a shell
 substitution.** `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
-backtick or a `$VAR` reference. See **Stage marks** (`skills/myflow-contracts/pipeline-rationale.md`)
+backtick or a `$VAR` reference. See **Stage marks** (`skills/flow-contracts/pipeline-rationale.md`)
 for why. A reader who does not know this will
 "improve" the literal into a substitution the first chance they get, which is exactly the regression
 this paragraph, `<agents repo>/stats/cmd/myflow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
@@ -212,7 +212,7 @@ at every mark".
 
 **A mark never blocks, delays, or alters the stage it marks.** On any store failure the CLI
 journals the intent, prints one warning line, and exits 0 — the same never-block guarantee **State
-file** (`skills/myflow-contracts/state-file.md`) already states for `state set`. Do not branch on
+file** (`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
 `myflow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
 still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
 the mark exactly the block it is required not to be. The only nonzero exit is a caller mistake — an
@@ -241,7 +241,7 @@ Next:
 ```
 
 - **The next command is the last line** — bare, copy-pasteable, with no prose after it. See
-  **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why.
+  **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that
   **completed** archive is terminal and names nothing — a run that stopped on a cleanup leftover
@@ -255,9 +255,9 @@ Next:
 - **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
   integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
   is deliberately not on it — a capability spec is implementation, per **Git boundaries**
-  (`skills/myflow-contracts/git-boundaries.md`). The integrate phase
+  (`skills/flow-contracts/git-boundaries.md`). The integrate phase
   stages them and commits them separately from the implementation, so nothing is lost. See
-  **Handoff output** (`skills/myflow-contracts/pipeline-rationale.md`) for why leaving them unstaged
+  **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:
 
   ```bash
@@ -268,7 +268,7 @@ Next:
 ### The block each state renders
 
 The block a state hands off is defined in **The block each state renders**
-(`skills/myflow-contracts/handoff-blocks.md`). `/flow-status` loads it; `/flow`
+(`skills/flow-contracts/handoff-blocks.md`). `/flow-status` loads it; `/flow`
 carries only the block it prints.
 
 ### The tab commands, printed at the start of a run
@@ -284,12 +284,12 @@ line and before any work, two commands for the operator to paste:
 **They sit at the start of the run, not in the handoff block, and the colour is one fixed value —
 `cyan` — for every command and change, signifying only that a pipeline command owns the tab.**
 `/flow-status` prints neither line: a read-only report does not own the tab. See **The tab
-commands, printed at the start of a run** (`skills/myflow-contracts/pipeline-rationale.md`) for why
+commands, printed at the start of a run** (`skills/flow-contracts/pipeline-rationale.md`) for why
 cyan was chosen and why the lines are printed at the start rather than the end.
 
 **They are printed rather than invoked because neither is reachable from inside a run.** See **The
 tab commands, printed at the start of a run**
-(`skills/myflow-contracts/pipeline-rationale.md`) for the measurement behind it.
+(`skills/flow-contracts/pipeline-rationale.md`) for the measurement behind it.
 
 - **Where a harness offers a reachable way to set the tab's name and colour from inside a run**, the
   command may use it, and then prints nothing — the lines exist to be pasted, and there is nothing
@@ -330,7 +330,7 @@ This narrows the "code, commits, docs and specs stay full" carve-out the be-brie
 on a per-change artifact rewards dropping the facts the paragraph above requires kept. Brevity
 here is a judgment the review panel and the operator make, never a number a script checks.
 
-See **Artifact brevity** (`skills/myflow-contracts/pipeline-rationale.md`) for why this is stated
+See **Artifact brevity** (`skills/flow-contracts/pipeline-rationale.md`) for why this is stated
 here rather than in each artifact-writing skill.
 
 ## IntelliJ commands
@@ -342,7 +342,7 @@ open -na "IntelliJ IDEA" --args "<absolute path>"
 ```
 
 Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH. See
-**IntelliJ commands** (`skills/myflow-contracts/pipeline-rationale.md`) for what `open` buys.
+**IntelliJ commands** (`skills/flow-contracts/pipeline-rationale.md`) for what `open` buys.
 
 | State | Path to open |
 |-------|--------------|
@@ -358,9 +358,9 @@ Skills and contracts name a guard by **basename**, never by a path relative to a
 root — such a path resolves only when the project being worked on *is* the agents repository,
 which is the one case that is never the interesting one.
 
-`skills/myflow-contracts/` is never a running command and carries no
-`skills/myflow-contracts/scripts/` directory. See **Guard resolution**
-(`skills/myflow-contracts/pipeline-rationale.md`) for what resolving against the running command's
+`skills/flow-contracts/` is never a running command and carries no
+`skills/flow-contracts/scripts/` directory. See **Guard resolution**
+(`skills/flow-contracts/pipeline-rationale.md`) for what resolving against the running command's
 own skill directory buys.
 
 **Prose describing this repository's own guard is not an invocation.** A guard invoked by name
@@ -370,7 +370,7 @@ rather than through `<skill-dir>/scripts/` — names the guard as
 `<agents repo>/scripts/<name>` instead of a bare repository-relative path: a bare path there
 resolves, for a reader standing in an installed project, against that project's own tree, so the
 sentence would name a file the reader may be able to write. See **Guard resolution**
-(`skills/myflow-contracts/pipeline-rationale.md`) for why carrying the prefix matters.
+(`skills/flow-contracts/pipeline-rationale.md`) for why carrying the prefix matters.
 
 ## Guard presence check
 
@@ -396,7 +396,7 @@ not what happens next. The block is printed once, at the start of the run; a lat
 one of the guards it already named performs the check by hand without printing the block again.
 
 **The check covers a named guard's own sibling dependencies too, not only the guard itself.** See
-**Guard presence check** (`skills/myflow-contracts/pipeline-rationale.md`) for the mechanism and
+**Guard presence check** (`skills/flow-contracts/pipeline-rationale.md`) for the mechanism and
 examples. Derive a
 guard's siblings from its own source — grep it for `$SCRIPT_DIR/<name>` — rather than trusting a
 hardcoded map, exactly as `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already does; a hardcoded list
@@ -407,28 +407,28 @@ Each command names, in its own text, the guards *it* can invoke — exactly the 
 
 ## Finish contract
 
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`) governs the preflight signals,
+**Finish contract** (`skills/flow-contracts/finish-contract.md`) governs the preflight signals,
 both runs' procedures, base-branch resolution and worktree cleanup, and `/flow`'s integrate/archive
 phase is the only phase that loads it.
 
 ## State file
 
 The contract governing where a change's state file lives, its full JSON shape, monotonic state
-writes, and carry-forward rules. **State file** (`skills/myflow-contracts/state-file.md`) — load it
+writes, and carry-forward rules. **State file** (`skills/flow-contracts/state-file.md`) — load it
 before reading or writing a state file.
 
 ## Project configuration
 
 The contract governing `<project>/.flow/project.md` — its optional keys, how a `## standards` entry
 resolves to a file, and the containment rules that keep resolution safe.
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`) — load it before
+**Project configuration** (`skills/flow-contracts/project-configuration.md`) — load it before
 resolving project configuration.
 
 ## Jira integration
 
 The contract governing how a change is linked to a Jira issue, transitioned through the pipeline,
 and has its description synced — including that Jira is never a gate and never blocks a state
-write. **Jira integration** (`skills/myflow-contracts/jira-integration.md`) — load it before any
+write. **Jira integration** (`skills/flow-contracts/jira-integration.md`) — load it before any
 Jira-related step.
 
 ## Change name resolution (all `/myflow-*` commands)
@@ -436,7 +436,7 @@ Jira-related step.
 `<name>` is **optional** on `/flow` and `/flow-status`. When omitted, the candidate set is built
 from the store when the daemon answers, and from the filesystem only when it does not — and the
 command building it says which of the two produced the set, per **State file**
-(`skills/myflow-contracts/state-file.md`).
+(`skills/flow-contracts/state-file.md`).
 
 **The store is reached first, through the CLI — `myflow state list [-C dir]`, never a hand-written
 HTTP call.** `state list` enumerates the store on the caller's behalf (`GET
@@ -444,7 +444,7 @@ HTTP call.** `state list` enumerates the store on the caller's behalf (`GET
 recorded, since the store starts empty per **State file**) and prints one JSON object:
 `"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`), and
 `"records"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`). See
-**Change name resolution (all `/myflow-*` commands)** (`skills/myflow-contracts/pipeline-rationale.md`)
+**Change name resolution (all `/myflow-*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
 for why this goes through the CLI rather than a skill calling `curl` directly.
 
 **When `"source":"store"`**, the candidate set is every record's `name`, dropping one whose `state`
@@ -466,7 +466,7 @@ sources:
 From that union, drop any name whose `<project>/spectre/changes/<name>/` directory has already reached
 `<project>/spectre/changes/archive/`. The state directory is per-project rather than per-worktree, so a
 fallback record is reachable from the main checkout regardless of which worktree wrote it. See
-**Change name resolution (all `/myflow-*` commands)** (`skills/myflow-contracts/pipeline-rationale.md`)
+**Change name resolution (all `/myflow-*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
 for why the filesystem source is needed at all now that the store is the normal path.
 
 **A record `state list` marks `"unreadable":true` is reported and skipped from the union — never
@@ -491,4 +491,4 @@ cites this section rather than repeating or re-deriving the union — so its lis
 changes can never drift from what this section defines.
 
 A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
-**Change naming** in `skills/myflow-contracts/jira-integration.md`.
+**Change naming** in `skills/flow-contracts/jira-integration.md`.

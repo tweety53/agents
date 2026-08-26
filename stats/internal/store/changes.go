@@ -304,7 +304,7 @@ func (s *Store) ListChanges(ctx context.Context, projectKey string) ([]Change, e
 // (valid both as a Go regexp and as a PostgreSQL regexp_replace pattern),
 // that matches the trailing "-" plus exactly eight lowercase hexadecimal
 // characters a project key carries to disambiguate two same-named
-// checkouts (State file, skills/myflow-contracts/state-file.md).
+// checkouts (State file, skills/flow-contracts/state-file.md).
 //
 // This package's own SQL (below) and internal/api/stats.go's
 // looksLikeProjectKey both build their pattern from this one constant

@@ -102,7 +102,7 @@ trap 'rm -rf "$FIX"' EXIT
 # full set here keeps every exit code below attributable to the behaviour under
 # test.
 mkroot() {
-  mkdir -p "$1/skills/myflow-contracts" "$1/rules" "$1/spectre/specs" \
+  mkdir -p "$1/skills/flow-contracts" "$1/rules" "$1/spectre/specs" \
     "$1/commands" "$1/commands-claude" "$1/.flow"
 }
 
@@ -191,22 +191,22 @@ fi
 
 # A file well under its declared budget.
 mkroot "$FIX/within"
-printf 'x\n' > "$FIX/within/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/within/skills/flow-contracts/build-green.md"
 expect 'a file well under budget passes' 0 "$FIX/within"
 
 # The same file pushed past its declared budget, read straight from the
 # guard's own table so this fixture is over budget by construction rather
 # than by a number that must stay above a row that can rise (see F15).
 mkroot "$FIX/over"
-build_green_budget="$(budget_row_bytes 'skills/myflow-contracts/build-green.md')"
+build_green_budget="$(budget_row_bytes 'skills/flow-contracts/build-green.md')"
 head -c "$((build_green_budget + 500))" /dev/zero | tr '\0' 'x' \
-  > "$FIX/over/skills/myflow-contracts/build-green.md"
+  > "$FIX/over/skills/flow-contracts/build-green.md"
 expect 'a file over budget fails' 1 "$FIX/over"
 
 # A contract added later with no row in budgets(). This is the case that stops a
 # new file escaping the ratchet silently.
 mkroot "$FIX/undeclared"
-printf 'x\n' > "$FIX/undeclared/skills/myflow-contracts/brand-new-contract.md"
+printf 'x\n' > "$FIX/undeclared/skills/flow-contracts/brand-new-contract.md"
 expect 'a file with no budget row fails' 1 "$FIX/undeclared"
 
 # A complete set of scope roots holding no Markdown at all. Reporting a clean
@@ -236,8 +236,8 @@ expect 'a missing scope root cannot be answered' 2 "$FIX/nodir"
 # the wrong reason.
 mkroot "$FIX/symlinked-root"
 printf 'x\n' > "$FIX/symlinked-root/.flow/project.md"
-mkdir -p "$FIX/symlinked-root/real-skills/myflow-contracts"
-printf 'x\n' > "$FIX/symlinked-root/real-skills/myflow-contracts/build-green.md"
+mkdir -p "$FIX/symlinked-root/real-skills/flow-contracts"
+printf 'x\n' > "$FIX/symlinked-root/real-skills/flow-contracts/build-green.md"
 rm -rf "$FIX/symlinked-root/skills"
 ln -s "$FIX/symlinked-root/real-skills" "$FIX/symlinked-root/skills"
 expect 'a symlinked scope root cannot be answered' 2 "$FIX/symlinked-root"
@@ -253,7 +253,7 @@ expect 'a symlinked scope root cannot be answered' 2 "$FIX/symlinked-root"
 # over that file rather than exiting 2 through the empty-corpus refusal for the
 # wrong reason.
 mkroot "$FIX/nested-link-md"
-printf 'x\n' > "$FIX/nested-link-md/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/nested-link-md/skills/flow-contracts/build-green.md"
 mkdir -p "$FIX/nested-link-md/outside/hidden"
 head -c 300000 /dev/zero | tr '\0' 'x' \
   > "$FIX/nested-link-md/outside/hidden/huge.md"
@@ -270,7 +270,7 @@ expect 'a nested symlinked directory holding Markdown cannot be answered' 2 \
 # count distinguishes a guard that skipped the link from one that followed it
 # and found nothing to add.
 mkroot "$FIX/nested-link-nomd"
-printf 'x\n' > "$FIX/nested-link-nomd/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/nested-link-nomd/skills/flow-contracts/build-green.md"
 mkdir -p "$FIX/nested-link-nomd/outside/lib"
 printf 'echo hi\n' > "$FIX/nested-link-nomd/outside/lib/helper.sh"
 ln -s "$FIX/nested-link-nomd/outside/lib" \
@@ -294,14 +294,14 @@ expect 'a nonexistent root cannot be answered' 2 "$FIX/absent"
 # status of 1, which this contract reserves for "over budget or undeclared", and
 # send a caller off to edit budgets() when the guard could not read the file.
 mkroot "$FIX/unreadable"
-printf 'x\n' > "$FIX/unreadable/skills/myflow-contracts/build-green.md"
-chmod 000 "$FIX/unreadable/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/unreadable/skills/flow-contracts/build-green.md"
+chmod 000 "$FIX/unreadable/skills/flow-contracts/build-green.md"
 if [ "$(id -u)" = "0" ]; then
   printf 'skip an unreadable file cannot be answered (running as root reads it anyway)\n'
 else
   expect 'an unreadable file cannot be answered' 2 "$FIX/unreadable"
 fi
-chmod 644 "$FIX/unreadable/skills/myflow-contracts/build-green.md"
+chmod 644 "$FIX/unreadable/skills/flow-contracts/build-green.md"
 
 # A dangling .md symlink beside real files. The corpus library enumerates with
 # `find -type f`, so the link is not owned content and is never followed — but
@@ -309,8 +309,8 @@ chmod 644 "$FIX/unreadable/skills/myflow-contracts/build-green.md"
 # would drop out of the corpus with the run still green. The guard names it and
 # counts it as a violation.
 mkroot "$FIX/dangling"
-printf 'x\n' > "$FIX/dangling/skills/myflow-contracts/build-green.md"
-ln -s /nonexistent/target "$FIX/dangling/skills/myflow-contracts/aaa-ghost.md"
+printf 'x\n' > "$FIX/dangling/skills/flow-contracts/build-green.md"
+ln -s /nonexistent/target "$FIX/dangling/skills/flow-contracts/aaa-ghost.md"
 expect 'a dangling .md symlink is a per-file violation' 1 "$FIX/dangling"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/dangling" "$GUARD" 2>&1 || true)"
 if printf '%s' "$out" | grep -q 'is a symlink'; then
@@ -324,9 +324,9 @@ fi
 # otherwise the guard is an existence-and-size oracle for arbitrary paths, and a
 # target whose name matches a budget row has its byte count printed.
 mkroot "$FIX/escape"
-printf 'x\n' > "$FIX/escape/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/escape/skills/flow-contracts/build-green.md"
 head -c 9000 /dev/zero | tr '\0' 'x' > "$FIX/escape/outside-the-tree.txt"
-ln -s "$FIX/escape/outside-the-tree.txt" "$FIX/escape/skills/myflow-contracts/SKILL.md"
+ln -s "$FIX/escape/outside-the-tree.txt" "$FIX/escape/skills/flow-contracts/SKILL.md"
 expect 'a symlink escaping the tree is a violation' 1 "$FIX/escape"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/escape" "$GUARD" 2>&1 || true)"
 if printf '%s' "$out" | grep -q '9000'; then
@@ -339,7 +339,7 @@ fi
 # A filename containing a newline must stay a per-file violation rather than
 # aborting the whole run — the awk -v failure mode the security slot found.
 mkroot "$FIX/newline"
-printf 'x\n' > "$FIX/newline/skills/myflow-contracts/$(printf 'we\nird').md"
+printf 'x\n' > "$FIX/newline/skills/flow-contracts/$(printf 'we\nird').md"
 expect 'a filename containing a newline is a per-file violation' 1 "$FIX/newline"
 
 # An override that is set but empty must be refused rather than silently falling
@@ -375,7 +375,7 @@ fi
 # only has a SKILL.md, no rationale sibling, which keeps this fixture simple.
 mkroot "$FIX/skill-over"
 mkdir -p "$FIX/skill-over/skills/myflow-status"
-printf 'x\n' > "$FIX/skill-over/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/skill-over/skills/flow-contracts/build-green.md"
 myflow_status_budget="$(budget_row_bytes 'skills/myflow-status/SKILL.md')"
 head -c "$((myflow_status_budget + 1000))" /dev/zero | tr '\0' 'x' \
   > "$FIX/skill-over/skills/myflow-status/SKILL.md"
@@ -384,7 +384,7 @@ expect 'a skills/<x>/SKILL.md over budget fails' 1 "$FIX/skill-over"
 # A skills/<x>/SKILL.md under a skill name that has no row in budgets() at all.
 mkroot "$FIX/skill-undeclared"
 mkdir -p "$FIX/skill-undeclared/skills/mystery-skill"
-printf 'x\n' > "$FIX/skill-undeclared/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/skill-undeclared/skills/flow-contracts/build-green.md"
 printf 'x\n' > "$FIX/skill-undeclared/skills/mystery-skill/SKILL.md"
 expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared"
 
@@ -401,7 +401,7 @@ expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared
 # checked against its own row and both pass.
 mkroot "$FIX/skill-distinct"
 mkdir -p "$FIX/skill-distinct/skills/myflow-research" "$FIX/skill-distinct/skills/myflow-do"
-printf 'x\n' > "$FIX/skill-distinct/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/skill-distinct/skills/flow-contracts/build-green.md"
 printf 'x\n' > "$FIX/skill-distinct/skills/myflow-research/SKILL.md"
 myflow_research_budget="$(budget_row_bytes 'skills/myflow-research/SKILL.md')"
 myflow_do_budget="$(budget_row_bytes 'skills/myflow-do/SKILL.md')"
@@ -430,7 +430,7 @@ expect 'two skills with different budgets are each checked against their own row
 # case stopped catching an over-budget file at all).
 mkroot "$FIX/rationale"
 mkdir -p "$FIX/rationale/skills/myflow-do"
-printf 'x\n' > "$FIX/rationale/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/rationale/skills/flow-contracts/build-green.md"
 myflow_do_rationale_budget="$(budget_row_bytes 'skills/myflow-do/SKILL-rationale.md')"
 head -c "$((myflow_do_rationale_budget + 1000))" /dev/zero | tr '\0' 'x' \
   > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
@@ -439,7 +439,7 @@ expect 'a SKILL-rationale.md over budget fails' 1 "$FIX/rationale"
 # A SKILL-rationale.md with no budget row — the undeclared case for the same tree.
 mkroot "$FIX/rationale-new"
 mkdir -p "$FIX/rationale-new/skills/brand-new"
-printf 'x\n' > "$FIX/rationale-new/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/rationale-new/skills/flow-contracts/build-green.md"
 printf 'x\n' > "$FIX/rationale-new/skills/brand-new/SKILL-rationale.md"
 expect 'a SKILL-rationale.md with no budget row fails' 1 "$FIX/rationale-new"
 
@@ -447,8 +447,8 @@ expect 'a SKILL-rationale.md with no budget row fails' 1 "$FIX/rationale-new"
 # enumerating one tree twice, leaves every exit code above green while the
 # verdict's count silently inflates, so this case asserts the COUNT.
 mkroot "$FIX/nodouble"
-printf 'x\n' > "$FIX/nodouble/skills/myflow-contracts/build-green.md"
-printf 'x\n' > "$FIX/nodouble/skills/myflow-contracts/SKILL.md"
+printf 'x\n' > "$FIX/nodouble/skills/flow-contracts/build-green.md"
+printf 'x\n' > "$FIX/nodouble/skills/flow-contracts/SKILL.md"
 expect 'a contracts-dir SKILL.md passes' 0 "$FIX/nodouble"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/nodouble" "$GUARD")"
 if printf '%s' "$out" | grep -q '^BUDGET-OK: 2 owned Markdown file(s) within budget$'; then
@@ -478,7 +478,7 @@ fi
 # with the count inflated — only the count tells the two apart.
 mkroot "$FIX/frozen-tree"
 mkdir -p "$FIX/frozen-tree/openspec/specs/myflow-build-green"
-printf 'x\n' > "$FIX/frozen-tree/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/frozen-tree/skills/flow-contracts/build-green.md"
 head -c 300000 /dev/zero | tr '\0' 'x' \
   > "$FIX/frozen-tree/openspec/specs/myflow-build-green/spec.md"
 expect 'a file under the frozen openspec/specs/ tree is not covered' 0 "$FIX/frozen-tree"
@@ -502,7 +502,7 @@ fi
 # turns this case's exit 1 into exit 0, and restoring it turns it back.
 mkroot "$FIX/live-spec-tree"
 mkdir -p "$FIX/live-spec-tree/spectre/specs"
-printf 'x\n' > "$FIX/live-spec-tree/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/live-spec-tree/skills/flow-contracts/build-green.md"
 printf 'x\n' > "$FIX/live-spec-tree/spectre/specs/some-capability.md"
 expect 'a file under the live spectre/specs/ tree is covered' 1 "$FIX/live-spec-tree"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/live-spec-tree" "$GUARD" 2>&1 || true)"
@@ -514,23 +514,23 @@ else
 fi
 
 # A DIRECTORY TOTAL IS NOT A SUBSTITUTE FOR PER-FILE ROWS. Two real covered
-# files sharing one directory (skills/myflow-contracts/), deliberately picked
+# files sharing one directory (skills/flow-contracts/), deliberately picked
 # for a huge budget gap between them: build-green.md a few hundred bytes over
 # its own (small) row, finish-contract.md a two-byte stub next to its own row
 # — more than ten times larger. Their combined size is far below any
 # plausible total for the two rows summed, so a guard that resolved
-# skills/myflow-contracts/ to one combined directory budget would report both
+# skills/flow-contracts/ to one combined directory budget would report both
 # clean. Replacing budget_for's per-file lookup with a directory-prefix match
 # does exactly that: this case goes from exit 1 to exit 0 under that
 # mutation, while the guard as written names the one file that grew.
 mkroot "$FIX/dirtotal"
-build_green_budget="$(budget_row_bytes 'skills/myflow-contracts/build-green.md')"
+build_green_budget="$(budget_row_bytes 'skills/flow-contracts/build-green.md')"
 head -c "$((build_green_budget + 500))" /dev/zero | tr '\0' 'x' \
-  > "$FIX/dirtotal/skills/myflow-contracts/build-green.md"
-printf 'x\n' > "$FIX/dirtotal/skills/myflow-contracts/finish-contract.md"
+  > "$FIX/dirtotal/skills/flow-contracts/build-green.md"
+printf 'x\n' > "$FIX/dirtotal/skills/flow-contracts/finish-contract.md"
 expect 'a large sibling does not absorb a file over its own row' 1 "$FIX/dirtotal"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/dirtotal" "$GUARD" 2>&1 || true)"
-if printf '%s' "$out" | grep -q '^skills/myflow-contracts/build-green\.md: ' \
+if printf '%s' "$out" | grep -q '^skills/flow-contracts/build-green\.md: ' \
   && printf '%s' "$out" | grep -q '^BUDGET-FAIL: 1 file(s) over budget or undeclared$'; then
   printf 'ok   exactly the file over its own row is reported\n'
 else
@@ -541,7 +541,7 @@ fi
 # An undeclared .md at the repository root fails. The root is a covered
 # location and is scanned non-recursively.
 mkroot "$FIX/root-undeclared"
-printf 'x\n' > "$FIX/root-undeclared/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/root-undeclared/skills/flow-contracts/build-green.md"
 printf 'x\n' > "$FIX/root-undeclared/NOTES.md"
 expect 'an undeclared root .md fails' 1 "$FIX/root-undeclared"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/root-undeclared" "$GUARD" 2>&1 || true)"
@@ -563,7 +563,7 @@ fi
 mkroot "$FIX/excluded"
 mkdir -p "$FIX/excluded/skills/vendor/node_modules/pkg" \
   "$FIX/excluded/skills/scratch/.superpowers"
-printf 'x\n' > "$FIX/excluded/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/excluded/skills/flow-contracts/build-green.md"
 head -c 300000 /dev/zero | tr '\0' 'x' \
   > "$FIX/excluded/skills/vendor/node_modules/pkg/huge.md"
 head -c 300000 /dev/zero | tr '\0' 'x' \
@@ -582,7 +582,7 @@ fi
 # predicate; skipping that predicate would make a vendored tree's own symlinks
 # fail this repository's ratchet.
 mkroot "$FIX/excluded-link"
-printf 'x\n' > "$FIX/excluded-link/skills/myflow-contracts/build-green.md"
+printf 'x\n' > "$FIX/excluded-link/skills/flow-contracts/build-green.md"
 mkdir -p "$FIX/excluded-link/skills/vendor/node_modules/pkg"
 ln -s /nonexistent/target "$FIX/excluded-link/skills/vendor/node_modules/pkg/ghost.md"
 expect 'a symlink inside an excluded tree is not a violation' 0 "$FIX/excluded-link"

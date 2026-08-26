@@ -73,7 +73,7 @@ check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
 Exit 0 proceeds. Exit 1 puts the choice to the operator, shape per Operator prompts
-(`skills/myflow-contracts/operator-prompts.md`):
+(`skills/flow-contracts/operator-prompts.md`):
 
 > **The panel diff measured `<count>`, over the `<cap>` cap. How should this proceed?**
 > - **Proceed with the panel anyway** *(default, recommended)*
@@ -141,7 +141,7 @@ On a breach, in order: stop the slot; close its dispatch row (`-outcome timed-ou
 breach in the panel record, naming the slot and its elapsed time; re-dispatch that one slot once.
 
 A second breach of the same slot is put to the operator, shape per Operator prompts
-(`skills/myflow-contracts/operator-prompts.md`):
+(`skills/flow-contracts/operator-prompts.md`):
 
 > **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
 > - **Re-dispatch it again**
@@ -176,7 +176,7 @@ exists before spawning; if it does not, stop and report rather than dispatching 
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in
 `<project>/.flow/project.md`, per **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
+(`skills/flow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
 
 ## Recording findings, and the record's format
@@ -385,7 +385,7 @@ Give the surviving findings to **one** fix subagent as the combined list. Where 
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
 writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
-old Opus-panel-fix default `skills/myflow-contracts/model-policy.md` still describes for the retired
+old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
 per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. Record
 every pass in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect

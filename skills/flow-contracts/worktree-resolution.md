@@ -8,14 +8,14 @@ preflight verdict, a gate that runs once per worktree, a status report, or a rem
 This file is **canonical** for everything in it.
 
 The reasoning behind this file lives in
-`skills/myflow-contracts/worktree-resolution-rationale.md`; **a `/myflow-*` run never loads it.**
+`skills/flow-contracts/worktree-resolution-rationale.md`; **a `/myflow-*` run never loads it.**
 
 ## Resolving a change's worktrees
 
 Any step in any command that needs "the worktrees" for a change — a preflight verdict, a gate that
 runs once per worktree, a status report, or a removal — resolves the set first; it never loops over
 the state file's `worktrees` map directly. See **Resolving a change's worktrees**
-(`skills/myflow-contracts/worktree-resolution-rationale.md`) for why.
+(`skills/flow-contracts/worktree-resolution-rationale.md`) for why.
 
 **A resolved set that comes back empty is never a vacuous pass.** Report it explicitly rather than
 let a zero-iteration loop read as "every worktree passed," "every worktree is merged," or whatever
@@ -28,4 +28,4 @@ gate, `/myflow-status`'s merge-status report, and `/myflow-finish`'s preflight v
 unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
 than restating it. How a command resolves the set beyond reading the state file's map — whether it
 falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;
-see **Resolving a change's worktrees** (`skills/myflow-contracts/finish-contract.md`).
+see **Resolving a change's worktrees** (`skills/flow-contracts/finish-contract.md`).

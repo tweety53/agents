@@ -15,7 +15,7 @@ duplicates that file's own content.
 **Announce at start:** "Using flow for change `<name>`."
 
 Immediately after that line, print these two commands for the operator to paste, per **Handoff
-output** (`skills/myflow-contracts/pipeline.md`) — that section fixes the colour and records why
+output** (`skills/flow-contracts/pipeline.md`) — that section fixes the colour and records why
 they are printed rather than invoked:
 
 ```text
@@ -23,21 +23,21 @@ they are printed rather than invoked:
 /color cyan
 ```
 
-**Load `skills/myflow-contracts/pipeline.md` first** — canonical for the three states, the
+**Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
 handoff shape and change-name resolution. `/flow` is not yet a row in that file's own transition
 table or in `<agents repo>/README.md`'s Level 1 stages table — both are cross-repo references this task does not
 touch (a later task repoints them); read this file's own **State transitions** and **Stage keys**
 below as `/flow`'s actual contract in the meantime.
 
-**Load `skills/myflow-contracts/worktree-resolution.md`, `skills/myflow-contracts/session-records.md`,
-`skills/myflow-contracts/git-boundaries.md`, `skills/myflow-contracts/artifacts-registry.md`,
-`skills/myflow-contracts/jira-integration.md`, `skills/myflow-contracts/plan-provenance.md`,
-`skills/myflow-contracts/build-green.md`, `skills/myflow-contracts/project-configuration.md` and
-`skills/myflow-contracts/workspace-isolation.md`** too — every phase below cites one or more of
+**Load `skills/flow-contracts/worktree-resolution.md`, `skills/flow-contracts/session-records.md`,
+`skills/flow-contracts/git-boundaries.md`, `skills/flow-contracts/artifacts-registry.md`,
+`skills/flow-contracts/jira-integration.md`, `skills/flow-contracts/plan-provenance.md`,
+`skills/flow-contracts/build-green.md`, `skills/flow-contracts/project-configuration.md` and
+`skills/flow-contracts/workspace-isolation.md`** too — every phase below cites one or more of
 them rather than restating their content.
 
-**`skills/myflow-contracts/model-policy.md` is only partly current for `/flow`.** Its per-harness
+**`skills/flow-contracts/model-policy.md` is only partly current for `/flow`.** Its per-harness
 enforcement notes (Claude Code frontmatter, Cursor, Codex) and its override-recording mechanism
 still apply unchanged. Its three-role table (`models.implementation`/`reviewPanel`/`panelFix`,
 separate defaults) and its planning-effort-question framing do **not** — design.md's
@@ -48,7 +48,7 @@ statement; do not follow the three-role table for this command.
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per **Progress visibility**
-(`skills/myflow-contracts/pipeline.md`). One entry per brainstorming checklist item and artifact on
+(`skills/flow-contracts/pipeline.md`). One entry per brainstorming checklist item and artifact on
 the planning branch, one entry per `tasks.md` item on the implementation branch, one entry per step
 of whichever finish run is executing on the integrate/archive branch — the same granularity
 `/myflow-fast` used for the branch it is running, since `/flow` runs the same branches.
@@ -81,7 +81,7 @@ records.
 (the CLI's documented-key table, mechanically derived from `<agents repo>/README.md`'s Level 1 stages table) does
 not yet list any `flow.*` key or a `/flow` command constant. Until a later task adds them, every
 `myflow stage begin -stage flow.*` call below is rejected by the CLI as an undocumented key — a
-caller mistake, per **Stage marks** (`skills/myflow-contracts/pipeline.md`) — and reports rather
+caller mistake, per **Stage marks** (`skills/flow-contracts/pipeline.md`) — and reports rather
 than blocks the run it marks, exactly as that section already requires for any rejected mark. This
 is exactly the kind of gap `check-references.sh` and this task's own dispatch note it is "fine and
 expected" to leave for the cross-repo reference sweep: `<agents repo>/README.md`'s Level 1 table, `<agents repo>/setup.sh` and
@@ -123,7 +123,7 @@ for why.
 
 **A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for
 the panel", "implement on haiku" — the same override mechanism
-`skills/myflow-contracts/model-policy.md` already describes for the retired per-change fields,
+`skills/flow-contracts/model-policy.md` already describes for the retired per-change fields,
 reading from the settings store instead of a question round. Record the instruction with the
 dispatch it changes; an override nobody wrote down is indistinguishable from a mistake. The override
 is **never** written back to the settings store — `/flow-settings` is the only command that changes
@@ -144,10 +144,10 @@ myflow state get <name-or-best-guess> -C <repo-root>
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
 - **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
-  command** (`skills/myflow-contracts/pipeline.md`): the change is archived. Proceed only on an
+  command** (`skills/flow-contracts/pipeline.md`): the change is archived. Proceed only on an
   explicit override.
 
-**Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+**Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — the full list is the union carried by
 `skills/flow/scripts/`: `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
 `check-panel-diff-size.sh`, `check-panel-reproducers.sh`, `check-task-commit-fields.sh`,
@@ -162,7 +162,7 @@ fallback.
 the name does not exist until **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) produces it — defer `flow.state-gate`-equivalent bookkeeping into that
 section exactly as `/myflow-fast` deferred `do.state-gate`, per **The `<change>` argument is always a
-resolved change name** (`skills/myflow-contracts/pipeline.md`). This router reads state above using
+resolved change name** (`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
 **Generate this run's session token once, right here, before the first mark any phase file below

@@ -13,7 +13,7 @@
 # workspace id would race remove/create against a genuine worktree using it.
 # A private id namespaced under "wstest-" plus this process's pid can never
 # collide with a real workspace id, which is always `<prefix>-<4-hex-digest>`
-# per skills/myflow-contracts/workspace-isolation.md.
+# per skills/flow-contracts/workspace-isolation.md.
 #
 # WHAT THIS ASSERTS. The round-trip the plan requires, in order: create makes
 # flow_<id>; create again is a no-op (not an error); survivors then prints

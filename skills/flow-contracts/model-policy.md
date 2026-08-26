@@ -8,15 +8,15 @@ each implementer and panel dispatch.
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/myflow-contracts/model-policy-rationale.md`;
+The reasoning behind this file lives in `skills/flow-contracts/model-policy-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
 ## Model policy
 
-See **Model policy** (`skills/myflow-contracts/model-policy-rationale.md`).
+See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`).
 
 **There is no requirements layer above this one; change this section.** See **Model policy**
-(`skills/myflow-contracts/model-policy-rationale.md`) for where the rule was first written and why
+(`skills/flow-contracts/model-policy-rationale.md`) for where the rule was first written and why
 that layer no longer governs.
 
 `/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
@@ -29,14 +29,14 @@ never varies is that the panel's model is *chosen*, not inherited from the paren
 
 **Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
 available model), which **explicitly overrides** superpowers:subagent-driven-development's model
-guidance. See **Model policy** (`skills/myflow-contracts/model-policy-rationale.md`) for why that
+guidance. See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why that
 guidance's cost savings do not apply here.
 
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
 review on the most capable model, and escalating the model in fix rounds 4-5.** myflow fixes every
 panel slot at the panel's model instead and escalates breadth (the conditional Security, Adversarial
 and extra-principle slots) rather than the model. See **Model policy**
-(`skills/myflow-contracts/model-policy-rationale.md`) for the reasoning.
+(`skills/flow-contracts/model-policy-rationale.md`) for the reasoning.
 
 **An explicit operator instruction overrides either default, in either direction** — raising the
 panel to Opus for a change that warrants it, or lowering the implementer for genuinely mechanical
@@ -55,11 +55,11 @@ again, and every other command carries them forward verbatim, as it does the lin
 | Every review-panel slot that takes a model override | `reviewPanel` | Sonnet |
 | The subagents that repair panel findings | `panelFix` | Opus, or the harness's strongest available model |
 
-See **State file** (`skills/myflow-contracts/state-file.md`).
+See **State file** (`skills/flow-contracts/state-file.md`).
 
 **The panel-fix default is the strongest available model, and deliberately not Sonnet** — the role
 applies fixes, which is implementer work, so the implementer rule above governs it too. See **Model
-policy** (`skills/myflow-contracts/model-policy-rationale.md`) for why.
+policy** (`skills/flow-contracts/model-policy-rationale.md`) for why.
 
 **A recorded choice is the operator override this section already permits, made durable.** It
 applies to every run of the change without being restated, which is the point of recording it. A
@@ -73,7 +73,7 @@ no recorded panel model is passed to them, none is written for them in the ledge
 still read `unknown (agent-defined)`.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
-See **Model policy** (`skills/myflow-contracts/model-policy-rationale.md`) for why, and for the history
+See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
 behind this rule.
 
 Where the dispatcher **cannot know** the model, the ledger records `unknown (agent-defined)` and
@@ -82,13 +82,13 @@ from their own agent definition, which the dispatcher does not read; writing a p
 them puts an unmeasured value into the audit trail.
 
 **This record outlives the change.** See **Model policy**
-(`skills/myflow-contracts/model-policy-rationale.md`) for why, and
-**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`) for the render
+(`skills/flow-contracts/model-policy-rationale.md`) for why, and
+**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`) for the render
 duty itself.
 
 **A persisting record must not fill in `unknown (agent-defined)` on the way into the repository** —
 neither the write into the store nor the render out of it invents a model slug. See **Model policy**
-(`skills/myflow-contracts/model-policy-rationale.md`) for why.
+(`skills/flow-contracts/model-policy-rationale.md`) for why.
 
 - **Claude Code**: the **session** model is enforced via `model: opus` / `model: sonnet` in each
   command's frontmatter (`commands-claude/*.md`) — no manual action needed *for the session*.

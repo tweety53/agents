@@ -110,7 +110,7 @@ run_script "$REPO"
 # Case 2: A section declared — variables exported and printed correctly.
 #
 # The change name is kan-15-parallel-myflow-do-task-lanes, the exact worked
-# example under "The workspace id" (skills/myflow-contracts/workspace-
+# example under "The workspace id" (skills/flow-contracts/workspace-
 # isolation.md): id kan-15-55a6, id_underscored kan_15_55a6, digest 55a6, and
 # offset 3270 (the file's own worked value for that digest) — so every
 # expected value below is asserted against that canonical worked example

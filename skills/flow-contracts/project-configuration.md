@@ -28,8 +28,8 @@ bodies are constrained to what that procedure accepts.
 | `## test` | The command(s) that run the project's tests. |
 | `## lint` | The command(s) that verify lint, and the auto-fix command to run first. |
 | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. |
-| `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
-| `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/myflow-contracts/workspace-isolation.md`). |
+| `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`skills/flow-contracts/jira-followups.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
+| `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
 
 **How a `## standards` entry resolves to a file.** Every entry in the `## standards` section is
 one of three forms, and there is no fourth. **"Bare" is mechanical throughout: the entry contains
@@ -43,7 +43,7 @@ no `/`** — see the containment rule below, which every form must pass.
 
 **The `.mdc` extension is what selects the shared library, and nothing else.** A project-local
 `.mdc` is still nameable — write it as a path (`<project>/.cursor/rules/api.mdc`), which form 3 takes as-is.
-See **The `.mdc` routing rule** (`skills/myflow-contracts/project-configuration-rationale.md`)
+See **The `.mdc` routing rule** (`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
 
 Resolve each entry to an absolute path before passing it to any reviewer. **An entry that resolves
@@ -101,19 +101,19 @@ machine with an unusual layout can state the answer instead of having one derive
 
 **The link to resolve is the per-skill one, never the `skills/` directory above it.** See
 **The per-skill link, not the `skills/` directory**
-(`skills/myflow-contracts/project-configuration-rationale.md`)
+(`skills/flow-contracts/project-configuration-rationale.md`)
 for the measured global-install layout this guards against.
 
 The same two steps are correct for a project-local install, where nothing is a symlink at all. See
 **Project-local installs need no link**
-(`skills/myflow-contracts/project-configuration-rationale.md`)
+(`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
 
 **Confirm the derived root before using it, and treat a miss as an absence rather than a nearer
 guess.** Check that the path you are about to use exists under it. That is never a licence to skip
 the step, and never a reason to search the filesystem for a checkout that might be one. See
 **Confirm the derived root before using it**
-(`skills/myflow-contracts/project-configuration-rationale.md`)
+(`skills/flow-contracts/project-configuration-rationale.md`)
 for the copied-directory case this guards against.
 
 **Roots in `## apps` are main checkouts.** When an apply worktree exists for the change, resolve
@@ -125,7 +125,7 @@ commands, and nothing else in the section is read.
 
 **Prose beside the tables is permitted and is never read** by the resolver. See
 **Prose beside the tables is for the reader**
-(`skills/myflow-contracts/project-configuration-rationale.md`)
+(`skills/flow-contracts/project-configuration-rationale.md`)
 for what that prose is for.
 
 **Three words in this section, and they name three different things.** A **row** is one line of
@@ -150,9 +150,9 @@ never has to guess whether a cell is a value or an instruction:
 
 - A `database` or `bucket` row writes the value out in full, with the tokens substituted. Exactly
   two are substituted, and no others: `<id>` is the workspace id, derived once under
-  **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), and `<id_underscored>`
+  **The workspace id** (`skills/flow-contracts/workspace-isolation.md`), and `<id_underscored>`
   is its underscored spelling, derived once under
-  **What the id derives** (`skills/myflow-contracts/workspace-isolation.md`). Those are two
+  **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). Those are two
   different sections and the split is not incidental: one makes the id, the other makes the values
   taken from it. Writing the whole value rather than a suffix is what lets a project
   whose variable carries a connection string put the id where the name actually sits inside it.
@@ -164,7 +164,7 @@ never has to guess whether a cell is a value or an instruction:
   The cell itself still cannot carry arithmetic, and one that could would be a second thing to
   interpret for a value that has exactly one shape.
 - A `cache index` row writes the literal `probed`. That value is claimed at run time rather than
-  derived from the id — the reason is given under **The cache index** (`skills/myflow-contracts/workspace-isolation.md`).
+  derived from the id — the reason is given under **The cache index** (`skills/flow-contracts/workspace-isolation.md`).
   Its `Default` is a **bare integer**, on the same rule and for the same reason a `port` row's is:
   it is the index the empty-id case selects, and an index is a number. A `cache index` row whose
   `Default` is not a bare integer is reported by name and dropped, exactly as a `port` row's is.
@@ -203,12 +203,12 @@ it here.
 
 A project whose rows share a host writes that host in both, since neither `url` row may reference
 the other. See **The accepted cost of `url`-row duplication**
-(`skills/myflow-contracts/project-configuration-rationale.md`) for why that duplication is an
+(`skills/flow-contracts/project-configuration-rationale.md`) for why that duplication is an
 accepted cost.
 
 **A `url` row carrying no token at all is a legitimate declaration, not a mistake.** Its workspace
 value is its `Default`, unchanged, and nothing removes or creates anything for it. See
-**A `url` row with no token** (`skills/myflow-contracts/project-configuration-rationale.md`)
+**A `url` row with no token** (`skills/flow-contracts/project-configuration-rationale.md`)
 for why a project would write one.
 
 **A dropped `url` row is not exempt from the refusal below.** The refusal is keyed on the row
@@ -216,15 +216,15 @@ having been dropped, never on whether the row names something removable: a dropp
 refuses in an apply worktree exactly as a dropped `database` row does, and so does a `url` row
 dropped because its `<value:…>` reference named no row or named another `url` row. See
 **The dropped `url` row is not exempt**
-(`skills/myflow-contracts/project-configuration-rationale.md`)
+(`skills/flow-contracts/project-configuration-rationale.md`)
 for the argument, also stated under **The empty id**
-(`skills/myflow-contracts/workspace-isolation.md`).
+(`skills/flow-contracts/workspace-isolation.md`).
 
 The id `<id>` carries is defined once under
-**The workspace id** (`skills/myflow-contracts/workspace-isolation.md`), which states its prefix
+**The workspace id** (`skills/flow-contracts/workspace-isolation.md`), which states its prefix
 and digest rules. The underscored spelling `<id_underscored>` and the port offset written here as
 `<offset>` are each defined once under
-**What the id derives** (`skills/myflow-contracts/workspace-isolation.md`) — the section for what
+**What the id derives** (`skills/flow-contracts/workspace-isolation.md`) — the section for what
 is taken *from* the id, which is why the id's own rule is not in it. Both sections state the rule
 and show the worked value for one change name.
 This file names the tokens and derives nothing: a second spelling of a derivation is a second set of
@@ -239,25 +239,25 @@ The command table has three rows and two columns:
 | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/check-cleanup-complete.sh` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
 
 Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the
-agents repository cannot ask the question itself — is stated under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+agents repository cannot ask the question itself — is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
 **Each command runs with a repository root as its working directory, and which root is fixed here
 rather than left to the caller.** See
 **Working directory for `survivors`, `remove`, and `create`**
-(`skills/myflow-contracts/project-configuration-rationale.md`) for why it must be stated.
+(`skills/flow-contracts/project-configuration-rationale.md`) for why it must be stated.
 
 - **`survivors` runs from the main checkout**, and that is not a convention invented here. See
   **Working directory for `survivors`, `remove`, and `create`**
-  (`skills/myflow-contracts/project-configuration-rationale.md`) for how
+  (`skills/flow-contracts/project-configuration-rationale.md`) for how
   `<agents repo>/scripts/check-cleanup-complete.sh` invokes it.
 - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
-  step, per **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`). See
+  step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`). See
   **Working directory for `survivors`, `remove`, and `create`**
-  (`skills/myflow-contracts/project-configuration-rationale.md`) for why.
+  (`skills/flow-contracts/project-configuration-rationale.md`) for why.
 - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
   applications does, and that is the worktree whose applications need the resources. See
   **Working directory for `survivors`, `remove`, and `create`**
-  (`skills/myflow-contracts/project-configuration-rationale.md`) for why the asymmetry is the rule
+  (`skills/flow-contracts/project-configuration-rationale.md`) for why the asymmetry is the rule
   working rather than an exception to it.
 
 **What `survivors` prints, and what its exit code means.** Both are part of the contract, because a
@@ -272,11 +272,11 @@ guard reading them cannot ask a follow-up question:
   leftover blocks the terminal state** — the registry row fails, run 2 stops, and `FINISHED` is not
   written. Removing the survivors and re-running run 2 is the whole remedy. This is the one result
   in this section that stops run 2, and why a leftover blocks where an unreachable service does not
-  is stated under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+  is stated under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 - **Any non-zero exit** — the check could not reach the service, so it says nothing about
   survivors. The skip is **reported by name and with the exit code**, and run 2 continues to
   `FINISHED`. This is the "not running is reported and skipped, rather than failed" rule, and it is
-  stated once under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`),
+  stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`),
   which also gives why one non-zero exit is enough where a reader might expect two.
 - **A pipeline's status is its first failing stage, not its last.** The command runs under
   `pipefail`, so `<project>/gradlew -q survivors | …` counts as the non-zero exit above when the **gradlew**
@@ -297,7 +297,7 @@ guard reading them cannot ask a follow-up question:
   would run one the author may not have meant and then report the row verified on its answer.
 - **No answer within the bound** — the command is given **60 seconds**, the same bound the project's
   stop command gets under
-  **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`), and is terminated if it
+  **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`), and is terminated if it
   exceeds it. A terminated command has said nothing about survivors, so this joins the skip above,
   **reported as a timeout rather than as an exit code** — the number a killed process carries
   describes the guard's own signal, not the project's answer, and an operator has to be able to
@@ -305,26 +305,26 @@ guard reading them cannot ask a follow-up question:
   terminated is discarded: a partial listing is not a report.
 
   See **The one-minute bound**
-  (`skills/myflow-contracts/project-configuration-rationale.md`) for why the bound is stated here
+  (`skills/flow-contracts/project-configuration-rationale.md`) for why the bound is stated here
   and how its outcome deliberately differs from the stop command's.
 
   **What the bound terminates is a process group on the machine running the guard, and a command
   that puts its real work outside that group outlives the bound** — most of all **a command that
   reaches its service through a container runtime**, `docker exec …` most of all. See
   **The one-minute bound**
-  (`skills/myflow-contracts/project-configuration-rationale.md`) for the mechanism and a measured
+  (`skills/flow-contracts/project-configuration-rationale.md`) for the mechanism and a measured
   example.
 - **That is a limitation of the bound, not a defect the guard can close.** **So a `survivors`
   command that crosses a container boundary carries its own timeout inside the container** —
   `docker exec`'s own, the client tool's connect and statement timeouts, or a wrapper that ends the
   query rather than the proxy. See **The one-minute bound**
-  (`skills/myflow-contracts/project-configuration-rationale.md`) for why the guard cannot close
+  (`skills/flow-contracts/project-configuration-rationale.md`) for why the guard cannot close
   this itself.
 
 **A project that declares `create` and `remove` but no `survivors`** has nothing to verify the
 removal with, so the verification is reported as skipped rather than passed — never inferred from
 the removal command's exit code, for the reason given under
-**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`). `remove` still runs;
+**Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`). `remove` still runs;
 it is only the verification that is skipped, and a skip does not block the terminal state, so run 2
 continues to `FINISHED` exactly as it does on a non-zero exit above. A project that
 declares no `## workspace isolation` section at all runs none of the three and passes, because a
@@ -335,7 +335,7 @@ workspace id reaches it — one mechanism for both tables, so there is no argume
 remember alongside it. `<value:…>` is **not** substituted in a command: a command that needs a
 derived value reads the exported variable, which is already in its environment. **Which command a
 project names is the project's own decision**, reusing one
-it already ships or adding one, per **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+it already ships or adding one, per **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
 Written out, with placeholder names standing in for a real project's own — this file carries no
 project's databases, ports or task names, per its opening paragraph:
@@ -362,7 +362,7 @@ project's databases, ports or task names, per its opening paragraph:
 ```
 
 See **The three-`url`-rows worked example**
-(`skills/myflow-contracts/project-configuration-rationale.md`) for a walkthrough of the three
+(`skills/flow-contracts/project-configuration-rationale.md`) for a walkthrough of the three
 `url` rows in the worked example above.
 
 **A project declares only the ports it can actually move.** An application whose port is fixed
@@ -405,7 +405,7 @@ the pipeline **reads**, validation binds what it **substitutes**, and a command 
 contained. If a key in this section ever named a file the pipeline reads, that path would be
 contained exactly as a `## standards` path is — the rule follows the read, not the section. See
 **No path is isolated inside a command**
-(`skills/myflow-contracts/project-configuration-rationale.md`)
+(`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
 
 **Which of these rules a script checks, and which are left to the agent.** The distinction matters
@@ -430,7 +430,7 @@ ran".** The guard runs at the point this section is *read*: `/myflow-do` runs it
 worktree before it resolves or exports a single row, per section 7 of `skills/myflow-do/SKILL.md`,
 and a non-zero exit stops that run. A project that declares no section passes silently.
 `/myflow-finish` deliberately does not repeat the validation. See **Where enforcement happens**
-(`skills/myflow-contracts/project-configuration-rationale.md`) for why.
+(`skills/flow-contracts/project-configuration-rationale.md`) for why.
 
 **Left to the agent**, because no script that stays project-agnostic can decide them:
 
@@ -460,7 +460,7 @@ instead: it reports the row, the cell that failed validation and the shared valu
 use, and stops before starting anything that would read the variable, exporting neither the
 `Default` nor an unset variable. Correcting the row and re-running is the whole remedy; a dropped
 row moves no state. Why the two checkouts answer differently, and why refusing beats reporting-and-continuing, is
-stated under **The empty id** (`skills/myflow-contracts/workspace-isolation.md`).
+stated under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
 
 **Two rules sit near each other here, and they do not compete.** A malformed row makes a run
 refuse; an unreachable service makes a run report and continue. They read as opposites and can never
@@ -475,7 +475,7 @@ exactly as it does today **everywhere, including in apply worktrees** — nothin
 exported, nothing created and nothing removed — and no command reports it. A project with no
 runnable application is right to be in that case: it has nothing to isolate. Why absence is an
 ordinary answer rather than a gap waiting to be filled, and what an empty
-workspace id resolves to, are stated under **The empty id** (`skills/myflow-contracts/workspace-isolation.md`).
+workspace id resolves to, are stated under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
 
 **The file is optional, and every key within it is optional.**
 

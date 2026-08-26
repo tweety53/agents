@@ -255,7 +255,7 @@ guess_placeholder() {
 # array, which is bash-4-only and this repository's floor is bash 3.2 (see
 # scripts/lib/coverage.sh's own header for the same constraint).
 EXPECTED_ZERO_FILES=(
-  "skills/myflow-contracts/SKILL.md"
+  "skills/flow-contracts/SKILL.md"
   "skills/flow-research/SKILL.md"
   "skills/flow-settings/SKILL.md"
   "skills/flow/SKILL.md"

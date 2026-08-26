@@ -42,14 +42,14 @@ func initRepo(t *testing.T, dir string) {
 
 // --- ProjectKey ---
 
-// contractPath is skills/myflow-contracts/state-file.md's location relative
+// contractPath is skills/flow-contracts/state-file.md's location relative
 // to this package -- stats/internal/fallback is three directories below the
 // repository root (fallback -> internal -> stats -> root), and the flow
 // skills live at the root alongside the stats Go module, not inside it.
-const contractPath = "../../../skills/myflow-contracts/state-file.md"
+const contractPath = "../../../skills/flow-contracts/state-file.md"
 
 // contractProjectKeyRecipe reads the MAIN_CHECKOUT= and PROJECT_KEY=
-// assignment lines directly out of skills/myflow-contracts/state-file.md,
+// assignment lines directly out of skills/flow-contracts/state-file.md,
 // rather than a hand-copied string literal in this test file. F3's review
 // finding is exactly what a hand-copied literal invites: a prior version
 // of this test had its own copy of the recipe, which got silently edited

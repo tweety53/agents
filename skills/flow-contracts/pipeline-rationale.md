@@ -1,6 +1,6 @@
 # myflow pipeline — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/pipeline.md`.
+This file is the reasoning behind `skills/flow-contracts/pipeline.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ## States
@@ -114,7 +114,7 @@ and reuses a running instance.
 ## Guard resolution
 
 Resolution against the **running command's own** skill directory is what lets a contract loaded
-by more than one command — `skills/myflow-contracts/finish-contract.md`, loaded by both
+by more than one command — `skills/flow-contracts/finish-contract.md`, loaded by both
 `/myflow-finish` and `/myflow-status` — name a guard at all: the same basename resolves inside
 whichever command is actually running, never a fixed one of them.
 
@@ -158,7 +158,7 @@ defined; the two call sites point here rather than each describing them.
    Nothing pulls the other way: these resources live in the project's shared data services rather
    than in the worktree, so taking the worktree down neither removes them nor puts them out of reach,
    and `remove` runs from the main checkout — stated with the command table, in
-   **Project configuration** (`skills/myflow-contracts/project-configuration.md`) — so no worktree
+   **Project configuration** (`skills/flow-contracts/project-configuration.md`) — so no worktree
    removal can destroy the directory it runs from. What has always constrained this step still does:
    the removal stays ahead of step 7, because a verification that runs before the thing it verifies
    can only ever fail.
@@ -171,7 +171,7 @@ defined; the two call sites point here rather than each describing them.
 
    **The cost of this order is that a worktree half which stops early takes the removal with it.**
    Any failed check leaves every worktree alone —
-   **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`) — and the removal behind it
+   **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`) — and the removal behind it
    does not run, so a run blocked by something unrelated to the workspace, an
    uncommitted file in a worktree say, has its database and bucket named as leftovers at step 7 as
    well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has

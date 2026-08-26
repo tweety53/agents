@@ -15,7 +15,7 @@
 # repository does not have and could not pin.
 #
 # COVERAGE IS EVERY OWNED MARKDOWN FILE, not only the files a `/myflow-*` run
-# loads. The guard used to stop at skills/myflow-contracts/*.md plus each
+# loads. The guard used to stop at skills/flow-contracts/*.md plus each
 # skills/*/SKILL.md and its rationale sibling — 13 rows — on the reasoning that
 # a byte cut is only paid for where it is loaded per run. Regrowth does not
 # respect that boundary: when this guard was widened, 79 owned files sat outside
@@ -164,33 +164,33 @@ skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 27420
 skills/flow/security-reviewer-prompt.md 1540
 skills/flow/verify-and-handoff.md 14598
-skills/myflow-contracts/SKILL.md 9665
-skills/myflow-contracts/artifacts-registry-rationale.md 6981
-skills/myflow-contracts/artifacts-registry.md 7620
-skills/myflow-contracts/build-green.md 6678
-skills/myflow-contracts/finish-contract.md 54286
-skills/myflow-contracts/git-boundaries-rationale.md 2317
-skills/myflow-contracts/git-boundaries.md 5535
-skills/myflow-contracts/handoff-blocks-rationale.md 13086
-skills/myflow-contracts/handoff-blocks.md 20240
-skills/myflow-contracts/jira-followups.md 45385
-skills/myflow-contracts/jira-integration-rationale.md 3661
-skills/myflow-contracts/jira-integration.md 19932
-skills/myflow-contracts/model-policy-rationale.md 7963
-skills/myflow-contracts/model-policy.md 8010
-skills/myflow-contracts/operator-prompts.md 2432
-skills/myflow-contracts/pipeline-rationale.md 14943
-skills/myflow-contracts/pipeline.md 36155
-skills/myflow-contracts/plan-provenance.md 30695
-skills/myflow-contracts/project-configuration-rationale.md 16982
-skills/myflow-contracts/project-configuration.md 48175
-skills/myflow-contracts/session-records-rationale.md 2365
-skills/myflow-contracts/session-records.md 2388
-skills/myflow-contracts/state-file.md 33172
-skills/myflow-contracts/workspace-isolation-rationale.md 14317
-skills/myflow-contracts/workspace-isolation.md 31471
-skills/myflow-contracts/worktree-resolution-rationale.md 595
-skills/myflow-contracts/worktree-resolution.md 2343
+skills/flow-contracts/SKILL.md 9665
+skills/flow-contracts/artifacts-registry-rationale.md 6981
+skills/flow-contracts/artifacts-registry.md 7620
+skills/flow-contracts/build-green.md 6678
+skills/flow-contracts/finish-contract.md 54286
+skills/flow-contracts/git-boundaries-rationale.md 2317
+skills/flow-contracts/git-boundaries.md 5535
+skills/flow-contracts/handoff-blocks-rationale.md 13086
+skills/flow-contracts/handoff-blocks.md 20240
+skills/flow-contracts/jira-followups.md 45385
+skills/flow-contracts/jira-integration-rationale.md 3661
+skills/flow-contracts/jira-integration.md 19932
+skills/flow-contracts/model-policy-rationale.md 7963
+skills/flow-contracts/model-policy.md 8010
+skills/flow-contracts/operator-prompts.md 2432
+skills/flow-contracts/pipeline-rationale.md 14943
+skills/flow-contracts/pipeline.md 36155
+skills/flow-contracts/plan-provenance.md 30695
+skills/flow-contracts/project-configuration-rationale.md 16982
+skills/flow-contracts/project-configuration.md 48175
+skills/flow-contracts/session-records-rationale.md 2365
+skills/flow-contracts/session-records.md 2388
+skills/flow-contracts/state-file.md 33172
+skills/flow-contracts/workspace-isolation-rationale.md 14317
+skills/flow-contracts/workspace-isolation.md 31471
+skills/flow-contracts/worktree-resolution-rationale.md 595
+skills/flow-contracts/worktree-resolution.md 2343
 skills/myflow-do/SKILL-rationale.md 27551
 skills/myflow-do/SKILL.md 103578
 skills/myflow-do/adversarial-reviewer-prompt.md 3545

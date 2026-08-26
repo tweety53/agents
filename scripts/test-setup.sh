@@ -682,13 +682,13 @@ done
 dangling="$(find "$home" -type l ! -exec test -e {} \; -print 2>/dev/null)"
 assert_eq "a global install leaves zero dangling symlinks" "" "$dangling"
 
-# myflow-contracts must install like any other skill, through install_skills, and must NOT be
+# flow-contracts must install like any other skill, through install_skills, and must NOT be
 # inlined into the managed block — that is the whole point of extracting it from the always-on
 # rule.
-assert_exists "myflow-contracts installs into .claude/skills" "$home/.claude/skills/myflow-contracts/SKILL.md"
-assert_exists "myflow-contracts installs into .cursor/skills" "$home/.cursor/skills/myflow-contracts/SKILL.md"
-assert_exists "myflow-contracts installs into .codex/skills" "$home/.codex/skills/myflow-contracts/SKILL.md"
-assert_exists "myflow-contracts installs state-file.md" "$home/.claude/skills/myflow-contracts/state-file.md"
+assert_exists "flow-contracts installs into .claude/skills" "$home/.claude/skills/flow-contracts/SKILL.md"
+assert_exists "flow-contracts installs into .cursor/skills" "$home/.cursor/skills/flow-contracts/SKILL.md"
+assert_exists "flow-contracts installs into .codex/skills" "$home/.codex/skills/flow-contracts/SKILL.md"
+assert_exists "flow-contracts installs state-file.md" "$home/.claude/skills/flow-contracts/state-file.md"
 assert_not_contains "the managed CLAUDE.md does not inline the state-file write template" \
   "$home/.claude/CLAUDE.md" 'PROJECT_KEY="$(basename'
 assert_not_contains "the managed AGENTS.md does not inline the state-file write template" \

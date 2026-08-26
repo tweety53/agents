@@ -631,7 +631,7 @@ func TestProjectKeysByDisplayNameReturnsNoneForUnknownName(t *testing.T) {
 // before the store is touched, so for a live write this refusal is
 // unreachable; it exists for the one path that bypasses the CLI entirely
 // -- internal/reconcile replaying a hand-edited fallback file, which the
-// state file contract (skills/myflow-contracts/state-file.md) already
+// state file contract (skills/flow-contracts/state-file.md) already
 // names as a real case.
 //
 // The four cases are the shapes a merge base is not: a worktree path

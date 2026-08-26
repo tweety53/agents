@@ -173,7 +173,7 @@ Subagent (generalPurpose):
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
   1. the entries listed under the `## standards` section of `<project>/.flow/project.md`, when the
      project has one — resolved to absolute paths **per the entry-form table and the
-     containment rule in `skills/myflow-contracts/project-configuration.md`**,
+     containment rule in `skills/flow-contracts/project-configuration.md`**,
      which is canonical. Entries are not paths to use as-is: a bare `*.mdc` filename means
      the shared agents rule library, any other bare filename means the project's own file,
      and a path that escapes the project root is dropped;

@@ -751,7 +751,7 @@ func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
 // state set` refuses a malformed merge base before it can ever be
 // journalled, so the only way one reaches replay is a hand-edited or
 // out-of-band-modified fallback file -- the case
-// skills/myflow-contracts/state-file.md already names.
+// skills/flow-contracts/state-file.md already names.
 //
 // Such an entry is unfixable by retrying: the bytes already on disk
 // produce the identical store.ErrInvalidMergeBase refusal on every future

@@ -55,7 +55,7 @@ myflow stage end -command '/flow' -stage flow.load-context -outcome completed <n
 
 ## 2. Isolate the workspace (first run only)
 
-**Load `skills/myflow-contracts/artifacts-registry.md`** — the worktree and branch this step
+**Load `skills/flow-contracts/artifacts-registry.md`** — the worktree and branch this step
 creates are rows in it.
 
 ```bash
@@ -78,11 +78,11 @@ On a fix run, resume the existing worktree and make no such copy. **Never create
 
 **This run's resolved worktree set — the set `skills/flow/verify-and-handoff.md` iterates — is the
 worktree just created or resumed above, plus any additional worktree this change affects.** Per
-**Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`), non-empty by
+**Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
-under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — do not re-derive it
+under **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — do not re-derive it
 by hand. Compute it once per run, on a fix run exactly as on the first.
 
 ```bash
@@ -99,7 +99,7 @@ myflow stage begin -command '/flow' -stage flow.document-fix -harness <harness> 
 ```
 
 Record what changed **before** writing code, so the proposal never goes stale. Ask which of exactly
-two, shape per Operator prompts (`skills/myflow-contracts/operator-prompts.md`):
+two, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 
 > **This fix has to be recorded before it is written — where should it go?**
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — nothing new is created
@@ -107,7 +107,7 @@ two, shape per Operator prompts (`skills/myflow-contracts/operator-prompts.md`):
 >   scope the parent change does not describe
 
 If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
-**Description sync** in Jira integration (`skills/myflow-contracts/jira-integration.md`). Never
+**Description sync** in Jira integration (`skills/flow-contracts/jira-integration.md`). Never
 transition the issue here.
 
 ```bash
@@ -218,7 +218,7 @@ as it stands after the fold.
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
-> contradicts the plan** (`skills/myflow-contracts/plan-provenance.md`).
+> contradicts the plan** (`skills/flow-contracts/plan-provenance.md`).
 
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one test you write MUST exercise the real

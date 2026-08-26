@@ -1,22 +1,22 @@
 # Model policy — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/model-policy.md`.
+This file is the reasoning behind `skills/flow-contracts/model-policy.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Model policy
 
 The field shape, and the rule that an absent key reads as *not recorded*, belong to
-**State file** (`skills/myflow-contracts/state-file.md`).
+**State file** (`skills/flow-contracts/state-file.md`).
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/myflow-*` command is required to
 load this file before acting, and none of them loads `<agents repo>/spectre/specs/`, so the file runtime actually
-reads is the file the rule has to live in. **State file** (`skills/myflow-contracts/state-file.md`)
+reads is the file the rule has to live in. **State file** (`skills/flow-contracts/state-file.md`)
 cites this section for the `models` field rather than defining the roles a second time, and
 `<project>/CLAUDE.md` and `<project>/AGENTS.md` name this section for the same reason.
 
 **There is no requirements layer above this one; change this section.** The rules behind it were
-first written as the capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`<agents repo>/openspec/specs/myflow-model-policy/spec.md`) anchored the defaults. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not migrated, so it records where the defaults came from and governs nothing. The two-layer split it was half of has ended everywhere, including at **Planning effort** (`skills/myflow-contracts/state-file.md`), which lost the same layer for the same reason: this section is now the requirement as well as the operational form the commands read. The split's second argument died with it — a live spec used to be behind by construction while a change was open, because its delta reached the specs tree only at finish run 2, and under spectre a change edits the specs tree directly on its branch, so no spec lags a change any more.
+first written as the capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`<agents repo>/openspec/specs/myflow-model-policy/spec.md`) anchored the defaults. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not migrated, so it records where the defaults came from and governs nothing. The two-layer split it was half of has ended everywhere, including at **Planning effort** (`skills/flow-contracts/state-file.md`), which lost the same layer for the same reason: this section is now the requirement as well as the operational form the commands read. The split's second argument died with it — a live spec used to be behind by construction while a change was open, because its delta reached the specs tree only at finish run 2, and under spectre a change edits the specs tree directly on its branch, so no spec lags a change any more.
 
 The citation is still a **checked** one, not a courtesy: the guard associates a bold token with the path
 beside it and matches it against the target's headings, a `### Requirement: …` heading
@@ -68,7 +68,7 @@ repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the 
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
 The preservation duty itself is stated once, under
-**Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`).
+**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`).
 
 Slots dispatched by `subagent_type` (Bugbot, Security Review)
 carry their own agent definitions and take no override from either mechanism.

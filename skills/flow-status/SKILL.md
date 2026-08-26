@@ -15,14 +15,14 @@ Report the pipeline state of every open (non-archived) spectre change. **Read-on
 
 Follow both contracts:
 
-- **States** (`skills/myflow-contracts/pipeline.md`)
-- **State file** (`skills/myflow-contracts/state-file.md`)
+- **States** (`skills/flow-contracts/pipeline.md`)
+- **State file** (`skills/flow-contracts/state-file.md`)
 
 ## Workflow
 
 ### 1. List open changes
 
-**Check guard presence.** Per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+**Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm the one guard this command invokes — `resolve-base-branch.sh` — is present in
 `skills/flow-status/scripts/`. A complete set prints nothing; an absence prints that section's
 block once, and the run continues under the guard's own hand-run fallback. Step 2 below still
@@ -30,7 +30,7 @@ reimplements `check-finish-preflight.sh`'s other merge-status steps in prose rat
 that script (see the note there); only base-branch resolution is delegated to a real guard.
 
 Enumerate the candidate set exactly as **Change name resolution**
-(`skills/myflow-contracts/pipeline.md`) defines it — through `myflow state list [-C dir]`, never a
+(`skills/flow-contracts/pipeline.md`) defines it — through `myflow state list [-C dir]`, never a
 hand-written HTTP call:
 
 ```bash
@@ -54,7 +54,7 @@ Zero open changes → say so and suggest `/myflow-start`. Stop.
 ### 2. Resolve each change's state
 
 For each change, resolve its record through the CLI, per **State file**
-(`skills/myflow-contracts/state-file.md`) — never a direct file read, never `jq` on a path:
+(`skills/flow-contracts/state-file.md`) — never a direct file read, never `jq` on a path:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
@@ -85,17 +85,17 @@ printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue
 compatibility promise.** `(.planningEffort // .effort)` is what makes it real: jq's `//` yields the
 left side whenever it is neither `null` nor `false`, so a file carrying only the retired key reads
 its recorded value instead of reporting *not recorded*, and a file carrying both is governed by the
-precedence **State file** (`skills/myflow-contracts/state-file.md`) states — the current key wins.
+precedence **State file** (`skills/flow-contracts/state-file.md`) states — the current key wins.
 Reading `.planningEffort` alone would report a file that recorded a real level as having recorded
 none, which is the one outcome the retired-key exception exists to prevent. The value that comes
 back is the raw one; mapping it to a level is section 3's job, below.
 
-**Load `skills/myflow-contracts/worktree-resolution.md`** before resolving the merge-status report
+**Load `skills/flow-contracts/worktree-resolution.md`** before resolving the merge-status report
 below.
 
 **Merge status** decides whether the next `/myflow-finish` integrates or archives. It is answered
 once per worktree in the set resolved per **Resolving a change's worktrees**
-(`skills/myflow-contracts/worktree-resolution.md`) — never a raw read of the record's `worktrees` map,
+(`skills/flow-contracts/worktree-resolution.md`) — never a raw read of the record's `worktrees` map,
 which a `{}` or absent map would make a loop over its keys report on nothing. Per that same
 section, a resolved set that comes back empty is never a vacuous pass: say so in this change's
 detail view — **merge status: unknown, no worktree recorded** — rather than silently omitting the
@@ -109,7 +109,7 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
 2. **`HEAD` against that resolved merge base.** Equal → the branch has **no commits of its own**,
    so it is **not merged**, and no ancestor test is run.
 3. otherwise resolve `<base>`, **in the same worktree**, by invoking `resolve-base-branch.sh`
-   exactly as **Finish contract** (`skills/myflow-contracts/finish-contract.md`) does — never a
+   exactly as **Finish contract** (`skills/flow-contracts/finish-contract.md`) does — never a
    hand-derived name, and never `HEAD@{upstream}`, for the reason stated there; running it in this
    worktree is also what satisfies its unconditional assertion that the base differs from the
    current branch, since `HEAD` here is the change's own branch. **A non-zero exit is
@@ -122,7 +122,7 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
 **Steps 1 and 2 are not optional, and neither may be skipped because the ancestor test looks
 decisive.** Why an unresolved or unequal-to-`HEAD` merge base has to be settled *before*
 `git merge-base --is-ancestor` runs, and what answering them the other way round reports, is stated
-once under **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`), beside the
+once under **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`), beside the
 selection table this answer feeds. Read it there — it is not re-derived here, and it is not
 re-derived from `<agents repo>/scripts/check-finish-preflight.sh` either: that script's resolve-first guard and
 its comment (b) are what `pipeline.md` cites in turn.
@@ -130,7 +130,7 @@ its comment (b) are what `pipeline.md` cites in turn.
 **A multi-repo change has one merge status per worktree, and the change's is the weakest of them.**
 The resolved set may carry more than one worktree, so the merge-status check is answered once per
 worktree in it and the answers must then be combined. Combine them exactly as
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`) already combines the preflight's
+**Finish contract** (`skills/flow-contracts/finish-contract.md`) already combines the preflight's
 verdicts — run 2 proceeds only when **every** worktree in the resolved set says so — which here
 means: the
 change reads **merged** only when every worktree is proven merged; any worktree proven **not
@@ -143,7 +143,7 @@ there.
 
 ### 3. Render the table
 
-Sort by state order per **States** in `skills/myflow-contracts/pipeline.md` (`STARTED`,
+Sort by state order per **States** in `skills/flow-contracts/pipeline.md` (`STARTED`,
 `IN_PROGRESS`, `FINISHED`), then by `updatedAt` descending. Omit `FINISHED` changes — they are
 archived.
 
@@ -170,14 +170,14 @@ Surface `artifactUrl` when present — the link to the published proposal artifa
 
 Surface `planningEffort` the same way: the recorded level verbatim when there is one, and, when
 step 2's read yielded nothing, `not recorded — planned at default`, that being the level recommended
-under **Planning effort** in State file (`skills/myflow-contracts/state-file.md`) — that file is
+under **Planning effort** in State file (`skills/flow-contracts/state-file.md`) — that file is
 canonical for the levels and for which of them is recommended, so read the set there rather than
 inferring it from this line.
 
 **A value that came from the retired key is surfaced as the level it maps to, never as the raw
 value.** Step 2's read yields whichever key held a value; `medium` is surfaced as `default`, `high`
 as `detailed` and `low` as `low`, per the mapping stated once under
-**Planning effort** in State file (`skills/myflow-contracts/state-file.md`). Say which level is in
+**Planning effort** in State file (`skills/flow-contracts/state-file.md`). Say which level is in
 force and nothing more — the key it was read from is not the operator's business, and this report
 never rewrites the file to migrate it. A raw `medium` printed as a level would name a level this
 pipeline does not have.
@@ -185,7 +185,7 @@ pipeline does not have.
 **A retired-key value outside those three maps to no level, and is surfaced as `not recorded —
 planned at default` rather than echoed.** It does not make the file unparseable:
 the mapping's boundary is the level's, not the schema's, and what an unmapped value reads as is
-stated once under **Planning effort** in State file (`skills/myflow-contracts/state-file.md`), where
+stated once under **Planning effort** in State file (`skills/flow-contracts/state-file.md`), where
 the reason it is *not recorded* rather than *unparseable* is recorded too. This line reports the
 level, and there is none.
 
@@ -231,7 +231,7 @@ Add below the table:
   whenever they differ, naming each worktree by its absolute path
 
 Then regenerate the change's full handoff block for its current state and print it. Load **Handoff
-blocks** (`skills/myflow-contracts/handoff-blocks.md`) here — it is canonical for the per-state
+blocks** (`skills/flow-contracts/handoff-blocks.md`) here — it is canonical for the per-state
 templates, and this is the only step of any `/myflow-*` command that loads it — and render from the
 template that matches the current state. Build it from the record and the artifacts as they now
 stand; nothing is read back from a stored copy of an earlier run's text, because no command stores
@@ -240,14 +240,14 @@ one.
 - A value the record does not carry is reported as **missing**, so a block whose artifact URL
   reads *missing* is distinguishable from one whose URL was never printed. A run-only value is the
   exception and is omitted instead:
-  **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`) marks which fields those
+  **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`) marks which fields those
   are, and this file does not list them again.
 - `IN_PROGRESS` renders two different blocks, and **the merge status this command already computed
   in step 2 chooses between them whenever it is conclusive** — a branch proven to have reached the
   base branch is integrated, so the branch-waiting-on-a-merge block is the right one for it, and its
   heading says the merge has happened. `prUrl` is consulted only where that probe was inconclusive.
   The selection table, and the reason the weaker signal must not run ahead of the stronger one, are
-  under **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`); render from that
+  under **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`); render from that
   table.
 - **Use the answer you already have, and never re-derive it.** Step 2 already produced the
   merge status — all three of its steps, combined across every worktree — for the next-command
@@ -264,7 +264,7 @@ one.
   about what to run next.
 - The `prUrl` test that remains is one-way — a `null` `prUrl` does not prove run 1 has not
   happened — and what that costs, plus why it is accepted rather than replaced, is stated under
-  **The block each state renders** (`skills/myflow-contracts/handoff-blocks.md`). Do not restate that
+  **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`). Do not restate that
   reasoning here, and do not present the test as conclusive.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
 - **The `Run it:` section is resolved, never copied from a stored run.** Follow **6. Resolve the

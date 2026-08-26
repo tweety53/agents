@@ -101,7 +101,7 @@ conventions and the patterns already present in the surrounding code.
 These skills live in `skills/` next to this file (or in `<project>/.codex/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
-Every skill below but `flow-research` and `myflow-contracts` requires the `spectre` CLI to be
+Every skill below but `flow-research` and `flow-contracts` requires the `spectre` CLI to be
 installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
 
 ### Skill index
@@ -112,7 +112,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
-| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
+| `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
 ### /flow commands summary
 
@@ -126,7 +126,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
 Codex loads this file into every session in this project, before `/flow` runs and
-before anything loads `skills/myflow-contracts/pipeline.md` — being present without that load is the
+before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is the
 whole job of the block, which is why the always-on rule `rules/myflow-manual-review.mdc` carries the
 same three lines. **What the copy reproduces is the states and the transitions, not the wording**,
 and the two are deliberately **not** kept byte-identical: a difference in what the lines *say* is
@@ -135,9 +135,9 @@ rather than copied: the state diagram lives under **How the pipeline works** (`<
 and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
 
 Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load
-`skills/myflow-contracts/pipeline.md` first**; that file holds the states, transitions, git
+`skills/flow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
-`skills/myflow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s
+`skills/flow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s
 integrate/archive phase alone.
 
 `<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (non-archived)
@@ -147,7 +147,7 @@ change relevant to that state is used automatically; if there are multiple, you'
 description or Jira key); anything else is reported rather than ignored.
 
 **Model:** See "Model resolution" in `skills/flow/SKILL.md`, canonical for `/flow`; "Model policy" in
-`skills/myflow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
+`skills/flow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
 
 | Command | What it does |
 |---------|-------------|

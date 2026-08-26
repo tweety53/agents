@@ -21,7 +21,7 @@ Bugbot and Security are dispatched only when you explicitly ask for either, at a
 
 Also follow the myflow rule (`myflow-manual-review.mdc`) — installed globally, so let your harness
 resolve it rather than assuming a project-local path. It is a stub: **load
-`skills/myflow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git
+`skills/flow-contracts/pipeline.md` first**, which is canonical for the states, transitions, git
 boundaries and the finish contract; `/flow`'s own stage keys are in `skills/flow/SKILL.md`'s own
 **Stage keys**, cited rather than repeated here.
 

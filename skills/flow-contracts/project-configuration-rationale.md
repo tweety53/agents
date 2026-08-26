@@ -1,6 +1,6 @@
 # Project configuration — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/project-configuration.md`.
+This file is the reasoning behind `skills/flow-contracts/project-configuration.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Where the agents repository is
@@ -80,7 +80,7 @@ a dropped `url` row refuses in an apply worktree exactly as a dropped `database`
 does a `url` row dropped because its `<value:…>` reference named no row or named another `url` row.
 A base URL falling back to its `Default` there points at the project's shared bucket, which is the
 same silent wrong answer as falling back to the shared database, reached one step later. The
-argument is stated once under **The empty id** (`skills/myflow-contracts/workspace-isolation.md`).
+argument is stated once under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
 
 ### Working directory for `survivors`, `remove`, and `create`
 
@@ -97,14 +97,14 @@ cannot write one correctly without being told which directory that is.
   change's apply worktree has already been removed.
 
 - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
-  step, per **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), so the
+  step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`), so the
   apply worktree is by then not a directory anything could run from — and two commands out of one
   table, called by one run of one command, must not disagree about where they run.
 
 - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
   applications does, and that is the worktree whose applications need the resources — the same
   first-start-in-a-worktree fact the row in
-  **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`) records. The asymmetry is
+  **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`) records. The asymmetry is
   the rule working rather than an exception to it: each command runs from the checkout that still
   exists when it is called.
 
@@ -133,7 +133,7 @@ own still running afterwards.
 because the command is the only place it can be fixed. A guard that stays project-agnostic and
 single-file cannot hold one container runtime's `kill` any more than it can hold `psql -l` — the
 reason a third verb exists at all, under
-**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`). What the bound still
+**Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`). What the bound still
 guarantees is what run 2 needs: the *guard* returns, the row is reported as a skip rather than as a
 verification, and nothing the escaped process prints later is read as a survivor report. What it
 does not guarantee is that the escaped process stopped — and inside a shared container that process
@@ -184,6 +184,6 @@ declares no section passes silently in both places, which is the overwhelmingly 
 `/myflow-finish` deliberately does not repeat the validation: run 2 reads the `survivors` row alone
 and already reports every input it cannot resolve as a skip, and a blocking validation there would
 strand an already-merged change over text that session cannot correct — the trade
-**Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`) rejects when it weighs a
+**Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`) rejects when it weighs a
 change stranded short of its terminal state against stale storage. So a malformed declaration is
 caught before it can be used, and never at the point where reporting it would strand a change.

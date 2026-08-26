@@ -27,7 +27,7 @@ Folded red tasks
 
 A task tagged `**Build:** red` carries `**Squash-with:** Task <N>`, naming
 one or more partners in the same plan, and its commit is folded into that
-one unit's commit before review (see skills/myflow-contracts/build-
+one unit's commit before review (see skills/flow-contracts/build-
 green.md). After the fold the red task has NO commit of its own: its
 declared `Commit:` subject exists nowhere, and one commit carries every
 folded task's files. Checking it against a commit of its own is therefore
@@ -495,7 +495,7 @@ def _fold_group(
 ) -> Tuple[List[str], List[str], Optional[str], List[str]]:
     """Resolve every partner a `Build: red` task's `Squash-with:` names —
     "one or more other tasks in the same plan", per **The build-green tag**
-    (`skills/myflow-contracts/build-green.md`). Returns `(partner files,
+    (`skills/flow-contracts/build-green.md`). Returns `(partner files,
     partner allowed-collateral, the folded commit's expected subject,
     violations)`.
 
@@ -858,7 +858,7 @@ def check_commit_subject(task: TaskFields, actual_subject: str) -> List[str]:
 
 
 # _LEADING_KEY_RE: a Jira key is `<letters>-<digits>` — never digits alone —
-# at the very start of the change name (per skills/myflow-contracts/
+# at the very start of the change name (per skills/flow-contracts/
 # jira-integration.md's own `[A-Z]{2,10}-\d+` shape and this repository's
 # "Change naming" convention, `<key>-<slug>`; matched case-insensitively
 # here since check_commit_scope's own comparison is, per finding B).

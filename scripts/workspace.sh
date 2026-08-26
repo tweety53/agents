@@ -2,7 +2,7 @@
 # workspace.sh — create, remove and report this repository's per-workspace
 # database, the `create`/`remove`/`survivors` triple named in
 # .flow/project.md's `## workspace isolation` section per
-# skills/myflow-contracts/project-configuration.md (canonical for what each
+# skills/flow-contracts/project-configuration.md (canonical for what each
 # command runs, what `survivors` prints, and what its exit code means).
 #
 # Usage:
@@ -41,7 +41,7 @@
 # container path for the third.
 #
 # A workspace database is named flow_<id_underscored> (every "-" in the id
-# replaced by "_"), per skills/myflow-contracts/workspace-isolation.md's
+# replaced by "_"), per skills/flow-contracts/workspace-isolation.md's
 # "What the id derives". <id> is validated against that section's own output
 # alphabet ([a-z0-9-]) before it is ever interpolated into SQL or a database
 # name — not because a malformed id is expected, but because both create and

@@ -965,7 +965,7 @@ func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
 // --- state list ---
 //
 // `state list` is F1's fix: skills/flow-status/SKILL.md and
-// skills/myflow-contracts/pipeline.md's Change name resolution enumerate
+// skills/flow-contracts/pipeline.md's Change name resolution enumerate
 // through this command rather than a hand-written curl call against GET
 // /api/v1/stats/state-board, so they inherit the daemon-header check, the
 // ErrUnavailable classification and the request timeout the CLI's other
@@ -1091,7 +1091,7 @@ func TestStateListFallbackReportsLocalRecords(t *testing.T) {
 
 // TestStateListFallbackReportsUnreadableFileByName is this command's own
 // version of the CLI-wide "an unreadable record is named, never rebuilt by
-// inference" rule (skills/flow-status/SKILL.md, skills/myflow-contracts/
+// inference" rule (skills/flow-status/SKILL.md, skills/flow-contracts/
 // state-file.md): a fallback file that does not even parse as JSON must
 // still appear in the list, marked unreadable, rather than silently
 // vanish from an enumeration that is already degraded.

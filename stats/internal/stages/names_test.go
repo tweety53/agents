@@ -14,7 +14,7 @@ import (
 // stats/internal/stages is three directories below the repository root
 // (stages -> internal -> stats -> root), the same relative depth
 // internal/fallback/journal_test.go's contractPath already uses for
-// skills/myflow-contracts/state-file.md.
+// skills/flow-contracts/state-file.md.
 const readmePath = "../../../README.md"
 
 // levelOneHeading locates the section this test extracts from.

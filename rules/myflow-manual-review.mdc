@@ -29,11 +29,11 @@ instead.
 This rule is always on, in every session, so it carries **only the trigger above** — not the
 pipeline itself. The pipeline is one file, loaded on demand:
 
-**States** and **State transitions** (`skills/myflow-contracts/pipeline.md`) — **load that file
+**States** and **State transitions** (`skills/flow-contracts/pipeline.md`) — **load that file
 first**, before any other step of `/flow`. It is canonical for the state
 definitions, the command→state transition table, the wrong-state handoff, the
 handoff output shape. The finish contract itself lives in
-`skills/myflow-contracts/finish-contract.md`, which is canonical for it and is loaded by
+`skills/flow-contracts/finish-contract.md`, which is canonical for it and is loaded by
 `/flow`'s integrate/archive phase alone.
 
 Never act on a remembered version of any of that. A command that skips the load is running on a
@@ -46,14 +46,14 @@ first time a contract is added, nothing checks it against the table, and that is
 
 | Contract | Load it before |
 |----------|----------------|
-| **State file** (`skills/myflow-contracts/state-file.md`) | reading or writing a change's state file |
-| **Project configuration** (`skills/myflow-contracts/project-configuration.md`) | resolving `<project>/.flow/project.md` |
-| **Jira integration** (`skills/myflow-contracts/jira-integration.md`) | any Jira-related step |
-| **Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 only |
-| **Plan provenance** (`skills/myflow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
-| **The build-green tag** (`skills/myflow-contracts/build-green.md`) | writing or checking a task's build tag |
-| **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
-| **Finish contract** (`skills/myflow-contracts/finish-contract.md`) | `/flow`'s two-run integrate/archive procedure — the preflight signals, both runs, base-branch resolution and worktree cleanup |
+| **State file** (`skills/flow-contracts/state-file.md`) | reading or writing a change's state file |
+| **Project configuration** (`skills/flow-contracts/project-configuration.md`) | resolving `<project>/.flow/project.md` |
+| **Jira integration** (`skills/flow-contracts/jira-integration.md`) | any Jira-related step |
+| **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 only |
+| **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
+| **The build-green tag** (`skills/flow-contracts/build-green.md`) | writing or checking a task's build tag |
+| **Workspace isolation** (`skills/flow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
+| **Finish contract** (`skills/flow-contracts/finish-contract.md`) | `/flow`'s two-run integrate/archive procedure — the preflight signals, both runs, base-branch resolution and worktree cleanup |
 
 **A `/flow` run never loads a rationale appendix.** `pipeline-rationale.md` and
 `jira-integration-rationale.md` hold the reasoning behind the two largest contracts — why an

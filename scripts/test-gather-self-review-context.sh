@@ -87,7 +87,7 @@ add_tasks() {
 
 # add_commits — the two finish-run-1 commits plus the archive commit, using
 # this repository's own established subject conventions
-# (skills/myflow-contracts/pipeline.md -> Git boundaries). The implementation
+# (skills/flow-contracts/pipeline.md -> Git boundaries). The implementation
 # and planning commits touch REAL paths (a real-path deletion, this change's
 # own review panel, pass 3, finding A) — `--allow-empty` with nothing staged
 # is the only way to produce a commit that misses PLAN_SHA's live-pathspec

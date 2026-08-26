@@ -1,6 +1,6 @@
 # Handoff blocks — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/handoff-blocks.md`.
+This file is the reasoning behind `skills/flow-contracts/handoff-blocks.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Handoff blocks
@@ -52,7 +52,7 @@ straight through to the bare ancestor test, reporting *merged* for a branch that
 through `/myflow-finish`. That is the same refusal-to-infer `check-finish-preflight.sh` makes twice
 over — when it is handed `-` for the recorded merge base, and when `rev-parse --verify` on a
 recorded one fails — which is why **The block each state renders**
-(`skills/myflow-contracts/handoff-blocks.md`) states resolve-then-compare as a rule rather than
+(`skills/flow-contracts/handoff-blocks.md`) states resolve-then-compare as a rule rather than
 leaving it implied by the two conditions alone.
 
 ### Why the `Jira` line is run-only
@@ -79,7 +79,7 @@ unsatisfiable rather than merely unsatisfied — no single block is correct for 
 ### Why `Route` and `Outstanding` are run-only
 
 The landing answer is never remembered between runs,
-per **Run 1 — the branch is not merged** (`skills/myflow-contracts/finish-contract.md`), so no
+per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`), so no
 field records which route was taken: a recorded `prUrl` implies the pull-request route, and
 nothing separates the other two. The
 outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
@@ -136,7 +136,7 @@ run comes next, this splits on it to say which wait the operator is in, and both
 **The `prUrl` test is one-way, and the gap is named rather than papered over — it now applies only
 to the inconclusive rows.** `prUrl` is `null` until a pull request is opened, and only the
 pull-request route ever writes it — see
-**State file** (`skills/myflow-contracts/state-file.md`). *Merge and push* and *handle it manually*
+**State file** (`skills/flow-contracts/state-file.md`). *Merge and push* and *handle it manually*
 both complete run 1 and leave it `null`. So a non-null
 `prUrl` proves run 1 happened; a `null` one proves nothing, and where merge status cannot be
 determined — no remote, no network, an unresolvable base ref — the report shows the `/myflow-do`
@@ -153,7 +153,7 @@ removed one reads *missing*.
 ### Why no field is added to close the gap
 
 **No field is added to close it.**
-**Finish contract** (`skills/myflow-contracts/finish-contract.md`) already refuses one:
+**Finish contract** (`skills/flow-contracts/finish-contract.md`) already refuses one:
 the branch's merge status is the only source of truth for whether the branch has been integrated,
 and a field could disagree with it. That is the same reason merge status governs the table —
 the rule was already stated here, and the defect was reading `prUrl` in front of it rather than

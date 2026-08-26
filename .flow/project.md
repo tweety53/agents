@@ -274,7 +274,7 @@ there.
 `myflow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
 `scripts/workspace.sh remove <id>` drops them during archive cleanup exactly as the registry
 requires, and that must keep working. The line is the one **Workspace isolation**
-(`skills/myflow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
+(`skills/flow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
 resource, never the service that holds it. This section protects the service and the dev workspace's
 own logical resources; it says nothing about anyone else's.
 

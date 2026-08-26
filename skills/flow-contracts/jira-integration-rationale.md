@@ -1,6 +1,6 @@
 # Jira integration — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/jira-integration.md`.
+This file is the reasoning behind `skills/flow-contracts/jira-integration.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ### Resolution (how `jiraIssue` is decided)
@@ -15,7 +15,7 @@ asymmetry decides it: asking costs one prompt, and guessing wrong costs an irrev
 someone else's ticket, so a key the command merely *noticed* must be affirmed before it can drive
 one, while a key the operator typed needs no such affirmation because they already affirmed it by
 typing it. The procedure that follows is
-**Resolution (how `jiraIssue` is decided)** (`skills/myflow-contracts/jira-integration.md`), which
+**Resolution (how `jiraIssue` is decided)** (`skills/flow-contracts/jira-integration.md`), which
 is canonical for it.
 
 ### Change naming

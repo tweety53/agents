@@ -238,7 +238,7 @@ collect_hits() {
 # COMMAND files, leaving four commands gating on stages that no longer existed and contradicting
 # the skills they delegate to. This check makes that class of drift loud instead of silent.
 #
-# The legal states are owned by `skills/myflow-contracts/pipeline.md` — see its `## State
+# The legal states are owned by `skills/flow-contracts/pipeline.md` — see its `## State
 # transitions` section. They are deliberately not copied here; a second list would drift from
 # the first.
 #
@@ -449,7 +449,7 @@ check_retired_stage_vocabulary() {
   if [[ -n "$hits" ]]; then
     printf '\n⚠ Retired myflow state vocabulary found:\n%s\n' "$hits" >&2
     printf 'State gates must match the `## State transitions` table in\n' >&2
-    printf 'skills/myflow-contracts/pipeline.md.\n' >&2
+    printf 'skills/flow-contracts/pipeline.md.\n' >&2
     return 1
   fi
 

@@ -5,8 +5,8 @@
 # with two deliberate reads, both for the same reason: the thing under test is
 # the guard's agreement with a canonical file, and a fixture copy of that file
 # would be a third place for the same rule to drift.
-#   - the registry-coupling case reads skills/myflow-contracts/artifacts-registry.md;
-#   - the workspace-id case reads skills/myflow-contracts/workspace-isolation.md
+#   - the registry-coupling case reads skills/flow-contracts/artifacts-registry.md;
+#   - the workspace-id case reads skills/flow-contracts/workspace-isolation.md
 #     and RUNS the derivation block it carries, asserting the guard's own id
 #     against it byte for byte.
 #
@@ -619,7 +619,7 @@ PATH="$OLD_PATH"
 assert_no_verdict "a failed worktree listing"
 
 # 14. The five rows this guard checks are DERIVED from the registry in
-#     skills/myflow-contracts/artifacts-registry.md, and a derivation nothing checks is a
+#     skills/flow-contracts/artifacts-registry.md, and a derivation nothing checks is a
 #     copy waiting to go stale: a registry row added later whose lifetime ends
 #     at run 2 would go unchecked and this guard would confirm a cleanup that
 #     left it behind. The guard therefore declares, in `registry-row-checked:`
@@ -632,7 +632,7 @@ assert_no_verdict "a failed worktree listing"
 #     registry, and a fixture copy of it would be a third place for the same
 #     list to drift.
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REGISTRY_FILE="$REPO_ROOT/skills/myflow-contracts/artifacts-registry.md"
+REGISTRY_FILE="$REPO_ROOT/skills/flow-contracts/artifacts-registry.md"
 if [ ! -f "$REGISTRY_FILE" ]; then
   fail "registry coupling: $REGISTRY_FILE not found — the guard's rows have nothing to be derived from"
 else
@@ -686,7 +686,7 @@ fi
 #
 # This is the one registry row whose verdict is not read out of git or the
 # filesystem but ASKED of the project, by running the `survivors` command its
-# .flow/project.md declares. skills/myflow-contracts/project-configuration.md
+# .flow/project.md declares. skills/flow-contracts/project-configuration.md
 # is normative for that command's output and its exit code — "What `survivors`
 # prints, and what its exit code means" — and the cases below are one per branch
 # of it, plus the branches its neighbouring rules imply.
@@ -885,7 +885,7 @@ assert_absent "$REPO/second-section-ran" "a duplicated heading does not run the 
 # 20. The workspace id, asserted against the CANONICAL derivation rather than
 #     against a copy of it — for a SET of change names, one per step of that
 #     derivation, and under every locale this machine has. The block is
-#     extracted from skills/myflow-contracts/workspace-isolation.md, DRIVEN with
+#     extracted from skills/flow-contracts/workspace-isolation.md, DRIVEN with
 #     each name in turn, and the guard's own id compared with what it produces,
 #     byte for byte. A second implementation that disagrees by one byte yields a
 #     different database name for the same change — the failure that file exists
@@ -908,7 +908,7 @@ assert_absent "$REPO/second-section-ran" "a duplicated heading does not run the 
 #     carries exactly one such assignment FAILS this case rather than silently
 #     falling back to the one name it hard-codes, which would be a vacuous pass
 #     wearing this comment.
-CANON_SRC="$REPO_ROOT/skills/myflow-contracts/workspace-isolation.md"
+CANON_SRC="$REPO_ROOT/skills/flow-contracts/workspace-isolation.md"
 if [ ! -f "$CANON_SRC" ]; then
   fail "workspace id: $CANON_SRC not found — the guard's derivation has nothing to be checked against"
 else
@@ -1477,14 +1477,14 @@ assert_not_out "workspace" "a repository declaring no isolation stays silent abo
 # an infinite loop — and a hang there strands an already-merged change short of
 # FINISHED with nobody watching. The project-supplied `## stop` command is
 # already given a bounded wait for exactly this reason; see **Worktree cleanup**
-# (`skills/myflow-contracts/finish-contract.md`).
+# (`skills/flow-contracts/finish-contract.md`).
 #
 # WHY A TIMEOUT IS A SKIP HERE AND A FAILED CHECK THERE. A `## stop` timeout has
 # no fallback: an un-stopped stack is a reason not to remove a worktree, and
 # blocking is the safe direction. A survivors timeout has one — the reported
 # skip the contract already defines for "the command said nothing about
 # survivors" — and blocking an already-merged change over a slow command is what
-# **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`)
+# **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`)
 # forbids. Same bound, opposite outcome, and the difference is which direction is
 # safe at that point in the run.
 # ---------------------------------------------------------------------------
@@ -1553,7 +1553,7 @@ fi
 #
 #      THE LAST ASSERTION IS TWO-SIDED ON PURPOSE. The escapee surviving is a
 #      documented limitation — check-cleanup-complete.sh's run_survivors header
-#      and skills/myflow-contracts/project-configuration.md both state it — so
+#      and skills/flow-contracts/project-configuration.md both state it — so
 #      finding it gone is not a quiet improvement, it is those two paragraphs
 #      becoming false. This case therefore fails in BOTH directions, exactly as
 #      the registry-coupling case 14 does, and names what to edit.
@@ -1584,7 +1584,7 @@ sleep 4272"
   if pgrep -f 'sleep 4271' >/dev/null 2>&1; then
     pass "a process that leaves the guard's process group outlives the bound, as documented"
   else
-    fail "a process that left the guard's process group did NOT outlive the bound — check-cleanup-complete.sh's run_survivors header and skills/myflow-contracts/project-configuration.md both document that it does, and are now wrong"
+    fail "a process that left the guard's process group did NOT outlive the bound — check-cleanup-complete.sh's run_survivors header and skills/flow-contracts/project-configuration.md both document that it does, and are now wrong"
   fi
   # Scoped to these two durations, never a bare pattern: this suite must not
   # reach a process it did not start.

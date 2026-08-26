@@ -3,7 +3,7 @@
 **This file is the canonical definition.** Skills reference it by name; none of them restate
 the contract. If a rule below and a skill ever disagree, this file wins.
 
-The reasoning behind this file lives in `skills/myflow-contracts/jira-integration-rationale.md`;
+The reasoning behind this file lives in `skills/flow-contracts/jira-integration-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
 **Jira is a projection of pipeline state, never a source of it and never a gate.** myflow reads
@@ -242,7 +242,7 @@ one exists.
 
 **A self-review finding adds one more label.** An issue filed from a self-review finding carries,
 on top of the set above, the label naming the angle that produced it. The angle-to-label table is
-canonical in step 9 of **Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`),
+canonical in step 9 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`),
 cited here rather than copied, so the two cannot drift.
 
 **Creation is a Jira write like any other, and fails the same way.** `createJiraIssue` can be
@@ -257,5 +257,5 @@ into a different one, and it is never left unmentioned.
 ### Follow-up issues
 
 Follow-up naming, the join search, and the append-only join write are governed by
-**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`), loaded only by `/myflow-finish`
+**Follow-up issues** (`skills/flow-contracts/jira-followups.md`), loaded only by `/myflow-finish`
 run 1.

@@ -7,7 +7,7 @@ table names is created or removed.
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/myflow-contracts/artifacts-registry-rationale.md`;
+The reasoning behind this file lives in `skills/flow-contracts/artifacts-registry-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
 ## Temporary artifacts registry
@@ -38,13 +38,13 @@ there is nothing temporary to remove.
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it. **Worktree cleanup**
-(`skills/myflow-contracts/finish-contract.md`) is the *procedure* for the rows removed there, not a
+(`skills/flow-contracts/finish-contract.md`) is the *procedure* for the rows removed there, not a
 second statement of the rule. See **Temporary artifacts registry**
-(`skills/myflow-contracts/artifacts-registry-rationale.md`) for why a stale second copy would be dangerous.
+(`skills/flow-contracts/artifacts-registry-rationale.md`) for why a stale second copy would be dangerous.
 
 **An artifact no row accounts for is a defect in the registry**, corrected by adding the row —
 never left unaccounted for on the grounds that something probably removes it. See **Temporary
-artifacts registry** (`skills/myflow-contracts/artifacts-registry-rationale.md`) for the incident that
+artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for the incident that
 established this.
 
 **Where the proposal artifact source comes from, and what produces the copy its row tests.**
@@ -52,37 +52,37 @@ established this.
 to the same URL, and the preserved copy its row requires lives under
 `<project>/docs/superpowers/artifacts/`. **Finish run 1 is what puts it there**, by copying it before
 it stages — see **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`), which is canonical for that copy, for the change-name
+(`skills/flow-contracts/finish-contract.md`), which is canonical for that copy, for the change-name
 and containment checks it makes first, and for the skip when a change published no artifact. The
 condition is therefore reachable in both directions: a change whose artifact run 1 copied is deleted
 at run 2, and a `/myflow-fast` change, which publishes none, is not. No preserved copy → leave the
 file and say so. The deletion is disclosed the same way the worktree removal is. See **Temporary
-artifacts registry** (`skills/myflow-contracts/artifacts-registry-rationale.md`) for why the row is
+artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for why the row is
 conditional.
 
 **The workspace row belongs only to a project that declares isolation, and for every other project
 it is a row about nothing — which is why it names no database, no bucket and no service.** A project
 declares the commands that create these resources, that remove them, and that report which of them
 survived, in
-**Project configuration** (`skills/myflow-contracts/project-configuration.md`).
+**Project configuration** (`skills/flow-contracts/project-configuration.md`).
 Which resources there are, and how each derived value is derived, is stated under
-**What the id derives** (`skills/myflow-contracts/workspace-isolation.md`).
+**What the id derives** (`skills/flow-contracts/workspace-isolation.md`).
 
 **This is the one row whose removal is verified by asking rather than by looking: a survivor is
 established from the project's own survivor report, never inferred from the removal's exit code**
-— stated once under **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`), with
+— stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`), with
 the report's output and exit-code contract under **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`). A report that could not reach its service is
+(`skills/flow-contracts/project-configuration.md`). A report that could not reach its service is
 skipped rather than failed. See **Temporary artifacts registry**
-(`skills/myflow-contracts/artifacts-registry-rationale.md`) for why asking, not looking, is required here.
+(`skills/flow-contracts/artifacts-registry-rationale.md`) for why asking, not looking, is required here.
 
 **Nothing removes the archive branch either, on `origin` or in the repository.** See **Temporary
-artifacts registry** (`skills/myflow-contracts/artifacts-registry-rationale.md`) for why, and for
+artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for why, and for
 design.md's open question `archive-branch-cleanup`.
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can.** It is not written
 into the state file, and the project's `remove` command does not touch it either — stated as a
 property of the `cache index` resource word under **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`). See **Temporary artifacts registry**
-(`skills/myflow-contracts/artifacts-registry-rationale.md`) for why: guessing an index to sweep risks flushing
+(`skills/flow-contracts/project-configuration.md`). See **Temporary artifacts registry**
+(`skills/flow-contracts/artifacts-registry-rationale.md`) for why: guessing an index to sweep risks flushing
 another workspace's.

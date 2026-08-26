@@ -70,7 +70,7 @@ today) is unaffected by any of this; the codes exist so a caller that
 wants to distinguish — e.g. page on 3, merely log 2 — can, without
 parsing prose.
 
-Rule (canonical definition: skills/myflow-contracts/plan-provenance.md —
+Rule (canonical definition: skills/flow-contracts/plan-provenance.md —
 do not restate it here; a second copy is a Single Source of Truth
 violation and is exactly how the two-line/one-line drift this guard once
 had happened).
@@ -589,7 +589,7 @@ _ESCAPED_DELIMITER_RE = re.compile(
 # veto left out: 37 numeric claims are exempted, and 9 sit on a line
 # containing `<`. Every one of those 9 is either a worked demonstration of
 # this very veto — quoted on purpose in `plan-provenance.md`'s own prose
-# (`skills/myflow-contracts/plan-provenance.md`), in the live delta spec
+# (`skills/flow-contracts/plan-provenance.md`), in the live delta spec
 # (`openspec/specs/myflow-plan-provenance/spec.md`), in an archived copy of
 # that spec, or in an archived design document that walked through the same
 # veto — or a claim already carrying a provenance tag on the same line, so
@@ -901,7 +901,7 @@ def _veto_note(relfile: str, lineno: int, veto: str) -> str:
     return (
         f"{relfile}:{lineno}: note: the quotation exemption was withdrawn "
         f"on this line ({veto}) — {_VETO_REMEDIES[veto]}; "
-        "see skills/myflow-contracts/plan-provenance.md"
+        "see skills/flow-contracts/plan-provenance.md"
     )
 
 
@@ -2631,7 +2631,7 @@ class ProvenanceGuard:
                 # fix wave): the message also says scanning of THIS FILE
                 # stopped here — no line after this point in this file is
                 # scanned on this run (see check_file's docstring and
-                # skills/myflow-contracts/plan-provenance.md's "What the
+                # skills/flow-contracts/plan-provenance.md's "What the
                 # guard does not do") — rather than leaving that only
                 # implied by the fact that no more of this file's output
                 # appears.

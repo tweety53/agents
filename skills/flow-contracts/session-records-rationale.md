@@ -1,11 +1,11 @@
 # Rendering the session records — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/session-records.md`.
+This file is the reasoning behind `skills/flow-contracts/session-records.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ## Preserving the session records
 
-*The heading keeps its former name deliberately.* **Rendering the session records** (`skills/myflow-contracts/session-records.md`)
+*The heading keeps its former name deliberately.* **Rendering the session records** (`skills/flow-contracts/session-records.md`)
 cites this section inline by it, and `check-references.sh`
 matches that citing bold token against this heading — renaming it here breaks the citation there.
 

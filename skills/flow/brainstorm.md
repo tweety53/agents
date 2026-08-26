@@ -9,24 +9,24 @@ resuming run (`STARTED`).
 ## A. Resolve the change and write `STARTED`
 
 **Resolve the linked Jira issue first** — it decides the change name. Follow **Resolution (how
-`jiraIssue` is decided)** in `skills/myflow-contracts/jira-integration.md` exactly. This is the
+`jiraIssue` is decided)** in `skills/flow-contracts/jira-integration.md` exactly. This is the
 only phase that resolves a key.
 
 Then the change name:
 
 - **With a linked issue**, the name is `<lowercased-key>-<slug>`, per **Change naming**
-  (`skills/myflow-contracts/jira-integration.md`). Derive the slug from the issue summary when only
+  (`skills/flow-contracts/jira-integration.md`). Derive the slug from the issue summary when only
   a key was given.
 - **Without one**, the name is the descriptive slug alone.
 - If a name or description was given, use it (derive kebab-case from the description if only a
   description was given).
 - **If both are omitted:** enumerate the candidate set exactly as **Change name resolution**
-  (`skills/myflow-contracts/pipeline.md`) defines it, restricted to changes with incomplete planning
+  (`skills/flow-contracts/pipeline.md`) defines it, restricted to changes with incomplete planning
   artifacts. Exactly one match → resume it, announcing which; multiple → **AskUserQuestion** listing
   each (name, state, last modified); zero → ask what to build.
 
 **Transition the issue to In Progress now**, per **Transitions** in Jira integration
-(`skills/myflow-contracts/jira-integration.md`) — before brainstorming, so the board is correct
+(`skills/flow-contracts/jira-integration.md`) — before brainstorming, so the board is correct
 while planning runs. A failure is one skipped-with-reason line and planning continues; nothing about
 this call may delay or alter the run.
 
@@ -113,7 +113,7 @@ job):
   `<project>/docs/superpowers/research/kan-326-myflow-rework.md`, is one: hand-written pre-mechanization, so it
   carries a descriptive suffix the mechanized writer no longer adds). **Do not** also check
   `<name>.md` here: a Jira-linked change's resolved `<name>` is always `<key>-<slug>`
-  (**Change naming**, `skills/myflow-contracts/jira-integration.md`), which a research note's own
+  (**Change naming**, `skills/flow-contracts/jira-integration.md`), which a research note's own
   topic-slug — the key alone, or a topic-derived slug chosen before any change existed — will not
   equal.
 - **No linked issue:** check `<name>.md`, where `<name>` is the change's own resolved (slug-only)
@@ -212,7 +212,7 @@ Open questions`**, including one deferred as far back as round one. Then ask, wi
 End the stage only on an explicit choice of **move on**. An answer that names something opens
 another round. **This is the one prompt in this file where the safe default and the recommended
 option differ, and deliberately so** — shape per Operator prompts
-(`skills/myflow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is
+(`skills/flow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is
 present is not "move on," and defaults to another round rather than to the recommended choice. Print
 `⚠ another round — no explicit answer` when this default fires.
 
@@ -232,7 +232,7 @@ answer that is not one of the two options above defaults to **Yes**. Print `⚠ 
 explicit answer` when this default fires.
 
 Rounds one and two open without asking. **There is no hard cap.** No round count ends the stage —
-see **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`).
+see **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
 
 The convergence loop's own exit — an explicit **move on** at the confirm above — is what closes the
 checklist itself; the **design approval** the HARD GATE requires is a separate, later act by the
@@ -338,14 +338,14 @@ coverage, placeholder scan, type consistency) before finishing.
 **Tell it the task shape, because it is spectre's and not writing-plans' own.** A task is a
 column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; that task's steps are
 `  - [ ] **Step N: …**` lines indented two columns beneath it. The rule in full is the `Placement`
-paragraph under **The build-green tag** (`skills/myflow-contracts/build-green.md`).
+paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`).
 
 While enriching `tasks.md`, tag every fenced block and every numeric claim per **Plan provenance**
-(`skills/myflow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
+(`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
 and **kept**.
 
 While enriching `tasks.md`, also tag every task with `**Build:**` per **The build-green tag**
-(`skills/myflow-contracts/build-green.md`), and with the mechanically-checkable field family
+(`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
 `myflow-task-commit-fields` requires:
 
 - `**Files:**` — the paths this task's commit will touch, with an optional

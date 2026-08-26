@@ -90,7 +90,7 @@ func toDTO(c store.Change) changeDTO {
 // c.Repos is deliberately left unset here: put derives it from c.Worktrees
 // via reposFromWorktrees immediately before writing, rather than trusting
 // dto.Repos. worktrees is already the state file contract's own record of
-// every affected repository (per skills/myflow-contracts/state-file.md,
+// every affected repository (per skills/flow-contracts/state-file.md,
 // "Multi-repo shape") -- a second, independently-supplied repos field on
 // the wire would be a second copy of the same fact, free to disagree with
 // the first. Deriving it here, in the one place PutChange is called, means

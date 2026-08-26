@@ -17,7 +17,7 @@ session overrides it, and the reviewer slots (`reviewers`) the review panel disp
 no per-change state file, and marks no `myflow stage` call. It changes the harness-wide store, not
 any one change's record.
 
-**No flags.** Per **Command surface** (`skills/myflow-contracts/pipeline.md`), no `/myflow-*` or
+**No flags.** Per **Command surface** (`skills/flow-contracts/pipeline.md`), no `/myflow-*` or
 `/flow-*` command accepts a flag; that rule extends to this command as part of the same family. The
 only input is the operator's answers to the questions this skill asks interactively.
 

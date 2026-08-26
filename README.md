@@ -45,7 +45,7 @@ agents-data/
 │   ├── flow-status/                   ← read-only state report for open changes
 │   ├── flow-research/                 ← /flow-research — thinking-partner mode, stages research notes, touches no state
 │   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
-│   └── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
+│   └── flow-contracts/                ← on-demand contracts; pipeline.md is canonical for the state machine
 ├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
 └── openspec/                          ← frozen at the 2026-08-25 cutover: the record of how this repository got here, never written to again
 ```
@@ -95,7 +95,7 @@ stateDiagram-v2
 Two tables. The first is the stage vocabulary itself — every documented stage, across the
 commands this pipeline has (three pipeline commands, one composite command, and `/flow` — the
 single command that replaces all four — plus two read-only/no-state commands, exactly
-as **Command surface** (`skills/myflow-contracts/pipeline.md`) names them). The second is the human
+as **Command surface** (`skills/flow-contracts/pipeline.md`) names them). The second is the human
 gate that *follows* each command's run — a property of the state the command ends in, never a stage
 of its own, so it is kept out of the first table rather than repeated per stage.
 
@@ -165,7 +165,7 @@ archive — so its row states the gate for each.
 
 `/flow`'s run-2 sequence ends with `flow.push-archive`. The row before it, `flow.self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
-**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9 — which is
+**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`), step 9 — which is
 also the file to change when that procedure changes, since the requirements layer that once sat
 above it is frozen with the rest of the `openspec/` tree at the spectre cutover.
 
@@ -186,14 +186,14 @@ The stage iterates rather than passing once. After every planning-stage exchange
 clarifying questions, the approval of a design section, the operator's review of the written spec —
 one convergence test asks whether the command now holds a question its inputs do not answer, and
 while it does, another round opens or is offered. The stage closes only the way any pipeline stage
-does — **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`).
+does — **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
 
 The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
 both honest are **Convergence** (`skills/flow/brainstorm.md`).
 
 The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
 gate itself. The three levels and which of them is the default are owned by **Planning effort**
-(`skills/myflow-contracts/state-file.md`).
+(`skills/flow-contracts/state-file.md`).
 
 #### Writing-plans — `/myflow-start`
 
@@ -223,7 +223,7 @@ because nothing is committed at this stage. A checkbox is marked `[x]` only afte
 spec **and** quality review; a blocked task pauses and reports rather than guessing.
 
 Which model a dispatch runs on, and the rule that every dispatch records it, are **Model policy**
-(`skills/myflow-contracts/model-policy.md`).
+(`skills/flow-contracts/model-policy.md`).
 
 #### The review panel — `/myflow-do`
 
@@ -258,7 +258,7 @@ force a full re-run in place of a targeted one are **Panel re-runs** in the same
 
 `scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
 taken once per worktree in the resolved set — never a raw read of the state file's `worktrees` map,
-per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`). It prints exactly
+per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`). It prints exactly
 one verdict line and exits 0 whenever it reached a verdict; a missing verdict line is not a verdict,
 and neither is a worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` stops the
 run and asks the operator rather than guessing. Run 2 proceeds only when every worktree in the
@@ -266,12 +266,12 @@ resolved set returns `RUN2` — and a resolved set that comes back empty is neve
 per the same section.
 
 The three signals and why their order is load-bearing are **Finish contract**
-(`skills/myflow-contracts/finish-contract.md`).
+(`skills/flow-contracts/finish-contract.md`).
 
 #### The unfinished-work gate — `/myflow-finish` run 1
 
 Runs **before** the landing question and before any git action, once per worktree in the resolved
-set — see **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`).
+set — see **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`).
 `scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
 prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
 **Stop** marked as the recommendation. There is no fourth course, and none that hands back to
@@ -283,7 +283,7 @@ was integrated over is written into the planning commit's message and into the h
 record outlives the session.
 
 Each course and what run 1 then does are **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`).
+(`skills/flow-contracts/finish-contract.md`).
 
 #### The landing routes — `/myflow-finish` run 1
 
@@ -297,8 +297,8 @@ planning artifacts second. The linked issue moves to In Review on every route, i
 one.
 
 The route table is **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
-**Git boundaries** (`skills/myflow-contracts/git-boundaries.md`).
+(`skills/flow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
+**Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
 
 #### Cleanup — `/myflow-finish` run 2
 
@@ -312,8 +312,8 @@ remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no 
 treated exactly as `LEFTOVER`.
 
 What is removed, when, and on what condition is **Temporary artifacts registry**
-(`skills/myflow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
-the rows it removes is **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
+(`skills/flow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
+the rows it removes is **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`).
 
 #### Brainstorm — `/flow`
 
@@ -346,7 +346,7 @@ Same dispatch shape as `/myflow-do`'s — see **SDD + TDD per task — `/myflow-
 a dispatch runs on is **Model resolution** in `skills/flow/SKILL.md` — one default for implementer,
 panel, and panel-fix roles, read from the settings store rather than asked per change (design.md's
 `model-default-sonnet`, `settings-scope`); the per-harness enforcement notes in **Model policy**
-(`skills/myflow-contracts/model-policy.md`) still apply, but that file's three-role table does not.
+(`skills/flow-contracts/model-policy.md`) still apply, but that file's three-role table does not.
 
 #### The review panel — `/flow`
 
@@ -487,7 +487,7 @@ Every **per-project** install (`cursor`, `claude-code`, `codex`, `all`) closes t
    `.mdc`** (`kotlin-backend-development-standard.mdc` → `<agents repo>/rules/<name>`). An
    entry containing a `/` is a project path, and any other bare filename is the project's own
    file — neither is a shared rule. See the resolution table in
-   `skills/myflow-contracts/project-configuration.md`, which is canonical.
+   `skills/flow-contracts/project-configuration.md`, which is canonical.
 3. It drops any rule that is already `alwaysApply: true` — that one arrives through the
    global block, and rendering it again is the duplication this exists to remove.
 4. It renders what remains into a managed block — same `<!-- myflow:begin -->` /
@@ -668,7 +668,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** `/flow` reads its model from `skills/flow/SKILL.md`'s own **Model resolution**; see "Model policy" in `skills/myflow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
+**Model:** `/flow` reads its model from `skills/flow/SKILL.md`'s own **Model resolution**; see "Model policy" in `skills/flow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|

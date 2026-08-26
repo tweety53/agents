@@ -369,7 +369,7 @@ type stateListRecord struct {
 
 // stateListOutput is the one JSON object `state list` prints to stdout.
 // Source and Complete are what let a caller (skills/flow-status/SKILL.md,
-// skills/myflow-contracts/pipeline.md's Change name resolution) tell a
+// skills/flow-contracts/pipeline.md's Change name resolution) tell a
 // live enumeration apart from a degraded one without parsing stderr:
 // Complete is true only for Source == "store" -- the fallback directory
 // can never be presented as a full list, because it holds only the
@@ -586,7 +586,7 @@ func putChange(ctx context.Context, addr string, timeout time.Duration, projectK
 // process's own clock, at full precision, overwriting whatever value the
 // body carried. Every other field is left untouched.
 //
-// The field is CLI-owned (skills/myflow-contracts/state-file.md): a
+// The field is CLI-owned (skills/flow-contracts/state-file.md): a
 // caller supplies it or not, and either way this value is the one that
 // reaches the store, the on-disk fallback file and the journal entry.
 // That single ownership is the whole fix for KAN-284. The store orders a
@@ -650,7 +650,7 @@ var mergeBasePattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 // validateWorktreeMergeBases reports the first `worktrees` value that is
 // neither JSON null nor a sha, naming the worktree path it was recorded
 // against and the value itself. `null` is legal and means *no merge base
-// recorded* (skills/myflow-contracts/state-file.md), which is what a
+// recorded* (skills/flow-contracts/state-file.md), which is what a
 // worktree registered before its base is known carries.
 //
 // Its caller in runStateSet exits 2 rather than taking the never-block
@@ -695,7 +695,7 @@ func validateWorktreeMergeBases(body []byte) error {
 // withMainCheckoutPath returns body with a "mainCheckoutPath" field added,
 // leaving every field body already carries untouched. This field is
 // transport-only: it is never part of the on-disk state file's shape (see
-// skills/myflow-contracts/state-file.md), which is exactly why it is
+// skills/flow-contracts/state-file.md), which is exactly why it is
 // injected into the wire request here rather than being something the
 // caller of `state set` has to know to include.
 //

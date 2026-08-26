@@ -97,11 +97,11 @@ recommendation is not a courtesy here: the planning-gate capability requires eve
 
 There is no fourth course, and in particular none that hands back to `/myflow-do` inline. The filed
 issue is labelled and linked per
-**Labels on issues the pipeline creates** (`skills/myflow-contracts/jira-integration.md`).
+**Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`).
 
 **A filing that fails is one skipped-with-reason line, and the run still proceeds** — the same
 degradation every other Jira write in this pipeline has, per
-**Never blocking** (`skills/myflow-contracts/jira-integration.md`). Creation can fail for the usual
+**Never blocking** (`skills/flow-contracts/jira-integration.md`). Creation can fail for the usual
 reasons (auth, permission, an unknown project key or label) and there may be no tracker configured
 at all. None of them changes the operator's answer, which was *continue*: the outstanding list still
 reaches the planning commit's message and the handoff, which is where this change requires the
@@ -109,7 +109,7 @@ durable record to be. A failed filing is never silently upgraded to **Stop**, an
 unmentioned.
 
 **Three more outcomes of that course behave the same way**, and all three belong to
-**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) rather than here: the search
+**Follow-up issues** (`skills/flow-contracts/jira-followups.md`) rather than here: the search
 that finds a candidate asks the operator to confirm the join before writing to it, a declined
 confirmation files a new follow-up instead, and a search that *fails* files nothing and says so. Each
 is one line and none of them stops the run or changes the answer already given. That file is
@@ -321,7 +321,7 @@ the one irreversible step.
    happens at step 10, after self-review; step 11, which restores the checkout, closes the run.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
-   (`skills/myflow-contracts/finish-contract.md`) below.
+   (`skills/flow-contracts/finish-contract.md`) below.
 
    **`BASE` is resolved per worktree, inside the cleanup loop below — never once for the whole
    change.** A multi-repo change has one `origin` and one default branch per repository, so a name
@@ -338,11 +338,11 @@ the one irreversible step.
    below.
 
    The removal runs the project's `remove` command, read from the command table
-   **Project configuration** (`skills/myflow-contracts/project-configuration.md`) is canonical for,
+   **Project configuration** (`skills/flow-contracts/project-configuration.md`) is canonical for,
    with the workspace id substituted into its text by the mechanism that same file defines. **Run 2
    is not handed that id and does not need to be**: it is derived from the change name and from
    nothing else, deterministically and without ever being recorded, per
-   **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — so run 2 re-derives it
+   **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 re-derives it
    and arrives at the id `/myflow-do` used, in a session that shared nothing with it.
 
    **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
@@ -351,7 +351,7 @@ the one irreversible step.
 
    **A failed removal does not stop run 2 here; it is reported, and step 7 decides the verdict** —
    from the project's survivor report and never from this command's exit code, per
-   **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+   **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 6. **Remove the proposal artifact source** from the state directory, on the condition its row in
    **Temporary artifacts registry** (`artifacts-registry.md`) gives. That section carries the condition and
    the reason for it; this step does not repeat either.
@@ -374,7 +374,7 @@ the one irreversible step.
    is the reason the clause is quoted rather than summarised — the row it leaves unverified and the
    reason it could not be verified are both inside it. The relay does **not** block step 8; why an
    unreachable service must not strand an already-merged change is stated once under
-   **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`).
+   **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
 
    A non-zero exit with **no verdict line** is the third outcome and not a verdict: report it, leave
    the affected `worktrees` entries in the state file, and treat it exactly as `LEFTOVER` — an
@@ -406,7 +406,7 @@ the one irreversible step.
    check is never skipped for want of the script, and "not verified" is never reported as verified.
 8. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup**
-   (`skills/myflow-contracts/finish-contract.md`) below — and carry every other field
+   (`skills/flow-contracts/finish-contract.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
 9. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. It gathers its
@@ -437,9 +437,9 @@ the one irreversible step.
 
    The filing ask is **one multi-select prompt per angle**, listing that angle's findings and
    defaulting to filing none of them, shape per **Operator prompts**
-   (`skills/myflow-contracts/operator-prompts.md`). A finding filed this way carries its angle's
+   (`skills/flow-contracts/operator-prompts.md`). A finding filed this way carries its angle's
    label on top of the set **Labels on issues the pipeline creates**
-   (`skills/myflow-contracts/jira-integration.md`) already defines.
+   (`skills/flow-contracts/jira-integration.md`) already defines.
 
    The report is committed onto `chore/archive-<name>` — asserting that branch rather than assuming
    it, and not pushed here; step 10 carries the push — to
@@ -474,7 +474,7 @@ the one irreversible step.
     `<base>`, never on the archive branch.
 
 **The Jira `Done` transition fires before step 9, not after it.** Per **Jira integration**
-(`skills/myflow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
+(`skills/flow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
 archive move and the state write — that transition has already happened by the time step 9 begins,
 so self-review has nothing to delay: there is no Jira write left in run 2 for it to sit in front of.
 
@@ -482,7 +482,7 @@ so self-review has nothing to delay: there is no Jira write left in run 2 for it
 
 The scan that finds the worktrees carrying a change's branch. This is `/myflow-finish`'s own
 application of the rule stated once under **Resolving a change's worktrees**
-(`skills/myflow-contracts/worktree-resolution.md`) — that a step needing "the worktrees" resolves the set
+(`skills/flow-contracts/worktree-resolution.md`) — that a step needing "the worktrees" resolves the set
 rather than reading the state file's `worktrees` map directly, and that a resolved set which comes
 back empty is never a vacuous pass. That rule and the commands it binds are not restated here; what
 follows is specific to `/myflow-finish`: the preflight verdict, the unfinished-work gate, and run
@@ -502,7 +502,7 @@ repository this pipeline is installed into keeps them.
 
 **Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
 worktree on the change's branch in any affected repository.** Per **Resolving a change's worktrees**
-(`skills/myflow-contracts/worktree-resolution.md`), that is a state the pipeline cannot explain: stop and
+(`skills/flow-contracts/worktree-resolution.md`), that is a state the pipeline cannot explain: stop and
 report it to the operator, exactly as a `REFUSE`
 verdict would, rather than letting a zero-iteration loop read as "every worktree returned `RUN2`" or
 "`CLEAR` from every worktree." This applies wherever this procedure is used — the preflight verdict,
@@ -672,7 +672,7 @@ fi
   branch behind whenever anything unrelated failed, which is the state this step exists to end.
 
 The stack-stopped check reads the optional `## stop` key from `<project>/.flow/project.md` —
-see **Project configuration** in `skills/myflow-contracts/project-configuration.md`. When the key
+see **Project configuration** in `skills/flow-contracts/project-configuration.md`. When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
 the other checks — check 6 among them, which is what makes an undeclared `## stop` key survivable:
 a project that declares nothing to stop is still checked for a process running from its worktree.

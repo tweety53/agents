@@ -1,5 +1,5 @@
 ---
-name: myflow-contracts
+name: flow-contracts
 description: The myflow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, plan provenance, the build-green tag, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/myflow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
@@ -77,7 +77,7 @@ section was examined rather than skipped.
 **The same split applies one level up.** `skills/myflow-do/`, `skills/myflow-start/` and
 `skills/myflow-finish/` each carry a `SKILL-rationale.md` that a `/myflow-*` run never loads — the
 reasoning behind that skill's `SKILL.md`, kept beside it. **A skill's appendix lives beside its own
-`SKILL.md`, not under `skills/myflow-contracts/`** — this directory indexes only the contracts' own
+`SKILL.md`, not under `skills/flow-contracts/`** — this directory indexes only the contracts' own
 appendices, so it never appears in the table above or anywhere in this directory's listing.
 
 ## Keeping this index honest

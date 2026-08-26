@@ -7,7 +7,7 @@ between implementation and planning artifacts.
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/myflow-contracts/git-boundaries-rationale.md`;
+The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
 ## Git boundaries
@@ -25,7 +25,7 @@ The reasoning behind this file lives in `skills/myflow-contracts/git-boundaries-
 | `/myflow-status` | — | None — read-only |
 
 **The planning paths** are the two that
-**Handoff output** (`skills/myflow-contracts/pipeline.md`) names. `/myflow-do` clears them from the index and only
+**Handoff output** (`skills/flow-contracts/pipeline.md`) names. `/myflow-do` clears them from the index and only
 then stages with them excluded by pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
 rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
@@ -42,7 +42,7 @@ why every pathspec below names the change folder rather than the tree.
 
 **Both commits are guarded, and an empty one is skipped rather than failed.** Each commit is
 preceded by a staged-changes test, and the whole sequence is one `&&` chain, run as a single
-command. See **Git boundaries** (`skills/myflow-contracts/git-boundaries-rationale.md`) for the ordinary
+command. See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`) for the ordinary
 cases this guards against and why it is a chain rather than `set -e`.
 
 ```bash
@@ -62,7 +62,7 @@ planning message is a **fixed literal**, never derived — every planning commit
 trees in every change, so there is nothing about it that varies.
 
 **A skipped commit is reported, and a FAILED commit — one a hook rejects — is a git failure: report
-git's own output and stop.** See **Git boundaries** (`skills/myflow-contracts/git-boundaries-rationale.md`)
+git's own output and stop.** See **Git boundaries** (`skills/flow-contracts/git-boundaries-rationale.md`)
 for what an unguarded sequence would do instead.
 
 **A planning path that is a tracked symlink stops the run, and is never worked around.** When either

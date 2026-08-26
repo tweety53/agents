@@ -133,7 +133,7 @@ what a previous write held for a field this write leaves out. This is why **Carr
 forward on every write** below is a rule every command must follow, not a convenience: dropping a
 field is how it gets erased.
 
-- `state` — one of the three values in **States** (`skills/myflow-contracts/pipeline.md`):
+- `state` — one of the three values in **States** (`skills/flow-contracts/pipeline.md`):
   `STARTED`, `IN_PROGRESS`, `FINISHED`.
 - `branch` — the change's branch, `spectre/<name>`; `null` before one exists.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
@@ -333,7 +333,7 @@ separately.
 The **key set of `worktrees` is the authoritative recorded list of affected worktrees** — it is
 what `/flow`'s archive phase cleans up, and what resolves an app's root when a handoff needs an absolute
 path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
-first, per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`), rather than
+first, per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), rather than
 looping over this map directly. The scalar `branch` names the shared branch only. Never infer a
 worktree path from a conventional layout; layout differs per repository.
 

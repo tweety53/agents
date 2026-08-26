@@ -84,7 +84,7 @@
 # leading-`-` hazard entirely rather than relying on a marker awk ignores.
 #
 # WHY RULE 2 IS SCOPED TO A SKILL'S OWN DIRECTORY, NOT EVERY CONTRACT ITS TEXT
-# CITES. skills/myflow-contracts/*.md is shared prose, cited by path from
+# CITES. skills/flow-contracts/*.md is shared prose, cited by path from
 # every command skill for reasons that have nothing to do with which guards
 # that skill runs — myflow-status cites finish-contract.md to explain how it
 # COMBINES a merge-status answer, not to invoke every guard that contract's
@@ -170,13 +170,13 @@ source "$SCRIPT_DIR/lib/coverage.sh"
 
 # ---------------------------------------------------------------------------
 # Command skills: every directory directly under skills/ except
-# myflow-contracts, which is shared prose loaded by several commands and
+# flow-contracts, which is shared prose loaded by several commands and
 # SHALL NOT carry a scripts/ directory of its own (task 3's resolution rule).
 # Read from the real tree rather than hardcoded, so a new command skill is
 # covered the moment it is added.
 # ---------------------------------------------------------------------------
 COMMAND_SKILLS_FILE="$WORK/command_skills"
-if ! find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'myflow-contracts' -print 2>"$WORK/find_err" | sort > "$COMMAND_SKILLS_FILE"; then
+if ! find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'flow-contracts' -print 2>"$WORK/find_err" | sort > "$COMMAND_SKILLS_FILE"; then
   echo "check-guard-symlinks: could not enumerate $SKILLS_DIR" >&2
   cat "$WORK/find_err" >&2
   exit 2
@@ -195,14 +195,14 @@ while IFS= read -r skill_dir; do
 done < "$COMMAND_SKILLS_FILE"
 
 # ALL_SKILL_DIRS_FILE — every directory directly under skills/, WITHOUT the
-# 'myflow-contracts' exclusion COMMAND_SKILLS_FILE applies above. That
+# 'flow-contracts' exclusion COMMAND_SKILLS_FILE applies above. That
 # exclusion is correct for rules 1-4 and for coverage, which are about
-# *command* skills and their scripts/ directories — myflow-contracts SHALL
+# *command* skills and their scripts/ directories — flow-contracts SHALL
 # NOT carry a scripts/ directory of its own (task 3's resolution rule), so
 # it is rightly out of that scan. Rule 5's own requirement is about EVERY
-# skill directory's own top level, myflow-contracts included: excluding it
+# skill directory's own top level, flow-contracts included: excluding it
 # from rule 5's scan set left a symlink placed directly under
-# skills/myflow-contracts/ invisible to this guard entirely (pass 2,
+# skills/flow-contracts/ invisible to this guard entirely (pass 2,
 # finding D). This file is used by rule 5 alone — it must never widen what
 # rules 1-4 or coverage treat as a command skill.
 ALL_SKILL_DIRS_FILE="$WORK/all_skill_dirs"
@@ -354,12 +354,12 @@ fi
 # ===========================================================================
 # RULE 5 — no skill directory carries a symlink directly at its own top
 # level. Scanned over ALL_SKILL_DIRS_FILE (pass 2, finding D) — every skill
-# directory, myflow-contracts included — NEVER COMMAND_SKILLS_FILE: this
+# directory, flow-contracts included — NEVER COMMAND_SKILLS_FILE: this
 # rule's own requirement is about placement inside "the only place a
 # skill's symlinks may live" for EVERY skill directory, not only command
-# skills, and COMMAND_SKILLS_FILE excludes myflow-contracts specifically
+# skills, and COMMAND_SKILLS_FILE excludes flow-contracts specifically
 # because rules 1-4 and coverage are about command-skill scripts/
-# directories, which myflow-contracts SHALL NOT carry at all. Only the
+# directories, which flow-contracts SHALL NOT carry at all. Only the
 # skill directory's own top level is listed here (mindepth 1, maxdepth 1) —
 # an entry named "scripts" is always a directory, never a symlink, so it is
 # never a hit, and anything under scripts/ itself is out of this loop's
@@ -503,7 +503,7 @@ while IFS= read -r mdfile; do
   fi
   while IFS= read -r lnno; do
     [ -n "$lnno" ] || continue
-    violation "$mdfile" "$lnno" "a repository-relative scripts/<name> path appears in an invoking position (a bash-fenced command, or an imperative Run/Invoke/Execute) — name the guard by basename instead, per the resolution rule in skills/myflow-contracts/pipeline.md (rule 3)"
+    violation "$mdfile" "$lnno" "a repository-relative scripts/<name> path appears in an invoking position (a bash-fenced command, or an imperative Run/Invoke/Execute) — name the guard by basename instead, per the resolution rule in skills/flow-contracts/pipeline.md (rule 3)"
   done < "$WORK/rule3_out"
 done < "$ALL_MD_FILE"
 

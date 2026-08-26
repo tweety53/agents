@@ -24,7 +24,7 @@
 # (1-3) — one distinct OUTCOME WORD per source on stdout rather than a
 # distinct exit status, which is the convention the pipeline's own record
 # steps follow; see the outcome table under **Rendering the session records**
-# (`skills/myflow-contracts/session-records.md`) — and each found source's content
+# (`skills/flow-contracts/session-records.md`) — and each found source's content
 # under its own subheading.
 # Exits 2 on a missing argument, an invalid change name, or a malformed
 # <repo-root> (a malformed invocation, in every case); otherwise ALWAYS exits
@@ -77,7 +77,7 @@
 #      `git rev-parse --git-common-dir`, NEVER `-C "$ARCHIVED_PATH"`, which
 #      would trust the very path being validated. `--git-common-dir` is used
 #      rather than `--show-toplevel` for the same reason this repository's own
-#      `skills/myflow-contracts/state-file.md` already documents: `--show-
+#      `skills/flow-contracts/state-file.md` already documents: `--show-
 #      toplevel` returns a *worktree's* root when run inside a worktree, not
 #      the main repository's root, which would let a worktree-cwd invocation
 #      derive the wrong trust boundary entirely. `--git-common-dir` always
@@ -655,7 +655,7 @@ fi
 
 # The three commits: the implementation commit and the planning commit
 # (finish run 1's own two-commit chain, per Git boundaries in
-# skills/myflow-contracts/git-boundaries.md), plus the archive commit.
+# skills/flow-contracts/git-boundaries.md), plus the archive commit.
 #
 # PLAN_SHA is resolved by PATH **AND** SUBJECT SHAPE together (pass 2,
 # finding E): the plan commit is the most recent commit that both (a)

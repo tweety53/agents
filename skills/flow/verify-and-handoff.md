@@ -9,7 +9,7 @@ immediately before the state write.
 
 ## Verify
 
-**Load `skills/myflow-contracts/worktree-resolution.md`** before resolving this run's worktree set,
+**Load `skills/flow-contracts/worktree-resolution.md`** before resolving this run's worktree set,
 below.
 
 ```bash
@@ -33,7 +33,7 @@ prepare-workspace.sh <worktree>
 once per worktree in this run's resolved set — the same set **2. Isolate the workspace**
 (`skills/flow/implement.md`) resolved, non-empty by construction — never a raw read of the state
 file's `worktrees` map. Per **Resolving a change's worktrees**
-(`skills/myflow-contracts/worktree-resolution.md`), report an empty resolved set and do not proceed.
+(`skills/flow-contracts/worktree-resolution.md`), report an empty resolved set and do not proceed.
 
 `prepare-workspace.sh` runs `check-workspace-isolation.sh` against the worktree first, then — only
 if that passes — derives and exports the variables the project's `## workspace isolation` section
@@ -48,22 +48,22 @@ writing the state file.
 it by name on stderr instead. On an exit-0 run whose stderr names a `cache index` row, probe the
 project's cache here, claim a free index atomically, and record that claim in the cache itself under
 an entry naming this workspace, per **The cache index**
-(`skills/myflow-contracts/workspace-isolation.md`).
+(`skills/flow-contracts/workspace-isolation.md`).
 
-**When the script cannot be located**, apply the same rules by hand from **Project configuration** (`skills/myflow-contracts/project-configuration.md`)
-and **Workspace isolation** (`skills/myflow-contracts/workspace-isolation.md`), and say in the handoff that the validation and
+**When the script cannot be located**, apply the same rules by hand from **Project configuration** (`skills/flow-contracts/project-configuration.md`)
+and **Workspace isolation** (`skills/flow-contracts/workspace-isolation.md`), and say in the handoff that the validation and
 export were performed manually and why.
 
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`), and this step starts none of them — it
+(`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
 Run the `## lint` and `## test` commands from `<project>/.flow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/flow`'s integrate phase has no
 verification gate — so a non-zero exit blocks this handoff.
 
-**Load `skills/myflow-contracts/session-records.md`** before reading the render outcome below.
+**Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
 **Confirm this run recorded a ledger:**
 
@@ -75,7 +75,7 @@ Read the outcome word, not the exit code. `rendered: <dest>` is ordinary. **`MIS
 rows for <name>` means this run recorded no dispatch at all**, reported plainly here rather than
 discovered later. `journalled: ledger` and a non-zero exit are reported the same way. None of these
 gates or stops the run — unlike the lint and test exits above. The outcome words are the table under
-**Rendering the session records** (`skills/myflow-contracts/session-records.md`).
+**Rendering the session records** (`skills/flow-contracts/session-records.md`).
 
 ```bash
 myflow stage end -command '/flow' -stage flow.verify -outcome completed <name>
@@ -103,7 +103,7 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 > commit.** `<project>/spectre/specs/` is not one of them — a capability spec belongs in the task
 > commit that implements its requirement. This step only confirms nothing slipped in.
 
-**Load `skills/myflow-contracts/git-boundaries.md`** before committing below.
+**Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 
 **The one push exception.** Every task and fixup commit already sits on the branch, unpushed. If the
 state file records a `prUrl`, a PR is already open, so this run also commits

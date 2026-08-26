@@ -510,7 +510,7 @@ EOF
 #   at all.
 #
 #   contract/index doc — cites other files as a plain parenthetical backtick
-#   path or a `[label](path)` Markdown link (skills/myflow-contracts/SKILL.md's
+#   path or a `[label](path)` Markdown link (skills/flow-contracts/SKILL.md's
 #   own table), never as a bold token adjacent to the path.
 #
 #   reviewer-prompt file — deliberately self-contained; three of the five
@@ -554,9 +554,9 @@ EXPECTED_ZERO_RULE_FILES=(
 EXPECTED_ZERO_RULE_FILES_REASON="rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all"
 
 EXPECTED_ZERO_CONTRACT_DOCS=(
-  "skills/myflow-contracts/build-green.md"
-  "skills/myflow-contracts/operator-prompts.md"
-  "skills/myflow-contracts/SKILL.md"
+  "skills/flow-contracts/build-green.md"
+  "skills/flow-contracts/operator-prompts.md"
+  "skills/flow-contracts/SKILL.md"
 )
 EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path"
 
@@ -573,8 +573,8 @@ EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-c
 
 EXPECTED_ZERO_RATIONALE_DOCS=(
   "skills/flow-research/SKILL.md"
-  "skills/myflow-contracts/git-boundaries-rationale.md"
-  "skills/myflow-contracts/worktree-resolution-rationale.md"
+  "skills/flow-contracts/git-boundaries-rationale.md"
+  "skills/flow-contracts/worktree-resolution-rationale.md"
   "skills/myflow-fast/SKILL-rationale.md"
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"

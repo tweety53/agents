@@ -6,7 +6,7 @@ The outcome table for `myflow record render`, and what each outcome means for th
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/myflow-contracts/session-records-rationale.md`;
+The reasoning behind this file lives in `skills/flow-contracts/session-records-rationale.md`;
 **a `/myflow-*` run never loads it.**
 
 ## Rendering the session records
@@ -25,5 +25,5 @@ run 1; the invocation of `myflow record render` itself is described by each call
 any one failure, and the handoff names which records were rendered and which were not.** **Neither
 `MISSING:` nor `journalled:` is non-zero** — non-zero keeps its one meaning, a destination refused or
 a write that failed, so a caller branching on exit status never reads an empty record, or an
-unreachable store, as a failure. See **Preserving the session records** (`skills/myflow-contracts/session-records-rationale.md`) —
+unreachable store, as a failure. See **Preserving the session records** (`skills/flow-contracts/session-records-rationale.md`) —
 which keeps its former name — for why.

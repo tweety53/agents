@@ -57,7 +57,7 @@
 # outcomes — matched, did not match, could not look — rather than as two.
 #
 # WHAT IS CANONICAL, AND WHAT THIS FILE IS. Every rule enforced here is stated
-# by **Project configuration** (`skills/myflow-contracts/project-configuration.md`), which wins on
+# by **Project configuration** (`skills/flow-contracts/project-configuration.md`), which wins on
 # any disagreement — under its "How a `## workspace isolation` section is
 # written" paragraph and the two bullets that follow "An isolation row resolves
 # under the same rules this file applies to everything else it consumes". This

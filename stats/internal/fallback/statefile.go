@@ -6,7 +6,7 @@
 package fallback
 
 import (
-	"crypto/sha1" // reproduces skills/myflow-contracts/state-file.md's own key-derivation formula verbatim (`shasum`'s default algorithm) -- not a security use.
+	"crypto/sha1" // reproduces skills/flow-contracts/state-file.md's own key-derivation formula verbatim (`shasum`'s default algorithm) -- not a security use.
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -16,7 +16,7 @@ import (
 )
 
 // DefaultStateRoot is the root of every project's state directory, exactly
-// as skills/myflow-contracts/state-file.md names it.
+// as skills/flow-contracts/state-file.md names it.
 const DefaultStateRoot = "/Users/tweety53/Agents/flow/state"
 
 // StateRoot returns the root of every project's state directory:
@@ -30,7 +30,7 @@ func StateRoot() string {
 }
 
 // StateFilePath returns the on-disk path for the state file recording
-// projectKey/name, per skills/myflow-contracts/state-file.md.
+// projectKey/name, per skills/flow-contracts/state-file.md.
 func StateFilePath(projectKey, name string) string {
 	return filepath.Join(StateRoot(), projectKey, name+".json")
 }
@@ -44,7 +44,7 @@ func JournalFilePath(projectKey, name string) string {
 
 // ProjectKey resolves the project key and the main checkout's absolute path
 // for the git repository containing dir, using exactly the algorithm
-// skills/myflow-contracts/state-file.md specifies:
+// skills/flow-contracts/state-file.md specifies:
 //
 //	MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
 //	PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"

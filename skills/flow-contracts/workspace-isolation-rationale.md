@@ -1,6 +1,6 @@
 # Workspace isolation — rationale
 
-This file is the reasoning behind `skills/myflow-contracts/workspace-isolation.md`.
+This file is the reasoning behind `skills/flow-contracts/workspace-isolation.md`.
 **A `/myflow-*` run never loads it — appendices are for whoever edits a contract.**
 
 ## The workspace id
@@ -136,7 +136,7 @@ Run 2 has no derivation to repeat and no record to read, so it cannot know which
 an index swept by guess is another workspace's.
 
 What that leaves behind and why it is acceptable are stated once
-under **Temporary artifacts registry** (`skills/myflow-contracts/artifacts-registry.md`), which is canonical
+under **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`), which is canonical
 for every artifact's lifetime.
 
 ## The empty id
@@ -158,7 +158,7 @@ bookmarks stale. That is a migration nobody asked for, in the one checkout an op
 of their time in.
 
 Every key in a project's configuration is optional; see **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`), which is canonical for that file and for the
+(`skills/flow-contracts/project-configuration.md`), which is canonical for that file and for the
 rules an isolation row resolves under.
 
 ## Creation and cleanup
