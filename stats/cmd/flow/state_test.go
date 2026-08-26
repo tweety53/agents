@@ -51,7 +51,7 @@ func gitRepo(t *testing.T) string {
 
 // isolatedStateRoot points FLOW_STATE_DIR at a fresh temp directory for
 // the duration of the test, so a test never touches the real
-// /Users/tweety53/Agents/myflow/state tree.
+// /Users/tweety53/Agents/flow/state tree.
 func isolatedStateRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()

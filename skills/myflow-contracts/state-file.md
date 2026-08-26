@@ -22,8 +22,8 @@ below. It is written only when the store could not be reached, and no command re
 store answers normally.
 
 ```text
-/Users/tweety53/Agents/myflow/state/<project-key>/<name>.json
-/Users/tweety53/Agents/myflow/state/<project-key>/<name>.journal
+/Users/tweety53/Agents/flow/state/<project-key>/<name>.json
+/Users/tweety53/Agents/flow/state/<project-key>/<name>.journal
 ```
 
 `<project-key>` = `<basename of main checkout>-<first 8 hex of sha1 of the main checkout's absolute path>` — e.g. `myrepo-3f9a1c02`. The basename keeps it readable; the hash makes two same-named repos in different directories unambiguous. It is the same key `myflow state get`/`set` send the daemon, so the store, the fallback file and the journal all address one record under one key.

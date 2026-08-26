@@ -17,7 +17,7 @@ import (
 
 // DefaultStateRoot is the root of every project's state directory, exactly
 // as skills/myflow-contracts/state-file.md names it.
-const DefaultStateRoot = "/Users/tweety53/Agents/myflow/state"
+const DefaultStateRoot = "/Users/tweety53/Agents/flow/state"
 
 // StateRoot returns the root of every project's state directory:
 // FLOW_STATE_DIR when set (a test's own isolated root), DefaultStateRoot

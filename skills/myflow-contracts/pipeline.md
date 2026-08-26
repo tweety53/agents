@@ -458,7 +458,7 @@ sources:
 - the non-archived ids `spectre list --json` reports, read from each entry's `id` field in its
   `{"changes":[{"id","done","total"}]}` output; and
 - the names `state list`'s own `"records"` carries in this mode — the basenames of whatever is
-  directly under the project's state directory, `/Users/tweety53/Agents/myflow/state/<project-key>/`
+  directly under the project's state directory, `/Users/tweety53/Agents/flow/state/<project-key>/`
   — which, per **State file**'s "The store starts empty", now holds only the CLI's on-disk fallback
   records, never a second live source. A name found only here is one whose last write could not
   reach the store.

@@ -62,7 +62,7 @@ const contractPath = "../../../skills/myflow-contracts/state-file.md"
 //
 // Only the two derivation lines are extracted, not the whole fenced block:
 // the block's remaining lines build STATE_FILE under the real, hardcoded
-// `/Users/tweety53/Agents/myflow/state` path and `mkdir -p` it, which this
+// `/Users/tweety53/Agents/flow/state` path and `mkdir -p` it, which this
 // test must never execute -- it would create real directories on the
 // operator's machine outside any test sandbox.
 func contractProjectKeyRecipe(t *testing.T) (mainCheckoutLine, projectKeyLine string) {
