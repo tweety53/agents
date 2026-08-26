@@ -176,6 +176,7 @@ set -euo pipefail
 # entry point.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/within-root.sh"
+source "$SCRIPT_DIR/lib/spec-root.sh"
 source "$SCRIPT_DIR/lib/lexical-normalize.sh"
 
 ARCHIVED_PATH="${1:-}"
@@ -331,10 +332,16 @@ validate_archived_path() {
   archived_lexical="$(lexically_collapse "$abs_input")"
 
   # Step 3: ARCHIVED_LEXICAL must sit exactly one segment past
-  # $trusted_root/spectre/changes/archive/ — a real path boundary
+  # $trusted_root/<spec-root>/changes/archive/ — a real path boundary
   # (within_root), not a string prefix, and exactly one segment: no deeper
-  # nesting (F22), no shallower.
-  local archive_root="$trusted_root/spectre/changes/archive"
+  # nesting (F22), no shallower. <spec-root> is resolved rather than
+  # hardcoded, per scripts/lib/spec-root.sh.
+  # ARCHIVED_PATH_ROOT_LEAF records WHICH tree was probed, so the "shape"
+  # note below names the directory this run actually looked in rather than
+  # a placeholder. Naming the wrong tree is the whole failure spec-root.sh
+  # exists to remove; naming no tree at all would reintroduce it in prose.
+  ARCHIVED_PATH_ROOT_LEAF="$(spec_root_leaf "$trusted_root")"
+  local archive_root="$trusted_root/$ARCHIVED_PATH_ROOT_LEAF/changes/archive"
   if ! within_root "$archived_lexical" "$archive_root"; then
     ARCHIVED_PATH_INVALID=1
     ARCHIVED_PATH_REASON="shape"
@@ -576,7 +583,7 @@ is_real_impl_commit() {
   local PARENT_TOUCHES_OUTSIDE=0
   if [ "$PARENT_IS_MERGE" -eq 0 ] \
     && git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r --root "$PLAN_PARENT" 2>/dev/null \
-      | grep -Ev '^(spectre/changes/|docs/superpowers/)' | grep -q .; then
+      | grep -Ev "^($(spec_root_leaf "$REPO_ROOT")/changes/|docs/superpowers/)" | grep -q .; then
     PARENT_TOUCHES_OUTSIDE=1
   fi
 
@@ -756,7 +763,7 @@ if [ -n "$REPO_ROOT" ]; then
   # ORs multiple --grep patterns together by default (no --all-match) — so
   # either the new fixed literal or an old-era wording qualifies, whichever
   # this particular commit carries.
-  PLAN_PATH_LIVE="spectre/changes/$NAME"
+  PLAN_PATH_LIVE="$(spec_root_leaf "$REPO_ROOT")/changes/$NAME"
   PLAN_SHA="$(git -C "$REPO_ROOT" log -E \
     --grep="$PLAN_SUBJECT_RE_NEW" --grep="$PLAN_SUBJECT_RE_OLD" \
     --max-count=1 --format='%H' \
@@ -817,7 +824,7 @@ if [ "$ARCHIVED_PATH_INVALID" -eq 1 ]; then
       echo "note: archived-change-path '$ARCHIVED_PATH' could not be validated — no enclosing git repository was found from this script's own working directory; every source below is reported skipped for that reason"
       ;;
     shape)
-      echo "note: archived-change-path '$ARCHIVED_PATH' does not resolve to the expected spectre/changes/archive/<leaf> location — every source below is reported skipped for that reason"
+      echo "note: archived-change-path '$ARCHIVED_PATH' does not resolve to the expected ${ARCHIVED_PATH_ROOT_LEAF:-spectre}/changes/archive/<leaf> location — every source below is reported skipped for that reason"
       ;;
     symlink)
       echo "note: archived-change-path '$ARCHIVED_PATH' resolves through a symlink somewhere between the repository root and the leaf — refusing to use it as a trust boundary; every source below is reported skipped for that reason"

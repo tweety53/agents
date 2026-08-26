@@ -41,8 +41,12 @@ set -euo pipefail
 
 worktree="$1" name="$2" impl_msg="$3" plan_msg="$4"
 
-git -C "$worktree" reset -q -- spectre/changes/ docs/superpowers/
-git -C "$worktree" add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/superpowers/'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/spec-root.sh"
+plan_dir="$(spec_root_leaf "$worktree")/changes/"
+
+git -C "$worktree" reset -q -- "$plan_dir" docs/superpowers/
+git -C "$worktree" add -A -- . ":(exclude)$plan_dir" ':(exclude)docs/superpowers/'
 git -C "$worktree" diff --cached --quiet \
   || git -C "$worktree" commit -m "$impl_msg"
 git -C "$worktree" add -A

@@ -457,8 +457,11 @@ case "$(ref_state "$REMOTE_REF")" in
 esac
 
 # Row four — the change directory, which run 2 moves into the archive.
-if [ -d "$REPO/spectre/changes/$NAME" ]; then
-  add "spectre/changes/$NAME was never moved into the archive"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/spec-root.sh"
+CHANGES_LEAF="$(spec_root_leaf "$REPO")"
+if [ -d "$REPO/$CHANGES_LEAF/changes/$NAME" ]; then
+  add "$CHANGES_LEAF/changes/$NAME was never moved into the archive"
 fi
 
 # Row four, second half — each <name>-fix-N sub-change, archived by its own
@@ -469,13 +472,13 @@ fi
 # change of its own with its own finish run, and reporting it here would send
 # the operator hunting for another change's live work: the same prefix-matching
 # failure every other row above is matched by full name to avoid.
-for sub in "$REPO/spectre/changes/$NAME"-fix-*; do
+for sub in "$REPO/$CHANGES_LEAF/changes/$NAME"-fix-*; do
   [ -d "$sub" ] || continue
   sub_leaf="${sub##*/}"
   case "${sub_leaf#"$NAME"-fix-}" in
     '' | *[!0-9]*) continue ;;
   esac
-  add "spectre/changes/$sub_leaf, a sub-change of $NAME, was never moved into the archive"
+  add "$CHANGES_LEAF/changes/$sub_leaf, a sub-change of $NAME, was never moved into the archive"
 done
 
 # Row five — the proposal artifact source, whose removal at run 2 is
