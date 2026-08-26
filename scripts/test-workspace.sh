@@ -16,7 +16,7 @@
 # per skills/myflow-contracts/workspace-isolation.md.
 #
 # WHAT THIS ASSERTS. The round-trip the plan requires, in order: create makes
-# myflow_<id>; create again is a no-op (not an error); survivors then prints
+# flow_<id>; create again is a no-op (not an error); survivors then prints
 # that database and exits 0; remove drops it; survivors then prints nothing
 # and STILL exits 0 (exit 0 + empty output is the only result that verifies
 # a removal, per project-configuration.md's "What survivors prints"). Also:
@@ -44,9 +44,9 @@ fi
 [ -x "$SCRIPT" ] || { echo "ERROR: $SCRIPT not found or not executable" >&2; exit 2; }
 
 ID="wstest-$$"
-DB="myflow_${ID//-/_}"
+DB="flow_${ID//-/_}"
 ID2="wstest-force-$$-uitest"
-DB2="myflow_${ID2//-/_}"
+DB2="flow_${ID2//-/_}"
 
 PASSED=0
 FAILED=0

@@ -15,13 +15,17 @@ import (
 )
 
 // Defaults, applied when the corresponding environment variable is unset.
-// DefaultDSN points at the dedicated myflow-postgres compose stack from
-// task 1, on host port 5433 -- the same default stats/health_test.go and
-// internal/store's test helpers already use.
+// DefaultDSN points at the dedicated flow-postgres compose stack's
+// declaration (stats/docker-compose.yml), on host port 5433. It no longer
+// matches the "myflow" DSN stats/health_test.go and internal/store's test
+// helpers still hardcode: the running container has not been renamed yet
+// (an operator step, KAN-289's task 19), so those tests keep targeting the
+// role and database that container actually has, while this default states
+// the name it will answer to once the operator renames it.
 const (
 	DefaultHost = "127.0.0.1"
 	DefaultPort = 4173
-	DefaultDSN  = "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	DefaultDSN  = "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 )
 
 // Config is myflowd's resolved configuration.

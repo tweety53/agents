@@ -24,7 +24,7 @@ import (
 // so unlike `state get`/`state set` it talks to the store directly through
 // internal/store and internal/reconcile instead of going through myflowd's
 // HTTP API and falling back to disk on any failure.
-const defaultJournalDSN = "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+const defaultJournalDSN = "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 
 // defaultJournalConnectTimeout bounds how long `journal flush` waits to
 // open a connection to the store before giving up. This is allowed to be

@@ -299,7 +299,7 @@ launchd agent.
 
 | Resource | Variable | Default | In a workspace |
 |----------|----------|---------|----------------|
-| `database` | `FLOWD_DSN` | `postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable` | `postgres://myflow:myflow@localhost:5433/myflow_<id_underscored>?sslmode=disable` |
+| `database` | `FLOWD_DSN` | `postgres://flow:flow@localhost:5433/flow?sslmode=disable` | `postgres://flow:flow@localhost:5433/flow_<id_underscored>?sslmode=disable` |
 | `port` | `FLOWD_PORT` | `4173` | `+<offset>` |
 | `url` | `FLOW_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:<value:FLOWD_PORT>` |
 

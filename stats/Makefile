@@ -61,7 +61,7 @@ build: web-build
 	go build -o bin/flowd ./cmd/flowd
 	go build -o bin/flow  ./cmd/flow
 
-# Brings up the dedicated myflow-postgres container (see docker-compose.yml).
+# Brings up the dedicated flow-postgres container (see docker-compose.yml).
 # Does not touch any other compose stack running on this machine.
 up:
 	docker compose up -d
@@ -69,7 +69,7 @@ up:
 down:
 	docker compose down
 
-# Rebuilds and restarts the LIVE stack: the myflow-postgres container and the
+# Rebuilds and restarts the LIVE stack: the flow-postgres container and the
 # flowd daemon on its default port. `up`/`down` above manage the container
 # alone; this is the whole-stack equivalent, for when the daemon is running
 # stale code.
@@ -187,7 +187,7 @@ restart: build
 # live ones, for ad-hoc UI testing from the main checkout (see
 # openspec/changes/kan-180-separate-db-and-app-for-ui-testing/specs/myflow-ui-test-stack/spec.md).
 # Same myflow-postgres container as the live stack (host port 5433), a
-# distinct database (myflow_uitest) and a distinct daemon port (4174), so
+# distinct database (flow_uitest) and a distinct daemon port (4174), so
 # both stacks can run at the same time without interfering.
 # `override` refuses any command-line or environment reassignment of
 # UITEST_DB and UITEST_ID outright -- a command-line assignment overrides a
@@ -235,9 +235,9 @@ restart: build
 # UITEST_PIDFILE) -- `scripts/check-uitest-overrides.sh` (invoked by
 # `make check-uitest-overrides`, and by `make test`) enforces the rule
 # itself so it cannot recur a fourth time.
-override UITEST_DB := myflow_uitest
-# The workspace id scripts/workspace.sh derives myflow_uitest from (its
-# `myflow_<id_underscored>` rule, id "uitest" has no "-" to replace) --
+override UITEST_DB := flow_uitest
+# The workspace id scripts/workspace.sh derives flow_uitest from (its
+# `flow_<id_underscored>` rule, id "uitest" has no "-" to replace) --
 # kept alongside UITEST_DB, not computed from it, so the two Makefile
 # callers below name the id directly rather than reversing the DSN back
 # into one.
@@ -299,7 +299,7 @@ for p in $(1); do \
 done
 endef
 
-# ui-test-up resets the UI-test stack: drop and recreate myflow_uitest in
+# ui-test-up resets the UI-test stack: drop and recreate flow_uitest in
 # the running myflow-postgres container, start myflowd against it on its
 # own port, wait for the daemon to answer, then seed a fixed fixture
 # (cmd/uitest-seed). Resetting on every bring-up -- rather than reusing
@@ -311,7 +311,7 @@ endef
 # emptied temporary directories -- load-bearing, not tidiness. myflowd's
 # transcript harvester scans FLOW_TRANSCRIPTS_DIR every 5 seconds
 # (harvestInterval, cmd/flowd/main.go); left on the real transcripts
-# root, myflow_uitest would refill itself with the operator's genuine
+# root, flow_uitest would refill itself with the operator's genuine
 # session data within seconds of starting, defeating the entire point of
 # a stack separate from the live one.
 #
@@ -319,7 +319,7 @@ endef
 # neither is redundant with the other:
 #
 # - `dropdb --force` (Postgres' WITH (FORCE)) is what makes the DROP
-#   itself succeed against any live connection on myflow_uitest,
+#   itself succeed against any live connection on flow_uitest,
 #   including one this Makefile did not start -- a stray psql, another
 #   shell, an operator's own client. Confirmed by dropping the database
 #   out from under a running daemon with --force alone: the drop
@@ -403,7 +403,7 @@ ui-test-up: web-build check-uitest-overrides
 	FLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
 	@echo "ui-test-up: ready -- export FLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
 
-# ui-test-down stops the daemon and drops myflow_uitest, both
+# ui-test-down stops the daemon and drops flow_uitest, both
 # idempotently: a second `make ui-test-down` exits 0 rather than erroring
 # on an absent pidfile or an already-dropped database.
 #
@@ -432,7 +432,7 @@ ui-test-down: check-uitest-overrides
 				sleep 1; \
 			done; \
 			if kill -0 "$$pid" 2>/dev/null; then \
-				echo "ui-test-down: daemon $$pid did not exit within 30s -- dropping myflow_uitest anyway" >&2; \
+				echo "ui-test-down: daemon $$pid did not exit within 30s -- dropping flow_uitest anyway" >&2; \
 			fi; \
 		fi; \
 		rm -f $(UITEST_PIDFILE); \

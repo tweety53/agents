@@ -4,13 +4,13 @@
 # ("Own docker-compose stack, daemon under launchd") for why this stack is
 # separate rather than reusing gymie's.
 services:
-  myflow-postgres:
+  flow-postgres:
     image: postgres:18-alpine
-    container_name: myflow-postgres
+    container_name: flow-postgres
     environment:
-      POSTGRES_USER: myflow
-      POSTGRES_PASSWORD: myflow
-      POSTGRES_DB: myflow
+      POSTGRES_USER: flow
+      POSTGRES_PASSWORD: flow
+      POSTGRES_DB: flow
     ports:
       - "5433:5432"
     volumes:
@@ -18,6 +18,6 @@ services:
       # under /var/lib/postgresql — mounting at .../data (the pre-18
       # convention) makes the entrypoint refuse to start. See
       # https://github.com/docker-library/postgres/pull/1259.
-      - myflow-pgdata:/var/lib/postgresql
+      - flow-pgdata:/var/lib/postgresql
 volumes:
-  myflow-pgdata:
+  flow-pgdata:

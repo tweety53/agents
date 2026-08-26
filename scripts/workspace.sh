@@ -40,7 +40,7 @@
 # reaching the service rather than a host path for two commands and a
 # container path for the third.
 #
-# A workspace database is named myflow_<id_underscored> (every "-" in the id
+# A workspace database is named flow_<id_underscored> (every "-" in the id
 # replaced by "_"), per skills/myflow-contracts/workspace-isolation.md's
 # "What the id derives". <id> is validated against that section's own output
 # alphabet ([a-z0-9-]) before it is ever interpolated into SQL or a database
@@ -112,7 +112,7 @@ if [ -n "$force_flag" ]; then
   fi
 fi
 
-db="myflow_${id//-/_}"
+db="flow_${id//-/_}"
 
 if [ "$force" -eq 1 ]; then
   case "$db" in

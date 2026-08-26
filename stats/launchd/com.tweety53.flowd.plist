@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  User launchd agent for myflowd, the myflow stats daemon.
+  User launchd agent for flowd, the flow stats daemon.
 
-  Starts myflowd at login and restarts it if it exits with a non-zero
+  Starts flowd at login and restarts it if it exits with a non-zero
   status (KeepAlive/SuccessfulExit=false below) -- a clean exit (for
   example `launchctl stop`) is never restarted, only a crash or failure
   is. Binds loopback only, per stats/internal/config/config.go's
   Config.Validate -- this agent starts the same binary with no additional
-  privilege and no network exposure beyond what myflowd already refuses to
+  privilege and no network exposure beyond what flowd already refuses to
   violate at startup.
 
   Loading this agent is a deliberate OPERATOR step, documented in
   stats/README.md -- no skill or command in this repository loads it.
   Install it by hand:
 
-      cp stats/launchd/com.tweety53.myflowd.plist ~/Library/LaunchAgents/
-      launchctl load ~/Library/LaunchAgents/com.tweety53.myflowd.plist
+      cp stats/launchd/com.tweety53.flowd.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/com.tweety53.flowd.plist
 
   See stats/README.md for the full operator procedure, including building
   the binary this agent points at and how to stop it.
@@ -24,11 +24,11 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>com.tweety53.myflowd</string>
+	<string>com.tweety53.flowd</string>
 
 	<key>ProgramArguments</key>
 	<array>
-		<string>/Users/tweety53/Projects/agents/stats/bin/myflowd</string>
+		<string>/Users/tweety53/Projects/agents/stats/bin/flowd</string>
 	</array>
 
 	<key>WorkingDirectory</key>
@@ -44,10 +44,10 @@
 	</dict>
 
 	<key>StandardOutPath</key>
-	<string>/Users/tweety53/Library/Logs/myflowd.log</string>
+	<string>/Users/tweety53/Library/Logs/flowd.log</string>
 
 	<key>StandardErrorPath</key>
-	<string>/Users/tweety53/Library/Logs/myflowd.log</string>
+	<string>/Users/tweety53/Library/Logs/flowd.log</string>
 
 	<key>ProcessType</key>
 	<string>Background</string>

@@ -13,7 +13,7 @@ Full design: `openspec/changes/kan-16-myflow-stats-app/design.md`.
 
 ## The PostgreSQL stack
 
-A dedicated `myflow-postgres` container, independent of any other Postgres
+A dedicated `flow-postgres` container, independent of any other Postgres
 stack already running on this machine (for example a `gymie-postgres`
 container on port 5432). It listens on host port **5433** so the two never
 collide — confirmed free on this machine before the port was chosen.
@@ -23,7 +23,7 @@ cd stats
 docker compose up -d
 ```
 
-This starts only `myflow-postgres`; it does not stop or modify any other
+This starts only `flow-postgres`; it does not stop or modify any other
 running container.
 
 ## Running the tests
@@ -47,7 +47,7 @@ Nobody running `go test` needs to bring up the UI-test stack first.
 
 For testing the application's browser interface by hand, from the main
 checkout, against real data that is not the operator's own — separate from
-both the live daemon (port 4173, database `myflow`) and any `/myflow-do`
+both the live daemon (port 4173, database `flow`) and any `/myflow-do`
 worktree's own isolated stack (see `.myflow/project.md`'s
 `## workspace isolation`).
 
@@ -56,8 +56,8 @@ cd stats
 make ui-test-up
 ```
 
-This drops and recreates the `myflow_uitest` database in the same
-`myflow-postgres` container the live stack uses (host port 5433), starts
+This drops and recreates the `flow_uitest` database in the same
+`flow-postgres` container the live stack uses (host port 5433), starts
 `myflowd` on port **4174** against it, waits for the daemon to answer, and
 seeds it with a fixed fixture — two projects, changes spanning `STARTED`,
 `IN_PROGRESS` and `FINISHED`, and stage runs carrying token usage, so the
@@ -103,7 +103,7 @@ Tear it down when done:
 make ui-test-down
 ```
 
-This stops the daemon and drops `myflow_uitest`, both idempotently — a
+This stops the daemon and drops `flow_uitest`, both idempotently — a
 second `make ui-test-down` is not an error.
 
 ## Pricing
@@ -136,7 +136,7 @@ empty. Nothing failed loudly — it was found by a human staring at that
 empty dashboard and asking why. This is the same check, made a minute's
 work instead of an investigation.
 
-While a `myflow-postgres` stack and `myflowd` are both running (see above),
+While a `flow-postgres` stack and `myflowd` are both running (see above),
 and while a real `/myflow-*` command is mid-run (so a change and at least
 one stage mark already exist):
 
@@ -164,11 +164,11 @@ exactly what KAN-16 looked like.
 
 ## Running the daemon at login
 
-`stats/launchd/com.tweety53.myflowd.plist` is a macOS user launchd agent
-that starts `myflowd` at login, restarts it if it exits non-zero (a clean
+`stats/launchd/com.tweety53.flowd.plist` is a macOS user launchd agent
+that starts `flowd` at login, restarts it if it exits non-zero (a clean
 exit is never restarted, only a crash or failure is), and logs to
-`~/Library/Logs/myflowd.log`. It binds loopback only, the same guarantee
-`myflowd` itself enforces at startup regardless of how it is launched.
+`~/Library/Logs/flowd.log`. It binds loopback only, the same guarantee
+`flowd` itself enforces at startup regardless of how it is launched.
 
 **Loading this agent is a manual operator step.** No skill or command in
 this repository loads it — an agent left running unattended during this
@@ -187,8 +187,8 @@ cd stats && docker compose up -d
 cd stats && make build
 
 # 3. Install and load the agent.
-cp stats/launchd/com.tweety53.myflowd.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.tweety53.myflowd.plist
+cp stats/launchd/com.tweety53.flowd.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.tweety53.flowd.plist
 
 # 4. Confirm it's up.
 curl -s http://127.0.0.1:4173/api/v1/changes
@@ -197,7 +197,7 @@ curl -s http://127.0.0.1:4173/api/v1/changes
 To stop it:
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist
+launchctl unload ~/Library/LaunchAgents/com.tweety53.flowd.plist
 ```
 
 Unloading stops the daemon without removing the binary or the Postgres
