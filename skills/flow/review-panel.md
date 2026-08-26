@@ -119,6 +119,14 @@ dispatch prompt.
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same one
 `skills/flow/implement.md`'s implementer dispatch carries.
 
+**Every slot's dispatch prompt also carries the REPRODUCE, DON'T READ paragraph**:
+
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one check you make MUST exercise the real
+> thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
+> and a passing test can each read plausibly and be false. Run it before you accept it, and run it
+> before you reject it.
+
 ### No forking, and a wall-clock ceiling on every slot
 
 **No panel slot SHALL be dispatched onto a skill or agent that forks its own background agent.**
