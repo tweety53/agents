@@ -22,8 +22,20 @@ HARNESS="${1:-}"
 PROJECT_DIR="${2:-.}"
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 
-CLAUDE_MD_BEGIN='<!-- myflow:begin -->'
-CLAUDE_MD_END='<!-- myflow:end -->'
+CLAUDE_MD_BEGIN='<!-- flow:begin -->'
+CLAUDE_MD_END='<!-- flow:end -->'
+
+# The delimiters this installer used before the myflow->flow rename. They are
+# NOT vocabulary: they are compared byte-for-byte against files that already
+# exist in the operator's home, so renaming them alone makes this installer fail
+# to find the block it wrote last time and append a SECOND one. Measured in a
+# sandboxed HOME: install once with the old markers, once with the new, and the
+# file ends up carrying both blocks at twice the length, with the orphan never
+# updated again.
+#
+# So they are migrated rather than dropped -- see upgrade_legacy_markers below.
+LEGACY_CLAUDE_MD_BEGIN='<!-- myflow:begin -->'
+LEGACY_CLAUDE_MD_END='<!-- myflow:end -->'
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 info() { echo "→ $*"; }
@@ -37,7 +49,7 @@ warn() { echo "  ⚠ $*" >&2; }
 # converge (see install_managed_block). So it aborts instead.
 require_grep_ok() {
   (( $1 < 2 )) || die "grep exited $1 while $2 (reason above).
-  Its answer decides whether a managed myflow block already exists, and guessing
+  Its answer decides whether a managed flow block already exists, and guessing
   'no block' here would append a second one that no later run could reconcile."
 }
 
@@ -68,7 +80,7 @@ SKIPPED=0
 #     `commands/*.md` and `rules/*.mdc`, and `.bak` falls outside both globs.
 #   - A DIRECTORY goes to a sibling `<parent>-backup/<name>-<timestamp>/`, OUTSIDE
 #     the scanned tree. `<dest>.bak` would not work here: a skills directory is
-#     discovered by walking the tree for SKILL.md, so `myflow-start.bak/` stays
+#     discovered by walking the tree for SKILL.md, so `flow-start.bak/` stays
 #     live alongside the symlink — two loadable skills declaring the same name,
 #     which is precisely the stale-copy shadowing this function exists to prevent.
 link_into() {
@@ -416,7 +428,7 @@ render_managed_block() {
       !fm                { print }
     ' "$rule_file")"
     if printf '%s\n' "$body" | grep -qFx -e "$CLAUDE_MD_BEGIN" -e "$CLAUDE_MD_END"; then
-      die "rule $rule_name contains a myflow block delimiter on a line of its own.
+      die "rule $rule_name contains a flow block delimiter on a line of its own.
   Inlining it would put a second delimiter inside the managed block and make every
   later run die on a file this installer wrote. Indent or fence that line in
   $rule_file so it is no longer a bare delimiter, then re-run."
@@ -470,7 +482,7 @@ render_managed_block() {
   printf '\n%s\n' "$CLAUDE_MD_END"
 }
 
-# backup_once <file> — keep a copy of <file> as it was before myflow first modified it.
+# backup_once <file> — keep a copy of <file> as it was before flow first modified it.
 #
 # Written once and then never touched again. Re-copying on every run replaces the only
 # irreplaceable state — the user's own file, before any generated block existed — with the
@@ -479,20 +491,29 @@ render_managed_block() {
 #
 # `-p` so a 600-mode file holding personal instructions never gains a wider-mode copy: plain
 # `cp` adopts the mode of an already-existing destination (e.g. a 644 .bak left by anything else).
+# The backup suffix moved with the rename, and a copy taken under the OLD suffix
+# still counts. An operator who installed before the rename has a
+# `<file>.myflow.bak` holding their genuine pre-install content; taking a fresh
+# `<file>.flow.bak` now would copy a file this installer has already managed and
+# announce it as their "pre-install copy", quietly replacing the real one as the
+# thing the recovery path points at. The older copy is the valuable one, so it
+# wins and nothing is written.
 backup_once() {
   local file="$1"
   if [[ -e "$file.myflow.bak" ]]; then
-    info "Keeping the existing pre-myflow copy at $file.myflow.bak"
+    info "Keeping the existing pre-install copy at $file.myflow.bak (taken before the flow rename)"
+  elif [[ -e "$file.flow.bak" ]]; then
+    info "Keeping the existing pre-install copy at $file.flow.bak"
   else
-    cp -p "$file" "$file.myflow.bak"
+    cp -p "$file" "$file.flow.bak"
   fi
 }
 
 # generated_only <file> <begin-line> <end-line>
 # True when the file's ENTIRE content is the managed block — i.e. this installer created it
-# from nothing and there is no pre-myflow state to preserve. Copying such a file to
+# from nothing and there is no pre-install state to preserve. Copying such a file to
 # `.myflow.bak` produces an artifact that is 100% generated content yet is announced as the
-# user's "pre-myflow copy": nothing is lost, but the one file the recovery path points at
+# user's "pre-install copy": nothing is lost, but the one file the recovery path points at
 # now misrepresents what it holds. Re-running this installer reproduces generated content,
 # so there is nothing here worth backing up.
 generated_only() {
@@ -511,10 +532,10 @@ preflight_managed_block() {
   local target_file="$1" dir
   dir="$(dirname "$target_file")"
   [[ ! -e "$dir" || -d "$dir" ]] || die "$dir exists but is not a directory, so the managed
-  myflow block for $target_file cannot be written. That path must be the harness's
+  flow block for $target_file cannot be written. That path must be the harness's
   configuration directory. Move or remove the file at $dir, then re-run."
   [[ ! -d "$target_file" ]] || die "$target_file is a directory, but it must be the harness's
-  agent instruction FILE — that is where the managed myflow block goes. Move the directory
+  agent instruction FILE — that is where the managed flow block goes. Move the directory
   aside, then re-run."
 }
 
@@ -550,7 +571,7 @@ install_managed_block() {
   if [[ ! -s "$target_file" ]]; then
     # Missing or empty file — write the block as the whole content.
     cat "$block_tmp" >"$target_file"
-    info "Wrote managed myflow block to $target_file"
+    info "Wrote managed flow block to $target_file"
     return 0
   fi
 
@@ -562,11 +583,47 @@ install_managed_block() {
   # Each grep's status is captured and checked (see require_grep_ok) rather than discarded
   # with `|| true`: on a failure the substitution yields the empty string, which every test
   # below reads as zero, and "zero delimiters" is exactly the append branch.
+  # ONE-SHOT MARKER UPGRADE, before anything counts.
+  #
+  # A file written by a pre-rename installer carries the legacy delimiters. Every
+  # count and rewrite below matches the CURRENT ones, so such a file would count
+  # zero begins and zero ends, take the append branch, and end up with an
+  # orphaned legacy block plus a new one -- the exact duplication the CRLF check
+  # immediately below exists to prevent for a different cause.
+  #
+  # Rewriting just the two marker LINES in place is enough: the block between
+  # them is generated content this installer is about to replace anyway, so after
+  # the upgrade the file looks exactly like one this version wrote, and every
+  # branch below proceeds unchanged. Nothing else in the file is touched.
+  #
+  # Only when the current markers are ABSENT: a file already carrying both
+  # spellings is not one this installer produced, and is left for the
+  # ambiguous-delimiter refusal further down to report rather than silently
+  # rewritten here.
+  local legacy_begins current_begins
+  rc=0; current_begins=$(grep -cFx "$CLAUDE_MD_BEGIN" "$target_file") || rc=$?
+  require_grep_ok "$rc" "counting flow begin delimiters in $target_file"
+  rc=0; legacy_begins=$(grep -cFx "$LEGACY_CLAUDE_MD_BEGIN" "$target_file") || rc=$?
+  require_grep_ok "$rc" "counting legacy begin delimiters in $target_file"
+  if [[ "$current_begins" -eq 0 && "$legacy_begins" -gt 0 ]]; then
+    local upgrade_tmp
+    upgrade_tmp="$(mktemp)"
+    awk -v lb="$LEGACY_CLAUDE_MD_BEGIN" -v le="$LEGACY_CLAUDE_MD_END" \
+        -v nb="$CLAUDE_MD_BEGIN" -v ne="$CLAUDE_MD_END" '
+      $0 == lb { print nb; next }
+      $0 == le { print ne; next }
+      { print }
+    ' "$target_file" >"$upgrade_tmp" || die "failed rewriting legacy delimiters in $target_file"
+    cat "$upgrade_tmp" >"$target_file" || die "failed writing upgraded delimiters to $target_file"
+    rm -f "$upgrade_tmp"
+    info "Upgraded the legacy managed-block delimiters in $target_file"
+  fi
+
   rc=0
-  crlf_markers=$(grep -cFx -e "$CLAUDE_MD_BEGIN$cr" -e "$CLAUDE_MD_END$cr" "$target_file") || rc=$?
-  require_grep_ok "$rc" "counting CRLF myflow delimiters in $target_file"
+  crlf_markers=$(grep -cFx -e "$CLAUDE_MD_BEGIN$cr" -e "$CLAUDE_MD_END$cr" -e "$LEGACY_CLAUDE_MD_BEGIN$cr" -e "$LEGACY_CLAUDE_MD_END$cr" "$target_file") || rc=$?
+  require_grep_ok "$rc" "counting CRLF flow delimiters in $target_file"
   if [[ "$crlf_markers" -gt 0 ]]; then
-    die "$target_file has CRLF line endings on its myflow delimiters ($crlf_markers marker line(s)).
+    die "$target_file has CRLF line endings on its flow delimiters ($crlf_markers marker line(s)).
   This installer matches the markers as LF-terminated lines, so it would not find the
   existing block and would append a second one. Convert the file to LF endings
   (e.g. \`perl -pi -e 's/\\r\\n/\\n/' \"$target_file\"\`) and re-run."
@@ -575,21 +632,21 @@ install_managed_block() {
   # `pipefail` is set, so a grep failure inside these pipelines still surfaces as the
   # substitution's status — cut and paste cannot fail on their own.
   rc=0; begin_lines="$(grep -nFx "$CLAUDE_MD_BEGIN" "$target_file" | cut -d: -f1 | paste -sd, -)" || rc=$?
-  require_grep_ok "$rc" "locating the myflow begin delimiter in $target_file"
+  require_grep_ok "$rc" "locating the flow begin delimiter in $target_file"
   rc=0; end_lines="$(grep -nFx "$CLAUDE_MD_END" "$target_file" | cut -d: -f1 | paste -sd, -)" || rc=$?
-  require_grep_ok "$rc" "locating the myflow end delimiter in $target_file"
+  require_grep_ok "$rc" "locating the flow end delimiter in $target_file"
   rc=0; begins=$(grep -cFx "$CLAUDE_MD_BEGIN" "$target_file") || rc=$?
-  require_grep_ok "$rc" "counting myflow begin delimiters in $target_file"
+  require_grep_ok "$rc" "counting flow begin delimiters in $target_file"
   rc=0; ends=$(grep -cFx "$CLAUDE_MD_END" "$target_file") || rc=$?
-  require_grep_ok "$rc" "counting myflow end delimiters in $target_file"
+  require_grep_ok "$rc" "counting flow end delimiters in $target_file"
 
   if [[ "$begins" -eq 0 && "$ends" -eq 0 ]]; then
     # The append is this installer's FIRST modification of a file it did not create, so the
     # backup belongs here too. Taking it only in the rewrite branch below means the copy
-    # kept as "pre-myflow" already contains a generated block.
+    # kept as "pre-install" already contains a generated block.
     backup_once "$target_file"
     { printf '\n'; cat "$block_tmp"; } >>"$target_file"
-    info "Appended managed myflow block to $target_file (pre-myflow copy: $target_file.myflow.bak)"
+    info "Appended managed flow block to $target_file (pre-install copy: $target_file.flow.bak)"
     return 0
   fi
 
@@ -599,10 +656,10 @@ install_managed_block() {
   if [[ "$begins" -eq 1 && "$ends" -eq 1 && "$begin_lines" -lt "$end_lines" ]]; then
     local provenance
     if generated_only "$target_file" "$begin_lines" "$end_lines"; then
-      provenance="no pre-myflow copy: this installer created the file"
+      provenance="no pre-install copy: this installer created the file"
     else
       backup_once "$target_file"
-      provenance="pre-myflow copy: $target_file.myflow.bak"
+      provenance="pre-install copy: $target_file.flow.bak"
     fi
     awk -v begin="$CLAUDE_MD_BEGIN" -v end="$CLAUDE_MD_END" -v blockfile="$block_tmp" '
       $0 == begin { inblock = 1; while ((getline l < blockfile) > 0) print l; next }
@@ -610,11 +667,11 @@ install_managed_block() {
       !inblock    { print }
     ' "$target_file" >"$out_tmp"
     cat "$out_tmp" >"$target_file"
-    info "Refreshed managed myflow block in $target_file ($provenance)"
+    info "Refreshed managed flow block in $target_file ($provenance)"
     return 0
   fi
 
-  die "myflow delimiters in $target_file are not one begin followed by one end
+  die "flow delimiters in $target_file are not one begin followed by one end
   $CLAUDE_MD_BEGIN at line(s): ${begin_lines:-none}
   $CLAUDE_MD_END at line(s): ${end_lines:-none}
   Rewriting could delete content between them and appending would never converge.

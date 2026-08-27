@@ -343,7 +343,7 @@ make_fixture_repo() {
 #
 # Only the paths setup.sh can write are sampled — the three harness directories, their
 # skills/commands/rules subtrees one level down, the two managed instruction files, and any
-# .myflow.bak beside them. A full recursive listing of ~/.claude would be dominated by
+# .flow.bak (or a legacy .myflow.bak) beside them. A full recursive listing of ~/.claude would be dominated by
 # session state that changes on its own while this runs, which would make the check noisy
 # and therefore ignored.
 # ---------------------------------------------------------------------------
@@ -363,7 +363,8 @@ real_home_fingerprint() {
       fi
     done
     for p in "$REAL_HOME/$d/CLAUDE.md" "$REAL_HOME/$d/AGENTS.md" \
-             "$REAL_HOME/$d/CLAUDE.md.myflow.bak" "$REAL_HOME/$d/AGENTS.md.myflow.bak"; do
+             "$REAL_HOME/$d/CLAUDE.md.myflow.bak" "$REAL_HOME/$d/AGENTS.md.myflow.bak" \
+             "$REAL_HOME/$d/CLAUDE.md.flow.bak" "$REAL_HOME/$d/AGENTS.md.flow.bak"; do
       if [[ -e "$p" ]]; then stat_line "$p"; else printf 'absent %s\n' "$p"; fi
     done
   done
@@ -426,7 +427,7 @@ run_setup "$FIXTURE" "$home" global
 assert_rc_nonzero "reversed delimiters abort the run" "$RUN_RC"
 assert_contains "the abort names the delimiter shape" "$RUN_LOG" "not one begin followed by one end"
 assert_identical "reversed: CLAUDE.md is byte-identical afterwards" "$target" "$SANDBOX/reversed-expected.md"
-assert_absent "reversed: no .myflow.bak was written" "$target.myflow.bak"
+assert_absent "reversed: no .flow.bak was written" "$target.flow.bak"
 
 # --- duplicated: two begins and two ends, seeded in the CODEX target so the second
 # managed file is exercised too (the first one is written before this is reached).
@@ -447,7 +448,7 @@ cp -p "$target" "$SANDBOX/duplicated-expected.md"
 run_setup "$FIXTURE" "$home" global
 assert_rc_nonzero "duplicated delimiters abort the run" "$RUN_RC"
 assert_identical "duplicated: AGENTS.md is byte-identical afterwards" "$target" "$SANDBOX/duplicated-expected.md"
-assert_absent "duplicated: no .myflow.bak was written" "$target.myflow.bak"
+assert_absent "duplicated: no .flow.bak was written" "$target.flow.bak"
 
 # --- CRLF markers: the installer matches LF-terminated lines, so these count zero and
 # would take the append branch. It must stop and say how to fix the file.
@@ -514,9 +515,9 @@ cp -p "$claude_md" "$SANDBOX/handwritten-original.md"
 run_setup "$FIXTURE" "$home" global
 assert_rc_zero "first run over a hand-written file succeeds" "$RUN_RC" "$RUN_LOG"
 assert_contains "run 1 keeps the hand-written line" "$claude_md" "HANDWRITTEN-ABOVE"
-assert_exists "run 1 takes a pre-myflow backup" "$claude_md.myflow.bak"
+assert_exists "run 1 takes a pre-install backup" "$claude_md.flow.bak"
 assert_identical "the backup is the file as it was before myflow touched it" \
-  "$claude_md.myflow.bak" "$SANDBOX/handwritten-original.md"
+  "$claude_md.flow.bak" "$SANDBOX/handwritten-original.md"
 
 # Content added AFTER the end marker exercises the rewrite branch's blast radius — this is
 # what the reversed-delimiter defect destroyed.
@@ -530,13 +531,93 @@ for run in 2 3; do
   assert_eq "run $run: still exactly one begin" 1 "$(count_lines_matching "$claude_md" "$BEGIN")"
   assert_eq "run $run: still exactly one end" 1 "$(count_lines_matching "$claude_md" "$END")"
   assert_eq "run $run: the target keeps its 640 mode" 640 "$(file_mode "$claude_md")"
-  assert_eq "run $run: the .myflow.bak keeps the 640 mode" 640 "$(file_mode "$claude_md.myflow.bak")"
-  assert_identical "run $run: the pre-myflow backup is never overwritten" \
-    "$claude_md.myflow.bak" "$SANDBOX/handwritten-original.md"
+  assert_eq "run $run: the .flow.bak keeps the 640 mode" 640 "$(file_mode "$claude_md.flow.bak")"
+  assert_identical "run $run: the pre-install backup is never overwritten" \
+    "$claude_md.flow.bak" "$SANDBOX/handwritten-original.md"
   if [[ "$run" == 2 ]]; then cp -p "$claude_md" "$SANDBOX/handwritten-run2.md"; fi
 done
 assert_identical "run 3 leaves the hand-written file byte-identical to run 2" \
   "$claude_md" "$SANDBOX/handwritten-run2.md"
+
+# ===========================================================================
+# THE LEGACY MANAGED-BLOCK DELIMITERS ARE MIGRATED, NOT DUPLICATED.
+#
+# Before the myflow->flow rename this installer delimited its block with
+# `<!-- myflow:begin -->` / `<!-- myflow:end -->`, and those markers are still
+# sitting in the CLAUDE.md of anyone who installed before it. Every count and
+# rewrite in the installer matches the CURRENT markers as whole lines, so a file
+# carrying only the legacy pair counts zero begins and zero ends and takes the
+# APPEND branch -- leaving the old block orphaned and a second one appended, at
+# twice the length, with no later run able to reconcile them. Measured before the
+# fix: two blocks, 519 lines where there had been 259.
+#
+# The installer upgrades the two marker lines in place instead. Nothing else in
+# the file is touched, so afterwards it looks exactly like one this version
+# wrote.
+# ===========================================================================
+home="$(mktemp -d "$SANDBOX/legacy-markers.XXXXXX")"
+mkdir -p "$home/.claude"
+claude_md="$home/.claude/CLAUDE.md"
+
+# A file shaped exactly like one a pre-rename installer left behind: hand-written
+# content around a legacy-delimited block.
+cat > "$claude_md" <<'EOF'
+# My own global instructions
+
+HANDWRITTEN-ABOVE — this line predates the rename.
+
+<!-- myflow:begin -->
+# Stale generated content from the previous installer.
+<!-- myflow:end -->
+
+HANDWRITTEN-BELOW — this line also predates the rename.
+EOF
+
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "a legacy-delimited file installs cleanly" "$RUN_RC" "$RUN_LOG"
+assert_eq "the legacy begin delimiter is gone" 0 \
+  "$(count_lines_matching "$claude_md" '<!-- myflow:begin -->')"
+assert_eq "the legacy end delimiter is gone" 0 \
+  "$(count_lines_matching "$claude_md" '<!-- myflow:end -->')"
+assert_eq "exactly one current begin delimiter" 1 "$(count_lines_matching "$claude_md" "$BEGIN")"
+assert_eq "exactly one current end delimiter" 1 "$(count_lines_matching "$claude_md" "$END")"
+assert_contains "migration keeps content above the block" "$claude_md" "HANDWRITTEN-ABOVE"
+assert_contains "migration keeps content below the block" "$claude_md" "HANDWRITTEN-BELOW"
+cp -p "$claude_md" "$SANDBOX/legacy-migrated-run1.md"
+
+# And it must be idempotent: a second run over the already-migrated file changes
+# nothing. A migration that re-fires, or that appends now that the markers match,
+# is the same duplication one step later.
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "a second run over the migrated file succeeds" "$RUN_RC" "$RUN_LOG"
+assert_eq "still exactly one begin after the second run" 1 \
+  "$(count_lines_matching "$claude_md" "$BEGIN")"
+assert_identical "the second run leaves the migrated file byte-identical" \
+  "$claude_md" "$SANDBOX/legacy-migrated-run1.md"
+
+# ===========================================================================
+# A PRE-RENAME BACKUP WINS OVER TAKING A NEW ONE.
+#
+# An operator who installed before the rename has a `<file>.myflow.bak` holding
+# their genuine pre-install content. Taking a fresh `.flow.bak` now would copy a
+# file this installer has ALREADY managed and announce it as their pre-install
+# copy -- quietly replacing the real one as the thing the recovery path points
+# at. The older copy is the valuable one.
+# ===========================================================================
+home="$(mktemp -d "$SANDBOX/legacy-backup.XXXXXX")"
+mkdir -p "$home/.claude"
+claude_md="$home/.claude/CLAUDE.md"
+seed_file "$claude_md" 640 <<'EOF'
+# Already managed by a pre-rename installer.
+EOF
+printf 'THE-REAL-PRE-INSTALL-CONTENT\n' > "$claude_md.myflow.bak"
+cp -p "$claude_md.myflow.bak" "$SANDBOX/legacy-bak-original.md"
+
+run_setup "$FIXTURE" "$home" global
+assert_rc_zero "an install beside a legacy backup succeeds" "$RUN_RC" "$RUN_LOG"
+assert_identical "the legacy .myflow.bak is never overwritten" \
+  "$claude_md.myflow.bak" "$SANDBOX/legacy-bak-original.md"
+assert_absent "no .flow.bak is taken when a legacy one already exists" "$claude_md.flow.bak"
 
 # ===========================================================================
 # Group 3 — all-or-nothing preflight.
@@ -866,8 +947,8 @@ assert_identical "project run 3 leaves CLAUDE.md byte-identical to run 2" \
   "$proj/CLAUDE.md" "$SANDBOX/project-idem-claudefile-run2.md"
 assert_identical "project run 3 leaves AGENTS.md byte-identical to run 2" \
   "$proj/AGENTS.md" "$SANDBOX/project-idem-agentsfile-run2.md"
-assert_identical "the project's pre-myflow copy is the file as the user wrote it" \
-  "$proj/CLAUDE.md.myflow.bak" "$SANDBOX/project-handwritten-original.md"
+assert_identical "the project's pre-install copy is the file as the user wrote it" \
+  "$proj/CLAUDE.md.flow.bak" "$SANDBOX/project-handwritten-original.md"
 
 group "Which modes render project standards"
 
@@ -986,7 +1067,7 @@ assert_rc_nonzero "reversed delimiters in a project file abort the run" "$RUN_RC
 assert_contains "the project abort names the delimiter shape" "$RUN_LOG" "not one begin followed by one end"
 assert_identical "reversed: the project CLAUDE.md is byte-identical afterwards" \
   "$proj/CLAUDE.md" "$SANDBOX/project-reversed-expected.md"
-assert_absent "reversed: no project .myflow.bak was written" "$proj/CLAUDE.md.myflow.bak"
+assert_absent "reversed: no project .flow.bak was written" "$proj/CLAUDE.md.flow.bak"
 
 group "The real Kotlin standard reaches a project that opts into it"
 
