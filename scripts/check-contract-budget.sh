@@ -111,6 +111,36 @@ fi
 source "$SCRIPT_DIR/lib/owned-corpus.sh"
 
 # path-relative-to-repo-root<space>max-bytes, one row per covered file.
+# TWENTY-SEVEN ROWS BELOW NAME PATHS THAT NO LONGER EXIST, AND THEY STAY.
+#
+# They are the `myflow-do`, `myflow-start`, `myflow-finish`, `myflow-fast`,
+# `myflow-status` and `myflow-research` skills and commands, consolidated into
+# `/flow` by an earlier change. Audited during KAN-289 (`git grep` each key
+# against the tree); none of them resolves.
+#
+# THEY ARE INERT. This guard iterates the corpus files it FINDS and looks up a
+# budget for each; it never walks these rows checking that they resolve. A row
+# naming a path that does not exist can therefore never produce a violation.
+#
+# THEY ARE ALSO LOAD-BEARING, WHICH IS THE PART THAT WILL SURPRISE YOU. Four of
+# them are the only way `scripts/test-check-contract-budget.sh` can exercise two
+# of this guard's rules:
+#
+#   skills/myflow-status/SKILL.md      -- the over-budget SKILL.md case
+#   skills/myflow-research/SKILL.md    -- \
+#   skills/myflow-do/SKILL.md          -- / the two-rows-different-budgets case
+#   skills/myflow-do/SKILL-rationale.md -- the over-budget SKILL-rationale case
+#
+# The last one has NO live equivalent: no `skills/*/SKILL-rationale.md` exists
+# anywhere in this repository, so deleting that row leaves the SKILL-rationale
+# rule with no test at all. The harness builds fixture trees at these paths and
+# sizes them from the row, deliberately, so a fix round that moves a budget
+# cannot silently stop the fixture discriminating (see F15 in that harness).
+#
+# So: do not "tidy" these away as dead data. Removing them is a real change --
+# it needs the harness's fixtures repointed at live rows first, and needs an
+# answer for the SKILL-rationale rule that does not exist yet. KAN-289 audited
+# them and deliberately left them rather than widen a rename into that cleanup.
 budgets() {
   cat <<'EOF'
 .flow/project.md 20396
