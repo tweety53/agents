@@ -196,6 +196,47 @@ LAST_BYTE="$(tail -c1 "$STDERR_FILE" | od -An -c | tr -d ' ')"
 rm -rf "$EMPTY_FIXTURE3"
 rm -f "$STDERR_FILE"
 
+# ===========================================================================
+# KAN-289: the five literals retired by the myflow->flow rename. Each measured
+# zero legitimate occurrences in the live corpus before being added, so a hit
+# is drift rather than history and needs no allow-marker beside it.
+# ===========================================================================
+for retired in myflowd myflow-postgres myflow-contracts MYFLOWD_PORT MYFLOW_ADDR; do  # vocab-guard:allow
+  new_fixture
+  printf 'the daemon is %s and it matters.\n' "$retired" > "$FIXTURE_FILE"
+  run_guard "$FIXTURE"
+  [ "$RC" -ne 0 ] && pass "case 30: retired literal $retired is caught" \
+    || fail "case 30: $retired passed clean, rc=$RC out=$OUT"
+done
+
+# ===========================================================================
+# ...and the live spellings that REPLACED them must not trip the guard. A ban
+# written loosely enough to match `flowd` inside `myflowd` would fire on every  # vocab-guard:allow
+# renamed file in the corpus.
+# ===========================================================================
+for live in flowd flow-postgres flow-contracts FLOWD_PORT FLOW_ADDR; do
+  new_fixture
+  printf 'the daemon is %s and it matters.\n' "$live" > "$FIXTURE_FILE"
+  run_guard "$FIXTURE"
+  [ "$RC" -eq 0 ] && pass "case 31: live spelling $live passes clean" \
+    || fail "case 31: $live was flagged, rc=$RC out=$OUT"
+done
+
+# ===========================================================================
+# __pycache__ is pruned, never scanned. A .pyc embeds its source's docstrings
+# verbatim, so a stale one reports retired vocabulary from a version of the
+# source that no longer exists, at a file:line inside a binary nobody can edit.
+# It is gitignored and regenerated; it is not part of the corpus.
+# ===========================================================================
+new_fixture
+printf 'clean prose.\n' > "$FIXTURE_FILE"
+mkdir -p "$FIXTURE/__pycache__"
+PYC="$FIXTURE/__pycache__/stale.cpython-314.pyc"
+printf 'stale docstring mentioning myflowd from a deleted source\n' > "$PYC"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 32: a stale .pyc under __pycache__ is not scanned" \
+  || fail "case 32: __pycache__ was scanned, rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

@@ -32,9 +32,9 @@ expand that list without user approval.
 
 ### Never stop the dev workspace's stats service or its storage
 
-`myflowd` on `127.0.0.1:4173`, the `myflow-postgres` container on host port 5433, and the default
-`myflow` database inside it are the **dev workspace's** service and storage — the store every
-`myflow` call in every project writes state, stage marks and records through. No agent action stops
+`flowd` on `127.0.0.1:4173`, the `flow-postgres` container on host port 5433, and the default
+`flow` database inside it are the **dev workspace's** service and storage — the store every
+`flow` call in every project writes state, stage marks and records through. No agent action stops
 or drops them: not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid,
 and not to make a later step succeed. Bringing them back up does not repair a run that already fell
 through to the on-disk journal.

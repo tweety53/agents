@@ -192,7 +192,15 @@ collect_hits() {
 
   list_tmp="$(mktemp)"
   TMP_FILES+=("$list_tmp")
-  find -L "$target" -xdev -type f -print0 >"$list_tmp"
+  # `__pycache__` is pruned rather than scanned. It holds COMPILED BYTECODE that
+  # Python regenerates from the .py files this guard already reads, and a .pyc
+  # embeds its source's docstrings verbatim -- so a stale one reports retired
+  # vocabulary from a version of the source that no longer exists, at a
+  # `file:line` pointing into a binary nobody can edit. It is gitignored and
+  # untracked: not part of the corpus by this repository's own reckoning.
+  # Found when the KAN-289 literals below matched a docstring inside a .pyc left
+  # over from before that rename, while every real source file was already clean.
+  find -L "$target" -xdev -name __pycache__ -prune -o -type f -print0 >"$list_tmp"
   rc=$?
   (( rc == 0 )) || die "find exited $rc while enumerating '$target' (reason above) — refusing to report a clean run"
   while IFS= read -r -d '' file; do
@@ -303,6 +311,25 @@ check_retired_stage_vocabulary() {
   # Bounded so `myflow-test-setup` (a sandbox prefix in test-setup.sh) and the separately
   # listed `myflow-review-done` / `myflow-fast-path` are not matched twice or spuriously.  # vocab-guard:allow
   pattern+='|myflow-test([^-]|$)|myflow-review([^-]|$)'                     # vocab-guard:allow
+  #
+  # RETIRED BY THE myflow->flow RENAME (KAN-289). Five literals, and the list is
+  # deliberately this short. A flat ban on the word `myflow` was measured first
+  # and rejected: 852 lines in this guard's own scan set carry it, and almost all
+  # of them are legitimate -- 478 are `/myflow-*` command literals that are VALUES
+  # in the live stage_runs table, 115 are the self-review angle labels whose
+  # legacy spelling check-self-review-report.sh must keep recognising, 57 are the
+  # `.myflow` the hard-cutover detection exists to look for, and 15 are the
+  # managed-block delimiters setup.sh compares byte-for-byte against files already
+  # in the operator's home. Banning the word would demand a suppression marker on
+  # roughly eight hundred lines, which is precisely the shape this file's own
+  # `myflow-fast` note calls "teaching the guard to lie".
+  #
+  # What is listed below instead is every spelling that measured ZERO legitimate
+  # occurrences in the live corpus after the rename -- so any future hit is drift
+  # rather than history, and needs no marker to sit beside it. Measured, not
+  # assumed: each was counted before being added.
+  pattern+='|myflowd|myflow-postgres|myflow-contracts'                      # vocab-guard:allow
+  pattern+='|MYFLOWD_|MYFLOW_'                                              # vocab-guard:allow
   # `myflow-fast` was ALSO retired by that same five-state collapse — but KAN-111
   # (operator-approved 2026-08-09) ships a real, live command of the identical name: keep the
   # new command's name, narrow this guard instead of renaming it.

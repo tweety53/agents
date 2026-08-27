@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-workspace.sh — round-trip harness for scripts/workspace.sh's create,
-# remove and survivors commands, exercised against the real myflow-postgres
+# remove and survivors commands, exercised against the real flow-postgres
 # container (superuser myflow, database myflow, host port 5433).
 #
 # Skips the whole file, printing why, when that container is not reachable —
@@ -33,8 +33,8 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$SCRIPT_DIR/workspace.sh"
-CONTAINER="myflow-postgres"
-SUPERUSER="myflow"
+CONTAINER="flow-postgres"
+SUPERUSER="flow"
 
 if ! docker exec "$CONTAINER" true >/dev/null 2>&1; then
   echo "SKIP: $CONTAINER compose stack not reachable — scripts/test-workspace.sh needs it" >&2
