@@ -556,18 +556,30 @@ type stateBoardRowDTO struct {
 	NextCommand string `json:"nextCommand"`
 }
 
-// nextCommandFor maps a change's current pipeline state to the command
-// that runs next, per CLAUDE.md's fixed three-state pipeline
-// (/myflow-start -> STARTED, /myflow-do -> IN_PROGRESS, /myflow-finish ->
-// FINISHED) -- the same table /myflow-status reads to answer the same
-// question, so the two report identically for the same underlying record
-// (spec: "the information matches what /myflow-status reports").
+// nextCommandFor maps a change's current pipeline state to the command that
+// runs next. The pipeline is ONE command: `/flow` creates a change, resumes it,
+// applies a fix and integrates it, choosing what to do from the state it finds.
+// So the answer is `/flow` at every state that has a next step, and the value
+// of this function is telling a dashboard reader that a step remains at all.
+//
+// It used to return `/myflow-do` and `/myflow-finish`, which is what a
+// three-command pipeline needed and what this function kept returning after
+// that pipeline was consolidated into `/flow`. Those commands do not exist:
+// a reader following the dashboard's advice would have run nothing.
+//
+// This is NOT the retired-command-name exclusion that governs `/myflow-*`
+// literals elsewhere in this package. Those are stored data -- values in
+// `stage_runs` rows and the queries that select on them -- and renaming them
+// would make the code disagree with history. This one is forward-looking
+// guidance computed from current state, and it was simply wrong.
+//
+// `/flow-status` reports the same thing from the same record, so the two agree
+// for a given change (spec: "the information matches what /flow-status
+// reports").
 func nextCommandFor(s store.State) string {
 	switch s {
-	case store.StateStarted:
-		return "/myflow-do"
-	case store.StateInProgress:
-		return "/myflow-finish"
+	case store.StateStarted, store.StateInProgress:
+		return "/flow"
 	default:
 		// FINISHED is terminal: no command comes next.
 		return ""

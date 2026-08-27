@@ -874,9 +874,15 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 
 	// This mapping is CLAUDE.md's own fixed three-state pipeline table,
 	// restated here as the mechanical tie between the board and
-	// /myflow-status's report for the same record (spec: "the information
-	// matches what /myflow-status reports").
-	want := map[string]string{"kan-1": "/myflow-do", "kan-2": "/myflow-finish", "kan-3": ""}
+	// /flow-status's report for the same record (spec: "the information
+	// matches what /flow-status reports").
+	//
+	// The pipeline is ONE command, so STARTED and IN_PROGRESS both answer
+	// `/flow`; only FINISHED, which is terminal, answers with nothing. The
+	// earlier expectation here was `/myflow-do` and `/myflow-finish`, and it
+	// pinned a dashboard that told its reader to run commands that do not
+	// exist.
+	want := map[string]string{"kan-1": "/flow", "kan-2": "/flow", "kan-3": ""}
 	for _, r := range rows {
 		if r.NextCommand != want[r.Name] {
 			t.Errorf("%s (state %s): nextCommand = %q, want %q", r.Name, r.State, r.NextCommand, want[r.Name])
