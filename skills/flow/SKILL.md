@@ -1,6 +1,6 @@
 ---
 name: flow
-description: Single-command pipeline — brainstorm, implement behind a fixed 3-slot review panel, then integrate and archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
+description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, then integrate and archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
 allowed-tools: Bash(spectre:*), Bash(flow:*)
 license: MIT
 ---
@@ -106,6 +106,7 @@ The full key list, in the order each phase file marks them:
 ```bash
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
+REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 ```
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
@@ -113,6 +114,20 @@ no per-change fallback file for this record. Report the CLI's stderr and fall ba
 `sonnet` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
 naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
 never a reason to block implementation.
+
+**`REVIEWERS` resolves from the same call, into the roster the panel dispatches**
+(`skills/flow/review-panel.md` is canonical for what dispatching it means):
+
+| Store state | Resolved roster |
+|-------------|-----------------|
+| Reachable, list non-empty | exactly the list |
+| Reachable, list empty | `primary` alone |
+| Unreachable | `primary`, `principles`, `code-review-low` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
+
+An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
+`settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the
+store. The empty-list row exists because this resolver must still define a value for a state the
+store's schema permits, not because an operator can produce one.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix
@@ -174,16 +189,17 @@ one per mark or per phase file (design.md's "one token per session, not one per 
 ## Guardrails
 
 - **Never** ask a planning-effort, model, or review-panel-roster question on a creating run —
-  `ask-options-removed`. There is no roster: the panel is fixed at 3 required slots, always; see
-  **Review panel** (`skills/flow/review-panel.md`).
+  `ask-options-removed`. The roster is resolved from the settings store, never asked; see
+  **Model resolution** above and **Review panel** (`skills/flow/review-panel.md`).
 - **Never** publish a proposal artifact — `publish-proposal-removed`. `artifactUrl` is written
   `null` and stays `null` for the life of the change.
 - **Never** skip brainstorming's design gate, or leave `tasks.md` a thin scaffold — the removed
   stages are the options question round and the artifact publish, not the workflow steps
   themselves.
-- **Never** dispatch Bugbot or Security automatically, by diff size, touched area, or any other
-  trigger — only an explicit operator instruction adds either, checked at the start of the panel
-  stage and at every fix round; see **Review panel** (`skills/flow/review-panel.md`).
+- **Never** add a slot beyond the resolved roster automatically, by diff size, touched area, or any
+  other trigger — only an explicit operator instruction adds one, for that run only, checked at the
+  start of the panel stage and at every fix round; see **Review panel**
+  (`skills/flow/review-panel.md`).
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar.
 - **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or fixup

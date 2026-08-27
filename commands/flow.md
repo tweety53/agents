@@ -2,7 +2,7 @@
 name: /flow
 id: flow
 category: flow
-description: Single-command pipeline — brainstorm, implement behind a fixed review panel, and integrate, pausing only at the human gates
+description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, and integrate, pausing only at the human gates
 ---
 
 **Model:** keep this **session** on Sonnet (or your default). See "Model policy" in
@@ -18,15 +18,16 @@ assuming a project-local path.
 Follow that skill exactly. Accepts **no state** (creates a change), **`STARTED`** (resumes a
 creating run that stopped before implementation), or **`IN_PROGRESS`**. On a creating run it writes
 `STARTED` immediately, then runs brainstorming (unchanged, fully interactive) and, in the same
-invocation, implementation behind a fixed 3-slot review panel, ending at `IN_PROGRESS`. Re-invoked
-with an argument at `IN_PROGRESS`, the argument is fix instructions. Re-invoked bare at
-`IN_PROGRESS`, it asks how to land the branch; merge-and-push continues in the same invocation
-through archive to `FINISHED`, while open PR and manual stop and hand off.
+invocation, implementation behind the review panel resolved from the settings store, ending at
+`IN_PROGRESS`. Re-invoked with an argument at `IN_PROGRESS`, the argument is fix instructions.
+Re-invoked bare at `IN_PROGRESS`, it asks how to land the branch; merge-and-push continues in the
+same invocation through archive to `FINISHED`, while open PR and manual stop and hand off.
 
 Publishes no proposal artifact — the operator is present for the brainstorming dialogue that
 produces the design. Asks no planning-effort, model, or review-panel-roster question on a creating
-run — the panel is fixed at 3 required slots (Primary, Principles, Code review (low)) on every run;
-Bugbot and Security are dispatched only when you explicitly ask for either, at any point in the run.
+run — the roster is resolved from the settings store's reviewer list instead
+(`skills/flow/review-panel.md` is canonical for it); a slot beyond that list is added only by an
+explicit operator instruction, at any point in the run.
 
 Also follow the flow rule (`flow-manual-review.mdc`) — installed globally, so let your harness
 resolve it rather than assuming a project-local path. It is a stub: **load
