@@ -693,6 +693,137 @@ Every skill above but `flow-research` requires the `spectre` CLI
 
 ---
 
+## Cutting over from `myflow` to `flow`
+
+The rename from `myflow` to `flow` changed names this repository owns **and** names that live on the
+machine outside it — an installed binary, a running daemon, a Docker container, a database, a
+per-project configuration directory. Merging the branch changes only the first kind. The five steps
+below change the rest.
+
+**They run in this order. None may be reordered, and steps 2 and 4 must not be separated.**
+
+### 1. Merge
+
+Nothing on the machine has changed yet. The installed skills are symlinks into the main checkout, so
+they flip to the renamed text the moment the merge lands — which is why every step below is now
+overdue rather than optional.
+
+### 2 and 4 are one operation — read this before starting
+
+The daemon stamps every response with a trust header so a look-alike server on its port cannot be
+mistaken for the real store. That header is renamed: `Myflow-Daemon` becomes `Flow-Daemon`. **A
+renamed CLI therefore cannot trust the old daemon, and the old CLI cannot trust a renamed one.**
+
+This degrades safely — an untrusted response is a store failure, and every CLI path falls back to the
+on-disk journal and exits 0, so nothing breaks loudly. What it does *not* do is read back what it
+just wrote. **Do not run `/flow` between step 2 and step 4.**
+
+### 2. Build and install the renamed CLI
+
+```bash
+cd stats && make build
+cp bin/flow "$HOME/.local/bin/flow"
+```
+
+Leave the old `~/.local/bin/myflow` in place for now; step 5 removes it.
+
+### 3. Rename the project configuration directory, in every consuming project
+
+```bash
+git -C <project> mv .myflow .flow
+```
+
+Three projects on this machine carry one today: this repository, `~/Projects/gymie`, and
+`~/Projects/spectre-e2e`. Until a project is renamed, anything resolving its configuration refuses
+with an actionable error naming the directory and the exact `git mv` — it never falls back to the old
+path and never reports "no configuration found".
+
+### 4. Rename the container and the database
+
+**This is the only step that stops the dev workspace's service and storage, and it is yours to run.**
+`ALTER DATABASE` requires zero live connections, so the daemon must be down first.
+
+```bash
+# stop the daemon (find it however you started it; under launchd, unload the agent)
+docker compose -f stats/docker-compose.yml down
+docker volume ls | grep pgdata        # note the existing volume name before you change anything
+```
+
+Rename the database from inside the container, then bring the stack up under its new names:
+
+```bash
+docker compose -f stats/docker-compose.yml up -d
+docker exec flow-postgres psql -U flow -d postgres -c 'ALTER DATABASE myflow RENAME TO flow;'
+```
+
+Move the fallback state root in the same step:
+
+```bash
+mv ~/Agents/myflow ~/Agents/flow
+```
+
+That directory holds records and journal entries a failed write left behind, and the daemon replays
+the journal when it can reach the database again. **Re-measure before you move it** — a non-empty
+journal means a write never reached the store:
+
+```bash
+ls ~/Agents/myflow/state/*/*.json | wc -l
+find ~/Agents/myflow/state -name '*.journal' -size +0
+```
+
+At the time this runbook was written that directory held 56 records and two journal files, both
+empty — so the move was a formality rather than a rescue. That was true of this machine at that
+moment, not of the mechanism.
+<!-- measured: ls and find over ~/Agents/myflow/state at the time of writing @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
+
+**Until this step completes, no new `/flow` run can isolate a workspace.** `scripts/workspace.sh`
+addresses the container by name, and the branch ends naming `flow-postgres` — which does not exist
+until you rename it here.
+
+### Running the Go suite before you finish
+
+The test helpers' fallback DSN names the **declared** role and database — `flow:flow@.../flow`, what
+a fresh compose stack creates. Against a container you have not renamed yet that host is unreachable,
+and these suites **skip rather than fail**: `internal/store` alone reports `ok` while running four
+tests and skipping 155. A green package that ran almost nothing is worse than a red one, so until
+step 4 is done, set both overrides:
+
+```bash
+export FLOW_STATS_ADMIN_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"  # vocab-guard:allow
+export FLOW_STATS_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"  # vocab-guard:allow
+cd stats && go test ./... -count=1
+```
+
+Both are needed, and they do different jobs: `FLOW_STATS_ADMIN_DSN` drives the per-test database
+creation and every connection derived from it, `FLOW_STATS_DSN` the compose-stack reachability check.
+With both set the suite runs with zero skips. After step 4, neither is needed.
+
+### 5. Reinstall the launchd agent, then remove the old binary
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist  # vocab-guard:allow
+rm ~/Library/LaunchAgents/com.tweety53.myflowd.plist  # vocab-guard:allow
+cp stats/launchd/com.tweety53.flowd.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.tweety53.flowd.plist
+rm "$HOME/.local/bin/myflow"
+```
+
+### What needs no step from you
+
+The managed block in `~/.claude/CLAUDE.md` still carries the old `<!-- myflow:begin -->` delimiters.
+The installer migrates them itself on its next run: it rewrites the two marker lines in place and
+then refreshes the block as usual, so the file keeps one block rather than gaining a second orphaned
+one. Your existing `CLAUDE.md.myflow.bak` is left exactly as it is — it holds your genuine
+pre-install content, and a fresh backup would only copy a file the installer already manages.
+
+### What is deliberately left carrying the old name
+
+Existing Jira issues keep the labels they were filed with, so the board holds both taxonomies and a
+label search must match either form. The `stage_runs` rows recording `/myflow-do`, `/myflow-start`,
+`/myflow-finish` and `/myflow-fast` keep those values, because they record which command actually
+ran. The frozen `openspec/` tree and the historical records under `docs/` keep theirs for the same
+reason.
+
 ## Making a change
 
 **Edit the files here — this repo is the source of truth — then run `./setup.sh global`.**

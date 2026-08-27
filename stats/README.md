@@ -162,6 +162,42 @@ symptom by itself. What is a symptom: every stage run staying unbound
 minutes after it should have flushed, across every change — that is
 exactly what KAN-16 looked like.
 
+## Cutting over from the `myflow` names
+
+The rename from `myflow` to `flow` changed what this directory *declares* — the compose file, the
+default DSN, the launchd plist, the binary names. It did not change what is *running*. The full
+ordered runbook is **Cutting over from `myflow` to `flow`** in the repository root `README.md`; this
+section carries only the parts that live here.
+
+**The container and the database.** `docker-compose.yml` now declares `flow-postgres`, role `flow`
+and database `flow`. A machine that already ran the old stack still has `myflow-postgres`, role
+`myflow` and database `myflow`. Renaming the running ones requires the daemon to be down —
+`ALTER DATABASE` refuses with live connections — and is the operator's step, never an agent's.
+
+**The daemon and the CLI move together.** The trust header a response must carry was renamed with
+everything else: `Myflow-Daemon` became `Flow-Daemon`. A renamed CLI therefore cannot trust an old
+daemon, and vice versa. The failure is safe rather than loud — an untrusted response is a store
+failure, so writes fall back to the on-disk journal and replay later — but a run spanning the window
+will not read back what it just wrote. **Install the renamed CLI and restart the daemon back to
+back.**
+
+**Running the Go suite before the cutover.** The test helpers' fallback DSN points at the *declared*
+names (`flow:flow@.../flow`), which is what a fresh compose stack creates. Against a not-yet-renamed
+container that host is unreachable, and these suites **skip rather than fail** — `internal/store`
+alone reported `ok` while running 4 tests and skipping 155. A green package that ran almost nothing
+is worse than a red one, so set both overrides until the cutover is done:
+
+```bash
+export FLOW_STATS_ADMIN_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+export FLOW_STATS_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+cd stats && go test ./... -count=1
+```
+
+Both are needed: `FLOW_STATS_ADMIN_DSN` drives the per-test database creation and every connection
+derived from it, and `FLOW_STATS_DSN` drives the compose-stack reachability check. With both set the
+suite runs with **zero** skips; with neither, one package alone skips 155 tests and still reports
+`ok`. After the cutover, neither is needed.
+
 ## Running the daemon at login
 
 `stats/launchd/com.tweety53.flowd.plist` is a macOS user launchd agent

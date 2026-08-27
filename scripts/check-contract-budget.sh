@@ -146,7 +146,7 @@ budgets() {
 .flow/project.md 20396
 AGENTS.md 18648
 CLAUDE.md 15195
-README.md 47306
+README.md 59181
 commands-claude/flow-research.md 1174
 commands-claude/flow-settings.md 993
 commands-claude/flow-status.md 1632
