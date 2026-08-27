@@ -1,0 +1,1 @@
+../../../scripts/check-visual-verification.sh

@@ -22,3 +22,11 @@ stats/web/dist/
 # against a stale, committed copy.
 stats/internal/web/dist/
 stats/web/tsconfig.tsbuildinfo
+
+# Playwright's own run artifacts (stats/web/tests/visual, KAN-171) --
+# failure diffs/traces and the HTML reporter, never the committed baseline
+# PNGs under tests/visual/baseline.spec.ts-snapshots/, which this pattern
+# does not match.
+stats/web/test-results/
+stats/web/playwright-report/
+stats/web/blob-report/

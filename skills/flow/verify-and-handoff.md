@@ -2,10 +2,11 @@
 
 Loaded by `skills/flow/SKILL.md` once `skills/flow/review-panel.md` closes clean. Carries the stage
 order design.md's `workspace-export-lint-merge` and `run-instructions-reorder` decisions produce:
-**verify → stage-diff → run-instructions → write-in-progress** — the old
+**verify → visual-verify → stage-diff → run-instructions → write-in-progress** — the old
 `do.run-instructions → do.workspace-export → do.lint-and-test → do.stage-diff → do.write-in-progress`
 order, with the middle two merged into one `flow.verify` stage and `run-instructions` moved to
-immediately before the state write.
+immediately before the state write. `flow.visual-verify` sits between `flow.verify` and
+`flow.stage-diff` — a later insertion, not part of either decision above.
 
 ## Verify
 
@@ -81,6 +82,87 @@ gates or stops the run — unlike the lint and test exits above. The outcome wor
 flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
 ```
 
+## Visual verification
+
+```bash
+flow stage begin -command '/flow' \
+  -stage flow.visual-verify \
+  -harness <harness> \
+  -session-token mf-<literal-token> \
+  <name>
+```
+
+Reads the `## visual verification` section, canonical in
+`skills/flow-contracts/project-configuration.md`. This stage owns its procedure — nothing else in
+this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
+**Verify** above resolved:
+
+1. **Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
+   its own shape and closed vocabulary. A project declaring no section → this worktree prints
+   `Visual: not configured` and is skipped for the rest of this stage.
+2. **Match the diff — with the guard, not by eye.** Run
+
+   ```bash
+   git -C <worktree> diff --name-only <merge-base>..HEAD | check-visual-trigger.sh <worktree>
+   ```
+
+   Exit 0 → at least one changed path matched a declared `ui paths` glob; continue. Exit 1 → this
+   worktree prints `Visual: no UI paths touched` and is skipped for the rest of this stage. Exit 2 →
+   the guard could not answer (this should not happen here, since step 1 already confirmed the
+   section resolves) — report its stderr and skip this worktree the same way exit 1 does.
+   `check-visual-trigger.sh` owns the glob semantics (`**` spanning directories, a leading
+   dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
+3. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
+4. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
+   this worktree per **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) —
+   never the project's declared default. If nothing answers, start the stack from `## run` and
+   record that this stage started it — needed at step 10.
+5. **Run `verify`.** A non-zero exit blocks.
+6. **Capture** — author a spec covering the views this change touched, then run `capture` with
+   `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
+   `skills/flow-contracts/project-configuration.md`; nothing here restates it. **`capture` creates
+   this change's baseline**: writing a PNG that does not yet exist is its success path, not a
+   failure — `verify` is the regression gate over an already-committed baseline, `capture` is not,
+   and only a `capture` failure for some other reason blocks (see **Blocking** below).
+7. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
+
+   ```bash
+   resolve-visual-screenshots.sh <worktree> <spec's basename>
+   ```
+
+   Exit 0 prints one absolute PNG path per line — that is what selects this run's fresh output from
+   the committed baseline PNGs already sitting under the same `screenshots` root, rather than joining
+   `screenshots` with a guessed filename. Exit 1 (zero matches) blocks, indistinguishable from a view
+   that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
+   script can do that — and state, per view, what was seen. An unreadable PNG is reported and blocks
+   too.
+8. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
+   path, resolved by the same recursive search step 7 used, and what was seen.
+9. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
+   them; with none declared, commit to the change's own branch instead. **Never push** — see
+   `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another
+   repository, so no guard here grants one. `regression repo` still records which repository the
+   checkout is expected to be, and `check-visual-verification.sh` still reports a mismatch against
+   its real `origin`, but that is an identity assertion, not an authorisation. When a commit landed
+   in a `regression checkout`, print the push command for the operator to run by hand:
+
+   ```bash
+   git -C <regression checkout> push
+   ```
+10. **Stop the stack only if step 4 started it.** A stack the operator already had running is left
+    alone.
+
+**Blocking.** This stage blocks the `IN_PROGRESS` handoff on: a failed `setup`, a failed `verify`,
+a genuine `capture` failure — **never a first-run snapshot write, which is `capture`'s own success
+path per step 6 above** — a stack that could not be started, an unreadable PNG, and **a defect the
+agent sees in a captured screenshot — even when every assertion passed.** That last one is the whole
+point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
+both test suites, and obvious the moment the page was opened.
+
+```bash
+flow stage end -command '/flow' -stage flow.visual-verify -outcome completed <name>
+```
+
 ## Stage, excluding the planning paths
 
 ```bash
@@ -143,6 +225,60 @@ Resolve the run instructions for the handoff's `Run it:` section. It writes no f
 - Apps in scope come from `## apps` in `<project>/.flow/project.md`, or auto-detection.
 - **Where the project declares no runnable application**, resolve the `## lint` and `## test`
   commands instead.
+- **On a fix run, reload before this stage ends.** A fix run hands the operator a diff and the run
+  instructions this stage resolves; if the applications those instructions name are still serving
+  pre-fix code, the operator reviews one thing and runs another — measured, not hypothetical, in
+  this repository's own `<project>/stats/internal/web/embed.go`, whose `//go:embed all:dist` makes a running
+  daemon blind to an SPA source change until it is rebuilt. Before this stage ends, rebuild and
+  restart every application the run instructions above name — the ones just resolved, and no
+  others — from the project's `## run` commands.
+
+  Resolve the reload from the two keys the project already declares, in order: its `## stop`, when
+  it declares a command, then its `## run`. **A `## stop` that deliberately declares no command
+  means there is nothing to stop, not that this rule is skipped** — the reload is then whatever
+  `## run` does to bring the application up fresh. No new project-configuration key is added for
+  this, and none is needed.
+
+  **Never the flow dev stack.** `flowd` on `127.0.0.1:4173`, its `flow-postgres` container and the
+  `flow` database inside it are never stopped, restarted or dropped by any run —
+  `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
+  own `## run` names that service, the prohibition wins over this reload rule, never the reverse.
+  This is separate from **Visual verification**'s own start/stop rule above (step 10): that stage
+  stops only the stack it started for its own probe, and that rule is not restated here. This rule
+  reloads whatever the run instructions name, on every fix run, regardless of whether that stage ran
+  or started anything.
+
+  **Where every application `## apps` names is one this prohibition covers, the reload is
+  nothing — stated, not silently skipped.** This repository is that case: its `## apps` names
+  exactly one URL-bearing application, the myflow stats daemon on `127.0.0.1:4173`, and that is the
+  protected daemon itself. A fix run against this repository therefore reloads nothing before this
+  stage ends, and the handoff states which application was skipped and why:
+
+  ```
+  Not reloaded: myflow stats daemon (http://127.0.0.1:4173) — protected, see
+  <project>/CLAUDE.md's "Never stop the dev workspace's stats service or its storage".
+  ```
+
+  `flow.visual-verify`'s own `make ui-test-up`/`make ui-test-down` pair (step 4 and step 10 above)
+  is a different mechanism entirely — it starts and stops the disposable UI-test stack on
+  `127.0.0.1:4174` for that stage's own probe, and `4174` is not an application `## apps` names at
+  all, so it is never this rule's reload target.
+
+  **A reload that fails blocks this stage**, naming the application and what the command printed —
+  handing over run instructions that cannot be followed is the failure this rule exists to prevent.
+  Where the project declares no runnable application, there is nothing to reload and the rule is
+  satisfied by saying so, not by silently skipping it.
+
+  Two worked examples, both real, and they resolve differently:
+
+  ```bash verified:read from /Users/tweety53/Projects/gymie/.flow/project.md and this repository's own .flow/project.md
+  # gymie — `## stop` declares a command, so reload is stop-then-run:
+  ./gradlew devStop
+  docker compose up -d && ./gradlew devStart -PfrontendRoot=<abs> -PadminFrontendRoot=<abs>
+
+  # this repository — `## apps` names only the protected daemon, so the reload is nothing at all;
+  # see the paragraph above for the handoff line this produces instead of a command.
+  ```
 
 ```bash
 flow stage end -command '/flow' -stage flow.run-instructions -outcome completed <name>
@@ -184,6 +320,7 @@ It exits 0 always — `unknown` included. Render exactly what it printed.
 
 **Change:** <name>
 **Panel:** clean — required: Primary, Principles, Code review (low); on-demand: <Bugbot and/or Security, or "none — not requested">
+**Visual:** not configured | no UI paths touched | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
 **Costs:** <the line `flow record cost-status` printed>
@@ -217,6 +354,12 @@ Security ran, by explicit request, or that neither did.
 
 **The `Records` line is printed on every run of this branch, journalled or not.** **The `Costs:`
 line is printed the same way — always, `unknown` included.**
+
+**The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
+absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
+rule — the operator must be able to open the PNG. **Its push clause appears only when step 9
+committed to a `regression checkout`** — the stage never pushes itself, per `no-automatic-push`, so
+this is the command the operator runs by hand to land that commit.
 
 The pre-edit description line is present only on a fix run that synced the description in **3.
 Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or

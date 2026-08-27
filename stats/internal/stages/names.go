@@ -70,6 +70,7 @@ var Table = []Stage{
 	{Key: "flow.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{Flow}},
 	{Key: "flow.review-panel", Name: "The review panel ▸", Commands: []Command{Flow}},
 	{Key: "flow.verify", Name: "Verify: workspace isolation, lint and test", Commands: []Command{Flow}},
+	{Key: "flow.visual-verify", Name: "Visual verification", Commands: []Command{Flow}},
 	{Key: "flow.stage-diff", Name: "Stage, excluding the planning paths", Commands: []Command{Flow}},
 	{Key: "flow.run-instructions", Name: "Resolve the run instructions", Commands: []Command{Flow}},
 	{Key: "flow.write-in-progress", Name: "Write `IN_PROGRESS`", Commands: []Command{Flow}},

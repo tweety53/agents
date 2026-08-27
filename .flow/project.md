@@ -12,7 +12,7 @@ halves live in the one repo and are covered below.
 | App | Repo root | Kind | URL | Notes |
 |-----|-----------|------|-----|-------|
 | myflow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
-| myflow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `myflowd`, loopback-only. Backed by a dedicated `myflow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. |
+| myflow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `myflowd`, loopback-only. Backed by a dedicated `myflow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
 **This repository is Bash + Python, not Bash-only.** `scripts/check-plan-provenance.sh` is a thin
 wrapper that execs `scripts/check-plan-provenance.py` (Python 3, standard library only —
@@ -57,7 +57,8 @@ for manual, foreground verification only — for a daemon that survives logout a
 failure, see `stats/README.md`'s "Running the daemon at login" section and its launchd agent.
 **No skill loads that agent**; loading it is an operator step, deliberately, because an agent left
 running unattended during this change's development harvested 2,961 transcript offsets into the
-database before anyone noticed.
+database before anyone noticed. **No automated stage runs these three commands either** — see the
+UI-test stack below for what an automated stage uses instead.
 
 **The UI-test stack**, for ad-hoc testing from the main checkout rather than from an apply worktree:
 `make ui-test-up` and `make ui-test-down` (`stats/Makefile`) bring a second, disposable `myflowd` up
@@ -65,6 +66,15 @@ on port 4174 against `myflow_uitest`, seeded with a fixed fixture, and tear it d
 session at it with `FLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated by the
 `## workspace isolation` section below — that section covers apply worktrees, and this stack is a
 single, main-checkout-only fixture instead.
+
+**This is the stack `flow.visual-verify` (`skills/flow/verify-and-handoff.md`) starts and stops.**
+That stage's step 4 probes a URL and, if nothing answers, "starts the stack from `## run`" — a
+project with more than one candidate stack has to say which one that means, so this paragraph is
+the answer: `make ui-test-up` / `make ui-test-down` against `http://127.0.0.1:4174`, matching the
+`## visual verification` section below and `stats/web/playwright.config.ts`'s pinned `baseURL`.
+**Never `myflowd` on `127.0.0.1:4173`** — that is the dev workspace's protected daemon (`## stop`
+below), its data changes on every run so no baseline over it could ever be stable, and `CLAUDE.md`
+forbids any agent action touching it at all.
 
 ## test
 
@@ -103,6 +113,9 @@ scripts/test-check-installed-rules.sh
 scripts/test-check-normative-inventory.sh
 scripts/test-check-worktree-processes.sh
 scripts/test-make-build.sh
+scripts/test-check-visual-trigger.sh
+scripts/test-check-visual-verification.sh
+scripts/test-resolve-visual-screenshots.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
@@ -132,6 +145,9 @@ scripts/check-references.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
 scripts/check-workspace-isolation.sh
+scripts/check-visual-verification.sh .
+printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .
+scripts/resolve-visual-screenshots.sh . baseline.spec.ts
 scripts/check-uitest-overrides.sh
 scripts/check-contract-budget.sh
 scripts/check-markdown-integrity.py
@@ -316,3 +332,37 @@ decision, not an oversight. The consequence is bounded: every worktree's `myflow
 from the one real transcripts root, but each writes the result into its *own* isolated database from
 the table above, so the harvested data ends up duplicated across worktrees rather than shared through
 one database. Neither variable crosses the boundary this section exists to protect.
+
+## visual verification
+
+`stats/web` is the one SPA this repository carries. Its baseline covers the dashboard and
+run-detail views, per `stats/web/tests/visual/baseline.spec.ts`, against the disposable UI-test
+stack on `http://127.0.0.1:4174` — `## run`'s "This is the stack `flow.visual-verify` … starts and
+stops" paragraph is the answer to where that stage gets its stack from, and is not restated here.
+
+**No `regression checkout` row** — this repository commits its own baselines to the change's own
+branch, per `design.md`'s `agents-has-no-regression-checkout` decision. **No `push to default
+branch` row** either, so nothing declared here can push anywhere.
+
+**`capture` carries `--update-snapshots`, measured rather than assumed.** `capture` creates this
+change's baseline, so it must be the Playwright invocation that succeeds when writing a PNG that
+does not yet exist — bare `npx playwright test <spec>` does not: Playwright writes the file but
+still exits non-zero, "A snapshot doesn't exist … writing actual", which would block every single
+run on the intended path. Measured directly against the installed `@playwright/test` 1.62.1: the
+bare `--update-snapshots` flag (no explicit mode) is what actually exits 0 on that first-run write
+— its documented "changed" preset. The explicit `--update-snapshots=missing` mode was tried too and
+still exits non-zero on the identical case, so it is not the mechanism this project uses.
+<!-- measured: rm -rf tests/visual/<name>.spec.ts-snapshots; npx playwright test tests/visual/<name>.spec.ts [flags]; echo $? @ 2026-08-27, stats/web, @playwright/test 1.62.1 -->
+`verify` above carries no such flag — it must keep failing on real drift against the committed
+baseline, which is the whole point of a regression gate.
+
+| Setting | Value |
+|---------|-------|
+| `ui paths` | `stats/web/src/**` |
+| `screenshots` | `stats/web/tests/visual` |
+
+| Command | Runs |
+|---------|------|
+| `setup` | `cd stats/web && npm install && npx playwright install chromium` |
+| `verify` | `cd stats/web && npm run test:visual` |
+| `capture` | `cd stats/web && npx playwright test <spec> --update-snapshots` |
