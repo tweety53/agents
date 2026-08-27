@@ -56,10 +56,18 @@ Use **AskUserQuestion**, one field at a time, starting from the current value re
   rather than here.
 - **Reviewers** — offer the exact reviewer-slot ids read from `<agents repo>/stats/internal/store/settings.go`'s
   `ValidReviewers` map at the time this skill runs, never a copy of that list written into this
-  file — `ValidReviewers` is that store's own enum and the only place it is canonical. Three of its
-  slots are dispatched by every `/flow` run by default; the remaining two are on-demand-only,
-  dispatched only when the operator asks. Offer the full set as a multi-select seeded with the
-  current list, plus "keep current".
+  file — `ValidReviewers` is that store's own enum and the only place it is canonical. **This list is
+  the review panel**: every id it holds is dispatched by every `/flow` run until this command changes
+  it again, none held back as a fixed floor — resolution is canonical in `skills/flow/SKILL.md`'s
+  Model resolution, dispatch in `skills/flow/review-panel.md`'s roster. "On-demand" now names a
+  different mechanism: a per-run operator instruction can still add a slot for a single run without
+  touching this list, but an id's presence here is what makes every run dispatch it. Offer the full
+  set as a multi-select seeded with the current list, plus "keep current", and say plainly when
+  asking that the selection made here becomes every subsequent run's panel, not just this one. The
+  CLI itself refuses an empty `-reviewers` before the store is ever contacted: its required-flags
+  check (`<agents repo>/stats/cmd/flow/settings.go:123`) exits 2, distinct from the store's own
+  exit-1 rejection covered in step 3 below — warn the operator before they try it that selecting zero
+  slots fails at step 3 with exit 2, rather than turning review off.
 
 If the operator keeps both fields unchanged, say so and stop — do not call `settings set` for a
 no-op write.

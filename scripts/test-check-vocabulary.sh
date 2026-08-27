@@ -115,6 +115,92 @@ for token in "${retired_tokens[@]}"; do
 done
 
 # ===========================================================================
+# Case 6b: `code-review-low` -- a live reviewer-slot id (flow_settings.reviewers,
+# ValidReviewers in stats/internal/store/settings.go) that lexically contains
+# the retired bare token as a prefix. It is a compound id, not a reintroduction
+# of the retired stage/command, and must pass clean without any per-line
+# `vocab-guard:allow` marker -- the SAME leading-boundary exclusion precedent
+# as `requesting-code-review` in case 4 rules out the token by itself; the
+# trailing side is a per-OCCURRENCE strip of the exact `code-review-low`
+# substring (see case 6d below for why the exemption cannot be structural).
+# ===========================================================================
+new_fixture
+printf 'Unreachable falls back to primary, principles, code-review-low.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 6b: live compound id code-review-low structurally excluded" || fail "case 6b: rc=$RC out=$OUT"
+
+new_fixture
+printf '`code-review-low` is one of the reviewer slots.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 6c: backtick-fenced code-review-low structurally excluded" || fail "case 6c: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 6d: a `code-review-`-prefixed compound that is NOT the live id --  # vocab-guard:allow
+# `code-review-heavy` -- must still be caught. Regression case for a trailing  # vocab-guard:allow
+# `([^-]|$)` class that once sat right after `\bcode-review\b`: that class  # vocab-guard:allow
+# only asked "is the next character a hyphen", true of every compound
+# suffix, so it exempted `code-review-heavy`, `code-review-related`,  # vocab-guard:allow
+# `code-review-only` and `code-review-panel` right along with the one live  # vocab-guard:allow
+# id. Measured against the pre-fix pattern (all four passed clean) before
+# this case was written, and against the fixed pattern after.
+# ===========================================================================
+new_fixture
+printf 'The retired id code-review-heavy must never come back.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 6d: non-id compound code-review-heavy still caught" || fail "case 6d: rc=$RC out=$OUT"  # vocab-guard:allow
+
+# ===========================================================================
+# Case 6e-6h: the exemption strip must not false-positive when the same live
+# id occurs more than once on one line. `sed -E .../g` only matches
+# non-overlapping spans -- a match's trailing boundary character is the exact
+# character the next occurrence needs as ITS leading boundary, so repeats
+# separated by a single space stripped only every other occurrence before
+# this round's fix, leaving a survivor that (wrongly) still matched $pattern.
+# Comma- or period-separated repeats never collided, which is why 6f below is
+# expected to pass both before and after the fix -- it is not a regression
+# case, it is the control that proves the bug is about the SEPARATOR, not the
+# repetition itself.
+# ===========================================================================
+
+# 6e: two occurrences, single space -- the minimal repro.
+new_fixture
+printf 'code-review-low code-review-low end.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 6e: two space-separated occurrences both exempt" || fail "case 6e: rc=$RC out=$OUT"
+
+# 6f: three occurrences, single space -- the exact case reported: the
+# first pass strips occurrences 1 and 3 (their boundary characters do not
+# collide with a neighbour on both sides at once) and leaves occurrence 2
+# untouched, which is the reported false positive.
+new_fixture
+printf 'code-review-low code-review-low code-review-low end.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 6f: three space-separated occurrences all exempt" || fail "case 6f: rc=$RC out=$OUT"
+
+# 6g: the comma-separated form -- the control. Never collided even before
+# this fix (each occurrence owns a distinct boundary character), so this
+# case is expected to pass on both the old and the new expression; it is
+# here to prove the fix did not change behaviour on the shape that already
+# worked.
+new_fixture
+printf 'code-review-low, code-review-low.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 6g: comma-separated occurrences remain exempt" || fail "case 6g: rc=$RC out=$OUT"
+
+# 6h: an exempt id immediately beside a genuine bare `code-review` mention  # vocab-guard:allow
+# on the SAME line -- the exempt repeat must not swallow the genuine hit
+# next to it. Exit 1, and the reported line must still show the bare
+# occurrence.
+new_fixture
+printf 'code-review-low sits beside a bare code-review mention.\n' > "$FIXTURE_FILE"  # vocab-guard:allow
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 6h: bare code-review is still caught beside an exempt code-review-low" || fail "case 6h: rc=$RC out=$OUT"  # vocab-guard:allow
+case "$OUT" in
+  *"a bare code-review mention"*) pass "case 6h: reported line still shows the bare occurrence" ;;  # vocab-guard:allow
+  *) fail "case 6h: expected the reported line to show the bare occurrence, out=$OUT" ;;
+esac
+
+# ===========================================================================
 # Case 7: a clean file with no retired vocabulary at all -> exit 0.
 # ===========================================================================
 new_fixture

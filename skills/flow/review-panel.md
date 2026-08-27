@@ -1,9 +1,12 @@
 # Review panel
 
 Loaded by `skills/flow/SKILL.md` immediately after `skills/flow/implement.md`'s `flow.sdd-tdd`
-stage closes, on every implementation run — creating, resumed, or fix. Fixed at **3 required
-slots**, always, per design.md's `review-panel-fixed-3` — this file carries no roster table and no
-diff-size/touched-area trigger table; both are gone, not reduced.
+stage closes, on every implementation run — creating, resumed, or fix. Dispatches `REVIEWERS` —
+the roster `skills/flow/SKILL.md`'s **Model resolution** resolves from the settings store, which
+that file is canonical for. This file owns dispatch: mapping each resolved id to its slot and
+spawning it. Per design.md's `roster-from-settings`, which supersedes `review-panel-fixed-3`
+(design.md's `supersedes-review-panel-fixed-3`): there is no fixed roster table and no
+diff-size/touched-area trigger table.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -18,53 +21,64 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
   > <worktree>/.superpowers/sdd/dispatch-context.md
 ```
 
-## The three required slots
+## The roster
 
-Every `/flow` run dispatches exactly these three, unconditionally — no preset, no trigger, nothing
-to select:
+Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carries it:
 
-| # | Slot | Model | How to spawn |
-|---|------|-------|---------------|
-| 0 | **Primary** — plan alignment + code quality | `DEFAULT_MODEL` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
-| 2 | **Principles** | `DEFAULT_MODEL` | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> |
-| 3 | **Code review (low)** | `DEFAULT_MODEL` | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
+| id | Slot | How to spawn | Model |
+|---|------|---------------|-------|
+| `primary` | **Primary** — plan alignment + code quality | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints | `DEFAULT_MODEL` |
+| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL` |
+| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL` |
+| `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below | none — records `unknown (agent-defined)` |
+| `security` | **Security** | `subagent_type: security-review`, same shape as Bugbot | none — records `unknown (agent-defined)` |
 
-`DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value for this run — the settings
-store's `defaultModel`, or this run's session-instruction override. There is no parent-model
-inheritance and no economy tier.
+`ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
+five entries, never a sixth. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
+for this run — the settings store's `defaultModel`, or this run's session-instruction override.
+There is no parent-model inheritance and no economy tier. Bugbot and Security are dispatched by
+`subagent_type` and carry their own agent definitions — pass them **no** model override, unless the
+harness running this stage does not offer that agent type — see below.
 
-Numbering follows the retired roster table's own slot numbers (0, 2, 3) rather than renumbering —
-slots 1 and 4 below keep their old numbers too, and a gap in the sequence is the visible trace of
-what the fixed-3 decision removed (the old `standard`/`full` roster's Bugbot-as-required-slot-1
-option, and `full`'s auto-triggered Security, Adversarial and two extra principle slots).
+### An unspawnable id is substituted, not skipped
 
-## The two on-demand slots
+Per design.md's `unspawnable-id-substitutes`: a resolved id whose own agent type this harness does
+not offer — Bugbot or Security, dispatched elsewhere by `subagent_type` — is dispatched instead as a
+**general-purpose** subagent carrying that slot's brief. The panel is never silently reduced by the
+harness it happens to run in.
 
-| # | Slot | Included when |
-|---|------|----------------|
-| 1 | **Bugbot** — defect hunt | the operator explicitly names it |
-| 4 | **Security** | the operator explicitly names it |
+**Check before dispatch, not after a failure.** On Claude Code, the Agent tool's own available agent
+types are enumerated in a system-reminder in the conversation before any dispatch; an id's agent type
+absent from that listing is unavailable in this harness. Where a harness exposes no such pre-dispatch
+listing, attempt the dispatch by `subagent_type` once and treat an immediate rejection naming the
+type as unknown or unsupported as the same signal — the same "stated against the mechanism" shape as
+**Progress visibility** (`skills/flow-contracts/pipeline.md`).
 
-**Neither is ever included by a diff-size, touched-area, or any other automatic trigger.** This is
-design.md's `review-panel-fixed-3` in full: "the on/off decision is entirely explicit, not
-heuristic-driven." The retired roster's Adversarial slot and its two extra principle slots are cut
-entirely, not folded into this on-demand pair — `/flow`'s panel has exactly five possible slots
-(0, 1, 2, 3, 4), never six or seven.
+**The substitute MUST perform mutation testing**, not merely read for defects: for each finding it
+raises, it changes the code to prove the finding is real, confirms the change surfaces it, then
+reverts. This is the operator's own requirement and is what keeps a substituted slot worth
+dispatching — a general-purpose reviewer that only reads is not obviously equivalent to the real
+slot; forcing it to prove each finding by mutation is.
 
-**Check for an explicit instruction at two points**: at the start of this stage (has the operator,
-in this run's own argument or in the session before this stage, named Bugbot and/or Security?), and
-again at the start of every fix round below — an operator may ask for one mid-run, after seeing pass
-1's result, and that request adds it starting from the round it was made, never retroactively to a
-pass already closed. Record which on-demand slots are included and why (the operator's own words),
-and record explicitly when neither is included: "Bugbot: not requested. Security: not requested." —
-a documentation-, prompt-, or test-only diff with no operator request runs the three required slots
-alone, and that is a correct outcome, said so explicitly, never a silently skipped review.
+**The substitution is recorded, never hidden.** `-slot` still names the slot it stood in for
+(`Bugbot` or `Security`); `-model` records the model actually given, never `unknown
+(agent-defined)` — that value is correct only for a slot spawned by its own `subagent_type` with its
+own agent definition, which a substitute is not. The panel record and the handoff additionally say
+in prose which slots were substituted and ran as general-purpose. **A dispatch recorded as Bugbot
+that was not Bugbot corrupts the one record that says what reviewed this branch** — the recording
+rule above exists to keep that record honest, not merely tidy.
 
-Spawn shape, unchanged from the retired roster's own table: Bugbot as `subagent_type: bugbot`,
-`Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief
-below; Security as `subagent_type: security-review`, same shape. Both are dispatched by
-`subagent_type` and carry their own agent definitions — pass them **no** model override, and record
-`unknown (agent-defined)` as their dispatch row's `-model`.
+**No slot is ever added by diff size, touched area, or any other automatic trigger: the roster is
+exactly the resolved list above, and anything beyond it reaches the panel only through an explicit
+per-run operator instruction, for that run only.** Check for one at two points: at the start of this stage (has the operator, in this run's own argument or
+in the session before this stage, named an id the resolved list does not carry?), and again at the
+start of every fix round below — an operator may ask mid-run, after seeing pass 1's result, and that
+request adds the slot starting from the round it was made, never retroactively to a pass already
+closed. It is never written back to the settings store. Record which slots were added this way and
+why (the operator's own words), and record explicitly when none were: "no addition this round — the
+resolved list ran alone." — a documentation-, prompt-, or test-only diff with no operator addition
+runs the resolved list alone, and that is a correct outcome, said so explicitly, never a silently
+skipped review.
 
 **Before writing `final-review.diff`**, run
 
@@ -102,8 +116,10 @@ flow record dispatch end -change <name> -key panel-<round>-<slot> \
 `-slot` is `Primary`, `Bugbot`, `Principles`, `Code review (low)`, or `Security`. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is the sha a delta-slot's delta
 starts from, passed on a slot dispatched against a delta and on no other. `-model` is `DEFAULT_MODEL`
-(or this run's override) for every slot except Bugbot and Security, which record `unknown
-(agent-defined)`.
+(or this run's override) for every slot except Bugbot and Security dispatched by their own
+`subagent_type`, which record `unknown (agent-defined)` — narrowed by **An unspawnable id is
+substituted, not skipped**, above: a *substituted* Bugbot or Security slot records the model
+actually given, like every other slot.
 
 **On Claude Code, `-agent-id` is the identifier an asynchronous agent launch returns in the parent's
 own tool result, at launch.** Never invent one.
@@ -154,9 +170,8 @@ pass.
 
 ### Code review (low)
 
-Slot 3 is unconditionally a `general-purpose` subagent on `DEFAULT_MODEL`, briefed to report
-high-confidence defects only against `final-review.diff`. It invokes no skill. Its findings are
-ordinary `F<n>` rows, exactly like every other slot's.
+Code review (low), when dispatched, invokes no skill — unlike Primary and Principles above. Its
+findings are ordinary `F<n>` rows, exactly like every other slot's.
 
 ### Bugbot's mutation-testing brief
 
@@ -166,7 +181,7 @@ a branch — and establish whether an existing test fails. A mutation no test ca
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
 operator withdraws it with a reason.
 
-Slot 2 is the panel's only mandatory judgment check on *how* the code is built. It reads
+Principles, when dispatched, is the panel's judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
 its standards files.
 
@@ -174,7 +189,7 @@ its standards files.
 of `engineering-principles.md` **beside this file** — `skills/flow/`, always. Confirm the file
 exists before spawning; if it does not, stop and report rather than dispatching a blind reviewer.
 
-**Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in
+**Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the `## standards` entries in
 `<project>/.flow/project.md`, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
@@ -253,8 +268,9 @@ when they fixed it, and leave `open` when they did not.
 
 ## Panel re-runs
 
-**Pass 1 always runs the three required slots plus every on-demand slot the operator named at this
-stage's start.** Only re-runs after a fix are scoped. Record `FIX_BASE=<task-sha>` — the task's
+**Pass 1 always runs the resolved roster plus every slot the operator named at this stage's start
+that the resolved roster did not already carry.** Only re-runs after a fix are scoped. Record
+`FIX_BASE=<task-sha>` — the task's
 commit as it stood before this fix round — then, once the fix is folded into that commit via `git
 commit --fixup=<task-sha>` and `git rebase --autosquash`, write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` from `git diff "$FIX_BASE"..<task-sha>`.
@@ -265,8 +281,8 @@ When a review finding requires a code change to a task that is already committed
 
 | Mode | Who re-runs | Diff they get |
 |------|-------------|----------------|
-| **Targeted** (default) | Slot 0 (always, as integration check) + every agent that raised a finding | `fix-round-N.diff` |
-| **Full** (escalation) | Every **required** slot, plus every on-demand slot already dispatched in an earlier pass of this run | Slot 0 the rewritten `final-review.diff`; every other diff-reading slot its own delta, below |
+| **Targeted** (default) | Primary, when the roster carries it, as an integration check, plus every agent that raised a finding | `fix-round-N.diff` |
+| **Full** (escalation) | Every slot in the resolved roster, plus every added slot already dispatched in an earlier pass of this run | Primary (when it runs) the rewritten `final-review.diff`; every other diff-reading slot its own delta, below |
 
 **A delta is `git diff <the HEAD sha that slot last reviewed> HEAD`**, written to
 `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff`. Each dispatch sets that slot's sha
@@ -275,13 +291,13 @@ slot for which no last-reviewed sha is held reads the whole `final-review.diff`.
 read no diff file and are unaffected. Every slot's dispatch prompt names the path it was given and,
 for a delta, the sha that delta starts from.
 
-**A required slot whose delta is empty is not dispatched**, and the record states `not re-run —
-nothing new since its last read`. Slot 0 reads the whole diff, has no delta, and is never scoped out
-by this. **An on-demand slot the operator has not (yet) named at all for this run is never
-dispatched under Full mode either** — Full escalates breadth among slots already in play, it never
-adds a slot the operator has not asked for; that addition happens only through the explicit-request
-check this file's **The two on-demand slots** section states, at the start of any round including a
-Full one.
+**A resolved-roster slot whose delta is empty is not dispatched**, and the record states `not re-run
+— nothing new since its last read`. Primary, when it runs, reads the whole diff, has no delta, and
+is never scoped out by this. **A slot outside the resolved roster that the operator has not (yet)
+named at all for this run is never dispatched under Full mode either** — Full escalates breadth
+among slots already in play, it never adds a slot the operator has not asked for; that addition
+happens only through the explicit-request check this file's **The roster** section states, at the
+start of any round including a Full one.
 
 **Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
 outside the set named in the findings; the fix altered a capability spec, a migration, or a guard's
@@ -369,9 +385,9 @@ assertion states in the record what it used to cover and names what still covers
 now — checked by running the named covering test against the **pre-fix** code and confirming it
 fails.
 
-This binds the fix round every run — the obligation is the round's, not a slot's, so a run where the
-operator did not name Bugbot is exactly where the round's own proof is the only mutation reasoning
-that happens at all.
+This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
+Bugbot is neither in the resolved roster nor added this run is exactly where the round's own proof
+is the only mutation reasoning that happens at all.
 
 **Rebuild the dispatch context bundle before dispatching the fix subagent**, same as above,
 overwriting the same path.

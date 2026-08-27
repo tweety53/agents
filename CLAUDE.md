@@ -79,7 +79,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
-| `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the fixed 3-slot review panel, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
+| `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the review panel resolved from the settings store, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
@@ -122,7 +122,7 @@ description or Jira key); anything else is reported rather than ignored.
 
 | Command | What it does |
 |---------|-------------|
-| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive, unchanged) and implementation behind the fixed 3-slot review panel (Primary, Principles, Code review (low); Bugbot and Security only when explicitly asked), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it asks how to land the branch — open PR *(default)*, merge and push, or manual — and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage** |
+| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive, unchanged) and implementation behind the review panel resolved from the settings store's reviewer list (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it asks how to land the branch — open PR *(default)*, merge and push, or manual — and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage** |
 | *(gate)* | **You** — creating run or fix: review the staged diff **and** run the apps; integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
 | `/flow-status <name>` | Read-only state report for open changes |
 

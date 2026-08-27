@@ -20,9 +20,9 @@ var ValidModels = map[string]bool{
 }
 
 // ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
-// may take: the three slots every /flow run dispatches by default
-// (design.md's review-panel-fixed-3 decision) plus the two slots that are
-// otherwise fully on-demand.
+// may take. The panel dispatches exactly the resolved list; these five ids
+// no longer split into a required subset and an on-demand-only subset
+// (design.md's roster-from-settings decision superseded that split).
 var ValidReviewers = map[string]bool{
 	"primary":         true,
 	"principles":      true,
@@ -46,9 +46,10 @@ var ErrInvalidReviewer = errors.New("store: invalid reviewer")
 const DefaultModel = "sonnet"
 
 // DefaultReviewers is the value GetSettings reports for Reviewers when
-// flow_settings holds no row yet: the three required slots
-// review-panel-fixed-3 dispatches by default, with neither on-demand slot
-// included.
+// flow_settings holds no row yet: primary, principles and code-review-low,
+// the same three ids skills/flow/SKILL.md's resolver falls back to when the
+// store is unreachable (design.md's unreachable-falls-back-to-defaults
+// decision).
 var DefaultReviewers = []string{"primary", "principles", "code-review-low"}
 
 // Settings is the harness-wide record /flow-settings manages: which model

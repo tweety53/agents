@@ -319,7 +319,7 @@ It exits 0 always — `unknown` included. Render exactly what it printed.
 ## Implementation staged — review and test | Implementation committed — review and test
 
 **Change:** <name>
-**Panel:** clean — required: Primary, Principles, Code review (low); on-demand: <Bugbot and/or Security, or "none — not requested">
+**Panel:** clean — roster: <the resolved slot list this run dispatched>; substituted: <slot(s) dispatched as general-purpose in place of their own agent type, or "none">; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
 **Visual:** not configured | no UI paths touched | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
@@ -347,10 +347,11 @@ Next:
 creating run's very first `IN_PROGRESS` write, reached before any task committed, would be an
 anomaly (implementation always commits per task), so in practice this always reads "committed" —
 the "staged and uncommitted" alternative is carried only for symmetry with the phrasing an operator
-resuming mid-panel might see, and should not occur in an ordinary run. **The `Panel:` line's
-on-demand clause is `/flow`'s own** — it replaces the retired roster/preset line with what
-**Review panel** (`skills/flow/review-panel.md`) actually decided this run: which of Bugbot and
-Security ran, by explicit request, or that neither did.
+resuming mid-panel might see, and should not occur in an ordinary run. **The `Panel:` line is
+`/flow`'s own** — it states what **Review panel** (`skills/flow/review-panel.md`) actually
+dispatched this run: the resolved roster, any slot substituted as a general-purpose agent per
+`unspawnable-id-substitutes`, and any slot an explicit operator instruction added beyond the
+resolved list.
 
 **The `Records` line is printed on every run of this branch, journalled or not.** **The `Costs:`
 line is printed the same way — always, `unknown` included.**

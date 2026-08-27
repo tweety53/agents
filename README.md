@@ -231,9 +231,9 @@ Which model a dispatch runs on, and the rule that every dispatch records it, are
 A change records one of three review panel rosters — `light` *(default)*, `standard` or `full` — and
 every preset dispatches exactly three required slots, whichever is recorded; `full` reproduces the
 roster in force before presets existed. This preset/roster system was later retired in favor of a
-fixed 3-slot panel — see **The review panel — `/flow`** below and design.md's
-`review-panel-fixed-3`; **The three required slots** and **The two on-demand slots**
-(`skills/flow/review-panel.md`) are canonical for the panel's current shape. Four
+fixed 3-slot panel, itself later superseded by a roster resolved from the settings store — see
+**The review panel — `/flow`** below; **The roster** (`skills/flow/review-panel.md`) is canonical
+for the panel's current shape. Four
 further slots stay conditional under every preset — Security, Adversarial and two extra principle
 slots — selected from what the diff touches. Each
 selected slot is a **separate** subagent with its own prompt, in every affected worktree; two slots are
@@ -252,8 +252,8 @@ with named options.
 
 The tuned values are cited rather than copied: which diff sizes and which touched areas select a
 conditional slot was **Optional slot selection** in the retired `myflow-do/SKILL.md` — replaced by
-**The two on-demand slots**, now explicit-only (`skills/flow/review-panel.md`); the conditions that
-force a full re-run in place of a targeted one are **Panel re-runs** in the same file.
+**The roster**, now resolved from the settings store (`skills/flow/review-panel.md`); the conditions
+that force a full re-run in place of a targeted one are **Panel re-runs** in the same file.
 
 #### The preflight verdict — `/myflow-finish`
 
@@ -331,8 +331,8 @@ The stage iterates rather than passing once, the same way `/myflow-start`'s does
 exception, which apply unchanged.
 
 No planning-effort, model, or review-panel-roster question runs on a creating run — the three
-questions design.md's `ask-options-removed` retired. The panel is fixed at 3 required slots on every
-run instead; see **The review panel** below.
+questions design.md's `ask-options-removed` retired. The roster is resolved from the settings store
+instead of asked; see **The review panel** below.
 
 #### Writing-plans — `/flow`
 
@@ -351,19 +351,21 @@ panel, and panel-fix roles, read from the settings store rather than asked per c
 
 #### The review panel — `/flow`
 
-Every run dispatches exactly **3 required slots**, unconditionally — Primary, Principles, and
-Code review (low) — no roster, no preset, no diff-size or touched-area trigger
-(design.md's `review-panel-fixed-3`). Two further slots, Bugbot and Security, are **on-demand only**:
-included solely when the operator explicitly names one, checked at the start of the panel stage and
-again at every fix round — never by an automatic trigger. Each included slot is a **separate**
-subagent with its own prompt, in every affected worktree; two slots are never merged into one. The
-slot table itself is canonical under **The three required slots** and **The two on-demand slots**
-(`skills/flow/review-panel.md`).
+Every run dispatches the roster `skills/flow/SKILL.md`'s **Model resolution** resolves from the
+settings store's `.reviewers` list — floored at `primary` alone when the store answers empty,
+falling back to three defaults when the store is unreachable (design.md's `roster-from-settings`,
+superseding `review-panel-fixed-3`) — no preset, no diff-size or touched-area trigger. A per-run
+operator instruction can still add a slot the resolved list does not carry, for that run only,
+checked at the start of the panel stage and again at every fix round. Each dispatched slot is a
+**separate** subagent with its own prompt, in every affected worktree; two slots are never merged
+into one. The id-to-slot mapping is canonical under **The roster** (`skills/flow/review-panel.md`).
 
 Every slot runs on `DEFAULT_MODEL` — the settings-store default, or this run's session-instruction
 override — except the two dispatched by `subagent_type`. Bugbot and Security Review carry their own
-agent definitions and take no model override. There is no parent-model inheritance and no economy
-tier: the panel's cost does not depend on the model the operator happens to be running.
+agent definitions and take no model override, unless substituted per `unspawnable-id-substitutes`
+(**The roster**, `skills/flow/review-panel.md`), which does take one. There is no parent-model
+inheritance and no economy tier: the panel's cost does not depend on the model the operator happens
+to be running.
 
 No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
 critical one does. A fix round re-checks for an explicit Bugbot/Security instruction before it
@@ -673,7 +675,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|
-| `/flow <name>` | `flow` | Single-command pipeline. No state: creates the change, writes `STARTED`, and — same invocation — runs brainstorming (unchanged, fully interactive) then implementation behind the fixed 3-slot review panel, ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question and publishes no proposal artifact. `IN_PROGRESS` with an argument: fix run, state unchanged. `IN_PROGRESS` bare: asks how to land the branch — open PR (default), merge and push, or manual — then, on merge-and-push, continues in the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. Runs no tests, linters or coverage check outside implementation's own verify stage. |
+| `/flow <name>` | `flow` | Single-command pipeline. No state: creates the change, writes `STARTED`, and — same invocation — runs brainstorming (unchanged, fully interactive) then implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question and publishes no proposal artifact. `IN_PROGRESS` with an argument: fix run, state unchanged. `IN_PROGRESS` bare: asks how to land the branch — open PR (default), merge and push, or manual — then, on merge-and-push, continues in the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. Runs no tests, linters or coverage check outside implementation's own verify stage. |
 | *(gate)* | You | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
 | `/flow-research` | `flow-research` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/superpowers/research/` for `/flow`'s brainstorming to seed from |

@@ -290,6 +290,21 @@ collect_hits() {
 #     immediately followed by the word `skill` — that one shape is genuinely indistinguishable  # vocab-guard:allow
 #     from the real skill mention it exists to admit, and passes clean. Every other spelling,
 #     including a backtick-fenced one followed by any word other than `skill`, is still caught.
+#   - `code-review-low` — a live flow_settings.reviewers slot id (`ValidReviewers` in  # vocab-guard:allow
+#     stats/internal/store/settings.go); never rename it. A TRAILING `[^-]|$` class, mirroring  # vocab-guard:allow
+#     `requesting-code-review`'s LEADING `[^-]` exclusion, was tried first and reverted: measured
+#     against `code-review-heavy`, `code-review-related`, `code-review-only` and  # vocab-guard:allow
+#     `code-review-panel` — none of them a live id — the trailing class let all four pass clean,  # vocab-guard:allow
+#     because `\bcode-review\b` already places a word boundary right at the hyphen that follows,  # vocab-guard:allow
+#     and "is the next character a hyphen" is true of every compound suffix, not just `-low`.
+#     There is no ERE lookahead to ask "followed by `-low` specifically, and nothing more" in the
+#     pattern itself, so the pattern instead matches `code-review` as a bare word with no  # vocab-guard:allow
+#     trailing condition — exactly as `code-review-heavy` and its siblings above demand — and the  # vocab-guard:allow
+#     one live exemption is carried per OCCURRENCE, the same mechanism the `code-review` skill  # vocab-guard:allow
+#     exemption above already established: after `$pattern` collects a hit, every substring
+#     matching `code-review-low` bounded by a non-hyphen character (or start/end of string) on
+#     each side is stripped, and the pattern is re-applied to what remains. `code-review-low-tier`  # vocab-guard:allow
+#     — not a live id — keeps its trailing hyphen through that strip and so still matches.
 #   - Any line carrying the marker `vocab-guard:allow` — see above.
 check_retired_stage_vocabulary() {
   # Retired by the twelve-stage → three-state rename (KAN-8): the twelve stage values, the
@@ -447,24 +462,46 @@ check_retired_stage_vocabulary() {
     [[ -z "$HITS_OUT" ]] || hits+="$HITS_OUT"$'\n'
   done
 
-  # Drop the `code-review` exception's exempt occurrences (see "Legitimate exceptions" above)  # vocab-guard:allow
-  # from each candidate hit before deciding whether the line is real drift. Done here, once, on
-  # the assembled "path:line:content" hits — not baked into $pattern itself — because the
-  # exemption is per-occurrence, not per-line: for each hit, every substring of its content
-  # matching a backtick, `code-review`, a backtick, whitespace, and the word `skill` is removed,  # vocab-guard:allow
-  # and the pattern is re-applied to what remains. A hit that still matches after that removal
-  # carries a genuine retired token — bare, or backtick-fenced but followed by something other  # vocab-guard:allow
-  # than `skill` — and stands unchanged (the ORIGINAL content is reported, not the stripped
-  # version, so the printed hit still shows the real line). A hit that matches nothing after the
-  # removal was drift-free and is dropped.
+  # Drop this pattern's two occurrence-level exemptions (see "Legitimate exceptions" above) from
+  # each candidate hit before deciding whether the line is real drift. Done here, once, on the
+  # assembled "path:line:content" hits — not baked into $pattern itself — because both exemptions
+  # are per-occurrence, not per-line:
+  #   1. every substring matching a backtick, `code-review`, a backtick, whitespace, and the word  # vocab-guard:allow
+  #      `skill` is removed;
+  #   2. every substring matching `code-review-low`, bounded by a non-hyphen character or  # vocab-guard:allow
+  #      start/end of string on each side, is removed — `code-review-low-tier` keeps its  # vocab-guard:allow
+  #      trailing hyphen and is untouched by this step, so it still matches below.
+  # The pattern is then re-applied to what remains. A hit that still matches after both removals
+  # carries a genuine retired token — bare, backtick-fenced but followed by something other than  # vocab-guard:allow
+  # `skill`, or a `code-review`-prefixed compound other than `-low` — and stands unchanged (the  # vocab-guard:allow
+  # ORIGINAL content is reported, not the stripped version, so the printed hit still shows the
+  # real line). A hit that matches nothing after the removals was drift-free and is dropped.
+  #
+  # Removal 2 loops to a fixed point rather than running once. `sed -E .../g` matches
+  # non-overlapping spans only: a match's trailing `[^-]` boundary consumes the very character  # vocab-guard:allow
+  # the next occurrence needs as ITS leading boundary, so two or more `code-review-low`  # vocab-guard:allow
+  # occurrences separated by a single space strip only every other one in one pass — the
+  # untouched survivor then still matches $pattern and is reported as false drift. Comma- or
+  # period-separated repeats never collided (each occurrence gets its own boundary character),
+  # which is why that shape alone was measured clean before this fix. Every successful match
+  # removes exactly the 15 literal characters of `code-review-low` and puts back the SAME  # vocab-guard:allow
+  # boundary characters it consumed, so the string strictly shortens on any pass that still
+  # matches; looping until a pass changes nothing therefore always terminates, and what remains
+  # at that point is only the genuinely non-exempt shape (e.g. a hyphenated compound like
+  # `code-review-low-tier`, which the boundary classes never touch in any pass).  # vocab-guard:allow
   if [[ -n "$hits" ]]; then
-    local filtered_hits="" hit_line content stripped rc
+    local filtered_hits="" hit_line content stripped next rc
     while IFS= read -r hit_line; do
       [[ -n "$hit_line" ]] || continue
       # "path:line:content" — strip the shortest "anything:digits:" prefix to isolate content.
       # Repo paths never contain a colon, so this split is unambiguous.
       content="${hit_line#*:*:}"
       stripped="$(printf '%s' "$content" | sed -E 's/`code-review`[[:space:]]+skill([^A-Za-z]|$)/\1/g')"   # vocab-guard:allow
+      while :; do
+        next="$(printf '%s' "$stripped" | sed -E 's/(^|[^-])code-review-low([^-]|$)/\1\2/g')"   # vocab-guard:allow
+        [[ "$next" == "$stripped" ]] && break
+        stripped="$next"
+      done
       printf '%s' "$stripped" | grep -qE "$pattern"
       rc=$?
       (( rc < 2 )) || die "grep exited $rc while re-testing a hit after stripping exempt \`code-review\` occurrences — refusing to report a clean run"   # vocab-guard:allow

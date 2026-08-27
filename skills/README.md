@@ -42,7 +42,7 @@ still apply.
 
 | Command | Skill | What it does |
 |---------|-------|--------------|
-| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the fixed 3-slot review panel, ending at `IN_PROGRESS`. An argument at `IN_PROGRESS` is a fix run; state unchanged. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through archive to `FINISHED`. Publishes no proposal artifact. |
+| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. An argument at `IN_PROGRESS` is a fix run; state unchanged. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through archive to `FINISHED`. Publishes no proposal artifact. |
 | *(gate)* | you | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-research` | `flow-research` | Thinking-partner mode — no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
