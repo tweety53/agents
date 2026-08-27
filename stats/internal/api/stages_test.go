@@ -331,7 +331,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 
 // TestStageBeginRejectsUndocumentedStage is the server-side half of
 // task 8's rejection requirement: even though the CLI validates first
-// (cmd/myflow/stage_test.go), the daemon itself must never persist a
+// (cmd/flow/stage_test.go), the daemon itself must never persist a
 // stage name absent from internal/stages' documented table.
 func TestStageBeginRejectsUndocumentedStage(t *testing.T) {
 	fs := newFakeStore()
@@ -358,7 +358,7 @@ func TestStageBeginRejectsUndocumentedStage(t *testing.T) {
 
 // TestStageBeginRejectsInvalidSessionToken is the server-side half of KAN-172,
 // task 1's sessionToken rejection: even though the CLI validates first
-// (cmd/myflow/stage_test.go's own identical cases), the daemon itself
+// (cmd/flow/stage_test.go's own identical cases), the daemon itself
 // must never persist a sessionToken that cannot identify anything, and must
 // answer 400 carrying the reason -- not mapStoreError's generic 500,
 // which would swallow it (api.ErrInvalidSessionToken's own doc comment). Each
@@ -685,9 +685,9 @@ func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
 // beginThenEnd runs a full begin/end round trip against srv: a begin mark
 // carrying harness, followed by an end mark carrying no harness at all --
 // the wire shape design.md's own canonical example
-// (`myflow stage end --change ... --outcome completed`) uses, and the only
+// (`flow stage end --change ... --outcome completed`) uses, and the only
 // shape `stage end` has sent since task 10's post-commit review (finding
-// F1; cmd/myflow/stage.go no longer has a -harness flag on `stage end`).
+// F1; cmd/flow/stage.go no longer has a -harness flag on `stage end`).
 func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 	t.Helper()
 

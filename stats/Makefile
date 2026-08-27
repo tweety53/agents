@@ -3,7 +3,7 @@
 # Runs the Go test suite. Tests that need the compose stack's PostgreSQL
 # skip themselves with a clear message when it is not running.
 #
-# internal/web and cmd/myflowd both embed web/'s build output
+# internal/web and cmd/flowd both embed web/'s build output
 # (internal/web/dist, via //go:embed) and therefore do not compile at all
 # without web-build having run first -- deliberately: task 12's own
 # requirement is that a build with no dist/ present fails loudly at
@@ -49,19 +49,19 @@ web-build:
 # in the module fails before either bin/ artifact is rewritten, so a failed
 # build leaves the previous binaries intact rather than half-replaced.
 #
-# The two `-o` lines are what make bin/myflowd and bin/myflow real files:
+# The two `-o` lines are what make bin/flowd and bin/flow real files:
 # `go build ./...` compiles every package and then DISCARDS the resulting
 # binaries, which is why the documented launch sequence used to carry a
-# second, hand-written `go build -o bin/myflowd ./cmd/myflowd` after this
+# second, hand-written `go build -o bin/flowd ./cmd/flowd` after this
 # target -- and why an operator who skipped that half ran whatever stale
-# bin/myflowd was already on disk. scripts/test-make-build.sh asserts all
+# bin/flowd was already on disk. scripts/test-make-build.sh asserts all
 # three lines are present, over `make -n build`.
 build: web-build
 	go build ./...
-	go build -o bin/myflowd ./cmd/myflowd
-	go build -o bin/myflow  ./cmd/myflow
+	go build -o bin/flowd ./cmd/flowd
+	go build -o bin/flow  ./cmd/flow
 
-# Brings up the dedicated myflow-postgres container (see docker-compose.yml).
+# Brings up the dedicated flow-postgres container (see docker-compose.yml).
 # Does not touch any other compose stack running on this machine.
 up:
 	docker compose up -d
@@ -69,8 +69,8 @@ up:
 down:
 	docker compose down
 
-# Rebuilds and restarts the LIVE stack: the myflow-postgres container and the
-# myflowd daemon on its default port. `up`/`down` above manage the container
+# Rebuilds and restarts the LIVE stack: the flow-postgres container and the
+# flowd daemon on its default port. `up`/`down` above manage the container
 # alone; this is the whole-stack equivalent, for when the daemon is running
 # stale code.
 #
@@ -82,7 +82,7 @@ down:
 #
 # THAT PREREQUISITE IS ALSO WHAT PRODUCES $(LIVE_BIN), and is now the only
 # thing that does. This recipe used to carry its own
-# `go build -o $(LIVE_BIN) ./cmd/myflowd` after the container steps, from when
+# `go build -o $(LIVE_BIN) ./cmd/flowd` after the container steps, from when
 # `build` ran a bare `go build ./...` and therefore compiled the daemon and
 # threw the binary away (KAN-170). `build` names both outputs now, so that
 # line rebuilt a file the prerequisite had already written moments earlier.
@@ -92,9 +92,9 @@ down:
 # scripts/test-make-build.sh's `restart depends on build` case pins.
 #
 # THIS KILL IS PORT-DRIVEN, deliberately -- and it stays port-driven now that
-# a pidfile exists. myflowd writes a pidfile on EVERY start, however it was
-# started: internal/pidfile claims $TMPDIR/myflowd-<port>.pid before the store
-# is opened, so the hand-started `./bin/myflowd` this target usually finds has
+# a pidfile exists. flowd writes a pidfile on EVERY start, however it was
+# started: internal/pidfile claims $TMPDIR/flowd-<port>.pid before the store
+# is opened, so the hand-started `./bin/flowd` this target usually finds has
 # one too. The old reason for not reading a pidfile here -- that a pidfile
 # *this target* wrote would be absent exactly when it is needed -- is
 # therefore gone.
@@ -117,36 +117,36 @@ down:
 # rather than the terminal for the same reason.
 #
 # A DETACHED LIVE DAEMON HARVESTS TRANSCRIPTS UNATTENDED. It scans the real
-# MYFLOW_TRANSCRIPTS_DIR every 5s (harvestInterval, cmd/myflowd/main.go) and
+# FLOW_TRANSCRIPTS_DIR every 5s (harvestInterval, cmd/flowd/main.go) and
 # writes into the live database -- during this repo's own development an agent
 # left running that way harvested 2,961 transcript offsets before anyone
-# noticed (see .myflow/project.md's `## run` section). That is the intended
+# noticed (see .flow/project.md's `## run` section). That is the intended
 # behaviour of the live stack, not a defect, but it is why this target restarts
 # the live daemon rather than silently starting one that was never running:
 # see the "was not running" branch below, which says so instead of assuming
 # the operator wanted a daemon.
 override LIVE_PORT := 4173
-override LIVE_BIN := bin/myflowd
-override LIVE_LOG := /tmp/myflow-live.log
+override LIVE_BIN := bin/flowd
+override LIVE_LOG := /tmp/flow-live.log
 
-# Where `restart` installs the `myflow` CLI. Hardcoded rather than
+# Where `restart` installs the `flow` CLI. Hardcoded rather than
 # configurable: this is the one path already on the operator's PATH, and a
 # variable here would let a caller install the CLI somewhere that is not the
-# one every /myflow-* command actually invokes -- which is the failure this
+# one every /flow* command actually invokes -- which is the failure this
 # install exists to prevent, not a flexibility worth having.
-override LIVE_CLI := $(HOME)/.local/bin/myflow
+override LIVE_CLI := $(HOME)/.local/bin/flow
 
 restart: build
 	@pid="$$(lsof -ti tcp:$(LIVE_PORT) -sTCP:LISTEN 2>/dev/null | head -1)"; \
 	if [ -n "$$pid" ]; then \
-		echo "restart: stopping myflowd $$pid on :$(LIVE_PORT)"; \
+		echo "restart: stopping flowd $$pid on :$(LIVE_PORT)"; \
 		kill "$$pid" 2>/dev/null; \
 		for i in $$(seq 1 30); do \
 			kill -0 "$$pid" 2>/dev/null || break; \
 			sleep 1; \
 		done; \
 		if kill -0 "$$pid" 2>/dev/null; then \
-			echo "restart: myflowd $$pid did not exit within 30s -- still holding :$(LIVE_PORT)" >&2; \
+			echo "restart: flowd $$pid did not exit within 30s -- still holding :$(LIVE_PORT)" >&2; \
 			exit 1; \
 		fi; \
 	else \
@@ -159,7 +159,7 @@ restart: build
 	docker compose up -d
 	docker compose restart
 	# The CLI is installed here, unlike the daemon, because half of this
-	# repository's behaviour lives in `cmd/myflow` rather than in `myflowd`
+	# repository's behaviour lives in `cmd/flow` rather than in `flowd`
 	# -- `state set`'s own validation and the instant it stamps are the
 	# CLI's, and no daemon restart makes a new one of those live. Installing
 	# only the daemon left the two halves of KAN-284 split across two
@@ -168,26 +168,26 @@ restart: build
 	# still live on a stack that had just been "restarted".
 	#
 	# `build` cannot cover this one the way it covers $(LIVE_BIN): it writes
-	# `bin/myflow`, which is not on the operator's PATH, and $(LIVE_CLI) is.
+	# `bin/flow`, which is not on the operator's PATH, and $(LIVE_CLI) is.
 	@mkdir -p $(dir $(LIVE_CLI))
-	go build -o $(LIVE_CLI) ./cmd/myflow
-	@echo "restart: installed the myflow CLI to $(LIVE_CLI)"
+	go build -o $(LIVE_CLI) ./cmd/flow
+	@echo "restart: installed the flow CLI to $(LIVE_CLI)"
 	@nohup ./$(LIVE_BIN) >> $(LIVE_LOG) 2>&1 & \
-	echo "restart: started myflowd (pid $$!), logging to $(LIVE_LOG)"
-	@echo "restart: waiting for myflowd to answer on :$(LIVE_PORT)"
+	echo "restart: started flowd (pid $$!), logging to $(LIVE_LOG)"
+	@echo "restart: waiting for flowd to answer on :$(LIVE_PORT)"
 	@for i in $$(seq 1 60); do \
 		curl -sf http://127.0.0.1:$(LIVE_PORT)/api/v1/changes >/dev/null 2>&1 && \
 			{ echo "restart: ready on http://127.0.0.1:$(LIVE_PORT)"; exit 0; }; \
 		sleep 1; \
 	done; \
-	echo "restart: myflowd did not answer on :$(LIVE_PORT) within 60s -- see $(LIVE_LOG)" >&2; \
+	echo "restart: flowd did not answer on :$(LIVE_PORT) within 60s -- see $(LIVE_LOG)" >&2; \
 	exit 1
 
 # The UI-test stack: a database and a daemon instance separate from the
 # live ones, for ad-hoc UI testing from the main checkout (see
 # openspec/changes/kan-180-separate-db-and-app-for-ui-testing/specs/myflow-ui-test-stack/spec.md).
 # Same myflow-postgres container as the live stack (host port 5433), a
-# distinct database (myflow_uitest) and a distinct daemon port (4174), so
+# distinct database (flow_uitest) and a distinct daemon port (4174), so
 # both stacks can run at the same time without interfering.
 # `override` refuses any command-line or environment reassignment of
 # UITEST_DB and UITEST_ID outright -- a command-line assignment overrides a
@@ -204,13 +204,13 @@ restart: build
 #   derives the database name from the id itself). Confirmed with
 #   `make ui-test-up UITEST_ID=kan-999-fake -n`: without `override` here the
 #   dry run prints `../scripts/workspace.sh remove kan-999-fake --force`,
-#   which would force-drop a real `myflow_kan_999_fake` workspace database --
-#   possibly one belonging to an active `/myflow-do` worktree -- since
-#   workspace.sh's own `myflow_` prefix check only ever protects the shared
-#   "myflow" database, not other workspace databases.
+#   which would force-drop a real `flow_kan_999_fake` workspace database --
+#   possibly one belonging to an active `/flow` worktree -- since
+#   workspace.sh's own `flow_` prefix check only ever protects the shared
+#   "flow" database, not other workspace databases.
 #
-# - `override UITEST_DB` protects UITEST_DSN below, which MYFLOWD_DSN points
-#   a second `myflowd` (and `uitest-seed`) at. cmd/myflowd/main.go runs
+# - `override UITEST_DB` protects UITEST_DSN below, which FLOWD_DSN points
+#   a second `flowd` (and `uitest-seed`) at. cmd/flowd/main.go runs
 #   RunMigrations and SeedPricing, and cmd/uitest-seed seeds its fixture,
 #   against whatever DSN they are handed, with no guard of their own -- so an
 #   unprotected UITEST_DB would let `make ui-test-up UITEST_DB=myflow` start
@@ -235,17 +235,17 @@ restart: build
 # UITEST_PIDFILE) -- `scripts/check-uitest-overrides.sh` (invoked by
 # `make check-uitest-overrides`, and by `make test`) enforces the rule
 # itself so it cannot recur a fourth time.
-override UITEST_DB := myflow_uitest
-# The workspace id scripts/workspace.sh derives myflow_uitest from (its
-# `myflow_<id_underscored>` rule, id "uitest" has no "-" to replace) --
+override UITEST_DB := flow_uitest
+# The workspace id scripts/workspace.sh derives flow_uitest from (its
+# `flow_<id_underscored>` rule, id "uitest" has no "-" to replace) --
 # kept alongside UITEST_DB, not computed from it, so the two Makefile
 # callers below name the id directly rather than reversing the DSN back
 # into one.
 override UITEST_ID := uitest
 override UITEST_PORT := 4174
-override UITEST_DSN := postgres://myflow:myflow@localhost:5433/$(UITEST_DB)?sslmode=disable
-# The pidfile myflowd writes for ITSELF, not one this Makefile writes:
-# internal/pidfile claims filepath.Join(os.TempDir(), "myflowd-<port>.pid") at
+override UITEST_DSN := postgres://flow:flow@localhost:5433/$(UITEST_DB)?sslmode=disable
+# The pidfile flowd writes for ITSELF, not one this Makefile writes:
+# internal/pidfile claims filepath.Join(os.TempDir(), "flowd-<port>.pid") at
 # startup, before it opens the store. Port-derived on both sides, so the live
 # stack (4173) and this one (4174) never contend for one file. The daemon's
 # TMPDIR is pinned to /tmp on the launch below -- see the comment there --
@@ -253,11 +253,11 @@ override UITEST_DSN := postgres://myflow:myflow@localhost:5433/$(UITEST_DB)?sslm
 # /var/folders/.../T and is not /tmp. Hardcoded here rather than derived from
 # $(TMPDIR): deriving it would hand a caller the `kill` and `rm -f` target
 # that `override` exists to deny them.
-override UITEST_PIDFILE := /tmp/myflowd-$(UITEST_PORT).pid
-override UITEST_BIN := /tmp/myflow-uitest-myflowd
-override UITEST_TRANSCRIPTS_DIR := /tmp/myflow-uitest-transcripts
-override UITEST_STATE_DIR := /tmp/myflow-uitest-state
-override UITEST_LOG := /tmp/myflow-uitest.log
+override UITEST_PIDFILE := /tmp/flowd-$(UITEST_PORT).pid
+override UITEST_BIN := /tmp/flow-uitest-flowd
+override UITEST_TRANSCRIPTS_DIR := /tmp/flow-uitest-transcripts
+override UITEST_STATE_DIR := /tmp/flow-uitest-state
+override UITEST_LOG := /tmp/flow-uitest.log
 
 # Defence in depth for the `rm -rf` sites below: `override` (above) is what
 # actually stops an operator-controlled value from reaching them, but an
@@ -271,12 +271,12 @@ override UITEST_LOG := /tmp/myflow-uitest.log
 # WHAT THIS ACTUALLY CHECKS, NO MORE: the `case` below is a LEXICAL prefix
 # match on the string, not a resolved-path check -- it does not shell out to
 # `realpath`/`readlink -f`, so a value such as
-# `/tmp/myflow-uitest/../../etc` matches the pattern while naming `/etc`.
+# `/tmp/flow-uitest/../../etc` matches the pattern while naming `/etc`.
 # That is not reachable today: every caller of this macro passes one of the
 # `override`-protected literals declared above, none of which contains `..`.
 # But the guarantee this macro provides is exactly "the literal string
-# starts with `/tmp/myflow-uitest`", not "the path resolves under
-# `/tmp/myflow-uitest`" -- if a future edit ever passes this macro a path
+# starts with `/tmp/flow-uitest`", not "the path resolves under
+# `/tmp/flow-uitest`" -- if a future edit ever passes this macro a path
 # built from something other than those literals, re-derive that guarantee
 # rather than assume it still holds.
 #
@@ -293,25 +293,25 @@ override UITEST_LOG := /tmp/myflow-uitest.log
 override define UITEST_SAFE_RMRF
 for p in $(1); do \
 	case "$$p" in \
-		/tmp/myflow-uitest*) rm -rf "$$p" ;; \
+		/tmp/flow-uitest*) rm -rf "$$p" ;; \
 		*) echo "refusing to rm -rf unexpected path: $$p" >&2; exit 1 ;; \
 	esac; \
 done
 endef
 
-# ui-test-up resets the UI-test stack: drop and recreate myflow_uitest in
-# the running myflow-postgres container, start myflowd against it on its
+# ui-test-up resets the UI-test stack: drop and recreate flow_uitest in
+# the running myflow-postgres container, start flowd against it on its
 # own port, wait for the daemon to answer, then seed a fixed fixture
 # (cmd/uitest-seed). Resetting on every bring-up -- rather than reusing
 # whatever the database already holds -- is the requirement itself, not
 # an optimisation: a test stack whose contents persist between sessions
 # accumulates the same way the live one did.
 #
-# MYFLOW_TRANSCRIPTS_DIR and MYFLOW_STATE_DIR are pointed at freshly
-# emptied temporary directories -- load-bearing, not tidiness. myflowd's
-# transcript harvester scans MYFLOW_TRANSCRIPTS_DIR every 5 seconds
-# (harvestInterval, cmd/myflowd/main.go); left on the real transcripts
-# root, myflow_uitest would refill itself with the operator's genuine
+# FLOW_TRANSCRIPTS_DIR and FLOW_STATE_DIR are pointed at freshly
+# emptied temporary directories -- load-bearing, not tidiness. flowd's
+# transcript harvester scans FLOW_TRANSCRIPTS_DIR every 5 seconds
+# (harvestInterval, cmd/flowd/main.go); left on the real transcripts
+# root, flow_uitest would refill itself with the operator's genuine
 # session data within seconds of starting, defeating the entire point of
 # a stack separate from the live one.
 #
@@ -319,7 +319,7 @@ endef
 # neither is redundant with the other:
 #
 # - `dropdb --force` (Postgres' WITH (FORCE)) is what makes the DROP
-#   itself succeed against any live connection on myflow_uitest,
+#   itself succeed against any live connection on flow_uitest,
 #   including one this Makefile did not start -- a stray psql, another
 #   shell, an operator's own client. Confirmed by dropping the database
 #   out from under a running daemon with --force alone: the drop
@@ -330,7 +330,7 @@ endef
 #   PORT, not the drop: a daemon whose database was just force-dropped
 #   out from under it does not exit on its own -- confirmed by watching
 #   it keep running, still holding :4174 and answering 500s, for two
-#   minutes after its database was dropped. A second myflowd then fails
+#   minutes after its database was dropped. A second flowd then fails
 #   to bind :4174 ("address already in use") and this target aborts
 #   with the first daemon orphaned. Killing before the drop also means
 #   the drop is not racing a daemon that is still writing.
@@ -380,30 +380,30 @@ ui-test-up: web-build check-uitest-overrides
 	../scripts/workspace.sh create $(UITEST_ID)
 	@$(call UITEST_SAFE_RMRF,$(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR))
 	mkdir -p $(UITEST_TRANSCRIPTS_DIR) $(UITEST_STATE_DIR)
-	go build -o $(UITEST_BIN) ./cmd/myflowd
+	go build -o $(UITEST_BIN) ./cmd/flowd
 	# TMPDIR is pinned so the daemon's own pidfile lands where
 	# $(UITEST_PIDFILE) says it does: internal/pidfile builds its path from
 	# os.TempDir(), which is $$TMPDIR, and on macOS that is a per-user
 	# /var/folders/.../T -- not /tmp. Without this the daemon would write a
 	# file neither the stop-previous-daemon block above nor ui-test-down
 	# below ever looks at, and both would silently take their "no daemon"
-	# branch. Nothing else in myflowd reads os.TempDir().
-	MYFLOWD_PORT=$(UITEST_PORT) MYFLOWD_DSN="$(UITEST_DSN)" \
-		MYFLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
-		MYFLOW_STATE_DIR=$(UITEST_STATE_DIR) \
+	# branch. Nothing else in flowd reads os.TempDir().
+	FLOWD_PORT=$(UITEST_PORT) FLOWD_DSN="$(UITEST_DSN)" \
+		FLOW_TRANSCRIPTS_DIR=$(UITEST_TRANSCRIPTS_DIR) \
+		FLOW_STATE_DIR=$(UITEST_STATE_DIR) \
 		TMPDIR=/tmp \
 		$(UITEST_BIN) > $(UITEST_LOG) 2>&1 &
-	@echo "ui-test-up: waiting for myflowd to answer on :$(UITEST_PORT)"
+	@echo "ui-test-up: waiting for flowd to answer on :$(UITEST_PORT)"
 	@for i in $$(seq 1 60); do \
 		curl -sf http://127.0.0.1:$(UITEST_PORT)/api/v1/changes >/dev/null 2>&1 && exit 0; \
 		sleep 1; \
 	done; \
-	echo "ui-test-up: myflowd did not answer on :$(UITEST_PORT) within 60s -- see $(UITEST_LOG)" >&2; \
+	echo "ui-test-up: flowd did not answer on :$(UITEST_PORT) within 60s -- see $(UITEST_LOG)" >&2; \
 	exit 1
-	MYFLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
-	@echo "ui-test-up: ready -- export MYFLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
+	FLOWD_DSN="$(UITEST_DSN)" go run ./cmd/uitest-seed
+	@echo "ui-test-up: ready -- export FLOW_ADDR=http://127.0.0.1:$(UITEST_PORT) to point a session at it"
 
-# ui-test-down stops the daemon and drops myflow_uitest, both
+# ui-test-down stops the daemon and drops flow_uitest, both
 # idempotently: a second `make ui-test-down` exits 0 rather than erroring
 # on an absent pidfile or an already-dropped database.
 #
@@ -411,7 +411,7 @@ ui-test-up: web-build check-uitest-overrides
 # dropdb: unlike ui-test-up's drop, this one carries no --force -- it
 # relies on the daemon actually being gone by the time it runs, which is
 # why the SIGTERM below is followed by the same bounded wait ui-test-up's
-# stop-previous-daemon step uses (myflowd's shutdown grace is 15s;
+# stop-previous-daemon step uses (flowd's shutdown grace is 15s;
 # 30 one-second polls covers that with margin). Without the wait, an
 # unforced `dropdb` can race a daemon that is still holding its
 # connection open and fail intermittently. The pid signalled below is read
@@ -432,7 +432,7 @@ ui-test-down: check-uitest-overrides
 				sleep 1; \
 			done; \
 			if kill -0 "$$pid" 2>/dev/null; then \
-				echo "ui-test-down: daemon $$pid did not exit within 30s -- dropping myflow_uitest anyway" >&2; \
+				echo "ui-test-down: daemon $$pid did not exit within 30s -- dropping flow_uitest anyway" >&2; \
 			fi; \
 		fi; \
 		rm -f $(UITEST_PIDFILE); \

@@ -13,14 +13,14 @@ The fix-first lint policy is a **global rule**, installed into the managed block
 `~/.claude/CLAUDE.md` from `<agents repo>/rules/lint-fix-priority.mdc`. It is not restated here — one
 source of truth, so the policy cannot drift between the global copy and this file.
 
-What is project-specific is which commands it means. Full list in `<project>/.myflow/project.md`'s `## lint`
+What is project-specific is which commands it means. Full list in `<project>/.flow/project.md`'s `## lint`
 section — named here so this file states them rather than leaving a placeholder:
 
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
 scripts/check-vocabulary.sh                              # plus every other scripts/check-*.sh guard
-scripts/check-references.sh                               # named in .myflow/project.md's `## lint`
+scripts/check-references.sh                               # named in .flow/project.md's `## lint`
 cd stats && go vet ./... && gofmt -l .                   # must exit clean before claiming Go work done
 cd stats/web && npx tsc -b                                # must exit clean before claiming SPA work done
 ```
@@ -32,18 +32,18 @@ expand that list without user approval.
 
 ### Never stop the dev workspace's stats service or its storage
 
-`myflowd` on `127.0.0.1:4173`, the `myflow-postgres` container on host port 5433, and the default
-`myflow` database inside it are the **dev workspace's** service and storage — the store every
-`myflow` call in every project writes state, stage marks and records through. No agent action stops
+`flowd` on `127.0.0.1:4173`, the `flow-postgres` container on host port 5433, and the default
+`flow` database inside it are the **dev workspace's** service and storage — the store every
+`flow` call in every project writes state, stage marks and records through. No agent action stops
 or drops them: not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid,
 and not to make a later step succeed. Bringing them back up does not repair a run that already fell
 through to the on-disk journal.
 
-**Only those.** A worktree's own derived `myflow_<id>` database and bucket are per-change artifacts,
+**Only those.** A worktree's own derived `flow_<id>` database and bucket are per-change artifacts,
 and `<project>/scripts/workspace.sh remove <id>` drops them during archive cleanup as it should.
 
 The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to
-run, are the `## stop` section of `<project>/.myflow/project.md` — canonical for it, and not
+run, are the `## stop` section of `<project>/.flow/project.md` — canonical for it, and not
 restated here. Stopping the dev stack is an operator action; the commands live in that file's
 `## run` section and in `<project>/stats/README.md`.
 
@@ -59,7 +59,7 @@ restated here. Stopping the dev stack is an operator action; the commands live i
      that lacks a `<project>/CLAUDE.md`, so a standard hardcoded to one stack would be wrong in
      every other project. A standard meant to apply across *many* projects belongs in
      `<agents repo>/rules/` as an opt-in rule instead, activated per project by naming it in
-     `<project>/.myflow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
+     `<project>/.flow/project.md`'s `## standards` section — `kotlin-backend-development-standard.mdc`
      is the worked example of that pattern. -->
 
 This project has not declared one yet. Until it does, follow the language's published
@@ -72,7 +72,7 @@ conventions and the patterns already present in the surrounding code.
 These skills live in `skills/` next to this file (or in `<project>/.claude/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
-Every skill below but `flow-research` and `myflow-contracts` requires the `spectre` CLI to be
+Every skill below but `flow-research` and `flow-contracts` requires the `spectre` CLI to be
 installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
 
 ### Skill index
@@ -83,7 +83,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
-| `skills/myflow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
+| `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
 ### /flow commands summary
 
@@ -97,18 +97,18 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 
 **That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
 Claude Code loads this file into every session in this project, before `/flow` runs
-and before anything loads `skills/myflow-contracts/pipeline.md` — being present without that load is
-the whole job of the block, which is why the always-on rule `rules/myflow-manual-review.mdc` carries
+and before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is
+the whole job of the block, which is why the always-on rule `rules/flow-manual-review.mdc` carries
 the same three lines. **What the copy reproduces is the states and the transitions, not the
 wording**, and the two are deliberately **not** kept byte-identical: a difference in what the lines
 *say* is drift worth reporting; a difference in how they are phrased is not. Everything else is
 cited rather than copied: the state diagram lives under **How the pipeline works** (`<agents repo>/README.md`),
 and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
 
-Also follow `rules/myflow-manual-review.mdc` (always-on) — it is a stub, so **load
-`skills/myflow-contracts/pipeline.md` first**; that file holds the states, transitions, git
+Also follow `rules/flow-manual-review.mdc` (always-on) — it is a stub, so **load
+`skills/flow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
-`skills/myflow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s
+`skills/flow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s
 integrate/archive phase alone.
 
 `<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (non-archived)
@@ -118,7 +118,7 @@ change relevant to that state is used automatically; if there are multiple, you'
 description or Jira key); anything else is reported rather than ignored.
 
 **Model:** See "Model resolution" in `skills/flow/SKILL.md`, canonical for `/flow`; "Model policy" in
-`skills/myflow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
+`skills/flow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
 
 | Command | What it does |
 |---------|-------------|

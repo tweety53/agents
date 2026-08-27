@@ -4,7 +4,7 @@ globs: src/**/*.kt,**/*.kts
 alwaysApply: false
 ---
 
-> **OPT-IN RULE — not globally active.** This standard applies **only** in projects whose `.myflow/project.md` lists it in its `## standards` section — as the bare filename `kotlin-backend-development-standard.mdc`, which resolves to `<agents repo>/rules/<name>` per **Project configuration** in `skills/myflow-contracts/project-configuration.md`. It is deliberately **not** installed as an always-on global rule: its Kotlin globs (`src/**/*.kt`, `**/*.kts`) would otherwise match Compose Multiplatform frontends and IntelliJ/IDE plugin repositories, instructing them to adopt a Spring backend layering (`core/domain`, `core/ports`, `infrastructure/persistence`) that is wrong for those project shapes. If the current project has not opted in, ignore this file and impose none of its layering requirements.
+> **OPT-IN RULE — not globally active.** This standard applies **only** in projects whose `.flow/project.md` lists it in its `## standards` section — as the bare filename `kotlin-backend-development-standard.mdc`, which resolves to `<agents repo>/rules/<name>` per **Project configuration** in `skills/flow-contracts/project-configuration.md`. It is deliberately **not** installed as an always-on global rule: its Kotlin globs (`src/**/*.kt`, `**/*.kts`) would otherwise match Compose Multiplatform frontends and IntelliJ/IDE plugin repositories, instructing them to adopt a Spring backend layering (`core/domain`, `core/ports`, `infrastructure/persistence`) that is wrong for those project shapes. If the current project has not opted in, ignore this file and impose none of its layering requirements.
 
 # Kotlin Backend Development Standard
 

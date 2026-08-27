@@ -5,13 +5,13 @@
 # Usage: check-workspace-isolation.sh [<project root> ...]
 #
 # With no arguments it checks the repository this script ships in. Each argument
-# is a PROJECT ROOT — the directory holding `.myflow/project.md` — never the
+# is a PROJECT ROOT — the directory holding `.flow/project.md` — never the
 # configuration file itself, because that is the path every caller already has.
 #
 # WHO RUNS IT, AND WHY THAT IS TWO CALLERS RATHER THAN ONE. `/myflow-do` runs it
 # against each apply worktree before it resolves or exports a single row —
 # section 7 of skills/myflow-do/SKILL.md — and that is the call that reaches
-# every project myflow is installed into, because the read happens in the
+# every project flow is installed into, because the read happens in the
 # project rather than here. This repository ALSO lists it in its own `## lint`,
 # which is a self-check on this repository's own `## workspace isolation`
 # section and nothing more: a green lint run says nothing about any other
@@ -24,11 +24,13 @@
 #
 # Exit 0 when every project checked is well formed, 1 when any violation was
 # found, 2 when it cannot answer at all — a project root that is not a
-# directory, a `.myflow/project.md` that is not a regular file (a directory, a
-# fifo, a dangling symlink) or cannot be read, or a scan of it that failed rather
-# than found nothing. The violations are on stdout and the refusals on stderr, so
-# a caller reading stdout is reading findings and never an excuse for their
-# absence.
+# directory, a `.flow/project.md` that is not a regular file (a directory, a
+# fifo, a dangling symlink) or cannot be read, a scan of it that failed rather
+# than found nothing, or a project carrying the retired `.myflow/` and no
+# `.flow/` (per design.md's dotmyflow-hard-cutover — never a fallback to the
+# old path, never both, never a silent "nothing declared"). The violations
+# are on stdout and the refusals on stderr, so a caller reading stdout is
+# reading findings and never an excuse for their absence.
 #
 # WHY THE VERDICT WORDS DIFFER FROM check-cleanup-complete.sh's. That guard says
 # COMPLETE/LEFTOVER about the same section of the same file, and the two
@@ -48,14 +50,14 @@
 #
 # A COMMAND'S FAILURE IS NEVER READ AS ITS NEGATIVE ANSWER, which is the same
 # invariant one level down. `-r` is true of a directory and `grep -q` then fails
-# with the same exit status it uses for "no match", so a `.myflow/project.md`
+# with the same exit status it uses for "no match", so a `.flow/project.md`
 # that is a directory once answered "declares no section" and exited 0. Every
 # test below therefore says which question it is answering: the file type is
 # tested before its readability, and each `grep` exit status is read as three
 # outcomes — matched, did not match, could not look — rather than as two.
 #
 # WHAT IS CANONICAL, AND WHAT THIS FILE IS. Every rule enforced here is stated
-# by **Project configuration** (`skills/myflow-contracts/project-configuration.md`), which wins on
+# by **Project configuration** (`skills/flow-contracts/project-configuration.md`), which wins on
 # any disagreement — under its "How a `## workspace isolation` section is
 # written" paragraph and the two bullets that follow "An isolation row resolves
 # under the same rules this file applies to everything else it consumes". This
@@ -75,7 +77,7 @@
 # one was — "exactly one, its title" — and it went stale the first time a
 # heading was added to that file.
 #
-# THE INPUT IS ATTACKER-INFLUENCED. `.myflow/project.md` is tracked in the
+# THE INPUT IS ATTACKER-INFLUENCED. `.flow/project.md` is tracked in the
 # repository and editable in any pull request. NOTHING read here is executed:
 # this guard never runs a project's `create`, `remove` or `survivors` command,
 # never resolves a path out of the file, and never interpolates a cell into a
@@ -143,7 +145,7 @@ source "$SCRIPT_DIR/lib/resolve-file.sh"
 # CHECK_WORKSPACE_ISOLATION_PRINT_ROWS — an internal, undocumented-to-operators
 # switch that prepare-workspace.sh sets when it invokes this guard, so it can
 # derive the workspace variables from the SAME parse this guard already did
-# rather than opening `.myflow/project.md` a second time and re-implementing
+# rather than opening `.flow/project.md` a second time and re-implementing
 # the cell splitter. Unset (the default), it changes nothing: the awk program
 # below never emits a `#ROW` line, so stdout is byte-for-byte what it always
 # was. Set, each validated resource row is appended to this project's report
@@ -183,7 +185,7 @@ TOTAL_VIOLATIONS=0
 
 # sanitize_display — copy stdin to stdout with every C0 control byte, DEL and
 # backslash rendered as visible text. Every violation line below quotes a cell
-# STRAIGHT OUT of `.myflow/project.md`, which is tracked in the repository and
+# STRAIGHT OUT of `.flow/project.md`, which is tracked in the repository and
 # editable in any pull request, so a cell holding an escape sequence writes that
 # sequence to the operator's terminal. `\033[2K` erases the line it is on and
 # `\033[1;32m` turns the next one bold green: a cell can therefore leave a report
@@ -235,26 +237,38 @@ for ROOT in "$@"; do
     exit 2
   fi
 
-  CFG="$ROOT/.myflow/project.md"
+  CFG="$ROOT/.flow/project.md"
 
   # THE ABSENT CASE IS TESTED WITH `-e` AND `-L` TOGETHER, not with `-e` alone.
-  # `-e` follows symlinks, so a `.myflow/project.md` pointing at a path that does
+  # `-e` follows symlinks, so a `.flow/project.md` pointing at a path that does
   # not exist answers `-e` false and would be reported as a project that declares
   # nothing — a link anyone able to edit the repository can create, resolving to
   # the one verdict this guard must never give away. `-L` is true for the link
   # itself, so the pair says "there is nothing here at all" and a dangling link
   # falls through to the refusal below instead.
   if [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; then
-    # The file is optional. A project with no `.myflow/project.md` is a
-    # supported, ordinary case, not an error.
-    printf 'ISOLATION-OK: %s — no .myflow/project.md, so nothing is declared\n' "$ROOT"
+    # A project carrying the retired `.myflow/` and no `.flow/` is NOT the
+    # supported "nothing declared" case — it is the hard cutover
+    # design.md's dotmyflow-hard-cutover states: never fall back to the old
+    # path, never read both, and never silently report "no project
+    # configuration" when the operator's actual problem is a directory that
+    # still needs renaming. `~/Projects/gymie` and `~/Projects/spectre-e2e`
+    # are in exactly this state on this machine, so this refuses rather than
+    # returning ISOLATION-OK for a project this guard never actually read.
+    if [ -e "$ROOT/.myflow" ] || [ -L "$ROOT/.myflow" ]; then
+      echo "check-workspace-isolation: $ROOT carries .myflow/ and no .flow/ — rename it before this project's configuration can be read: git -C $ROOT mv .myflow .flow" >&2
+      exit 2
+    fi
+    # The file is optional. A project with no `.flow/project.md` (and no
+    # stale `.myflow/`) is a supported, ordinary case, not an error.
+    printf 'ISOLATION-OK: %s — no .flow/project.md, so nothing is declared\n' "$ROOT"
     continue
   fi
 
   # A REGULAR FILE, TESTED BEFORE READABILITY, because `-r` ANSWERS ABOUT A
   # DIRECTORY TOO. `-r` on a directory is true, and `grep` then fails with "Is a
   # directory" while its exit status is indistinguishable from "no match" — so
-  # `ln -s somedir .myflow/project.md` produced `ISOLATION-OK: … declares no
+  # `ln -s somedir .flow/project.md` produced `ISOLATION-OK: … declares no
   # `## workspace isolation` section` and exit 0, which is this file's
   # NEVER FAIL OPEN invariant broken in the one script written to hold it. `-f`
   # follows symlinks, so a configuration that IS a symlink to a real file is

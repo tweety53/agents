@@ -3,6 +3,7 @@ package reconcile_test
 import (
 	"context"
 	"fmt"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"os"
 	"testing"
 	"time"
@@ -14,17 +15,32 @@ import (
 )
 
 // adminDSN is the DSN used to create and drop per-test databases -- the
-// same dedicated myflow-postgres compose stack internal/store's own tests
+// same dedicated flow-postgres compose stack internal/store's own tests
 // use (task 1), overridable for environments that run Postgres elsewhere.
 func adminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
-	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 }
 
+// It derives from adminDSN rather than repeating the credentials, so that
+// FLOW_STATS_ADMIN_DSN moves both connections together. Hardcoding them here
+// made the override only half-work -- the admin connection followed the
+// environment while the per-test one stayed pinned, so a Postgres with
+// different credentials failed every test while the admin step succeeded. See
+// internal/store/testsupport_test.go's testDSN for the measured case.
 func testDSN(dbName string) string {
-	return fmt.Sprintf("postgres://myflow:myflow@localhost:5433/%s?sslmode=disable", dbName)
+	out, err := dsnutil.ForDatabase(adminDSN(), dbName)
+	if err != nil {
+		// Panic rather than return a best-effort string. This helper's
+		// predecessor answered confidently when it could not do the job and
+		// silently handed back a corrupted DSN; a test that then connects
+		// reports whatever that connection says, which is the wrong question
+		// answered convincingly.
+		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
+	}
+	return out
 }
 
 // newTestStore creates a uniquely-named, migrated database against the
@@ -45,14 +61,14 @@ func newTestStore(t *testing.T) *store.Store {
 
 	adminPool, err := pgxpool.New(ctx, adminDSN())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 
-	dbName := fmt.Sprintf("myflow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
+	dbName := fmt.Sprintf("flow_test_%d_%d", os.Getpid(), time.Now().UnixNano())
 	ident := pgx.Identifier{dbName}.Sanitize()
 	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
 		adminPool.Close()

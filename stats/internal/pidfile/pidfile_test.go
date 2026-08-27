@@ -18,7 +18,7 @@ import (
 // copy of the daemon. Recording it rather than the test binary's own path
 // is what proves the identity check compares against the recorded
 // executable instead of a fixed program name.
-const uitestExecutable = "/tmp/myflow-uitest-myflowd"
+const uitestExecutable = "/tmp/flow-uitest-flowd"
 
 // discardLogger is the logger every test hands Check: the stale-file
 // warnings are behavior this package owes its operator, not something the
@@ -114,10 +114,10 @@ func TestPathIsDerivedFromPort(t *testing.T) {
 	live := Path(4173)
 	uitest := Path(4174)
 
-	if want := filepath.Join(os.TempDir(), "myflowd-4173.pid"); live != want {
+	if want := filepath.Join(os.TempDir(), "flowd-4173.pid"); live != want {
 		t.Errorf("Path(4173) = %q, want %q", live, want)
 	}
-	if want := filepath.Join(os.TempDir(), "myflowd-4174.pid"); uitest != want {
+	if want := filepath.Join(os.TempDir(), "flowd-4174.pid"); uitest != want {
 		t.Errorf("Path(4174) = %q, want %q", uitest, want)
 	}
 	if live == uitest {
@@ -126,7 +126,7 @@ func TestPathIsDerivedFromPort(t *testing.T) {
 }
 
 func TestCheckPassesWhenNoFileExists(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	rejectProcessNameLookup(t)
 
 	if err := Check(path, discardLogger()); err != nil {
@@ -138,7 +138,7 @@ func TestCheckPassesWhenNoFileExists(t *testing.T) {
 }
 
 func TestCheckRefusesWhenLiveProcessMatchesRecordedExecutable(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4174.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4174.pid")
 	holder := os.Getpid()
 	writePidfile(t, path, holder, uitestExecutable)
 	held, err := os.ReadFile(path)
@@ -161,7 +161,7 @@ func TestCheckRefusesWhenLiveProcessMatchesRecordedExecutable(t *testing.T) {
 }
 
 func TestCheckPassesWhenRecordedPidIsNotAlive(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	writePidfile(t, path, deadPid(t), uitestExecutable)
 	stale, err := os.ReadFile(path)
 	if err != nil {
@@ -176,7 +176,7 @@ func TestCheckPassesWhenRecordedPidIsNotAlive(t *testing.T) {
 }
 
 func TestCheckPassesWhenLivePidIsAnUnrelatedProcess(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	writePidfile(t, path, os.Getpid(), uitestExecutable)
 	recycled, err := os.ReadFile(path)
 	if err != nil {
@@ -193,7 +193,7 @@ func TestCheckPassesWhenLivePidIsAnUnrelatedProcess(t *testing.T) {
 }
 
 func TestCheckPassesOnUnparsableFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	garbage := []byte("not a pidfile at all\n")
 	if err := os.WriteFile(path, garbage, 0o600); err != nil {
 		t.Fatalf("writing the unparsable file: %v", err)
@@ -210,7 +210,7 @@ func TestCheckPassesWhenTheFileCannotBeRead(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads a 0o000 file, so the unreadable case cannot be staged here")
 	}
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	// A perfectly valid pidfile naming this live test binary: if Check
 	// could read it, it would refuse. What it cannot do is read it, and
 	// an unreadable file is not one of the four conditions the spec lets
@@ -229,7 +229,7 @@ func TestCheckPassesWhenTheFileCannotBeRead(t *testing.T) {
 }
 
 func TestWriteRecordsPidAndExecutable(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 
 	lock, err := Write(path)
 	if err != nil {
@@ -256,7 +256,7 @@ func TestWriteRecordsPidAndExecutable(t *testing.T) {
 }
 
 func TestReleaseRemovesFileAndIsIdempotent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	lock, err := Write(path)
 	if err != nil {
 		t.Fatalf("Write: %v", err)
@@ -274,7 +274,7 @@ func TestReleaseRemovesFileAndIsIdempotent(t *testing.T) {
 }
 
 func TestReleaseLeavesAnotherHoldersFileInPlace(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	lock, err := Write(path)
 	if err != nil {
 		t.Fatalf("Write: %v", err)
@@ -297,7 +297,7 @@ func TestReleaseLeavesAnotherHoldersFileInPlace(t *testing.T) {
 }
 
 func TestReleaseLogsWhenAnotherHolderOwnsTheFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	lock, err := Write(path)
 	if err != nil {
 		t.Fatalf("Write: %v", err)
@@ -327,7 +327,7 @@ func TestReleaseLogsWhenAnotherHolderOwnsTheFile(t *testing.T) {
 }
 
 func TestReleaseLogsWhenTheFileNoLongerParses(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "myflowd-4173.pid")
+	path := filepath.Join(t.TempDir(), "flowd-4173.pid")
 	lock, err := Write(path)
 	if err != nil {
 		t.Fatalf("Write: %v", err)

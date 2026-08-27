@@ -114,7 +114,7 @@ const maxDispatchSeqRetries = 100
 //
 // A dispatch recorded with an empty Key is inserted and never deduplicated:
 // the constraint spans nullable columns, and SQL treats two NULLs as
-// distinct. `myflow record dispatch begin` requires the flag, so that path
+// distinct. `flow record dispatch begin` requires the flag, so that path
 // is not reachable from this repository's own callers.
 func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	for range maxDispatchSeqRetries {
@@ -550,7 +550,7 @@ func (s *Store) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64,
 // DispatchWindowsForSession returns every dispatch attributable to
 // sessionID, as the harvest.DispatchWindow shape attribution needs and
 // nothing more -- the dispatch-grain counterpart of the stage windows
-// storeWindowSource resolves through QueryStageRuns (cmd/myflowd/main.go).
+// storeWindowSource resolves through QueryStageRuns (cmd/flowd/main.go).
 //
 // A dispatch names its session the same way a stage run does: by the
 // literal session_token its dispatcher was running under, which is the
@@ -587,7 +587,7 @@ func (s *Store) MarkDispatchesUnattributedByID(ctx context.Context, ids []int64,
 //
 // Returning harvest.DispatchWindow directly, rather than a store-local
 // type an adapter converts, is what lets *store.Store satisfy
-// harvest.DispatchWindowSource with no adapter at all (cmd/myflowd asserts
+// harvest.DispatchWindowSource with no adapter at all (cmd/flowd asserts
 // it at compile time). The dependency runs store -> harvest, which is the
 // direction that keeps internal/harvest importing nothing from
 // internal/store -- the property TestHarvestNeedsNoDatabase rests on.

@@ -3,7 +3,7 @@
 #
 # Usage: commit-split.sh <worktree> <name> <impl-msg> <plan-msg>
 #
-# Wraps the exact guarded chain specified in skills/myflow-contracts/pipeline.md's
+# Wraps the exact guarded chain specified in skills/flow-contracts/pipeline.md's
 # "Git boundaries" section — that section is the canonical spec of this
 # behavior and is not rewritten here; this script only exists to give the two
 # call sites (`myflow-do`'s PR-exception path and `myflow-finish`'s run 1) one
@@ -20,7 +20,7 @@
 # commit that implements the requirement — so it must fall on the
 # implementation side of this split, and widening either pathspec back to
 # `spectre/` would classify it as planning again. See
-# skills/myflow-contracts/git-boundaries.md, canonical for that boundary.
+# skills/flow-contracts/git-boundaries.md, canonical for that boundary.
 #
 # `<name>` is accepted and currently unused by the chain itself; it is taken
 # as a parameter because both call sites already have a change name in hand

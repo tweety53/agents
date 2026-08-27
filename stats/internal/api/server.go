@@ -1,4 +1,4 @@
-// Package api implements myflowd's HTTP surface: today, task 4's change
+// Package api implements flowd's HTTP surface: today, task 4's change
 // endpoints over internal/store; later tasks add the stage-mark and
 // statistics endpoints beside them, through the same Server and the same
 // error mapping. internal/store remains the only package that builds SQL --
@@ -58,7 +58,7 @@ import (
 // tolerable for the small, fast state and stage-mark routes it was sized
 // for, but it is the wrong failure mode for an aggregation query: a client
 // cannot tell a truncated JSON body apart from a mid-response network
-// blip, and myflow's CLI-facing routes need that distinction. statsWriteTimeout
+// blip, and flow's CLI-facing routes need that distinction. statsWriteTimeout
 // sits comfortably inside writeTimeout so the TimeoutHandler itself always
 // gets to write its own clean response before the shared budget could cut
 // it off too.
@@ -79,7 +79,7 @@ const (
 	// statsTimeoutMessage is the plain-text body http.TimeoutHandler writes,
 	// with a 503, when a statistics query does not finish inside
 	// statsWriteTimeout.
-	statsTimeoutMessage = "myflowd: statistics query timed out"
+	statsTimeoutMessage = "flowd: statistics query timed out"
 
 	// maxRequestBodyBytes caps a request body -- PUT's whole-object change
 	// record today. A few KB is realistic for the largest record this
@@ -113,7 +113,7 @@ type ChangeStore interface {
 var _ ChangeStore = (*store.Store)(nil)
 
 // DaemonHeader is set, to DaemonHeaderValue, on every response this daemon
-// writes -- success and error alike -- so a caller can tell "myflowd
+// writes -- success and error alike -- so a caller can tell "flowd
 // answered" apart from "some other process is listening on this port and
 // happened to also return a 409 or a 404".
 //
@@ -130,12 +130,12 @@ var _ ChangeStore = (*store.Store)(nil)
 // value; see its own doc comment for the client-side half of the contract.
 //
 // The value is a fixed protocol marker, not a full semantic version: this
-// header exists to answer "is this myflowd" for the fallback decision, not
+// header exists to answer "is this flowd" for the fallback decision, not
 // to support version negotiation between daemon and CLI generations, so it
 // changes only on a deliberate wire-format break, not on every release.
 const (
-	DaemonHeader      = "Myflow-Daemon"
-	DaemonHeaderValue = "myflowd/1"
+	DaemonHeader      = "Flow-Daemon"
+	DaemonHeaderValue = "flowd/1"
 )
 
 // withDaemonHeader wraps next so DaemonHeader is set on every response the
@@ -150,7 +150,7 @@ func withDaemonHeader(next http.Handler) http.Handler {
 	})
 }
 
-// Server is myflowd's HTTP server.
+// Server is flowd's HTTP server.
 type Server struct {
 	httpServer *http.Server
 	logger     *slog.Logger
@@ -258,7 +258,7 @@ func rejectEncodedSlash(next http.Handler) http.Handler {
 // config.ErrNonLoopbackHost when cfg.Host is not loopback. This validation
 // happens here, before any listener is opened -- New itself never calls
 // net.Listen -- so a non-loopback configuration is a startup error the
-// caller (cmd/myflowd's main) can exit on immediately, never a runtime
+// caller (cmd/flowd's main) can exit on immediately, never a runtime
 // option a request could trip over later.
 //
 // logger may be nil, in which case slog.Default() is used.

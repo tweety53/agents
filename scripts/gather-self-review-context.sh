@@ -13,7 +13,7 @@
 # accepted for CLI parity with this script's usage line and with the
 # <worktree> <name> <state-dir> shape the /myflow-finish record helper took
 # when this script was written — that helper has since been retired and its
-# work moved into `myflow record render`, but the argument stays for callers
+# work moved into `flow record render`, but the argument stays for callers
 # that already pass it; none of the four sources below currently read from
 # it. <repo-root> is OPTIONAL
 # (KAN-239): see the dedicated NOTE below for what it is, why it exists, and
@@ -24,7 +24,7 @@
 # (1-3) — one distinct OUTCOME WORD per source on stdout rather than a
 # distinct exit status, which is the convention the pipeline's own record
 # steps follow; see the outcome table under **Rendering the session records**
-# (`skills/myflow-contracts/session-records.md`) — and each found source's content
+# (`skills/flow-contracts/session-records.md`) — and each found source's content
 # under its own subheading.
 # Exits 2 on a missing argument, an invalid change name, or a malformed
 # <repo-root> (a malformed invocation, in every case); otherwise ALWAYS exits
@@ -77,7 +77,7 @@
 #      `git rev-parse --git-common-dir`, NEVER `-C "$ARCHIVED_PATH"`, which
 #      would trust the very path being validated. `--git-common-dir` is used
 #      rather than `--show-toplevel` for the same reason this repository's own
-#      `skills/myflow-contracts/state-file.md` already documents: `--show-
+#      `skills/flow-contracts/state-file.md` already documents: `--show-
 #      toplevel` returns a *worktree's* root when run inside a worktree, not
 #      the main repository's root, which would let a worktree-cwd invocation
 #      derive the wrong trust boundary entirely. `--git-common-dir` always
@@ -140,7 +140,7 @@
 #      run 1 used before the rename ("plan, test guide and session records")
 #      are matched, so changes committed before the rename keep resolving.
 #
-# NOTE on sources 1 and 2: `myflow record render` writes these under
+# NOTE on sources 1 and 2: `flow record render` writes these under
 # docs/superpowers/{ledgers,reviews}/ with a LEADING DATE, e.g.
 # "2026-08-01-demo.md", never literally "<name>.md" — this script's messages
 # still name the source using the plain "<name>.md" / "<name>-panel.md" form,
@@ -152,7 +152,7 @@
 # NOTE on the "skipped:" stream: the design doc originally said stderr; this
 # was corrected to stdout to match that same kan-23-myflow-self-review delta
 # spec (which has always said stdout) and to match the pipeline's own convention of
-# printing every outcome word on stdout — `myflow record render` prints
+# printing every outcome word on stdout — `flow record render` prints
 # `rendered:`, `MISSING:` and `journalled:` there — since this script's own
 # bundle is a single stdout document by design.
 #
@@ -655,7 +655,7 @@ fi
 
 # The three commits: the implementation commit and the planning commit
 # (finish run 1's own two-commit chain, per Git boundaries in
-# skills/myflow-contracts/git-boundaries.md), plus the archive commit.
+# skills/flow-contracts/git-boundaries.md), plus the archive commit.
 #
 # PLAN_SHA is resolved by PATH **AND** SUBJECT SHAPE together (pass 2,
 # finding E): the plan commit is the most recent commit that both (a)

@@ -8,18 +8,18 @@ rather than its own mark) and this task's own resolution of open question `write
 
 ## Deciding which run this is
 
-**`skills/myflow-contracts/finish-contract.md` is canonical for every procedure below** — the
+**`skills/flow-contracts/finish-contract.md` is canonical for every procedure below** — the
 base-branch resolution, the preflight checks, the removal sequence and their rationales live in
 that file, unchanged by this rework. This file carries only what is specific to *executing* it
 under `/flow`.
 
-**Load `skills/myflow-contracts/worktree-resolution.md`** too.
+**Load `skills/flow-contracts/worktree-resolution.md`** too.
 
-**Check guard presence** per **Guard presence check** (`skills/myflow-contracts/pipeline.md`),
+**Check guard presence** per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 already run at the top of this invocation.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
-worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read of the state file's
+worktrees** (`skills/flow-contracts/finish-contract.md`) — never a raw read of the state file's
 `worktrees` map. Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what
 `resolve-base-branch.sh` prints for that worktree.
 
@@ -33,9 +33,9 @@ worktrees** (`skills/myflow-contracts/finish-contract.md`) — never a raw read 
 hand) then `flow.unfinished-work-gate`:
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.preflight -harness <harness> -session-token mf-<literal-token> <name>
-myflow stage end   -command '/flow' -stage flow.preflight -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.preflight -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.preflight -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ## 1. Check for unfinished work
@@ -46,7 +46,7 @@ landing question and before any git action.
 - **`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator.
 - **`OUTSTANDING:`** → show the breakdown, and offer exactly three courses, shape per Operator
-  prompts (`skills/myflow-contracts/operator-prompts.md`):
+  prompts (`skills/flow-contracts/operator-prompts.md`):
 
   > **This change carries unfinished work — how should integration proceed?**
   > - **Stop — I'll finish it first** *(recommended)*
@@ -59,12 +59,12 @@ landing question and before any git action.
 **Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed.
 **Continue** carries the outstanding list into **3**'s planning commit and into the handoff. **File
 or join a Jira follow-up** puts the outstanding items on a follow-up issue and continues. See
-**Follow-up issues** (`skills/myflow-contracts/jira-followups.md`) for the search, the
+**Follow-up issues** (`skills/flow-contracts/jira-followups.md`) for the search, the
 confirmation, and how it is labelled; a filing that fails is one skipped-with-reason line and the
 run still continues.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>
+flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>
 ```
 
 (`completed` on **Continue** or **File or join…**, `stopped` on **Stop**.)
@@ -72,7 +72,7 @@ myflow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome comp
 ## 2. Ask how the branch should land
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 > **How should this branch land?**
@@ -86,15 +86,15 @@ Having asked once, run to completion without asking again.
 when one is usable — say so, open or closed-unmerged, before the operator answers.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.landing-question -outcome completed <name>
+flow stage end -command '/flow' -stage flow.landing-question -outcome completed <name>
 ```
 
 ## 3. Commit the staged work
 
-**Load `skills/myflow-contracts/git-boundaries.md`** before either commit below.
+**Load `skills/flow-contracts/git-boundaries.md`** before either commit below.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Before any route commits, reshape the branch.** Run `git -C <worktree> reset --soft
@@ -105,20 +105,20 @@ the working tree, uncommitted.
 All three routes commit — implementation, the `<project>/spectre/changes/` planning artifacts, and
 the session records under `<project>/docs/superpowers/` — as **two** commits, never one.
 
-**Load `skills/myflow-contracts/session-records.md`** before rendering, below.
+**Load `skills/flow-contracts/session-records.md`** before rendering, below.
 
 **Render the ledger first**, before staging:
 
 ```bash
-myflow record render -change <name> -kind ledger -repo <worktree>
+flow record render -change <name> -kind ledger -repo <worktree>
 ```
 
 **A change with no dispatch rows reports `MISSING: ledger` and exits 0** — never a failure. **A
 non-zero exit means a destination was refused or could not be written:** report it and continue.
 
 ```bash
-myflow stage end   -command '/flow' -stage flow.preserve-sessions -outcome completed <name>
-myflow stage begin -command '/flow' -stage flow.commit-two -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.preserve-sessions -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.commit-two -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Then stage and commit twice, in this order:
@@ -134,19 +134,19 @@ planning message is a **fixed literal**.
 
 **Run that as one command.** The guards, the skipped-empty rule, the stop-on-failure rule and the
 symlinked-planning-path case are all under **Git boundaries**
-(`skills/myflow-contracts/git-boundaries.md`).
+(`skills/flow-contracts/git-boundaries.md`).
 
 **Implementation first, planning artifacts second.** The second commit's message lists anything the
 operator chose to integrate over at **1**. The state file is **not** committed.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
+flow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
 ```
 
 ## 4. Take the chosen route, write the state, and transition Jira
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 This stage carries three sub-steps under one mark, per this task's own resolution of open question
@@ -162,7 +162,7 @@ transition that only ever follows a successful route, keeps one mark's three sub
 order they already have to run in, rather than three marks whose middle one records nothing a reader
 could not already infer from the other two.
 
-Per **Finish contract** (`skills/myflow-contracts/finish-contract.md`) → run 1. Push with `-u` so
+Per **Finish contract** (`skills/flow-contracts/finish-contract.md`) → run 1. Push with `-u` so
 the branch has an upstream.
 
 **Every git step here can fail, and none of them may fail silently.** A rejected push, a merge
@@ -179,18 +179,18 @@ the answer is No, leave `prUrl` null and say what to do next.
 opened, and every other field carried forward.
 
 **Sub-step: transition the issue to In Review**, whichever route was taken — pull request, merge and
-push, or manual — per **Transitions** (`skills/myflow-contracts/jira-integration.md`): after the
+push, or manual — per **Transitions** (`skills/flow-contracts/jira-integration.md`): after the
 state write, never before, never blocking. A run that stopped on a failed push does **not**
 transition.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.landing-routes -outcome completed <name>
+flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <name>
 ```
 
 ## No verification gate
 
 **Run no tests, no linters, and no spec-coverage check** — see **Finish contract**
-(`skills/myflow-contracts/finish-contract.md`). Correctness was established during
+(`skills/flow-contracts/finish-contract.md`). Correctness was established during
 `skills/flow/review-panel.md` and by the human gate.
 
 ## Handoff
@@ -218,7 +218,7 @@ Next:
 
 Where the route is not certain — a run resumed after a partial failure — take the answer from the
 merge-status test in **The block each state renders**
-(`skills/myflow-contracts/handoff-blocks.md`) rather than assuming.
+(`skills/flow-contracts/handoff-blocks.md`) rather than assuming.
 
 ## After merge-and-push specifically
 

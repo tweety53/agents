@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assertion harness for stats/Makefile: the `build` target's recipe, and the
-# UI-test stack's agreement with the pidfile myflowd writes for itself.
+# UI-test stack's agreement with the pidfile flowd writes for itself.
 #
 # THREE KINDS OF ASSERTION, and the split is deliberate:
 #
@@ -28,8 +28,8 @@
 # WHY THIS FILE EXISTS. `make build` ran `go build ./...` alone, which
 # compiles every package and then discards the resulting binaries. The
 # documented launch sequence therefore needed a second, hand-written
-# `go build -o bin/myflowd ./cmd/myflowd` after it, and an operator who
-# skipped that half ran whatever stale `bin/myflowd` was already on disk.
+# `go build -o bin/flowd ./cmd/flowd` after it, and an operator who
+# skipped that half ran whatever stale `bin/flowd` was already on disk.
 # Cases 1-3 were written and run against the OLD recipe first, and cases 1
 # and 2 failed there; cases 4 and 5 were written and run against the OLD
 # Makefile first, and both failed there; case 6 was written and run against
@@ -115,15 +115,15 @@ $hits"
 
 # ===========================================================================
 # 1-2. The target emits both binaries. Each `-o` path is anchored on a
-#      following space or end-of-line so `bin/myflow` cannot be satisfied by
-#      the `bin/myflowd` line, and the whitespace between the `-o` path and
+#      following space or end-of-line so `bin/flow` cannot be satisfied by
+#      the `bin/flowd` line, and the whitespace between the `-o` path and
 #      the package is `[[:space:]]+` so the Makefile is free to align the
 #      two lines with extra spaces.
 # ===========================================================================
-assert_recipe_matches "build target emits bin/myflowd" \
-  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/myflowd[[:space:]]+\./cmd/myflowd([[:space:]]|$)'
-assert_recipe_matches "build target emits bin/myflow" \
-  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/myflow[[:space:]]+\./cmd/myflow([[:space:]]|$)'
+assert_recipe_matches "build target emits bin/flowd" \
+  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flowd[[:space:]]+\./cmd/flowd([[:space:]]|$)'
+assert_recipe_matches "build target emits bin/flow" \
+  '(^|[[:space:]])go build[[:space:]]+-o[[:space:]]+bin/flow[[:space:]]+\./cmd/flow([[:space:]]|$)'
 
 # ===========================================================================
 # 3. The compile-all pass survives. Replacing `go build ./...` with the two
@@ -135,8 +135,8 @@ assert_recipe_matches "build target still compiles every package" \
   '(^|[[:space:]])go build[[:space:]]+\./\.\.\.([[:space:]]|$)'
 
 # ===========================================================================
-# 4. ui-test-up does not write the pidfile itself. myflowd writes
-#    $TMPDIR/myflowd-<port>.pid on every start (internal/pidfile), so a
+# 4. ui-test-up does not write the pidfile itself. flowd writes
+#    $TMPDIR/flowd-<port>.pid on every start (internal/pidfile), so a
 #    `& echo $! > $(UITEST_PIDFILE)` here would be a SECOND writer of one
 #    file for one process -- and the two can disagree. `echo $!` records the
 #    pid of the shell's background job, which for this recipe is the daemon
@@ -148,17 +148,17 @@ assert_recipe_matches "build target still compiles every package" \
 #    ANY redirection into $(UITEST_PIDFILE) is a second writer, whatever
 #    command produces it. `rm -f $(UITEST_PIDFILE)` is untouched by this --
 #    it has no `>` -- and is meant to stay: it clears a file left behind by
-#    a daemon this target killed, and myflowd overwriting a stale file does
+#    a daemon this target killed, and flowd overwriting a stale file does
 #    not make removing one wrong.
 # ===========================================================================
 assert_makefile_lacks "ui-test-up does not write its own pidfile" \
   '>[[:space:]]*\$\(UITEST_PIDFILE\)'
 
 # ===========================================================================
-# 5. UITEST_PIDFILE names the file myflowd actually writes, and stays
+# 5. UITEST_PIDFILE names the file flowd actually writes, and stays
 #    `override`. Both halves of one property, which is why they are one case:
 #
-#    - `override UITEST_PIDFILE := /tmp/myflowd-$(UITEST_PORT).pid` --
+#    - `override UITEST_PIDFILE := /tmp/flowd-$(UITEST_PORT).pid` --
 #      port-derived, so the live stack (4173) and the UI-test stack (4174)
 #      never contend for one file, and `override` so no command-line or
 #      environment assignment can aim ui-test-down's `kill` and `rm -f` at a
@@ -170,7 +170,7 @@ assert_makefile_lacks "ui-test-up does not write its own pidfile" \
 #    - `TMPDIR=/tmp` on the daemon's launch. pidfile.Path joins
 #      os.TempDir(), NOT a hardcoded /tmp, and on macOS os.TempDir() is the
 #      per-user $TMPDIR (/var/folders/.../T/) -- so without this pin the
-#      daemon would write /var/folders/.../T/myflowd-4174.pid while this
+#      daemon would write /var/folders/.../T/flowd-4174.pid while this
 #      Makefile looked in /tmp, and every `[ -f $(UITEST_PIDFILE) ]` guard
 #      below would silently take the "no previous daemon" branch. Pinning
 #      the daemon's TMPDIR is what keeps the literal path above honest, and
@@ -179,14 +179,14 @@ assert_makefile_lacks "ui-test-up does not write its own pidfile" \
 #      that `override` exists to deny them.
 # ===========================================================================
 assert_makefile_matches_all "UITEST_PIDFILE is override and derived from UITEST_PORT" \
-  '^override[[:space:]]+UITEST_PIDFILE[[:space:]]*:=[[:space:]]*/tmp/myflowd-\$\(UITEST_PORT\)\.pid[[:space:]]*$' \
+  '^override[[:space:]]+UITEST_PIDFILE[[:space:]]*:=[[:space:]]*/tmp/flowd-\$\(UITEST_PORT\)\.pid[[:space:]]*$' \
   '(^|[[:space:]])TMPDIR=/tmp([[:space:]]|$)'
 
 # ===========================================================================
 # 6. Every place the UI-test stack reads a pid out of $(UITEST_PIDFILE)
 #    yields a pid `kill` accepts.
 #
-#    The file is myflowd's own, and it has TWO lines -- the decimal pid, then
+#    The file is flowd's own, and it has TWO lines -- the decimal pid, then
 #    the path of the executable that wrote it (stats/internal/pidfile: the
 #    second line is what lets the identity check recognise the UI-test
 #    stack's differently-named copy of the daemon). A `$(cat FILE)` therefore
@@ -213,7 +213,7 @@ FIXTURE_PID=$!
 trap 'kill "$FIXTURE_PID" 2>/dev/null || true; rm -f "$PIDFILE_FIXTURE"' EXIT
 # The executable line is the UI-test daemon's, so the fixture is the exact
 # file `make ui-test-down` reads on the stack this case is about.
-printf '%s\n/tmp/myflow-uitest-myflowd\n' "$FIXTURE_PID" > "$PIDFILE_FIXTURE"
+printf '%s\n/tmp/flow-uitest-flowd\n' "$FIXTURE_PID" > "$PIDFILE_FIXTURE"
 
 PID_READS="$(printf '%s\n' "$MAKEFILE_TEXT" | grep -oE '\$\$\([^()]+\$\(UITEST_PIDFILE\)\)' || true)"
 READ_COUNT=0

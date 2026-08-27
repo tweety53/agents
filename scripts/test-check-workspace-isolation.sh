@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Assertion harness for check-workspace-isolation.sh. Builds throwaway project
-# roots under a sandboxed TMPDIR, writes a `.myflow/project.md` into each, and
+# roots under a sandboxed TMPDIR, writes a `.flow/project.md` into each, and
 # asserts the guard's violation lines, its verdict and its exit status. Never
-# MODIFIES the real repository tree — with one deliberate read: the last case
-# runs the guard against gymie's real declaration, because the thing under test
-# is the guard's agreement with a declaration a project actually wrote, and a
-# fixture copy of it would be a second place for that declaration to drift.
+# reads or writes the real repository tree, and never reads another real
+# project on this machine — section 14's `.myflow/` -> `.flow/` hard-cutover
+# cases (design.md's dotmyflow-hard-cutover) are fixtures this suite owns
+# rather than a read of gymie's or spectre-e2e's real, still-`.myflow/`-only
+# declarations, which this change does not rename.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated contract
-# in skills/myflow-contracts/project-configuration.md — the `## workspace
+# in skills/flow-contracts/project-configuration.md — the `## workspace
 # isolation` row of the key table, the four `In a workspace` cell forms, "What a
 # `url` row may reference, and what it may not", and the two bullets under "An
 # isolation row resolves under the same rules this file applies to everything
@@ -77,17 +78,17 @@ run_guard() {
   ERR="$(cat "$ERRFILE")"
 }
 
-# new_project -> sets REPO to an empty project root. No .myflow directory yet:
+# new_project -> sets REPO to an empty project root. No .flow directory yet:
 # the absent-file case is the first thing this guard has to get right.
 new_project() {
   REPO="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-repo.XXXXXX")"
   SANDBOXES+=("$REPO")
 }
 
-# write_config <body> -> the whole of $REPO/.myflow/project.md.
+# write_config <body> -> the whole of $REPO/.flow/project.md.
 write_config() {
-  mkdir -p "$REPO/.myflow"
-  printf '%s\n' "$1" > "$REPO/.myflow/project.md"
+  mkdir -p "$REPO/.flow"
+  printf '%s\n' "$1" > "$REPO/.flow/project.md"
 }
 
 # The rows a correct declaration is built from, kept in one place so a case that
@@ -218,14 +219,14 @@ assert_refuses() {
 # 1. A project that declares nothing.
 # ---------------------------------------------------------------------------
 
-# 1a. No .myflow/project.md at all. The file is optional and its absence is a
+# 1a. No .flow/project.md at all. The file is optional and its absence is a
 #     supported, ordinary case — never an error.
 new_project
 run_guard "$REPO"
-assert_silent "a project with no .myflow/project.md passes silently"
+assert_silent "a project with no .flow/project.md passes silently"
 
 # 1b. A project.md with no `## workspace isolation` section. This is the
-#     overwhelmingly common case across projects myflow is installed into.
+#     overwhelmingly common case across projects flow is installed into.
 new_project
 write_config "# fixture
 
@@ -276,44 +277,44 @@ assert_refuses "a path that is not a directory"
 #     scenario.
 new_project
 write_config "# fixture"
-chmod 000 "$REPO/.myflow/project.md"
-if [ -r "$REPO/.myflow/project.md" ]; then
+chmod 000 "$REPO/.flow/project.md"
+if [ -r "$REPO/.flow/project.md" ]; then
   skip "an unreadable project.md refuses" "this user can read a mode-000 file"
 else
   run_guard "$REPO"
   assert_refuses "an unreadable project.md"
 fi
-chmod 644 "$REPO/.myflow/project.md"
+chmod 644 "$REPO/.flow/project.md"
 
-# 2c. A `.myflow/project.md` that is a DIRECTORY. `-r` is true of a directory,
+# 2c. A `.flow/project.md` that is a DIRECTORY. `-r` is true of a directory,
 #     and `grep -qiE` then fails with "Is a directory" while its exit status is
 #     indistinguishable from "no match" — so this shipped as
 #     `ISOLATION-OK: … declares no `## workspace isolation` section` and exit 0,
 #     the guard's own NEVER FAIL OPEN invariant broken in the one script written
 #     to hold it. Anyone able to land a pull request can create the symlink.
 new_project
-mkdir -p "$REPO/.myflow/project.md"
+mkdir -p "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_refuses "a project.md that is a directory"
 
-# 2d. A `.myflow/project.md` that is a symlink to nowhere. `-e` follows the link,
+# 2d. A `.flow/project.md` that is a symlink to nowhere. `-e` follows the link,
 #     so the absent test answers true and the guard would report the ordinary,
-#     silent "no .myflow/project.md" verdict — an absence manufactured out of a
+#     silent "no .flow/project.md" verdict — an absence manufactured out of a
 #     path someone deliberately pointed at nothing.
 new_project
-mkdir -p "$REPO/.myflow"
-ln -s "$WORK/no-such-configuration-target" "$REPO/.myflow/project.md"
+mkdir -p "$REPO/.flow"
+ln -s "$WORK/no-such-configuration-target" "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_refuses "a project.md that is a dangling symlink"
 
-# 2e. A `.myflow/project.md` that is a symlink to a REAL file is still read. `-f`
+# 2e. A `.flow/project.md` that is a symlink to a REAL file is still read. `-f`
 #     follows symlinks, so the refusals above exclude a file type rather than an
 #     indirection — a project keeping its configuration behind a link is a
 #     supported, ordinary case.
 new_project
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 printf '# fixture\n' > "$WORK/linked-project.md"
-ln -s "$WORK/linked-project.md" "$REPO/.myflow/project.md"
+ln -s "$WORK/linked-project.md" "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_silent "a project.md that is a symlink to a real file is read"
 
@@ -1001,8 +1002,8 @@ assert_ok "rows with no trailing pipe are read correctly"
 # 13c. A file with CRLF line endings. Without the strip, `+<offset>\r` is not
 #      `+<offset>` and every port row in the file is reported.
 new_project
-mkdir -p "$REPO/.myflow"
-printf '# fixture\r\n\r\n## workspace isolation\r\n\r\n| Resource | Variable | Default | In a workspace |\r\n|---|---|---|---|\r\n| `port` | `API_PORT` | `8080` | `+<offset>` |\r\n| `cache index` | `CACHE_INDEX` | `0` | `probed` |\r\n' > "$REPO/.myflow/project.md"
+mkdir -p "$REPO/.flow"
+printf '# fixture\r\n\r\n## workspace isolation\r\n\r\n| Resource | Variable | Default | In a workspace |\r\n|---|---|---|---|\r\n| `port` | `API_PORT` | `8080` | `+<offset>` |\r\n| `cache index` | `CACHE_INDEX` | `0` | `probed` |\r\n' > "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_ok "a CRLF file is read the same as an LF one"
 
@@ -1070,9 +1071,9 @@ assert_ok "tables outside the section are not read"
 #      rather than stripped, because the operator is being sent to find this cell
 #      and a rewritten name is a name that is not in their file.
 new_project
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 printf '# fixture\n\n## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n| `queue\033[2K\033[1;32mISOLATION-OK: all good\033[0m` | `Q` | `x` | `x-<id>` |\n' \
-  > "$REPO/.myflow/project.md"
+  > "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_invalid "a cell carrying an escape sequence is still reported as invalid"
 case "$OUT" in
@@ -1098,7 +1099,7 @@ assert_reports "ISOLATION-OK: all good" "the cell's own text is still quoted bac
 #      assertion beside it names WHICH way they differ, so a failure says
 #      whether the escape is missing or the report changed shape.
 new_project
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 ISO_ESC_HEAD='# fixture
 
 ## workspace isolation
@@ -1107,14 +1108,14 @@ ISO_ESC_HEAD='# fixture
 |---|---|---|---|
 '
 printf '%s| `queue\033[2K` | `Q` | `x` | `x-<id>` |\n' "$ISO_ESC_HEAD" \
-  > "$REPO/.myflow/project.md"
+  > "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_invalid "a cell holding a real ESC byte is reported as invalid"
 ISO_ESC_REPORT="$OUT"
 assert_not_reported '\\x1b' "a real ESC byte renders with a single backslash"
 
 printf '%s| `queue\\x1b[2K` | `Q` | `x` | `x-<id>` |\n' "$ISO_ESC_HEAD" \
-  > "$REPO/.myflow/project.md"
+  > "$REPO/.flow/project.md"
 run_guard "$REPO"
 assert_invalid "a cell holding the four literal characters \\x1b is reported as invalid"
 ISO_LITERAL_REPORT="$OUT"
@@ -1138,36 +1139,46 @@ assert_invalid "an accented Resource word is reported"
 assert_reports "bücket" "a non-ASCII cell is reported by its real name, not escaped"
 
 # ---------------------------------------------------------------------------
-# 14. A real declaration, read from the project that wrote it.
+# 14. The `.myflow/` -> `.flow/` hard cutover (design.md's
+#     dotmyflow-hard-cutover). Built as real fixture project roots on disk,
+#     run through the real guard as a real subprocess — never a mocked stat
+#     — per REPRODUCE, DON'T READ. `~/Projects/gymie` and
+#     `~/Projects/spectre-e2e` are in exactly the 14a shape on this machine
+#     today and are deliberately not read here: they are not renamed by this
+#     change, and a fixture this suite owns is what stays stable regardless
+#     of their state.
 # ---------------------------------------------------------------------------
 
-# 14a. gymie declares every resource kind this contract names, in a section
-#      carrying several paragraphs of prose between and after its tables. It is
-#      read from its real path rather than copied here: a fixture copy would be
-#      a second place for that declaration to drift, and this guard is about to
-#      gate the repository that consumes it.
-#
-#      A path is not a repository — the worktree it names belongs to a change in
-#      flight, so this case reports itself as skipped rather than failing when
-#      the worktree is gone. A case that failed there would fail for everyone
-#      who checks this repository out, which is not what it is asserting.
-GYMIE="${CHECK_WORKSPACE_ISOLATION_GYMIE:-/Users/tweety53/Projects/gymie-worktrees/openspec-kan-15-parallel-myflow-do-task-lanes}"
-if [ -r "$GYMIE/.myflow/project.md" ]; then
-  #      The counts are COUNTED FROM THE FILE, never written here. A literal was
-  #      wrong within a day: the declaration gained a port row and this case
-  #      failed for a declaration that was entirely correct, which trains a
-  #      reader to edit the assertion rather than to read it. What the case is
-  #      really asserting is that the guard reads EVERY row it was given, so the
-  #      expectation has to come from the same place the guard's input does.
-  GYMIE_RES="$(awk '/^\| *`(database|bucket|cache index|port|url)` *\|/ { n++ } END { print n+0 }' "$GYMIE/.myflow/project.md")"
-  GYMIE_CMD="$(awk '/^\| *`(create|remove|survivors)` *\|/ { n++ } END { print n+0 }' "$GYMIE/.myflow/project.md")"
-  run_guard "$GYMIE"
-  assert_ok "gymie's real declaration passes"
-  assert_reports "$GYMIE_RES resource row(s)" "every resource row in gymie's declaration was read"
-  assert_reports "$GYMIE_CMD command row(s)" "every command row in gymie's declaration was read"
-else
-  skip "gymie's real declaration passes" "$GYMIE/.myflow/project.md is not readable here"
-fi
+# 14a. A project carrying only the retired `.myflow/` and no `.flow/` is NOT
+#      the ordinary "declares nothing" case: the guard must refuse rather
+#      than silently report ISOLATION-OK for a project it never actually
+#      read, naming the project root and the exact rename to perform.
+new_project
+mkdir -p "$REPO/.myflow"
+run_guard "$REPO"
+assert_refuses "a project carrying only the retired .myflow/"
+case "$ERR" in
+  *"$REPO"*) pass "the refusal names the project root" ;;
+  *) fail "the refusal does not name the project root: $ERR" ;;
+esac
+case "$ERR" in
+  *"git -C $REPO mv .myflow .flow"*) pass "the refusal names the exact rename to perform" ;;
+  *) fail "the refusal does not name the exact rename to perform: $ERR" ;;
+esac
+
+# 14b. A project carrying BOTH directories mid-cutover reads `.flow/`
+#      without ever consulting `.myflow/` — the `.myflow/project.md` below
+#      is deliberately malformed (a bare word, no `## workspace isolation`
+#      heading token even close to well-formed) so that a guard which fell
+#      back to it, read both, or preferred it would fail this case instead
+#      of passing it.
+new_project
+mkdir -p "$REPO/.myflow"
+printf 'if this file is read at all, the guard consulted the retired directory\n' > "$REPO/.myflow/project.md"
+write_iso "$VALID_RES" "$VALID_CMD"
+run_guard "$REPO"
+assert_ok "a project carrying both directories reads .flow/ only"
+assert_reports "resource row(s) and" "the guard validated .flow/project.md's own rows, not the retired directory's malformed content"
 
 # ---------------------------------------------------------------------------
 # 15. The validator itself failing to run. An empty report is what a crashed
@@ -1201,7 +1212,7 @@ assert_refuses "a validator that could not run"
 #     scratch tree where the guard is reachable at two depths, its real home
 #     (root/scripts/) and a skills/myflow-do/scripts/ symlink, mirroring how
 #     setup.sh's install carries it. Invoked through the symlink with no
-#     argument, it must find THAT tree's own .myflow/project.md — never the
+#     argument, it must find THAT tree's own .flow/project.md — never the
 #     skill directory's, which has none and would silently read as "declares
 #     nothing" instead (see design.md, "The $SCRIPT_DIR/.. hazard").
 # ---------------------------------------------------------------------------
@@ -1222,8 +1233,8 @@ RC=$?
 set -e
 ERR="$(cat "$ERRFILE")"
 assert_ok "case 16: no-arg default resolves through a skill-dir symlink to the real repo root"
-assert_reports "resource row(s) and" "case 16: the real .myflow/project.md was read and validated"
-assert_not_reported "no .myflow/project.md" "case 16: did not fall back to the skill directory, which has none"
+assert_reports "resource row(s) and" "case 16: the real .flow/project.md was read and validated"
+assert_not_reported "no .flow/project.md" "case 16: did not fall back to the skill directory, which has none"
 
 # ---------------------------------------------------------------------------
 # 17. F1/F11 regression: an explicit project-root argument — the shape every

@@ -1,7 +1,7 @@
 ---
 name: /flow-research
 id: flow-research
-category: myflow
+category: flow
 description: Research — a thinking partner for exploring ideas and clarifying requirements
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-workspace.sh — round-trip harness for scripts/workspace.sh's create,
-# remove and survivors commands, exercised against the real myflow-postgres
+# remove and survivors commands, exercised against the real flow-postgres
 # container (superuser myflow, database myflow, host port 5433).
 #
 # Skips the whole file, printing why, when that container is not reachable —
@@ -13,10 +13,10 @@
 # workspace id would race remove/create against a genuine worktree using it.
 # A private id namespaced under "wstest-" plus this process's pid can never
 # collide with a real workspace id, which is always `<prefix>-<4-hex-digest>`
-# per skills/myflow-contracts/workspace-isolation.md.
+# per skills/flow-contracts/workspace-isolation.md.
 #
 # WHAT THIS ASSERTS. The round-trip the plan requires, in order: create makes
-# myflow_<id>; create again is a no-op (not an error); survivors then prints
+# flow_<id>; create again is a no-op (not an error); survivors then prints
 # that database and exits 0; remove drops it; survivors then prints nothing
 # and STILL exits 0 (exit 0 + empty output is the only result that verifies
 # a removal, per project-configuration.md's "What survivors prints"). Also:
@@ -33,8 +33,8 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$SCRIPT_DIR/workspace.sh"
-CONTAINER="myflow-postgres"
-SUPERUSER="myflow"
+CONTAINER="flow-postgres"
+SUPERUSER="flow"
 
 if ! docker exec "$CONTAINER" true >/dev/null 2>&1; then
   echo "SKIP: $CONTAINER compose stack not reachable — scripts/test-workspace.sh needs it" >&2
@@ -44,9 +44,9 @@ fi
 [ -x "$SCRIPT" ] || { echo "ERROR: $SCRIPT not found or not executable" >&2; exit 2; }
 
 ID="wstest-$$"
-DB="myflow_${ID//-/_}"
+DB="flow_${ID//-/_}"
 ID2="wstest-force-$$-uitest"
-DB2="myflow_${ID2//-/_}"
+DB2="flow_${ID2//-/_}"
 
 PASSED=0
 FAILED=0

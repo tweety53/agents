@@ -4,7 +4,7 @@
 # exit status. Never touches the real repository tree.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract in skills/myflow-contracts/pipeline.md, never against observed
+# contract in skills/flow-contracts/pipeline.md, never against observed
 # output. test-check-plan-provenance.sh's header records that suite encoding
 # the guard's own defects as its specification more than once, which then made
 # each defect look verified.

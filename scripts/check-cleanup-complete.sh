@@ -14,12 +14,13 @@
 # and discards the rest reports "cleanup verified" over a row nothing looked at,
 # which is this guard's whole argument inverted one layer up. The rule that the
 # clause is relayed word for word therefore lives with the consumer, in step 6
-# of **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`),
+# of **Run 2 — the branch is merged** (`skills/flow-contracts/pipeline.md`),
 # and is named here so a future editor of this line knows where it is kept.
 #
 # Exit 0 whenever a verdict was reached; exit 2 when it cannot answer at all —
-# an unreadable repository or state directory, or a change name outside the
-# allowlist. The VERDICT carries the answer, not the exit status
+# an unreadable repository or state directory, a change name outside the
+# allowlist, or a repository carrying the retired `.myflow/` and no `.flow/`
+# (design.md's dotmyflow-hard-cutover). The VERDICT carries the answer, not the exit status
 # — see check-finish-preflight.sh's header for why this repository separates
 # them. Finish runs this once per repository, so each verdict names the
 # repository it judged; a bare COMPLETE would be unattributable across several.
@@ -37,7 +38,7 @@
 # removals succeeded.
 #
 # THE SIX ROWS, AND WHY THEY ARE THESE SIX. The registry in
-# skills/myflow-contracts/pipeline.md owns the list; the rows whose lifetime
+# skills/flow-contracts/pipeline.md owns the list; the rows whose lifetime
 # ends at run 2 are the worktree, the local branch, the remote branch, the
 # change directory, the proposal artifact source and the workspace database and
 # bucket. The per-task diffs, the panel record and the session ledger are not
@@ -59,12 +60,12 @@
 # bucket live inside services this guard knows nothing about, and it must stay
 # project-agnostic — it can hold neither `psql -l` nor any project's
 # object-store client. So the project answers for them: it declares a
-# `survivors` command in its .myflow/project.md, this guard runs it, and its
+# `survivors` command in its .flow/project.md, this guard runs it, and its
 # output and exit code are the row's verdict. Both are specified under "What
 # `survivors` prints, and what its exit code means" in
-# skills/myflow-contracts/project-configuration.md, which is canonical; the
+# skills/flow-contracts/project-configuration.md, which is canonical; the
 # reasoning for a third verb beside `create` and `remove` is under "Creation and
-# cleanup" in skills/myflow-contracts/workspace-isolation.md.
+# cleanup" in skills/flow-contracts/workspace-isolation.md.
 #
 # "RAN THE REMOVAL" IS NOT "VERIFIED GONE", which is the whole reason that row
 # is not settled from the removal command's exit code. A removal that reported
@@ -78,7 +79,7 @@
 # already-merged change over a service that happens to be stopped trades a
 # stranded change for a few megabytes of stale storage, which is the wrong
 # trade — the argument is under "Creation and cleanup" in
-# skills/myflow-contracts/workspace-isolation.md, together with why one non-zero
+# skills/flow-contracts/workspace-isolation.md, together with why one non-zero
 # exit is enough where a reader might expect two. A project that declares no
 # `survivors` command, one whose configuration this guard cannot read — absent
 # permission, but also a path that is not a regular file, and any scan of it that
@@ -159,13 +160,13 @@
 # command blocking on an interactive prompt. An unreachable host with no connect
 # timeout, a lock wait, a frozen container and an infinite loop are all untouched
 # by it. The bound is the 60 seconds **Worktree cleanup**
-# (`skills/myflow-contracts/pipeline.md`) already gives the project-supplied
+# (`skills/flow-contracts/pipeline.md`) already gives the project-supplied
 # `## stop` command, and the OUTCOME deliberately differs: there a timeout is a
 # failed check, because an un-stopped stack is a reason not to remove a worktree
 # and there is no other answer to fall back on; here the contract already defines
 # one for "the command said nothing about survivors" — the reported skip — and
 # blocking an already-merged change over a slow command is what
-# **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`)
+# **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`)
 # forbids. The skip names the timeout distinctly from a non-zero exit, because
 # "your command is slow" and "your command is broken" have different remedies.
 #
@@ -178,7 +179,7 @@
 # directory inside it -- `spectre new` refuses an id that is not a single flat
 # directory name -- so `spectre archive <name>` cannot reach one and each
 # sub-change needs its own call (run 2 step 3,
-# skills/myflow-contracts/finish-contract.md). Before this row the guard
+# skills/flow-contracts/finish-contract.md). Before this row the guard
 # reported COMPLETE with the parent archived and the child left behind, and
 # nothing anywhere said so.
 set -euo pipefail
@@ -198,7 +199,7 @@ fi
 # THE VERDICT LINE IS THE ONE THING AN OPERATOR READS AND ACTS ON, and most of
 # what it can carry comes from outside this guard: a survivor line is whatever
 # the project tooling printed, and the `survivors` command quoted in a SKIPPED
-# clause comes straight out of `.myflow/project.md`. Both are already this guard
+# clause comes straight out of `.flow/project.md`. Both are already this guard
 # documented trust boundary — anyone who can land a pull request can set them —
 # and both were spliced into the verdict with only `\r` removed.
 #
@@ -438,10 +439,10 @@ ref_state() {
 # than answered "still there". A LEFTOVER would send the operator to delete a
 # branch that may already be gone, and would strand an already-merged change
 # over a condition nothing in that session can correct — the trade
-# **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`)
+# **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`)
 # rejects. Skipped is never passed, and the clause is relayed word for word by
 # step 6 of **Run 2 — the branch is merged**
-# (`skills/myflow-contracts/pipeline.md`).
+# (`skills/flow-contracts/pipeline.md`).
 LOCAL_REF="refs/heads/spectre/$NAME"
 case "$(ref_state "$LOCAL_REF")" in
   present) add "the local branch spectre/$NAME still exists" ;;
@@ -527,7 +528,7 @@ sha256_hex() {
 
 # The bound on the project's `survivors` command, in seconds — the same 60 the
 # `## stop` command gets under **Worktree cleanup**
-# (`skills/myflow-contracts/pipeline.md`). One number for every project-supplied
+# (`skills/flow-contracts/pipeline.md`). One number for every project-supplied
 # command run unattended is one number an operator has to know; a second one
 # would be a second rule to keep from drifting, and the case for tightening it
 # here is weaker than it looks. A bound that is too generous costs wall clock
@@ -563,7 +564,7 @@ sha256_hex() {
 #      a verified one, which is the only thing this guard must never do.
 #   3. What it CAN do is turn a working survivor report into a skip, and that is
 #      no longer a quiet outcome. Step 6 of
-#      **Run 2 — the branch is merged** (`skills/myflow-contracts/pipeline.md`)
+#      **Run 2 — the branch is merged** (`skills/flow-contracts/pipeline.md`)
 #      requires the skip clause to be relayed to the operator word for word, so
 #      the residual risk is closed at the consumer — which is where a verdict's
 #      meaning belongs.
@@ -616,7 +617,7 @@ esac
 # command that needs longer is a command that answers faster, which is the same
 # remedy the bound itself points a project author at under "What `survivors`
 # prints, and what its exit code means" in
-# skills/myflow-contracts/project-configuration.md — and a command reaching a
+# skills/flow-contracts/project-configuration.md — and a command reaching a
 # service through a container runtime is not helped by ANY grace here, for the
 # reason the run_survivors header gives.
 #
@@ -676,7 +677,7 @@ trap cleanup_ws_tmp EXIT
 # can no more hold one container runtime's `kill` than it can hold `psql -l` —
 # so it is closed where the command is written, and stated for the author who
 # writes it under "What `survivors` prints, and what its exit code means" in
-# skills/myflow-contracts/project-configuration.md. What the bound still
+# skills/flow-contracts/project-configuration.md. What the bound still
 # guarantees is all three things run 2 depends on, and they hold for the escaped
 # shape too: this function returns, because `wait` names the direct child alone;
 # the row is reported as a skip rather than as a verification; and nothing the
@@ -700,7 +701,7 @@ trap cleanup_ws_tmp EXIT
 # exit 0 with empty output is the ONE result that verifies the row. The row
 # would then be reported verified by a command that never ran, and FINISHED
 # written over resources nothing looked at. A pipe is not an exotic shape here:
-# **Project configuration** (`skills/myflow-contracts/project-configuration.md`)
+# **Project configuration** (`skills/flow-contracts/project-configuration.md`)
 # names filtering the project's own tooling as the reason a command contains
 # one.
 #
@@ -728,7 +729,7 @@ run_survivors() {
   WS_RC=0
   WS_TIMED_OUT=0
 
-  WS_TMP="$(mktemp "${TMPDIR:-/tmp}/myflow-survivors.XXXXXX" 2>/dev/null)" || {
+  WS_TMP="$(mktemp "${TMPDIR:-/tmp}/flow-survivors.XXXXXX" 2>/dev/null)" || {
     WS_TMP=""
     return 1
   }
@@ -786,7 +787,19 @@ run_survivors() {
   return 0
 }
 
-CFG="$REPO/.myflow/project.md"
+CFG="$REPO/.flow/project.md"
+
+# A project carrying the retired `.myflow/` and no `.flow/` is NOT the
+# ordinary "no project configuration at all" case handled below — it is
+# the hard cutover design.md's dotmyflow-hard-cutover states: never fall
+# back to the old path, never read both, and never silently report
+# "nothing declared" for a project this guard never actually read.
+# `~/Projects/gymie` and `~/Projects/spectre-e2e` are in exactly this
+# state on this machine and are not renamed by this change.
+if { [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; } && { [ -e "$REPO/.myflow" ] || [ -L "$REPO/.myflow" ]; }; then
+  echo "check-cleanup-complete: $REPO carries .myflow/ and no .flow/ — rename it before this project's configuration can be read: git -C $REPO mv .myflow .flow" >&2
+  exit 2
+fi
 
 # The heading rule, written once and used by both the presence test and the
 # extraction below. Two spellings of it would be two answers to "is this project
@@ -796,7 +809,7 @@ ISO_HEADING='^##[[:space:]]+workspace isolation[[:space:]]*$'
 # THE FILE TYPE IS TESTED BEFORE ITS READABILITY, AND THE GREPS HAVE THREE
 # ANSWERS EACH. `-r` is true of a DIRECTORY, and `grep -q` then fails with "Is a
 # directory" while its exit status is indistinguishable from "no match" — so
-# `ln -s somedir .myflow/project.md` read as "declared no isolation": nothing
+# `ln -s somedir .flow/project.md` read as "declared no isolation": nothing
 # derived, nothing run, and not even a SKIPPED note, which is silence where this
 # guard promises a report. `-f` follows symlinks, so a configuration that IS a
 # symlink to a real file is still read; what it excludes is a directory, a fifo
@@ -906,7 +919,7 @@ else
     note "SKIPPED: the workspace survivor verification — the project declares no survivors command"
   else
     # The workspace id, derived from the change name exactly as
-    # skills/myflow-contracts/workspace-isolation.md derives it, and from
+    # skills/flow-contracts/workspace-isolation.md derives it, and from
     # nothing else. That file is canonical and carries this derivation as a
     # runnable block; this is a second implementation of it, and the two are
     # held together by test-check-cleanup-complete.sh, which extracts that block,

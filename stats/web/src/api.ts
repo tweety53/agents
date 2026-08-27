@@ -1,4 +1,4 @@
-// api.ts is the typed client for myflowd's HTTP surface (stats/internal/api).
+// api.ts is the typed client for flowd's HTTP surface (stats/internal/api).
 // It carries exactly the parameters the server actually accepts --
 // "from"/"to"/"project"/"breakdown"/"change"/"command"/"stage"/"model" on
 // the statistics views, and "q"/"sort"/"limit"/"offset" plus arbitrary

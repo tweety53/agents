@@ -42,14 +42,14 @@ func initRepo(t *testing.T, dir string) {
 
 // --- ProjectKey ---
 
-// contractPath is skills/myflow-contracts/state-file.md's location relative
+// contractPath is skills/flow-contracts/state-file.md's location relative
 // to this package -- stats/internal/fallback is three directories below the
-// repository root (fallback -> internal -> stats -> root), and the myflow
+// repository root (fallback -> internal -> stats -> root), and the flow
 // skills live at the root alongside the stats Go module, not inside it.
-const contractPath = "../../../skills/myflow-contracts/state-file.md"
+const contractPath = "../../../skills/flow-contracts/state-file.md"
 
 // contractProjectKeyRecipe reads the MAIN_CHECKOUT= and PROJECT_KEY=
-// assignment lines directly out of skills/myflow-contracts/state-file.md,
+// assignment lines directly out of skills/flow-contracts/state-file.md,
 // rather than a hand-copied string literal in this test file. F3's review
 // finding is exactly what a hand-copied literal invites: a prior version
 // of this test had its own copy of the recipe, which got silently edited
@@ -62,7 +62,7 @@ const contractPath = "../../../skills/myflow-contracts/state-file.md"
 //
 // Only the two derivation lines are extracted, not the whole fenced block:
 // the block's remaining lines build STATE_FILE under the real, hardcoded
-// `/Users/tweety53/Agents/myflow/state` path and `mkdir -p` it, which this
+// `/Users/tweety53/Agents/flow/state` path and `mkdir -p` it, which this
 // test must never execute -- it would create real directories on the
 // operator's machine outside any test sandbox.
 func contractProjectKeyRecipe(t *testing.T) (mainCheckoutLine, projectKeyLine string) {
@@ -180,13 +180,13 @@ func TestReadStateFileMissingIsAnError(t *testing.T) {
 
 // --- ListStateFileNames ---
 //
-// cmd/myflow's `state list` (F1's fix) reads the fallback directory
+// cmd/flow's `state list` (F1's fix) reads the fallback directory
 // through this function when the store cannot be reached -- these tests
 // are its own coverage, independent of the CLI command built on top of it.
 
 func TestListStateFileNamesFindsEveryJSONFile(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("MYFLOW_STATE_DIR", root)
+	t.Setenv("FLOW_STATE_DIR", root)
 
 	for _, name := range []string{"kan-1", "kan-2", "kan-3"} {
 		if err := fallback.WriteStateFile(fallback.StateFilePath("proj", name), []byte(`{}`)); err != nil {
@@ -218,7 +218,7 @@ func TestListStateFileNamesFindsEveryJSONFile(t *testing.T) {
 
 func TestListStateFileNamesMissingDirectoryIsNotAnError(t *testing.T) {
 	root := t.TempDir()
-	t.Setenv("MYFLOW_STATE_DIR", root)
+	t.Setenv("FLOW_STATE_DIR", root)
 
 	names, err := fallback.ListStateFileNames("never-written-to")
 	if err != nil {
@@ -294,7 +294,7 @@ func TestAppendJournalEntryAppendsInCallOrder(t *testing.T) {
 
 // TestAppendJournalEntryIsSafeUnderConcurrentWriters reproduces the
 // scenario F2 found: parallel worktrees is a real shape of this pipeline,
-// so concurrent `myflow state set` invocations appending to the same
+// so concurrent `flow state set` invocations appending to the same
 // project's journal at the same time is expected, not hypothetical. Every
 // one of goroutineCount concurrent appends must land as its own complete
 // entry -- O_APPEND's atomicity is what this function relies on for safety

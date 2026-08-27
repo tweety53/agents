@@ -19,7 +19,7 @@ import (
 )
 
 // genuineDaemon wraps handler so every response it writes carries the
-// header a real myflowd sets on every response (internal/api's
+// header a real flowd sets on every response (internal/api's
 // withDaemonHeader). Tests asserting client behaviour against a store that
 // genuinely answered use this; tests asserting the F1 fallback behaviour
 // against a look-alike server deliberately do not.
@@ -127,7 +127,7 @@ func TestGetChangeFallsBackOnServerError(t *testing.T) {
 }
 
 // TestGetChangeFallsBackWhenNotFoundLacksDaemonHeader is F1's
-// reproduction: a bare foreign server -- no myflowd behind it at all --
+// reproduction: a bare foreign server -- no flowd behind it at all --
 // answering 404 on this path (a generic API gateway's default, a stale
 // service, a test fixture like Python's http.server) must fall back, not
 // be trusted as "the store correctly reports no such record". Only a
@@ -204,7 +204,7 @@ func TestPutChangeReportsRefusalDistinctly(t *testing.T) {
 // on PUT must fall back, not be reported as a genuine monotonic refusal --
 // this exact confusion previously made the CLI exit 1 (blocking) against
 // any process squatting the configured port, with no database, no
-// myflowd, and no store involved at all.
+// flowd, and no store involved at all.
 func TestPutChangeFallsBackWhenRefusalLacksDaemonHeader(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusConflict)
@@ -279,8 +279,8 @@ func TestPutChangeFallsBackOnMalformedResponseBody(t *testing.T) {
 	}
 }
 
-// --- ListStateBoard: F1's own fix. cmd/myflow's `state list` (and, through
-// it, skills/myflow-status/SKILL.md's enumeration) is required to go
+// --- ListStateBoard: F1's own fix. cmd/flow's `state list` (and, through
+// it, skills/flow-status/SKILL.md's enumeration) is required to go
 // through this method rather than a hand-written curl call, specifically
 // so it inherits the header check, the ErrUnavailable classification and
 // the request timeout every other client method already has. These tests
@@ -372,7 +372,7 @@ func TestListStateBoardFallsBackOnMalformedBody(t *testing.T) {
 
 // TestListStateBoardFallsBackWhenSuccessLacksDaemonHeader is F1's own
 // mutation check on this method: a bare look-alike server answering 200
-// with a well-formed board body, but never setting Myflow-Daemon, must
+// with a well-formed board body, but never setting Flow-Daemon, must
 // still be treated as unreachable. Mutating the header check in
 // ListStateBoard (deleting the `if !fromDaemon` branch, or comparing
 // against the wrong constant) is exactly what this test would catch --
@@ -514,7 +514,7 @@ func TestBeginStageFallsBackOnMalformedResponseBody(t *testing.T) {
 func TestBeginStageReportsUndocumentedStageDistinctly(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"myflow: \"bogus\" is not a documented stage","code":"undocumented_stage"}`))
+		_, _ = w.Write([]byte(`{"error":"flow: \"bogus\" is not a documented stage","code":"undocumented_stage"}`))
 	}))
 	defer srv.Close()
 
@@ -660,7 +660,7 @@ func TestEndStageFallsBackOnMalformedResponseBody(t *testing.T) {
 func TestEndStageReportsUndocumentedStageDistinctly(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"error":"myflow: \"bogus\" is not a documented stage","code":"undocumented_stage"}`))
+		_, _ = w.Write([]byte(`{"error":"flow: \"bogus\" is not a documented stage","code":"undocumented_stage"}`))
 	}))
 	defer srv.Close()
 
@@ -912,8 +912,8 @@ var _ api.SettingsStore = stubStageStore{}
 // sends.
 //
 // This test is the one thing that does: it wires a real *api.Server
-// (internal/api, the same package cmd/myflowd serves) directly to a real
-// *client.Client (internal/client, the same package cmd/myflow drives) --
+// (internal/api, the same package cmd/flowd serves) directly to a real
+// *client.Client (internal/client, the same package cmd/flow drives) --
 // no fake server standing in for either side -- and asserts a genuine PUT
 // round-trips as success, a genuine GET returns it, and a genuine
 // monotonic refusal surfaces as client.ErrRefused. If internal/client's

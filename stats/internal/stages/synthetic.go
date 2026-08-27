@@ -10,7 +10,7 @@ package stages
 // stages already, but because it exists only in service of a stage mark:
 // the daemon's bootstrap path (internal/api/stages.go) writes it exactly
 // when a mark's begin handler has no real change row to attach to, and the
-// CLI (cmd/myflow/state.go) reads it back to decide whether `state get`
+// CLI (cmd/flow/state.go) reads it back to decide whether `state get`
 // should report `"synthetic": true`. That is a producer/consumer pair
 // agreeing on one sentinel, which is what this package's constants section
 // (see the package doc in names.go) is for -- keeping it here means the

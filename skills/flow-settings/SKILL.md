@@ -1,24 +1,24 @@
 ---
 name: flow-settings
 description: Read and change the harness-wide flow defaults — default model and reviewer slots. Standalone, not a pipeline stage. Use for /flow-settings.
-allowed-tools: Bash(myflow:*), Bash(jq:*)
+allowed-tools: Bash(flow:*), Bash(jq:*)
 license: MIT
-compatibility: Requires the myflow CLI and jq.
+compatibility: Requires the flow CLI and jq.
 metadata:
   author: gymie
   version: "1.0"
 ---
 
-Read and change the harness-wide settings record `myflow settings get`/`set` manage: the default
+Read and change the harness-wide settings record `flow settings get`/`set` manage: the default
 model (`defaultModel`) every `/flow` run's implementer, fixer and reviewer roles use unless a
 session overrides it, and the reviewer slots (`reviewers`) the review panel dispatches by default.
 
 **This is a standalone command, not a pipeline stage.** It takes no change name, reads and writes
-no per-change state file, and marks no `myflow stage` call. It changes the harness-wide store, not
+no per-change state file, and marks no `flow stage` call. It changes the harness-wide store, not
 any one change's record.
 
-**No flags.** Per **Command surface** (`skills/myflow-contracts/pipeline.md`), no `/myflow-*` or
-`/flow-*` command accepts a flag; that rule extends to this command as part of the same family. The
+**No flags.** Per **Command surface** (`skills/flow-contracts/pipeline.md`), no `/flow*` or
+`/flow*` command accepts a flag; that rule extends to this command as part of the same family. The
 only input is the operator's answers to the questions this skill asks interactively.
 
 **Announce at start:** "Using flow-settings."
@@ -28,10 +28,10 @@ only input is the operator's answers to the questions this skill asks interactiv
 ### 1. Read current settings
 
 ```bash
-CURRENT="$(myflow settings get)"
+CURRENT="$(flow settings get)"
 ```
 
-`myflow settings get` prints one line of JSON: `defaultModel` (a string) and `reviewers` (an array
+`flow settings get` prints one line of JSON: `defaultModel` (a string) and `reviewers` (an array
 of strings). A non-zero exit means the store could not be reached — report the CLI's stderr
 verbatim and stop; there is no per-harness fallback file for this record the way a per-change state
 file has one.
@@ -67,7 +67,7 @@ no-op write.
 ### 3. Write the change
 
 ```bash
-myflow settings set -model "<defaultModel>" -reviewers "<comma,separated,list>"
+flow settings set -model "<defaultModel>" -reviewers "<comma,separated,list>"
 ```
 
 Both flags are required by the CLI even when only one field changed — `settings set` writes the
@@ -83,8 +83,8 @@ old value → new value. A field left unchanged is not mentioned as a change.
 
 ## Guardrails
 
-- **Never** touch a per-change state file, `<project>/spectre/changes/`, or any `myflow
-  state`/`myflow stage` call — this command's write is scoped to the harness-wide settings record
+- **Never** touch a per-change state file, `<project>/spectre/changes/`, or any `flow
+  state`/`flow stage` call — this command's write is scoped to the harness-wide settings record
   alone.
 - **Never** commit, stage, push, merge, or create a worktree or branch.
 - **No flags** — the only input is the operator's interactive answers.

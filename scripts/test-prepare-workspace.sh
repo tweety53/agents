@@ -61,8 +61,8 @@ new_repo() {
 }
 
 write_config() {
-  mkdir -p "$REPO/.myflow"
-  printf '%s\n' "$1" > "$REPO/.myflow/project.md"
+  mkdir -p "$REPO/.flow"
+  printf '%s\n' "$1" > "$REPO/.flow/project.md"
   git -C "$REPO" add -A
   git -C "$REPO" commit -q -m "configure"
 }
@@ -98,19 +98,19 @@ run_script "$REPO"
 [ -z "$OUT" ] && pass "1a: no isolation section prints nothing" \
   || fail "1a: expected no stdout, got: $OUT"
 
-# 1b. No `.myflow/project.md` at all.
+# 1b. No `.flow/project.md` at all.
 new_repo "kan-2-no-config"
 run_script "$REPO"
-[ "$RC" -eq 0 ] && pass "1b: no .myflow/project.md exits 0" \
+[ "$RC" -eq 0 ] && pass "1b: no .flow/project.md exits 0" \
   || fail "1b: expected exit 0, got rc=$RC out=$OUT err=$ERR"
-[ -z "$OUT" ] && pass "1b: no .myflow/project.md prints nothing" \
+[ -z "$OUT" ] && pass "1b: no .flow/project.md prints nothing" \
   || fail "1b: expected no stdout, got: $OUT"
 
 # ===========================================================================
 # Case 2: A section declared — variables exported and printed correctly.
 #
 # The change name is kan-15-parallel-myflow-do-task-lanes, the exact worked
-# example under "The workspace id" (skills/myflow-contracts/workspace-
+# example under "The workspace id" (skills/flow-contracts/workspace-
 # isolation.md): id kan-15-55a6, id_underscored kan_15_55a6, digest 55a6, and
 # offset 3270 (the file's own worked value for that digest) — so every
 # expected value below is asserted against that canonical worked example
@@ -297,11 +297,11 @@ esac
 # string that a `cache index` row's WSVAL starts as and is never given.
 # ===========================================================================
 new_repo "kan-7-value-ref-wrong-kind"
-mkdir -p "$REPO/.myflow" "$REPO/fake-scripts"
+mkdir -p "$REPO/.flow" "$REPO/fake-scripts"
 printf '%s\n' "## workspace isolation
 
 (fixture only — the stub guard below supplies the rows this script reads)
-" > "$REPO/.myflow/project.md"
+" > "$REPO/.flow/project.md"
 git -C "$REPO" add -A
 git -C "$REPO" commit -q -m "configure"
 

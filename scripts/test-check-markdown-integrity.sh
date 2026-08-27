@@ -261,7 +261,7 @@ expect_exit 'case 14: a paragraph introducing a fenced command — exit 0' 0 \
 # Case 15 — a bold pseudo-heading directly above the list it introduces,
 # with no blank line between them and no terminal punctuation of its own
 # ("**Explore the problem space**" followed immediately by "- Ask..."),
-# is this repository's own established style in skills/myflow-research/
+# is this repository's own established style in skills/flow-research/
 # SKILL.md, not an orphaned marker.
 root="$(make_project 'skills/foo/SKILL.md' \
 '**Explore the problem space**
@@ -272,7 +272,7 @@ expect_exit 'case 15: a bold label directly above the list it introduces — exi
 
 # Case 16 — a CommonMark indented code block (four-space indent, no fence
 # delimiters) is code, not prose, even though it carries no terminal
-# punctuation of its own — skills/myflow-contracts/plan-provenance.md
+# punctuation of its own — skills/flow-contracts/plan-provenance.md
 # uses exactly this shape for its own worked examples.
 root="$(make_project 'skills/foo/SKILL.md' \
 'This text introduces an indented example below.
@@ -323,7 +323,7 @@ expect_exit 'case 18: an introducing paragraph before its own fence still passes
 # fix): a paragraph that ends on a dangling word in front of a fence/list/
 # table is exempt after all when the sentence *resumes* past that block —
 # the "spans an embedded block" shape this repository uses for real
-# (skills/myflow-contracts/plan-provenance.md:211, :246;
+# (skills/flow-contracts/plan-provenance.md:211, :246;
 # skills/myflow-do/SKILL.md:133), where a sentence deliberately breaks
 # around a worked example and picks back up afterward. Case 17 above still
 # pins the case where nothing follows the fence to resume it; these two pin

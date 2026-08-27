@@ -5,8 +5,8 @@
 # with two deliberate reads, both for the same reason: the thing under test is
 # the guard's agreement with a canonical file, and a fixture copy of that file
 # would be a third place for the same rule to drift.
-#   - the registry-coupling case reads skills/myflow-contracts/artifacts-registry.md;
-#   - the workspace-id case reads skills/myflow-contracts/workspace-isolation.md
+#   - the registry-coupling case reads skills/flow-contracts/artifacts-registry.md;
+#   - the workspace-id case reads skills/flow-contracts/workspace-isolation.md
 #     and RUNS the derivation block it carries, asserting the guard's own id
 #     against it byte for byte.
 #
@@ -270,7 +270,7 @@ add_worktree() {
   git -C "$REPO" worktree add -q -b "$1" "$WT_PATH" >/dev/null
 }
 
-# declare_isolation <survivors-cell> -> writes $REPO/.myflow/project.md with a
+# declare_isolation <survivors-cell> -> writes $REPO/.flow/project.md with a
 # `## workspace isolation` section. The argument is the `Runs` cell of the
 # `survivors` row, written exactly as a project would write it — backticks
 # included, because the guard has to strip them. An EMPTY argument declares
@@ -281,7 +281,7 @@ add_worktree() {
 # that ran `remove` itself, or read an answer out of it, is caught by the canary
 # rather than by a verdict that would look identical.
 declare_isolation() {
-  mkdir -p "$REPO/.myflow"
+  mkdir -p "$REPO/.flow"
   {
     printf '# fixture project configuration\n\n'
     printf '## workspace isolation\n\n'
@@ -296,7 +296,7 @@ declare_isolation() {
     if [ -n "${1:-}" ]; then
       printf '| `survivors` | %s |\n' "$1"
     fi
-  } > "$REPO/.myflow/project.md"
+  } > "$REPO/.flow/project.md"
 }
 
 # write_script <name> <body> -> an executable script in the repository root.
@@ -619,7 +619,7 @@ PATH="$OLD_PATH"
 assert_no_verdict "a failed worktree listing"
 
 # 14. The five rows this guard checks are DERIVED from the registry in
-#     skills/myflow-contracts/artifacts-registry.md, and a derivation nothing checks is a
+#     skills/flow-contracts/artifacts-registry.md, and a derivation nothing checks is a
 #     copy waiting to go stale: a registry row added later whose lifetime ends
 #     at run 2 would go unchecked and this guard would confirm a cleanup that
 #     left it behind. The guard therefore declares, in `registry-row-checked:`
@@ -632,7 +632,7 @@ assert_no_verdict "a failed worktree listing"
 #     registry, and a fixture copy of it would be a third place for the same
 #     list to drift.
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REGISTRY_FILE="$REPO_ROOT/skills/myflow-contracts/artifacts-registry.md"
+REGISTRY_FILE="$REPO_ROOT/skills/flow-contracts/artifacts-registry.md"
 if [ ! -f "$REGISTRY_FILE" ]; then
   fail "registry coupling: $REGISTRY_FILE not found — the guard's rows have nothing to be derived from"
 else
@@ -686,7 +686,7 @@ fi
 #
 # This is the one registry row whose verdict is not read out of git or the
 # filesystem but ASKED of the project, by running the `survivors` command its
-# .myflow/project.md declares. skills/myflow-contracts/project-configuration.md
+# .flow/project.md declares. skills/flow-contracts/project-configuration.md
 # is normative for that command's output and its exit code — "What `survivors`
 # prints, and what its exit code means" — and the cases below are one per branch
 # of it, plus the branches its neighbouring rules imply.
@@ -704,7 +704,7 @@ fi
 #     row existed — same verdict, and no workspace note of any kind on it.
 new_fixture
 run_guard "$REPO" demo "$STATE"
-assert_verdict "COMPLETE:" "a project with no .myflow/project.md is COMPLETE"
+assert_verdict "COMPLETE:" "a project with no .flow/project.md is COMPLETE"
 assert_not_out "workspace" "a project with no configuration says nothing about a workspace"
 
 # 15b. A configuration that declares no isolation. The decoy command table sits
@@ -713,14 +713,14 @@ assert_not_out "workspace" "a project with no configuration says nothing about a
 #      scanning the `## workspace isolation` section for one — which is the
 #      difference between reading a declaration and finding a string.
 new_fixture
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 {
   printf '# fixture project configuration\n\n'
   printf '## test\n\n'
   printf '| Command | Runs |\n'
   printf '|---------|------|\n'
   printf '| `survivors` | `touch %s` |\n' "'$REPO/decoy-ran'"
-} > "$REPO/.myflow/project.md"
+} > "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a project declaring no isolation is COMPLETE"
 assert_not_out "workspace" "a project declaring no isolation says nothing about a workspace"
@@ -814,14 +814,14 @@ assert_absent "$REPO/create-ran" "no survivors command: nothing else in the tabl
 #      reported as skipped exactly as a missing row is — never repaired, never
 #      guessed at, and never turned into an empty string handed to a shell.
 new_fixture
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 {
   printf '## workspace isolation\n\n'
   printf '| Command | Runs |\n'
   printf '|---------|------|\n'
   printf '| `remove` | `touch %s` |\n' "'$REPO/remove-ran'"
   printf '| `survivors` |  |\n'
-} > "$REPO/.myflow/project.md"
+} > "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "an empty survivors cell does not block the terminal state"
 assert_out "SKIPPED" "an empty survivors cell is reported as skipped"
@@ -832,7 +832,7 @@ assert_absent "$REPO/remove-ran" "an empty survivors cell does not fall back to 
 #      executing a command the project never declared for this purpose — while
 #      reporting a verified workspace on the strength of it.
 new_fixture
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 {
   printf '## workspace isolation\n\n'
   printf '| Command | Runs |\n'
@@ -842,7 +842,7 @@ mkdir -p "$REPO/.myflow"
   printf '| Command | Runs |\n'
   printf '|---------|------|\n'
   printf '| `survivors` | `touch %s` |\n' "'$REPO/later-section-ran'"
-} > "$REPO/.myflow/project.md"
+} > "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a survivors row in a later section does not block the terminal state"
 assert_out "SKIPPED" "a survivors row in a later section leaves the verification skipped"
@@ -863,7 +863,7 @@ assert_absent "$REPO/later-section-ran" "a survivors row in a later section is n
 #      Neither command runs. A skip that had already executed the first section's
 #      command would be a skip in the verdict line only.
 new_fixture
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 {
   printf '## workspace isolation\n\n'
   printf '| Command | Runs |\n'
@@ -873,7 +873,7 @@ mkdir -p "$REPO/.myflow"
   printf '| Command | Runs |\n'
   printf '|---------|------|\n'
   printf '| `survivors` | `touch %s` |\n' "'$REPO/second-section-ran'"
-} > "$REPO/.myflow/project.md"
+} > "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a duplicated isolation heading does not block the terminal state"
 assert_out "SKIPPED" "a duplicated isolation heading is reported as skipped, not resolved silently"
@@ -885,7 +885,7 @@ assert_absent "$REPO/second-section-ran" "a duplicated heading does not run the 
 # 20. The workspace id, asserted against the CANONICAL derivation rather than
 #     against a copy of it — for a SET of change names, one per step of that
 #     derivation, and under every locale this machine has. The block is
-#     extracted from skills/myflow-contracts/workspace-isolation.md, DRIVEN with
+#     extracted from skills/flow-contracts/workspace-isolation.md, DRIVEN with
 #     each name in turn, and the guard's own id compared with what it produces,
 #     byte for byte. A second implementation that disagrees by one byte yields a
 #     different database name for the same change — the failure that file exists
@@ -908,7 +908,7 @@ assert_absent "$REPO/second-section-ran" "a duplicated heading does not run the 
 #     carries exactly one such assignment FAILS this case rather than silently
 #     falling back to the one name it hard-codes, which would be a vacuous pass
 #     wearing this comment.
-CANON_SRC="$REPO_ROOT/skills/myflow-contracts/workspace-isolation.md"
+CANON_SRC="$REPO_ROOT/skills/flow-contracts/workspace-isolation.md"
 if [ ! -f "$CANON_SRC" ]; then
   fail "workspace id: $CANON_SRC not found — the guard's derivation has nothing to be checked against"
 else
@@ -1249,7 +1249,7 @@ assert_absent "$REPO/injected" "a survivor line is never expanded by the guard"
 #      green) produced a verdict whose bytes still said `LEFTOVER: … still names
 #      X…` and whose rendering erased that line and showed a convincing green
 #      `COMPLETE:`. The attacker is anyone who can land a pull request touching
-#      `.myflow/project.md`, which is already this guard's documented trust
+#      `.flow/project.md`, which is already this guard's documented trust
 #      boundary, and the target is the one line run 2 requires an operator to
 #      read and act on.
 #
@@ -1349,7 +1349,7 @@ run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "an accented survivor name is LEFTOVER"
 assert_reason "café-bücket" "a non-ASCII survivor is reported by its real name, not escaped"
 
-# 24e. A `.myflow/project.md` that is a DIRECTORY. `-r` is true of a directory
+# 24e. A `.flow/project.md` that is a DIRECTORY. `-r` is true of a directory
 #      and `grep` then fails with "Is a directory", whose exit status is
 #      indistinguishable from "no match" — so this read as "declared no
 #      isolation": nothing derived, nothing run, and not even a SKIPPED note.
@@ -1357,32 +1357,75 @@ assert_reason "café-bücket" "a non-ASCII survivor is reported by its real name
 #      to prevent, reached from a path anyone able to land a pull request can
 #      create.
 new_fixture
-mkdir -p "$REPO/.myflow/project.md"
+mkdir -p "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a project.md that is a directory does not block the terminal state"
 assert_out "SKIPPED" "a project.md that is a directory is reported as skipped, not as absent"
 
-# 24f. A `.myflow/project.md` that is a symlink to nowhere. `-e` follows the
+# 24f. A `.flow/project.md` that is a symlink to nowhere. `-e` follows the
 #      link, so the absent test answered true and the guard stayed silent — an
 #      absence manufactured out of a path deliberately pointed at nothing.
 new_fixture
-mkdir -p "$REPO/.myflow"
-ln -s "$REPO/.myflow/no-such-configuration-target" "$REPO/.myflow/project.md"
+mkdir -p "$REPO/.flow"
+ln -s "$REPO/.flow/no-such-configuration-target" "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a dangling project.md symlink does not block the terminal state"
 assert_out "SKIPPED" "a dangling project.md symlink is reported as skipped, not as absent"
 
-# 24g. A `.myflow/project.md` that is a symlink to a REAL file is still read, so
+# 24g. A `.flow/project.md` that is a symlink to a REAL file is still read, so
 #      the two cases above exclude a file type rather than an indirection.
 new_fixture
-mkdir -p "$REPO/.myflow"
+mkdir -p "$REPO/.flow"
 write_script survivors.sh "printf 'linked-survivor\n'"
 declare_isolation '`./survivors.sh`'
-mv "$REPO/.myflow/project.md" "$REPO/.myflow/real-project.md"
-ln -s "$REPO/.myflow/real-project.md" "$REPO/.myflow/project.md"
+mv "$REPO/.flow/project.md" "$REPO/.flow/real-project.md"
+ln -s "$REPO/.flow/real-project.md" "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a project.md that is a symlink to a real file is still read"
 assert_reason "linked-survivor" "the linked configuration's survivors command ran"
+
+# 24h. The `.myflow/` -> `.flow/` hard cutover (design.md's
+#      dotmyflow-hard-cutover). A repository carrying only the retired
+#      `.myflow/` and no `.flow/` is NOT the ordinary "no project
+#      configuration" case above — it refuses outright rather than silently
+#      reporting COMPLETE for a project it never actually read.
+#      `~/Projects/gymie` and `~/Projects/spectre-e2e` are in exactly this
+#      state on this machine and are not renamed by this change; this case
+#      is a fixture this suite owns rather than a read of either.
+new_fixture
+mkdir -p "$REPO/.myflow"
+run_guard "$REPO" demo "$STATE"
+[ "$RC" -eq 2 ] && pass "a repository carrying only the retired .myflow/ -> exit 2" \
+  || fail "a repository carrying only the retired .myflow/: expected exit 2, got rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "a repository carrying only the retired .myflow/ emits no verdict line" \
+  || fail "a repository carrying only the retired .myflow/: emitted a verdict line: $OUT"
+case "$ERR" in
+  *"$REPO"*"git -C $REPO mv .myflow .flow"*) pass "the refusal names the project root and the exact rename to perform" ;;
+  *) fail "the refusal does not name the project root and the rename: $ERR" ;;
+esac
+
+# 24i. A repository carrying BOTH directories mid-cutover reads `.flow/`
+#      without ever consulting `.myflow/` — the `.myflow/project.md` left
+#      behind declares a `survivors` command that would leave its own canary
+#      if it ran, which it must not: this guard never runs a project's
+#      commands, only asks, and never asks the retired directory's.
+new_fixture
+mkdir -p "$REPO/.myflow"
+write_script myflow-survivors.sh "touch '$REPO/myflow-survivors-ran'; printf 'stale-survivor\n'"
+{
+  printf '# fixture project configuration\n\n## workspace isolation\n\n'
+  printf '| Resource | Variable | Default | In a workspace |\n'
+  printf '|----------|----------|---------|----------------|\n'
+  printf '| `database` | `DB_URL` | `appdb` | `appdb_<id_underscored>` |\n\n'
+  printf '| Command | Runs |\n|---------|------|\n'
+  printf '| `create` | `true` |\n| `remove` | `true` |\n| `survivors` | `./myflow-survivors.sh` |\n'
+} > "$REPO/.myflow/project.md"
+declare_isolation ""
+run_guard "$REPO" demo "$STATE"
+assert_verdict "COMPLETE:" "a repository carrying both directories reads .flow/ (declaring no survivors row) rather than .myflow/"
+assert_out "SKIPPED" "the .flow/project.md actually read declares no survivors row"
+[ -e "$REPO/myflow-survivors-ran" ] && fail "the retired .myflow/project.md's survivors command ran" \
+  || pass "the retired .myflow/project.md's survivors command never ran"
 
 # 25. A survivor and a git-derived leftover are reported together, on the one
 #     line the contract allows — the workspace row joins the existing breakdown
@@ -1402,15 +1445,15 @@ assert_reason "db-survivor-one" "the combined breakdown names the survivor"
 #     is reported as a skip.
 new_fixture
 declare_isolation '`./survivors.sh`'
-chmod 000 "$REPO/.myflow/project.md"
-if [ -r "$REPO/.myflow/project.md" ]; then
+chmod 000 "$REPO/.flow/project.md"
+if [ -r "$REPO/.flow/project.md" ]; then
   skip "an unreadable project configuration is reported" "this user can read a mode-000 file"
 else
   run_guard "$REPO" demo "$STATE"
   assert_verdict "COMPLETE:" "an unreadable project configuration does not block the terminal state"
   assert_out "SKIPPED" "an unreadable project configuration is reported as skipped, not as absent"
 fi
-chmod 644 "$REPO/.myflow/project.md"
+chmod 644 "$REPO/.flow/project.md"
 
 # 27. The workspace row is answered per repository, from the repository it was
 #     asked about. The guard runs once per repository, so a survivors command
@@ -1434,14 +1477,14 @@ assert_not_out "workspace" "a repository declaring no isolation stays silent abo
 # an infinite loop — and a hang there strands an already-merged change short of
 # FINISHED with nobody watching. The project-supplied `## stop` command is
 # already given a bounded wait for exactly this reason; see **Worktree cleanup**
-# (`skills/myflow-contracts/finish-contract.md`).
+# (`skills/flow-contracts/finish-contract.md`).
 #
 # WHY A TIMEOUT IS A SKIP HERE AND A FAILED CHECK THERE. A `## stop` timeout has
 # no fallback: an un-stopped stack is a reason not to remove a worktree, and
 # blocking is the safe direction. A survivors timeout has one — the reported
 # skip the contract already defines for "the command said nothing about
 # survivors" — and blocking an already-merged change over a slow command is what
-# **Creation and cleanup** (`skills/myflow-contracts/workspace-isolation.md`)
+# **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`)
 # forbids. Same bound, opposite outcome, and the difference is which direction is
 # safe at that point in the run.
 # ---------------------------------------------------------------------------
@@ -1510,7 +1553,7 @@ fi
 #
 #      THE LAST ASSERTION IS TWO-SIDED ON PURPOSE. The escapee surviving is a
 #      documented limitation — check-cleanup-complete.sh's run_survivors header
-#      and skills/myflow-contracts/project-configuration.md both state it — so
+#      and skills/flow-contracts/project-configuration.md both state it — so
 #      finding it gone is not a quiet improvement, it is those two paragraphs
 #      becoming false. This case therefore fails in BOTH directions, exactly as
 #      the registry-coupling case 14 does, and names what to edit.
@@ -1541,7 +1584,7 @@ sleep 4272"
   if pgrep -f 'sleep 4271' >/dev/null 2>&1; then
     pass "a process that leaves the guard's process group outlives the bound, as documented"
   else
-    fail "a process that left the guard's process group did NOT outlive the bound — check-cleanup-complete.sh's run_survivors header and skills/myflow-contracts/project-configuration.md both document that it does, and are now wrong"
+    fail "a process that left the guard's process group did NOT outlive the bound — check-cleanup-complete.sh's run_survivors header and skills/flow-contracts/project-configuration.md both document that it does, and are now wrong"
   fi
   # Scoped to these two durations, never a bare pattern: this suite must not
   # reach a process it did not start.

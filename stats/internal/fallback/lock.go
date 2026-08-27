@@ -13,7 +13,7 @@ import (
 // advisory-lock primitive. It is available on both of this project's two
 // targets, macOS and Linux (see design.md's own deployment story -- a
 // docker-compose Postgres stack plus a launchd-managed daemon, neither of
-// which implies Windows); there is no Windows build of myflow. This
+// which implies Windows); there is no Windows build of flow. This
 // comment is the one place that assumption lives -- if a Windows target
 // is ever added, this file is the one place that needs a
 // platform-specific replacement (syscall.Flock has no equivalent in
@@ -72,8 +72,8 @@ func openLockFile(journalPath string) (*os.File, error) {
 //
 // This also closes a race beyond the single-process one
 // Reconciler.Run's own in-process mutex already serializes: two separate
-// *processes* -- two myflowd instances, or a daemon racing a concurrent
-// `myflow journal flush` -- retiring the same journal at the same time
+// *processes* -- two flowd instances, or a daemon racing a concurrent
+// `flow journal flush` -- retiring the same journal at the same time
 // are not protected by any in-process mutex, which cannot span processes.
 // This flock is what makes that cross-process case safe too; the
 // in-process mutex is kept as well, since it is cheaper for the common,
@@ -107,11 +107,11 @@ func LockJournal(journalPath string) (unlock func(), err error) {
 // its own version of the bug: a bound tighter than the section it is
 // meant to wait out turns "occasionally proceeds without the lock" into
 // "routinely does," under exactly the sustained-contention conditions
-// (`myflow journal flush` in a health-check or CI loop) F1's report named
+// (`flow journal flush` in a health-check or CI loop) F1's report named
 // as the real exposure. 50ms -- roughly ten times the measured critical
 // section -- leaves headroom for that section running slower than
 // measured here without meaningfully being noticed: the CLI's own store
-// round trip already budgets 2s (defaultTimeout, cmd/myflow/state.go)
+// round trip already budgets 2s (defaultTimeout, cmd/flow/state.go)
 // before falling back to this path at all, so an additional worst-case
 // 50ms on top of that is not the kind of latency a pipeline command's own
 // human-facing timing would register. The never-block guarantee is still

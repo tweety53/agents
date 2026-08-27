@@ -45,7 +45,7 @@ trap 'chmod -R u+rwX "$FIX" 2>/dev/null || true; rm -rf "$FIX"' EXIT
 # every other case starts from a complete root so it tests what it says it does.
 mkroot() {
   mkdir -p "$1/skills" "$1/rules" "$1/spectre/specs" "$1/commands" \
-    "$1/commands-claude" "$1/.myflow"
+    "$1/commands-claude" "$1/.flow"
 }
 
 # inv <root> — the inventory for <root>. A non-zero exit here is a harness
@@ -270,7 +270,7 @@ expect_exit 'a nested symlinked directory holding Markdown cannot be answered' 2
   "$FIX/nested-link-md"
 
 # The same shape carrying NO Markdown — this repository's own
-# skills/myflow-*/scripts/lib links, which point at a directory of `.sh` files.
+# skills/flow*/scripts/lib links, which point at a directory of `.sh` files.
 # Nothing is lost by not descending into one, so refusing it would fail the real
 # repository on every run for no lost sentence. It contributes nothing and the
 # run stays green.

@@ -12,17 +12,17 @@
 #
 # THE CORPUS is every `.md` and `.mdc` file under these scope roots:
 #
-#   skills/  rules/  spectre/specs/  commands/  commands-claude/  .myflow/
+#   skills/  rules/  spectre/specs/  commands/  commands-claude/  .flow/
 #
 # plus the `.md`/`.mdc` files sitting directly at the repository root
 # (README.md, AGENTS.md, CLAUDE.md today). The root is deliberately NOT scanned
 # recursively: doing that would sweep in spectre/changes/, whose session
-# records and panel reports a `/myflow-*` run writes DURING a change, so an
+# records and panel reports a `/flow*` run writes DURING a change, so an
 # inventory captured before a change's first edit could never match one captured
 # after its last, however faithfully the prose was preserved.
 #
 # `openspec/` NAMES NO SCOPE ROOT HERE, deliberately. It is this repository's
-# frozen, pre-spectre tree — history, not something a `/myflow-*` run edits
+# frozen, pre-spectre tree — history, not something a `/flow*` run edits
 # again — so it is never linted, budgeted or inventoried, exactly like
 # `openspec/changes/archive/` was already excluded below before this file's
 # corpus moved: a frozen tree gets the same treatment an already-archived
@@ -100,7 +100,7 @@
 
 # The scope roots, relative to the repository root. A bash array rather than a
 # function printing lines, so a caller iterates it without word-splitting.
-OWNED_CORPUS_SCOPE_DIRS=(skills rules spectre/specs commands commands-claude .myflow)
+OWNED_CORPUS_SCOPE_DIRS=(skills rules spectre/specs commands commands-claude .flow)
 
 # owned_corpus_excluded <path-relative-to-repo-root> -> exit 0 when the path is
 # excluded from the corpus, 1 otherwise. Every test is a path-component or

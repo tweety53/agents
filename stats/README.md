@@ -1,10 +1,10 @@
 # stats
 
-The myflow stats app: a PostgreSQL-backed Go service that replaces the
+The flow stats app: a PostgreSQL-backed Go service that replaces the
 per-machine JSON state file, records per-stage telemetry, and serves both the
 live pipeline state and aggregated statistics through a browser interface.
 
-Full design: `openspec/changes/kan-16-myflow-stats-app/design.md`.
+Full design: `openspec/changes/archive/2026-08-14-kan-16-myflow-stats-app/design.md`.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ Full design: `openspec/changes/kan-16-myflow-stats-app/design.md`.
 
 ## The PostgreSQL stack
 
-A dedicated `myflow-postgres` container, independent of any other Postgres
+A dedicated `flow-postgres` container, independent of any other Postgres
 stack already running on this machine (for example a `gymie-postgres`
 container on port 5432). It listens on host port **5433** so the two never
 collide — confirmed free on this machine before the port was chosen.
@@ -23,7 +23,7 @@ cd stats
 docker compose up -d
 ```
 
-This starts only `myflow-postgres`; it does not stop or modify any other
+This starts only `flow-postgres`; it does not stop or modify any other
 running container.
 
 ## Running the tests
@@ -47,8 +47,8 @@ Nobody running `go test` needs to bring up the UI-test stack first.
 
 For testing the application's browser interface by hand, from the main
 checkout, against real data that is not the operator's own — separate from
-both the live daemon (port 4173, database `myflow`) and any `/myflow-do`
-worktree's own isolated stack (see `.myflow/project.md`'s
+both the live daemon (port 4173, database `flow`) and any `/flow`
+worktree's own isolated stack (see `.flow/project.md`'s
 `## workspace isolation`).
 
 ```bash
@@ -56,9 +56,9 @@ cd stats
 make ui-test-up
 ```
 
-This drops and recreates the `myflow_uitest` database in the same
-`myflow-postgres` container the live stack uses (host port 5433), starts
-`myflowd` on port **4174** against it, waits for the daemon to answer, and
+This drops and recreates the `flow_uitest` database in the same
+`flow-postgres` container the live stack uses (host port 5433), starts
+`flowd` on port **4174** against it, waits for the daemon to answer, and
 seeds it with a fixed fixture — two projects, changes spanning `STARTED`,
 `IN_PROGRESS` and `FINISHED`, and stage runs carrying token usage, so the
 views render something rather than an empty interface.
@@ -71,31 +71,31 @@ rather than accumulating the way the live database did.
 Point a session or a browser tab at it:
 
 ```bash
-export MYFLOW_ADDR=http://127.0.0.1:4174
+export FLOW_ADDR=http://127.0.0.1:4174
 ```
 
-`MYFLOW_ADDR` overrides the `myflow` CLI's default daemon address (see "A
+`FLOW_ADDR` overrides the `flow` CLI's default daemon address (see "A
 single variable targets the test stack" in this change's spec); opening
 `http://127.0.0.1:4174` directly in a browser reaches the same daemon's
 SPA. The live daemon on 4173 and the live database are untouched by
 either bring-up or by anything written during the test session.
 
 **`export` persists for the rest of that shell session, not just the next
-command.** Once exported, *every* subsequent `myflow state`/`myflow stage`
+command.** Once exported, *every* subsequent `flow state`/`flow stage`
 invocation in that shell — including ones run much later, unrelated to UI
 testing — silently targets the test stack on 4174 instead of the live
 daemon on 4173, until the shell exits or the variable is unset. No
-`/myflow-*` skill passes `-addr` explicitly, so nothing overrides this, and
+`/flow*` skill passes `-addr` explicitly, so nothing overrides this, and
 a successful `state set` exits 0 with no warning either way — there is no
 signal that a write landed on the test stack instead of the live one. To
 avoid that:
 
 - Prefer scoping it to one command instead of exporting it:
-  `MYFLOW_ADDR=http://127.0.0.1:4174 myflow state get <name>`, or
+  `FLOW_ADDR=http://127.0.0.1:4174 flow state get <name>`, or
 - Run the UI-test session in a separate subshell (`bash`, then `export`
   inside it, then `exit` when done), or
-- If you do `export` it in your main shell, `unset MYFLOW_ADDR` as soon as
-  you are done testing, before running any real `/myflow-*` command.
+- If you do `export` it in your main shell, `unset FLOW_ADDR` as soon as
+  you are done testing, before running any real `/flow*` command.
 
 Tear it down when done:
 
@@ -103,12 +103,12 @@ Tear it down when done:
 make ui-test-down
 ```
 
-This stops the daemon and drops `myflow_uitest`, both idempotently — a
+This stops the daemon and drops `flow_uitest`, both idempotently — a
 second `make ui-test-down` is not an error.
 
 ## Pricing
 
-`myflowd` seeds the published Anthropic per-model rates (`internal/store
+`flowd` seeds the published Anthropic per-model rates (`internal/store
 /pricing_seed.go`, read from
 https://platform.claude.com/docs/en/about-claude/pricing on 2026-08-14)
 into the `pricing` table at every startup — an upsert, so this is a no-op
@@ -136,15 +136,15 @@ empty. Nothing failed loudly — it was found by a human staring at that
 empty dashboard and asking why. This is the same check, made a minute's
 work instead of an investigation.
 
-While a `myflow-postgres` stack and `myflowd` are both running (see above),
-and while a real `/myflow-*` command is mid-run (so a change and at least
+While a `flow-postgres` stack and `flowd` are both running (see above),
+and while a real `/flow*` command is mid-run (so a change and at least
 one stage mark already exist):
 
 ```bash
 # 1. Find the change's most recent stage run.
 curl -s 'http://127.0.0.1:4173/api/v1/stage-runs?project=<project-key>&name=<change-name>&sort=-started_at&limit=1' | jq .
 
-# 2. Wait one harvest cycle (5s, cmd/myflowd's harvestInterval) -- longer
+# 2. Wait one harvest cycle (5s, cmd/flowd's harvestInterval) -- longer
 #    if the mark's own turn hasn't flushed to the transcript yet.
 sleep 6
 
@@ -162,13 +162,49 @@ symptom by itself. What is a symptom: every stage run staying unbound
 minutes after it should have flushed, across every change — that is
 exactly what KAN-16 looked like.
 
+## Cutting over from the `myflow` names
+
+The rename from `myflow` to `flow` changed what this directory *declares* — the compose file, the
+default DSN, the launchd plist, the binary names. It did not change what is *running*. The full
+ordered runbook is **Cutting over from `myflow` to `flow`** in the repository root `README.md`; this
+section carries only the parts that live here.
+
+**The container and the database.** `docker-compose.yml` now declares `flow-postgres`, role `flow`
+and database `flow`. A machine that already ran the old stack still has `myflow-postgres`, role
+`myflow` and database `myflow`. Renaming the running ones requires the daemon to be down —
+`ALTER DATABASE` refuses with live connections — and is the operator's step, never an agent's.
+
+**The daemon and the CLI move together.** The trust header a response must carry was renamed with
+everything else: `Myflow-Daemon` became `Flow-Daemon`. A renamed CLI therefore cannot trust an old
+daemon, and vice versa. The failure is safe rather than loud — an untrusted response is a store
+failure, so writes fall back to the on-disk journal and replay later — but a run spanning the window
+will not read back what it just wrote. **Install the renamed CLI and restart the daemon back to
+back.**
+
+**Running the Go suite before the cutover.** The test helpers' fallback DSN points at the *declared*
+names (`flow:flow@.../flow`), which is what a fresh compose stack creates. Against a not-yet-renamed
+container that host is unreachable, and these suites **skip rather than fail** — `internal/store`
+alone reported `ok` while running 4 tests and skipping 155. A green package that ran almost nothing
+is worse than a red one, so set both overrides until the cutover is done:
+
+```bash
+export FLOW_STATS_ADMIN_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+export FLOW_STATS_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+cd stats && go test ./... -count=1
+```
+
+Both are needed: `FLOW_STATS_ADMIN_DSN` drives the per-test database creation and every connection
+derived from it, and `FLOW_STATS_DSN` drives the compose-stack reachability check. With both set the
+suite runs with **zero** skips; with neither, one package alone skips 155 tests and still reports
+`ok`. After the cutover, neither is needed.
+
 ## Running the daemon at login
 
-`stats/launchd/com.tweety53.myflowd.plist` is a macOS user launchd agent
-that starts `myflowd` at login, restarts it if it exits non-zero (a clean
+`stats/launchd/com.tweety53.flowd.plist` is a macOS user launchd agent
+that starts `flowd` at login, restarts it if it exits non-zero (a clean
 exit is never restarted, only a crash or failure is), and logs to
-`~/Library/Logs/myflowd.log`. It binds loopback only, the same guarantee
-`myflowd` itself enforces at startup regardless of how it is launched.
+`~/Library/Logs/flowd.log`. It binds loopback only, the same guarantee
+`flowd` itself enforces at startup regardless of how it is launched.
 
 **Loading this agent is a manual operator step.** No skill or command in
 this repository loads it — an agent left running unattended during this
@@ -187,8 +223,8 @@ cd stats && docker compose up -d
 cd stats && make build
 
 # 3. Install and load the agent.
-cp stats/launchd/com.tweety53.myflowd.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.tweety53.myflowd.plist
+cp stats/launchd/com.tweety53.flowd.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.tweety53.flowd.plist
 
 # 4. Confirm it's up.
 curl -s http://127.0.0.1:4173/api/v1/changes
@@ -197,11 +233,11 @@ curl -s http://127.0.0.1:4173/api/v1/changes
 To stop it:
 
 ```bash
-launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist
+launchctl unload ~/Library/LaunchAgents/com.tweety53.flowd.plist
 ```
 
 Unloading stops the daemon without removing the binary or the Postgres
-stack; every `myflow` CLI call falls back to the on-disk journal while it
+stack; every `flow` CLI call falls back to the on-disk journal while it
 is down, per the never-block guarantee, and replays automatically the
 next time the daemon starts.
 

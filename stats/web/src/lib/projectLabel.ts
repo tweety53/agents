@@ -1,7 +1,7 @@
 // projectLabel derives a project's display name from its key. A project
 // key is `<basename of the main checkout>-<first 8 hex of sha1 of that
 // checkout's absolute path>` (State file,
-// skills/myflow-contracts/state-file.md); the hash exists to disambiguate
+// skills/flow-contracts/state-file.md); the hash exists to disambiguate
 // two same-named checkouts, not to be read by a human. This strips that
 // documented suffix -- and only that exact shape, anchored at the end,
 // lowercase hex, exactly eight characters -- and returns the key

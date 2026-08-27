@@ -88,7 +88,7 @@ func SeedPricingRates() []PricingRate {
 // SeedPricing upserts every rate SeedPricingRates returns, through the
 // existing PutPricing -- whose ON CONFLICT (model, effective_from) already
 // makes republishing the same rate a no-op, so calling this at every
-// myflowd startup (cmd/myflowd/main.go) is safe regardless of how many
+// flowd startup (cmd/flowd/main.go) is safe regardless of how many
 // times it has already run.
 func (s *Store) SeedPricing(ctx context.Context) error {
 	for _, r := range SeedPricingRates() {

@@ -39,7 +39,7 @@
 # when that worktree is removed. So every rule in an apply worktree resolves to
 # the main checkout, not to this tree, and rule 1 would report all of them as
 # pointing at the wrong place — failing `## lint` in every apply worktree, which
-# is exactly where a `/myflow-*` change runs its lint. That is a false alarm
+# is exactly where a `/flow*` change runs its lint. That is a false alarm
 # about a correct install, not drift. This guard detects a linked worktree by
 # `.git` being a file rather than a directory, reports it, and exits 0.
 #

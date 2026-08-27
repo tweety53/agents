@@ -4,7 +4,7 @@ no **Build:** tag, or a `red` tag whose task has no **Squash-with:** field,
 an empty one, one naming an absent partner, or one naming a partner that is
 itself `red`.
 
-Rule (canonical definition: skills/myflow-contracts/build-green.md — do not
+Rule (canonical definition: skills/flow-contracts/build-green.md — do not
 restate it here; a second copy is a Single Source of Truth violation, the
 same class of drift check-plan-provenance.py's own docstring warns against).
 

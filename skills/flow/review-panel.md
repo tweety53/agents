@@ -6,7 +6,7 @@ slots**, always, per design.md's `review-panel-fixed-3` — this file carries no
 diff-size/touched-area trigger table; both are gone, not reduced.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Rebuild the dispatch context bundle at the start of this stage too** — never reused from
@@ -73,7 +73,7 @@ check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
 Exit 0 proceeds. Exit 1 puts the choice to the operator, shape per Operator prompts
-(`skills/myflow-contracts/operator-prompts.md`):
+(`skills/flow-contracts/operator-prompts.md`):
 
 > **The panel diff measured `<count>`, over the `<cap>` cap. How should this proceed?**
 > - **Proceed with the panel anyway** *(default, recommended)*
@@ -92,10 +92,10 @@ affected worktree. Never merge two slots into one prompt.
 records for an implementer:
 
 ```bash
-myflow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
+flow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
   -agent-id <id> -diff-base <sha> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -started-at <ts>
-myflow record dispatch end -change <name> -key panel-<round>-<slot> \
+flow record dispatch end -change <name> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
 
@@ -109,7 +109,7 @@ starts from, passed on a slot dispatched against a delta and on no other. `-mode
 own tool result, at launch.** Never invent one.
 
 **Record a slot's dispatch before recording that slot's findings**, and carry the seq the command
-printed — `recorded: dispatch <seq>` — into each of that slot's `myflow record finding` calls as
+printed — `recorded: dispatch <seq>` — into each of that slot's `flow record finding` calls as
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
@@ -118,6 +118,14 @@ dispatch prompt.
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same one
 `skills/flow/implement.md`'s implementer dispatch carries.
+
+**Every slot's dispatch prompt also carries the REPRODUCE, DON'T READ paragraph**:
+
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one check you make MUST exercise the real
+> thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
+> and a passing test can each read plausibly and be false. Run it before you accept it, and run it
+> before you reject it.
 
 ### No forking, and a wall-clock ceiling on every slot
 
@@ -133,7 +141,7 @@ On a breach, in order: stop the slot; close its dispatch row (`-outcome timed-ou
 breach in the panel record, naming the slot and its elapsed time; re-dispatch that one slot once.
 
 A second breach of the same slot is put to the operator, shape per Operator prompts
-(`skills/myflow-contracts/operator-prompts.md`):
+(`skills/flow-contracts/operator-prompts.md`):
 
 > **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
 > - **Re-dispatch it again**
@@ -167,8 +175,8 @@ of `engineering-principles.md` **beside this file** — `skills/flow/`, always. 
 exists before spawning; if it does not, stop and report rather than dispatching a blind reviewer.
 
 **Resolve `[STANDARDS_PATHS]` before dispatching slot 2**, from the `## standards` entries in
-`<project>/.myflow/project.md`, per **Project configuration**
-(`skills/myflow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
+`<project>/.flow/project.md`, per **Project configuration**
+(`skills/flow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
 
 ## Recording findings, and the record's format
@@ -177,7 +185,7 @@ Record which standards files were passed, or that none resolved.
 raises a finding, record it — one call, as it is raised:
 
 ```bash
-myflow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
+flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
   -location <file:line> -status open -reproducer <command | none — reason> \
   -dispatch-seq <seq> -note <the finding>
 ```
@@ -187,7 +195,7 @@ the store's own constraint enforces it. **A fix round updates the finding it res
 appending a second row:**
 
 ```bash
-myflow record status -change <name> -ref F<n> -status fixed
+flow record status -change <name> -ref F<n> -status fixed
 ```
 
 **`-status` carries the whole status text the marker line shows** — a withdrawal passes its reason
@@ -196,7 +204,7 @@ with it: `-status 'withdrawn <the operator's reason>'`.
 **Render the record when the panel closes** — every slot's result clean, no finding open:
 
 ```bash
-myflow record render -change <name> -kind panel -repo <abs-worktree>
+flow record render -change <name> -kind panel -repo <abs-worktree>
 ```
 
 **A panel that raised nothing still renders**, declaring `findings-total: 0`. There is no
@@ -377,7 +385,7 @@ Give the surviving findings to **one** fix subagent as the combined list. Where 
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
 writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
-old Opus-panel-fix default `skills/myflow-contracts/model-policy.md` still describes for the retired
+old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
 per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. Record
 every pass in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
@@ -386,9 +394,9 @@ identity together with the reproducer output it carried back.
 **The fix subagent's own dispatch is recorded too, with `-role panel-fix`:**
 
 ```bash
-myflow record dispatch begin -change <name> -role panel-fix -model <m> \
+flow record dispatch begin -change <name> -role panel-fix -model <m> \
   -key panel-fix-<round> -session-token mf-<literal-token> -started-at <ts>
-myflow record dispatch end -change <name> -key panel-fix-<round> \
+flow record dispatch end -change <name> -key panel-fix-<round> \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
   -agent-id <id>
 ```
@@ -406,7 +414,7 @@ the run hands back to the operator, one finding at a time:
 Only that answer records `withdrawn`, and only with the reason the operator gives.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
+flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
 ```
 
 Once this stage ends clean — zero open findings at any severity, no stale result — continue into

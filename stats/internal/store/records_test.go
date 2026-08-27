@@ -798,7 +798,7 @@ func TestRecordDispatchReturnsID(t *testing.T) {
 //
 // It is a test rather than a bare method because the failure it guards
 // against is silent in exactly the way this repository has already been
-// bitten by (cmd/myflowd's own wiring test records the same lesson): a
+// bitten by (cmd/flowd's own wiring test records the same lesson): a
 // join that resolves nothing returns no windows, no window attributes no
 // record, and every dispatch's metrics bag simply stays empty with nothing
 // failing anywhere.
@@ -1174,7 +1174,7 @@ func TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres(t *te
 //
 // The distinction is the whole point of the test. insertDispatch defaults
 // an empty Metrics to the JSON object `{}` on the way in, so the shape a
-// dispatch actually has between `myflow record dispatch` and the harvester
+// dispatch actually has between `flow record dispatch` and the harvester
 // running -- and the PERMANENT shape of every dispatch on Cursor and
 // Codex, which write no transcript at all -- is two bytes, never
 // zero-length and never SQL NULL. A renderer that decided "nothing was

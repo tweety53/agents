@@ -52,10 +52,10 @@ var _ RecordStore = (*store.Store)(nil)
 // internal/reconcile retires rather than requeueing, since a body refused
 // on these grounds is refused identically forever.
 //
-// It deliberately does not cover the checks cmd/myflow makes for itself --
+// It deliberately does not cover the checks cmd/flow makes for itself --
 // an unrecognised -role, a session token carrying a shell substitution.
 // Those are the spec's *first* kind of caller mistake, judged before any
-// network call, and a role this build of myflowd has never heard of is not
+// network call, and a role this build of flowd has never heard of is not
 // a reason for the daemon to reject a row it can store perfectly well.
 var ErrInvalidRecord = errors.New("api: invalid record")
 

@@ -3,7 +3,7 @@
 # under TMPDIR for every case; never touches the real repository tree.
 #
 # Asserts against commit-split.sh's own contract (mirrored from
-# skills/myflow-contracts/pipeline.md's "Git boundaries" section, the
+# skills/flow-contracts/pipeline.md's "Git boundaries" section, the
 # canonical spec this script implements): two guarded commits, each skipped
 # rather than failed when its staging area is empty, a capability spec under
 # spectre/specs/ landing on the implementation side of the split, and a

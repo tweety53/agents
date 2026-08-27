@@ -2,7 +2,7 @@
 # check-panel-reproducers.sh <worktree> <change-name>
 #
 # THE CHANGE NAME IS A SECOND ARGUMENT because a change's findings are rows
-# in the store, keyed by change name, not a file at a fixed path. `myflow
+# in the store, keyed by change name, not a file at a fixed path. `flow
 # record findings -change <name> -C <worktree>` answers with the JSON array
 # of that change's findings — one object per finding, carrying at least
 # `ref`, `status` and `reproducer` — and this guard reads that array, never
@@ -13,7 +13,7 @@
 # fix instruction built on it. A finding with no runnable check declares the
 # exemption form `none — <reason>` instead.
 #
-# Reads ONLY the decoded JSON array `myflow record findings` prints. It
+# Reads ONLY the decoded JSON array `flow record findings` prints. It
 # never parses a findings table, a Markdown file, or a marker block — for
 # the same reason check-unfinished-work.sh does not: a hand-rolled parser
 # has repeatedly hidden an open finding behind a shape it was not written to
@@ -56,7 +56,7 @@ NAME="${2:-}"
 
 # CONTAINMENT, identical to check-unfinished-work.sh's own Protection 1. The
 # change name arrives from a pull-request-editable state file and is passed
-# to `myflow record findings -change`, so the same hazards apply here:
+# to `flow record findings -change`, so the same hazards apply here:
 # `../../../planted` names a change outside any sane scope, and a glob
 # metacharacter has no business in a plain change name either.
 #
@@ -75,11 +75,11 @@ case "$NAME" in
     exit 2
     ;;
 esac
-# Canonicalise to an absolute path before it is ever passed to `myflow` as
+# Canonicalise to an absolute path before it is ever passed to `flow` as
 # `-C`. A worktree argument that is a RELATIVE path beginning with `-`
 # (`scripts/check-panel-reproducers.sh -dashy`, run from the directory that
 # contains it) would otherwise make `-C`'s value look like a flag to
-# `myflow`'s own argument parser. `cd ... && pwd -P` always yields a path
+# `flow`'s own argument parser. `cd ... && pwd -P` always yields a path
 # rooted at `/`, which closes that hazard; `pwd -P` rather than the bare
 # builtin, matching scripts/run-reproducer.sh's own canonicalisation of the
 # same variable: bash's `pwd` is logical by default and does not resolve a
@@ -99,15 +99,15 @@ esac
 # instead.
 WORKTREE="$(cd -- "$WORKTREE" && pwd -P)" || { echo "check-panel-reproducers: worktree vanished before it could be resolved: ${WORKTREE}" >&2; exit 2; }
 
-# THE STORE IS QUERIED ONCE, and a non-zero exit from `myflow record
+# THE STORE IS QUERIED ONCE, and a non-zero exit from `flow record
 # findings` is this guard's own exit 2 — "cannot determine anything" — never
-# exit 1's "violations found" and never exit 0's "clean". `myflow record
+# exit 1's "violations found" and never exit 0's "clean". `flow record
 # findings` itself never journals and never falls back to "no findings" for
 # a store it could not reach (see its own doc comment in
-# stats/cmd/myflow/record.go): a change the store has genuinely never heard
+# stats/cmd/flow/record.go): a change the store has genuinely never heard
 # of prints `[]` at exit 0, and only a real connection failure reaches this
 # branch.
-if ! FINDINGS_JSON="$(myflow record findings -change "$NAME" -C "$WORKTREE" 2>&1)"; then
+if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>&1)"; then
   echo "check-panel-reproducers: cannot read findings for '$NAME' from the store — cannot determine anything: $FINDINGS_JSON" >&2
   exit 2
 fi
@@ -172,7 +172,7 @@ while IFS= read -r ref; do
   # A RUNNABLE REPRODUCER'S COMMAND MUST BE A BARE PATH SHAPE, never a shell
   # command line. /myflow-do runs a passing reproducer as a direct exec,
   # with an argument vector, never through a shell (see
-  # skills/myflow-do/SKILL.md section 5) — but the store's reproducer field
+  # skills/flow/review-panel.md) — but the store's reproducer field
   # is subagent-authored text, exactly the kind of attacker-influenceable
   # input this repository already treats a Jira summary or a `## standards`
   # entry as, and nothing short of this guard stops a value such as
@@ -210,7 +210,7 @@ while IFS= read -r ref; do
   #     (`scripts/x.sh`, `../x` is rejected but `foo..bar.sh` is not, since
   #     `..` there is not a path segment) still needs resolving against a
   #     real worktree to know whether it stays inside — that resolution is
-  #     `skills/myflow-do/SKILL.md`'s own dispatch-time containment check,
+  #     `skills/flow/review-panel.md`'s own dispatch-time containment check,
   #     run against the worktree that actually exists at dispatch time, not
   #     here.
   #

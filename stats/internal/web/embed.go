@@ -1,5 +1,5 @@
 // Package web embeds the built SPA (stats/web, built by Vite) into the
-// myflowd binary and serves it: static assets as-is, and index.html for
+// flowd binary and serves it: static assets as-is, and index.html for
 // any path the built app doesn't recognise as one of its own files, so
 // client-side routing can take over.
 //
@@ -51,7 +51,7 @@ func FS() (fs.FS, error) {
 
 // Handler serves fsys (as returned by FS) as the SPA: a request naming a
 // file that exists in fsys is served as that file; any other request --
-// "/", "/changes/kan-16-myflow-stats-app", a path the client-side router
+// "/", "/changes/kan-16-flow-stats-app", a path the client-side router
 // owns and the build never produced a file for -- is answered with
 // index.html so the SPA's own router can take over.
 //

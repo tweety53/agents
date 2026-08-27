@@ -32,7 +32,7 @@
 # down.
 #
 # SIGNAL TWO READS THE STORE, NOT A RENDERED FILE. A change's findings are
-# rows in the store, keyed by change name, and `myflow record findings -change
+# rows in the store, keyed by change name, and `flow record findings -change
 # <name> -C <worktree>` answers with the decoded JSON array — the same verb
 # check-panel-reproducers.sh reads. There is no longer a rendered panel record
 # for this guard to resolve a path to, and no missing-file case for it either:
@@ -82,7 +82,7 @@ if [ -z "$WORKTREE" ] || [ -z "$NAME" ]; then
 fi
 
 # CONTAINMENT: the change name arrives from a pull-request-editable state file
-# and is concatenated into every path below, and passed to `myflow record
+# and is concatenated into every path below, and passed to `flow record
 # findings -change`. Without this check `../../../planted/clear` makes the
 # gate read a plan outside the worktree entirely and report CLEAR for a
 # change that has no plan of its own, and a glob metacharacter reaches the
@@ -171,7 +171,7 @@ count_unticked() {
 #
 # THE PRIMARY PLAN IS TRACKED SEPARATELY FROM THE REST, because their absences
 # mean opposite things. `spectre/changes/<name>/tasks.md` is the change's plan
-# and every myflow change has one: missing, it is outstanding like any other
+# and every flow change has one: missing, it is outstanding like any other
 # missing record, and reporting "every plan item is checked" over a change with
 # no plan at all is the same silent clearance the header rejects. A fix
 # sub-change's plan is genuinely optional — most changes have none — so its
@@ -227,15 +227,29 @@ fi
 # status, and a withdrawal with no reason, cannot reach this guard at all;
 # there is no branch here to detect either shape any more.
 #
-# THE STORE IS QUERIED ONCE, and a non-zero exit from `myflow record findings`
+# THE STORE IS QUERIED ONCE, and a non-zero exit from `flow record findings`
 # is this guard's own exit 2 — "cannot determine anything" — never exit 1's
 # "outstanding work found" and never exit 0's "clean". A change the store has
 # genuinely never heard of, or one that raised no findings, prints `[]` at
 # exit 0, which is the zero-findings case below, not a refusal.
-if ! FINDINGS_JSON="$(myflow record findings -change "$NAME" -C "$WORKTREE" 2>&1)"; then
-  echo "check-unfinished-work: cannot read findings for '$NAME' from the store — cannot determine anything: $FINDINGS_JSON" >&2
+# STDOUT AND STDERR ARE CAPTURED SEPARATELY, and that separation is the whole
+# point. `flow` writes diagnostics to stderr -- most reliably the
+# `flow: using FLOW_ADDR=...` line it prints whenever the address is
+# overridden -- while the JSON this guard parses goes to stdout. Folding the
+# two together with `2>&1` puts that diagnostic line at the head of the
+# payload, and `jq` then fails with a parse error on a run that actually
+# succeeded. The failure mode is invisible in ordinary use and certain under
+# the one workflow this repository documents for pointing a session at a
+# second daemon (`export FLOW_ADDR=http://127.0.0.1:4174`, per the ui-test
+# stack), which is exactly the shape that makes it worth fixing rather than
+# tolerating: it breaks only for the operator who followed the instructions.
+FINDINGS_ERR="$(mktemp)"
+if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>"$FINDINGS_ERR")"; then
+  echo "check-unfinished-work: cannot read findings for '$NAME' from the store — cannot determine anything: $(cat "$FINDINGS_ERR")" >&2
+  rm -f "$FINDINGS_ERR"
   exit 2
 fi
+rm -f "$FINDINGS_ERR"
 
 # An open finding is any finding whose status is neither `fixed` nor a
 # `withdrawn <reason>` value — `startswith("withdrawn")` covers the whole

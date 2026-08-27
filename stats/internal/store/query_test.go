@@ -20,7 +20,7 @@ import (
 // resolves to the session_id column and returns the right rows.
 //
 // This exists because, before this test, nothing exercised that mapping
-// at all: storeWindowSource.WindowsForSession (cmd/myflowd/main.go) is
+// at all: storeWindowSource.WindowsForSession (cmd/flowd/main.go) is
 // the sole production caller of this filter, and every other test in
 // this package either omits a session_id filter or uses the fixed
 // literal "session-1" that baseBeginInput hands every stage run by

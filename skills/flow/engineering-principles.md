@@ -1,6 +1,6 @@
 # Engineering Principles
 
-The single source of truth for the engineering principles every myflow implementation
+The single source of truth for the engineering principles every flow implementation
 must satisfy. Implementer dispatches in `/flow` require this file as reading; the panel's principles reviewer checks
 the diff against it via [principles-reviewer-prompt.md](principles-reviewer-prompt.md).
 

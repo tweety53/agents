@@ -150,7 +150,7 @@ const claudeCodeHarness = "claude-code"
 // recognisable as "nobody ever ran /myflow-start for this", exactly the
 // defect design.md says a mark for an unknown change is worth seeing. It
 // lives in internal/stages, the one package both this daemon-side file and
-// cmd/myflow/state.go already import, so the two sides test the same
+// cmd/flow/state.go already import, so the two sides test the same
 // constant rather than two copies of its literal.
 
 // ErrInvalidSessionToken is returned by ApplyBeginStageMark when mark.SessionToken is
@@ -174,12 +174,12 @@ var sessionTokenShellVarPattern = regexp.MustCompile(`\$[A-Za-z_]`)
 // validateSessionTokenShape rejects a sessionToken that cannot identify anything: one
 // that is empty, or that carries a shell-substitution shape a caller's own
 // shell would expand before the transcript is ever written --
-// cmd/myflow/stage.go's runStageBegin runs the identical check, client
+// cmd/flow/stage.go's runStageBegin runs the identical check, client
 // side, before the store is ever contacted, for the same reason
 // stages.Validate is checked in both places (defence in depth: a mark
 // replayed from internal/reconcile's journal reaches ApplyBeginStageMark
 // without ever passing back through the CLI's own check). The two copies
-// are not shared code -- cmd/myflow knows only HTTP, never this package
+// are not shared code -- cmd/flow knows only HTTP, never this package
 // (design.md, "Boundaries") -- so a change to one must be mirrored in the
 // other; each has its own test file pinning the same three shapes and the
 // same reasoning in its message.
@@ -242,7 +242,7 @@ func IsDefinitiveMarkOutcome(err error) bool {
 	case errors.As(err, &unknownStage):
 		// The caller (or a journalled mark replaying against a README
 		// table that has since changed) named a stage this build of
-		// myflowd does not document. That will not resolve itself by
+		// flowd does not document. That will not resolve itself by
 		// retrying the identical entry.
 		return true
 	case errors.Is(err, ErrInvalidSessionToken):
@@ -353,7 +353,7 @@ func (h *stageHandler) begin(w http.ResponseWriter, r *http.Request) {
 //
 // It validates mark.Stage against internal/stages' documented table before
 // touching the store -- defence in depth alongside the CLI's own identical
-// check (cmd/myflow/stage.go), since design.md's non-negotiable
+// check (cmd/flow/stage.go), since design.md's non-negotiable
 // requirement is that no undocumented stage name is ever recorded, not
 // merely that the CLI happens to be the only caller today. A journalled
 // mark replayed after README.md's table has since changed is caught here
@@ -477,14 +477,14 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 //
 // mark carries no harness -- deliberately. An earlier version of this
 // task (task 10's own first commit) had `stage end` re-resolve
-// $MYFLOW_HARNESS/-harness itself and send tokens_available: false
+// $FLOW_HARNESS/-harness itself and send tokens_available: false
 // whenever that value was not "claude-code". Post-commit review (finding
 // F1) found this unsound: nothing ties an end mark's own harness
 // resolution to the harness BeginStage actually recorded for this run, so
 // design.md's own canonical example --
-// `myflow stage end --change ... --outcome completed`, no -harness given
+// `flow stage end --change ... --outcome completed`, no -harness given
 // -- would mark a genuine claude-code run's tokens unavailable the moment
-// $MYFLOW_HARNESS was unset in the ending shell, producing exactly the
+// $FLOW_HARNESS was unset in the ending shell, producing exactly the
 // false-negative this task exists to prevent: an internally inconsistent
 // row carrying both real, harvested tokens.* figures and a flag claiming
 // they don't exist.
@@ -498,7 +498,7 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 // that could disagree with it.
 //
 // Unlike EndStage/MergeMetrics in internal/store, this never learns a
-// stage run id from its caller -- design.md's own example (`myflow stage
+// stage run id from its caller -- design.md's own example (`flow stage
 // end --change ... --outcome completed`) names none either -- so it
 // resolves the run itself: the most recent (highest attempt) stage run
 // for mark's project, change, command and stage that has no end mark yet,

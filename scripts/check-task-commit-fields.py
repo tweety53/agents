@@ -10,7 +10,7 @@ checks skip, rather than fail, when unsupported"). `Files:`,
 `Tests:` and `Commit:` are checked directly against git (`check_files`,
 `check_tests`, `check_commit_subject`). `Regression:` and `Baseline:`
 (`check_regression`, `check_baseline`) additionally need the project's
-`## test` command, read out of `.myflow/project.md` in the worktree
+`## test` command, read out of `.flow/project.md` in the worktree
 (`read_single_test_command`) — when that command cannot be targeted at a
 single named test or does not report a parseable count, both checks report
 skipped-not-verified instead of failing the run.
@@ -27,7 +27,7 @@ Folded red tasks
 
 A task tagged `**Build:** red` carries `**Squash-with:** Task <N>`, naming
 one or more partners in the same plan, and its commit is folded into that
-one unit's commit before review (see skills/myflow-contracts/build-
+one unit's commit before review (see skills/flow-contracts/build-
 green.md). After the fold the red task has NO commit of its own: its
 declared `Commit:` subject exists nowhere, and one commit carries every
 folded task's files. Checking it against a commit of its own is therefore
@@ -279,8 +279,8 @@ TARGETED_RESULT_RE = re.compile(r"^RESULT\s+(\S+):\s*(pass|fail)\s*$", re.MULTIL
 TOTAL_COUNT_RE = re.compile(r"^COUNT:\s*(\d+)\s*$", re.MULTILINE)
 
 # PROJECT_TEST_SECTION_RE / MARKDOWN_HEADING_RE / FENCE_LINE_RE — read the
-# fenced command list under `.myflow/project.md`'s own `## test` heading,
-# the same section `.myflow/project.md`'s own prose documents as the source
+# fenced command list under `.flow/project.md`'s own `## test` heading,
+# the same section `.flow/project.md`'s own prose documents as the source
 # of truth for this repository's test commands. FENCE_LINE_RE is scoped to
 # that file: it gates the whole physical line on three backticks, which is
 # all `## test`'s own block has ever used. A task body's fences are
@@ -495,7 +495,7 @@ def _fold_group(
 ) -> Tuple[List[str], List[str], Optional[str], List[str]]:
     """Resolve every partner a `Build: red` task's `Squash-with:` names —
     "one or more other tasks in the same plan", per **The build-green tag**
-    (`skills/myflow-contracts/build-green.md`). Returns `(partner files,
+    (`skills/flow-contracts/build-green.md`). Returns `(partner files,
     partner allowed-collateral, the folded commit's expected subject,
     violations)`.
 
@@ -688,7 +688,7 @@ def resolve_folded_task(
     lines: List[str], task: TaskFields
 ) -> Tuple[TaskFields, List[str]]:
     """Resolve a folded task against the whole fold its commit carries, per
-    `myflow-task-commit-fields`'s requirement **A folded red task is checked
+    `flow-task-commit-fields`'s requirement **A folded red task is checked
     against its partner's commit**. Returns `(task to check, violations found
     resolving it)`; a non-empty violation list is a plan defect and the caller
     reports it instead of checking anything.
@@ -858,7 +858,7 @@ def check_commit_subject(task: TaskFields, actual_subject: str) -> List[str]:
 
 
 # _LEADING_KEY_RE: a Jira key is `<letters>-<digits>` — never digits alone —
-# at the very start of the change name (per skills/myflow-contracts/
+# at the very start of the change name (per skills/flow-contracts/
 # jira-integration.md's own `[A-Z]{2,10}-\d+` shape and this repository's
 # "Change naming" convention, `<key>-<slug>`; matched case-insensitively
 # here since check_commit_scope's own comparison is, per finding B).
@@ -896,7 +896,7 @@ def _leading_jira_key(change_name: str) -> Optional[str]:
 
 def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
     """Fail when the **declared** `Commit:` field's scope — parsed out of
-    `task.commit`, never the real commit's subject, per myflow-commit-
+    `task.commit`, never the real commit's subject, per flow-commit-
     scope's requirement — equals the change name, the change name's bare
     Jira key, or a dotted/numeric task id. A field with no scope, or any
     other scope, passes: there is no vocabulary of legal module names to
@@ -940,7 +940,7 @@ def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
 
 
 def read_single_test_command(worktree: str) -> Optional[str]:
-    """Read `<worktree>/.myflow/project.md`'s `## test` section and return
+    """Read `<worktree>/.flow/project.md`'s `## test` section and return
     its one command line, or `None` when the section is absent, empty, or
     names more than one command.
 
@@ -953,7 +953,7 @@ def read_single_test_command(worktree: str) -> Optional[str]:
     fallback exists for; it is not a parsing failure, so this returns
     `None` rather than raising.
     """
-    project_md = os.path.join(worktree, ".myflow", "project.md")
+    project_md = os.path.join(worktree, ".flow", "project.md")
     try:
         with open(project_md, "r", encoding="utf-8") as handle:
             lines = handle.read().splitlines()
@@ -996,7 +996,7 @@ def _commit_reverted(worktree: str, commit_sha: str):
     """Revert `commit_sha` in `worktree`'s working tree (uncommitted, via
     `git revert --no-commit`) for the body of the `with` block, then
     unconditionally restore the pre-revert state with `git reset --hard
-    commit_sha` on the way out — the "revert, ..., un-revert" `myflow-task-
+    commit_sha` on the way out — the "revert, ..., un-revert" `flow-task-
     commit-fields` describes for `Regression:`, reused for `Baseline:`'s
     "run at the parent commit" (a task commit's revert lands exactly on its
     parent's tree, since this runs immediately after that commit with
@@ -1132,7 +1132,7 @@ def check_task_commit(
     """Returns `(violations, notices)`: `violations` fail the run (exit 1),
     `notices` are skipped-not-verified reports from `Regression:`/
     `Baseline:` that are printed but never affect the exit code, per
-    `myflow-task-commit-fields`'s requirement **Regression and Baseline
+    `flow-task-commit-fields`'s requirement **Regression and Baseline
     checks skip, rather than fail, when unsupported**."""
     with open(tasks_md_path, "r", encoding="utf-8") as handle:
         lines = handle.read().splitlines()

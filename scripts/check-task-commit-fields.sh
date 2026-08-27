@@ -5,7 +5,7 @@
 # check-task-commit-fields.py (Python 3, standard library only), following
 # the same split check-task-build-green.sh uses and for the same reason:
 # this file exists only so an operator's muscle memory invoking this exact
-# filename, and .myflow/project.md's declared commands, keep working, while
+# filename, and .flow/project.md's declared commands, keep working, while
 # the field grammar underneath gets a real parser.
 #
 # Unlike check-task-build-green.sh (which resolves WHICH tasks.md files to

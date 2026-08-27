@@ -143,7 +143,25 @@ fi
 [[ -r "$TARGET" ]] || die "cannot read directory: $TARGET"
 
 # The five angle labels, in the report shape's own order.
-ANGLE_LABELS=(myflow-fix myflow-cost myflow-improvement myflow-automation myflow-stats-app)
+ANGLE_LABELS=(flow-fix flow-cost flow-improvement flow-automation flow-stats-app)
+
+# LEGACY_ANGLE_LABELS -- the same five angles under the names they carried
+# before the myflow->flow rename, POSITIONALLY ALIGNED with ANGLE_LABELS above.
+#
+# THIS IS NOT A COMPATIBILITY SHIM, AND IT IS NOT OPTIONAL. The reports under
+# docs/self-review/ are immutable records of runs that really happened, and the
+# twelve this guard actually checks were written when the labels were spelled
+# `myflow-fix`, `myflow-cost` and so on. Renaming ANGLE_LABELS alone -- with no
+# legacy set -- makes this guard report 166 violations across all twelve of
+# them, because every angle heading they carry stops being recognised. Measured
+# by doing exactly that and running the guard over the real corpus.
+#
+# Rewriting those reports to match a renamed guard is the wrong repair: it would
+# edit the record of what past runs found in order to satisfy a present-day
+# spelling. So the guard reads both eras instead. An author writing a report
+# today uses ANGLE_LABELS; a report written before the rename keeps its own
+# names and stays readable.
+LEGACY_ANGLE_LABELS=(myflow-fix myflow-cost myflow-improvement myflow-automation myflow-stats-app)
 
 # Regex patterns are kept in variables and referenced unquoted in `[[ =~ ]]`
 # below rather than written inline: bash's quote-removal strips a literal
@@ -342,8 +360,29 @@ for f in "${FILES[@]:-}"; do
       cur=""
       for i in "${!ANGLE_LABELS[@]}"; do
         quoted_label='`'"${ANGLE_LABELS[$i]}"'`'
+        quoted_legacy='`'"${LEGACY_ANGLE_LABELS[$i]}"'`'
+        # Either spelling identifies the same angle at the same index, and
+        # `cur` MUST be the spelling the report actually used -- not the
+        # canonical one. `cur` is compared against each finding line's own
+        # `[label]` further down, so a legacy report whose section reads
+        # `myflow-fix` and whose finding lines read `myflow-fix` would be
+        # reported as self-contradictory ("finding line label `myflow-fix`
+        # does not match its section `flow-fix`") the moment `cur` is
+        # canonicalised. Measured: canonicalising it fails three harness cases
+        # AND the real historical report
+        # docs/self-review/2026-08-24-kan-284-store-rejects-same-state-write.md.
+        #
+        # The cost is that a message pairing `cur` with a NEIGHBOURING label
+        # drawn from ANGLE_LABELS can name two eras in one sentence. That is
+        # accepted: a slightly mixed sentence beats telling an author their
+        # report contradicts itself when it does not.
         if [[ "$line" == *"$quoted_label"* ]]; then
           cur="${ANGLE_LABELS[$i]}"
+          idx="$i"
+          break
+        fi
+        if [[ "$line" == *"$quoted_legacy"* ]]; then
+          cur="${LEGACY_ANGLE_LABELS[$i]}"
           idx="$i"
           break
         fi

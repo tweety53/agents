@@ -10,10 +10,10 @@
 # project's `## workspace isolation` section declares, resolved against the
 # workspace id. Every rule this script applies is stated once, and canonical,
 # elsewhere: the id derivation and what it derives under **The workspace id**
-# and **What the id derives** (skills/myflow-contracts/workspace-isolation.md),
+# and **What the id derives** (skills/flow-contracts/workspace-isolation.md),
 # and the `## workspace isolation` row shapes — the four `In a workspace`
 # forms, the `<id>`, `<id_underscored>` and `<value:VARIABLE>` tokens — under
-# **Project configuration** (skills/myflow-contracts/project-configuration.md).
+# **Project configuration** (skills/flow-contracts/project-configuration.md).
 # This script re-derives none of that reasoning; it applies the rule.
 #
 # Prints one `KEY=value` line per exported variable to stdout, one per
@@ -32,9 +32,9 @@
 # guessing at a name.
 #
 # THE CACHE INDEX IS THE ONE ROW THIS SCRIPT DOES NOT EXPORT. Per **The cache
-# index** (skills/myflow-contracts/workspace-isolation.md), a `cache index`
+# index** (skills/flow-contracts/workspace-isolation.md), a `cache index`
 # row is claimed by probing the project's own cache, not derived from the id —
-# and the registry in skills/myflow-contracts/pipeline.md names `/myflow-do`,
+# and the registry in skills/flow-contracts/pipeline.md names `/myflow-do`,
 # by probing, as what claims it "when it exports the workspace's variables".
 # Probing means holding a client for whatever cache technology the project
 # actually runs, which is exactly the kind of project-specific knowledge a
@@ -57,7 +57,7 @@
 # A project declaring no `## workspace isolation` section is the ordinary
 # case for a repository with no runnable application, and is never reported
 # as a misconfiguration, per **The empty id**
-# (skills/myflow-contracts/workspace-isolation.md).
+# (skills/flow-contracts/workspace-isolation.md).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -93,7 +93,7 @@ fi
 # CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=1 asks the guard to append each
 # validated resource row to its own report, as a `#ROW` line, once it has
 # finished validating — see check-workspace-isolation.sh's own comment on
-# that variable. This is the ONE parse of `.myflow/project.md`'s resource
+# that variable. This is the ONE parse of `.flow/project.md`'s resource
 # table this script needs: the guard already walked the file's cells to
 # validate them, and the rows below are extracted from that same walk rather
 # than a second one this script would otherwise have to run itself.
@@ -107,14 +107,17 @@ if [ "$GUARD_RC" -ne 0 ]; then
   exit "$GUARD_RC"
 fi
 
-CFG="$WORKTREE/.myflow/project.md"
+CFG="$WORKTREE/.flow/project.md"
 ISO_HEADING='^##[[:space:]]+workspace isolation[[:space:]]*$'
 
-# No `.myflow/project.md`, or one declaring no `## workspace isolation`
+# No `.flow/project.md`, or one declaring no `## workspace isolation`
 # section, is a no-op: nothing exported, nothing printed. The guard above
-# already confirmed this file — if present — is well formed, so the only
-# question left here is whether the section exists at all, exactly mirroring
-# the guard's own no-op case for a project with no such section.
+# already confirmed this file — if present — is well formed, and refused
+# with an actionable error rather than a silent no-op if the worktree still
+# carried only the retired `.myflow/`, per design.md's dotmyflow-hard-cutover
+# — so the only question left here is whether the section exists at all,
+# exactly mirroring the guard's own no-op case for a project with no such
+# section.
 if [ ! -f "$CFG" ]; then
   exit 0
 fi
@@ -125,7 +128,7 @@ fi
 # The change name, read from the worktree's own branch. Every apply worktree
 # is created on `spectre/<name>` per section 2 of skills/myflow-do/SKILL.md,
 # and the id is derived from the change name and nothing else, per **The
-# workspace id** (skills/myflow-contracts/workspace-isolation.md).
+# workspace id** (skills/flow-contracts/workspace-isolation.md).
 BRANCH="$(git -C "$WORKTREE" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 case "$BRANCH" in
   spectre/*)
@@ -138,7 +141,7 @@ case "$BRANCH" in
 esac
 
 # The workspace id — prefix and digest joined by '-' — derived exactly as
-# **The workspace id** (skills/myflow-contracts/workspace-isolation.md)
+# **The workspace id** (skills/flow-contracts/workspace-isolation.md)
 # states, under LC_ALL=C so the normalisation is locale-independent.
 PREFIX="$(printf '%s' "$NAME" | LC_ALL=C tr 'A-Z' 'a-z' | LC_ALL=C tr -c 'a-z0-9' '-')"
 while [ "${#PREFIX}" -gt 12 ] && [ "${PREFIX%-*}" != "$PREFIX" ]; do PREFIX="${PREFIX%-*}"; done
@@ -149,7 +152,7 @@ ID_UNDERSCORED="${ID//-/_}"
 OFFSET=$(( (16#$DIGEST % 400 + 1) * 10 ))
 
 # The resource table's rows, already parsed and validated — extracted from
-# the guard's own report rather than re-reading `.myflow/project.md`. Every
+# the guard's own report rather than re-reading `.flow/project.md`. Every
 # line of $GUARD_OUT that starts `#ROW\t` is one resource row the guard's awk
 # program walked while validating it (see check-workspace-isolation.sh's
 # check_resource_row and its CHECK_WORKSPACE_ISOLATION_PRINT_ROWS comment);
@@ -182,7 +185,7 @@ N=${#VAR[@]}
 
 # substitute_id_tokens <cell> — <id> and <id_underscored>, the two tokens
 # every `database`, `bucket` and `url` cell may carry, per **What the id
-# derives** (skills/myflow-contracts/workspace-isolation.md). The two tokens
+# derives** (skills/flow-contracts/workspace-isolation.md). The two tokens
 # never overlap as literal substrings, so the order they are replaced in does
 # not matter.
 substitute_id_tokens() {
@@ -202,7 +205,7 @@ substitute_id_tokens() {
 # the only ones Pass 1 (below) gives a WSVAL before this runs, so a reference
 # resolving to any other kind — a `url` row (forbidden per **What a `url` row
 # may reference, and what it may not**,
-# skills/myflow-contracts/project-configuration.md — a `url` row may never
+# skills/flow-contracts/project-configuration.md — a `url` row may never
 # reference another `url` row, so this table read cleanly by definition never
 # produces one) or a `cache index` row (never given a WSVAL at all, per **The
 # cache index** below) — would still find the VARIABLE by name and substitute
@@ -222,7 +225,7 @@ resolve_value_refs() {
         case "${RES[$i]}" in
           database|bucket|port) found=1 ;;
           *)
-            echo "prepare-workspace: <value:$name> resolves to \`${VAR[$i]}\`, a \`${RES[$i]}\` row — a reference may only name a \`database\`, \`bucket\` or \`port\` row, per **What a \`url\` row may reference, and what it may not** (skills/myflow-contracts/project-configuration.md) — refusing rather than substituting an empty or stale value" >&2
+            echo "prepare-workspace: <value:$name> resolves to \`${VAR[$i]}\`, a \`${RES[$i]}\` row — a reference may only name a \`database\`, \`bucket\` or \`port\` row, per **What a \`url\` row may reference, and what it may not** (skills/flow-contracts/project-configuration.md) — refusing rather than substituting an empty or stale value" >&2
             exit 2
             ;;
         esac
@@ -263,7 +266,7 @@ for ((i = 0; i < N; i++)); do
       WSVAL[$i]=$(( 10#${DEF[i]} + OFFSET ))
       ;;
     "cache index")
-      echo "prepare-workspace: \`${VAR[$i]}\` (cache index) is claimed by probing the project's own cache, not derived from the workspace id — per the registry in skills/myflow-contracts/pipeline.md, \`/myflow-do\` claims it, by probing, when it exports the workspace's variables. This script does not carry a client for the project's cache, so this row is reported rather than exported; claim it against the real service before anything reads \`${VAR[$i]}\`." >&2
+      echo "prepare-workspace: \`${VAR[$i]}\` (cache index) is claimed by probing the project's own cache, not derived from the workspace id — per the registry in skills/flow-contracts/pipeline.md, \`/myflow-do\` claims it, by probing, when it exports the workspace's variables. This script does not carry a client for the project's cache, so this row is reported rather than exported; claim it against the real service before anything reads \`${VAR[$i]}\`." >&2
       ;;
   esac
 done

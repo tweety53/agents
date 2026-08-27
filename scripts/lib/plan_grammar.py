@@ -74,7 +74,7 @@ check-task-commit-fields.py's task-body field loop uses since fix round 10
 indented example block was invisible to it alone and the `**Files:**`
 written inside a worked example overwrote the task's real declaration
 (F21). check-task-commit-fields.py's remaining `FENCE_LINE_RE` parses
-`.myflow/project.md`'s `## test` block, which is a different file with its
+`.flow/project.md`'s `## test` block, which is a different file with its
 own cases.
 
 Standard library only (see check-plan-provenance.py's module docstring for
@@ -99,7 +99,7 @@ DOTTED_ID = r"\d+(?:\.\d+)*"
 # (`(\d+)` in its internal/parse/tasks.go). A dotted id on a task line is a
 # "malformed task line" finding to spectre and no task at all, so admitting
 # one here would recreate, in a narrower form, the very disagreement the
-# checkbox line ended: myflow would dispatch and gate a task spectre never
+# checkbox line ended: flow would dispatch and gate a task spectre never
 # counts. Sub-tasks are therefore renumbered flat rather than written
 # `1.1`.
 TASK_ID = r"\d+"
@@ -119,9 +119,9 @@ FENCE_RE: Pattern[str] = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 #
 # This is spectre's own task grammar (`^- \[([ x])\] (\d+)\. (.*)$` in its
 # internal/parse/tasks.go) character for character, and it replaces the
-# `### <id> <title>` heading a myflow plan used to mark a task with.
+# `### <id> <title>` heading a flow plan used to mark a task with.
 # Recognising BOTH shapes was rejected: while the two grammars disagreed,
-# spectre saw no tasks in a real myflow plan at all — `spectre list`
+# spectre saw no tasks in a real flow plan at all — `spectre list`
 # reported 0/0, `spectre validate` reported one false "malformed task line"
 # per step checkbox, and `spectre archive` refused with "tasks.md has no
 # tasks" — and a grammar admitting a shape spectre rejects would leave that

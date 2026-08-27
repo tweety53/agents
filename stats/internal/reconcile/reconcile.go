@@ -1,17 +1,17 @@
 // Package reconcile replays the CLI's write-ahead journal
 // (internal/fallback) into the store (internal/store): at daemon startup,
 // whenever the daemon regains a database connection, and on demand via
-// `myflow journal flush`. It consumes task 5's journal format and task 2's
+// `flow journal flush`. It consumes task 5's journal format and task 2's
 // change repository directly -- it does not go through internal/api's HTTP
 // surface -- but decodes a journal entry's Body with the exact same
 // api.DecodeChangeBody the PUT handler uses, so a body the live API would
 // accept is exactly a body replay accepts. Task 8's stage-mark journal
 // (a sibling "*.journal.stage" file per change, deliberately not mixed
-// into the same "*.journal" stream -- see cmd/myflow/stage.go's
+// into the same "*.journal" stream -- see cmd/flow/stage.go's
 // stageJournalPath doc comment) is replayed the same way, through
 // api.ApplyBeginStageMark/ApplyEndStageMark rather than a second
 // implementation of what a mark does. A third sibling file, the run-record
-// journal ("*.journal.record", cmd/myflow/record.go's recordJournalPath),
+// journal ("*.journal.record", cmd/flow/record.go's recordJournalPath),
 // is walked by the same loop and decoded by a third decoder -- see
 // replayRecordFile.
 //
@@ -79,17 +79,17 @@ var _ ChangeStore = (*store.Store)(nil)
 // already takes api.StageStore rather than restating that one.
 
 // stageJournalSuffix is appended to a change's ordinary journal path by
-// cmd/myflow/stage.go's stageJournalPath -- this package's own copy of
+// cmd/flow/stage.go's stageJournalPath -- this package's own copy of
 // that literal, for the same reason internal/client keeps its own literal
 // copy of the daemon header rather than importing across the CLI/daemon
-// boundary: cmd/myflow is a main package and cannot be imported, so the
+// boundary: cmd/flow is a main package and cannot be imported, so the
 // two sides are allowed to agree on a string constant without sharing a
 // package. stageJournalSuffix_test.go (or the reconcile package's own
 // tests) pins that the two literals agree.
 const stageJournalSuffix = ".stage"
 
 // recordJournalSuffix is appended to a change's ordinary journal path by
-// cmd/myflow/record.go's recordJournalPath, and is this package's own copy
+// cmd/flow/record.go's recordJournalPath, and is this package's own copy
 // of that literal for exactly the reason stageJournalSuffix is one: the
 // CLI is a main package, so the two sides agree on a string constant
 // rather than sharing a package.
@@ -188,7 +188,7 @@ func (r *Reconciler) Run(ctx context.Context) (Result, error) {
 
 		// A suffixed journal ("*.journal.stage", "*.journal.record") is
 		// recognised first -- neither matches the plain "*.journal" suffix
-		// below, which is exactly why cmd/myflow's stageJournalPath and
+		// below, which is exactly why cmd/flow's stageJournalPath and
 		// recordJournalPath chose that shape: the three entry kinds are
 		// walked by this one loop, but never fed to the same decoder. See
 		// the package doc comment.
@@ -405,13 +405,13 @@ func (r *Reconciler) replayFile(ctx context.Context, path string) (applied, refu
 	return r.replayJournalFile(ctx, path, "journal", apply, isDefinitive)
 }
 
-// stageMarkJournalBody mirrors cmd/myflow/stage.go's own
+// stageMarkJournalBody mirrors cmd/flow/stage.go's own
 // stageMarkJournalBody exactly -- {"kind":"begin"|"end","request":<the
 // client.BeginStageRequest or client.EndStageRequest that was
-// journalled>}. This package cannot import cmd/myflow (a main package,
+// journalled>}. This package cannot import cmd/flow (a main package,
 // which Go never allows importing), so this is a second declaration of the
 // same wire shape rather than a shared type: this struct's two field names
-// and cmd/myflow/stage.go's stageJournalPath's ".journal"+".stage" suffix
+// and cmd/flow/stage.go's stageJournalPath's ".journal"+".stage" suffix
 // are the two literals that must stay in step across that boundary.
 // internal/reconcile's own tests exercise this decoder against entries
 // built the same way stage.go builds them -- client.BeginStageRequest/
@@ -426,7 +426,7 @@ type stageMarkJournalBody struct {
 }
 
 // replayStageFile replays the pending entries of the single stage-mark
-// journal file at path -- a "*.journal.stage" file, cmd/myflow/stage.go's
+// journal file at path -- a "*.journal.stage" file, cmd/flow/stage.go's
 // stageJournalPath -- against r.stageStore, in file order, retiring
 // (removing) every entry whose outcome api.IsDefinitiveMarkOutcome reports
 // as definitive.
@@ -591,11 +591,11 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 	}
 }
 
-// recordJournalBody mirrors cmd/myflow/record.go's own recordJournalBody
+// recordJournalBody mirrors cmd/flow/record.go's own recordJournalBody
 // exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status",
 // "request":<the records.Dispatch, records.DispatchEnd, records.Finding or
 // status request that was journalled>}. It is a second declaration of the same wire shape for the
-// same reason stageMarkJournalBody is one: cmd/myflow is a main package
+// same reason stageMarkJournalBody is one: cmd/flow is a main package
 // and cannot be imported. The two field names here and record.go's
 // ".journal"+".record" suffix are the two literals that must stay in step
 // across that boundary; the request shapes themselves are internal/records'
@@ -605,7 +605,7 @@ type recordJournalBody struct {
 	Request json.RawMessage `json:"request"`
 }
 
-// recordStatusRequest mirrors cmd/myflow/record.go's own type of the same
+// recordStatusRequest mirrors cmd/flow/record.go's own type of the same
 // name: the wire PATCH carries the ref in its URL and only the status in
 // its body, so the journalled request carries both and a replay resolves
 // the write from what it reads rather than from a route this package would
@@ -618,7 +618,7 @@ type recordStatusRequest struct {
 // errRecordEntryDecodeFailed wraps any failure to make sense of a record
 // journal entry's body -- an envelope that does not decode, a request that
 // does not decode as the shape its Kind names, or a Kind naming none of the
-// three writes `myflow record` performs. It is the record journal's
+// three writes `flow record` performs. It is the record journal's
 // counterpart to errChangeEntryDecodeFailed, and it is definitive for the
 // identical reason: a body that fails to decode now will fail identically
 // on every future replay, so retiring it is what stops one bad entry from
@@ -633,7 +633,7 @@ type recordStatusRequest struct {
 var errRecordEntryDecodeFailed = errors.New("reconcile: record journal entry body does not decode as a record write")
 
 // replayRecordFile replays the pending entries of the single run-record
-// journal file at path -- a "*.journal.record" file, cmd/myflow/record.go's
+// journal file at path -- a "*.journal.record" file, cmd/flow/record.go's
 // recordJournalPath -- against r.recordStore, in file order, retiring
 // every entry isDefinitiveRecordOutcome reports a definitive outcome for.
 //
@@ -661,7 +661,7 @@ func (r *Reconciler) replayRecordFile(ctx context.Context, path string) (applied
 //
 // Going through them rather than straight to the store is what carries the
 // required-field checks into replay. Skipping those checks was defensible
-// only as long as cmd/myflow/record.go was the sole producer of this file
+// only as long as cmd/flow/record.go was the sole producer of this file
 // and made them before journalling -- but nothing structural holds that,
 // and the columns migration 0010 declares NOT NULL are all satisfied by an
 // empty string. A hand-edited or corrupted entry carrying "role":"" would
@@ -712,7 +712,7 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 // retry -- as opposed to a transient failure a later replay might resolve
 // differently.
 //
-// The split is the one cmd/myflow/record.go already draws for a live write,
+// The split is the one cmd/flow/record.go already draws for a live write,
 // carried over to an entry that is already on disk: a write the daemon
 // would answer 400 or 404 for is refused identically forever, so leaving it
 // queued would grow the journal without ever making progress. That covers a
@@ -801,7 +801,7 @@ func isDefinitiveRecordOutcome(err error) bool {
 //
 // This lock also protects something Reconciler.Run's in-process mutex
 // cannot: two separate *processes* retiring the same journal at once (two
-// myflowd instances, or a daemon racing a concurrent `myflow journal
+// flowd instances, or a daemon racing a concurrent `flow journal
 // flush`). The in-process mutex stays in place too -- it is cheaper for
 // the common, single-process case, and does not conflict with also
 // holding this lock.

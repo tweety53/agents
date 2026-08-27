@@ -118,7 +118,7 @@ type BeginStageInput struct {
 	// SessionToken is the literal correlator to persist alongside the run,
 	// so a later harvest cycle can find it in a transcript and bind
 	// SessionID (KAN-172, task 2). Whether it is required at all is an
-	// application-layer decision (internal/api and cmd/myflow both enforce
+	// application-layer decision (internal/api and cmd/flow both enforce
 	// it); the store persists whatever it is given, nil included.
 	SessionToken *string
 	Command      string

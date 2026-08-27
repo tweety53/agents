@@ -44,7 +44,7 @@ set -euo pipefail
 # of silently scanning nothing and reporting a false "clean".
 #
 # CHECK_REFERENCES_ROOT is an explicit, opt-in override honored only when set
-# (mirrors the MYFLOW_STATE_FILE idiom used elsewhere in this plan). It exists
+# (mirrors the FLOW_STATE_FILE idiom used elsewhere in this plan). It exists
 # solely so the companion harness (test-check-references.sh) can point the
 # guard at a sandboxed fixture tree under /tmp without touching this repo —
 # never set it for a normal invocation.
@@ -242,7 +242,7 @@ associations_of() {
     }
     # A bold span is a candidate SECTION NAME only if it reads like one. Bold is
     # used for emphasis far more often than for section names in this repo
-    # ("**only** in projects whose `.myflow/project.md`", "**absolute** path of
+    # ("**only** in projects whose `.flow/project.md`", "**absolute** path of
     # `engineering-principles.md`"), and an emphasis word next to a filename is
     # not a cross-reference. Every heading in the referenced files starts with a
     # capital, carries no "." and no trailing ":", so those three cheap tests
@@ -289,7 +289,7 @@ associations_of() {
         i = e + 1
       }
       # A bold token belongs to at most ONE path: the nearest it is associated
-      # with. Without this, a line naming .myflow/project.md and then saying
+      # with. Without this, a line naming .flow/project.md and then saying
       # "(see **Project configuration** in skills/.../project-configuration.md)"
       # would demand a "Project configuration" heading in BOTH files, and fail on
       # the one the token was never about.
@@ -510,7 +510,7 @@ EOF
 #   at all.
 #
 #   contract/index doc — cites other files as a plain parenthetical backtick
-#   path or a `[label](path)` Markdown link (skills/myflow-contracts/SKILL.md's
+#   path or a `[label](path)` Markdown link (skills/flow-contracts/SKILL.md's
 #   own table), never as a bold token adjacent to the path.
 #
 #   reviewer-prompt file — deliberately self-contained; three of the five
@@ -554,9 +554,9 @@ EXPECTED_ZERO_RULE_FILES=(
 EXPECTED_ZERO_RULE_FILES_REASON="rule file — its own path citations (where present) sit in a Markdown table cell or plain prose, separated from any bold text by more than the adjacency window this guard's is_associated allows, or cite no path in a bold-adjacent shape at all"
 
 EXPECTED_ZERO_CONTRACT_DOCS=(
-  "skills/myflow-contracts/build-green.md"
-  "skills/myflow-contracts/operator-prompts.md"
-  "skills/myflow-contracts/SKILL.md"
+  "skills/flow-contracts/build-green.md"
+  "skills/flow-contracts/operator-prompts.md"
+  "skills/flow-contracts/SKILL.md"
 )
 EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path"
 
@@ -573,8 +573,8 @@ EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-c
 
 EXPECTED_ZERO_RATIONALE_DOCS=(
   "skills/flow-research/SKILL.md"
-  "skills/myflow-contracts/git-boundaries-rationale.md"
-  "skills/myflow-contracts/worktree-resolution-rationale.md"
+  "skills/flow-contracts/git-boundaries-rationale.md"
+  "skills/flow-contracts/worktree-resolution-rationale.md"
   "skills/myflow-fast/SKILL-rationale.md"
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"

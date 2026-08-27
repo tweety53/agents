@@ -21,8 +21,8 @@ const uitestSuffix = "_uitest"
 // statement is issued against dsn's target -- a guard that runs after the
 // first write is not a guard.
 //
-// A DSN naming "myflow" is refused, and so is one naming
-// "myflow_uitest_real": the rule is a suffix match, not a substring
+// A DSN naming "flow" is refused, and so is one naming
+// "flow_uitest_real": the rule is a suffix match, not a substring
 // match, so a database name that merely contains "uitest" in the middle
 // is exactly as unprotected as the live database itself.
 func requireUitestDatabase(dsn string) error {

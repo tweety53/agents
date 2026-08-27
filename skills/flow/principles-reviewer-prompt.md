@@ -20,7 +20,7 @@ Read-only review.
 ```
 Subagent (generalPurpose):
   description: "Principles review (Merged)"
-  model: <the run's resolved default model>   # myflow settings get's .defaultModel, sonnet
+  model: <the run's resolved default model>   # flow settings get's .defaultModel, sonnet
                                                # unless a session instruction overrode it
   prompt: |
     You are an engineering-principles reviewer. You are NOT doing a bug hunt, a
@@ -171,9 +171,9 @@ Subagent (generalPurpose):
   list. Verify the file exists before dispatching; if it does not, stop and say so rather
   than dispatching a reviewer with no principles.
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
-  1. the entries listed under the `## standards` section of `<project>/.myflow/project.md`, when the
+  1. the entries listed under the `## standards` section of `<project>/.flow/project.md`, when the
      project has one — resolved to absolute paths **per the entry-form table and the
-     containment rule in `skills/myflow-contracts/project-configuration.md`**,
+     containment rule in `skills/flow-contracts/project-configuration.md`**,
      which is canonical. Entries are not paths to use as-is: a bare `*.mdc` filename means
      the shared agents rule library, any other bare filename means the project's own file,
      and a path that escapes the project root is dropped;

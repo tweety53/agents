@@ -103,7 +103,7 @@ coverage_record() {
 # coverage_declare <member> [reason] — declare that <member> legitimately
 # checks nothing, so its zero is fine rather than a violation. <reason>, when
 # given, is carried through to coverage_report's rendering of that member —
-# see check-stage-mark-calls.sh's myflow-status case, which is a declared
+# see check-stage-mark-calls.sh's flow-status case, which is a declared
 # zero BECAUSE it is a read-only report that marks no stage runs, and whose
 # declaration should say so rather than just list the name. A second call
 # for the same member is a caller bug and is rejected (return 2), same as

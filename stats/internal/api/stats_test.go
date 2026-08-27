@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	dsnutil "github.com/tweety53/agents/stats/internal/dsn"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -873,9 +874,15 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 
 	// This mapping is CLAUDE.md's own fixed three-state pipeline table,
 	// restated here as the mechanical tie between the board and
-	// /myflow-status's report for the same record (spec: "the information
-	// matches what /myflow-status reports").
-	want := map[string]string{"kan-1": "/myflow-do", "kan-2": "/myflow-finish", "kan-3": ""}
+	// /flow-status's report for the same record (spec: "the information
+	// matches what /flow-status reports").
+	//
+	// The pipeline is ONE command, so STARTED and IN_PROGRESS both answer
+	// `/flow`; only FINISHED, which is terminal, answers with nothing. The
+	// earlier expectation here was `/myflow-do` and `/myflow-finish`, and it
+	// pinned a dashboard that told its reader to run commands that do not
+	// exist.
+	want := map[string]string{"kan-1": "/flow", "kan-2": "/flow", "kan-3": ""}
 	for _, r := range rows {
 		if r.NextCommand != want[r.Name] {
 			t.Errorf("%s (state %s): nextCommand = %q, want %q", r.Name, r.State, r.NextCommand, want[r.Name])
@@ -1098,8 +1105,8 @@ func (f *slowStatsFake) CostPerChange(ctx context.Context, _ store.Period, _, _ 
 }
 
 func TestStatsViewTimesOutCleanly(t *testing.T) {
-	if os.Getenv("MYFLOW_STATS_SKIP_SLOW_TESTS") != "" {
-		t.Skip("MYFLOW_STATS_SKIP_SLOW_TESTS set")
+	if os.Getenv("FLOW_STATS_SKIP_SLOW_TESTS") != "" {
+		t.Skip("FLOW_STATS_SKIP_SLOW_TESTS set")
 	}
 	sts := &slowStatsFake{}
 	ts := newStatsTestServer(t, sts)
@@ -1120,21 +1127,21 @@ func TestStatsViewTimesOutCleanly(t *testing.T) {
 		t.Errorf("took %s to time out, want well under statsWriteTimeout's slack", elapsed)
 	}
 	// Post-commit review finding F5: internal/client treats a response
-	// with no Myflow-Daemon header as "the daemon is unreachable" and
+	// with no Flow-Daemon header as "the daemon is unreachable" and
 	// takes the journal fallback (server.go's withDaemonHeader, and the
 	// client's own doc comment on why it insists on this header). A 503
 	// from http.TimeoutHandler is written by net/http's own machinery,
 	// not by this package's handler code, so it is not automatically
 	// guaranteed to carry a header withDaemonHeader set before the
 	// handler ever started -- this is what would silently regress a
-	// clean timeout into "myflowd looks dead" for the CLI.
+	// clean timeout into "flowd looks dead" for the CLI.
 	if got := resp.Header.Get(api.DaemonHeader); got != api.DaemonHeaderValue {
-		t.Errorf("Myflow-Daemon header = %q, want %q -- a 503 timeout must still look like a daemon answer, not an unreachable one", got, api.DaemonHeaderValue)
+		t.Errorf("Flow-Daemon header = %q, want %q -- a 503 timeout must still look like a daemon answer, not an unreachable one", got, api.DaemonHeaderValue)
 	}
 }
 
 // ==========================================================================
-// Integration tests against a real PostgreSQL (the myflow-postgres compose
+// Integration tests against a real PostgreSQL (the flow-postgres compose
 // stack, task 1): the new arithmetic this task adds outside store's own
 // already-reviewed SQL -- costPerChangeByRepo's per-repository sums, and
 // the multi-repo "one row by default" claim -- is exercised here with
@@ -1144,10 +1151,10 @@ func TestStatsViewTimesOutCleanly(t *testing.T) {
 // ==========================================================================
 
 func statsAdminDSN() string {
-	if v := os.Getenv("MYFLOW_STATS_ADMIN_DSN"); v != "" {
+	if v := os.Getenv("FLOW_STATS_ADMIN_DSN"); v != "" {
 		return v
 	}
-	return "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	return "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 }
 
 // newIntegrationStore creates a uniquely-named, migrated database against
@@ -1164,14 +1171,14 @@ func newIntegrationStore(t *testing.T) *store.Store {
 
 	adminPool, err := pgxpool.New(ctx, statsAdminDSN())
 	if err != nil {
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 	if err := adminPool.Ping(ctx); err != nil {
 		adminPool.Close()
-		t.Skipf("myflow-postgres compose stack not reachable: %v", err)
+		t.Skipf("flow-postgres compose stack not reachable: %v", err)
 	}
 
-	dbName := fmt.Sprintf("myflow_apitest_%d_%d", os.Getpid(), time.Now().UnixNano())
+	dbName := fmt.Sprintf("flow_apitest_%d_%d", os.Getpid(), time.Now().UnixNano())
 	ident := pgx.Identifier{dbName}.Sanitize()
 	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+ident); err != nil {
 		adminPool.Close()
@@ -1193,7 +1200,7 @@ func newIntegrationStore(t *testing.T) *store.Store {
 		}
 	})
 
-	dsn := fmt.Sprintf("postgres://myflow:myflow@localhost:5433/%s?sslmode=disable", dbName)
+	dsn := dsnForDatabase(dbName)
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("open test store: %v", err)
@@ -1557,3 +1564,22 @@ func TestCostPerChangeAcceptsChangeAlone(t *testing.T) {
 // store package's own generic ptr[T] (internal/store/changes_test.go),
 // which this package cannot reach.
 func sptr(v string) *string { return &v }
+
+// dsnForDatabase rewrites statsAdminDSN's database segment, so FLOW_STATS_ADMIN_DSN
+// moves the admin connection and every per-test connection together. Repeating
+// the credentials here instead made the override half-work: the admin step
+// followed the environment while the per-test connection stayed pinned to the
+// literal, so a Postgres with different credentials failed every test while the
+// admin step succeeded.
+func dsnForDatabase(dbName string) string {
+	out, err := dsnutil.ForDatabase(statsAdminDSN(), dbName)
+	if err != nil {
+		// Panic rather than return a best-effort string. This helper's
+		// predecessor answered confidently when it could not do the job and
+		// silently handed back a corrupted DSN; a test that then connects
+		// reports whatever that connection says, which is the wrong question
+		// answered convincingly.
+		panic(fmt.Sprintf("deriving a per-test DSN: %v", err))
+	}
+	return out
+}

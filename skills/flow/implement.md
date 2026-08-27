@@ -19,7 +19,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 ## 1. Load context and validate the plan
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 spectre validate "<name>"
 spectre list --json
 ```
@@ -50,16 +50,16 @@ Extract the **Global constraints** verbatim from the capability specs the propos
 `design.md` for the reviewers.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
+flow stage end -command '/flow' -stage flow.load-context -outcome completed <name>
 ```
 
 ## 2. Isolate the workspace (first run only)
 
-**Load `skills/myflow-contracts/artifacts-registry.md`** — the worktree and branch this step
+**Load `skills/flow-contracts/artifacts-registry.md`** — the worktree and branch this step
 creates are rows in it.
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Invoke **superpowers:using-git-worktrees**. Branch `spectre/<name>`. Never implement on the default
@@ -78,15 +78,15 @@ On a fix run, resume the existing worktree and make no such copy. **Never create
 
 **This run's resolved worktree set — the set `skills/flow/verify-and-handoff.md` iterates — is the
 worktree just created or resumed above, plus any additional worktree this change affects.** Per
-**Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`), non-empty by
+**Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
-under **The workspace id** (`skills/myflow-contracts/workspace-isolation.md`) — do not re-derive it
+under **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — do not re-derive it
 by hand. Compute it once per run, on a fix run exactly as on the first.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed <name>
+flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed <name>
 ```
 
 ## 3. Documenting a fix, before implementing it
@@ -95,11 +95,11 @@ myflow stage end -command '/flow' -stage flow.isolate-workspace -outcome complet
 here:
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Record what changed **before** writing code, so the proposal never goes stale. Ask which of exactly
-two, shape per Operator prompts (`skills/myflow-contracts/operator-prompts.md`):
+two, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 
 > **This fix has to be recorded before it is written — where should it go?**
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — nothing new is created
@@ -107,17 +107,17 @@ two, shape per Operator prompts (`skills/myflow-contracts/operator-prompts.md`):
 >   scope the parent change does not describe
 
 If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
-**Description sync** in Jira integration (`skills/myflow-contracts/jira-integration.md`). Never
+**Description sync** in Jira integration (`skills/flow-contracts/jira-integration.md`). Never
 transition the issue here.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
+flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
 ```
 
 ## 4. Execute (SDD + TDD)
 
 ```bash
-myflow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Gather the dispatch context bundle before dispatching any implementer.**
@@ -145,14 +145,14 @@ explicitly overrides `superpowers:subagent-driven-development`'s parallel dispat
 Immediately before dispatching:
 
 ```bash
-myflow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
+flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
   -key task-<n>-implementer -session-token mf-<literal-token> -started-at <ts>
 ```
 
 and as soon as that dispatch reports back, before the next one goes out:
 
 ```bash
-myflow record dispatch end -change <name> -key task-<n>-implementer \
+flow record dispatch end -change <name> -key task-<n>-implementer \
   -session-token mf-<literal-token> -commit <sha> -outcome completed -ended-at <ts> \
   -agent-id <id>
 ```
@@ -185,7 +185,7 @@ Bundling does not change the commit-per-task model — an implementer handed a b
 commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task still folds
 into the commit its `**Squash-with:**` field names. Every implementer dispatch **must** carry:
 
-> **MYFLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
+> **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer. The trailer identifies the task;
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **Never weaken or
@@ -218,7 +218,13 @@ as it stands after the fold.
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
-> contradicts the plan** (`skills/myflow-contracts/plan-provenance.md`).
+> contradicts the plan** (`skills/flow-contracts/plan-provenance.md`).
+
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one test you write MUST exercise the real
+> thing. A test backed by a fake or a hand-built value passes while the real integration is broken:
+> the shape you construct by hand is not the shape the real producer emits. Build the value the way
+> production builds it, or assert against the real boundary.
 
 **Guard the commit before dispatching review.** As soon as the implementer reports the task's
 commit sha back, and **before** the parent dispatches that task for review:
@@ -230,7 +236,7 @@ check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
 A nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round slot.
 The parent sends the task back to the **same implementer** to correct it, then re-runs the guard.
 
-**When the script cannot be located**, apply `myflow-task-commit-fields`'s rules by hand: check the
+**When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
@@ -242,10 +248,16 @@ code quality together, dispatched on `DEFAULT_MODEL` — `/flow`'s panel carries
 is no `full`-preset split into two per-task reviewers. Mark a **task's** checkbox `[x]` only after
 that task passes spec **and** quality review; a step's checkbox tracks the step and gates nothing.
 
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one check you make MUST exercise the real
+> thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
+> and a passing test can each read plausibly and be false. Run it before you accept it, and run it
+> before you reject it.
+
 On BLOCKED: pause and report. Never guess.
 
 ```bash
-myflow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
+flow stage end -command '/flow' -stage flow.sdd-tdd -outcome completed <name>
 ```
 
 Once this stage completes, continue into `skills/flow/review-panel.md`.

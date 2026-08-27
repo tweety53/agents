@@ -1,4 +1,4 @@
-// Package config resolves myflowd's daemon configuration -- the address it
+// Package config resolves flowd's daemon configuration -- the address it
 // binds and the database it connects to -- from the environment, and
 // enforces the one non-negotiable rule about that address: it must be
 // loopback-only. Binding any other interface is a configuration error the
@@ -15,16 +15,20 @@ import (
 )
 
 // Defaults, applied when the corresponding environment variable is unset.
-// DefaultDSN points at the dedicated myflow-postgres compose stack from
-// task 1, on host port 5433 -- the same default stats/health_test.go and
-// internal/store's test helpers already use.
+// DefaultDSN points at the dedicated flow-postgres compose stack's
+// declaration (stats/docker-compose.yml), on host port 5433. It no longer
+// matches the "flow" DSN stats/health_test.go and internal/store's test
+// helpers still hardcode: the running container has not been renamed yet
+// (an operator step, KAN-289's task 19), so those tests keep targeting the
+// role and database that container actually has, while this default states
+// the name it will answer to once the operator renames it.
 const (
 	DefaultHost = "127.0.0.1"
 	DefaultPort = 4173
-	DefaultDSN  = "postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"
+	DefaultDSN  = "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
 )
 
-// Config is myflowd's resolved configuration.
+// Config is flowd's resolved configuration.
 type Config struct {
 	Host string
 	Port int
@@ -37,34 +41,34 @@ type Config struct {
 // "Bind loopback only".
 var ErrNonLoopbackHost = errors.New("config: host must be a loopback address (127.0.0.1 or ::1)")
 
-// ErrInvalidPort is returned by FromEnv when MYFLOWD_PORT is set to
+// ErrInvalidPort is returned by FromEnv when FLOWD_PORT is set to
 // something that does not parse as an integer. This is deliberately a
 // startup error rather than a discarded parse failure: a silently-ignored
 // bad value would start the daemon on DefaultPort with no diagnostic at
 // all, which is a working-but-wrong-port daemon -- exactly the kind of
 // failure that costs an hour to notice, the same class of mistake
 // ErrNonLoopbackHost exists to catch for the host.
-var ErrInvalidPort = errors.New("config: MYFLOWD_PORT must be a valid integer port")
+var ErrInvalidPort = errors.New("config: FLOWD_PORT must be a valid integer port")
 
-// FromEnv resolves Config from MYFLOWD_HOST, MYFLOWD_PORT and MYFLOWD_DSN,
-// falling back to the defaults above for anything unset. A MYFLOWD_PORT
+// FromEnv resolves Config from FLOWD_HOST, FLOWD_PORT and FLOWD_DSN,
+// falling back to the defaults above for anything unset. A FLOWD_PORT
 // that fails to parse is refused with ErrInvalidPort rather than silently
 // falling back to DefaultPort. FromEnv does not check Host for loopback --
 // callers building a server from the result must call Validate (api.New
 // does this itself).
 func FromEnv() (Config, error) {
 	cfg := Config{Host: DefaultHost, Port: DefaultPort, DSN: DefaultDSN}
-	if v := os.Getenv("MYFLOWD_HOST"); v != "" {
+	if v := os.Getenv("FLOWD_HOST"); v != "" {
 		cfg.Host = v
 	}
-	if v := os.Getenv("MYFLOWD_PORT"); v != "" {
+	if v := os.Getenv("FLOWD_PORT"); v != "" {
 		p, err := strconv.Atoi(v)
 		if err != nil {
 			return Config{}, fmt.Errorf("%w: %q", ErrInvalidPort, v)
 		}
 		cfg.Port = p
 	}
-	if v := os.Getenv("MYFLOWD_DSN"); v != "" {
+	if v := os.Getenv("FLOWD_DSN"); v != "" {
 		cfg.DSN = v
 	}
 	return cfg, nil

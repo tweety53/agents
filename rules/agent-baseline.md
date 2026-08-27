@@ -48,9 +48,9 @@ in the meantime.
 
 If you are working inside a repository, read `<project>/CLAUDE.md` — and `<project>/AGENTS.md` if present — before
 acting. Project rules are more specific than these and win where they overlap, including which lint,
-test and run commands the rules above actually mean. For a myflow project those commands live in
-`<project>/.myflow/project.md`, and any `/myflow-*` step loads its own contract file first; never act on a
-remembered version of a contract. The myflow pipeline is deliberately absent from the table above —
+test and run commands the rules above actually mean. For a flow project those commands live in
+`<project>/.flow/project.md`, and any `/flow*` step loads its own contract file first; never act on a
+remembered version of a contract. The flow pipeline is deliberately absent from the table above —
 it is command-triggered, and summarising a state machine is exactly the staleness its own rule
 forbids.
 

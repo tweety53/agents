@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Pool limits, per the project's adopted go-database standard. myflowd is a
+// Pool limits, per the project's adopted go-database standard. flowd is a
 // single local daemon serving a handful of concurrent skill invocations, not
 // a fleet of app instances sharing one database — these are sized for that
 // use, not for a high-traffic service.
@@ -22,7 +22,7 @@ const (
 	_maxConnIdleTime = 2 * time.Minute
 )
 
-// Store owns a connection pool to the myflow PostgreSQL database and
+// Store owns a connection pool to the flow PostgreSQL database and
 // exposes the typed repository methods every caller uses instead of SQL.
 type Store struct {
 	pool *pgxpool.Pool

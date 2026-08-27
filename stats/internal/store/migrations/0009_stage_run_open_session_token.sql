@@ -21,7 +21,7 @@
 -- panel measured that scan at 0.47ms with 200 concurrent open runs
 -- against a 500,200-row table (design.md); negligible at this tool's real
 -- scale, but this is the `stage begin` path, required never to block or
--- delay the stage it marks (skills/myflow-contracts/pipeline.md), and its
+-- delay the stage it marks (skills/flow-contracts/pipeline.md), and its
 -- cost grows with the system-wide open-run count rather than with
 -- anything the marking session controls.
 --

@@ -90,7 +90,7 @@ func toDTO(c store.Change) changeDTO {
 // c.Repos is deliberately left unset here: put derives it from c.Worktrees
 // via reposFromWorktrees immediately before writing, rather than trusting
 // dto.Repos. worktrees is already the state file contract's own record of
-// every affected repository (per skills/myflow-contracts/state-file.md,
+// every affected repository (per skills/flow-contracts/state-file.md,
 // "Multi-repo shape") -- a second, independently-supplied repos field on
 // the wire would be a second copy of the same fact, free to disagree with
 // the first. Deriving it here, in the one place PutChange is called, means
@@ -205,7 +205,7 @@ func DecodeChangeBody(project, name string, body []byte) (store.Change, error) {
 // stage is: the entry's own content is what is wrong, and replaying it
 // again produces the identical refusal every time. store.ErrInvalidMergeBase
 // reaches this path only from a hand-edited or out-of-band-modified fallback
-// file -- `myflow state set` refuses a malformed merge base before it can be
+// file -- `flow state set` refuses a malformed merge base before it can be
 // journalled at all -- and that is exactly the entry that would otherwise
 // block every entry queued behind it forever. store.ErrDuplicateRepoRoot is
 // included for the same symmetry -- a payload naming one repo root twice

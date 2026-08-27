@@ -17,9 +17,9 @@ import (
 )
 
 // *store.Store must satisfy harvest.SessionTokenBinder structurally -- this is
-// the compile-time half of the same wiring assertion cmd/myflowd/main.go
+// the compile-time half of the same wiring assertion cmd/flowd/main.go
 // makes for WindowSource, HarvestSink and Pricer (task 2's own file list
-// keeps this task out of cmd/myflowd, so it is asserted here instead,
+// keeps this task out of cmd/flowd, so it is asserted here instead,
 // where UnresolvedSessionTokens and BindSession are actually defined).
 var _ harvest.SessionTokenBinder = (*store.Store)(nil)
 
@@ -435,7 +435,7 @@ func TestBeginStageLeavesAnOpenRunThatStartedLaterAlone(t *testing.T) {
 // TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant pins the
 // supersede UPDATE's `started_at <= $2` guard at its equal-instant
 // boundary -- the shape a real journal replay actually carries: the CLI
-// captures StartedAt once, before the RPC attempt (cmd/myflow/stage.go's
+// captures StartedAt once, before the RPC attempt (cmd/flow/stage.go's
 // runStageBegin), and internal/reconcile.go's applyStageMarkEntry replays
 // that same original instant unchanged, so the replay's StartedAt equals
 // the attempt it replays rather than falling strictly before it (see

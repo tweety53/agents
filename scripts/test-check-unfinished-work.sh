@@ -4,10 +4,10 @@
 # status. Never touches the real repository tree.
 #
 # SIGNAL TWO NOW READS THE STORE, NOT RENDERED MARKDOWN. Every signal-two case
-# below builds a worktree-shaped sandbox and a stub `myflow` binary placed
+# below builds a worktree-shaped sandbox and a stub `flow` binary placed
 # ahead of the real one on PATH inside that sandbox: the stub answers
 # `record findings -change <name> [-C <dir>]` with a canned JSON array (the
-# shape `myflow record findings` itself prints -- one object per finding with
+# shape `flow record findings` itself prints -- one object per finding with
 # `ref`, `status`, `reproducer`), or exits non-zero to simulate a store the
 # guard could not reach. No case writes a docs/superpowers/reviews/*-panel.md
 # file any more; that path, and the marker-line grammar signal two used to
@@ -70,7 +70,7 @@
 #     separate outstanding case.
 #
 # THE STORE-UNREACHABLE CASE IS NEW. It is the only "cannot answer at all"
-# shape left for signal two: `myflow record findings` itself failing.
+# shape left for signal two: `flow record findings` itself failing.
 #
 # Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
 # indexed arrays only, no associative arrays.
@@ -103,7 +103,7 @@ ERRFILE="$WORK/stderr"
 # because the contract distinguishes them: a refusal puts its message on
 # stderr and must leave stdout empty, and a merged capture cannot tell an
 # empty stdout from a stdout carrying the message. <worktree>/bin -- the stub
-# myflow's home, when the fixture carries one -- is placed ahead of the real
+# flow's home, when the fixture carries one -- is placed ahead of the real
 # PATH for this one invocation only, never leaking into the harness's own
 # shell.
 run_guard() {
@@ -180,7 +180,7 @@ findings_json() {
 }
 
 # set_findings [<status> ...] -- (re)writes the current fixture's stub data
-# file so the next `myflow record findings` call inside $WT answers with
+# file so the next `flow record findings` call inside $WT answers with
 # these statuses. Called with no arguments, it writes an empty array -- a
 # store with no rows for this run. The stub script itself is written once, by
 # new_fixture; this only ever rewrites the data it cats.
@@ -188,33 +188,33 @@ set_findings() {
   findings_json "$@" > "$WT/bin/findings.json"
 }
 
-# set_findings_unreachable -- replaces the current fixture's stub `myflow`
+# set_findings_unreachable -- replaces the current fixture's stub `flow`
 # entirely with one that exits non-zero and prints nothing useful to stdout,
 # simulating a store `record findings` could not reach.
 set_findings_unreachable() {
-  cat > "$WT/bin/myflow" <<'STUB'
+  cat > "$WT/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-echo "myflow: connect: connection refused" >&2
+echo "flow: connect: connection refused" >&2
 exit 1
 STUB
-  chmod +x "$WT/bin/myflow"
+  chmod +x "$WT/bin/flow"
 }
 
 # new_fixture -> sets WT to a worktree holding a fully finished change named
 # "demo": every plan item checked, one closed ("fixed") finding answered by a
-# stub `myflow` on WT/bin, ahead of the real one on PATH for any guard
+# stub `flow` on WT/bin, ahead of the real one on PATH for any guard
 # invocation run_guard/run_guard_in makes against WT.
 new_fixture() {
   WT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
   SANDBOXES+=("$WT")
   mkdir -p "$WT/spectre/changes/demo" "$WT/.superpowers/sdd" "$WT/bin"
   printf -- '- [x] 1.1 done\n' > "$WT/spectre/changes/demo/tasks.md"
-  cat > "$WT/bin/myflow" <<'STUB'
+  cat > "$WT/bin/flow" <<'STUB'
 #!/usr/bin/env bash
 cat "$(dirname -- "$0")/findings.json"
 exit 0
 STUB
-  chmod +x "$WT/bin/myflow"
+  chmod +x "$WT/bin/flow"
   set_findings fixed
 }
 
@@ -352,7 +352,7 @@ set_findings
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "a store with no findings for this run is CLEAR"
 
-# 4e. THE STORE IS UNREACHABLE -- stub myflow exits non-zero for
+# 4e. THE STORE IS UNREACHABLE -- stub flow exits non-zero for
 #     `record findings`, and the guard must exit 2 ("cannot determine
 #     anything"), never 0 (a signal it cannot evaluate must never read as
 #     CLEAR) and never 1.
@@ -362,7 +362,7 @@ assert_verdict "CLEAR:" "a store with no findings for this run is CLEAR"
 #     docs/superpowers/reviews/*-panel.md), and reports "no review panel
 #     record for ..." as one OUTSTANDING reason at exit 0 -- the wrong exit
 #     code and the wrong wording, so it correctly fails now and will only
-#     pass once task 8's guard actually calls myflow and surfaces its
+#     pass once task 8's guard actually calls flow and surfaces its
 #     failure that way.
 new_fixture
 set_findings_unreachable
@@ -469,7 +469,7 @@ done
 #     "$PLANTED/spectre/changes/clear" — a change with a fully-ticked
 #     tasks.md. Findings are read from $WT's own fixture (already CLEAR via
 #     new_fixture's default), never from $PLANTED: the change name reaches
-#     `myflow record findings` only as the `-change` argument evaluated by
+#     `flow record findings` only as the `-change` argument evaluated by
 #     $WT's own stub, so no name containing "/" can make that stub answer for
 #     a different sandbox — and no second stub is planted at $PLANTED here.
 #
@@ -515,6 +515,37 @@ run_guard "" ""
   || fail "missing arguments: expected exit 2, got rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "missing arguments: emits no verdict line" \
   || fail "missing arguments: emitted a verdict line: $OUT"
+
+# 11. THE CLI'S DIAGNOSTICS MUST NOT REACH THE JSON PARSER.
+#
+# `flow` writes diagnostics to stderr while the findings JSON goes to stdout --
+# most reliably the `flow: using FLOW_ADDR=...` line it prints whenever the
+# address is overridden, which is precisely what this repository's own ui-test
+# stack instructs an operator to do (`export FLOW_ADDR=http://127.0.0.1:4174`).
+# The guard used to capture both streams together, so that one diagnostic line
+# landed at the head of the payload and `jq` failed with a parse error on a run
+# that had actually succeeded -- reporting "cannot determine anything" for a
+# perfectly readable store. It broke only for the operator who followed the
+# documented instructions, which is why it is pinned here rather than tolerated.
+#
+# The stub below reproduces exactly that shape: a diagnostic on stderr, valid
+# JSON on stdout, exit 0. Reverting the guard to a `2>&1` capture makes this
+# case fail.
+new_fixture
+cat > "$WT/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+echo "flow: using FLOW_ADDR=http://127.0.0.1:4174" >&2
+echo "[]"
+exit 0
+STUB
+chmod +x "$WT/bin/flow"
+run_guard "$WT" demo
+[ "$RC" -eq 0 ] && pass "a diagnostic on stderr does not corrupt the findings JSON" \
+  || fail "stderr diagnostic: expected exit 0, got rc=$RC out=$OUT err=$ERR"
+case "$OUT$ERR" in
+  *"jq failed"*) fail "stderr diagnostic: the diagnostic reached jq" ;;
+  *) pass "a diagnostic on stderr never reaches jq" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

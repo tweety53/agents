@@ -76,7 +76,7 @@ func TestRenderPanelDeclaresFindingsTotalMatchingItsMarkerLines(t *testing.T) {
 // THIS TEST NO LONGER RUNS THE REAL GUARD (kan-271). Both
 // check-unfinished-work.sh and check-panel-reproducers.sh stopped parsing
 // this rendering's marker blocks entirely -- they read a change's findings
-// through `myflow record findings`, a JSON array from the store, and never
+// through `flow record findings`, a JSON array from the store, and never
 // open the rendered Markdown file at all. A marker-shaped label inside
 // prose can therefore no longer be mistaken for a real marker by either
 // guard; there is no marker grammar left for it to collide with. What
@@ -158,7 +158,7 @@ func TestRenderLedgerNamesEachDispatchModelVerbatim(t *testing.T) {
 // The line is "does the bag carry a `tokens` object at all", NOT "does the
 // bag have any bytes". `{}` is what internal/store's insertDispatch writes
 // for a dispatch recorded with no metrics, so it is the shape of every
-// dispatch between `myflow record dispatch` and the harvester running, and
+// dispatch between `flow record dispatch` and the harvester running, and
 // the permanent shape of every dispatch on Cursor and Codex, which write no
 // transcript at all. It unmarshals silently into a zero-valued struct, and
 // a byte-length test therefore reports a measured zero for the majority of
@@ -295,7 +295,7 @@ func TestLedgerSaysSessionTokenMatchedManySessions(t *testing.T) {
 
 // TestLedgerStillSaysNotMeasured covers task 7 step 3: an empty bag --
 // the permanent shape on Cursor and Codex, and the shape of every
-// dispatch between `myflow record dispatch` and the harvester running --
+// dispatch between `flow record dispatch` and the harvester running --
 // still renders `not measured`, restated here so task 8 cannot widen the
 // new wording over it.
 func TestLedgerStillSaysNotMeasured(t *testing.T) {

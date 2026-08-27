@@ -38,7 +38,7 @@
 #
 # `## standards` entries are NEVER read or carried here — the spec's own
 # Requirement forbids it: they resolve through the entry-form table and
-# containment rule in skills/myflow-contracts/project-configuration.md,
+# containment rule in skills/flow-contracts/project-configuration.md,
 # belong to the principles slot alone, and re-implementing that containment
 # logic here would duplicate the contract it depends on. This script globs
 # nothing anywhere under <change-root>: it reads three leaves by exact name,

@@ -1,6 +1,6 @@
 # agents-data
 
-Portable, project-agnostic agent configuration — the **myflow** pipeline (spectre +
+Portable, project-agnostic agent configuration — the **flow** pipeline (spectre +
 Superpowers), its skills, slash commands, and always-on rules.
 Contains the rule set, an index of the skills, and installation instructions for every
 supported AI harness.
@@ -20,7 +20,7 @@ agents-data/
 ├── AGENTS.md                          ← drop into project root for Codex / OpenAI CLI
 ├── setup.sh                           ← installer: `global` (recommended) or per-project harness installs
 ├── rules/
-│   ├── myflow-manual-review.mdc       ← myflow trigger + contract pointers (always-on stub, installed globally)
+│   ├── flow-manual-review.mdc       ← flow trigger + contract pointers (always-on stub, installed globally)
 │   ├── lint-fix-priority.mdc          ← never suppress/bypass linters (always-on, installed globally)
 │   ├── never-touch-production.mdc     ← no route to a production system, ever (always-on)
 │   ├── no-direct-pushes-to-main.mdc   ← land on the integration branch, promote by PR (always-on)
@@ -31,7 +31,7 @@ agents-data/
 │   ├── context7.mdc                   ← fetch library docs through Context7, not from memory (always-on)
 │   ├── dispatch-carries-the-baseline.mdc  ← every subagent dispatch carries the agent-baseline pointer (always-on)
 │   ├── agent-baseline.md              ← NOT a rule: the file a dispatched subagent is told to read, listing every rule above and pointing at its installed full text
-│   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.myflow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
+│   └── kotlin-backend-development-standard.mdc  ← opt-in: named in a project's `.flow/project.md`, rendered into that project's CLAUDE.md + AGENTS.md
 ├── hooks/
 │   └── enforce-agent-baseline.py      ← PreToolUse hook: denies a subagent dispatch whose prompt omits the agent-baseline pointer
 ├── scripts/
@@ -39,13 +39,13 @@ agents-data/
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
 ├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-research, /flow-settings)
 ├── commands-claude/                   ← Claude Code slash commands (the same four)
-├── skills/                            ← spectre / /myflow skills
-│   ├── README.md                      ← myflow command map
+├── skills/                            ← spectre / /flow skills
+│   ├── README.md                      ← flow command map
 │   ├── flow/                          ← /flow — brainstorm, implement behind the review panel, integrate and archive, one command
 │   ├── flow-status/                   ← read-only state report for open changes
 │   ├── flow-research/                 ← /flow-research — thinking-partner mode, stages research notes, touches no state
 │   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
-│   └── myflow-contracts/              ← on-demand contracts; pipeline.md is canonical for the state machine
+│   └── flow-contracts/                ← on-demand contracts; pipeline.md is canonical for the state machine
 ├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
 └── openspec/                          ← frozen at the 2026-08-25 cutover: the record of how this repository got here, never written to again
 ```
@@ -58,7 +58,7 @@ snapshot of today's set, not the definition; read the frontmatter to be sure.
 `/flow-status`, `/flow-research` for thinking-partner mode, and `/flow-settings` for global
 model/reviewer defaults.
 
-**myflow pipeline — three states.**
+**flow pipeline — three states.**
 
 `/flow` drives the full pipeline as one command. Each phase ends in the state named after it, and
 **the human gate is a property of the state** — which is why no command exists whose only job is
@@ -73,7 +73,7 @@ worktrees, and — after self-review — push that branch and open its pull requ
 pushes the base branch**; the merge-and-push route still does, when you choose it. It runs **no**
 tests, linters or coverage check — that happened during implementation.
 
-See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/myflow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
+See **How the pipeline works** (`README.md`) below for the state diagram and the per-command stage table, plus `rules/flow-manual-review.mdc` (the always-on stub that points at the pipeline) and `skills/README.md`.
 
 ---
 
@@ -95,7 +95,7 @@ stateDiagram-v2
 Two tables. The first is the stage vocabulary itself — every documented stage, across the
 commands this pipeline has (three pipeline commands, one composite command, and `/flow` — the
 single command that replaces all four — plus two read-only/no-state commands, exactly
-as **Command surface** (`skills/myflow-contracts/pipeline.md`) names them). The second is the human
+as **Command surface** (`skills/flow-contracts/pipeline.md`) names them). The second is the human
 gate that *follows* each command's run — a property of the state the command ends in, never a stage
 of its own, so it is kept out of the first table rather than repeated per stage.
 
@@ -165,7 +165,7 @@ archive — so its row states the gate for each.
 
 `/flow`'s run-2 sequence ends with `flow.push-archive`. The row before it, `flow.self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
-**Run 2 — the branch is merged** (`skills/myflow-contracts/finish-contract.md`), step 9 — which is
+**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`), step 9 — which is
 also the file to change when that procedure changes, since the requirements layer that once sat
 above it is frozen with the rest of the `openspec/` tree at the spectre cutover.
 
@@ -186,14 +186,14 @@ The stage iterates rather than passing once. After every planning-stage exchange
 clarifying questions, the approval of a design section, the operator's review of the written spec —
 one convergence test asks whether the command now holds a question its inputs do not answer, and
 while it does, another round opens or is offered. The stage closes only the way any pipeline stage
-does — **Stage exit — never the command's own judgment** (`skills/myflow-contracts/pipeline.md`).
+does — **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
 
 The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
 both honest are **Convergence** (`skills/flow/brainstorm.md`).
 
 The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
 gate itself. The three levels and which of them is the default are owned by **Planning effort**
-(`skills/myflow-contracts/state-file.md`).
+(`skills/flow-contracts/state-file.md`).
 
 #### Writing-plans — `/myflow-start`
 
@@ -223,7 +223,7 @@ because nothing is committed at this stage. A checkbox is marked `[x]` only afte
 spec **and** quality review; a blocked task pauses and reports rather than guessing.
 
 Which model a dispatch runs on, and the rule that every dispatch records it, are **Model policy**
-(`skills/myflow-contracts/model-policy.md`).
+(`skills/flow-contracts/model-policy.md`).
 
 #### The review panel — `/myflow-do`
 
@@ -258,7 +258,7 @@ force a full re-run in place of a targeted one are **Panel re-runs** in the same
 
 `scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
 taken once per worktree in the resolved set — never a raw read of the state file's `worktrees` map,
-per **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`). It prints exactly
+per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`). It prints exactly
 one verdict line and exits 0 whenever it reached a verdict; a missing verdict line is not a verdict,
 and neither is a worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` stops the
 run and asks the operator rather than guessing. Run 2 proceeds only when every worktree in the
@@ -266,12 +266,12 @@ resolved set returns `RUN2` — and a resolved set that comes back empty is neve
 per the same section.
 
 The three signals and why their order is load-bearing are **Finish contract**
-(`skills/myflow-contracts/finish-contract.md`).
+(`skills/flow-contracts/finish-contract.md`).
 
 #### The unfinished-work gate — `/myflow-finish` run 1
 
 Runs **before** the landing question and before any git action, once per worktree in the resolved
-set — see **Resolving a change's worktrees** (`skills/myflow-contracts/worktree-resolution.md`).
+set — see **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`).
 `scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
 prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
 **Stop** marked as the recommendation. There is no fourth course, and none that hands back to
@@ -283,7 +283,7 @@ was integrated over is written into the planning commit's message and into the h
 record outlives the session.
 
 Each course and what run 1 then does are **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`).
+(`skills/flow-contracts/finish-contract.md`).
 
 #### The landing routes — `/myflow-finish` run 1
 
@@ -297,8 +297,8 @@ planning artifacts second. The linked issue moves to In Review on every route, i
 one.
 
 The route table is **Run 1 — the branch is not merged**
-(`skills/myflow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
-**Git boundaries** (`skills/myflow-contracts/git-boundaries.md`).
+(`skills/flow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
+**Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
 
 #### Cleanup — `/myflow-finish` run 2
 
@@ -312,8 +312,8 @@ remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no 
 treated exactly as `LEFTOVER`.
 
 What is removed, when, and on what condition is **Temporary artifacts registry**
-(`skills/myflow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
-the rows it removes is **Worktree cleanup** (`skills/myflow-contracts/finish-contract.md`).
+(`skills/flow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
+the rows it removes is **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`).
 
 #### Brainstorm — `/flow`
 
@@ -346,7 +346,7 @@ Same dispatch shape as `/myflow-do`'s — see **SDD + TDD per task — `/myflow-
 a dispatch runs on is **Model resolution** in `skills/flow/SKILL.md` — one default for implementer,
 panel, and panel-fix roles, read from the settings store rather than asked per change (design.md's
 `model-default-sonnet`, `settings-scope`); the per-harness enforcement notes in **Model policy**
-(`skills/myflow-contracts/model-policy.md`) still apply, but that file's three-role table does not.
+(`skills/flow-contracts/model-policy.md`) still apply, but that file's three-role table does not.
 
 #### The review panel — `/flow`
 
@@ -416,9 +416,9 @@ symlinks and need no re-run.
 | Target | What lands there |
 |--------|------------------|
 | `~/.claude/skills/` | every directory in `skills/` (one symlink per skill) |
-| `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/myflow-*`/`/flow*` commands through these |
-| `~/.claude/commands/` | every file in `commands-claude/` — the `/myflow-*`/`/flow*` Claude Code commands |
-| `~/.cursor/commands/` | every file in `commands/` — the `/myflow-*`/`/flow*` Cursor commands |
+| `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/flow*` commands through these |
+| `~/.claude/commands/` | every file in `commands-claude/` — the `/flow*` Claude Code commands |
+| `~/.cursor/commands/` | every file in `commands/` — the `/flow*` Cursor commands |
 | `~/.cursor/rules/` | whichever rules declare `alwaysApply: true` in their frontmatter, and only those |
 | `~/.claude/rules/` | the same always-on rules, symlinked as `<name>.md` — their **full text**, which the managed block's `Full rule:` pointers name. Plus `agent-baseline.md`, the file a dispatched subagent is told to read |
 | `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
@@ -453,7 +453,7 @@ Two things are deliberate:
   `alwaysApply: true` is never installed globally — not into `~/.cursor/rules/`, not into
   either managed block. The Kotlin backend standard is one: it applies to Kotlin backends,
   not to every project on the machine. Such a rule reaches a project only through that
-  project's own `.myflow/project.md`, and only a **per-project** install renders it — see
+  project's own `.flow/project.md`, and only a **per-project** install renders it — see
   [Opt-in rules land in the project](#opt-in-rules-land-in-the-project) below.
 - **The managed blocks are inlined, not referenced — in `~/.claude/CLAUDE.md` *and*
   `~/.codex/AGENTS.md`.** Neither Claude Code nor Codex reads `~/.cursor/rules/`, so for
@@ -481,13 +481,13 @@ rule they came from.
 
 Every **per-project** install (`cursor`, `claude-code`, `codex`, `all`) closes that gap:
 
-1. It reads `<project>/.myflow/project.md` and takes the `## standards` section. No file, or
+1. It reads `<project>/.flow/project.md` and takes the `## standards` section. No file, or
    no such section, and it does nothing at all — silently.
 2. It keeps the entries that resolve to the shared rule library: a **bare filename ending in
    `.mdc`** (`kotlin-backend-development-standard.mdc` → `<agents repo>/rules/<name>`). An
    entry containing a `/` is a project path, and any other bare filename is the project's own
    file — neither is a shared rule. See the resolution table in
-   `skills/myflow-contracts/project-configuration.md`, which is canonical.
+   `skills/flow-contracts/project-configuration.md`, which is canonical.
 3. It drops any rule that is already `alwaysApply: true` — that one arrives through the
    global block, and rendering it again is the duplication this exists to remove.
 4. It renders what remains into a managed block — same `<!-- myflow:begin -->` /
@@ -562,7 +562,7 @@ for f in /path/to/agents-data/commands-claude/*.md; do
 done
 ```
 
-Step 3 also renders any opt-in rule the project named in its `.myflow/project.md` into the
+Step 3 also renders any opt-in rule the project named in its `.flow/project.md` into the
 managed block in `CLAUDE.md` (and `AGENTS.md`), so run it **after** step 2 — the block goes
 into the file step 2 put there.
 
@@ -620,7 +620,7 @@ done
 ```
 
 The `setup.sh codex` form (unlike the manual loop) also renders any opt-in rule the project
-named in its `.myflow/project.md` into the managed block in `AGENTS.md` and `CLAUDE.md`.
+named in its `.flow/project.md` into the managed block in `AGENTS.md` and `CLAUDE.md`.
 Run it **after** step 2.
 
 **Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `flow` (the `/flow` equivalent) on a creating run; the rest of the pipeline is fine on your default.
@@ -656,7 +656,7 @@ Read file: .claude/skills/flow/SKILL.md
 (follow the instructions in that file)
 ```
 
-The `flow` skill (and the retiring `myflow-*` skills) internally reference Superpowers skills
+The `flow` skill (and the retiring `flow-*` skills) internally reference Superpowers skills
 (brainstorming, TDD, etc.). Without Superpowers those general skills won't auto-trigger, so the
 overall workflow is degraded but the spectre-specific steps still work.
 
@@ -668,7 +668,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 
 **No command takes a flag.** The only argument is the change name; anything else is reported rather than ignored.
 
-**Model:** `/flow` reads its model from `skills/flow/SKILL.md`'s own **Model resolution**; see "Model policy" in `skills/myflow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
+**Model:** `/flow` reads its model from `skills/flow/SKILL.md`'s own **Model resolution**; see "Model policy" in `skills/flow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
 
 | Command | Skill | What it does |
 |---------|-------|-------------|
@@ -693,6 +693,137 @@ Every skill above but `flow-research` requires the `spectre` CLI
 
 ---
 
+## Cutting over from `myflow` to `flow`
+
+The rename from `myflow` to `flow` changed names this repository owns **and** names that live on the
+machine outside it — an installed binary, a running daemon, a Docker container, a database, a
+per-project configuration directory. Merging the branch changes only the first kind. The five steps
+below change the rest.
+
+**They run in this order. None may be reordered, and steps 2 and 4 must not be separated.**
+
+### 1. Merge
+
+Nothing on the machine has changed yet. The installed skills are symlinks into the main checkout, so
+they flip to the renamed text the moment the merge lands — which is why every step below is now
+overdue rather than optional.
+
+### 2 and 4 are one operation — read this before starting
+
+The daemon stamps every response with a trust header so a look-alike server on its port cannot be
+mistaken for the real store. That header is renamed: `Myflow-Daemon` becomes `Flow-Daemon`. **A
+renamed CLI therefore cannot trust the old daemon, and the old CLI cannot trust a renamed one.**
+
+This degrades safely — an untrusted response is a store failure, and every CLI path falls back to the
+on-disk journal and exits 0, so nothing breaks loudly. What it does *not* do is read back what it
+just wrote. **Do not run `/flow` between step 2 and step 4.**
+
+### 2. Build and install the renamed CLI
+
+```bash
+cd stats && make build
+cp bin/flow "$HOME/.local/bin/flow"
+```
+
+Leave the old `~/.local/bin/myflow` in place for now; step 5 removes it.
+
+### 3. Rename the project configuration directory, in every consuming project
+
+```bash
+git -C <project> mv .myflow .flow
+```
+
+Three projects on this machine carry one today: this repository, `~/Projects/gymie`, and
+`~/Projects/spectre-e2e`. Until a project is renamed, anything resolving its configuration refuses
+with an actionable error naming the directory and the exact `git mv` — it never falls back to the old
+path and never reports "no configuration found".
+
+### 4. Rename the container and the database
+
+**This is the only step that stops the dev workspace's service and storage, and it is yours to run.**
+`ALTER DATABASE` requires zero live connections, so the daemon must be down first.
+
+```bash
+# stop the daemon (find it however you started it; under launchd, unload the agent)
+docker compose -f stats/docker-compose.yml down
+docker volume ls | grep pgdata        # note the existing volume name before you change anything
+```
+
+Rename the database from inside the container, then bring the stack up under its new names:
+
+```bash
+docker compose -f stats/docker-compose.yml up -d
+docker exec flow-postgres psql -U flow -d postgres -c 'ALTER DATABASE myflow RENAME TO flow;'
+```
+
+Move the fallback state root in the same step:
+
+```bash
+mv ~/Agents/myflow ~/Agents/flow
+```
+
+That directory holds records and journal entries a failed write left behind, and the daemon replays
+the journal when it can reach the database again. **Re-measure before you move it** — a non-empty
+journal means a write never reached the store:
+
+```bash
+ls ~/Agents/myflow/state/*/*.json | wc -l
+find ~/Agents/myflow/state -name '*.journal' -size +0
+```
+
+At the time this runbook was written that directory held 56 records and two journal files, both
+empty — so the move was a formality rather than a rescue. That was true of this machine at that
+moment, not of the mechanism.
+<!-- measured: ls and find over ~/Agents/myflow/state at the time of writing @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
+
+**Until this step completes, no new `/flow` run can isolate a workspace.** `scripts/workspace.sh`
+addresses the container by name, and the branch ends naming `flow-postgres` — which does not exist
+until you rename it here.
+
+### Running the Go suite before you finish
+
+The test helpers' fallback DSN names the **declared** role and database — `flow:flow@.../flow`, what
+a fresh compose stack creates. Against a container you have not renamed yet that host is unreachable,
+and these suites **skip rather than fail**: `internal/store` alone reports `ok` while running four
+tests and skipping 155. A green package that ran almost nothing is worse than a red one, so until
+step 4 is done, set both overrides:
+
+```bash
+export FLOW_STATS_ADMIN_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"  # vocab-guard:allow
+export FLOW_STATS_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"  # vocab-guard:allow
+cd stats && go test ./... -count=1
+```
+
+Both are needed, and they do different jobs: `FLOW_STATS_ADMIN_DSN` drives the per-test database
+creation and every connection derived from it, `FLOW_STATS_DSN` the compose-stack reachability check.
+With both set the suite runs with zero skips. After step 4, neither is needed.
+
+### 5. Reinstall the launchd agent, then remove the old binary
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist  # vocab-guard:allow
+rm ~/Library/LaunchAgents/com.tweety53.myflowd.plist  # vocab-guard:allow
+cp stats/launchd/com.tweety53.flowd.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.tweety53.flowd.plist
+rm "$HOME/.local/bin/myflow"
+```
+
+### What needs no step from you
+
+The managed block in `~/.claude/CLAUDE.md` still carries the old `<!-- myflow:begin -->` delimiters.
+The installer migrates them itself on its next run: it rewrites the two marker lines in place and
+then refreshes the block as usual, so the file keeps one block rather than gaining a second orphaned
+one. Your existing `CLAUDE.md.myflow.bak` is left exactly as it is — it holds your genuine
+pre-install content, and a fresh backup would only copy a file the installer already manages.
+
+### What is deliberately left carrying the old name
+
+Existing Jira issues keep the labels they were filed with, so the board holds both taxonomies and a
+label search must match either form. The `stage_runs` rows recording `/myflow-do`, `/myflow-start`,
+`/myflow-finish` and `/myflow-fast` keep those values, because they record which command actually
+ran. The frozen `openspec/` tree and the historical records under `docs/` keep theirs for the same
+reason.
+
 ## Making a change
 
 **Edit the files here — this repo is the source of truth — then run `./setup.sh global`.**
@@ -713,14 +844,14 @@ different commands:
 
 | Rule kind | Where its text is copied | Re-install with |
 |-----------|--------------------------|-----------------|
-| `alwaysApply: true` (`lint-fix-priority`, `myflow-manual-review`) | the managed blocks in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` (plus a live symlink in `~/.cursor/rules/`) | `./setup.sh global` |
-| opt-in (`kotlin-backend-development-standard`) | the managed block in the `CLAUDE.md` and `AGENTS.md` of **each project that named it** in `.myflow/project.md` | `./setup.sh <harness> /path/to/that/project`, once per adopting project |
+| `alwaysApply: true` (`lint-fix-priority`, `flow-manual-review`) | the managed blocks in `~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` (plus a live symlink in `~/.cursor/rules/`) | `./setup.sh global` |
+| opt-in (`kotlin-backend-development-standard`) | the managed block in the `CLAUDE.md` and `AGENTS.md` of **each project that named it** in `.flow/project.md` | `./setup.sh <harness> /path/to/that/project`, once per adopting project |
 
 An opt-in rule edited here therefore changes nothing for any project until that project's
 install is re-run — and the projects that adopted it are listed nowhere but in their own
-`.myflow/project.md` files, so a change to a widely-adopted opt-in rule needs a sweep.
+`.flow/project.md` files, so a change to a widely-adopted opt-in rule needs a sweep.
 
-`AGENTS.md` / `CLAUDE.md` carry their own myflow summary tables — update those by hand
+`AGENTS.md` / `CLAUDE.md` carry their own flow summary tables — update those by hand
 when the pipeline description changes, and keep every command file in `commands/` and
 `commands-claude/` consistent with the skill it points at. A command that contradicts its
 skill is a defect, not a shorthand.

@@ -446,7 +446,7 @@ esac
 # (case 21 above).
 #
 # The fixture plants a COLLIDING file at the exact path stripping
-# `<project>/` would produce — .myflow/project.md at the fixture root —
+# `<project>/` would produce — .flow/project.md at the fixture root —
 # carrying a heading that does NOT match the cited section. Without that
 # collider, "correctly left alone" and "incorrectly stripped" are
 # indistinguishable to this case: both leave the citation unresolved, RC=0,
@@ -464,9 +464,9 @@ esac
 # sanity check on the current behavior, not a mutation-proven guarantee the
 # way the heading check above is.
 new_fixture
-mkdir -p "$FIXTURE/skills/flow-research" "$FIXTURE/.myflow"
-printf '## Something else\n\nbody\n' > "$FIXTURE/.myflow/project.md"
-printf 'see **Whatever** in `<project>/.myflow/project.md`\n' \
+mkdir -p "$FIXTURE/skills/flow-research" "$FIXTURE/.flow"
+printf '## Something else\n\nbody\n' > "$FIXTURE/.flow/project.md"
+printf 'see **Whatever** in `<project>/.flow/project.md`\n' \
   > "$FIXTURE/skills/flow-research/SKILL.md"
 run_guard "$FIXTURE"
 [ "$RC" -eq 0 ] && pass "a project-prefixed citation is neither resolved nor refused" \

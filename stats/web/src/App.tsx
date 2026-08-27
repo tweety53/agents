@@ -206,7 +206,7 @@ export function App() {
   return (
     <div className="app-shell">
       <header>
-        <h1>myflow stats</h1>
+        <h1>flow stats</h1>
         <nav aria-label="Statistics views">
           <ul>
             {VIEW_NAMES.map((v) => (

@@ -1,6 +1,6 @@
 // projectLabel derives a project's display name from its key by stripping
 // the documented `-[0-9a-f]{8}` suffix (State file,
-// skills/myflow-contracts/state-file.md). The whole risk is the fallback:
+// skills/flow-contracts/state-file.md). The whole risk is the fallback:
 // a key that does not end in that exact shape must come back unchanged,
 // since the helper's input is whatever the server put in projectKey and it
 // must not lose a segment to a pattern that was never about it -- these

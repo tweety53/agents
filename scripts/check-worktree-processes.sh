@@ -32,7 +32,7 @@
 #
 # PROJECT-AGNOSTIC BY CONSTRUCTION. It holds no port list, invokes no build
 # tool, and requires no project to declare anything, so it protects every
-# project myflow is installed into rather than only those that opted in. That
+# project flow is installed into rather than only those that opted in. That
 # is deliberate: a guard needing an opt-in would not have protected the project
 # this incident happened in.
 #

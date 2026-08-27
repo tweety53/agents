@@ -19,7 +19,7 @@ import (
 
 // journalPath mirrors fallback.JournalFilePath's own "<root>/<project>/<name>.journal"
 // shape, built directly against a test's own root rather than through
-// fallback.StateRoot()/MYFLOW_STATE_DIR -- reconcile.New already takes an
+// fallback.StateRoot()/FLOW_STATE_DIR -- reconcile.New already takes an
 // explicit root, so these tests never need to touch that env var.
 func journalPath(root, project, name string) string {
 	return filepath.Join(root, project, name+".journal")
@@ -62,7 +62,7 @@ func TestReplayAppliesPendingEntries(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 
-	appendEntry(t, root, "proj-apply", "chg-apply", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
+	appendEntry(t, root, "proj-apply", "chg-apply", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
 
 	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
@@ -77,8 +77,8 @@ func TestReplayAppliesPendingEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetChange: %v", err)
 	}
-	if got.State != store.StateStarted || got.UpdatedBy != "myflow-start" {
-		t.Fatalf("stored change = %+v, want state STARTED, updatedBy myflow-start", got)
+	if got.State != store.StateStarted || got.UpdatedBy != "flow-start" {
+		t.Fatalf("stored change = %+v, want state STARTED, updatedBy flow-start", got)
 	}
 
 	if n := pendingCount(t, root, "proj-apply", "chg-apply"); n != 0 {
@@ -107,7 +107,7 @@ func TestStaleEntryCannotRegressFinished(t *testing.T) {
 		Name:             "chg-stale",
 		State:            store.StateFinished,
 		UpdatedAt:        time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC),
-		UpdatedBy:        "myflow-finish",
+		UpdatedBy:        "flow-finish",
 	}
 	if err := st.PutChange(ctx, finished); err != nil {
 		t.Fatalf("seed FINISHED change: %v", err)
@@ -116,7 +116,7 @@ func TestStaleEntryCannotRegressFinished(t *testing.T) {
 	// A stale journal entry: an earlier pipeline state, timestamped after
 	// the FINISHED write -- the monotonic rule's state dimension is what
 	// must refuse this, not the timestamp.
-	appendEntry(t, root, "proj-stale", "chg-stale", "IN_PROGRESS", "2026-08-13T13:00:00Z", "myflow-do")
+	appendEntry(t, root, "proj-stale", "chg-stale", "IN_PROGRESS", "2026-08-13T13:00:00Z", "flow-do")
 
 	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
@@ -131,7 +131,7 @@ func TestStaleEntryCannotRegressFinished(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetChange: %v", err)
 	}
-	if got.State != store.StateFinished || got.UpdatedBy != "myflow-finish" {
+	if got.State != store.StateFinished || got.UpdatedBy != "flow-finish" {
 		t.Fatalf("stored change regressed: got %+v, want the FINISHED record unchanged", got)
 	}
 
@@ -150,12 +150,12 @@ func TestReplayRetiresRefusedEntries(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 
-	appendEntry(t, root, "proj-refuse", "chg-refuse", "IN_PROGRESS", "2026-08-13T10:00:00Z", "myflow-do")
+	appendEntry(t, root, "proj-refuse", "chg-refuse", "IN_PROGRESS", "2026-08-13T10:00:00Z", "flow-do")
 	// A byte-identical shape of the same write (same state, same
 	// updatedAt) -- exactly the "benign duplicate" shape put()'s own doc
 	// comment describes, e.g. a retried request whose first response was
 	// lost.
-	appendEntry(t, root, "proj-refuse", "chg-refuse", "IN_PROGRESS", "2026-08-13T10:00:00Z", "myflow-do")
+	appendEntry(t, root, "proj-refuse", "chg-refuse", "IN_PROGRESS", "2026-08-13T10:00:00Z", "flow-do")
 
 	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
@@ -202,8 +202,8 @@ func TestReplayRetiresInvalidStateEntryAndAppliesEntryBehindIt(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 
-	appendEntry(t, root, "proj-badstate", "chg-badstate", "BOGUS_STATE", "2026-08-13T10:00:00Z", "myflow-do")
-	appendEntry(t, root, "proj-badstate", "chg-badstate", "IN_PROGRESS", "2026-08-13T10:05:00Z", "myflow-do")
+	appendEntry(t, root, "proj-badstate", "chg-badstate", "BOGUS_STATE", "2026-08-13T10:00:00Z", "flow-do")
+	appendEntry(t, root, "proj-badstate", "chg-badstate", "IN_PROGRESS", "2026-08-13T10:05:00Z", "flow-do")
 
 	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
@@ -244,11 +244,11 @@ func TestReplayRetiresUndecodableEntryAndAppliesEntryBehindIt(t *testing.T) {
 	root := t.TempDir()
 
 	path := journalPath(root, "proj-undecodable", "chg-undecodable")
-	undecodable := []byte(`{"state":"STARTED","bogusField":"x","mainCheckoutPath":"/tmp/reconcile-test","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"myflow-do"}`)
+	undecodable := []byte(`{"state":"STARTED","bogusField":"x","mainCheckoutPath":"/tmp/reconcile-test","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"flow-do"}`)
 	if err := fallback.AppendJournalEntry(path, "proj-undecodable", "chg-undecodable", undecodable, time.Now()); err != nil {
 		t.Fatalf("append undecodable journal entry: %v", err)
 	}
-	appendEntry(t, root, "proj-undecodable", "chg-undecodable", "IN_PROGRESS", "2026-08-13T10:05:00Z", "myflow-do")
+	appendEntry(t, root, "proj-undecodable", "chg-undecodable", "IN_PROGRESS", "2026-08-13T10:05:00Z", "flow-do")
 
 	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
@@ -286,8 +286,8 @@ func TestInterruptedReplayResumesWithoutDuplicating(t *testing.T) {
 	ctx := context.Background()
 	root := t.TempDir()
 
-	appendEntry(t, root, "proj-interrupt", "chg-a", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
-	appendEntry(t, root, "proj-interrupt", "chg-b", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
+	appendEntry(t, root, "proj-interrupt", "chg-a", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
+	appendEntry(t, root, "proj-interrupt", "chg-b", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
 
 	wrapped := &injectingStore{inner: st, failName: "chg-b", failsRemaining: 1}
 	rec := reconcile.New(wrapped, nopStageStore{}, nopRecordStore{}, root, nil)
@@ -469,8 +469,8 @@ func (f *fakeStore) callCount() int {
 // what the assertion actually depends on.
 func TestReconcilerRunSerializesConcurrentCalls(t *testing.T) {
 	root := t.TempDir()
-	appendEntry(t, root, "proj-concurrent", "chg-1", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
-	appendEntry(t, root, "proj-concurrent", "chg-2", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
+	appendEntry(t, root, "proj-concurrent", "chg-1", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
+	appendEntry(t, root, "proj-concurrent", "chg-2", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
 
 	fs := &fakeStore{hook: func(store.Change) error {
 		time.Sleep(20 * time.Millisecond)
@@ -522,7 +522,7 @@ func TestReconcilerRunSerializesConcurrentCalls(t *testing.T) {
 // the entry that was actually processed. A second Run then picks it up.
 func TestRetirePreservesEntryAppendedDuringReplay(t *testing.T) {
 	root := t.TempDir()
-	appendEntry(t, root, "proj-append", "chg-x", "STARTED", "2026-08-13T10:00:00Z", "myflow-start")
+	appendEntry(t, root, "proj-append", "chg-x", "STARTED", "2026-08-13T10:00:00Z", "flow-start")
 
 	var once sync.Once
 	fs := &fakeStore{}
@@ -531,7 +531,7 @@ func TestRetirePreservesEntryAppendedDuringReplay(t *testing.T) {
 			// Same project/name as the entry currently being processed --
 			// this append lands in the exact file replayFile's raw is a
 			// now-stale snapshot of, not a different one.
-			appendEntry(t, root, "proj-append", "chg-x", "IN_PROGRESS", "2026-08-13T11:00:00Z", "myflow-do")
+			appendEntry(t, root, "proj-append", "chg-x", "IN_PROGRESS", "2026-08-13T11:00:00Z", "flow-do")
 		})
 		return nil
 	}
@@ -574,7 +574,7 @@ func TestPartialTrailingJournalLineIsIgnored(t *testing.T) {
 
 	complete := fmt.Sprintf(
 		`{"recordedAt":"2026-08-13T10:00:00Z","project":"proj-partial","name":"chg-partial","body":%s}`+"\n",
-		mustMarshalRawBody(t, changeBody(t, "STARTED", "2026-08-13T10:00:00Z", "myflow-start")),
+		mustMarshalRawBody(t, changeBody(t, "STARTED", "2026-08-13T10:00:00Z", "flow-start")),
 	)
 	partialTail := `{"recordedAt":"2026-08-13T11:00:00Z","project":"proj-partial","na`
 
@@ -747,11 +747,11 @@ func TestConcurrentAppendVersusRetirePreservesEveryEntry(t *testing.T) {
 }
 
 // TestReplayRetiresMalformedMergeBaseEntryAndAppliesEntryBehindIt is the
-// journal half of "A recorded merge base is a sha or nothing". `myflow
+// journal half of "A recorded merge base is a sha or nothing". `flow
 // state set` refuses a malformed merge base before it can ever be
 // journalled, so the only way one reaches replay is a hand-edited or
 // out-of-band-modified fallback file -- the case
-// skills/myflow-contracts/state-file.md already names.
+// skills/flow-contracts/state-file.md already names.
 //
 // Such an entry is unfixable by retrying: the bytes already on disk
 // produce the identical store.ErrInvalidMergeBase refusal on every future
@@ -772,11 +772,11 @@ func TestReplayRetiresMalformedMergeBaseEntryAndAppliesEntryBehindIt(t *testing.
 	// KAN-265 recorded and could not correct.
 	handEdited := []byte(`{"state":"IN_PROGRESS","mainCheckoutPath":"/tmp/reconcile-test",` +
 		`"worktrees":{"/w/kan-265":"/Users/x/Projects/agents-worktrees/kan-265"},` +
-		`"updatedAt":"2026-08-13T10:00:00Z","updatedBy":"myflow-do"}`)
+		`"updatedAt":"2026-08-13T10:00:00Z","updatedBy":"flow-do"}`)
 	if err := fallback.AppendJournalEntry(journalPath(root, project, name), project, name, handEdited, time.Now()); err != nil {
 		t.Fatalf("append hand-edited journal entry: %v", err)
 	}
-	appendEntry(t, root, project, name, "IN_PROGRESS", "2026-08-13T10:05:00Z", "myflow-fix")
+	appendEntry(t, root, project, name, "IN_PROGRESS", "2026-08-13T10:05:00Z", "flow-fix")
 
 	rec := reconcile.New(st, st, st, root, nil)
 	result, err := rec.Run(ctx)
@@ -791,7 +791,7 @@ func TestReplayRetiresMalformedMergeBaseEntryAndAppliesEntryBehindIt(t *testing.
 	if err != nil {
 		t.Fatalf("GetChange: %v", err)
 	}
-	if got.UpdatedBy != "myflow-fix" {
+	if got.UpdatedBy != "flow-fix" {
 		t.Fatalf("stored change = %+v, want the valid entry queued behind the bad one", got)
 	}
 

@@ -1,4 +1,4 @@
-// Package client is the CLI's only means of reaching myflowd over HTTP. It
+// Package client is the CLI's only means of reaching flowd over HTTP. It
 // exists to answer exactly one question for its caller on every request:
 // did the store answer, or should the caller fall back? Everything that is
 // not the store answering -- a dead port, a timeout, a malformed body, any
@@ -32,7 +32,7 @@ const maxResponseBytes = 1 << 20
 // daemonHeaderName and daemonHeaderValue must match internal/api's
 // DaemonHeader and DaemonHeaderValue exactly. They are kept as literal
 // constants here, rather than imported, for the same reason
-// cmd/myflow/state.go names myflowd's default address again instead of
+// cmd/flow/state.go names flowd's default address again instead of
 // importing internal/config: per design.md's "Boundaries", the CLI knows
 // only HTTP, never the daemon's internal packages, so the two sides are
 // allowed to agree on a string constant without sharing a package.
@@ -42,8 +42,8 @@ const maxResponseBytes = 1 << 20
 // why: a 409 or a 404 from some other process squatting the port must fall
 // back, not be reported as a genuine refusal or a genuine not-found.
 const (
-	daemonHeaderName  = "Myflow-Daemon"
-	daemonHeaderValue = "myflowd/1"
+	daemonHeaderName  = "Flow-Daemon"
+	daemonHeaderValue = "flowd/1"
 )
 
 // ErrUnavailable means the caller should treat the store as unreachable:
@@ -66,7 +66,7 @@ var ErrRefused = errors.New("client: store refused the write: state would move b
 // wrapped in ErrUnavailable.
 var ErrNotFound = errors.New("client: change not found")
 
-// Client talks to myflowd's state API. It never retries: exactly one
+// Client talks to flowd's state API. It never retries: exactly one
 // request per call, bounded by ctx, so the caller controls how long a
 // possibly-unreachable store is allowed to hold up the fallback decision.
 type Client struct {
@@ -153,7 +153,7 @@ func (c *Client) PutChange(ctx context.Context, project, name string, body []byt
 	}
 }
 
-// settingsURL is myflowd's harness-wide settings endpoint -- GET/PUT
+// settingsURL is flowd's harness-wide settings endpoint -- GET/PUT
 // /api/v1/settings, per design.md's model-default-sonnet and
 // review-panel-fixed-3 decisions. Unlike every other endpoint above, it
 // carries no project or change identity: flow_settings holds exactly one
@@ -277,7 +277,7 @@ func (c *Client) stateBoardURL(project string) string {
 // only HTTP, never the daemon's internal packages. ProjectKey and
 // NextCommand are deliberately not carried here: a caller of this method
 // already knows which project it asked for, and the next-command mapping
-// is `/myflow-status`'s own table (skills/myflow-status/SKILL.md), not
+// is `/flow-status`'s own table (skills/flow-status/SKILL.md), not
 // something this package should compute a second copy of.
 type StateBoardRow struct {
 	Name      string `json:"name"`
@@ -326,7 +326,7 @@ func (c *Client) ListStateBoard(ctx context.Context, project string) ([]StateBoa
 	return wire.Rows, nil
 }
 
-// stagesBeginURL and stagesEndURL are myflowd's stage-mark endpoints --
+// stagesBeginURL and stagesEndURL are flowd's stage-mark endpoints --
 // POST /api/v1/stages/begin and POST /api/v1/stages/end, per design.md's
 // "API" section. Unlike the change endpoints, a mark's identity (project,
 // change, command, stage) travels in the request body rather than the URL
@@ -336,7 +336,7 @@ func (c *Client) ListStateBoard(ctx context.Context, project string) ([]StateBoa
 func (c *Client) stagesBeginURL() string { return c.baseURL + "/api/v1/stages/begin" }
 func (c *Client) stagesEndURL() string   { return c.baseURL + "/api/v1/stages/end" }
 
-// BeginStageRequest is the wire shape `myflow stage begin` sends. Fields
+// BeginStageRequest is the wire shape `flow stage begin` sends. Fields
 // mirror store.BeginStageInput; MainCheckoutPath bootstraps the project
 // row exactly as PutChange's does, for the same reason a mark for an
 // unknown change must still be stored (design.md, "A mark for an unknown
@@ -366,10 +366,10 @@ type BeginStageResult struct {
 	Attempt    int
 }
 
-// EndStageRequest is the wire shape `myflow stage end` sends. It carries
+// EndStageRequest is the wire shape `flow stage end` sends. It carries
 // no numeric stage run id: the daemon resolves the open run for
 // (ProjectKey, ChangeName, Command, Stage) itself, exactly as
-// design.md's own `myflow stage end --change ... --outcome completed`
+// design.md's own `flow stage end --change ... --outcome completed`
 // example never names one either.
 type EndStageRequest struct {
 	ProjectKey string
@@ -695,7 +695,7 @@ func (c *Client) EndDispatch(ctx context.Context, project, change string, in rec
 // Both of the daemon's success codes are success here: 201 when the write
 // inserted and 200 when it replaced, and created is that distinction --
 // the daemon's answer to "did this ref exist already", which no caller can
-// work out for itself. `myflow record finding` prints "recorded: F<n>" on
+// work out for itself. `flow record finding` prints "recorded: F<n>" on
 // an insert and "updated: F<n>" on a replace, so a panel run can tell a
 // finding it has just raised from one a fix round restated. See
 // RecordDispatch's doc comment for how every other outcome is classified.
@@ -746,7 +746,7 @@ func (c *Client) GetRunRecord(ctx context.Context, project, change string) (reco
 }
 
 // GetCostStatus fetches project/change's cost-status: how many of its
-// dispatches carry no cost figure yet, and why. Unlike `myflow record
+// dispatches carry no cost figure yet, and why. Unlike `flow record
 // journal-count`, this genuinely contacts the store -- only the store can
 // answer a question about what it holds -- so it is classified exactly as
 // GetRunRecord's own read is, ErrNotFound (404, no such change) or

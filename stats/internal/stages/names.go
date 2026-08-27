@@ -1,5 +1,5 @@
-// Package stages holds the documented stage vocabulary for every myflow
-// pipeline command -- the keys a `myflow stage begin`/`stage end` mark is
+// Package stages holds the documented stage vocabulary for every flow
+// pipeline command -- the keys a `flow stage begin`/`stage end` mark is
 // allowed to carry -- plus the small set of constants the daemon and the
 // CLI must agree on to interpret a stage mark's effects, such as
 // SyntheticChangeUpdatedBy (synthetic.go). Those constants are not stage
@@ -33,7 +33,7 @@ import (
 	"strings"
 )
 
-// Command is a myflow pipeline command name, exactly as README.md's Level 1
+// Command is a flow pipeline command name, exactly as README.md's Level 1
 // table spells it (including the leading slash).
 type Command string
 
@@ -155,14 +155,14 @@ type ErrUnknownStage struct {
 func (e *ErrUnknownStage) Error() string {
 	alternatives := byCommand[e.Command]
 	if len(alternatives) == 0 {
-		return fmt.Sprintf("myflow: %q names no documented stage key for %s -- %s has no documented stages in README.md's Level 1 table",
+		return fmt.Sprintf("flow: %q names no documented stage key for %s -- %s has no documented stages in README.md's Level 1 table",
 			e.Stage, e.Command, e.Command)
 	}
 	keys := make([]string, len(alternatives))
 	for i, s := range alternatives {
 		keys[i] = s.Key
 	}
-	return fmt.Sprintf("myflow: %q is not a documented stage key of %s -- documented stage keys are: %s",
+	return fmt.Sprintf("flow: %q is not a documented stage key of %s -- documented stage keys are: %s",
 		e.Stage, e.Command, strings.Join(keys, "; "))
 }
 

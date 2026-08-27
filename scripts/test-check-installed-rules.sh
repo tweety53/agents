@@ -156,7 +156,7 @@ expect_stale "stale_marker: a rendered rule this checkout does not have" "which 
 # --- a linked worktree is skipped, not failed --------------------------------
 # setup.sh links into the checkout it ran from, so in an apply worktree every
 # rule resolves to the main checkout. Rule 1 would call all of them misplaced and
-# fail `## lint` in every worktree a /myflow-* change runs in. Detected by `.git`
+# fail `## lint` in every worktree a /flow* change runs in. Detected by `.git`
 # being a file.
 new_home
 WT_REPO="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-rules-wt.XXXXXX")"; DIRS+=("$WT_REPO")
