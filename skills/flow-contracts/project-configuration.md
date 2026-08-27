@@ -30,6 +30,7 @@ bodies are constrained to what that procedure accepts.
 | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. |
 | `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`skills/flow-contracts/jira-followups.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
 | `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
+| `## visual verification` | Optional. What the `flow.visual-verify` stage validates before it runs: which UI paths in a change's diff trigger it, where captured screenshots land, the `setup`/`verify`/`capture` commands, and an optional `regression checkout` naming the repository the spec and its PNGs commit to, with `regression repo` recording the identity — never an authorisation — that checkout's real `origin` must equal. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader. Absent means the stage is not configured for this project, a supported state and not a misconfiguration. Mechanically enforced by `<agents repo>/scripts/check-visual-verification.sh`, canonical for what it checks. |
 
 **How a `## standards` entry resolves to a file.** Every entry in the `## standards` section is
 one of three forms, and there is no fourth. **"Bare" is mechanical throughout: the entry contains
@@ -476,6 +477,49 @@ exported, nothing created and nothing removed — and no command reports it. A p
 runnable application is right to be in that case: it has nothing to isolate. Why absence is an
 ordinary answer rather than a gap waiting to be filled, and what an empty
 workspace id resolves to, are stated under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
+
+## visual verification
+
+**How a `## visual verification` section is written.** One settings table, then one commands table,
+and nothing else in the section is read — prose beside them is for the reader, exactly as
+`## workspace isolation` above. **Declare the section at most once**: a file carrying the
+`## visual verification` heading twice is an ambiguous declaration, not a merge, and neither table
+is read.
+
+The settings table's header folds to `setting|value` before it is compared — case and internal
+whitespace do not matter, so `| setting | VALUE |` matches as readily as `| Setting | Value |`, but
+the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the four
+rows below is reported and its row dropped, never silently ignored.
+
+| Setting | Required | Meaning |
+|---------|----------|---------|
+| `ui paths` | yes | Comma-separated globs, relative to each app root in `## apps`. A run whose diff matches none of them skips the `flow.visual-verify` stage. |
+| `screenshots` | yes | The root beneath which `verify` and `capture` write PNGs, **searched recursively rather than joined with a filename** — relative to the regression checkout when one is declared, otherwise to the project root. A per-change `capture` spec lands its PNGs in its own nested snapshot directory, a different one for every spec, so no single leaf path is correct for both the baseline suite and an arbitrary capture; naming the root instead is. |
+| `regression checkout` | no | Absolute path to the repository the per-change spec and its PNGs are committed to. **Absent means they are committed to the change's own branch instead.** |
+| `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** Nothing pushes automatically; see below. |
+
+The commands table's header folds the same way, to `command|runs` — the same heading
+`## workspace isolation` above already establishes for a table of project-declared commands, reused
+here rather than invented a second time. **Its `Command` vocabulary is closed** too: a name outside
+the three rows below is reported and its row dropped.
+
+| Command | Required | Meaning |
+|---------|----------|---------|
+| `setup` | no | Run once before `verify` when the toolchain is missing. |
+| `verify` | yes | Runs the checked-in baseline suite. |
+| `capture` | yes | Runs the per-change spec and **creates** this change's baseline — it is expected to write PNGs that do not yet exist, and that is success, not failure. `verify` above is the regression gate, guarding an already-committed baseline; `capture` is not, and the project's own command must be the variant that succeeds on a first-run write rather than the one built to fail a comparison against nothing. |
+
+**No push is ever automatic.** `flow.visual-verify` commits the per-change spec and its PNGs to the
+`regression checkout` when one is declared and stops there; the handoff prints the push command for
+the operator to run by hand. `regression repo` records which repository the checkout is expected to
+be, and a mismatch against its real `origin` is reported — but that is an identity assertion, not an
+authorisation, because `<project>/.flow/project.md` is tracked and editable in any pull request, and
+a file inside a repository cannot authorise a push to another repository. Why the permission this
+section once granted was dropped, on evidence a panel slot demonstrated, is design.md's
+`no-automatic-push` decision.
+
+**Mechanically enforced** by `<agents repo>/scripts/check-visual-verification.sh`, canonical for the
+section's exact shape and every violation it reports.
 
 **The file is optional, and every key within it is optional.**
 

@@ -130,6 +130,7 @@ key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a 
 | `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow` |
 | `flow.review-panel` | The review panel ▸ | `/flow` |
 | `flow.verify` | Verify: workspace isolation, lint and test | `/flow` |
+| `flow.visual-verify` | Visual verification | `/flow` |
 | `flow.stage-diff` | Stage, excluding the planning paths | `/flow` |
 | `flow.run-instructions` | Resolve the run instructions | `/flow` |
 | `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow` |

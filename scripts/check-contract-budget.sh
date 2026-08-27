@@ -143,7 +143,7 @@ source "$SCRIPT_DIR/lib/owned-corpus.sh"
 # them and deliberately left them rather than widen a rename into that cleanup.
 budgets() {
   cat <<'EOF'
-.flow/project.md 20396
+.flow/project.md 26450
 AGENTS.md 18648
 CLAUDE.md 15195
 README.md 59181
@@ -193,7 +193,7 @@ skills/flow/integrate.md 14370
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 27420
 skills/flow/security-reviewer-prompt.md 1540
-skills/flow/verify-and-handoff.md 14598
+skills/flow/verify-and-handoff.md 24862
 skills/flow-contracts/SKILL.md 9665
 skills/flow-contracts/artifacts-registry-rationale.md 6981
 skills/flow-contracts/artifacts-registry.md 7620

@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // The build output lands inside internal/web/dist -- a sibling Go package
@@ -23,5 +24,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/setupTests.ts"],
+    // tests/visual/baseline.spec.ts (KAN-171) is a Playwright suite, run
+    // through its own `npm run test:visual`, never through vitest -- its
+    // name still matches vitest's default `*.spec.ts` include glob, so it
+    // must be excluded explicitly or vitest tries to import it directly
+    // and fails on Playwright's own test.describe() guard against being
+    // called outside the Playwright test runner.
+    exclude: [...configDefaults.exclude, "tests/visual/**"],
   },
 });

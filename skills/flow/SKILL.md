@@ -95,7 +95,7 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.resolve-change`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
 | `skills/flow/review-panel.md` | `flow.review-panel` |
-| `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
+| `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
 | `skills/flow/archive.md` | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.self-review`, `flow.push-archive` |
 
@@ -151,10 +151,11 @@ flow state get <name-or-best-guess> -C <repo-root>
 confirm every guard `/flow` can invoke — the full list is the union carried by
 `skills/flow/scripts/`: `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
 `check-panel-diff-size.sh`, `check-panel-reproducers.sh`, `check-task-commit-fields.sh`,
-`check-unfinished-work.sh`, `check-workspace-isolation.sh`, `check-worktree-processes.sh`,
-`commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,
+`check-unfinished-work.sh`, `check-visual-trigger.sh`,
+`check-visual-verification.sh`, `check-workspace-isolation.sh`,
+`check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,
 `plan-dispatch-bundles.sh`, `prepare-archive-branch.sh`, `prepare-workspace.sh`,
-`resolve-base-branch.sh` and `run-reproducer.sh` — is present there. A complete set prints nothing;
+`resolve-base-branch.sh`, `resolve-visual-screenshots.sh` and `run-reproducer.sh` — is present there. A complete set prints nothing;
 any absence prints that section's block once, and the run continues under each guard's own hand-run
 fallback.
 
