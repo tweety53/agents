@@ -394,6 +394,51 @@ on the one branch, at the operator's explicit request to carry both in this task
 **Considered:** a second change for the rename — rejected because the operator asked for it here;
 recorded so the size of the resulting diff is not mistaken for scope creep.
 
+### The test DSNs follow the declarations, and one variable moves them all
+
+**ID:** test-dsn-follows-the-declaration
+**Status:** active
+**Chosen:** every test DSN names the **declared** role and database — `flow:flow@.../flow`, what a
+fresh compose stack creates — and every per-test DSN is derived from its package's admin DSN by
+rewriting only the database segment, so `FLOW_STATS_ADMIN_DSN` moves the admin connection and all the
+per-test connections together.
+**Considered:** pinning the literals to the still-running pre-cutover container, which is what this
+change originally did — rejected, and the rejection is the panel's Critical finding: the declarations
+around them had all moved, so after the operator's own cutover step nine packages authenticate
+against a role that no longer exists. The "16/16 passing" verification never caught it because it ran
+against the very container the literals were pinned to.
+
+**Two consequences, both measured rather than predicted, because the obvious fix was not sufficient:**
+
+Renaming the literals alone makes the suites **skip** rather than fail when the old container is
+still live — `internal/store` printed `ok` while running four tests and skipping 155. A package that
+ran almost nothing and reported success is the exact defect class this change exists to prevent,
+reintroduced by the fix for it.
+
+And the override did not rescue it, because seven helpers repeated the credentials as literals rather
+than deriving them: `FLOW_STATS_ADMIN_DSN` moved the admin connection while every per-test connection
+stayed pinned, so the admin step succeeded and every test failed. Deriving them is what makes the
+escape hatch real. With `FLOW_STATS_ADMIN_DSN` and `FLOW_STATS_DSN` both set the suite runs with zero
+skips against the pre-cutover container; after the cutover neither is needed. Both READMEs say so.
+
+### The DSN rewriter accepts both connection-string grammars
+
+**ID:** dsn-accepts-keyword-form
+**Status:** active
+**Chosen:** `stats/internal/dsn` handles the URL form *and* libpq's keyword form
+(`host=... dbname=...`), rewriting only the database in each.
+**Considered:** accepting URL form alone and refusing keyword form, which would be a smaller function
+with one grammar — rejected because it makes a real override shape unusable. A Unix-socket override
+is naturally written in keyword form (`host=/var/run/postgresql dbname=flow`); the URL spelling that
+encodes a socket path in the authority does not parse at all. Refusing keyword form would hand an
+operator on a socket-connected Postgres no way to point the suite at it, which is the exact
+population the override exists for.
+
+**This requirement was established across three fix rounds and never written down**, which the panel
+called out: the decision above records what those rounds settled, and names the alternative they
+rejected. A requirement discovered by successive defect reports and left unrecorded is one the next
+change re-litigates from scratch.
+
 ## Open questions
 
 ### Does `flow` collide with another binary on a machine that installs this?

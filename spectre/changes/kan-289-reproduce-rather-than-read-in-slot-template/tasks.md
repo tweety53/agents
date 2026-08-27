@@ -420,6 +420,29 @@ operator step in task 19 is the real safeguard and this note exists.
   The fix — folded into this task's own commit — moves the reader and the harness's assertion to
   `flowd-<port>.pid`, and corrects a Makefile comment that described the old path as fact.
 
+  **A THIRD thing was folded in after the review panel, and it is the largest defect this change
+  produced.** This task's dispatch told the implementer to LEAVE the DSN literals
+  `postgres://myflow:myflow@localhost:5433/myflow` alone in ten test files and the Makefile,
+  reasoning they had to keep working against the not-yet-renamed container. That instruction was
+  wrong, and it was mine. Every declaration around them moved — the compose file creates role and
+  database `flow`, and `config.DefaultDSN` says `flow` — so after the operator's own cutover step
+  those literals authenticate against a role that no longer exists, and nine packages fail. The
+  branch's "16/16 passing" verification never caught it because it ran against the pre-cutover
+  container, which is exactly what the literals were pinned to.
+
+  **Fixing it exposed something worse.** With the literals renamed and no override set, the suites do
+  not fail — they **skip**. `internal/store` reported `ok` while running four tests and skipping 155.
+  <!-- measured: go test ./internal/store/ -count=1 -v, counting --- PASS against --- SKIP lines, with and without the override @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
+  A package that ran almost nothing and printed `ok` is the precise failure this whole change exists
+  to prevent, produced by the fix for it.
+
+  **And the escape hatch did not work either.** `FLOW_STATS_ADMIN_DSN` moved only the admin
+  connection; every per-test DSN was built by a helper that repeated the credentials as a literal, so
+  overriding the environment produced an admin step that succeeded followed by every test failing.
+  All seven such helpers now derive from their package's admin DSN by rewriting only the database
+  segment, so one variable moves both connections. With both overrides set the suite runs **zero**
+  skips against the pre-cutover container; after the cutover neither is needed.
+
   **A second thing was folded in after the per-task review: a test that pins
   `stages.SyntheticChangeUpdatedBy` to its stored literal.** The review mutation-tested that constant
   and found a **surviving mutant** — renaming it to `flow stage begin (synthetic)` left `go vet`,
@@ -473,8 +496,14 @@ API and store suites fail on the route and column names they assert.
   <!-- measured: cd stats/web && npm test @ 07acd2e (before this change) -->
 
 **Build:** green
-**Files:** `stats/web/package.json`, `stats/web/src/**`
-**Allowed-collateral:** `stats/web/package-lock.json`
+**Files:** `stats/web/package.json`, `stats/web/src/App.tsx`, `stats/web/src/api.ts`, `stats/web/src/main.tsx`, `stats/web/src/metrics.ts`, `stats/web/src/views/StateBoard.tsx`, `stats/web/src/views/Trend.tsx`
+**Allowed-collateral:** `stats/web/*`
+
+Literal paths, not globs: `check-task-commit-fields.py` compares `Files:` as exact strings and only
+globs `Allowed-collateral:`. This task's field said `stats/web/src/**` and the guard rejected all six
+files the commit touched — the same trap tasks 9, 11, 12 and 15 each hit and recorded, missed here
+because this task's guard run was never made. Found by the review panel running the guard against
+every task's resolved sha; task 10 was the only one that failed.
 **Tests:** no new test — the nine existing SPA test files are the surface.
 **Regression:** reverting this task restores the old names; `npx tsc -b` fails on the identifiers
 the tests import.
@@ -682,7 +711,7 @@ carry the new ones; `check-references.sh` reports the citations that no longer r
 named above.
 **Commit:** `refactor(flow-contracts): rename the myflow- contract names to flow-`
 
-- [ ] 15. Rename the remaining prose vocabulary across the live corpus
+- [x] 15. Rename the remaining prose vocabulary across the live corpus
 
   Sweep what is left: `skills/`, `rules/`, `commands/`, `commands-claude/`, `README.md`,
   `CLAUDE.md`, `AGENTS.md`, `setup.sh`, the remaining prose in `scripts/` headers, **and
@@ -899,7 +928,7 @@ if the scope is later widened over the archives.
 the file gains eight cases.
 **Commit:** `feat(scripts): retire the myflow vocabulary in check-vocabulary`
 
-- [ ] 18. Reconcile the contract-budget table with the renamed paths
+- [x] 18. Reconcile the contract-budget table with the renamed paths
 
   Every renamed file changed its key in `scripts/check-contract-budget.sh`'s `budgets()` table, and
   task 12 updated the rows it renamed. Tasks 2 and 3 grew two files inside their existing headroom
@@ -914,6 +943,21 @@ the file gains eight cases.
   plus the margin the table's own rule states. Do not narrow the guard's scope and do not delete a row
   to make it pass.
 
+  **The audit's actual finding: 27 rows name paths that no longer exist, and they stay.** They are the
+  `myflow-do` / `-start` / `-finish` / `-fast` / `-status` / `-research` skills and commands,
+  consolidated into `/flow` by an earlier change — **none of them from this rename**, whose own key
+  moves task 12 made. They are inert: the guard iterates the files it finds and looks up a budget for
+  each, and never walks rows checking they resolve, so such a row can never produce a violation.
+
+  **Four of them are load-bearing, which is why deleting them would be a defect rather than a
+  cleanup.** `scripts/test-check-contract-budget.sh` builds its fixture trees at those exact paths and
+  sizes them from the rows, so they are the only way two of the guard's rules get exercised — and
+  `skills/myflow-do/SKILL-rationale.md` in particular has **no live equivalent anywhere in the
+  repository**, so removing it leaves the SKILL-rationale rule with no test at all. Removing them is a
+  real change needing the harness repointed first; it is not this rename's to make. The finding is
+  written into the guard's own header so the next reader does not tidy them away.
+  <!-- measured: every budgets() key resolved against the tree, and every budget_row_bytes call in the harness enumerated @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
+
   Verify: `scripts/check-contract-budget.sh` exits clean; `scripts/test-check-contract-budget.sh`
   passes; `scripts/check-normative-inventory.sh` exits 0 and its file set matches the budget table's.
 
@@ -925,9 +969,9 @@ parsing and its violation shapes.
 files with no row at all; `check-contract-budget.sh` reports the unbudgeted files.
 **Baseline:** not applicable — the harness's case count is unchanged; verified by the three runs
 named above.
-**Commit:** `chore(scripts): reconcile the contract budget table with the renamed paths`
+**Commit:** `chore(scripts): record the contract-budget table audit`
 
-- [ ] 19. Write the operator cutover runbook and record the rename's completeness evidence
+- [x] 19. Write the operator cutover runbook and record the rename's completeness evidence
 
   Add a cutover section to `README.md` and expand `stats/README.md`'s operations text with the five
   ordered steps `design.md`'s **The cutover is ordered** section states. Reproduce the order and the
@@ -974,6 +1018,38 @@ named above.
     several tasks were verified against that guard on the assumption it would catch exactly this.
     Found by the task 13 review, by reading the guard rather than trusting its clean exit.
 
+  **Both measurements were taken and both hold.**
+
+  *The normative inventory.* Captured at the merge base and at the finished branch, then the same
+  `myflow`→`flow` substitution applied to the before-set and diffed against the after-set. The diff
+  is **three additions and zero removals**, and all three are this change's own `MUST` sentences —
+  the reviewer variant at its two sites and the implementer variant at its one. Nothing was lost, and
+  no normative sentence changed beyond the rename.
+  <!-- measured: check-normative-inventory.sh in a detached worktree at 07acd2e and at the branch tip, substituted and diffed @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
+
+  *The broken-citation sweep.* Every backticked repository-relative path in the live corpus, resolved
+  against the tree. What does not resolve falls into four classes, each checked by hand:
+
+  - **Deliberate fixture examples** — `rules/x.mdc`, `scripts/check-qux.sh`,
+    `does-not-exist/nested/path.md`, `./survivors.sh` and friends. These exist to be absent.
+  - **Paths relative to another directory** — `lib/plan_grammar.py` under `scripts/`,
+    `internal/api/stages.go` under `stats/`, `flow-contracts/pipeline.md` under `skills/`.
+  - **Deliberate `.myflow/` fixtures** in the two hard-cutover harnesses, which must name the retired
+    directory to test that it is refused.
+  - **Genuinely stale pointers into the retired four-command skills** —
+    `skills/myflow-start/SKILL.md`, `skills/myflow-do/SKILL.md`, `skills/myflow-finish/SKILL.md`,
+    `skills/myflow-fast/SKILL.md` — cited in present tense by `handoff-blocks.md`,
+    `operator-prompts.md`, `finish-contract.md` and `flow-status/SKILL.md`.
+
+  **That last class is pre-existing and is NOT fixed here.** Those directories were consolidated into
+  `skills/flow/` by an earlier change, and the citations are the visible edge of a larger problem: a
+  body of contract prose still narrating the retired four-command architecture as if it were live
+  (`finish-contract.md`'s "`/myflow-finish` is the only command that loads this file", for instance).
+  Verified byte-identical at the merge base. Repointing the paths without rewriting the sentences
+  around them would produce contracts that cite the right file while describing a command that does
+  not exist — worse than the stale pointer. It needs its own change, and it is named in the handoff
+  as a follow-up.
+
   Verify: the whole `## lint` list runs clean; the whole `## test` list runs clean, both split across
   more than one invocation; both measurements above are recorded and hold.
 
@@ -988,7 +1064,7 @@ operator will find them.
 lists and the two recorded measurements.
 **Commit:** `docs(readme): add the myflow-to-flow cutover runbook`
 
-- [ ] 20. Stop the dashboard suggesting retired commands
+- [x] 20. Stop the dashboard suggesting retired commands
 
   `stats/internal/api/stats.go`'s `nextCommandFor` maps a change's pipeline state to "the command
   that runs next" and returns `/myflow-do` for `STARTED` and `/myflow-finish` for `IN_PROGRESS`.
@@ -997,7 +1073,8 @@ lists and the two recorded measurements.
   command, `/flow`, and `/flow-status` is the read-only report.
 
   Return `/flow` for both `STARTED` and `IN_PROGRESS`, and keep `""` for `FINISHED`, which is
-  terminal. Rewrite the doc comment to describe the pipeline that actually exists, and update the
+  terminal. **Mutation-tested:** reverting the function to the two retired commands fails the
+  retargeted expectation, so the dashboard's advice is now pinned rather than merely corrected. Rewrite the doc comment to describe the pipeline that actually exists, and update the
   citation to `/flow-status`. Update `stats/internal/api/stats_test.go`'s expectation to match.
 
   **This is a behaviour change, not a lexical rename, which is why it is its own task and its own
@@ -1027,7 +1104,7 @@ recommended next command; the retargeted expectation in `stats_test.go` fails, n
 <!-- measured: cd stats && go test ./... -count=1 @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
 **Commit:** `fix(stats): stop the dashboard recommending retired commands`
 
-- [ ] 21. Rename the managed-block delimiters, with a migration
+- [x] 21. Rename the managed-block delimiters, with a migration
 
   `setup.sh`'s `CLAUDE_MD_BEGIN` / `CLAUDE_MD_END` are `<!-- myflow:begin -->` and
   `<!-- myflow:end -->`, and its backup suffix is `.myflow.bak`. Task 15 renamed them, discovered the
@@ -1055,10 +1132,37 @@ recommended next command; the retargeted expectation in `stats_test.go` fails, n
   installer already owns and rewrites it on every run, and it can therefore fix itself with no
   operator step at all. Refusing there would demand a manual edit of a generated file.
 
+  **The backup suffix moves with it, and a legacy copy wins.** `<file>.myflow.bak` holds an
+  operator's genuine pre-install content. Taking a fresh `.flow.bak` now would copy a file this
+  installer has already managed and announce it as their pre-install copy, quietly replacing the real
+  one as what the recovery path points at. So an existing `.myflow.bak` is kept and nothing is
+  written; a fresh install writes `.flow.bak`.
+
+  **A mistake worth keeping, because it is this change's own subject.** Adding the vocabulary-guard
+  harness cases in task 17, I appended `# vocab-guard:allow` after a line-continuation backslash:
+
+  ```bash verified:run as a standalone snippet; the fixture measured 0 bytes before the repair and 57 after
+  printf '…myflowd…\n' \  # vocab-guard:allow
+    > "$FIXTURE/__pycache__/stale.cpython-314.pyc"
+  ```
+
+  The backslash escapes the **space**, not the newline, so the redirect became a separate command
+  that truncated the fixture to empty — and the case then passed because there was nothing in the
+  file to find. A green harness asserting nothing, which is precisely the defect class KAN-289 exists
+  to catch, introduced while implementing KAN-289. Found by reading the line rather than trusting the
+  `all cases passed` it produced. Repaired by naming the path in a variable so the command fits one
+  markable line, and confirmed by measuring the fixture's size.
+
   Verify: in a throwaway HOME, install with the **pre-change** installer to plant a legacy block, then
   run the new installer and confirm the result carries exactly one block, `flow:`-delimited, with the
   orphan gone and the file back to a single block's length. Then run it a third time and confirm it
-  stays idempotent. Do this with real installs into a real sandbox HOME — the failure this task exists
+  stays idempotent.
+
+  Measured: one legacy block at 259 lines becomes one flow block at 259 lines, unchanged on a third
+  run — against 519 lines carrying two blocks without the migration.
+  <!-- measured: two sandboxed setup.sh global runs into one throwaway HOME, counting anchored marker lines and file length, with and without the migration @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
+
+  Mutation-tested: deleting the migration fails the two new cases. Do this with real installs into a real sandbox HOME — the failure this task exists
   to prevent was invisible to every guard and only appeared when the installer was run twice.
 
 **Build:** green
@@ -1067,7 +1171,8 @@ recommended next command; the retargeted expectation in `stats_test.go` fails, n
 a second run stays idempotent.
 **Regression:** reverting this task restores the myflow-delimited markers; the two new harness cases
 fail, and an operator upgrading across the rename accumulates a permanently stale duplicate block.
-**Baseline:** before=343 after=345 assertions in the setup harness.
+**Baseline:** before=343 after=356 assertions in the setup harness.
+<!-- measured: scripts/test-setup.sh before and after this task @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
 <!-- predicted: scripts/test-setup.sh after this task -->
 **Commit:** `feat(setup): migrate the legacy managed-block delimiters to flow`
 
