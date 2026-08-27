@@ -743,18 +743,71 @@ path and never reports "no configuration found".
 **This is the only step that stops the dev workspace's service and storage, and it is yours to run.**
 `ALTER DATABASE` requires zero live connections, so the daemon must be down first.
 
+**Read the three traps below before running anything.** Each one was hit during the first real
+cutover, and two of them can lose data.
+
+**Trap 1 — `docker compose down` will NOT stop the old container.** The compose file's service key
+changed from `myflow-postgres` to `flow-postgres`, so compose no longer recognises the running  <!-- vocab-guard:allow -->
+container as one of its services: it reports it as an *orphan*, leaves it running, and fails to
+remove the network. Stop it by name, or pass `--remove-orphans`.
+
+**Trap 2 — the volume rename orphans your data.** The compose file now declares `flow-pgdata`, so a
+plain `up` creates a **new, empty** volume and leaves every row behind in `stats_myflow-pgdata`. The
+data must be copied across first — and copied from a **stopped** source, because `cp -a` over a live
+PostgreSQL data directory can catch it mid-write. Combined with trap 1, the obvious sequence copies a
+running database, which is how the first attempt produced an untrustworthy volume.
+
+**Trap 3 — the role cannot rename itself.** `ALTER ROLE myflow RENAME TO flow` fails with
+`session user cannot be renamed`, and this cluster has exactly one role, so there is no second
+superuser to run it from. One must be created for the purpose, and the rename **invalidates the
+role's password**, which has to be reset.
+
+Take a backup first. It is the only copy that does not live in a Docker volume:
+
 ```bash
-# stop the daemon (find it however you started it; under launchd, unload the agent)
-docker compose -f stats/docker-compose.yml down
-docker volume ls | grep pgdata        # note the existing volume name before you change anything
+docker exec myflow-postgres pg_dumpall -U myflow > ~/flow-pre-cutover.sql  # vocab-guard:allow
 ```
 
-Rename the database from inside the container, then bring the stack up under its new names:
+Stop the daemon and the container — by name, not through compose:
 
 ```bash
-docker compose -f stats/docker-compose.yml up -d
-docker exec flow-postgres psql -U flow -d postgres -c 'ALTER DATABASE myflow RENAME TO flow;'
+kill $(lsof -tiTCP:4173 -sTCP:LISTEN)     # whatever holds the daemon's port
+docker stop myflow-postgres  # vocab-guard:allow
 ```
+
+Rename the database and the role, using a temporary superuser for the role:
+
+```bash
+docker start myflow-postgres  # vocab-guard:allow
+docker exec myflow-postgres psql -U myflow -d postgres -c 'ALTER DATABASE myflow RENAME TO flow;'  # vocab-guard:allow
+docker exec myflow-postgres psql -U myflow -d postgres -c "CREATE ROLE cutover_tmp SUPERUSER LOGIN PASSWORD 'tmp';"  # vocab-guard:allow
+docker exec -e PGPASSWORD=tmp myflow-postgres psql -U cutover_tmp -d postgres -c 'ALTER ROLE myflow RENAME TO flow;'  # vocab-guard:allow
+docker exec -e PGPASSWORD=tmp myflow-postgres psql -U cutover_tmp -d postgres -c "ALTER ROLE flow WITH PASSWORD 'flow';"  # vocab-guard:allow
+docker exec myflow-postgres psql -U flow -d postgres -c 'DROP ROLE cutover_tmp;'  # vocab-guard:allow
+```
+
+The temporary role must be dropped from a `flow` session, not its own — the same rule that blocked
+the rename in the first place.
+
+Now copy the volume with the source stopped, and bring the renamed stack up:
+
+```bash
+docker stop myflow-postgres  # vocab-guard:allow
+docker volume create stats_flow-pgdata
+docker run --rm -v stats_myflow-pgdata:/from -v stats_flow-pgdata:/to alpine sh -c 'cd /from && cp -a . /to'
+docker compose -f stats/docker-compose.yml up -d --remove-orphans
+```
+
+**Verify the copy before trusting it, and before deleting anything:**
+
+```bash
+docker exec flow-postgres psql -U flow -d flow -tAc 'select count(*) from stage_runs;'
+docker exec flow-postgres psql -U flow -d flow -tAc 'select count(*) from changes;'
+```
+
+Both must match what the old container reported. **Keep `stats_myflow-pgdata` and the dump until they
+do** — that volume is the live data, and the dump is the only copy outside Docker. Remove the old
+volume only once the new stack has been serving correctly for a while.
 
 Move the fallback state root in the same step:
 
