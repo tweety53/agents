@@ -26,7 +26,7 @@ to select:
 | # | Slot | Model | How to spawn |
 |---|------|-------|---------------|
 | 0 | **Primary** — plan alignment + code quality | `DEFAULT_MODEL` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
-| 2 | **Principles** | `DEFAULT_MODEL` | general-purpose + `principles-reviewer-prompt.md`, `[LENS]` = Merged (the only lens `/flow` dispatches) <!-- refs-guard:allow --> |
+| 2 | **Principles** | `DEFAULT_MODEL` | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, there is no lens to select <!-- refs-guard:allow --> |
 | 3 | **Code review (low)** | `DEFAULT_MODEL` | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
 
 `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value for this run — the settings

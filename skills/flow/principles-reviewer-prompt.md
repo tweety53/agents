@@ -1,9 +1,12 @@
 # Principles Reviewer Prompt Template
 
 Use this template for the panel's **Principles** slot — required on every `/flow` run, per
-**Review panel** (`skills/flow/review-panel.md`) — rendered with `[LENS]` = **Merged**, the only
-lens `/flow` dispatches: `review-panel-fixed-3` cuts the conditional Lens B / Lens C slots the
-prior `light`/`standard`/`full` rosters offered, so this template carries one lens, not three.
+**Review panel** (`skills/flow/review-panel.md`).
+
+**There is no lens to select.** All three principle groups always apply, and this template carries no
+lens field at all. Earlier rosters made Simplicity & state and Robustness & ops conditional lenses,
+dispatched only when something asked for them; that is gone, along with the `[LENS]` substitution
+that existed to name which one was in force.
 
 The principle list itself is **not** restated here — the reviewer reads
 [engineering-principles.md](engineering-principles.md) (this file's sibling, inside the installed
@@ -39,7 +42,6 @@ Subagent (generalPurpose):
 
     **Diff file:** [DIFF_PATH]
     **Principles:** [PRINCIPLES_PATH]
-    **Lens:** [LENS]
     **Project standards:** [STANDARDS_PATHS]
     **Global constraints:** [GLOBAL_CONSTRAINTS]
 
@@ -66,10 +68,9 @@ Subagent (generalPurpose):
     Do not mutate the working tree, index, HEAD, or branch. Inspect with Read,
     Grep, and git show/diff only.
 
-    ## Your Lens
+    ## Your Scope
 
-    [LENS] is always **Merged** — `/flow` dispatches this template once, on
-    this one lens, and no conditional lens. Apply all three principle groups:
+    Apply all three principle groups:
     `## Structure`, `## Simplicity & state`, and `## Robustness & ops`, as
     `engineering-principles.md` defines them. The members are deliberately not
     listed here — the file is the single source of truth, and a second copy of
@@ -169,7 +170,6 @@ Subagent (generalPurpose):
   `skills/` tree, so a relative path fails to open and the reviewer loses its principle
   list. Verify the file exists before dispatching; if it does not, stop and say so rather
   than dispatching a reviewer with no principles.
-- `[LENS]` — always `Merged`; `/flow` dispatches no other lens.
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
   1. the entries listed under the `## standards` section of `<project>/.myflow/project.md`, when the
      project has one — resolved to absolute paths **per the entry-form table and the
