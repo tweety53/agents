@@ -142,8 +142,8 @@ EOF
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 2: report missing the angle-5 section is caught" || fail "case 2: rc=$RC out=$OUT"
 case "$OUT" in
-  *"missing section"*"myflow-stats-app"*) pass "case 2: finding names the missing angle-5 label" ;;
-  *) fail "case 2: expected a missing-section finding naming myflow-stats-app, out=$OUT" ;;
+  *"missing section"*"flow-stats-app"*) pass "case 2: finding names the missing angle-5 label" ;;
+  *) fail "case 2: expected a missing-section finding naming flow-stats-app, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -175,9 +175,9 @@ EOF
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 3: a section with neither a finding line nor the none-marker is caught" || fail "case 3: rc=$RC out=$OUT"
 case "$OUT" in
-  *"myflow-automation"*"neither a finding line nor the none-marker"*) \
+  *"flow-automation"*"neither a finding line nor the none-marker"*) \
     pass "case 3: finding names the empty automation section" ;;
-  *) fail "case 3: expected the empty-section finding naming myflow-automation, out=$OUT" ;;
+  *) fail "case 3: expected the empty-section finding naming flow-automation, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -453,7 +453,7 @@ EOF
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 13: an out-of-order section is caught" || fail "case 13: rc=$RC out=$OUT"
 case "$OUT" in
-  *"myflow-fix"*"out of order"*"myflow-cost"*) pass "case 13: finding names the out-of-order section" ;;
+  *"myflow-fix"*"out of order"*"flow-cost"*) pass "case 13: finding names the out-of-order section" ;;
   *) fail "case 13: expected an out-of-order finding, out=$OUT" ;;
 esac
 
@@ -600,7 +600,7 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 17: a declared basename is still content-checked outside bare mode" \
   || fail "case 17: rc=$RC out=$OUT"
 case "$OUT" in
-  *"missing section"*"myflow-stats-app"*) \
+  *"missing section"*"flow-stats-app"*) \
     pass "case 17: the missing-section finding fired, proving the file was actually scanned" ;;
   *) fail "case 17: expected a missing-section finding despite the matching basename, out=$OUT" ;;
 esac
@@ -678,7 +678,7 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 20: a tab-indented finding-shaped line is not silently accepted" \
   || fail "case 20: rc=$RC out=$OUT"
 case "$OUT" in
-  *'`myflow-fix`'*"neither a finding line nor the none-marker"*) \
+  *'`flow-fix`'*"neither a finding line nor the none-marker"*) \
     pass "case 20: the fix section is flagged as neither a finding nor the none-marker" ;;
   *) fail "case 20: expected a neither-finding-nor-none-marker finding, out=$OUT" ;;
 esac
@@ -735,7 +735,7 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 21: a raw 0x1F byte in report content is caught, not silently swallowed" \
   || fail "case 21: rc=$RC out=$OUT"
 case "$OUT" in
-  *'`myflow-improvement`'*"neither a finding line nor the none-marker"*) \
+  *'`flow-improvement`'*"neither a finding line nor the none-marker"*) \
     pass "case 21: the improvement section is flagged as neither a finding nor the none-marker" ;;
   *) fail "case 21: expected a neither-finding-nor-none-marker finding, out=$OUT" ;;
 esac

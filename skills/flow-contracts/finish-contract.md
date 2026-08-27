@@ -416,11 +416,25 @@ the one irreversible step.
 
    | # | Angle | Label |
    |---|-------|-------|
-   | 1 | Problems encountered, and what pipeline change would avoid them | `myflow-fix` |
-   | 2 | Token/time cost, and what would reduce it without quality loss | `myflow-cost` |
-   | 3 | What went well, and how to reproduce it | `myflow-improvement` |
-   | 4 | What could be automated or moved to a script | `myflow-automation` |
-   | 5 | What could move to the Go app or its persistent storage | `myflow-stats-app` |
+   | 1 | Problems encountered, and what pipeline change would avoid them | `flow-fix` |
+   | 2 | Token/time cost, and what would reduce it without quality loss | `flow-cost` |
+   | 3 | What went well, and how to reproduce it | `flow-improvement` |
+   | 4 | What could be automated or moved to a script | `flow-automation` |
+   | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
+
+   **These labels were renamed from a `myflow-` prefix, and the old names are still in use — on the
+   board and in this repository's own history.** Existing Jira issues keep the labels they were filed
+   with; nothing relabels them, because that is an outward-facing bulk write over a board this
+   pipeline does not own. **So the board carries both taxonomies indefinitely, and a label-based
+   search has to match either form.** A reader who searches `flow-improvement`, finds a handful of
+   issues and concludes the angle is rarely used has been misled by this table, not by the board.
+
+   The self-review reports under `<project>/docs/self-review/` are the same story one layer down:
+   every report written before the rename carries the old labels, and those reports are immutable
+   records rather than files to migrate. `check-self-review-report.sh` therefore recognises **both**
+   spellings, positionally aligned, and its own header states why. Renaming the labels in that guard
+   without the legacy set makes it report 166 violations across all twelve reports it checks —
+   measured, not predicted.
 
    Angle 5's remit covers the records the pipeline writes to files today and the derivation work
    now done in Bash or by the agent — **not** what the SPA should display.
