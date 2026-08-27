@@ -4050,7 +4050,7 @@ run_guard "$FIXTURE"
 # The author of this line wrote a correctly closed quotation and lost its
 # exemption to an unrelated stray delimiter. Saying only "no provenance
 # comment" sends them to add a tag to a number that was already quoted; the
-# note has to name the veto and the remedy (Lens C, pass-17 fix wave).
+# note has to name the veto and the remedy (pass-17 fix wave).
 case "$OUT" in
   *"quotation exemption was withdrawn on this line (unbalanced quotation delimiters)"*) \
     pass "class-wide veto names itself in the output" ;;
@@ -4448,7 +4448,7 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "a pair of escaped straight quotes is not a quotation" \
   || fail "escaped quote pair: rc=$RC out=$OUT"
 # An author who wrote \" on purpose needs to be told that is why their
-# neighbouring quotation stopped exempting (Lens C, pass-17 fix wave).
+# neighbouring quotation stopped exempting (pass-17 fix wave).
 case "$OUT" in
   *"quotation exemption was withdrawn on this line (a backslash-escaped quotation delimiter)"*) \
     pass "escape veto names itself in the output" ;;
@@ -4654,7 +4654,7 @@ esac
 # (case 230)
 # ===========================================================================
 
-# 230. Lens B, pass-17 fix wave. `_region_at`'s single `bisect` probe is only
+# 230. pass-17 fix wave. `_region_at`'s single `bisect` probe is only
 # correct when its region list is sorted and pairwise disjoint. That
 # precondition was stated in three docstrings and enforced nowhere, in the one
 # function every exemption flows through — and a violation does not raise, it

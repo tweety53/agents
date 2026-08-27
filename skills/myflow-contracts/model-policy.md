@@ -35,7 +35,7 @@ guidance's cost savings do not apply here.
 **Two further instructions in that same upstream skill are also overridden: dispatching the final
 review on the most capable model, and escalating the model in fix rounds 4-5.** myflow fixes every
 panel slot at the panel's model instead and escalates breadth (the conditional Security, Adversarial
-and extra-principle-lens slots) rather than the model. See **Model policy**
+and extra-principle slots) rather than the model. See **Model policy**
 (`skills/myflow-contracts/model-policy-rationale.md`) for the reasoning.
 
 **An explicit operator instruction overrides either default, in either direction** — raising the

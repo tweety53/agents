@@ -233,8 +233,8 @@ roster in force before presets existed. This preset/roster system was later reti
 fixed 3-slot panel — see **The review panel — `/flow`** below and design.md's
 `review-panel-fixed-3`; **The three required slots** and **The two on-demand slots**
 (`skills/flow/review-panel.md`) are canonical for the panel's current shape. Four
-further slots stay conditional under every preset — Security, Adversarial and the two extra principle
-lenses, B for simplicity and state, C for robustness and ops — selected from what the diff touches. Each
+further slots stay conditional under every preset — Security, Adversarial and two extra principle
+slots — selected from what the diff touches. Each
 selected slot is a **separate** subagent with its own prompt, in every affected worktree; two slots are
 never merged into one.
 
@@ -245,7 +245,7 @@ depend on the model the operator happens to be running.
 
 No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
 critical one does. Re-runs are targeted by default and escalate to the full roster automatically,
-without asking; escalation widens the panel's **breadth** — more lenses — and never its model. When
+without asking; escalation widens the panel's **breadth** — more slots — and never its model. When
 a finding survives its last fix round the run hands back to the operator, one finding at a time,
 with named options.
 
@@ -350,8 +350,8 @@ panel, and panel-fix roles, read from the settings store rather than asked per c
 
 #### The review panel — `/flow`
 
-Every run dispatches exactly **3 required slots**, unconditionally — Primary, Principles (merged
-lens), and Code review (low) — no roster, no preset, no diff-size or touched-area trigger
+Every run dispatches exactly **3 required slots**, unconditionally — Primary, Principles, and
+Code review (low) — no roster, no preset, no diff-size or touched-area trigger
 (design.md's `review-panel-fixed-3`). Two further slots, Bugbot and Security, are **on-demand only**:
 included solely when the operator explicitly names one, checked at the start of the panel stage and
 again at every fix round — never by an automatic trigger. Each included slot is a **separate**

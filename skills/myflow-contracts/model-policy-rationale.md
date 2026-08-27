@@ -40,9 +40,9 @@ Buying a cheaper implementer with a more expensive review is the wrong trade.
 rather than left to be discovered.** subagent-driven-development says to dispatch the *final
 review* on the most capable model: myflow does not — it fixes every panel slot at the panel's
 model, Sonnet by default, for the reason above, and escalates the panel's **breadth** instead (the conditional Security, Adversarial
-and extra-principle-lens slots), which buys more independent readings rather than one stronger one.
+and extra-principle slots), which buys more independent readings rather than one stronger one.
 It also says to *escalate the model in fix rounds 4-5*: myflow cannot, because its implementers
-already sit at the ceiling from round 1. Fix rounds escalate the same way — more lenses, not a
+already sit at the ceiling from round 1. Fix rounds escalate the same way — more slots, not a
 bigger model — and round 5 hands back to the operator rather than pretending an escalation is
 available.
 
