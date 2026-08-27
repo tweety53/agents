@@ -503,7 +503,7 @@ VETO_ESCAPE = "a backslash-escaped quotation delimiter"
 VETO_ANGLE_BRACKET = "a `<` character on the line"
 VETO_UNBALANCED = "unbalanced quotation delimiters"
 
-# _VETO_REMEDIES — the fix for each veto. Lens C, pass-17 fix wave: the
+# _VETO_REMEDIES — the fix for each veto. pass-17 fix wave: the
 # distinguishing information existed in-process and was discarded before
 # printing, so an author whose correctly-quoted number lost its exemption to
 # an unrelated stray delimiter had no way to learn that from the tool — and
@@ -660,7 +660,7 @@ def _region_at(index: int, regions: list) -> Optional[Tuple[int, int]]:
     makes one `bisect` probe sufficient: the last region whose start is
     `<= index` is the ONLY one that can contain it.
 
-    THE PRECONDITION IS ENFORCED, NOT MERELY DOCUMENTED (Lens B, pass-17 fix
+    THE PRECONDITION IS ENFORCED, NOT MERELY DOCUMENTED (pass-17 fix
     wave). It used to be stated in three docstrings and checked nowhere,
     which matters more here than it would elsewhere: this is the single
     chokepoint every exemption flows through, and a violated precondition
@@ -750,7 +750,7 @@ def _quote_regions(text: str, opener: str, closer: str) -> Optional[list]:
     The returned regions are sorted by start and pairwise disjoint — the
     scan emits them strictly left to right and never reopens a closed one —
     which is the precondition `_region_at`'s single `bisect` probe needs, and
-    which the `assert` below turns from a comment into a check (Lens B,
+    which the `assert` below turns from a comment into a check (
     pass-17 fix wave; see `_region_at` for why this producer asserts while
     the consumer fails closed).
 
@@ -2381,7 +2381,7 @@ class ProvenanceGuard:
         entirely when the line has no match at all, which is almost every
         line.
 
-        WHEN THE EXEMPTION WAS WITHDRAWN, SAY SO (Lens C, pass-17 fix wave).
+        WHEN THE EXEMPTION WAS WITHDRAWN, SAY SO (pass-17 fix wave).
         There are several distinct routes to the message below — no
         exemption was ever possible, a delimiter class did not fully pair, an
         escaped delimiter vetoed the line, raw HTML vetoed the line — and
@@ -2806,7 +2806,7 @@ def _resolve_exit_code(
     AND the "N other things were also found" knowledge as its own
     ad-hoc chain of conditions. A fourth failure channel
     (`containment_errors`, added at pass 11) already had to be threaded
-    by hand through all four of those blocks; Lens B of the pass-11
+    by hand through all four of those blocks; the pass-11
     review predicted a further channel would eventually arrive and called
     the four-copies shape blocking for exactly that reason. It has now
     arrived (this pass's own review flagged the shape, not a new

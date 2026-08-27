@@ -26,7 +26,7 @@ to select:
 | # | Slot | Model | How to spawn |
 |---|------|-------|---------------|
 | 0 | **Primary** — plan alignment + code quality | `DEFAULT_MODEL` | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints |
-| 2 | **Principles** | `DEFAULT_MODEL` | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, there is no lens to select <!-- refs-guard:allow --> |
+| 2 | **Principles** | `DEFAULT_MODEL` | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> |
 | 3 | **Code review (low)** | `DEFAULT_MODEL` | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` |
 
 `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value for this run — the settings
@@ -36,7 +36,7 @@ inheritance and no economy tier.
 Numbering follows the retired roster table's own slot numbers (0, 2, 3) rather than renumbering —
 slots 1 and 4 below keep their old numbers too, and a gap in the sequence is the visible trace of
 what the fixed-3 decision removed (the old `standard`/`full` roster's Bugbot-as-required-slot-1
-option, and `full`'s auto-triggered Security/Adversarial/Lens B/Lens C).
+option, and `full`'s auto-triggered Security, Adversarial and two extra principle slots).
 
 ## The two on-demand slots
 
@@ -47,7 +47,7 @@ option, and `full`'s auto-triggered Security/Adversarial/Lens B/Lens C).
 
 **Neither is ever included by a diff-size, touched-area, or any other automatic trigger.** This is
 design.md's `review-panel-fixed-3` in full: "the on/off decision is entirely explicit, not
-heuristic-driven." The retired roster's Adversarial and Lens B/Lens C conditional slots are cut
+heuristic-driven." The retired roster's Adversarial slot and its two extra principle slots are cut
 entirely, not folded into this on-demand pair — `/flow`'s panel has exactly five possible slots
 (0, 1, 2, 3, 4), never six or seven.
 

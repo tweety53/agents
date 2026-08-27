@@ -13,14 +13,13 @@ several of these principles pull against each other (DRY against WET, KISS again
 extensibility), and naming the tradeoff you took is a valid answer to a finding.
 
 **All three groups below always apply.** Structure, Simplicity & state, and Robustness & ops are
-one standard, checked together on every principles review — there is no lens to select, and no group
-a reviewer may leave uncovered because it was not the lens assigned.
+one standard, checked together on every principles review. No group may be left uncovered.
 
-They were once split: Structure was the required slot's lens, with Simplicity & state and
-Robustness & ops as optional lenses B and C, dispatched only when something asked for them. That made
-two thirds of this file conditional, so whether a change was judged on its state handling or its
-failure modes depended on a roster decision taken before anyone had read the diff. The groups remain
-as headings because they organise the reading, not because they partition the work.
+They were once split, with Structure required and the other two dispatched only when something asked
+for them. That made two thirds of this file conditional, so whether a change was judged on its state
+handling or its failure modes depended on a roster decision taken before anyone had read the diff.
+The groups remain as headings because they organise the reading, not because they partition the
+work.
 
 They carry no path citation on purpose — they are the next three headings of this file, and a
 citation pointing at the file the reader is already in reads as pointing somewhere else.
