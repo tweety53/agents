@@ -164,20 +164,28 @@ cases by number — `"Case 1: files subset of declared passes; Case 2:
 undeclared file fails; ..."` — not backtick-quoted identifiers. Requiring
 backticks there would make this guard false-fail on every real `Tests:`
 field in the corpus it has to run against, so `Tests:` is parsed
-differently: every `Case <N>` label mentioned anywhere in the field's text
-becomes a declared test named "Case <N>", and it is checked by asking
-whether `Case <N>` (any case, e.g. as a `# Case <N>:` comment or a `case
-<N>:` pass/fail line — the convention this repository's own test harnesses
-already use, per `test-check-task-build-green.sh`'s numbered `# Case N:`
-comments) appears anywhere in the commit's diff — a loose existence check
-by label, not a verbatim match of the surrounding sentence. When a `Tests:`
-field names no `Case <N>` label at all, it falls back to backtick-quoted
-tokens if present (for a task that names one or two specific test
-identifiers rather than numbered cases), and declares no checkable tests at
-all when neither shape is present — deliberately vacuous rather than
-literal-matching a whole free-prose sentence, which is what produced false
-failures against this plan's own `Tests:` fields before this parsing was
-added.
+differently: a value OPENING with the literal `none` (`NONE_OPEN_RE`,
+case-insensitive, leading Markdown emphasis and whitespace stripped)
+declares zero tests outright, ahead of every other check below — a task
+that legitimately adds no test says so once, in the one field that should
+be precise, instead of the field's own explanatory prose being misread as
+a test declaration by whichever check comes next. Only an opening `none`
+counts: the word appearing mid-sentence, as in "added `test_alpha`, none
+of the other paths change", does not. Short of that, every `Case <N>`
+label mentioned anywhere in the field's text becomes a declared test named
+"Case <N>", and it is checked by asking whether `Case <N>` (any case, e.g.
+as a `# Case <N>:` comment or a `case <N>:` pass/fail line — the
+convention this repository's own test harnesses already use, per
+`test-check-task-build-green.sh`'s numbered `# Case N:` comments) appears
+anywhere in the commit's diff — a loose existence check by label, not a
+verbatim match of the surrounding sentence. When a `Tests:` field opens
+with neither `none` nor names a `Case <N>` label, it falls back to
+backtick-quoted tokens if present (for a task that names one or two
+specific test identifiers rather than numbered cases), and declares no
+checkable tests at all when none of the three shapes is present —
+deliberately vacuous rather than literal-matching a whole free-prose
+sentence, which is what produced false failures against this plan's own
+`Tests:` fields before this parsing was added.
 
 Exit codes:
   0  clean — every checked field matches the real commit (a `Regression:`
@@ -246,6 +254,18 @@ FIELD_RE = re.compile(
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 CASE_LABEL_RE = re.compile(r"\bCase\s+(\d+)\b", re.IGNORECASE)
+# NONE_OPEN_RE — a `Tests:` value that OPENS with the literal `none`:
+# case-insensitive, leading Markdown emphasis and whitespace stripped. This
+# is the one definition of the shape; check-plan-shape.py imports it rather
+# than carrying its own copy, per design.md's tests-none-literal decision —
+# two regexes for one grammar is exactly the drift this repository's guards
+# exist to prevent. `\b` after `none` means a word like "nonetheless" does
+# not match, and the anchor at the start of the (stripped) value means the
+# word merely appearing mid-sentence — "added `test_alpha`, none of the
+# other paths change" — does not either; see `_parse_test_specs` below for
+# where this is checked ahead of both the Case N scan and the backtick
+# fallback.
+NONE_OPEN_RE = re.compile(r"^[\s*_]*none\b", re.IGNORECASE)
 BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 
 # check_commit_scope's grammar: a declared Commit: subject is
@@ -305,6 +325,14 @@ class TaskFields:
     id: str
     files: List[str] = field(default_factory=list)
     tests: List[TestSpec] = field(default_factory=list)
+    # The **Tests:** field's continuation-joined value BEFORE
+    # _parse_test_specs interprets it — the same joined string that field's
+    # own NONE_OPEN_RE / Case-N / backtick reading is built from. Exposed so
+    # a caller that needs to apply NONE_OPEN_RE itself (check-plan-shape.py's
+    # F4/F6) reads the identical joined value this parser reads, rather than
+    # re-joining continuation lines a second time — see that guard's own
+    # module docstring, "Parser identity is structural".
+    tests_value: str = ""
     allowed_collateral: List[str] = field(default_factory=list)
     commit: Optional[str] = None
     baseline: Optional[Tuple[int, int]] = None
@@ -353,6 +381,8 @@ def _parse_test_specs(value: str) -> List[TestSpec]:
     """See the module docstring's `Tests:` section for why case labels take
     priority over backtick tokens, and why an untagged prose field yields no
     checkable tests at all rather than one literal-matched sentence."""
+    if NONE_OPEN_RE.match(value) is not None:
+        return []
     case_numbers: List[str] = []
     for number in CASE_LABEL_RE.findall(value):
         if number not in case_numbers:
@@ -470,6 +500,7 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         id=task_id,
         files=_extract_backtick_tokens(files_value),
         tests=_parse_test_specs(tests_value),
+        tests_value=tests_value,
         allowed_collateral=_extract_backtick_tokens(collateral_value),
         commit=commit_value,
         baseline=baseline_counts,

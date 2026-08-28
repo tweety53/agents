@@ -2555,6 +2555,111 @@ case "$OUT" in
   *) fail "case 67: ambiguity message missing: $OUT" ;;
 esac
 
+# ===========================================================================
+# Case 68: a Tests: field opening with the literal `none`, followed by a
+# backtick-quoted name, declares nothing at all -> exit 0 even though the
+# named script never appears in the commit's diff. Proves the `none` branch
+# runs ahead of the backtick fallback (design.md's tests-none-literal).
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 68. None opening with backticks
+
+**Files:** `alpha.txt`
+**Tests:** none added — verified via the `scripts/check-references.sh` guard
+**Commit:** test: alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 68 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 68: none-opening field with backticks declares nothing" \
+  || fail "case 68: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 69: a Tests: field opening with the literal `none`, followed by a
+# Case N label, still declares nothing -> exit 0 even though "Case 1" never
+# appears in the commit's diff. Proves `none` takes priority over the
+# Case N scan, not just over the backtick fallback.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 69. None opening with a Case N label
+
+**Files:** `alpha.txt`
+**Tests:** none — see Case 1 for context
+**Commit:** test: alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 69 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 69: none-opening field with a Case N label declares nothing" \
+  || fail "case 69: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 70: a Tests: field merely CONTAINING the word "none" mid-sentence,
+# not opening with it, is unaffected — its backtick-quoted name is still a
+# declared test that must appear in the commit's diff, and here it does
+# not -> exit 1, naming it.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 70. None mid-sentence is unaffected
+
+**Files:** `alpha.txt`
+**Tests:** added `test_alpha`, none of the other paths change
+**Commit:** test: alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 70 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 70: mid-sentence none does not suppress the backtick test" \
+  || fail "case 70: rc=$RC out=$OUT"
+case "$OUT" in
+  *"test_alpha"*"not found in the diff"*) pass "case 70: names test_alpha as missing" ;;
+  *) fail "case 70: expected message naming test_alpha, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 71: a Tests: field opening with a word that merely STARTS with
+# "none" — "nonetheless" — is not the literal token and does not opt out.
+# This is what pins NONE_OPEN_RE's `\b`: without the boundary, the field
+# below reads as a none opt-out, declares zero tests, and test_alpha stops
+# being checked against the diff at all (panel round 3, Bugbot).
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 71. A none-prefixed word is not the token
+
+**Files:** `alpha.txt`
+**Tests:** nonetheless this needs `test_alpha` verified
+**Commit:** test: alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 71 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 71: a none-prefixed word does not open a none field" \
+  || fail "case 71: rc=$RC out=$OUT"
+case "$OUT" in
+  *"test_alpha"*"not found in the diff"*) pass "case 71: names test_alpha as missing" ;;
+  *) fail "case 71: expected message naming test_alpha, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
