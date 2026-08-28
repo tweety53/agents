@@ -133,6 +133,14 @@ source "$SCRIPT_DIR/lib/git-clean.sh"
 # hand-copied one, may source a sibling instead of carrying its own copy.
 source "$SCRIPT_DIR/lib/strip-bom.sh"
 
+# trim_glob_element — sourced from lib/trim-glob-element.sh; see that file's
+# header for the split-then-strip parse it applies (THE SAME PARSE
+# check-visual-trigger.sh applies to `ui paths` after splitting on comma),
+# the single-pass strip it performs instead of a copy-per-character loop,
+# and why this guard, unlike a hand-copied one, may source a sibling instead
+# of carrying its own copy.
+source "$SCRIPT_DIR/lib/trim-glob-element.sh"
+
 # The file is optional. No `.flow/project.md` at all is a supported,
 # ordinary case, not an error — matching check-workspace-isolation.sh's own
 # treatment of the identical absence. `-L` catches a dangling symlink, which
@@ -422,6 +430,36 @@ require_nonempty "#SET" "ui paths" "ui paths"
 require_nonempty "#SET" "screenshots" "screenshots"
 require_nonempty "#CMD" "verify" "verify"
 require_nonempty "#CMD" "capture" "capture"
+
+# trim_glob_element (sourced above, lib/trim-glob-element.sh) applies the
+# same parse check-visual-trigger.sh applies to `ui paths` after splitting on
+# comma — both guards must agree on what counts as a usable glob, and now
+# share the one definition per design.md's `shared-trim-glob-element`
+# decision, which superseded `no-shared-parser-yet`.
+
+# `ui paths` YIELDING NO USABLE GLOB IS THE WORSE HALF OF THIS DEFECT, per
+# design.md's `validator-agrees-with-trigger`: require_nonempty above only
+# rejects a wholly empty cell, but a cell that is non-empty as a whole —
+# e.g. two empty backtick pairs joined by a comma, "``, ``" — resolves,
+# after the SAME split-then-strip parse check-visual-trigger.sh applies, to
+# zero usable elements. That is exactly the condition under which the
+# trigger guard itself exits 2 ("resolved to no usable glob"), so a
+# validator that stayed silent on it would keep blessing a declaration the
+# trigger guard cannot use. Runs only when `ui paths` is present and
+# non-empty — an absent or empty cell already has its own finding above, and
+# reporting this one too would name the same row twice under two messages.
+get_field "#SET" "ui paths"
+if [ "$FOUND" -eq 1 ] && [ -n "$F_VAL" ]; then
+  IFS=',' read -r -a UI_PATH_ELEMS <<< "$F_VAL"
+  UI_PATH_USABLE=0
+  for elem in "${UI_PATH_ELEMS[@]}"; do
+    elem="$(trim_glob_element "$elem")"
+    [ -n "$elem" ] && UI_PATH_USABLE=$((UI_PATH_USABLE + 1))
+  done
+  if [ "$UI_PATH_USABLE" -eq 0 ]; then
+    addv "$F_LINE" "\`ui paths\` is \`$F_VAL\` — splitting on commas and stripping each element's backticks and whitespace yields no usable glob, so check-visual-trigger.sh cannot use it either"
+  fi
+fi
 
 get_field "#SET" "regression checkout"
 CHECKOUT_FOUND="$FOUND"
