@@ -10,11 +10,23 @@
 #
 # Exit codes: 0 at or under the cap; 1 over the cap; 2 cannot answer at all.
 #
-# WHY THE CAP IS 2000. KAN-109's own measurement found a seven-slot review
-# panel costing 948k tokens to read a 9877-line diff. A cap at roughly a
-# fifth of that line count keeps a full panel pass in the low hundreds of
-# thousands of tokens while leaving ordinary flow changes — almost all of
-# which fall well under it — untouched.
+# WHY THE CAP IS 5000. KAN-109's own measurement found a seven-slot review
+# panel costing 948k tokens to read a 9877-line diff — about 96 tokens per
+# diff line across that whole panel, or roughly 14 per line per slot. The
+# cap was 2000 on that basis, chosen as roughly a fifth of the measured
+# diff.
+#
+# The operator raised it to 5000 on 2026-08-28, during KAN-341, whose own
+# cross-repo diff ran past 2000 and whose panel they chose to run anyway.
+# Raising the default records that choice once rather than re-answering the
+# same over-cap prompt on every change of that size. On the rate above, a
+# four-slot panel at 5000 lines projects to roughly 275k tokens — the same
+# order the 2000 cap was set to protect — while a seven-slot panel at that
+# length would be about 480k, so a large roster against a full cap is still
+# worth a second thought even though the guard now permits it.
+#
+# That projection is arithmetic from KAN-109's one measurement, not a second
+# measurement: nothing has re-measured a real panel at 5000 lines.
 #
 # WHY BOTH COMMITTED WORK AND THE WORKING TREE COUNT. `final-review.diff`,
 # the text the panel actually reads, carries everything that changed since
@@ -26,7 +38,7 @@ set -euo pipefail
 
 WORKTREE="${1:-}"
 MERGE_POINT="${2:-}"
-CAP="${3:-2000}"
+CAP="${3:-5000}"
 
 if [ -z "$WORKTREE" ]; then
   echo "check-panel-diff-size: usage: check-panel-diff-size.sh <worktree> <merge-base> [cap]" >&2
