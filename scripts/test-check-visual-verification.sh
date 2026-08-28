@@ -663,6 +663,86 @@ assert_rc "case 25" 1
 assert_out_contains "case 25" "push to default branch"
 assert_out_contains "case 25" "vocabulary is closed"
 
+# ===========================================================================
+# Case 26 (KAN-359, validator-agrees-with-trigger): `ui paths` is present and
+# non-empty as a whole cell — two empty backtick pairs joined by a comma —
+# so require_nonempty's own check is satisfied and, before this task, the
+# guard printed VISUAL-OK. Parsed the same way check-visual-trigger.sh parses
+# it (split on comma, strip each element's own backticks and whitespace),
+# every element is empty: zero usable globs, exactly the condition under
+# which check-visual-trigger.sh itself exits 2 with "resolved to no usable
+# glob". The two guards must not disagree: exit 1, and the violation must
+# name `ui paths` specifically — not merely contain a passing substring like
+# "VISUAL-OK" (which is also a substring of no finding at all), so this
+# reproduces the exact vacuous-assertion trap this change's own history hit
+# twice, by asserting the INVALID verdict and the exact setting name rather
+# than a generic non-empty check.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`\`, \`\` |
+| \`screenshots\` | \`.\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 26" 1
+assert_out_contains "case 26" "VISUAL-INVALID"
+assert_out_contains "case 26" "ui paths"
+assert_out_contains "case 26" "no usable glob"
+assert_out_not_contains "case 26" "VISUAL-OK"
+
+# ===========================================================================
+# Case 27 (KAN-359 task 8, this harness never exercises the shared
+# trim_glob_element): case 26's two empty elements sit at BOTH list
+# boundaries, so the shared table parser's own whole-cell trim
+# (visual-table-cells.awk's trimcell) already reduces the cell to a bare
+# comma before trim_glob_element ever runs on either one — an identity
+# trim_glob_element passes case 26 exactly as well as the real one, because
+# neither implementation is ever actually invoked with anything to strip.
+#
+# This element is INTERIOR — third position of a three-element list, with a
+# comma on each side, the one position trimcell's edge-anchored strip can
+# never reach (its leading pass cannot cross the first comma and its
+# trailing pass cannot cross the last one; see
+# test-check-visual-trigger.sh's case 25 for the same boundary reasoning) —
+# and it is whitespace-and-backtick ONLY, no real glob character anywhere
+# in it, so it is NON-VACUOUS BY CONSTRUCTION: the real trim_glob_element
+# strips it to an empty string (dropped, leaving zero usable globs across
+# all three elements — VISUAL-INVALID), while an IDENTITY trim_glob_element
+# leaves it as the non-empty raw string " \` \` " — non-empty as a bash
+# string despite containing nothing but padding — which the validator's
+# `[ -n "$elem" ]` check counts as a usable glob, so it reports VISUAL-OK.
+# That gap is a REAL false pass this harness must catch on its own, without
+# relying on test-check-visual-trigger.sh to catch it — verified by
+# mutation: swapping lib/trim-glob-element.sh for an identity function made
+# this case fail (VISUAL-OK where VISUAL-INVALID was asserted) while
+# leaving case 26 green, confirming case 26 alone cannot see this gap.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | , \` \` , |
+| \`screenshots\` | \`.\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 27" 1
+assert_out_contains "case 27" "VISUAL-INVALID"
+assert_out_contains "case 27" "ui paths"
+assert_out_contains "case 27" "no usable glob"
+assert_out_not_contains "case 27" "VISUAL-OK"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

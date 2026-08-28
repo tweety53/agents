@@ -69,6 +69,11 @@
 # which is worse here than in the other two guards: this is the guard that
 # decides whether flow.visual-verify runs at all, so that misread is a
 # silent skip of the whole stage, not merely a misparse.
+#
+# `ui paths`' OWN PER-ELEMENT TRIM IS A SOURCED HELPER TOO, shared with
+# check-visual-verification.sh (scripts/lib/trim-glob-element.sh) — see that
+# file's header for the split-then-strip parse and the single-pass strip it
+# performs.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -96,6 +101,12 @@ source "$SCRIPT_DIR/lib/sanitize-display.sh"
 # verification` heading read as absent, and why this guard, unlike a
 # hand-copied one, may source a sibling instead of carrying its own copy.
 source "$SCRIPT_DIR/lib/strip-bom.sh"
+
+# trim_glob_element — sourced from lib/trim-glob-element.sh; see that file's
+# header for the split-then-strip parse it applies, the single-pass strip it
+# performs instead of a copy-per-character loop, and why this guard, unlike
+# a hand-copied one, may source a sibling instead of carrying its own copy.
+source "$SCRIPT_DIR/lib/trim-glob-element.sh"
 
 # "Not configured" (no `.flow/project.md` at all) is the SAME cannot-answer
 # case as "file exists but declares no section" below — both are exit 2,
@@ -195,14 +206,19 @@ if [ -z "$UI_PATHS_VAL" ]; then
   exit 2
 fi
 
-# Split on comma, trim leading/trailing whitespace per element, and NEVER
-# trim an interior space — a glob containing one (a directory name with a
-# space) survives the split intact.
+# trim_glob_element (sourced above, lib/trim-glob-element.sh) is applied per
+# split element, never to the whole cell: UI_PATHS_VAL above already went
+# through the shared table parser's whole-cell trimcell, which strips only
+# the outermost pair, and splitting `ui paths` on comma happens FIRST — each
+# element's OWN backticks are stripped only now.
+
+# Split on comma; strip each element's own backticks and surrounding
+# whitespace — NEVER an interior space, so a glob containing one survives
+# the split intact.
 IFS=',' read -r -a RAW_GLOBS <<< "$UI_PATHS_VAL"
 GLOBS=()
 for g in "${RAW_GLOBS[@]}"; do
-  g="${g#"${g%%[![:space:]]*}"}"
-  g="${g%"${g##*[![:space:]]}"}"
+  g="$(trim_glob_element "$g")"
   [ -n "$g" ] && GLOBS+=("$g")
 done
 
@@ -214,8 +230,18 @@ fi
 # glob_to_ere <glob> -> prints an ERE fragment on stdout. `**` becomes
 # `.*` (spans `/`); a bare `*` becomes `[^/]*` (one segment); `?` becomes
 # `[^/]`; every other character is escaped literally.
+#
+# `n` IS ITS OWN `local` STATEMENT, evaluated AFTER `g` IS ASSIGNED — every
+# word on ONE `local` command is expanded before `local` runs, so `n=${#g}`
+# on the SAME line as `g="$1"` would measure the CALLER's `g`, not the `$1`
+# just bound. The per-element split loop above (this script's own caller,
+# several frames up) uses `g` as its own loop variable and leaves it holding
+# the LAST raw glob's trimmed value once that loop ends, so a one-line
+# declaration silently truncated every OTHER glob to that leftover length —
+# see test-check-visual-trigger.sh's case 24 for the fixture that pins it.
 glob_to_ere() {
-  local g="$1" out="" i=0 n=${#g} c nc
+  local g="$1" out="" i=0 c nc
+  local n=${#g}
   while [ "$i" -lt "$n" ]; do
     c="${g:$i:1}"
     case "$c" in
