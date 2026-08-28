@@ -120,6 +120,28 @@ reports.
 goes into the message of the commit that carries the planning artifacts, and into run 1's handoff.
 The signals that produce that list are the script's own.
 
+**Check whether the base branch has moved — after the unfinished-work gate, before the landing
+question.** `check-base-moved.sh <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
+line and exits 0 whenever it reached a verdict; it exits 2 with no verdict line when it cannot read
+the worktree. `<base-ref>` is composed as `origin/$BASE`, exactly as the preflight's own is above,
+and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map for that
+worktree. The three verdicts — `CLEAR`, `MOVED` and `REFUSE` — and the exit contract are the
+script's own; see `<agents repo>/scripts/check-base-moved.sh`'s header rather than a copy of them
+here.
+
+Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
+read of the state file's `worktrees` map, for the same reason the preflight verdict and the
+unfinished-work check above do not read it raw. Every worktree's verdict is reported. The operator
+is asked **once**, for the whole change, and **only** when at least one worktree's verdict overlaps
+this change's own paths (design.md: `ask-only-on-overlap`, `aggregate-the-multi-repo-ask`) — a
+`MOVED` verdict with no overlap is reported and the run continues to the landing question with no
+extra prompt. A `REFUSE`, an exit 2, or a resolved set that comes back empty stops and asks, exactly
+as the preflight verdict above does.
+
+**When the script is absent** — a harness whose repository does not carry it — reach the same three
+verdicts by hand, in the same order, and say in the handoff that the check was run manually. The
+check is never skipped for want of the script.
+
 Only then ask, **before any git action**, how the branch should land:
 
 > **How should this branch land?**

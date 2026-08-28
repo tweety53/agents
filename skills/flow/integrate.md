@@ -75,6 +75,27 @@ flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome comple
 flow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**Check whether the base branch has moved first.** Run `check-base-moved.sh` once per worktree in
+the resolved set, report every verdict, and ask only on overlap, per **Finish contract**
+(`skills/flow-contracts/finish-contract.md`). On an overlap from any worktree, one aggregated
+prompt, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
+
+> **The base branch has moved and touches paths this change also touched — how should
+> integration proceed?**
+> - **Stop — I'll rebase or reorder first** *(recommended)*
+> - **Continue — land anyway**
+
+**Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed, and
+closes the mark:
+
+```bash
+flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <name>
+```
+
+**Continue** carries the reported movement into the handoff and proceeds to the landing question
+below. No overlap anywhere → report the counts and go straight to the landing question, with no
+extra prompt.
+
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*
 > - **Merge and push**

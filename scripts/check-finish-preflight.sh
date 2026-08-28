@@ -28,7 +28,23 @@
 # script — the caller resolves it and passes it in. That guard already
 # carries a hard-won assertion against HEAD@{upstream}; a second copy here
 # could drift from it.
+#
+# What THIS script owns (KAN-88, design.md:
+# preflight-resolves-remote-tracking): the base ref it was HANDED may name a
+# local branch that has fallen behind its remote-tracking counterpart — the
+# caller composes `origin/$BASE`, but a caller that regresses to a bare name
+# must not silently feed a stale local branch into the RUN1/RUN2 decision.
+# EFFECTIVE_REF below substitutes `refs/remotes/origin/<base-ref>` for
+# BASE_REF when it resolves (design.md:
+# remote-lookup-is-a-preference-not-a-rewrite — a preference, not a rewrite:
+# `origin/main` looks up `origin/origin/main`, finds nothing, and passes
+# through unchanged); every verdict line names EFFECTIVE_REF rather than the
+# raw argument, so each names the ref the test actually ran against.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/resolve-remote-base.sh
+. "$SCRIPT_DIR/lib/resolve-remote-base.sh"
 
 WORKTREE="${1:-}"
 BASE_REF="${2:-}"
@@ -78,11 +94,15 @@ if [ "$HEAD_SHA" = "$RECORDED_SHA" ]; then
   exit 0
 fi
 
+# Resolve the effective base ref (KAN-88) before testing whether it resolves,
+# so the substitution — not the raw argument — is what gets tested and named.
+EFFECTIVE_REF="$(resolve_remote_base "$WORKTREE" "$BASE_REF")"
+
 # A base ref that does not resolve would make the ancestor test below fail for
 # an environmental reason and read as "not merged" — a RUN1 verdict reached by
 # accident. Resolve it first so the failure is named instead.
-if ! git -C "$WORKTREE" rev-parse --verify --end-of-options "${BASE_REF}^{commit}" >/dev/null 2>&1; then
-  echo "REFUSE: base ref '$BASE_REF' does not resolve in $WORKTREE — cannot test whether HEAD reached it"
+if ! git -C "$WORKTREE" rev-parse --verify --end-of-options "${EFFECTIVE_REF}^{commit}" >/dev/null 2>&1; then
+  echo "REFUSE: base ref '$EFFECTIVE_REF' does not resolve in $WORKTREE — cannot test whether HEAD reached it"
   exit 0
 fi
 
@@ -91,11 +111,11 @@ fi
 #     redirected so no git chatter can prefix the verdict line for a caller that
 #     merges the two streams.
 set +e
-git -C "$WORKTREE" merge-base --is-ancestor --end-of-options "$HEAD_SHA" "$BASE_REF" 2>/dev/null
+git -C "$WORKTREE" merge-base --is-ancestor --end-of-options "$HEAD_SHA" "$EFFECTIVE_REF" 2>/dev/null
 ANCESTOR_RC=$?
 set -e
 if [ "$ANCESTOR_RC" -eq 1 ]; then
-  echo "RUN1: HEAD is not an ancestor of $BASE_REF — not merged"
+  echo "RUN1: HEAD is not an ancestor of $EFFECTIVE_REF — not merged"
   exit 0
 fi
 if [ "$ANCESTOR_RC" -ne 0 ]; then
@@ -124,9 +144,9 @@ else
   DIRTY="$(printf '%s\n' "$STATUS_OUT" | wc -l | tr -d ' ')"
 fi
 if [ "$DIRTY" != "0" ]; then
-  echo "REFUSE: $BASE_REF contains HEAD, but $WORKTREE has $DIRTY uncommitted entries — a merged change should have nothing left to commit"
+  echo "REFUSE: $EFFECTIVE_REF contains HEAD, but $WORKTREE has $DIRTY uncommitted entries — a merged change should have nothing left to commit"
   exit 0
 fi
 
-echo "RUN2: HEAD is an ancestor of $BASE_REF, differs from the recorded merge base, and the worktree is clean"
+echo "RUN2: HEAD is an ancestor of $EFFECTIVE_REF, differs from the recorded merge base, and the worktree is clean"
 exit 0

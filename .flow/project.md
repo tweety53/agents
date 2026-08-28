@@ -83,6 +83,7 @@ scripts/test-setup.sh
 scripts/test-check-references.sh
 scripts/test-check-plan-provenance.sh
 scripts/test-check-finish-preflight.sh
+scripts/test-check-base-moved.sh
 scripts/test-commit-split.sh
 scripts/test-prepare-workspace.sh
 scripts/test-check-unfinished-work.sh
@@ -109,6 +110,7 @@ scripts/test-prepare-archive-branch.sh
 scripts/test-check-stage-mark-calls.sh
 scripts/test-check-self-review-report.sh
 scripts/test-lib-coverage.sh
+scripts/test-lib-test-git-shim.sh
 scripts/test-check-installed-citations.sh
 scripts/test-check-installed-rules.sh
 scripts/test-check-normative-inventory.sh
