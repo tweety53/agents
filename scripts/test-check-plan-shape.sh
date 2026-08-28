@@ -16,9 +16,8 @@
 # the SAME fixture, and the finding's message must then be ABSENT — proving
 # the fixture's failure actually depends on that specific check, not on
 # some other check incidentally catching the same fixture. Mirrors
-# test-check-worktree-processes.sh's case 7 (KAN-197 mutation) and the
-# requirement scripts/test-check-reproduce-not-read.sh already meets: a
-# suite that cannot detect the guard's own defect is not a suite.
+# test-check-worktree-processes.sh's case 7 (KAN-197 mutation): a suite
+# that cannot detect the guard's own defect is not a suite.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

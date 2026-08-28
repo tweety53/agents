@@ -17,6 +17,7 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Artifact | Created by | Location | Removed by |
 |----------|-----------|----------|-----------|
 | Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Panel slot verbatim reports | `/flow`'s review panel | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
 | SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
 | Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |

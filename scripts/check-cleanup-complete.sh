@@ -111,6 +111,7 @@
 # registry-row-checked: Proposal artifact source
 # registry-row-checked: Workspace database and bucket
 # registry-row-not-checked: Per-task and review diffs — removed with the worktree
+# registry-row-not-checked: Panel slot verbatim reports — removed with the worktree
 # registry-row-not-checked: Panel record — lives in the store; nothing removes it
 # registry-row-not-checked: SDD ledger — lives in the store; nothing removes it
 # registry-row-not-checked: Rendered ledger and panel record — committed and
