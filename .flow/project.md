@@ -90,6 +90,7 @@ scripts/test-check-cleanup-complete.sh
 scripts/test-gather-self-review-context.sh
 scripts/test-gather-dispatch-context.sh
 scripts/test-check-task-build-green.sh
+scripts/test-check-plan-shape.sh
 scripts/test-check-task-commit-fields.sh
 scripts/test-check-workspace-isolation.sh
 scripts/test-workspace.sh
@@ -144,6 +145,7 @@ scripts/check-vocabulary.sh
 scripts/check-references.sh
 scripts/check-plan-provenance.sh
 scripts/check-task-build-green.sh
+scripts/check-plan-shape.sh
 scripts/check-workspace-isolation.sh
 scripts/check-visual-verification.sh .
 printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .
@@ -162,6 +164,16 @@ cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b
 ```
+
+**`check-plan-shape.sh` sits beside `check-plan-provenance.sh` and `check-task-build-green.sh` in
+this list but is not one of them.** Those two are project-configured — resolved through a project's
+own `.flow/project.md` and run only where a project declares them — while `check-plan-shape.sh` is
+**shipped**, symlinked into `skills/flow/scripts/` and cited by basename per **Guard resolution**
+(`skills/flow-contracts/pipeline.md`), because the guard it protects
+(`check-task-commit-fields.sh`) is itself shipped and runs in every project `/flow` touches. It
+answers a bare-tree question exactly like `check-plan-provenance.sh` and `check-task-build-green.sh`
+do — no arguments scans every non-archived `<spec-root>/changes/*/tasks.md` — which is why it
+belongs in this list at all, for the same reason those two do.
 
 **There is no auto-fix command for the guard scripts** (`scripts/check-*`) — every one of them
 reports `file:line` and is fixed by editing the offending line, never by weakening the guard or

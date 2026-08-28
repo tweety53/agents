@@ -350,7 +350,11 @@ While enriching `tasks.md`, also tag every task with `**Build:**` per **The buil
 
 - `**Files:**` — the paths this task's commit will touch, with an optional
   `**Allowed-collateral:**` glob.
-- `**Tests:**` — the names of the tests this task adds.
+- `**Tests:**` — the names of the tests this task adds. A task adding none writes a field opening
+  with the literal `none`, and `check-task-commit-fields.sh` then never reads that field's
+  backticks as test names it must find in the commit's diff. **Bold `**none**` opens such a field;
+  italic `_none_` does not** — the recognition ends on a word boundary, and `_` is a word
+  character, so the trailing underscore swallows it.
 - `**Regression:**` — per declared test, what fails if this task's commit is reverted.
 - `**Baseline:**` — the expected test counts, as `before=<N> after=<N>`.
 - `**Commit:**` — the commit subject line this task's implementer must use, scope naming the module
@@ -367,8 +371,9 @@ Add this header to `tasks.md`:
 > passes spec + quality review.
 ```
 
-Before continuing, run the project's configured plan-provenance guard and its configured
-build-green guard, if the project declares them, and fix any hit.
+Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
+project's configured plan-provenance guard and its configured build-green guard, if the project
+declares them, and fix any hit.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>

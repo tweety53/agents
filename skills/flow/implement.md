@@ -22,12 +22,18 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 flow stage begin -command '/flow' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 spectre validate "<name>"
 spectre list --json
+check-plan-shape.sh "<changeRoot>/tasks.md"
 ```
 
 Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
 own artifacts — most often a step checkbox left at column 0 — and each is repaired here, before any
 code is touched. Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
 naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`.
+
+Exit `0` from `check-plan-shape.sh` proceeds. Exit `1` names a shape defect in this plan's own
+`**Files:**`, `**Tests:**` or other declared fields — repaired here, before any task is dispatched
+and before any code is touched, exactly as an exit-1 from `spectre validate` already is. Exit `2`
+stops the run.
 
 **The change root is `<project>/spectre/changes/<name>/`, by construction.** Read:
 

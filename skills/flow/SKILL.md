@@ -165,7 +165,7 @@ flow state get <name-or-best-guess> -C <repo-root>
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — the full list is the union carried by
 `skills/flow/scripts/`: `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
-`check-panel-diff-size.sh`, `check-panel-reproducers.sh`, `check-task-commit-fields.sh`,
+`check-panel-diff-size.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `check-task-commit-fields.sh`,
 `check-unfinished-work.sh`, `check-visual-trigger.sh`,
 `check-visual-verification.sh`, `check-workspace-isolation.sh`,
 `check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,
