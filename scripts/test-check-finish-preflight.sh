@@ -12,6 +12,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-finish-preflight.sh"
+# shellcheck source=lib/test-git-shim.sh
+. "$SCRIPT_DIR/lib/test-git-shim.sh"
 FAILURES=0
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
@@ -243,20 +245,7 @@ echo work > "$REPO/new.txt"
 git -C "$REPO" add new.txt
 git -C "$REPO" commit -qm "work"
 merge_demo_into_main "$REPO"
-SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-shim.XXXXXX")"
-REPOS+=("$SHIM_DIR")
-REAL_GIT="$(command -v git)"
-{
-  printf '#!/usr/bin/env bash\n'
-  printf 'for a in "$@"; do\n'
-  printf '  if [ "$a" = "status" ]; then\n'
-  printf '    echo "fatal: simulated index.lock contention" >&2\n'
-  printf '    exit 128\n'
-  printf '  fi\n'
-  printf 'done\n'
-  printf 'exec %s "$@"\n' "$REAL_GIT"
-} > "$SHIM_DIR/git"
-chmod +x "$SHIM_DIR/git"
+shim_failing_git "finish-preflight-shim" "status" "simulated index.lock contention"
 set +e
 OUT="$(PATH="$SHIM_DIR:$PATH" "$GUARD" "$REPO" "$BASE_REF" "$RECORDED_BASE" 2>&1)"
 RC=$?
@@ -271,12 +260,221 @@ case "$OUT" in
   *check-finish-preflight:*) pass "unreadable status: names the failure" ;;
   *) fail "unreadable status: no named message: $OUT" ;;
 esac
+assert_shim_fired "$SHIM_DIR" "unreadable status"
+
+# 8c. `git merge-base --is-ancestor` failing for a reason OTHER than "not an
+#     ancestor" (exit 1) is an environment failure, not a verdict: exit 2 and
+#     no verdict line. Signal (c) treats exit 1 alone as RUN1; any other
+#     nonzero exit must fall through to the named exit-2 branch instead of
+#     being folded into "not merged". Same shim technique as case 8b — fails
+#     only `merge-base`, passes every other subcommand through.
+new_repo
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+shim_failing_git "finish-preflight-shim" "merge-base" "simulated repository corruption"
+set +e
+OUT="$(PATH="$SHIM_DIR:$PATH" "$GUARD" "$REPO" "$BASE_REF" "$RECORDED_BASE" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 2 ] && pass "merge-base failing (not 'not an ancestor') -> exit 2" \
+  || fail "merge-base failure: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  RUN1*|RUN2*|REFUSE*) fail "merge-base failure: emitted a verdict line: $OUT" ;;
+  *) pass "merge-base failure: emits no verdict line" ;;
+esac
+case "$OUT" in
+  *check-finish-preflight:*) pass "merge-base failure: names the failure" ;;
+  *) fail "merge-base failure: no named message: $OUT" ;;
+esac
+assert_shim_fired "$SHIM_DIR" "merge-base failure"
+
+# 8d. `git rev-parse --verify HEAD^{commit}` failing (an unresolvable or
+#     unborn HEAD) is an environment failure, not a verdict: exit 2 and no
+#     verdict line. This is signal HEAD_SHA's own capture guard, which every
+#     other case in this suite starts past — every new_repo builds a
+#     worktree whose HEAD already resolves. Same shim technique as case 8b —
+#     fails only `rev-parse`, passes every other subcommand through. (KAN-88
+#     fix round 2, F7.)
+new_repo
+shim_failing_git "finish-preflight-shim" "HEAD^{commit}" "simulated unresolvable HEAD"
+set +e
+OUT="$(PATH="$SHIM_DIR:$PATH" "$GUARD" "$REPO" "$BASE_REF" "$RECORDED_BASE" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 2 ] && pass "unresolvable HEAD -> exit 2" \
+  || fail "unresolvable HEAD: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  RUN1*|RUN2*|REFUSE*) fail "unresolvable HEAD: emitted a verdict line: $OUT" ;;
+  *) pass "unresolvable HEAD: emits no verdict line" ;;
+esac
+case "$OUT" in
+  *"cannot resolve HEAD"*) pass "unresolvable HEAD: names the failure" ;;
+  *) fail "unresolvable HEAD: no named message: $OUT" ;;
+esac
+assert_shim_fired "$SHIM_DIR" "unresolvable HEAD"
 
 # 9. A missing argument is programmer error, reported as exit 2 rather than
 #    guessed at.
 run_guard "" "" ""
 [ "$RC" -eq 2 ] && pass "missing arguments -> exit 2" \
   || fail "missing arguments: expected exit 2, got rc=$RC out=$OUT"
+
+# --- KAN-88: the preflight resolves the base ref it was handed to its ---
+# --- remote-tracking counterpart when one exists, so a bare local base ---
+# --- name that has fallen behind origin cannot manufacture a false RUN1. ---
+# Every case above builds a repository with no `origin` remote at all, so
+# none of it exercises this path; its expectations are left byte-identical
+# to prove that.
+
+# new_repo_with_origin -> sets REPO, ORIGIN, BASE_REF, RECORDED_BASE
+# A bare `origin`, a clone of it with one commit on `main` (RECORDED_BASE),
+# pushed back to origin, and a branch `openspec/demo` checked out at that
+# same commit — the same shape new_repo builds, plus a real remote.
+new_repo_with_origin() {
+  ORIGIN="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test-origin.XXXXXX")"
+  REPOS+=("$ORIGIN")
+  git init -q --bare -b main "$ORIGIN"
+
+  REPO="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test.XXXXXX")"
+  REPOS+=("$REPO")
+  git clone -q "$ORIGIN" "$REPO" 2>/dev/null
+  git -C "$REPO" config user.email test@example.invalid
+  git -C "$REPO" config user.name "Test"
+  echo base > "$REPO/file.txt"
+  git -C "$REPO" add file.txt
+  git -C "$REPO" commit -qm "base"
+  git -C "$REPO" push -q origin main
+  RECORDED_BASE="$(git -C "$REPO" rev-parse HEAD)"
+  BASE_REF=main
+  git -C "$REPO" checkout -q -b openspec/demo
+}
+
+# merge_demo_into_origin_main <repo> — land openspec/demo on origin/main
+# WITHOUT moving the repo's own local `main` branch, so local `main` stays at
+# RECORDED_BASE while origin/main advances — the exact staleness this task
+# fixes. Merges on a throwaway local branch, pushes that to origin's `main`,
+# deletes the throwaway, fetches so the repo's own origin/main tracking ref
+# reflects the push, and returns to `openspec/demo` with a clean tree.
+merge_demo_into_origin_main() {
+  local repo="$1"
+  git -C "$repo" branch -q tmp-merge main
+  git -C "$repo" checkout -q tmp-merge
+  git -C "$repo" merge -q --no-ff -m "merge" openspec/demo
+  git -C "$repo" push -q origin tmp-merge:main
+  git -C "$repo" checkout -q openspec/demo
+  git -C "$repo" branch -q -D tmp-merge
+  git -C "$repo" fetch -q origin
+}
+
+# 10. Merged into origin/main, but local main left behind at the recorded
+#     merge base: handed the BARE name "main", must resolve to origin/main
+#     and return RUN2 — the ticket's own regression case.
+new_repo_with_origin
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+merge_demo_into_origin_main "$REPO"
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  RUN2*) pass "KAN-88: bare 'main' behind origin, merged into origin/main -> RUN2" ;;
+  *) fail "KAN-88 bare main merged: expected RUN2, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"origin/main"*) pass "KAN-88: RUN2 verdict names origin/main" ;;
+  *) fail "KAN-88: RUN2 verdict does not name origin/main: $OUT" ;;
+esac
+
+# 11. The same repository, handed "origin/main" explicitly: unchanged, still
+#     RUN2 naming origin/main — the correct caller (the contract composes
+#     origin/$BASE itself) must be unaffected by this task.
+run_guard "$REPO" "origin/main" "$RECORDED_BASE"
+case "$OUT" in
+  RUN2*) pass "KAN-88: explicit origin/main -> RUN2, unchanged" ;;
+  *) fail "KAN-88 explicit origin/main: expected RUN2, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"origin/main"*) pass "KAN-88: explicit origin/main verdict names origin/main" ;;
+  *) fail "KAN-88: explicit origin/main verdict does not name origin/main: $OUT" ;;
+esac
+
+# 12. The same repository shape, branch NOT merged: handed the bare name
+#     "main", must still resolve to origin/main and return RUN1 — proving the
+#     substitution does not manufacture a merged verdict.
+new_repo_with_origin
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  RUN1*) pass "KAN-88: bare 'main' resolved to origin/main, unmerged -> RUN1" ;;
+  *) fail "KAN-88 bare main unmerged: expected RUN1, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"origin/main"*) pass "KAN-88: RUN1 verdict names origin/main" ;;
+  *) fail "KAN-88: RUN1 verdict does not name origin/main: $OUT" ;;
+esac
+
+# 13. F9 (KAN-88 fix round 2): resolve_remote_base's documented contract for
+#     a base ref beginning with a dash, both branches — an origin/ counterpart
+#     that exists, and one that does not. Sourced and called directly.
+#     resolve_remote_base always composes the lookup as
+#     "refs/remotes/origin/<base-ref>^{commit}", which carries a fixed
+#     "refs/remotes/origin/" prefix regardless of <base-ref>'s own content —
+#     so the string that line 35's --end-of-options flag protects can never
+#     itself begin with '-', and no base ref value (dash-prefixed or not)
+#     can make that flag's presence externally observable. Confirmed by
+#     direct mutation: dropping the flag and rerunning this case still
+#     passes. Case 14 below covers the flag itself, on the guard's own
+#     source, which is the only place its deletion is detectable.
+new_repo_with_origin
+DASH_SHA="$(git -C "$REPO" rev-parse HEAD)"
+git -C "$REPO" update-ref "refs/remotes/origin/-weird" "$DASH_SHA"
+# shellcheck source=lib/resolve-remote-base.sh
+. "$SCRIPT_DIR/lib/resolve-remote-base.sh"
+RESOLVED="$(resolve_remote_base "$REPO" "-weird")"
+[ "$RESOLVED" = "origin/-weird" ] \
+  && pass "F9: dash-prefixed base ref with an origin/ counterpart resolves to origin/-weird" \
+  || fail "F9: dash-prefixed base ref did not resolve to origin/-weird, got: $RESOLVED"
+RESOLVED2="$(resolve_remote_base "$REPO" "-no-such-ref")"
+[ "$RESOLVED2" = "-no-such-ref" ] \
+  && pass "F9: dash-prefixed base ref with no origin/ counterpart passes through unchanged" \
+  || fail "F9: dash-prefixed base ref with no counterpart: expected pass-through, got: $RESOLVED2"
+
+# 14. F9's mutant itself — dropping --end-of-options from line 35 of
+#     resolve-remote-base.sh — cannot be caught behaviorally (case 13's
+#     header explains why), so this asserts on the guard's own source, the
+#     same precedent test-check-panel-reproducers.sh's case 19 sets for a
+#     defensive pattern no external input can exercise.
+grep -qF -- 'rev-parse --verify --end-of-options' "$SCRIPT_DIR/lib/resolve-remote-base.sh" \
+  && pass "F9: resolve-remote-base.sh's rev-parse call still carries --end-of-options" \
+  || fail "F9: resolve-remote-base.sh's rev-parse call is missing --end-of-options"
+
+# 15. F14 (KAN-88 fix round 3): shim_failing_git's match is exact equality
+#     against a single argv element, not a substring test. An argument that
+#     merely CONTAINS the match-arg must pass straight through to the real
+#     git rather than firing the shim — otherwise a match-arg like "status"
+#     would also catch an unrelated argument such as "some/status/path", and
+#     a case built on one subcommand could silently start failing calls it
+#     never meant to touch. Exercised directly against the shim's own `git`,
+#     not through a guard, since no guard invocation here is guaranteed to
+#     hand git an argument that is a superstring of another call's match arg.
+shim_failing_git "exact-match-shim" "abc" "should never fire"
+set +e
+SUPERSTRING_OUT="$("$SHIM_DIR/git" xabcx 2>&1)"
+SUPERSTRING_RC=$?
+set -e
+case "$SUPERSTRING_OUT" in
+  *"should never fire"*)
+    fail "F14: shim intercepted an argument that merely contains the match arg: $SUPERSTRING_OUT" ;;
+  *) pass "F14: an argument that merely contains the match arg is not intercepted" ;;
+esac
+[ "$SUPERSTRING_RC" -ne 128 ] \
+  && pass "F14: superstring argument did not exit 128 (the shim's own fatal exit)" \
+  || fail "F14: superstring argument exited 128 — the exact-match matcher is broken"
+[ ! -e "$SHIM_DIR/.fired" ] \
+  && pass "F14: superstring argument left no .fired sentinel" \
+  || fail "F14: superstring argument left a .fired sentinel — the shim fired when it should not have"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
