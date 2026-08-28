@@ -196,6 +196,15 @@ Record which standards files were passed, or that none resolved.
 
 ## Recording findings, and the record's format
 
+**Beside the existing dispatch recording**: as each slot's report comes back and its `flow record
+dispatch end` is recorded, write that report byte for byte to
+`<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md`. `<round>` is the same value that
+round's findings carry on `-round` (`0` initial, `1..n` fix rounds); `<id>` is the resolved reviewer
+id, never the slot display name. Every dispatched slot writes one, including a slot that raised
+nothing and a slot substituted per **An unspawnable id is substituted, not skipped**. A report that
+cannot be captured verbatim still writes its file, carrying the single line `no verbatim report
+captured — <reason>`.
+
 **Every finding is a row in the store. The panel record is rendered from those rows.** As each slot
 raises a finding, record it — one call, as it is raised:
 
@@ -206,8 +215,10 @@ flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <
 ```
 
 `-round` is `0` for the initial panel and `1..n` for a fix round. `-ref` is unique within the change;
-the store's own constraint enforces it. **A fix round updates the finding it resolved rather than
-appending a second row:**
+the store's own constraint enforces it. **`-note` carries the reviewer's own sentence naming the
+defect, not a dispatcher restatement.** Where the reviewer's wording runs long, quote the sentence
+that names the defect and leave the rest to the report file. **A fix round updates the finding it
+resolved rather than appending a second row:**
 
 ```bash
 flow record status -change <name> -ref F<n> -status fixed
@@ -394,8 +405,17 @@ overwriting the same path.
 
 **Carry each surviving finding to the fix subagent as a structured block**, not a bare restatement
 of its prose: its `F<n>`, the slot that raised it, its severity, its `file:line`, its theme, the
-text of its `finding-reproducer:` line, and any bounce already recorded against its defect identity.
-**Inline no source excerpt.**
+text of its `finding-reproducer:` line, its slot's report path, and any bounce already recorded
+against its defect identity. **Inline no source excerpt.**
+
+**Every fix subagent's dispatch prompt also carries the VERBATIM REPORT — THE FACT paragraph**:
+
+> **VERBATIM REPORT — THE FACT:** each finding below names the file its slot's report was written
+> to. That file is the reviewer's own report, unedited — read it before you act on the finding.
+> The structured block is the dispatcher's summary of it: direction on what to work on, and
+> never a source of fact. Where the two disagree the report wins. Where the block asserts
+> something the report does not, treat it as unchecked and establish it yourself before building
+> on it.
 
 Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
