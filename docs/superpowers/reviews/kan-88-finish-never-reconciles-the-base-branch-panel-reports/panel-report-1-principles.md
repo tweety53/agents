@@ -1,0 +1,8 @@
+Findings:
+
+**Important** — `scripts/test-check-finish-preflight.sh:246-259` and `:285-298` — DRY (Simplicity & state), Single Source of Truth: fix round 1's new case 8c copies the entire 14-line "shim `git` to fail one subcommand" block verbatim from pre-existing case 8b (same `mktemp`/heredoc/`chmod`/`exec` structure), differing only in the target subcommand string and the fabricated error message. This is knowledge — "how to make a fake `git` that fails one subcommand and passes the rest through" — now written out twice in one file and a third time in the sibling file (`test-check-base-moved.sh:265-278`, added by this same diff), which the case 9b comment explicitly acknowledges as reused ("Same shim technique as case 8b"). A fourth guard-signal test will copy it again. Extracting it to a small helper (e.g. `shim_failing_subcommand <name> <message>`) sourced or duplicated once per file would remove the drift risk without changing behavior.
+Reproducer: `grep -c SHIM_DIR scripts/test-check-finish-preflight.sh`
+
+Everything else in the delta is clean: both new cases (6b, 9b in `test-check-base-moved.sh`; 8c in `test-check-finish-preflight.sh`) reuse the harness's own `new_repo`/`advance_base`/`run_guard` helpers rather than duplicating setup, each carries a comment stating what contract it proves (the `-gt 10` boundary; that a non-"not an ancestor" `merge-base` exit must fall through to exit 2 rather than being folded into "not merged"), and each asserts against the guard's exit code plus both presence/absence of verdict output and the named failure message — not merely today's output string. No assertion in the existing suite was weakened.
+
+VERDICT: findings
