@@ -78,7 +78,12 @@ esac
 # ===========================================================================
 new_repo
 MERGE_POINT="$(git -C "$REPO" rev-parse HEAD)"
-lines 2500 > "$REPO/big.txt"
+# 5200 rather than 2500: this case exists to prove the DEFAULT cap refuses a
+# diff over it, so its magnitude has to track that default. It was 2500 while
+# the default was 2000; the default is 5000 as of 2026-08-28 and this figure
+# moved with it. A case whose size no longer exceeds the default would still
+# pass its own name while testing nothing.
+lines 5200 > "$REPO/big.txt"
 git -C "$REPO" add -A
 git -C "$REPO" commit -q -m "big change"
 set +e
@@ -88,8 +93,8 @@ set -e
 [ "$RC" -eq 1 ] && pass "case 2: exits 1 for a diff over the cap" \
   || fail "case 2: rc=$RC out=$OUT"
 case "$OUT" in
-  *"2500"*) pass "case 2: prints the count" ;;
-  *) fail "case 2: expected the count 2500 in output, got: $OUT" ;;
+  *"5200"*) pass "case 2: prints the count" ;;
+  *) fail "case 2: expected the count 5200 in output, got: $OUT" ;;
 esac
 
 # ===========================================================================
