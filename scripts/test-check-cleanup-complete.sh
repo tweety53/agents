@@ -495,6 +495,47 @@ mkdir -p "$REPO/spectre/changes/demo-fix-the-parser" "$REPO/spectre/changes/demo
 run_guard "$REPO" demo "$STATE"
 assert_verdict "COMPLETE:" "a differently-named change beginning demo-fix is not a sub-change"
 
+# 5f. A satellite change directory — link.md and nothing else, no proposal.md,
+#     tasks.md or design.md — is a change artifact like any other and must be
+#     reported LEFTOVER when it survives at spectre/changes/<name>/. Row four
+#     is a plain directory-existence test with no awareness of what the
+#     directory holds, so it already treats a link-only directory as present;
+#     this case pins that down for the shape this guard's own task exists to
+#     cover, rather than leaving it to case 5's scaffold-shaped directory to
+#     stand in for it by coincidence.
+#
+#     MEASURED, NOT ASSUMED FROM THE PLAN: this task's plan and proposal both
+#     describe row four as filtering on "the files a spectre new scaffold
+#     leaves" and say a link-only directory carries none of them and so is
+#     missed. Reproduced against the guard as it stands (see task's dispatch)
+#     and found false — row four never inspects the directory's contents, only
+#     `[ -d ... ]`, so a link-only directory was already reported LEFTOVER
+#     before this case existed. Reported as measured rather than silently
+#     "fixed": no production line changes for this case.
+#
+#     PROVED BY MUTATION: changing row four's test from `[ -d "$REPO/... ]`
+#     to `[ -f "$REPO/.../tasks.md" ]` — the scaffold-file check the plan
+#     assumed existed — turns this case's LEFTOVER into COMPLETE. Confirms the
+#     case exercises row four's directory-presence behaviour rather than
+#     passing for an unrelated reason.
+new_fixture
+mkdir -p "$REPO/spectre/changes/demo"
+printf '## Part of\n`spectre:demo`\n' > "$REPO/spectre/changes/demo/link.md"
+run_guard "$REPO" demo "$STATE"
+assert_verdict "LEFTOVER:" "a leftover satellite (link.md-only) change directory is LEFTOVER"
+assert_reason "spectre/changes/demo" "a leftover satellite directory names its row"
+
+# 5g. The same satellite directory, moved into the archive, is COMPLETE — the
+#     archive step for a satellite is a plain directory move like any other,
+#     and this case is the negative half of 5f: without it, a guard that
+#     always reported LEFTOVER for any name it recognised as linked would
+#     still pass 5f.
+new_fixture
+mkdir -p "$REPO/spectre/changes/archive/demo"
+printf '## Part of\n`spectre:demo`\n' > "$REPO/spectre/changes/archive/demo/link.md"
+run_guard "$REPO" demo "$STATE"
+assert_verdict "COMPLETE:" "an archived satellite (link.md-only) change directory is COMPLETE"
+
 # 6. Registry row — the proposal artifact source in the state directory.
 new_fixture
 : > "$STATE/demo-proposal-artifact.html"

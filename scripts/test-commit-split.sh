@@ -6,9 +6,11 @@
 # skills/flow-contracts/pipeline.md's "Git boundaries" section, the
 # canonical spec this script implements): two guarded commits, each skipped
 # rather than failed when its staging area is empty, a capability spec under
-# spectre/specs/ landing on the implementation side of the split, and a
-# tracked symlink at either planning path stopping the run with git's own
-# exit 128 rather than being worked around.
+# spectre/specs/ landing on the implementation side of the split, a
+# change directory's link.md landing on the implementation side too even
+# though it sits inside the planning directory, and a tracked symlink at
+# either planning path stopping the run with git's own exit 128 rather than
+# being worked around.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -176,6 +178,66 @@ if [ -n "$CASE5_IMPL_SHA" ] \
 else
   fail "case 5: spec file not in an implementation commit (sha='${CASE5_IMPL_SHA:-none}')"
 fi
+
+# ===========================================================================
+# 6. link.md is IMPLEMENTATION, not planning, per
+#    skills/flow-contracts/git-boundaries.md's link-md-is-implementation
+#    carve-out: a change directory carrying link.md alongside
+#    proposal.md/design.md/tasks.md must put link.md in the implementation
+#    commit and the other three in the planning commit.
+# ===========================================================================
+new_repo
+mkdir -p "$REPO/spectre/changes/kan-363"
+printf 'link\n' > "$REPO/spectre/changes/kan-363/link.md"
+printf 'proposal\n' > "$REPO/spectre/changes/kan-363/proposal.md"
+printf 'design\n' > "$REPO/spectre/changes/kan-363/design.md"
+printf 'tasks\n' > "$REPO/spectre/changes/kan-363/tasks.md"
+set +e
+OUT="$("$SCRIPT" "$REPO" demo "impl: case6" "plan: case6" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 0 ] || fail "case 6: rc=$RC out=$OUT"
+SUBJECTS="$(log_subjects)"
+case "$SUBJECTS" in
+  *"impl: case6"*) pass "case 6: implementation commit made" ;;
+  *) fail "case 6: implementation commit missing: $SUBJECTS" ;;
+esac
+case "$SUBJECTS" in
+  *"plan: case6"*) pass "case 6: planning commit made" ;;
+  *) fail "case 6: planning commit missing: $SUBJECTS" ;;
+esac
+CASE6_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case6/ {print $1; exit}')"
+CASE6_PLAN_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/plan: case6/ {print $1; exit}')"
+if [ -n "$CASE6_IMPL_SHA" ] \
+  && git -C "$REPO" show --name-only --format= "$CASE6_IMPL_SHA" \
+    | grep -q '^spectre/changes/kan-363/link\.md$'; then
+  pass "case 6: link.md is in the implementation commit"
+else
+  fail "case 6: link.md not in the implementation commit (sha='${CASE6_IMPL_SHA:-none}')"
+fi
+if [ -n "$CASE6_IMPL_SHA" ] \
+  && git -C "$REPO" show --name-only --format= "$CASE6_IMPL_SHA" \
+    | grep -qE '^spectre/changes/kan-363/(proposal|design|tasks)\.md$'; then
+  fail "case 6: a planning file leaked into the implementation commit"
+else
+  pass "case 6: no planning file in the implementation commit"
+fi
+if [ -n "$CASE6_PLAN_SHA" ] \
+  && git -C "$REPO" show --name-only --format= "$CASE6_PLAN_SHA" \
+    | grep -q '^spectre/changes/kan-363/link\.md$'; then
+  fail "case 6: link.md leaked into the planning commit"
+else
+  pass "case 6: link.md is not in the planning commit"
+fi
+for f in proposal design tasks; do
+  if [ -n "$CASE6_PLAN_SHA" ] \
+    && git -C "$REPO" show --name-only --format= "$CASE6_PLAN_SHA" \
+      | grep -q "^spectre/changes/kan-363/${f}\.md$"; then
+    pass "case 6: ${f}.md is in the planning commit"
+  else
+    fail "case 6: ${f}.md missing from the planning commit"
+  fi
+done
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

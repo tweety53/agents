@@ -64,12 +64,15 @@ script — but signals 1 and 3 still run, and still run in this order.
 ### Run 1 — the branch is not merged
 
 **Check for unfinished work first — before the landing question and before any git action.**
-`check-unfinished-work.sh <worktree> <change-name>` prints one verdict line and exits 0
-whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the worktree.
-Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
-read of the state file's `worktrees` map, for the same reason the preflight verdict above does not
-read it raw. A resolved set that comes back empty stops the run rather than passing as `CLEAR` from
-every worktree.
+`check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]` prints one verdict line and
+exits 0 whenever it reached a verdict. It exits 2 with **no** verdict line when it cannot read the
+worktree. Run it once per worktree in the set found by **Resolving a change's worktrees** below —
+never a raw read of the state file's `worktrees` map, for the same reason the preflight verdict
+above does not read it raw. Pass `[canonical-worktree]` on every call in the run: the one member of
+the resolved set whose own `<project>/<spec-root>/changes/<change-name>/tasks.md` exists. Without it, a
+satellite worktree's call falls back to resolving the link's peer name through `peers`, which cannot
+resolve from inside a worktree — see `design.md`'s `guards-take-the-canonical-worktree-path`. A
+resolved set that comes back empty stops the run rather than passing as `CLEAR` from every worktree.
 
 | Verdict | Meaning |
 |---------|---------|
@@ -150,6 +153,12 @@ Only then ask, **before any git action**, how the branch should land:
 > - **Handle it manually**
 
 Then run to completion without asking again. The answer is never remembered between runs.
+
+**The reshape-commit-route sequence below runs once per worktree in the resolved set, in the order
+given by the canonical `link.md`'s `## Merge order`, stopping on the first failure with that
+repository's own output.** docs/links.md in the `spectre` repository is canonical for that
+section's grammar. A change with no `link.md` has one worktree and one trivially-ordered route, so
+nothing about the single-repository path changes.
 
 **Before any route commits, reshape the branch.** Run
 `git -C <abs-worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the

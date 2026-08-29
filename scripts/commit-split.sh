@@ -22,6 +22,18 @@
 # `spectre/` would classify it as planning again. See
 # skills/flow-contracts/git-boundaries.md, canonical for that boundary.
 #
+# A CHANGE DIRECTORY'S `link.md` IS ALSO IMPLEMENTATION, CARVED OUT BY FILE
+# RATHER THAN BY DIRECTORY. It lives at `<plan_dir><id>/link.md`, inside the
+# planning exclusion, so it needs its own `git add` after the exclude-add —
+# a `:(exclude)` pathspec always wins over a positive pathspec alongside it
+# in the same call, so a combined `add -A -- . ":(exclude)$plan_dir"
+# "$plan_dir*/link.md"` would still exclude it (verified by running git, not
+# by reasoning about it). The re-add runs after the reset above, not before,
+# so a later reset never strips it back out. `git add -A -- <pathspec>`
+# itself exits 128 when the pathspec matches nothing, so the glob is checked
+# with the shell first — most commits touch no link.md at all, and that must
+# stay a no-op rather than a failure.
+#
 # `<name>` is accepted and currently unused by the chain itself; it is taken
 # as a parameter because both call sites already have a change name in hand
 # and passing it keeps the call shape stable if a future caller needs it in
@@ -47,6 +59,12 @@ plan_dir="$(spec_root_leaf "$worktree")/changes/"
 
 git -C "$worktree" reset -q -- "$plan_dir" docs/superpowers/
 git -C "$worktree" add -A -- . ":(exclude)$plan_dir" ':(exclude)docs/superpowers/'
+shopt -s nullglob
+link_md_files=("$worktree/$plan_dir"*/link.md)
+shopt -u nullglob
+if [ "${#link_md_files[@]}" -gt 0 ]; then
+  git -C "$worktree" add -A -- "${plan_dir}*/link.md"
+fi
 git -C "$worktree" diff --cached --quiet \
   || git -C "$worktree" commit -m "$impl_msg"
 git -C "$worktree" add -A

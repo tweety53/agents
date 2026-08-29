@@ -3,8 +3,10 @@
 # Sourced by every guard that has to locate a project's change directory:
 # check-cleanup-complete.sh, check-task-commit-fields.sh,
 # check-unfinished-work.sh, commit-split.sh, gather-dispatch-context.sh,
-# gather-self-review-context.sh and plan-dispatch-bundles.sh. Each of those
-# used to hardcode the literal `spectre/changes`, which is correct for a
+# gather-self-review-context.sh and plan-dispatch-bundles.sh — plus
+# scripts/lib/change-plan.sh, which sources it in turn so a satellite
+# worktree's link.md is resolved against the same tree-name probe on
+# whichever tree the link points at. Each of those
 # project whose tree is named `spectre/` and wrong — silently — for one whose
 # tree is still named `openspec/`.
 #

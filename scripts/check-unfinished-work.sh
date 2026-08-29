@@ -2,7 +2,7 @@
 # check-unfinished-work.sh — report whether a change carries unfinished work,
 # for /myflow-finish's run-1 gate.
 #
-# Usage: check-unfinished-work.sh <worktree> <change-name>
+# Usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]
 #
 # Prints ONE verdict line to stdout:
 #   CLEAR: <reason>          nothing outstanding
@@ -56,6 +56,28 @@
 # with `- [ ]` — errs toward OUTSTANDING, which prompts the operator rather than
 # clearing the gate silently.
 #
+# A SATELLITE'S MISSING LOCAL PLAN IS NOT THE MISSING-RECORD CASE ABOVE
+# REJECTS. "A missing file counts as OUTSTANDING, not CLEAR" is about a
+# change whose plan was simply never written — the absence itself is the
+# only evidence there is, and treating it as clearance is the exact failure
+# this guard exists to prevent. A satellite (KAN-363) carries no local
+# `tasks.md` by design: `link.md`'s `## Part of` names a peer tree and a
+# canonical change id, and the plan the operator actually needs to check is
+# there, not here. Reading that absence the same way as a genuinely missing
+# plan would report OUTSTANDING with nothing an operator can act on — the
+# plan is not missing, it is elsewhere, and this guard's job is to reach it,
+# per `scripts/lib/change-plan.sh` (task 7) and design.md's
+# `guards-take-the-canonical-worktree-path`. So a satellite takes one of two
+# outcomes and never the third: its canonical plan resolves and is counted
+# exactly like a local one would be, or it does not resolve at all and the
+# guard refuses outright (exit 2, "cannot determine anything") rather than
+# reporting OUTSTANDING over a plan it never actually read. A change
+# directory that carries a `link.md` with no `## Part of` — the canonical
+# side's own copy, which names its `## Parts` instead — is not a satellite by
+# this definition and falls through to the ordinary missing-plan case: this
+# guard is never asked to judge a canonical change directory as if it were
+# one of its own parts.
+#
 set -euo pipefail
 
 # NO ANSWER THIS GUARD GIVES MAY DEPEND ON THE CALLER'S LOCALE. Be precise about
@@ -75,9 +97,10 @@ export LC_ALL=C
 
 WORKTREE="${1:-}"
 NAME="${2:-}"
+CANONICAL_WORKTREE="${3:-}"
 
 if [ -z "$WORKTREE" ] || [ -z "$NAME" ]; then
-  echo "usage: check-unfinished-work.sh <worktree> <change-name>" >&2
+  echo "usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]" >&2
   exit 2
 fi
 
@@ -127,9 +150,10 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/spec-root.sh"
+source "$SCRIPT_DIR/lib/change-plan.sh"
 
 CHANGES="$WORKTREE/$(spec_root_leaf "$WORKTREE")/changes"
-PRIMARY_PLAN="$CHANGES/$NAME/tasks.md"
+LOCAL_PLAN="$CHANGES/$NAME/tasks.md"
 
 REASONS=""
 add() { REASONS="${REASONS:+$REASONS; }$1"; }
@@ -186,24 +210,68 @@ count_unticked() {
 # `<name>-fix-`, is read instead: the discovery no longer depends on guessing
 # the layout. What remains undiscoverable is a sub-change whose name has no
 # relation to its parent's, which the contract does not permit.
+# THE PRIMARY PLAN IS RESOLVED THROUGH change-plan.sh (task 7), NOT COMPOSED
+# DIRECTLY, so a satellite's own `link.md` is followed to its canonical
+# `tasks.md` instead of reporting the local path's absence as a verdict. See
+# this file's header for why a satellite's missing LOCAL plan is not the
+# missing-record case the rest of this comment block rejects.
+#
+# change_plan_dir (not change_plan_path) is called here, because this guard
+# needs both the plan AND the directory it lives in: THE FIX-SUB-CHANGE
+# SWEEP BELOW MUST WALK THE SAME TREE THE PLAN RESOLVED FROM, not the
+# worktree's own changes/ directory unconditionally. A satellite's canonical
+# plan resolves under the CANONICAL worktree (or a peer tree), and a
+# `<canonical-id>-fix-N` sibling lives beside the canonical change THERE —
+# sweeping the satellite's own, plan-less changes/ instead would never see
+# it, reporting CLEAR over an unchecked fix-round item. That is exactly the
+# silent clearance this guard's own header exists to prevent, so
+# SWEEP_CHANGES_DIR and SWEEP_ID below always name the tree and the id the
+# plan actually came from — the satellite's own worktree only when the plan
+# is, in fact, local.
+#
+# change_plan_dir returns 1 in two shapes this guard must tell apart: a
+# plain change with no `tasks.md` and no `link.md` at all (or a `link.md`
+# that names no `## Part of`, which is not a satellite by this guard's
+# definition either) — the ordinary missing-plan case below, unchanged from
+# before this task — versus a genuine satellite (a `link.md` that DOES carry
+# `## Part of`) whose canonical plan could not be reached through either the
+# supplied canonical worktree or `peers`. Only the second shape refuses
+# outright; the first still falls through to "no plan at" so a change with no
+# link at all behaves exactly as it did before this task, sweeping its own
+# changes/ exactly as it always has.
 PLAN_OPEN=0
-if [ ! -f "$PRIMARY_PLAN" ]; then
-  add "no plan at $PRIMARY_PLAN"
-else
+if PLAN_DIR="$(change_plan_dir "$WORKTREE" "$NAME" "$CANONICAL_WORKTREE" 2>/dev/null)"; then
+  PRIMARY_PLAN="$PLAN_DIR/tasks.md"
   N="$(count_unticked "$PRIMARY_PLAN")" || unreadable "$PRIMARY_PLAN"
   PLAN_OPEN=$((PLAN_OPEN + ${N:-0}))
+  SWEEP_CHANGES_DIR="$(dirname "$PLAN_DIR")"
+  SWEEP_ID="$(basename "$PLAN_DIR")"
+else
+  LINK="$CHANGES/$NAME/link.md"
+  if [ -f "$LINK" ] && grep -qxF '## Part of' "$LINK" 2>/dev/null; then
+    if [ -n "$CANONICAL_WORKTREE" ]; then
+      echo "check-unfinished-work: '$NAME' is a satellite change (link.md at $LINK); its canonical plan was not found under the supplied canonical worktree $CANONICAL_WORKTREE, and a canonical worktree that was supplied is never retried against peers — cannot determine anything" >&2
+    else
+      echo "check-unfinished-work: '$NAME' is a satellite change (link.md at $LINK); no canonical worktree was supplied and its canonical plan could not be resolved through $WORKTREE/$(spec_root_leaf "$WORKTREE")/peers — cannot determine anything" >&2
+    fi
+    exit 2
+  fi
+  PRIMARY_PLAN="$LOCAL_PLAN"
+  add "no plan at $PRIMARY_PLAN"
+  SWEEP_CHANGES_DIR="$CHANGES"
+  SWEEP_ID="$NAME"
 fi
 
-if [ -d "$CHANGES" ]; then
+if [ -d "$SWEEP_CHANGES_DIR" ]; then
   while IFS= read -r -d '' plan; do
     [ "$plan" != "$PRIMARY_PLAN" ] || continue
     case "$plan" in
-      "$CHANGES/$NAME/"* | "$CHANGES/$NAME"-fix-*) : ;;
+      "$SWEEP_CHANGES_DIR/$SWEEP_ID/"* | "$SWEEP_CHANGES_DIR/$SWEEP_ID"-fix-*) : ;;
       *) continue ;;
     esac
     N="$(count_unticked "$plan")" || unreadable "$plan"
     PLAN_OPEN=$((PLAN_OPEN + ${N:-0}))
-  done < <(find "$CHANGES" -type f -name tasks.md -print0 2>/dev/null || true)
+  done < <(find "$SWEEP_CHANGES_DIR" -type f -name tasks.md -print0 2>/dev/null || true)
 fi
 
 if [ "$PLAN_OPEN" -gt 0 ]; then

@@ -218,6 +218,44 @@ STUB
   set_findings fixed
 }
 
+# new_satellite_fixture <peer-name> -> sets WT to a worktree carrying a
+# link-only change "sat-demo" whose spectre/changes/sat-demo/link.md names
+# <peer-name>:canon-demo under "## Part of", plus a stub `flow` on WT/bin
+# answering findings for "sat-demo" (default: no findings, closed). No
+# tasks.md is ever written under WT itself -- proving a satellite carries no
+# local plan at all, which is the whole point of task 8.
+new_satellite_fixture() {
+  local peer="$1"
+  WT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+  SANDBOXES+=("$WT")
+  mkdir -p "$WT/spectre/changes/sat-demo" "$WT/bin"
+  cat > "$WT/spectre/changes/sat-demo/link.md" <<EOF
+## Part of
+
+\`$peer:canon-demo\`
+EOF
+  cat > "$WT/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+cat "$(dirname -- "$0")/findings.json"
+exit 0
+STUB
+  chmod +x "$WT/bin/flow"
+  set_findings
+}
+
+# new_canonical_tree <parent> <status-line> -> a spectre/changes/canon-demo/
+# tree under <parent>/canon-tree carrying tasks.md with one item in the given
+# checkbox state ("[x] done" or "[ ] not done"). Returns the tree's absolute
+# path on stdout. Used both as a canonical-worktree argument and, via
+# spectre/peers, as a peer tree.
+new_canonical_tree() {
+  local parent="$1" line="$2" dir
+  dir="$parent/canon-tree"
+  mkdir -p "$dir/spectre/changes/canon-demo"
+  printf -- '- %s\n' "$line" > "$dir/spectre/changes/canon-demo/tasks.md"
+  printf '%s\n' "$dir"
+}
+
 # 1. The whole point of the CLEAR verdict: a finished change is not interrupted.
 new_fixture
 run_guard "$WT" demo
@@ -546,6 +584,164 @@ case "$OUT$ERR" in
   *"jq failed"*) fail "stderr diagnostic: the diagnostic reached jq" ;;
   *) pass "a diagnostic on stderr never reaches jq" ;;
 esac
+
+# 12. Satellites follow the link (KAN-363 task 8) — scripts/lib/change-plan.sh
+#     (task 7) resolves an optional third argument, the canonical worktree, in
+#     place of composing PRIMARY_PLAN from WT alone. Every case here builds a
+#     real link.md and a real canonical tree on disk and runs the guard
+#     against them for real, per this task's own "reproduce, don't read"
+#     instruction — no path is asserted from prose.
+
+# 12a. A satellite with the canonical worktree passed, and every item in the
+#      canonical plan checked: CLEAR, and the verdict still names the
+#      satellite's OWN worktree — the worktree the guard was actually asked
+#      to judge — never the canonical one.
+new_satellite_fixture peerx
+CANON="$(new_canonical_tree "$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")" '[x] done')"
+SANDBOXES+=("$(dirname "$CANON")")
+run_guard "$WT" sat-demo "$CANON"
+assert_verdict "CLEAR:" "a satellite whose canonical plan (passed explicitly) is fully checked is CLEAR"
+case "$OUT" in
+  "CLEAR: $WT"*) pass "the verdict names the satellite's own worktree, not the canonical one" ;;
+  *) fail "the verdict does not name the satellite's own worktree: $OUT" ;;
+esac
+
+# 12b. The same, with one unchecked item in the canonical plan: OUTSTANDING,
+#      the count is against the CANONICAL plan (not "no plan"), and the
+#      guard never says "no plan at" for a satellite whose plan was reached.
+new_satellite_fixture peerx
+CANON="$(new_canonical_tree "$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")" '[ ] not done')"
+SANDBOXES+=("$(dirname "$CANON")")
+run_guard "$WT" sat-demo "$CANON"
+assert_verdict "OUTSTANDING:" "a satellite whose canonical plan has an unchecked item is OUTSTANDING"
+assert_reason "1 unchecked plan item(s)" "the reason counts against the canonical plan"
+case "$OUT" in
+  *"no plan at"*) fail "a resolved satellite plan must never be reported as \"no plan at\": $OUT" ;;
+  *) pass "a resolved satellite plan is never reported as \"no plan at\"" ;;
+esac
+
+# 12c. A satellite resolving through peers — no canonical-worktree argument,
+#      so the peer name from link.md is read out of spectre/peers and the
+#      plan found on the other side of a real relative `cd`, exactly as
+#      change-plan.sh's own case 3.
+PARENT12C="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$PARENT12C")
+new_satellite_fixture peery
+mv "$WT" "$PARENT12C/sat-tree"
+WT="$PARENT12C/sat-tree"
+PEERDIR="$(new_canonical_tree "$PARENT12C" '[ ] not done')"
+mv "$PEERDIR" "$PARENT12C/peer-tree"
+printf 'peery ../peer-tree\n' > "$WT/spectre/peers"
+run_guard "$WT" sat-demo
+assert_verdict "OUTSTANDING:" "a satellite resolving through peers reaches the peer's canonical plan"
+assert_reason "1 unchecked plan item(s)" "the peer-resolved reason counts against the peer's plan"
+
+# 12d. A satellite with the canonical worktree passed, but the plan is not
+#      there — must exit 2 ("cannot determine anything"), never OUTSTANDING
+#      and never CLEAR, and must NOT fall back to peers even though a peers
+#      file is present and would otherwise resolve — design.md's
+#      guards-take-the-canonical-worktree-path: a wrong answer from the
+#      caller's own resolved worktree set is a fact worth failing loudly on.
+PARENT12D="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$PARENT12D")
+new_satellite_fixture peerw
+mv "$WT" "$PARENT12D/sat-tree"
+WT="$PARENT12D/sat-tree"
+PEERDIR="$(new_canonical_tree "$PARENT12D" '[x] done')"
+mv "$PEERDIR" "$PARENT12D/peer-tree"
+printf 'peerw ../peer-tree\n' > "$WT/spectre/peers"
+CANON_EMPTY="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$CANON_EMPTY")
+mkdir -p "$CANON_EMPTY/spectre/changes"
+run_guard "$WT" sat-demo "$CANON_EMPTY"
+[ "$RC" -eq 2 ] && pass "a canonical worktree with no plan there exits 2, not 0" \
+  || fail "unresolvable satellite (canonical arg): expected exit 2, got rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "an unresolvable satellite (canonical arg) emits no verdict line" \
+  || fail "unresolvable satellite (canonical arg): emitted a verdict line: $OUT"
+case "$ERR" in
+  *"cannot determine anything"*) pass "an unresolvable satellite (canonical arg) says it cannot determine anything" ;;
+  *) fail "unresolvable satellite (canonical arg): no such message on stderr: $ERR" ;;
+esac
+case "$OUT$ERR" in
+  *"OUTSTANDING"*|*"CLEAR"*) fail "an unresolvable satellite must never carry OUTSTANDING or CLEAR: out=$OUT err=$ERR" ;;
+  *) pass "an unresolvable satellite (canonical arg) never carries OUTSTANDING or CLEAR" ;;
+esac
+
+# 12e. A satellite with no canonical-worktree argument, whose declared peer is
+#      absent from disk: unresolvable the same way — exit 2, never a finding
+#      about the missing peer itself (peer-absence-is-not-a-finding), and
+#      never a verdict.
+PARENT12E="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$PARENT12E")
+new_satellite_fixture ghost
+mv "$WT" "$PARENT12E/sat-tree"
+WT="$PARENT12E/sat-tree"
+printf 'ghost ../not-checked-out\n' > "$WT/spectre/peers"
+run_guard "$WT" sat-demo
+[ "$RC" -eq 2 ] && pass "a satellite whose peer is absent exits 2, not 0" \
+  || fail "unresolvable satellite (peer absent): expected exit 2, got rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "a satellite whose peer is absent emits no verdict line" \
+  || fail "unresolvable satellite (peer absent): emitted a verdict line: $OUT"
+case "$ERR" in
+  *"cannot determine anything"*) pass "a satellite whose peer is absent says it cannot determine anything" ;;
+  *) fail "unresolvable satellite (peer absent): no such message on stderr: $ERR" ;;
+esac
+
+# 12f. A link.md with no "## Part of" (a canonical side's own link file, e.g.
+#      carrying "## Parts" instead) is not a satellite by this guard's own
+#      definition, so it takes the SAME path as a change with no link.md at
+#      all: "no plan at", OUTSTANDING, exit 0 — never the satellite's exit-2
+#      refusal. This is the case the header's new paragraph explains: an
+#      absent local plan is still evidence here, because nothing points
+#      anywhere else.
+new_fixture
+rm -rf "$WT/spectre/changes/demo"
+mkdir -p "$WT/spectre/changes/demo"
+cat > "$WT/spectre/changes/demo/link.md" <<'EOF'
+## Parts
+
+`peerz:some-part`
+
+## Merge order
+
+1. `.`
+2. `peerz`
+EOF
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "a link.md with no ## Part of is not a satellite, so a missing plan is still OUTSTANDING"
+assert_reason "no plan at" "a link.md with no ## Part of names the missing-plan signal, same as no link.md at all"
+
+# 12g. A PLAIN change (no link.md) with a canonical-worktree argument
+#      supplied anyway must behave exactly as with none: the local tasks.md
+#      is found at resolution step 1, before the argument is ever consulted.
+#      This is the byte-identical-behaviour proof for the new optional
+#      argument, run as a test rather than asserted in prose.
+new_fixture
+IGNORED_CANON="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$IGNORED_CANON")
+run_guard "$WT" demo "$IGNORED_CANON"
+assert_verdict "CLEAR:" "a plain change ignores a supplied canonical-worktree argument when its own plan exists"
+
+# 12h. THE FIX-SUB-CHANGE SWEEP MUST FOLLOW THE PLAN, NOT THE WORKTREE
+# (review finding on this task's first pass). The canonical plan itself is
+# fully checked, but a `canon-demo-fix-1` sibling sits BESIDE it in the
+# CANONICAL tree, carrying an unchecked item. Sweeping the satellite's own
+# (empty) changes/ directory — the pre-fix behaviour — finds nothing there
+# and reports CLEAR over a real unchecked fix-round item: the exact silent
+# clearance this guard's own header exists to prevent, and the exact KAN-343
+# failure mode this whole change removes. The correct sweep target is the
+# CANONICAL worktree's changes/, matching `canon-demo` and
+# `canon-demo-fix-*` there.
+new_satellite_fixture peerx
+CANON="$(new_canonical_tree "$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")" '[x] done')"
+SANDBOXES+=("$(dirname "$CANON")")
+mkdir -p "$CANON/spectre/changes/canon-demo-fix-1"
+printf -- '- [ ] 1.1 the fix is not done\n' > "$CANON/spectre/changes/canon-demo-fix-1/tasks.md"
+run_guard "$WT" sat-demo "$CANON"
+assert_verdict "OUTSTANDING:" \
+  "a satellite whose canonical tree carries an unchecked canonical-fix sibling is OUTSTANDING, not CLEAR"
+assert_reason "1 unchecked plan item(s)" \
+  "the unchecked canonical-fix sibling is counted, even though the canonical plan itself is fully checked"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

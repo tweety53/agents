@@ -255,8 +255,9 @@ Next:
 - **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
   integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
   is deliberately not on it — a capability spec is implementation, per **Git boundaries**
-  (`skills/flow-contracts/git-boundaries.md`). The integrate phase
-  stages them and commits them separately from the implementation, so nothing is lost. See
+  (`skills/flow-contracts/git-boundaries.md`). Neither is a change directory's `link.md`, for the same
+  reason and per the same file. The integrate phase
+  stages the rest and commits it separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:
 

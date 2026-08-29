@@ -13,13 +13,41 @@
 # ONE task's fields against ONE real commit, so its calling convention names
 # the task and commit explicitly rather than scanning:
 #
-#   check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha]
+#   check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree]
 #
 # This wrapper's own job is resolving WHICH tasks.md the named task lives
 # in, among the non-archived ones under
-# <worktree>/spectre/changes/*/tasks.md. Zero is an invocation error
-# (exit 2), and so is more than one ROOT change — two changes neither of
-# which is the other's sub-change, which nothing here may guess between.
+# <worktree>/spectre/changes/*/tasks.md. Zero matches there is not
+# automatically a refusal any more (KAN-363 task 9) — see WHERE A LINK IS
+# FOLLOWED below — and more than one ROOT change is still a refusal: two
+# changes neither of which is the other's sub-change, which nothing here may
+# guess between.
+#
+# WHERE A LINK IS FOLLOWED. A satellite change directory (spectre task 1's
+# `link.md`, carrying `## Part of`) has no `tasks.md` of its own by design,
+# so the glob above finds nothing at all under a satellite worktree — the
+# exact shape that used to be an unconditional "no tasks.md found" refusal.
+# When that glob comes back empty, and exactly one LINK-ONLY change
+# directory exists under `<worktree>/<spec-root>/changes/` — one whose own
+# `link.md` exists and whose own `tasks.md` does not — this wrapper resolves
+# that satellite's plan through `scripts/lib/change-plan.sh` (task 7),
+# passing the optional fifth argument straight through as its
+# canonical-worktree, before giving up. More than one link-only directory,
+# or a resolution that fails, still ends in the same "no tasks.md found"
+# refusal as before.
+#
+# A LINK-ONLY DIRECTORY IS NEVER COUNTED TOWARD THE ROOT-CHANGE AMBIGUITY
+# TEST below either, for the same reason a `<name>-fix-N` sibling is not: a
+# satellite carries no `tasks.md`, so the `*/tasks.md` glob that test is
+# built from never sees it — a satellite sitting beside a genuine root
+# change changes nothing about which root that test resolves to.
+#
+# SYMLINKS. `-f` and `-d`, used throughout this file and in
+# scripts/lib/change-plan.sh, follow symlinks — so a symlink at
+# `<worktree>/<spec-root>/changes/<allowlisted-name>` is followed and its
+# content read as that change's plan. check-unfinished-work.sh's own header
+# accepts the identical tradeoff for the identical reason; this is not a
+# hole this change opens.
 #
 # SPECTRE'S LAYOUT GUARANTEES NOTHING LIKE "exactly one active change", and
 # this header used to say it did. That assumption is what broke. A
@@ -50,6 +78,10 @@ GRAMMAR_MODULE="$SCRIPT_DIR/lib/plan_grammar.py"
 # import is unless the path appears as $SCRIPT_DIR/<name>, and a missing
 # sibling should say which one rather than surface as a bash error.
 SPEC_ROOT_LIB="$SCRIPT_DIR/lib/spec-root.sh"
+# change_plan_path (KAN-363 task 7) is what WHERE A LINK IS FOLLOWED above
+# resolves a satellite's plan through. Named and checked for the same two
+# reasons as the grammar module and spec-root module above.
+CHANGE_PLAN_LIB="$SCRIPT_DIR/lib/change-plan.sh"
 
 if [ ! -f "$GRAMMAR_MODULE" ]; then
   echo "check-task-commit-fields.sh: shared grammar module not found: $GRAMMAR_MODULE" >&2
@@ -62,6 +94,12 @@ if [ ! -f "$SPEC_ROOT_LIB" ]; then
 fi
 source "$SPEC_ROOT_LIB"
 
+if [ ! -f "$CHANGE_PLAN_LIB" ]; then
+  echo "check-task-commit-fields.sh: shared change-plan module not found: $CHANGE_PLAN_LIB" >&2
+  exit 2
+fi
+source "$CHANGE_PLAN_LIB"
+
 command -v python3 >/dev/null 2>&1 || {
   echo "check-task-commit-fields.sh: python3 not found on PATH — cannot run the guard" >&2
   exit 2
@@ -72,8 +110,8 @@ if ! python3 -c 'import sys; sys.exit(0)'; then
   exit 2
 fi
 
-if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
-  echo "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha]" >&2
+if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
+  echo "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree]" >&2
   exit 2
 fi
 
@@ -81,6 +119,7 @@ WORKTREE="$1"
 TASK_ID="$2"
 COMMIT_SHA="$3"
 PARENT_SHA="${4:-}"
+CANONICAL_WORKTREE="${5:-}"
 
 if [ ! -d "$WORKTREE" ]; then
   echo "check-task-commit-fields.sh: worktree not found: $WORKTREE" >&2
@@ -100,8 +139,37 @@ if [ -d "$CHANGES_DIR" ]; then
 fi
 
 if [ "${#MATCHES[@]}" -eq 0 ]; then
-  echo "check-task-commit-fields.sh: no tasks.md found under $CHANGES_DIR" >&2
-  exit 2
+  # WHERE A LINK IS FOLLOWED (see header): find the link-only change
+  # directories — link.md present, tasks.md absent — under CHANGES_DIR.
+  # Exactly one is a satellite worktree; anything else (none, or more than
+  # one) cannot be resolved without guessing and falls through to the same
+  # refusal a plain "no tasks.md at all" worktree always got.
+  SATELLITES=()
+  if [ -d "$CHANGES_DIR" ]; then
+    for change_dir in "$CHANGES_DIR"/*/; do
+      [ -d "$change_dir" ] || continue
+      cname="${change_dir%/}"
+      cname="${cname##*/}"
+      [ -f "$CHANGES_DIR/$cname/link.md" ] || continue
+      [ -f "$CHANGES_DIR/$cname/tasks.md" ] && continue
+      SATELLITES+=("$cname")
+    done
+  fi
+
+  TASKS_MD=""
+  if [ "${#SATELLITES[@]}" -eq 1 ]; then
+    TASKS_MD="$(change_plan_path "$WORKTREE" "${SATELLITES[0]}" "$CANONICAL_WORKTREE" 2>/dev/null || true)"
+  fi
+
+  if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
+    echo "check-task-commit-fields.sh: no tasks.md found under $CHANGES_DIR" >&2
+    exit 2
+  fi
+
+  if [ -n "$PARENT_SHA" ]; then
+    exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA" "$PARENT_SHA"
+  fi
+  exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA"
 fi
 
 # A <name>-fix-N SUB-CHANGE IS NOT AMBIGUITY. Under spectre a sub-change is a
