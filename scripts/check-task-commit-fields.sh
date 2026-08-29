@@ -13,7 +13,7 @@
 # ONE task's fields against ONE real commit, so its calling convention names
 # the task and commit explicitly rather than scanning:
 #
-#   check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree]
+#   check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name]
 #
 # This wrapper's own job is resolving WHICH tasks.md the named task lives
 # in, among the non-archived ones under
@@ -21,7 +21,11 @@
 # automatically a refusal any more (KAN-363 task 9) — see WHERE A LINK IS
 # FOLLOWED below — and more than one ROOT change is still a refusal: two
 # changes neither of which is the other's sub-change, which nothing here may
-# guess between.
+# guess between. The optional sixth argument, <change-name>, skips that
+# ambiguity scan entirely (KAN-367): when given, this wrapper resolves
+# directly against <worktree>/spectre/changes/<change-name> — still honoring
+# its own -fix-N sibling and its own link.md, but never looking at any other
+# directory under spectre/changes/ — and takes priority over the glob below.
 #
 # WHERE A LINK IS FOLLOWED. A satellite change directory (spectre task 1's
 # `link.md`, carrying `## Part of`) has no `tasks.md` of its own by design,
@@ -110,8 +114,8 @@ if ! python3 -c 'import sys; sys.exit(0)'; then
   exit 2
 fi
 
-if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
-  echo "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree]" >&2
+if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
+  echo "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name]" >&2
   exit 2
 fi
 
@@ -120,6 +124,7 @@ TASK_ID="$2"
 COMMIT_SHA="$3"
 PARENT_SHA="${4:-}"
 CANONICAL_WORKTREE="${5:-}"
+CHANGE_NAME="${6:-}"
 
 if [ ! -d "$WORKTREE" ]; then
   echo "check-task-commit-fields.sh: worktree not found: $WORKTREE" >&2
@@ -127,6 +132,81 @@ if [ ! -d "$WORKTREE" ]; then
 fi
 
 CHANGES_DIR="$WORKTREE/$(spec_root_leaf "$WORKTREE")/changes"
+
+# highest_fix_sibling <changes-dir> <root> <candidate...> — selects the
+# highest-numbered "<root>-fix-N" candidate whose own tasks.md exists,
+# echoing <root> unchanged when none qualify. Shared by the named-change
+# resolution block below and the ambiguity-scan path at the bottom of this
+# file, so the fix-sibling-selection rule (same digit validation, same
+# $((10#$suffix)) numeric comparison, same tasks.md existence requirement,
+# same root fallback) lives in exactly one place.
+highest_fix_sibling() {
+  local changes_dir="$1" root="$2"
+  shift 2
+  local chosen="$root" chosen_n=-1 candidate suffix
+  for candidate in "$@"; do
+    case "$candidate" in "$root"-fix-*) ;; *) continue ;; esac
+    suffix="${candidate##*-fix-}"
+    case "$suffix" in '' | *[!0-9]*) continue ;; esac
+    [ -f "$changes_dir/$candidate/tasks.md" ] || continue
+    if [ "$((10#$suffix))" -gt "$chosen_n" ]; then
+      chosen_n="$((10#$suffix))"
+      chosen="$candidate"
+    fi
+  done
+  printf '%s\n' "$chosen"
+}
+
+# dispatch_python_guard <tasks-md> — execs the Python guard against
+# <tasks-md>, forwarding $PARENT_SHA when the caller set one. Shared by all
+# three resolution paths (named change, satellite link, glob-path) so the
+# exec dispatch lives in exactly one place; the function itself execs, so
+# there is no return to the caller either way — same early-return shape the
+# three separate copies had.
+dispatch_python_guard() {
+  local tasks_md="$1"
+  if [ -n "$PARENT_SHA" ]; then
+    exec python3 "$PYTHON_GUARD" "$tasks_md" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA" "$PARENT_SHA"
+  fi
+  exec python3 "$PYTHON_GUARD" "$tasks_md" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA"
+}
+
+if [ -n "$CHANGE_NAME" ]; then
+  case "$CHANGE_NAME" in
+    *[!A-Za-z0-9._-]* | . | .. | */*)
+      echo "check-task-commit-fields.sh: invalid change name: $CHANGE_NAME" >&2
+      exit 2
+      ;;
+  esac
+
+  ROOT_DIR="$CHANGES_DIR/$CHANGE_NAME"
+  TASKS_MD=""
+
+  if [ -f "$ROOT_DIR/tasks.md" ]; then
+    # Scoped version of the existing highest-numbered-fix-sibling rule (see
+    # the unchanged glob path below): look only at $CHANGE_NAME's own
+    # -fix-N family, never at any other directory under $CHANGES_DIR.
+    FIX_CANDIDATES=()
+    for change_dir in "$CHANGES_DIR/$CHANGE_NAME"-fix-*/; do
+      [ -d "$change_dir" ] || continue
+      cname="${change_dir%/}"
+      cname="${cname##*/}"
+      FIX_CANDIDATES+=("$cname")
+    done
+    CHOSEN="$(highest_fix_sibling "$CHANGES_DIR" "$CHANGE_NAME" "${FIX_CANDIDATES[@]+"${FIX_CANDIDATES[@]}"}")"
+    TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"
+  elif [ -f "$ROOT_DIR/link.md" ]; then
+    TASKS_MD="$(change_plan_path "$WORKTREE" "$CHANGE_NAME" "$CANONICAL_WORKTREE" 2>/dev/null || true)"
+  fi
+
+  if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
+    echo "check-task-commit-fields.sh: no tasks.md found for change '$CHANGE_NAME' under $CHANGES_DIR" >&2
+    exit 2
+  fi
+
+  dispatch_python_guard "$TASKS_MD"
+fi
+
 MATCHES=()
 NAMES=()
 if [ -d "$CHANGES_DIR" ]; then
@@ -166,10 +246,7 @@ if [ "${#MATCHES[@]}" -eq 0 ]; then
     exit 2
   fi
 
-  if [ -n "$PARENT_SHA" ]; then
-    exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA" "$PARENT_SHA"
-  fi
-  exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA"
+  dispatch_python_guard "$TASKS_MD"
 fi
 
 # A <name>-fix-N SUB-CHANGE IS NOT AMBIGUITY. Under spectre a sub-change is a
@@ -228,22 +305,8 @@ ROOT="${ROOTS[0]}"
 # a SUPERSET of the intended plan's files. Passing the change name as an
 # argument would remove both; that changes a call signature
 # skills/myflow-do/SKILL.md documents, and was judged not worth it.
-CHOSEN="$ROOT"
-CHOSEN_N=-1
-for change_name in "${NAMES[@]}"; do
-  case "$change_name" in "$ROOT"-fix-*) ;; *) continue ;; esac
-  suffix="${change_name##*-fix-}"
-  case "$suffix" in '' | *[!0-9]*) continue ;; esac
-  if [ "$((10#$suffix))" -gt "$CHOSEN_N" ]; then
-    CHOSEN_N="$((10#$suffix))"
-    CHOSEN="$change_name"
-  fi
-done
+CHOSEN="$(highest_fix_sibling "$CHANGES_DIR" "$ROOT" "${NAMES[@]+"${NAMES[@]}"}")"
 
 TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"
 
-if [ -n "$PARENT_SHA" ]; then
-  exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA" "$PARENT_SHA"
-fi
-
-exec python3 "$PYTHON_GUARD" "$TASKS_MD" "$TASK_ID" "$WORKTREE" "$COMMIT_SHA"
+dispatch_python_guard "$TASKS_MD"

@@ -241,11 +241,12 @@ as it stands after the fold.
 **Guard the commit before dispatching review.** As soon as the implementer reports the task's
 commit sha back, and **before** the parent dispatches that task for review, pass the canonical
 worktree's absolute path — the worktree created or resumed in step **2** above, recorded in this
-run's working notes — as the guard's fifth argument, so a task landed in a satellite worktree still
-resolves its `tasks.md` through the link:
+run's working notes — as the guard's fifth argument, and this run's own resolved `<name>` as its
+sixth, so the guard never has to guess which change a task belongs to even when other changes are
+live in the same worktree:
 
 ```bash
-check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree>
+check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
 ```
 
 A nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round slot.

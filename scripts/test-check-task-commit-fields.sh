@@ -2848,6 +2848,194 @@ case "$OUT" in
   *) pass "case 76: no false-ambiguity refusal" ;;
 esac
 
+# ===========================================================================
+# Case 77 (KAN-367): the exact reported scenario — TWO OR MORE unrelated live
+# root changes exist under spectre/changes/, which used to be an unconditional
+# refusal. Given the change name explicitly, the guard resolves it directly
+# without even looking at the unrelated directory.
+# ===========================================================================
+new_repo "kan-367-demo"
+write_tasks_md "$REPO" '- [ ] 1. Named change task
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** test: alpha
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/some-other-live-change"
+printf '%s' '- [ ] 1. Unrelated change task
+
+**Files:** `beta.txt`
+**Commit:** test: beta
+**Build:** green
+' > "$REPO/spectre/changes/some-other-live-change/tasks.md"
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA" "" "" "kan-367-demo"
+[ "$RC" -eq 0 ] && pass "case 77: a named change resolves directly despite an unrelated live root" \
+  || fail "case 77: rc=$RC out=$OUT"
+case "$OUT" in
+  *"more than one tasks.md"*) fail "case 77: still fell back to the ambiguity refusal: $OUT" ;;
+  *) pass "case 77: no ambiguity message" ;;
+esac
+
+# ===========================================================================
+# Case 78 (KAN-367): the named change is itself mid fix-round — its own
+# -fix-N sibling must still win, scoped to just that family, while an
+# unrelated third change sitting in the same directory is never consulted.
+# ===========================================================================
+new_repo "kan-367-fix-demo"
+write_tasks_md "$REPO" '- [ ] 1. Parent task, already done
+
+**Files:** `parent-only.txt`
+**Commit:** test: parent
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/kan-367-fix-demo-fix-1"
+printf '%s' '- [ ] 1. Fix-round task
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** fix: add alpha
+**Build:** green
+' > "$REPO/spectre/changes/kan-367-fix-demo-fix-1/tasks.md"
+mkdir -p "$REPO/spectre/changes/unrelated-third-change"
+printf '%s' '- [ ] 1. Unrelated
+
+**Files:** `gamma.txt`
+**Commit:** test: gamma
+**Build:** green
+' > "$REPO/spectre/changes/unrelated-third-change/tasks.md"
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "fix: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA" "" "" "kan-367-fix-demo"
+[ "$RC" -eq 0 ] && pass "case 78: the named change's own fix sibling wins, scoped to its family" \
+  || fail "case 78: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 79 (KAN-367): a change name that does not exist under spectre/changes/
+# still fails loudly rather than silently falling back to the glob.
+# ===========================================================================
+new_repo "kan-367-demo-79"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA" "" "" "no-such-change"
+[ "$RC" -eq 2 ] && pass "case 79: an unknown change name exits 2" \
+  || fail "case 79: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"no tasks.md found for change 'no-such-change'"*) pass "case 79: names the unresolved change" ;;
+  *) fail "case 79: expected a message naming the change, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 80 (KAN-367): a satellite change resolves through its link.md when
+# named directly, exactly as the unnamed glob path already does (case 72),
+# proving the new argument reaches the same change_plan_path resolution.
+# ===========================================================================
+new_repo "kan-367-sat"
+cat > "$REPO/spectre/changes/kan-367-sat/link.md" <<'EOF'
+## Part of
+
+`peerx:canon-demo-367`
+EOF
+git -C "$REPO" add "spectre/changes/kan-367-sat/link.md"
+git -C "$REPO" commit -q -m "link"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha for real"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+
+CANON_WT_80="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-canon.XXXXXX")"
+mkdir -p "$CANON_WT_80/spectre/changes/canon-demo-367"
+printf '%s' '- [ ] 1. Satellite task named directly
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha for real
+**Build:** green
+' > "$CANON_WT_80/spectre/changes/canon-demo-367/tasks.md"
+
+run_guard "$REPO" 1 "$SHA" "" "$CANON_WT_80" "kan-367-sat"
+[ "$RC" -eq 0 ] && pass "case 80: a satellite named directly resolves through its link" \
+  || fail "case 80: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 81 (KAN-367): a named change's own fix-sibling loop must skip a
+# numbered -fix-N sibling that has no tasks.md of its own (e.g. a fix change
+# directory created but not yet planned) and fall back to the next-highest
+# sibling that does — never wrongly choosing the unplanned one, never
+# refusing outright.
+# ===========================================================================
+new_repo "kan-367-fix-unplanned"
+write_tasks_md "$REPO" '- [ ] 1. Parent task, already done
+
+**Files:** `parent-only.txt`
+**Commit:** test: parent
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/kan-367-fix-unplanned-fix-1"
+printf '%s' '- [ ] 1. Fix-round task
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** fix: add alpha
+**Build:** green
+' > "$REPO/spectre/changes/kan-367-fix-unplanned-fix-1/tasks.md"
+# -fix-2 exists but was never planned: no tasks.md of its own.
+mkdir -p "$REPO/spectre/changes/kan-367-fix-unplanned-fix-2"
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "fix: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA" "" "" "kan-367-fix-unplanned"
+[ "$RC" -eq 0 ] && pass "case 81: an unplanned higher-numbered fix sibling is skipped for the planned one" \
+  || fail "case 81: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 82 (KAN-367): the <change-name> argument's validation must actually
+# reject a path-traversal-shaped or slash-containing value, not merely look
+# like it does.
+# ===========================================================================
+new_repo "kan-367-invalid-name"
+write_tasks_md "$REPO" '- [ ] 1. Clean task
+
+**Files:** `alpha.txt`
+**Commit:** test: alpha
+**Build:** green
+'
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+
+run_guard "$REPO" 1 "$SHA" "" "" "../x"
+[ "$RC" -eq 2 ] && pass "case 82: a path-traversal-shaped change name exits 2" \
+  || fail "case 82: rc=$RC out=$OUT"
+case "$OUT" in
+  *"invalid change name"*) pass "case 82: names it an invalid change name" ;;
+  *) fail "case 82: expected an invalid-change-name message, out=$OUT" ;;
+esac
+
+run_guard "$REPO" 1 "$SHA" "" "" "a/b"
+[ "$RC" -eq 2 ] && pass "case 82: a slash-containing change name exits 2" \
+  || fail "case 82: rc=$RC out=$OUT"
+case "$OUT" in
+  *"invalid change name"*) pass "case 82: slash-containing name is named invalid too" ;;
+  *) fail "case 82: expected an invalid-change-name message, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
