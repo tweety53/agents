@@ -307,26 +307,26 @@ func acquireStartup(cfg config.Config, logger *slog.Logger) (*pidfile.Lock, net.
 
 // newTranscriptWatcher builds the harvest.Watcher the daemon runs.
 // Extracted out of run (KAN-172, task 7) so wiring_test.go can call it
-// directly and assert on the *constructed* Watcher -- Watcher.HasPricer,
-// Watcher.HasSessionTokenBinder -- rather than on this file's own source
-// text, which a refactor could keep unchanged while silently dropping an
-// option. This is the exact class of defect task 7 fixes: the daemon
-// built this watcher inline with harvest.WithPricer(st) but no
+// directly and assert on the *constructed* Watcher -- originally through
+// Watcher.HasPricer and Watcher.HasSessionTokenBinder, now (KAN-173)
+// through TestDaemonWiresTheRealStore's reflection over Watcher's deps
+// field -- rather than on this file's own source text, which a refactor
+// could keep unchanged while silently dropping a dependency.
+//
+// This is the wiring that KAN-172 task 7 once got wrong: the daemon built
+// this watcher with harvest.WithPricer(st) but no
 // harvest.WithSessionTokenBinder(st), so pendingSessionTokens always
 // returned nil and no stage run was ever bound, despite tasks 1-6 all
-// working and 329 Go tests staying green throughout.
+// working and 329 Go tests staying green throughout. KAN-173 closes the
+// class of defect, not just this instance: harvest.Deps collapses every
+// dependency into one required NewWatcher parameter, so dropping one here
+// is now a compile error rather than a silently inert option. st (a
+// *store.Store) satisfies harvest.Deps whole, with no adapter --
+// DispatchWindowsForSession returns harvest.DispatchWindow and
+// MergeDispatchMetrics matches harvest.DispatchMetricsSink, exactly like
+// HarvestSink and Pricer already did (compile-time checks below).
 func newTranscriptWatcher(root string, st *store.Store, attributor *harvest.Attributor, logger *slog.Logger) *harvest.Watcher {
-	// KAN-258: the second, dispatch-grain attribution pass runs beside the
-	// first over the same batch (design.md, "Cost attribution"). st
-	// satisfies both halves of it directly -- DispatchWindowsForSession
-	// returns harvest.DispatchWindow, and MergeDispatchMetrics matches
-	// harvest.DispatchMetricsSink -- so, like HarvestSink and Pricer,
-	// neither needs an adapter (compile-time checks below).
-	return harvest.NewWatcher(root, st, attributor, logger,
-		harvest.WithPricer(st),
-		harvest.WithSessionTokenBinder(st),
-		harvest.WithDispatchAttribution(harvest.NewDispatchAttributor(st), st),
-	)
+	return harvest.NewWatcher(root, st, attributor, st, logger)
 }
 
 // storeWindowSource adapts *store.Store to harvest.WindowSource: the one
@@ -385,6 +385,12 @@ var (
 	// reason DispatchWindowsForSession returns harvest.DispatchWindow
 	// directly, above.
 	_ harvest.SessionTokenBinder = (*store.Store)(nil)
+	// harvest.Deps composes Pricer, SessionTokenBinder,
+	// DispatchMetricsSink and DispatchWindowSource -- the four checks
+	// above -- into the one required NewWatcher parameter (KAN-173).
+	// This guard is what proves *store.Store satisfies it whole, with
+	// no adapter, before task 2 makes that the daemon's only option.
+	_ harvest.Deps = (*store.Store)(nil)
 )
 
 // logReconcileResult reports one Reconciler.Run outcome. A replay failure
