@@ -200,7 +200,7 @@ skills/flow-contracts/artifacts-registry.md 7620
 skills/flow-contracts/build-green.md 6678
 skills/flow-contracts/finish-contract.md 54286
 skills/flow-contracts/git-boundaries-rationale.md 2317
-skills/flow-contracts/git-boundaries.md 5535
+skills/flow-contracts/git-boundaries.md 7258
 skills/flow-contracts/handoff-blocks-rationale.md 13086
 skills/flow-contracts/handoff-blocks.md 20240
 skills/flow-contracts/jira-followups.md 45385

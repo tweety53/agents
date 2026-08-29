@@ -337,6 +337,10 @@ first, per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-r
 looping over this map directly. The scalar `branch` names the shared branch only. Never infer a
 worktree path from a conventional layout; layout differs per repository.
 
+The **order** those repositories land in is not recorded here at all: it lives in the canonical
+`link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract.md`)
+reads to sequence run 1's routes.
+
 ```json
 "worktrees": {
   "/Users/tweety53/Projects/agents-worktrees/spectre-<name>": "5ee4c9a…",

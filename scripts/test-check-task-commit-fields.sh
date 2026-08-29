@@ -2660,6 +2660,194 @@ case "$OUT" in
   *) fail "case 71: expected message naming test_alpha, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 72 (KAN-363 task 9): a satellite worktree — its change directory
+# carries a real link.md and NO tasks.md at all, so the wrapper's own
+# `*/tasks.md` glob finds nothing — resolves the named task against the
+# CANONICAL worktree's real tasks.md, passed as the new fifth positional
+# argument, and checks the commit made in the satellite worktree against it.
+# Proves the "no tasks.md found" exit 2 becomes a resolution attempt first.
+# ===========================================================================
+new_repo "sat-demo"
+cat > "$REPO/spectre/changes/sat-demo/link.md" <<'EOF'
+## Part of
+
+`peerx:canon-demo`
+EOF
+git -C "$REPO" add "spectre/changes/sat-demo/link.md"
+git -C "$REPO" commit -q -m "link"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha for real"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+
+CANON_WT="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-canon.XXXXXX")"
+mkdir -p "$CANON_WT/spectre/changes/canon-demo"
+printf '%s' '- [ ] 72. Satellite resolves through the canonical worktree
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha for real
+**Build:** green
+' > "$CANON_WT/spectre/changes/canon-demo/tasks.md"
+
+run_guard "$REPO" 72 "$SHA" "" "$CANON_WT"
+[ "$RC" -eq 0 ] && pass "case 72: a satellite worktree resolves its task against the canonical worktree's plan" \
+  || fail "case 72: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 73 (KAN-363 task 9): a link-only satellite directory sitting ALONGSIDE
+# a genuine root change with its own tasks.md must not read as ambiguity —
+# a satellite is not a second root change, exactly as a <name>-fix-N sibling
+# already is not (case 65).
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 73. Root task beside a satellite
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha for real
+**Build:** green
+'
+mkdir -p "$REPO/spectre/changes/other-sat"
+cat > "$REPO/spectre/changes/other-sat/link.md" <<'EOF'
+## Part of
+
+`peery:some-other-change`
+EOF
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha for real"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 73 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 73: a satellite directory beside a root change is not ambiguity" \
+  || fail "case 73: rc=$RC out=$OUT"
+case "$OUT" in
+  *"more than one tasks.md"*) fail "case 73: satellite directory was wrongly counted as a second root: $OUT" ;;
+  *) pass "case 73: no ambiguity message" ;;
+esac
+
+# ===========================================================================
+# Case 74 (KAN-363 task 9): the same satellite shape as case 72, but with no
+# canonical-worktree argument and no `spectre/peers` entry for the declared
+# peer — the resolution attempt genuinely cannot reach a plan -> exit 2,
+# never a false pass and never a crash.
+# ===========================================================================
+new_repo "sat-demo-unresolvable"
+cat > "$REPO/spectre/changes/sat-demo-unresolvable/link.md" <<'EOF'
+## Part of
+
+`peerz:canon-demo`
+EOF
+git -C "$REPO" add "spectre/changes/sat-demo-unresolvable/link.md"
+git -C "$REPO" commit -q -m "link"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 74 "$SHA"
+[ "$RC" -eq 2 ] && pass "case 74: an unresolvable satellite exits 2" \
+  || fail "case 74: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"no tasks.md found"*) pass "case 74: reports no tasks.md could be found or resolved" ;;
+  *) fail "case 74: expected a no-tasks.md-found message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 75 (KAN-363 task 9 review, coverage gap): TWO link-only satellite
+# directories under one worktree — the resolution branch's own version of
+# case 73's "must not read as ambiguity" style, mirrored for the opposite
+# direction. Neither case 72 nor case 74 ever puts more than one entry in
+# SATELLITES, so nothing pinned that the guard refuses rather than
+# guessing — taking SATELLITES[0] and silently resolving the wrong plan is
+# exactly the risk this whole task exists to remove. Both link.md files
+# independently resolve to the SAME canonical change id (deliberately, not
+# distinct ones) so the case catches a wrongly permissive gate regardless of
+# which directory the filesystem happens to enumerate first — either one
+# resolving successfully must still not be enough; only a strict count of
+# exactly one link-only directory refuses correctly.
+# ===========================================================================
+new_repo "sat-demo-ambiguous"
+mkdir -p "$REPO/spectre/changes/sat-demo-ambiguous-second"
+cat > "$REPO/spectre/changes/sat-demo-ambiguous/link.md" <<'EOF'
+## Part of
+
+`peerx:canon-demo`
+EOF
+cat > "$REPO/spectre/changes/sat-demo-ambiguous-second/link.md" <<'EOF'
+## Part of
+
+`peery:canon-demo`
+EOF
+git -C "$REPO" add "spectre/changes"
+git -C "$REPO" commit -q -m "two links"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+
+CANON_WT_75="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-canon.XXXXXX")"
+mkdir -p "$CANON_WT_75/spectre/changes/canon-demo"
+printf '%s' '- [ ] 75. Would-be resolved task
+
+**Files:** `alpha.txt`
+**Commit:** add alpha
+**Build:** green
+' > "$CANON_WT_75/spectre/changes/canon-demo/tasks.md"
+
+run_guard "$REPO" 75 "$SHA" "" "$CANON_WT_75"
+[ "$RC" -eq 2 ] && pass "case 75: two link-only satellite directories refuse rather than guessing" \
+  || fail "case 75: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"no tasks.md found"*) pass "case 75: reports no tasks.md could be found or resolved" ;;
+  *) fail "case 75: expected a no-tasks.md-found message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 76 (KAN-363 task 9 review, coverage gap): a real link-only satellite
+# sitting ALONGSIDE an ORDINARY pre-plan change directory — one that has
+# neither tasks.md nor link.md yet, the ordinary shape of a change directory
+# mid-brainstorming before its plan is written. The SATELLITES loop's own
+# `[ -f link.md ] || continue` test is what keeps that pre-plan directory
+# out of SATELLITES; without it, both directories would land in SATELLITES
+# (neither carries tasks.md), the exactly-one gate would see two and refuse,
+# and the guard would falsely report "no tasks.md found" for a satellite
+# that genuinely resolves.
+# ===========================================================================
+new_repo "sat-demo-76"
+mkdir -p "$REPO/spectre/changes/pre-plan-change"
+cat > "$REPO/spectre/changes/sat-demo-76/link.md" <<'EOF'
+## Part of
+
+`peerx:canon-demo-76`
+EOF
+git -C "$REPO" add "spectre/changes/sat-demo-76/link.md"
+git -C "$REPO" commit -q -m "link"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha for real"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+
+CANON_WT_76="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-canon.XXXXXX")"
+mkdir -p "$CANON_WT_76/spectre/changes/canon-demo-76"
+printf '%s' '- [ ] 76. Satellite beside a pre-plan change resolves
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha for real
+**Build:** green
+' > "$CANON_WT_76/spectre/changes/canon-demo-76/tasks.md"
+
+run_guard "$REPO" 76 "$SHA" "" "$CANON_WT_76"
+[ "$RC" -eq 0 ] && pass "case 76: a satellite beside an ordinary pre-plan change directory still resolves" \
+  || fail "case 76: rc=$RC out=$OUT"
+case "$OUT" in
+  *"no tasks.md found"*) fail "case 76: pre-plan directory was wrongly counted as a satellite: $OUT" ;;
+  *) pass "case 76: no false-ambiguity refusal" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

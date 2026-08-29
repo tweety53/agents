@@ -174,6 +174,11 @@ confirm every guard `/flow` can invoke — the full list is the union carried by
 any absence prints that section's block once, and the run continues under each guard's own hand-run
 fallback.
 
+`check-unfinished-work.sh` and `check-task-commit-fields.sh` also require
+`<agents repo>/scripts/lib/change-plan.sh` as a `<agents repo>/scripts/lib/` sibling — the same
+sibling-dependency rule `<agents repo>/scripts/check-guard-symlinks.sh`'s rule 2 already applies to
+every other guard above.
+
 **The `<change>` argument to every mark below is always a resolved change name.** On a creating run
 the name does not exist until **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) produces it — defer `flow.state-gate`-equivalent bookkeeping into that

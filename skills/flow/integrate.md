@@ -40,8 +40,11 @@ flow stage begin -command '/flow' -stage flow.unfinished-work-gate -harness <har
 
 ## 1. Check for unfinished work
 
-Run `check-unfinished-work.sh <worktree> <name>` once per worktree in the resolved set — before the
-landing question and before any git action.
+Run `check-unfinished-work.sh <worktree> <name> <canonical-worktree>` once per worktree in the
+resolved set — before the landing question and before any git action. `<canonical-worktree>` is the
+one member of the resolved set whose own `<project>/<spec-root>/changes/<name>/tasks.md` exists — the same
+worktree for every call in this run, so a satellite worktree's call still resolves its plan through
+the link instead of reporting an absence.
 
 - **`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator.

@@ -38,6 +38,14 @@ requirement, and it never reaches the planning commit. Within the spectre tree t
 directory — `<project>/spectre/changes/` is planning and `<project>/spectre/specs/` is not — which is
 why every pathspec below names the change folder rather than the tree.
 
+**`link.md` is implementation too, carved out by file, not directory.** It states which
+repositories a change spans, its branch and merge order — structural, not the
+`proposal.md`/`design.md`/`tasks.md` planning narrative — and in a satellite repository it is the
+change's only content, so the directory boundary above would leave that branch with no
+implementation commit. A `:(exclude)` pathspec beats a positive one in the same `add`, so it needs
+its own `add` after the exclude, guarded so a `link.md`-less change still commits cleanly —
+`<agents repo>/scripts/commit-split.sh` guards it.
+
 `git add -A` respects `<project>/.gitignore`. Never force-add.
 
 **Both commits are guarded, and an empty one is skipped rather than failed.** Each commit is
@@ -48,6 +56,7 @@ cases this guards against and why it is a chain rather than `set -e`.
 ```bash
 git -C <abs-worktree> reset -q -- spectre/changes/ docs/superpowers/ \
   && git -C <abs-worktree> add -A -- . ':(exclude)spectre/changes/' ':(exclude)docs/superpowers/' \
+  && { git -C <abs-worktree> add -A -- 'spectre/changes/<id>/link.md' 2>/dev/null || true; } \
   && { git -C <abs-worktree> diff --cached --quiet \
        || git -C <abs-worktree> commit -m "<type>(<module>): <what the implementation does>"; } \
   && git -C <abs-worktree> add -A \

@@ -87,6 +87,12 @@ worktree just created or resumed above, plus any additional worktree this change
 **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
 
+**After creating each worktree beyond the canonical one, run `spectre link <canonical-peer>:<name>`
+in it**, where `<canonical-peer>` is the canonical repository's own name in that worktree's
+`<project>/spectre/peers` file. Record what the command wrote — or that it refused — alongside that
+worktree's merge base in this run's working notes. A failure is reported and the run continues: the
+link is not a gate, and a change with one worktree runs nothing here.
+
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
 under **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — do not re-derive it
 by hand. Compute it once per run, on a fix run exactly as on the first.
@@ -233,10 +239,13 @@ as it stands after the fold.
 > production builds it, or assert against the real boundary.
 
 **Guard the commit before dispatching review.** As soon as the implementer reports the task's
-commit sha back, and **before** the parent dispatches that task for review:
+commit sha back, and **before** the parent dispatches that task for review, pass the canonical
+worktree's absolute path — the worktree created or resumed in step **2** above, recorded in this
+run's working notes — as the guard's fifth argument, so a task landed in a satellite worktree still
+resolves its `tasks.md` through the link:
 
 ```bash
-check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base>
+check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree>
 ```
 
 A nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round slot.
