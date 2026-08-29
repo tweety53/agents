@@ -79,58 +79,35 @@ forbids any agent action touching it at all.
 ## test
 
 ```bash
-scripts/test-setup.sh
-scripts/test-check-references.sh
-scripts/test-check-plan-provenance.sh
-scripts/test-check-finish-preflight.sh
-scripts/test-check-base-moved.sh
-scripts/test-commit-split.sh
-scripts/test-prepare-workspace.sh
-scripts/test-check-unfinished-work.sh
-scripts/test-check-cleanup-complete.sh
-scripts/test-gather-self-review-context.sh
-scripts/test-gather-dispatch-context.sh
-scripts/test-check-task-build-green.sh
-scripts/test-check-plan-shape.sh
-scripts/test-check-task-commit-fields.sh
-scripts/test-check-workspace-isolation.sh
-scripts/test-workspace.sh
-scripts/test-check-contract-budget.sh
-scripts/test-check-vocabulary.sh
-scripts/test-check-panel-diff-size.sh
-scripts/test-plan-dispatch-bundles.sh
-scripts/test-check-panel-reproducers.sh
-scripts/test-run-reproducer.sh
-scripts/test-check-markdown-integrity.sh
-scripts/test-check-uitest-overrides.sh
-scripts/test-check-guard-symlinks.sh
-scripts/test-check-dispatch-paragraphs.sh
-scripts/test-resolve-base-branch.sh
-scripts/test-prepare-archive-branch.sh
-scripts/test-check-stage-mark-calls.sh
-scripts/test-check-self-review-report.sh
-scripts/test-lib-coverage.sh
-scripts/test-lib-test-git-shim.sh
-scripts/test-check-installed-citations.sh
-scripts/test-check-installed-rules.sh
-scripts/test-check-normative-inventory.sh
-scripts/test-check-worktree-processes.sh
-scripts/test-make-build.sh
-scripts/test-check-visual-trigger.sh
-scripts/test-check-visual-verification.sh
-scripts/test-resolve-visual-screenshots.sh
+scripts/run-guard-tests.sh
 cd stats && go test ./... -race -count=1
 cd stats/web && npm test
 ```
 
-**Measured runtime: roughly 144s total** — 118.63s for the Bash/Python guard tests above, plus
-23.93s for `go test ./... -race -count=1` and 1.80s for the SPA's `npm test` (both measured against
-the already-running `myflow-postgres` compose stack, with `stats/internal/web/dist` already built)
-— against this harness's 120000ms default tool timeout. This was already close to the edge before
-`stats/` existed; adding the Go and SPA suites moves it from "close" to "reliably over" for a single
-invocation. Split the run across more than one invocation (the guard tests as one call,
-`cd stats && go test ./...` as a second, `cd stats/web && npm test` as a third) or raise the tool
-timeout, rather than reading a timeout here as one of these commands failing.
+`scripts/run-guard-tests.sh` discovers every `scripts/test-*.sh` by glob and runs them concurrently
+through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
+no edit needed here.
+
+**Measured runtime: the guard-test harnesses now run in about 52 to 56s wall through the runner**,
+down from roughly 216 to 218s running the same 42 harnesses sequentially, one after another.
+<!-- measured: time scripts/run-guard-tests.sh, three clean runs of 52.5s/52.9s/52.0s wall @ branch spectre/kan-362-myflow-guard-test-suite-takes-119s-sequentially -->
+<!-- measured: for f in scripts/test-*.sh; do bash "$f"; done, two runs of 218.44s/216.10s wall @ branch spectre/kan-362-myflow-guard-test-suite-takes-119s-sequentially -->
+Both figures are for the 42 Bash/Python guard harnesses alone; the two `stats` commands above are
+untouched by this change and are not part of either figure. Plus those two commands, the whole
+`## test` list now comfortably fits inside this harness's 120000ms default tool timeout in one
+invocation — no more splitting the run across several calls, and no need to raise the timeout.
+
+One run through the runner, out of five taken while measuring this, reported
+`test-check-installed-citations.sh` as `FAIL` with no case-level failure in its replayed output. The
+failure was reproduced (3 of 8 full-suite runs) and root-caused: **not** oversubscription, but a
+shared temp-directory namespace. `test-lib-parallel.sh` (cases 7–8) and
+`test-check-installed-citations.sh` (trap-chain sub-cases) each identified their own child's
+directory by snapshotting the global `$TMPDIR` for `parallel-lib.*`; under
+`scripts/run-guard-tests.sh`'s concurrent harnesses, a sibling process's live directory could be
+picked up instead, producing empty paths, "could not observe", and false "leaked" reports. Fixed in
+`2e3ed4f` by giving each observing child its own private `TMPDIR`. Since the fix, 24 consecutive
+clean full-suite runs.
+<!-- measured: scripts/run-guard-tests.sh, 24 consecutive clean runs after 2e3ed4f @ branch spectre/kan-362-myflow-guard-test-suite-takes-119s-sequentially -->
 
 **`check-installed-citations.sh` (named in `## lint` below) is unlike every other guard in that
 list: it shells out to a sandboxed `setup.sh` twice per invocation** — once for `global`, once for
