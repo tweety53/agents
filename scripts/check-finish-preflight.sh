@@ -51,7 +51,13 @@ BASE_REF="${2:-}"
 RECORDED="${3:-}"
 
 if [ -z "$WORKTREE" ] || [ -z "$BASE_REF" ] || [ -z "$RECORDED" ]; then
-  echo "usage: check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->" >&2
+  cat >&2 <<'EOF'
+usage: check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->
+  <base-ref>  the base branch name, bare (main) or remote-tracking
+              (origin/main). The guard prefers refs/remotes/origin/<base-ref>
+              when it resolves, so a bare name is never tested against a
+              stale local branch.
+EOF
   exit 2
 fi
 

@@ -14,6 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-finish-preflight.sh"
 # shellcheck source=lib/test-git-shim.sh
 . "$SCRIPT_DIR/lib/test-git-shim.sh"
+# shellcheck source=lib/base-ref-usage.sh
+. "$SCRIPT_DIR/lib/base-ref-usage.sh"
 FAILURES=0
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
@@ -320,6 +322,28 @@ run_guard "" "" ""
 [ "$RC" -eq 2 ] && pass "missing arguments -> exit 2" \
   || fail "missing arguments: expected exit 2, got rc=$RC out=$OUT"
 
+# 9b. KAN-298 fix round 1 (panel F1/F2): run_guard merges stdout+stderr, so
+#     it cannot tell a usage message routed to the wrong stream from one
+#     printed correctly, and cannot tell a clean stderr from one with a
+#     second diagnostic line appended after the usage block. Captured here
+#     separately: stdout must be empty, and stderr must be EXACTLY the usage
+#     message — no more, no less — so a future regression that either drops
+#     `>&2` from the heredoc or lets execution fall through to a second
+#     diagnostic (e.g. the missing explicit `exit 2` after the heredoc) is
+#     caught.
+MISSING_ARGS_ERR="$(mktemp "${TMPDIR:-/tmp}/finish-preflight-missing-args-err.XXXXXX")"
+REPOS+=("$MISSING_ARGS_ERR")
+set +e
+MISSING_ARGS_OUT="$("$GUARD" 2>"$MISSING_ARGS_ERR")"
+set -e
+[ -z "$MISSING_ARGS_OUT" ] && pass "missing arguments: stdout is empty" \
+  || fail "missing arguments: stdout is not empty: $MISSING_ARGS_OUT"
+EXPECTED_USAGE="$(base_ref_usage_message "check-finish-preflight.sh")"
+ACTUAL_USAGE="$(cat "$MISSING_ARGS_ERR")"
+[ "$ACTUAL_USAGE" = "$EXPECTED_USAGE" ] \
+  && pass "missing arguments: stderr is exactly the usage message" \
+  || fail "missing arguments: stderr does not match the usage message exactly: $ACTUAL_USAGE"
+
 # --- KAN-88: the preflight resolves the base ref it was handed to its ---
 # --- remote-tracking counterpart when one exists, so a bare local base ---
 # --- name that has fallen behind origin cannot manufacture a false RUN1. ---
@@ -475,6 +499,16 @@ esac
 [ ! -e "$SHIM_DIR/.fired" ] \
   && pass "F14: superstring argument left no .fired sentinel" \
   || fail "F14: superstring argument left a .fired sentinel — the shim fired when it should not have"
+
+# 16. KAN-298: the guard's usage message must state the base-ref
+#     substitution rule, not just its synopsis — a bare name alone gives no
+#     hint that the guard prefers origin/<base-ref> over a stale local
+#     branch. Asserted on the guard's own source, since the missing-argument
+#     behaviour case only proves a message was printed, not what it says.
+grep -qF -- 'prefers refs/remotes/origin/<base-ref>' \
+  "$SCRIPT_DIR/check-finish-preflight.sh" \
+  && pass "usage message states the base-ref rule" \
+  || fail "usage message no longer states the base-ref rule"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

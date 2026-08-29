@@ -25,6 +25,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-base-moved.sh"
 # shellcheck source=lib/test-git-shim.sh
 . "$SCRIPT_DIR/lib/test-git-shim.sh"
+# shellcheck source=lib/base-ref-usage.sh
+. "$SCRIPT_DIR/lib/base-ref-usage.sh"
 FAILURES=0
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
@@ -485,6 +487,28 @@ case "$OUT" in
   *) pass "missing arguments: emits no verdict line" ;;
 esac
 
+# 11b. KAN-298 fix round 1 (panel F1/F2): run_guard merges stdout+stderr, so
+#      it cannot tell a usage message routed to the wrong stream from one
+#      printed correctly, and cannot tell a clean stderr from one with a
+#      second diagnostic line appended after the usage block. Captured here
+#      separately: stdout must be empty, and stderr must be EXACTLY the
+#      usage message — no more, no less — so a future regression that either
+#      drops `>&2` from the heredoc or lets execution fall through to a
+#      second diagnostic (e.g. the missing explicit `exit 2` after the
+#      heredoc) is caught.
+MISSING_ARGS_ERR="$(mktemp "${TMPDIR:-/tmp}/base-moved-missing-args-err.XXXXXX")"
+REPOS+=("$MISSING_ARGS_ERR")
+set +e
+MISSING_ARGS_OUT="$("$GUARD" 2>"$MISSING_ARGS_ERR")"
+set -e
+[ -z "$MISSING_ARGS_OUT" ] && pass "missing arguments: stdout is empty" \
+  || fail "missing arguments: stdout is not empty: $MISSING_ARGS_OUT"
+EXPECTED_USAGE="$(base_ref_usage_message "check-base-moved.sh")"
+ACTUAL_USAGE="$(cat "$MISSING_ARGS_ERR")"
+[ "$ACTUAL_USAGE" = "$EXPECTED_USAGE" ] \
+  && pass "missing arguments: stderr is exactly the usage message" \
+  || fail "missing arguments: stderr does not match the usage message exactly: $ACTUAL_USAGE"
+
 # 12. A directory that is not a git worktree: exit 2, no verdict line.
 NOT_A_REPO="$(mktemp -d "${TMPDIR:-/tmp}/base-moved-test-notrepo.XXXXXX")"
 REPOS+=("$NOT_A_REPO")
@@ -530,6 +554,16 @@ esac
 [ "$CHAIN_RC" -ne 128 ] \
   && pass "shim chaining: second shim exited a real-git error, not the first shim's 128" \
   || fail "shim chaining: second shim exited 128, matching the first shim's fatal exit"
+
+# KAN-298: the guard's usage message must state the base-ref substitution
+# rule, not just its synopsis — a bare name alone gives no hint that the
+# guard prefers origin/<base-ref> over a stale local branch. Asserted on
+# the guard's own source, since the missing-argument behaviour case only
+# proves a message was printed, not what it says.
+grep -qF -- 'prefers refs/remotes/origin/<base-ref>' \
+  "$SCRIPT_DIR/check-base-moved.sh" \
+  && pass "usage message states the base-ref rule" \
+  || fail "usage message no longer states the base-ref rule"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
