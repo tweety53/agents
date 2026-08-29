@@ -124,7 +124,8 @@ type DispatchMetricsSink interface {
 // WindowSource and HarvestSink above: internal/harvest never imports
 // internal/store, so *store.Store.Price (whose signature already matches
 // this interface exactly, no adapter needed) is wired in only by the
-// daemon (cmd/flowd/main.go, via WithPricer).
+// daemon, as part of the *store.Store it passes as NewWatcher's deps
+// (cmd/flowd/main.go).
 type Pricer interface {
 	Price(ctx context.Context, stageRunID int64) error
 }
@@ -283,23 +284,31 @@ const (
 // attributing them via its Attributor and committing the result -- both
 // the token deltas and the advanced offset -- through its HarvestSink in
 // one atomic call per file. It never talks to PostgreSQL directly --
-// only through WindowSource (via Attributor), HarvestSink, and (when
-// configured) Pricer.
+// only through WindowSource (via Attributor), HarvestSink, and deps (its
+// Pricer, SessionTokenBinder, DispatchMetricsSink and
+// DispatchWindowSource).
 type Watcher struct {
-	root          string
-	sink          HarvestSink
-	attributor    *Attributor
-	logger        *slog.Logger
-	pricer        Pricer
-	sessionTokens SessionTokenBinder
+	root       string
+	sink       HarvestSink
+	attributor *Attributor
+	logger     *slog.Logger
 
-	// dispatchAttributor and dispatchMetrics are the second attribution
-	// pass (design.md, "Cost attribution"), configured together by
-	// WithDispatchAttribution or not at all: a Watcher built without that
-	// option attributes stage runs exactly as it did before this pass
-	// existed, the same additive shape WithPricer established.
+	// deps is every dependency beyond root, sink and attributor -- pricing,
+	// session-token binding, dispatch-metrics merging and dispatch-window
+	// lookup (KAN-173) -- collapsed into one required parameter rather than
+	// the three separate fields (pricer, sessionTokens, dispatchMetrics)
+	// this struct used to carry. NewWatcher panics if it is nil, so every
+	// method below can call it unconditionally: there is no "was this
+	// configured" state left to guard against, only harvest.NoDeps' own
+	// deliberate no-op.
+	deps Deps
+
+	// dispatchAttributor is the second, dispatch-grain attribution pass
+	// (design.md, "Cost attribution"), built inside NewWatcher from deps
+	// (which satisfies DispatchWindowSource) rather than supplied by a
+	// caller -- there is then nothing for a caller to omit, unlike the
+	// WithDispatchAttribution option this replaced.
 	dispatchAttributor *DispatchAttributor
-	dispatchMetrics    DispatchMetricsSink
 
 	// tokenCycles counts, per session token, how many RunOnce cycles have
 	// searched for that token without finding a unique match yet.
@@ -407,89 +416,24 @@ type Watcher struct {
 	gaveUpDispatchMeta map[string]bool
 }
 
-// WatcherOption configures optional Watcher behaviour not every caller
-// needs -- currently just WithPricer. Following the same functional-option
-// shape internal/api.WithSPA already uses (cmd/flowd/main.go) rather
-// than growing NewWatcher's positional parameter list keeps every
-// existing call site (this package's own tests included) compiling
-// unchanged: a Watcher built with no options simply never prices, exactly
-// as it behaved before this task.
-type WatcherOption func(*Watcher)
-
-// WithPricer configures the Watcher to price every stage run a batch
-// touches, once that batch's CommitHarvestBatch call has reported it
-// applied (RunOnce's own doc comment explains why after, and only after).
-func WithPricer(p Pricer) WatcherOption {
-	return func(w *Watcher) { w.pricer = p }
-}
-
-// WithSessionTokenBinder configures the Watcher to resolve stage runs'
-// session tokens (KAN-172, task 2): each cycle, it asks binder which
-// session tokens are still unresolved and looks for them among the
-// transcripts that cycle is already reading, binding session_id where
-// exactly one session's transcript carries a session token. A Watcher
-// built with no WithSessionTokenBinder option resolves no session tokens
-// at all -- every stage run stays exactly as unattributed as it was
-// before this task, the same additive shape WithPricer already
-// established.
-func WithSessionTokenBinder(binder SessionTokenBinder) WatcherOption {
-	return func(w *Watcher) { w.sessionTokens = binder }
-}
-
-// WithDispatchAttribution configures the Watcher to run the second,
-// dispatch-grain attribution pass beside the first: the same batch of
-// records the stage pass reads is attributed again against a's dispatch
-// windows, and each touched dispatch's delta is merged into sink.
-//
-// The attributor and the sink are one option rather than two because
-// neither is any use without the other -- an attributor with nowhere to
-// write computes deltas that are discarded, and a sink with nothing
-// computing for it is never called -- so a Watcher can never be
-// half-configured for this pass.
-func WithDispatchAttribution(a *DispatchAttributor, sink DispatchMetricsSink) WatcherOption {
-	return func(w *Watcher) {
-		w.dispatchAttributor = a
-		w.dispatchMetrics = sink
-	}
-}
-
-// HasDispatchAttribution reports whether this Watcher was configured with
-// WithDispatchAttribution. See HasPricer's doc comment for why this exists
-// and why cmd/flowd's wiring test asserts the constructed value rather
-// than main.go's source text.
-func (w *Watcher) HasDispatchAttribution() bool {
-	return w.dispatchAttributor != nil && w.dispatchMetrics != nil
-}
-
-// HasPricer reports whether this Watcher was configured with WithPricer.
-// Exported for cmd/flowd's own wiring test (KAN-172, task 7): asserting
-// the constructed value here, rather than grepping main.go's source text
-// for "WithPricer", is what still catches a refactor that keeps the call
-// site's text but drops its effect.
-func (w *Watcher) HasPricer() bool {
-	return w.pricer != nil
-}
-
-// HasSessionTokenBinder reports whether this Watcher was configured with
-// WithSessionTokenBinder. See HasPricer's doc comment for why this exists
-// and why it asserts the constructed value rather than source text -- this
-// is the accessor that would have caught task 7's own defect (main.go
-// building a Watcher with no binder at all, so no stage run was ever
-// bound despite tasks 1-6 all working).
-func (w *Watcher) HasSessionTokenBinder() bool {
-	return w.sessionTokens != nil
-}
-
 // NewWatcher builds a Watcher over root (scanned recursively for
 // *.jsonl files), sink (where offsets are read from and results are
-// committed to) and attributor (how records become deltas). logger may
-// be nil. opts configures optional behaviour -- see WithPricer and
-// WithSessionTokenBinder.
-func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *slog.Logger, opts ...WatcherOption) *Watcher {
-	w := &Watcher{
+// committed to) and attributor (how records become deltas). deps is
+// every other dependency (KAN-173) -- required, not optional: NewWatcher
+// panics if it is nil rather than silently building a Watcher that prices
+// nothing, binds nothing and charges no dispatch, which is exactly the
+// defect KAN-16 and KAN-172 both were. A caller with nothing to wire
+// passes harvest.NoDeps{} to opt out explicitly. logger may be nil.
+func NewWatcher(root string, sink HarvestSink, attributor *Attributor, deps Deps, logger *slog.Logger) *Watcher {
+	if deps == nil {
+		panic("harvest.NewWatcher: deps is nil; pass harvest.NoDeps{} to opt out explicitly")
+	}
+	return &Watcher{
 		root:                root,
 		sink:                sink,
 		attributor:          attributor,
+		deps:                deps,
+		dispatchAttributor:  NewDispatchAttributor(deps),
 		logger:              logger,
 		tokenCycles:         make(map[string]int),
 		gaveUpTokens:        make(map[string]bool),
@@ -498,10 +442,6 @@ func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *s
 		dispatchMetaCycles:  make(map[string]int),
 		gaveUpDispatchMeta:  make(map[string]bool),
 	}
-	for _, opt := range opts {
-		opt(w)
-	}
-	return w
 }
 
 // RunOnce performs a single scan-and-harvest pass: every *.jsonl file
@@ -525,10 +465,12 @@ func NewWatcher(root string, sink HarvestSink, attributor *Attributor, logger *s
 // ordinary, correct outcome of losing that race, not an error condition
 // -- the next RunOnce simply re-reads the current state and tries again.
 //
-// Withholding a batch that revealed a sessionToken: when a SessionTokenBinder is
-// configured (WithSessionTokenBinder), a file's newly read batch is checked
-// for still-pending sessionTokens (matchSessionTokens) before it is attributed or
-// committed at all. A batch that matched one is *not* attributed or
+// Withholding a batch that revealed a sessionToken: every file's newly
+// read batch is checked for still-pending sessionTokens
+// (matchSessionTokens) before it is attributed or committed at all -- a
+// Watcher built with harvest.NoDeps (KAN-173) simply finds no pending
+// tokens ever, since NoDeps.UnresolvedSessionTokens always reports none.
+// A batch that matched one is *not* attributed or
 // committed this cycle -- its offset is left exactly where it was, so
 // the next cycle re-reads the identical bytes once resolveSessionTokens (run
 // once, after every file this cycle has been read) has had a chance to
@@ -716,11 +658,9 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 		// and never a reason to retry the batch itself: the metrics are
 		// already durably committed either way, and the next harvest
 		// cycle -- or a future re-price -- gets another chance.
-		if w.pricer != nil {
-			for stageRunID := range deltas {
-				if err := w.pricer.Price(ctx, stageRunID); err != nil {
-					w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
-				}
+		for stageRunID := range deltas {
+			if err := w.deps.Price(ctx, stageRunID); err != nil {
+				w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
 			}
 		}
 	}
@@ -816,8 +756,12 @@ func (w *Watcher) scanRetriedTokens(files []string, pending map[int64]string, ma
 }
 
 // attributeDispatches runs the second attribution pass over one batch's
-// records and merges each touched dispatch's delta into the configured
-// sink. A Watcher built without WithDispatchAttribution does nothing here.
+// records and merges each touched dispatch's delta into deps. Every
+// Watcher runs this pass unconditionally (KAN-173): dispatchAttributor is
+// built inside NewWatcher from deps, which also carries the sink this
+// merges into, so there is no longer a configured/unconfigured state to
+// branch on the way WithDispatchAttribution's absence used to skip this
+// entirely.
 //
 // Every failure is logged and stepped over, never returned: the first
 // pass has already committed this batch atomically by the time this runs,
@@ -840,15 +784,11 @@ func (w *Watcher) scanRetriedTokens(files []string, pending map[int64]string, ma
 // SessionTokenBinder.MarkDispatchesUnattributedByID rather than
 // dispatchMetrics: the stamp is store bookkeeping about a dispatch's
 // metrics bag, the same shape RecordSessionTokenGiveUp and
-// PersistedGiveUps already are, not a token delta. A Watcher configured
-// with WithDispatchAttribution but no WithSessionTokenBinder has nowhere
-// to write the stamp and skips it -- the ambiguity is still correctly
-// left uncredited either way, only the reason goes unrecorded.
+// PersistedGiveUps already are, not a token delta. Every Watcher now
+// carries a SessionTokenBinder as part of deps (KAN-173), so this stamp
+// is always written -- the "nowhere to write it" case this comment used
+// to describe no longer exists.
 func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
-	if !w.HasDispatchAttribution() {
-		return
-	}
-
 	deltas, ambiguous, err := w.dispatchAttributor.Attribute(ctx, records)
 	if err != nil {
 		w.warn("harvest: attribute dispatch windows failed, this batch's dispatch figures are lost", "path", path, "error", err)
@@ -861,14 +801,11 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
 			continue
 		}
-		if err := w.dispatchMetrics.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
+		if err := w.deps.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
 			w.warn("harvest: merge dispatch metrics failed, this batch's figures for it are lost", "path", path, "dispatch_id", dispatchID, "error", err)
 		}
 	}
 
-	if w.sessionTokens == nil {
-		return
-	}
 	for _, a := range ambiguous {
 		// Filter out any candidate this very call already merged real
 		// tokens for above: DispatchAttributor.Attribute computes deltas
@@ -899,7 +836,7 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 		if len(ids) == 0 {
 			continue
 		}
-		if err := w.sessionTokens.MarkDispatchesUnattributedByID(ctx, ids, reasonDispatchAmbiguous, len(a.DispatchIDs)); err != nil {
+		if err := w.deps.MarkDispatchesUnattributedByID(ctx, ids, reasonDispatchAmbiguous, len(a.DispatchIDs)); err != nil {
 			w.warn("harvest: mark dispatches unattributed failed", "path", path, "dispatch_ids", ids, "error", err)
 		}
 	}
@@ -1007,31 +944,26 @@ func (w *Watcher) maybeBackfillDispatchMeta(ctx context.Context, path string) {
 	// failure is warned about rather than fatal, matching the ordinary
 	// commit path's own discipline exactly (Pricer's own doc comment,
 	// and the comment on that call site above).
-	if w.pricer != nil {
-		for stageRunID := range patches {
-			if err := w.pricer.Price(ctx, stageRunID); err != nil {
-				w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
-			}
+	for stageRunID := range patches {
+		if err := w.deps.Price(ctx, stageRunID); err != nil {
+			w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
 		}
 	}
 }
 
 // pendingSessionTokens returns this cycle's stage-run-id -> session-token
-// map to search for: whatever w.sessionTokens.UnresolvedSessionTokens
-// reports, minus any run whose token this Watcher has already given up on
+// map to search for: whatever w.deps.UnresolvedSessionTokens reports,
+// minus any run whose token this Watcher has already given up on
 // (gaveUpTokens, keyed by token -- task 4b) -- so a token that has already
 // been logged as abandoned is never looked for again by this process,
-// which is the whole point of tracking gaveUpTokens at all. A Watcher with
-// no SessionTokenBinder configured (WithSessionTokenBinder never called)
-// returns nil, and every other token-related step below is a no-op over
-// an empty map -- resolving session tokens is additive, exactly like
-// pricing.
+// which is the whole point of tracking gaveUpTokens at all. A Watcher
+// built with harvest.NoDeps (KAN-173) always gets an empty map back --
+// UnresolvedSessionTokens' own no-op -- so every other token-related step
+// below is a no-op over it, resolving session tokens remaining additive
+// exactly as it was when a nil binder meant "not configured".
 func (w *Watcher) pendingSessionTokens(ctx context.Context) map[int64]string {
-	if w.sessionTokens == nil {
-		return nil
-	}
 	w.seedPersistedGiveUps(ctx)
-	all, err := w.sessionTokens.UnresolvedSessionTokens(ctx)
+	all, err := w.deps.UnresolvedSessionTokens(ctx)
 	if err != nil {
 		w.warn("harvest: list unresolved session tokens failed, will retry", "error", err)
 		return nil
@@ -1072,7 +1004,7 @@ func (w *Watcher) seedPersistedGiveUps(ctx context.Context) {
 	if w.seededGiveUps {
 		return
 	}
-	giveUps, err := w.sessionTokens.PersistedGiveUps(ctx)
+	giveUps, err := w.deps.PersistedGiveUps(ctx)
 	if err != nil {
 		w.warn("harvest: list persisted give-ups failed, will retry", "error", err)
 		return
@@ -1273,14 +1205,14 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			}
 			w.warn("harvest: session token unresolved after the bounded window, giving up",
 				"stage_run_ids", stageRunIDs, "cycles", w.tokenCycles[sessionToken])
-			if err := w.sessionTokens.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionNeverBound, time.Now()); err != nil {
+			if err := w.deps.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionNeverBound, time.Now()); err != nil {
 				w.warn("harvest: persist give-up failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
 				continue
 			}
 			// A stamp failure here must never block the give-up already
 			// recorded above (task 6.1, tasks.md, step 4): it is logged
 			// and this branch still proceeds to mark the token given up.
-			if err := w.sessionTokens.MarkDispatchesUnattributed(ctx, sessionToken, reasonSessionNeverBound, 0); err != nil {
+			if err := w.deps.MarkDispatchesUnattributed(ctx, sessionToken, reasonSessionNeverBound, 0); err != nil {
 				w.warn("harvest: stamp unattributed dispatches failed", "stage_run_ids", stageRunIDs, "session_token", sessionToken, "error", err)
 			}
 			w.gaveUpTokens[sessionToken] = true
@@ -1291,7 +1223,7 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			for s := range sessions {
 				sessionID = s
 			}
-			bound, err := w.sessionTokens.BindSession(ctx, sessionToken, sessionID)
+			bound, err := w.deps.BindSession(ctx, sessionToken, sessionID)
 			if err != nil {
 				w.warn("harvest: bind session failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
 				continue
@@ -1312,14 +1244,14 @@ func (w *Watcher) resolveSessionTokens(ctx context.Context, pending map[int64]st
 			}
 			w.warn("harvest: session token matched more than one session, refusing to bind",
 				"stage_run_ids", stageRunIDs, "sessions", sessionIDs)
-			if err := w.sessionTokens.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionAmbiguous, time.Now()); err != nil {
+			if err := w.deps.RecordSessionTokenGiveUp(ctx, sessionToken, reasonSessionAmbiguous, time.Now()); err != nil {
 				w.warn("harvest: persist give-up failed, will retry", "stage_run_ids", stageRunIDs, "error", err)
 				continue
 			}
 			// Same never-block guarantee as the case 0 branch above: a
 			// stamp failure here is logged, never a reason to undo the
 			// give-up already recorded.
-			if err := w.sessionTokens.MarkDispatchesUnattributed(ctx, sessionToken, reasonSessionAmbiguous, len(sessions)); err != nil {
+			if err := w.deps.MarkDispatchesUnattributed(ctx, sessionToken, reasonSessionAmbiguous, len(sessions)); err != nil {
 				w.warn("harvest: stamp unattributed dispatches failed", "stage_run_ids", stageRunIDs, "session_token", sessionToken, "error", err)
 			}
 			w.gaveUpTokens[sessionToken] = true

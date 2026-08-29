@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,47 +18,6 @@ import (
 	"github.com/tweety53/agents/stats/internal/pidfile"
 	"github.com/tweety53/agents/stats/internal/store"
 )
-
-// TestNewTranscriptWatcherWiresBinderAndPricer is KAN-172 task 7's own
-// deliverable (tasks.md, "the test is the deliverable, not step 1"): it
-// asserts the *constructed* Watcher carries both a session-token binder
-// and a pricer, never main.go's source text -- a test that merely grepped
-// for "WithSessionTokenBinder" would still pass for a refactor that kept
-// the call site's text but dropped its effect.
-//
-// Run against the unfixed newTranscriptWatcher (harvest.WithPricer(st)
-// only, no harvest.WithSessionTokenBinder(st)), this test failed:
-//
-//	watcher has no session-token binder: cmd/flowd built it without
-//	harvest.WithSessionTokenBinder -- no stage run can ever be bound
-//
-// which is exactly the live defect this task fixes: a real mark recorded
-// session_token mf-k172-live-7f3a91c, the token was present in its own
-// session transcript, the daemon harvested that transcript to EOF, and
-// the stage run stayed unbound because pendingSessionTokens
-// (internal/harvest/watcher.go) always returned nil with no binder
-// configured.
-func TestNewTranscriptWatcherWiresBinderAndPricer(t *testing.T) {
-	var st *store.Store // never dereferenced: newTranscriptWatcher only stores it behind the HarvestSink/Pricer/SessionTokenBinder interfaces, none of whose methods this test calls.
-	attributor := harvest.NewAttributor(nil)
-
-	w := newTranscriptWatcher(t.TempDir(), st, attributor, nil)
-
-	if !w.HasPricer() {
-		t.Error("watcher has no pricer: cmd/flowd built it without harvest.WithPricer -- no stage run would ever be priced")
-	}
-	if !w.HasSessionTokenBinder() {
-		t.Error("watcher has no session-token binder: cmd/flowd built it without harvest.WithSessionTokenBinder -- no stage run can ever be bound")
-	}
-	// KAN-258 extends this test to the second attribution pass rather than
-	// writing a second one: the defect it guards against is identical --
-	// a Watcher constructed without harvest.WithDispatchAttribution
-	// harvests every transcript exactly as before and leaves every
-	// dispatch's metrics bag empty forever, with nothing failing.
-	if !w.HasDispatchAttribution() {
-		t.Error("watcher has no dispatch attribution: cmd/flowd built it without harvest.WithDispatchAttribution -- no dispatch would ever be charged for the usage it caused")
-	}
-}
 
 // The four TestAcquireStartup* tests below cover KAN-170 task 3 the same
 // way TestNewTranscriptWatcherWiresBinderAndPricer covers task 7 of
@@ -214,5 +174,38 @@ func TestAcquireStartupRefusesNonLoopbackHostBeforeListening(t *testing.T) {
 	if _, err := os.Stat(pidfile.Path(cfg.Port)); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("pidfile %s was written before the loopback check refused the config (stat error %v)",
 			pidfile.Path(cfg.Port), err)
+	}
+}
+
+// TestDaemonWiresTheRealStore replaces TestNewTranscriptWatcherWiresBinderAndPricer
+// (deleted in KAN-173 task 2, which removed the Has* accessors it asserted
+// on). It closes the gap task 2's compile-time guarantee cannot cover:
+// harvest.NewWatcher now panics if deps is nil, but nothing stops
+// newTranscriptWatcher from passing a non-nil, wrong deps -- and
+// harvest.NoDeps{} is the wrong value that most resembles a right one, since
+// a daemon wired with it compiles, runs, harvests every transcript, and
+// prices nothing, binds nothing and charges no dispatch, silently and green.
+//
+// Observed: temporarily editing newTranscriptWatcher to
+// `return harvest.NewWatcher(root, st, attributor, harvest.NoDeps{}, logger)`
+// made this test fail with:
+//
+//	wiring_test.go:209: the daemon wired harvest.NoDeps: nothing is priced, no session token is bound, no dispatch is charged
+//
+// Reverting that edit (back to passing st as deps) made it pass. Both runs
+// used `go test ./cmd/flowd/ -race -count=1 -run TestDaemonWiresTheRealStore -v`.
+func TestDaemonWiresTheRealStore(t *testing.T) {
+	var st *store.Store // never dereferenced: newTranscriptWatcher only stores it behind Deps and HarvestSink.
+	w := newTranscriptWatcher(t.TempDir(), st, harvest.NewAttributor(nil), nil)
+
+	f := reflect.ValueOf(w).Elem().FieldByName("deps")
+	if !f.IsValid() {
+		t.Fatal("harvest.Watcher has no deps field: this test no longer checks anything")
+	}
+	if f.IsNil() {
+		t.Fatal("the daemon's watcher has a nil deps")
+	}
+	if f.Elem().Type() == reflect.TypeOf(harvest.NoDeps{}) {
+		t.Error("the daemon wired harvest.NoDeps: nothing is priced, no session token is bound, no dispatch is charged")
 	}
 }

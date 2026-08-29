@@ -352,7 +352,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 
 	windows := e2eWindowSource{st}
 	attributor := harvest.NewAttributor(windows)
-	w := harvest.NewWatcher(dir, st, attributor, nil, harvest.WithSessionTokenBinder(st), harvest.WithPricer(st))
+	w := harvest.NewWatcher(dir, st, attributor, st, nil)
 
 	// Cycle 1: the batch containing the mark's own turn is read, the
 	// token is found and bound, and -- because it revealed a still-pending
@@ -468,7 +468,7 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 	dir := t.TempDir()
 	windows := e2eWindowSource{st}
 	attributor := harvest.NewAttributor(windows)
-	w := harvest.NewWatcher(dir, st, attributor, nil, harvest.WithSessionTokenBinder(st), harvest.WithPricer(st))
+	w := harvest.NewWatcher(dir, st, attributor, st, nil)
 
 	if _, err := w.RunOnce(ctx); err != nil {
 		t.Fatalf("RunOnce: %v", err)
