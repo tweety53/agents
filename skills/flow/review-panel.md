@@ -262,20 +262,19 @@ finding-reproducer: F1 scripts/test-check-panel-reproducers.sh
 
 A finding recorded with no reproducer renders the `none — <reason>` exemption form.
 
-`check-unfinished-work.sh` reads **only the marker block** — never the table's header, column order,
-cell boundaries, or where it starts or stops. Run it and read its own output for the reject reason:
-
-- `<status>` is **exactly** `open`, `fixed` or `withdrawn`, compared byte for byte.
-- `withdrawn` **carries its reason on the same line**.
-- Each `F<n>` names **one** finding.
-- The marker lines sit on **consecutive lines**.
-- `findings-total: <n>` appears **exactly once** and equals the number of marker lines.
+`check-unfinished-work.sh` parses no rendered document at all — it queries the store directly
+through `flow record findings -change <name> -C <worktree>`, decoded by `jq`, and counts findings
+whose status is neither `fixed` nor `withdrawn <reason>`. It reads no table and no marker block;
+its own header records why that parser was removed. `validateFindingStatus` in
+`<agents repo>/stats/cmd/flow/record.go` already guarantees every stored status is exactly `open`, `fixed` or
+`withdrawn <reason>`, so the malformed-shape checks a hand-rolled document parser once needed have
+nothing left to catch.
 
 **The table carries no status column, on purpose.** To read a finding's state, look up its `F<n>`
 in the marker block.
 
-**A `withdrawn` marker's reason is checked for being there at all.** Fix subagents record `fixed`
-when they fixed it, and leave `open` when they did not.
+**A `withdrawn` marker's reason is checked for being there at all.** A finding is recorded `fixed`
+by the parent at the fix round's verification step below, never by the fix subagent.
 
 ## Panel re-runs
 
@@ -357,6 +356,17 @@ diff must also touch at least one path the finding named, with a non-comment, no
 change.** A fix that does not is not a fix: the finding stays open and goes to the operator through
 the handback below.
 
+A finding meeting both conditions is recorded closed there and then:
+
+```bash
+flow record status -change <name> -ref F<n> -status fixed
+```
+
+**The parent records it, never the fix subagent** — the parent is what ran the reproducer and
+walked the diff. **Record it per finding, as its verdict is reached, not batched at the round's
+end** — an aborted round still leaves every already-verified finding closed. **A finding failing
+either condition is left untouched** on `open`, for the handback below.
+
 ### The fix round mutation-proves what it changed
 
 **This binds the review panel's fix round and not the per-task review's fix** in
@@ -382,8 +392,6 @@ fix-mutations-total: <n>
 ```
 
 **These lines go in the pass log entry and never inside the marker block.**
-`check-unfinished-work.sh` requires every `finding-status:` marker to occupy one unbroken run of
-consecutive lines.
 
 **No line anywhere in the panel record may carry the literal label `finding-status:`,
 `findings-total:`, or `finding-reproducer:` outside its own marker use.** Write around it: paraphrase
@@ -448,6 +456,15 @@ the run hands back to the operator, one finding at a time:
 > - **Stop the run and hand it back to me**
 
 Only that answer records `withdrawn`, and only with the reason the operator gives.
+
+**Before closing the stage**, run
+
+```bash
+check-panel-findings-closed.sh <worktree> <change>
+```
+
+Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store —
+return to the handback loop above for it. Exit 2 stops the run.
 
 ```bash
 flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
