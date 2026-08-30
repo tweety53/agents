@@ -1,0 +1,25 @@
+# Review panel — kan-371-myflow-rebase-onto-the-base-branch-before-the
+
+Rendered from the store. Do not edit: the findings are rows, and the next render overwrites this file.
+
+| ID | Slot | Severity | Location | Note |
+|---|---|---|---|---|
+| F1 | Principles | medium | skills/flow/integrate.md:243 | Single Source of Truth violation: the 'no verification gate before integration' rule is stated in three places (integrate.md, finish-contract.md, CLAUDE.md); this diff added a carve-out to only the first, leaving finish-contract.md (explicitly canonical for the integrate/archive procedure) and CLAUDE.md's digest both stale and contradicting the new behavior |
+| F2 | Code review (low) | high | skills/flow/integrate.md:107 | the rebase branch says the merge base carried forward for the rest of this run becomes origin/$BASE's resolved tip at rebase time, but nothing writes this into the state file's worktrees map (or tells step 3's reshape to use it instead of the stale recorded value) — step 3's git reset --soft <recorded-merge-base> would then fold newly rebased-in upstream commits into the two-commit split, corrupting it |
+| F3 | Bugbot | medium | skills/flow/integrate.md:112 | the conflict-handling bullet says never auto-abort and hand off to the operator, but does not explicitly forbid the agent from attempting its own conflict resolution first — a plausible misreading for an AI agent literally following the text mid-pipeline |
+| F4 | Code review (low) | low | skills/flow-contracts/finish-contract.md:162 | finish-contract.md's own Reshape the branch section, declared canonical for the reshape procedure, was not updated with the same <rebased-merge-base> exception the fix added to integrate.md and to finish-contract.md's verification-gate paragraph — not a behavioral bug (integrate.md's own complete text is what an agent actually follows), but leaves the canonical file inconsistent with itself for a future reader |
+| F5 | Bugbot | medium | skills/flow/integrate.md:103 | the Rebase paragraph never states which worktree(s) it runs git rebase against, unlike every sibling multi-worktree operation in this file and finish-contract.md, which all explicitly say once per worktree in the resolved set — since the overlap prompt is asked once for the whole change even when only one worktree has a MOVED verdict, an agent could misread this as rebasing every worktree in the resolved set, including CLEAR ones that never needed it |
+
+findings-total: 5
+finding-status: F1 fixed
+finding-status: F2 fixed
+finding-status: F3 fixed
+finding-status: F4 fixed
+finding-status: F5 fixed
+
+reproducers-total: 5
+finding-reproducer: F1 none — a documentation-drift gap, not a runtime reproducer: grep for 'no verification gate' / 'No tests, no linters' across skills/flow/integrate.md, skills/flow-contracts/finish-contract.md, and CLAUDE.md — the first now carries the new scoped-reverification exception, the other two still state the rule as absolute with no exception
+finding-reproducer: F2 none — a spec-consistency gap, not a runtime reproducer: step 3's reshape (git -C <worktree> reset --soft <recorded-merge-base>) defines <recorded-merge-base> as the merge base recorded in the state file's worktrees map, the pre-rebase value; nothing in this diff's rebase branch updates that state-file value or tells step 3 to use the in-run carried-forward value instead, so a clean in-pipeline rebase followed by the existing reshape would fold the newly rebased-in upstream commits into the implementation commit
+finding-reproducer: F3 none — a text-ambiguity finding, not a runtime reproducer: the conflict-handling bullet forbids auto-abort ('never auto-abort') but never says the agent must not itself edit the conflicting files and attempt a resolution before handing off to the operator; design.md's never-auto-abort rationale only rejects auto-abort-then-continue, not agent-driven auto-resolution
+finding-reproducer: F4 none — a documentation-consistency gap, not a runtime reproducer: skills/flow-contracts/finish-contract.md's Reshape the branch section (lines 162-166) still defines <recorded-merge-base> unconditionally as the state file's recorded value, with no mention of the <rebased-merge-base> override the fix added to skills/flow/integrate.md's own step 3 and to finish-contract.md's separate verification-gate section
+finding-reproducer: F5 none — a text-ambiguity finding, not a runtime reproducer: grep skills/flow/integrate.md and skills/flow-contracts/finish-contract.md for 'once per worktree in the resolved set' — check-finish-preflight.sh, check-unfinished-work.sh, check-base-moved.sh, and the reshape-commit-route sequence all carry that scoping phrase; the new Rebase paragraph (git -C <worktree> rebase origin/$BASE) is the only new multi-worktree action that omits it, and the overlap prompt is deliberately asked once for the whole change even when only one of several worktrees has a MOVED verdict (ask-only-on-overlap), so an agent could plausibly rebase every worktree in the resolved set rather than only the MOVED one(s)
