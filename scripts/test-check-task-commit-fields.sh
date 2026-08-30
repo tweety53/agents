@@ -91,6 +91,78 @@ RUNNER
   git -C "$1" commit -q -m "fixture: configure ## test"
 }
 
+# write_side_effect_test_runner <repo> -> a variant of write_test_runner
+# whose script, on every invocation (targeted or not), also (re)writes
+# collision.txt with fixed content "test-run-side-effect" as a side effect
+# of running -- case 85's fixture for a real, git-reset-hard-proof collision
+# with whatever the outer stash is holding under the same name.
+write_side_effect_test_runner() {
+  cat > "$1/run_suite.sh" <<'RUNNER'
+#!/usr/bin/env bash
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+SUITE="$DIR/suite.txt"
+printf 'test-run-side-effect' > "$DIR/collision.txt"
+if [ "${1:-}" = "--only" ]; then
+  name="$2"
+  if [ -f "$SUITE" ] && grep -qxF "$name" "$SUITE"; then
+    echo "RESULT $name: pass"
+  else
+    echo "RESULT $name: fail"
+  fi
+  exit 0
+fi
+count=0
+[ -f "$SUITE" ] && count="$(wc -l < "$SUITE" | tr -d ' ')"
+echo "COUNT: $count"
+RUNNER
+  chmod +x "$1/run_suite.sh"
+  : > "$1/suite.txt"
+  git -C "$1" add run_suite.sh suite.txt
+  git -C "$1" commit -q -m "fixture: add run_suite.sh test runner with a collision side effect"
+  write_project_md_test_section "$1" "./run_suite.sh"
+  git -C "$1" add .flow/project.md
+  git -C "$1" commit -q -m "fixture: configure ## test"
+}
+
+# write_double_side_effect_test_runner <repo> -> a variant of
+# write_side_effect_test_runner whose script, on every invocation, both
+# (re)writes collision.txt (case 85's outer-stash-pop-conflict mechanism)
+# AND appends a line to the tracked suite.txt -- dirtying it in the working
+# tree so a later `git revert` of the commit that touched suite.txt refuses
+# ("your local changes ... would be overwritten by revert"), giving
+# check_baseline's own `_commit_reverted` a real failure of its own (F1's
+# in-flight exception), at the same time as the outer stash pop conflicts.
+write_double_side_effect_test_runner() {
+  cat > "$1/run_suite.sh" <<'RUNNER'
+#!/usr/bin/env bash
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+SUITE="$DIR/suite.txt"
+printf 'test-run-side-effect' > "$DIR/collision.txt"
+printf 'dirty\n' >> "$SUITE"
+if [ "${1:-}" = "--only" ]; then
+  name="$2"
+  if [ -f "$SUITE" ] && grep -qxF "$name" "$SUITE"; then
+    echo "RESULT $name: pass"
+  else
+    echo "RESULT $name: fail"
+  fi
+  exit 0
+fi
+count=0
+[ -f "$SUITE" ] && count="$(wc -l < "$SUITE" | tr -d ' ')"
+echo "COUNT: $count"
+RUNNER
+  chmod +x "$1/run_suite.sh"
+  : > "$1/suite.txt"
+  git -C "$1" add run_suite.sh suite.txt
+  git -C "$1" commit -q -m "fixture: add run_suite.sh test runner with two side effects"
+  write_project_md_test_section "$1" "./run_suite.sh"
+  git -C "$1" add .flow/project.md
+  git -C "$1" commit -q -m "fixture: configure ## test"
+}
+
 # write_unsupported_test_runner <repo> -> a single `## test` command that
 # never emits a RESULT or COUNT line, whatever it is given — the shape
 # Regression:/Baseline: fall back to skipped-not-verified against.
@@ -477,10 +549,12 @@ run_guard "$REPO" 15 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 15: field-looking line inside a fenced block is not parsed as real field data" || fail "case 15: rc=$RC out=$OUT"
 
 # ===========================================================================
-# Case 16: the initial `git revert` inside `_commit_reverted` itself fails
-# (conflict against dirty local state) -> the guard still leaves the
-# worktree exactly as found: HEAD unchanged, no uncommitted or conflicted
-# state left behind, rather than mid-conflict.
+# Case 16: a local uncommitted modification to the same file the revert would
+# touch is stashed away before the revert runs (KAN-162), so the revert
+# always applies cleanly against the now-clean tree -> the guard succeeds,
+# HEAD is unchanged, the worktree is clean immediately after the guard
+# returns, and the previously-dirty modification is restored by the
+# stash/pop round-trip rather than lost.
 # ===========================================================================
 new_repo
 write_test_runner "$REPO"
@@ -498,14 +572,15 @@ printf 'alpha_test\n' >> "$REPO/suite.txt"
 git -C "$REPO" add suite.txt
 git -C "$REPO" commit -q -m "add alpha_test"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
-# Dirty the same line the commit touched, uncommitted, so the revert this
-# guard attempts cannot cleanly apply and fails with a conflict.
+# Dirty the same line the commit touched, uncommitted -- under the old
+# unconditional-reset-hard behavior this would conflict the revert; under
+# the stash-first behavior it is stashed away before the revert runs.
 printf 'alpha_test_MODIFIED_LOCALLY\n' > "$REPO/suite.txt"
 run_guard "$REPO" 16 "$SHA"
-[ "$RC" -ne 0 ] && pass "case 16: guard reports non-zero when the revert itself fails" || fail "case 16: rc=$RC out=$OUT (expected non-zero)"
-[ "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" ] && pass "case 16: HEAD unchanged after a failed revert" || fail "case 16: HEAD moved, expected $SHA got $(git -C "$REPO" rev-parse HEAD)"
-git -C "$REPO" diff --quiet && git -C "$REPO" diff --cached --quiet && pass "case 16: worktree clean after a failed revert, not left mid-conflict" || fail "case 16: worktree left dirty/conflicted"
-[ -z "$(git -C "$REPO" status --porcelain=v1 2>/dev/null | grep '^U')" ] && pass "case 16: no unmerged/conflicted paths left behind" || fail "case 16: unmerged paths remain"
+[ "$RC" -eq 0 ] && pass "case 16: guard succeeds once the dirty tree is stashed before the revert" || fail "case 16: rc=$RC out=$OUT (expected 0)"
+[ "$(git -C "$REPO" rev-parse HEAD)" = "$SHA" ] && pass "case 16: HEAD unchanged" || fail "case 16: HEAD moved, expected $SHA got $(git -C "$REPO" rev-parse HEAD)"
+[ -z "$(git -C "$REPO" status --porcelain=v1 2>/dev/null | grep '^U')" ] && pass "case 16: worktree clean of any conflict/merge state after the guard returns" || fail "case 16: unmerged/conflicted paths remain"
+[ "$(cat "$REPO/suite.txt")" = "alpha_test_MODIFIED_LOCALLY" ] && pass "case 16: the previously-dirty suite.txt modification is restored" || fail "case 16: suite.txt not restored to the dirty modification, got: $(cat "$REPO/suite.txt")"
 
 # ===========================================================================
 # Case 17: declared Commit: scope equals the change name -> exit 1, naming
@@ -3034,6 +3109,141 @@ run_guard "$REPO" 1 "$SHA" "" "" "a/b"
 case "$OUT" in
   *"invalid change name"*) pass "case 82: slash-containing name is named invalid too" ;;
   *) fail "case 82: expected an invalid-change-name message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 83 (KAN-162): a staged-but-uncommitted file survives check_regression/
+# check_baseline's revert cycle -- the exact KAN-144 failure mode (a `/flow`
+# worktree's staged planning artifacts, wiped by the old unconditional
+# `git reset --hard`), now proven not to reproduce.
+# ===========================================================================
+new_repo
+write_test_runner "$REPO"
+write_tasks_md "$REPO" '- [ ] 83. Staged survives
+
+**Files:** `suite.txt`
+**Tests:** `alpha_test`
+**Baseline:** not applicable — covered by case 11
+**Commit:** add alpha_test
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'alpha_test\n' >> "$REPO/suite.txt"
+git -C "$REPO" add suite.txt
+git -C "$REPO" commit -q -m "add alpha_test"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+printf 'plan work\n' > "$REPO/planning.txt"
+git -C "$REPO" add planning.txt
+run_guard "$REPO" 83 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 83: regression check still passes with a staged file present" || fail "case 83: rc=$RC out=$OUT"
+case "$(git -C "$REPO" status --porcelain)" in
+  *"A  planning.txt"*) pass "case 83: planning.txt still staged after run_guard returns" ;;
+  *) fail "case 83: planning.txt not staged after run_guard, status: $(git -C "$REPO" status --porcelain)" ;;
+esac
+
+# ===========================================================================
+# Case 84 (KAN-162): an untracked file survives the same revert cycle,
+# proving `--include-untracked` covers it too.
+# ===========================================================================
+new_repo
+write_test_runner "$REPO"
+write_tasks_md "$REPO" '- [ ] 84. Untracked survives
+
+**Files:** `suite.txt`
+**Tests:** `alpha_test`
+**Baseline:** not applicable — covered by case 11
+**Commit:** add alpha_test
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'alpha_test\n' >> "$REPO/suite.txt"
+git -C "$REPO" add suite.txt
+git -C "$REPO" commit -q -m "add alpha_test"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+printf 'scratch content\n' > "$REPO/scratch.txt"
+run_guard "$REPO" 84 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 84: regression check still passes with an untracked file present" || fail "case 84: rc=$RC out=$OUT"
+[ -f "$REPO/scratch.txt" ] && [ "$(cat "$REPO/scratch.txt")" = "scratch content" ] && pass "case 84: untracked scratch.txt still exists with its original content" || fail "case 84: scratch.txt missing or changed after run_guard"
+
+# ===========================================================================
+# Case 85 (KAN-162): a stash-pop conflict at the end of the outer stash cycle
+# refuses rather than falling back to `git reset --hard`. The test runner
+# recreates collision.txt as a side effect of running (git reset --hard never
+# touches untracked files, so this survives check_regression's own revert/
+# reset pair), which collides with the same-named file the outer stash is
+# holding from before the guard ran.
+# ===========================================================================
+new_repo
+write_side_effect_test_runner "$REPO"
+write_tasks_md "$REPO" '- [ ] 85. Stash pop conflict
+
+**Files:** `suite.txt`
+**Tests:** `alpha_test`
+**Commit:** add alpha_test
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'alpha_test\n' >> "$REPO/suite.txt"
+git -C "$REPO" add suite.txt
+git -C "$REPO" commit -q -m "add alpha_test"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+# Staged so the outer stash captures it; the test runner recreates the same
+# path, untracked, with different content as its side effect.
+printf 'staged-collision\n' > "$REPO/collision.txt"
+git -C "$REPO" add collision.txt
+run_guard "$REPO" 85 "$SHA"
+[ "$RC" -eq 2 ] && pass "case 85: a stash-pop conflict is the guard's own hard failure" || fail "case 85: rc=$RC out=$OUT (expected 2)"
+case "$OUT" in
+  *"git stash list"*) pass "case 85: stderr names git stash list as the recovery path" ;;
+  *) fail "case 85: expected git stash list to be named, out=$OUT" ;;
+esac
+[ "$(git -C "$REPO" stash list | wc -l | tr -d ' ')" = "1" ] && pass "case 85: the stash entry was never dropped" || fail "case 85: expected exactly one stash entry, got: $(git -C "$REPO" stash list)"
+[ "$(cat "$REPO/collision.txt")" = "test-run-side-effect" ] && pass "case 85: the conflicting file still carries the test runner's side-effect content, not silently reset" || fail "case 85: collision.txt content is $(cat "$REPO/collision.txt"), expected the side-effect content to survive"
+
+# ===========================================================================
+# Case 86 (KAN-162, F1): check_baseline's own `_commit_reverted` revert
+# conflicts (its own pre-revert "after" test run's side effect dirties the
+# tracked suite.txt the revert's patch also touches) AT THE SAME TIME as the
+# outer stash pop also conflicts (case 85's collision.txt mechanism). Before
+# the F1 fix, `_uncommitted_work_protected`'s finally re-raising on the
+# stash-pop conflict discarded the in-flight revert-conflict exception via
+# Python's finally-raises-a-new-exception semantics; the guard's own error
+# message must now name both failures.
+# ===========================================================================
+new_repo
+write_double_side_effect_test_runner "$REPO"
+write_tasks_md "$REPO" '- [ ] 86. Two failures at once
+
+**Files:** `suite.txt`
+**Tests:** `alpha_test`
+**Baseline:** before=0 after=1
+**Commit:** add alpha_test
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'alpha_test\n' >> "$REPO/suite.txt"
+git -C "$REPO" add suite.txt
+git -C "$REPO" commit -q -m "add alpha_test"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+# Staged so the outer stash captures it; the test runner recreates the same
+# path, untracked, with different content as its side effect -- case 85's
+# mechanism, reused here so the outer stash-pop conflict fires alongside the
+# inner revert conflict.
+printf 'staged-collision\n' > "$REPO/collision.txt"
+git -C "$REPO" add collision.txt
+run_guard "$REPO" 86 "$SHA"
+[ "$RC" -eq 2 ] && pass "case 86: a revert conflict and a stash-pop conflict together is still the guard's own hard failure" || fail "case 86: rc=$RC out=$OUT (expected 2)"
+case "$OUT" in
+  *"git stash list"*) pass "case 86: stderr still names git stash list as the recovery path" ;;
+  *) fail "case 86: expected git stash list to be named, out=$OUT" ;;
+esac
+case "$OUT" in
+  *"revert"*) pass "case 86: stderr also surfaces the original revert-conflict failure's own text, not just the stash-pop one" ;;
+  *) fail "case 86: original revert-conflict failure text missing from stderr, out=$OUT" ;;
 esac
 
 if [ "$FAILURES" -gt 0 ]; then
