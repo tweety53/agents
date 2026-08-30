@@ -516,8 +516,8 @@ fi
 # A DIRECTORY TOTAL IS NOT A SUBSTITUTE FOR PER-FILE ROWS. Two real covered
 # files sharing one directory (skills/flow-contracts/), deliberately picked
 # for a huge budget gap between them: build-green.md a few hundred bytes over
-# its own (small) row, finish-contract.md a two-byte stub next to its own row
-# — more than ten times larger. Their combined size is far below any
+# its own (small) row, finish-contract-run1.md a two-byte stub next to its own
+# row — more than ten times larger. Their combined size is far below any
 # plausible total for the two rows summed, so a guard that resolved
 # skills/flow-contracts/ to one combined directory budget would report both
 # clean. Replacing budget_for's per-file lookup with a directory-prefix match
@@ -527,7 +527,7 @@ mkroot "$FIX/dirtotal"
 build_green_budget="$(budget_row_bytes 'skills/flow-contracts/build-green.md')"
 head -c "$((build_green_budget + 500))" /dev/zero | tr '\0' 'x' \
   > "$FIX/dirtotal/skills/flow-contracts/build-green.md"
-printf 'x\n' > "$FIX/dirtotal/skills/flow-contracts/finish-contract.md"
+printf 'x\n' > "$FIX/dirtotal/skills/flow-contracts/finish-contract-run1.md"
 expect 'a large sibling does not absorb a file over its own row' 1 "$FIX/dirtotal"
 out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/dirtotal" "$GUARD" 2>&1 || true)"
 if printf '%s' "$out" | grep -q '^skills/flow-contracts/build-green\.md: ' \

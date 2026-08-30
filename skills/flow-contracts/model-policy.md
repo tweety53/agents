@@ -83,7 +83,7 @@ them puts an unmeasured value into the audit trail.
 
 **This record outlives the change.** See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for why, and
-**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`) for the render
+**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) for the render
 duty itself.
 
 **A persisting record must not fill in `unknown (agent-defined)` on the way into the repository** —

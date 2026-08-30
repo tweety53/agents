@@ -28,4 +28,4 @@ gate, `/flow-status`'s merge-status report, and `/myflow-finish`'s preflight ver
 unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
 than restating it. How a command resolves the set beyond reading the state file's map — whether it
 falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;
-see **Resolving a change's worktrees** (`skills/flow-contracts/finish-contract.md`).
+see **Resolving a change's worktrees** (`skills/flow-contracts/finish-contract-run1.md`).

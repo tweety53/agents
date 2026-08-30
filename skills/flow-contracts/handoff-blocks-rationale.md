@@ -79,7 +79,7 @@ unsatisfiable rather than merely unsatisfied — no single block is correct for 
 ### Why `Route` and `Outstanding` are run-only
 
 The landing answer is never remembered between runs,
-per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`), so no
+per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`), so no
 field records which route was taken: a recorded `prUrl` implies the pull-request route, and
 nothing separates the other two. The
 outstanding list is the unfinished-work gate's verdict at the moment run 1 asked; its durable copy
@@ -153,7 +153,7 @@ removed one reads *missing*.
 ### Why no field is added to close the gap
 
 **No field is added to close it.**
-**Finish contract** (`skills/flow-contracts/finish-contract.md`) already refuses one:
+**Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) already refuses one:
 the branch's merge status is the only source of truth for whether the branch has been integrated,
 and a field could disagree with it. That is the same reason merge status governs the table —
 the rule was already stated here, and the defect was reading `prUrl` in front of it rather than

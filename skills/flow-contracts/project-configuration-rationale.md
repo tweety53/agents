@@ -97,7 +97,7 @@ cannot write one correctly without being told which directory that is.
   change's apply worktree has already been removed.
 
 - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
-  step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`), so the
+  step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), so the
   apply worktree is by then not a directory anything could run from — and two commands out of one
   table, called by one run of one command, must not disagree about where they run.
 

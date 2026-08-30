@@ -40,7 +40,7 @@ there is nothing temporary to remove.
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it. **Worktree cleanup**
-(`skills/flow-contracts/finish-contract.md`) is the *procedure* for the rows removed there, not a
+(`skills/flow-contracts/finish-contract-run2.md`) is the *procedure* for the rows removed there, not a
 second statement of the rule. See **Temporary artifacts registry**
 (`skills/flow-contracts/artifacts-registry-rationale.md`) for why a stale second copy would be dangerous.
 
@@ -54,7 +54,7 @@ established this.
 to the same URL, and the preserved copy its row requires lives under
 `<project>/docs/superpowers/artifacts/`. **Finish run 1 is what puts it there**, by copying it before
 it stages — see **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract.md`), which is canonical for that copy, for the change-name
+(`skills/flow-contracts/finish-contract-run1.md`), which is canonical for that copy, for the change-name
 and containment checks it makes first, and for the skip when a change published no artifact. The
 condition is therefore reachable in both directions: a change whose artifact run 1 copied is deleted
 at run 2, and a `/myflow-fast` change, which publishes none, is not. No preserved copy → leave the

@@ -1518,7 +1518,7 @@ assert_not_out "workspace" "a repository declaring no isolation stays silent abo
 # an infinite loop — and a hang there strands an already-merged change short of
 # FINISHED with nobody watching. The project-supplied `## stop` command is
 # already given a bounded wait for exactly this reason; see **Worktree cleanup**
-# (`skills/flow-contracts/finish-contract.md`).
+# (`skills/flow-contracts/finish-contract-run2.md`).
 #
 # WHY A TIMEOUT IS A SKIP HERE AND A FAILED CHECK THERE. A `## stop` timeout has
 # no fallback: an un-stopped stack is a reason not to remove a worktree, and

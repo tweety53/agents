@@ -21,10 +21,11 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | File | Load it when you need to |
 |------|--------------------------|
 | [pipeline.md](pipeline.md) | **Run any `/flow*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, IntelliJ commands, guard resolution and stage marks |
-| [finish-contract.md](finish-contract.md) | `/myflow-finish`'s two-run contract: the preflight signals, both runs' procedures, base-branch resolution, resolving a change's worktrees, and worktree cleanup. **Loaded by `/myflow-finish` and no other command** |
+| [finish-contract-run1.md](finish-contract-run1.md) | `/myflow-finish`'s run 1: the preflight-signal decision, run 1's procedure, base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md` and no other command** |
+| [finish-contract-run2.md](finish-contract-run2.md) | `/myflow-finish`'s run 2: run 2's procedure and worktree cleanup. **Loaded by `skills/flow/archive.md` and no other command** |
 | [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/flow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its path, its full shape, monotonic state writes, carry-forward |
-| [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment |
+| [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment. Resolution rules only — see below for authoring guidance |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/myflow-finish` run 1 and no other command** |
 | [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
@@ -35,6 +36,7 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/myflow-do`, `/myflow-finish` run 2 and `/myflow-fast`** |
 | [session-records.md](session-records.md) | The outcome table for `flow record render`, and what each outcome means for the caller. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |
 | [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/myflow-do`, `/myflow-finish`, `/flow-status` and `/myflow-fast`** |
+| [project-configuration-authoring.md](project-configuration-authoring.md) | Write or edit a project's own `<project>/.flow/project.md` — rationale for a key's shape and worked examples not consulted by any run. **Loaded by no `/flow*` command** |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins — and a skill should **point at** these files rather than restate them, because a second

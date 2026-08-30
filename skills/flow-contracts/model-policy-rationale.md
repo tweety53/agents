@@ -68,7 +68,7 @@ repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the 
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.
 The preservation duty itself is stated once, under
-**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`).
+**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 Slots dispatched by `subagent_type` (Bugbot, Security Review)
 carry their own agent definitions and take no override from either mechanism.

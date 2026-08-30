@@ -30,22 +30,6 @@ table or in `<agents repo>/README.md`'s Level 1 stages table — both are cross-
 touch (a later task repoints them); read this file's own **State transitions** and **Stage keys**
 below as `/flow`'s actual contract in the meantime.
 
-**Load `skills/flow-contracts/worktree-resolution.md`, `skills/flow-contracts/session-records.md`,
-`skills/flow-contracts/git-boundaries.md`, `skills/flow-contracts/artifacts-registry.md`,
-`skills/flow-contracts/jira-integration.md`, `skills/flow-contracts/plan-provenance.md`,
-`skills/flow-contracts/build-green.md`, `skills/flow-contracts/project-configuration.md` and
-`skills/flow-contracts/workspace-isolation.md`** too — every phase below cites one or more of
-them rather than restating their content.
-
-**`skills/flow-contracts/model-policy.md` is only partly current for `/flow`.** Its per-harness
-enforcement notes (Claude Code frontmatter, Cursor, Codex) and its override-recording mechanism
-still apply unchanged. Its three-role table (`models.implementation`/`reviewPanel`/`panelFix`,
-separate defaults) and its planning-effort-question framing do **not** — design.md's
-`model-default-sonnet`, `models-fields-collapse` and `settings-scope` decisions collapse all three
-roles to one default, read from the settings store rather than asked per change and rather than
-recorded in the per-change state file. **Model resolution** below is `/flow`'s own, current
-statement; do not follow the three-role table for this command.
-
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per **Progress visibility**
 (`skills/flow-contracts/pipeline.md`). One entry per brainstorming checklist item and artifact on
@@ -98,6 +82,15 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
 | `skills/flow/archive.md` | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.self-review`, `flow.push-archive` |
+
+**`skills/flow-contracts/model-policy.md` is only partly current for `/flow`.** Its per-harness
+enforcement notes (Claude Code frontmatter, Cursor, Codex) and its override-recording mechanism
+still apply unchanged. Its three-role table (`models.implementation`/`reviewPanel`/`panelFix`,
+separate defaults) and its planning-effort-question framing do **not** — design.md's
+`model-default-sonnet`, `models-fields-collapse` and `settings-scope` decisions collapse all three
+roles to one default, read from the settings store rather than asked per change and rather than
+recorded in the per-change state file. **Model resolution** below is `/flow`'s own, current
+statement; do not follow the three-role table for this command.
 
 ## Model resolution
 

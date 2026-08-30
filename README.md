@@ -166,7 +166,7 @@ archive — so its row states the gate for each.
 
 `/flow`'s run-2 sequence ends with `flow.push-archive`. The row before it, `flow.self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
-**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`), step 9 — which is
+**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9 — which is
 also the file to change when that procedure changes, since the requirements layer that once sat
 above it is frozen with the rest of the `openspec/` tree at the spectre cutover.
 
@@ -267,7 +267,7 @@ resolved set returns `RUN2` — and a resolved set that comes back empty is neve
 per the same section.
 
 The three signals and why their order is load-bearing are **Finish contract**
-(`skills/flow-contracts/finish-contract.md`).
+(`skills/flow-contracts/finish-contract-run1.md`).
 
 #### The unfinished-work gate — `/myflow-finish` run 1
 
@@ -284,7 +284,7 @@ was integrated over is written into the planning commit's message and into the h
 record outlives the session.
 
 Each course and what run 1 then does are **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract.md`).
+(`skills/flow-contracts/finish-contract-run1.md`).
 
 #### The landing routes — `/myflow-finish` run 1
 
@@ -298,7 +298,7 @@ planning artifacts second. The linked issue moves to In Review on every route, i
 one.
 
 The route table is **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract.md`); the guarded two-commit chain every route uses is
+(`skills/flow-contracts/finish-contract-run1.md`); the guarded two-commit chain every route uses is
 **Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
 
 #### Cleanup — `/myflow-finish` run 2
@@ -314,7 +314,7 @@ treated exactly as `LEFTOVER`.
 
 What is removed, when, and on what condition is **Temporary artifacts registry**
 (`skills/flow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
-the rows it removes is **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`).
+the rows it removes is **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 #### Brainstorm — `/flow`
 

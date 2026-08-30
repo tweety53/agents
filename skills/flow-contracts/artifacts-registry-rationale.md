@@ -7,7 +7,7 @@ This file is the reasoning behind `skills/flow-contracts/artifacts-registry.md`.
 
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it, in this file and in every skill. **Worktree cleanup**
-(`skills/flow-contracts/finish-contract.md`) is the *procedure* for the rows removed there and
+(`skills/flow-contracts/finish-contract-run2.md`) is the *procedure* for the rows removed there and
 not a second statement of the rule: the table says what is removed and when, that section says how
 — and a stale second copy of a rule governing `git worktree remove --force` is a copy that deletes
 the wrong thing.
@@ -64,7 +64,7 @@ claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 **Which rows run 2 verifies is read off this table, not listed again.** Every row whose lifetime
 ends at run 2 is checked back by `<agents repo>/scripts/check-cleanup-complete.sh`, whose header explains which
 rows that leaves it reading and why; step 7 of
-**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`) is where its
+**Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) is where its
 verdict is acted on.
 
 **That derivation is declared, not left implicit.** The guard carries one marker line per row of

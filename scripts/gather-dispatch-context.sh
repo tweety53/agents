@@ -302,7 +302,7 @@ add_fixed_source() {
     FOUND_PATHS+=("$resolved")
   else
     REFUSED_LABELS+=("$label")
-    REFUSED_REASONS+=("outside")
+    REFUSED_REASONS+=("outside_change")
   fi
 }
 
@@ -317,6 +317,60 @@ else
   SKIPPED_LABELS+=("$PRINCIPLES_PATH")
 fi
 
+# --- project commands: the ## lint, ## test and ## run sections of
+# <worktree>/.flow/project.md, so a dispatched subagent already carries this
+# project's lint/test/run commands and never needs to open project.md itself
+# (CLAUDE.md's lint-fix-priority rule sends every subagent there). Extracted,
+# not the whole 20+ KB file, per design.md's
+# scoped-dispatch-bundle-not-full-project-md decision. Appended after the
+# principles file section, as the last "found" entry — see FOUND_LABELS
+# ordering above.
+#
+# extract_project_section <file> <key> -> prints the body of "## <key>"
+# (everything after that heading line up to, but not including, the next
+# top-level "## " heading, or EOF), or nothing if <key> is not a heading in
+# <file>.
+extract_project_section() {
+  local file="$1" key="$2"
+  awk -v key="## $key" '
+    $0 == key { grab = 1; next }
+    /^## / { if (grab) exit }
+    grab { print }
+  ' "$file"
+}
+
+PROJECT_FILE="$WORKTREE_REAL/.flow/project.md"
+PROJECT_COMMANDS_BODY=""
+if [ -f "$PROJECT_FILE" ]; then
+  PROJECT_FILE_RESOLVED="$(resolve_file "$PROJECT_FILE")" || PROJECT_FILE_RESOLVED=""
+  if [ -n "$PROJECT_FILE_RESOLVED" ] && within_root "$PROJECT_FILE_RESOLVED" "$WORKTREE_REAL"; then
+    for key in lint test run; do
+      section="$(extract_project_section "$PROJECT_FILE_RESOLVED" "$key")"
+      if [ -n "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+        PROJECT_COMMANDS_BODY="${PROJECT_COMMANDS_BODY}### ${key}
+
+${section}
+
+"
+      fi
+    done
+    if [ -n "$PROJECT_COMMANDS_BODY" ]; then
+      FOUND_LABELS+=("project commands")
+      FOUND_PATHS+=("")
+    else
+      SKIPPED_LABELS+=("project commands")
+    fi
+  elif [ -n "$PROJECT_FILE_RESOLVED" ]; then
+    REFUSED_LABELS+=("project commands")
+    REFUSED_REASONS+=("outside_worktree")
+  else
+    REFUSED_LABELS+=("project commands")
+    REFUSED_REASONS+=("unresolvable")
+  fi
+else
+  SKIPPED_LABELS+=("project commands")
+fi
+
 echo "# Dispatch context bundle for $NAME"
 echo "generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "head: $(git -C "$WORKTREE_REAL" rev-parse --short HEAD 2>/dev/null || echo unknown)"
@@ -326,7 +380,8 @@ if [ "${#REFUSED_LABELS[@]}" -gt 0 ]; then
   i=0
   while [ "$i" -lt "${#REFUSED_LABELS[@]}" ]; do
     case "${REFUSED_REASONS[$i]}" in
-      outside) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the change directory)" ;;
+      outside_change) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the change directory)" ;;
+      outside_worktree) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the worktree)" ;;
       *) echo "refused: ${REFUSED_LABELS[$i]} (could not be resolved: a symlink loop or other failure walking its path)" ;;
     esac
     i=$((i + 1))
@@ -346,7 +401,11 @@ if [ "${#FOUND_LABELS[@]}" -gt 0 ]; then
   while [ "$i" -lt "${#FOUND_LABELS[@]}" ]; do
     echo "## ${FOUND_LABELS[$i]}"
     echo
-    cat "${FOUND_PATHS[$i]}"
+    if [ -n "${FOUND_PATHS[$i]}" ]; then
+      cat "${FOUND_PATHS[$i]}"
+    else
+      printf '%s' "$PROJECT_COMMANDS_BODY"
+    fi
     echo
     i=$((i + 1))
   done

@@ -184,7 +184,7 @@
 # directory inside it -- `spectre new` refuses an id that is not a single flat
 # directory name -- so `spectre archive <name>` cannot reach one and each
 # sub-change needs its own call (run 2 step 3,
-# skills/flow-contracts/finish-contract.md). Before this row the guard
+# skills/flow-contracts/finish-contract-run2.md). Before this row the guard
 # reported COMPLETE with the parent archived and the child left behind, and
 # nothing anywhere said so.
 set -euo pipefail

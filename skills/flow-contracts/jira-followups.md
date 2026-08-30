@@ -277,9 +277,7 @@ unchanged:
 
 `<KEY>` is the joining change's linked issue, and with none linked `flow` stands in for it exactly
 as it does in the title. A join is a description write like any other, so the pre-write assertion in
-**Description sync** (`jira-integration.md`) governs it in full — including the rule that the
-assertion is made against a read taken immediately before the write; a failed assertion makes no
-write at all.
+**Description sync** (`jira-integration.md`) governs it in full.
 
 **The joined issue's pre-edit description is the one exception to the handoff echo, and the reason
 is what makes the echo worth having elsewhere.** The echo exists as a recovery path for text this
@@ -333,7 +331,7 @@ join outcome and this contract adds none, and run 2's only Jira write is the **D
 under **Transitions** (`jira-integration.md`), which reports that transition and nothing about
 a follow-up. Re-emitting the `⚠` is not what closes a partial join past that point — finding the
 issue is, and two records outlive the window. The outstanding items are in the planning commit's
-message, per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`),
+message, per **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`),
 which is the durable copy this pipeline requires and owes nothing to the tracker. The appended
 `## From <KEY>` section carries this change's key, so a description search finds the issue by key
 even though what failed was the retitle or the label union — the two writes that would have made it
@@ -400,7 +398,7 @@ description, and this contract cannot detect that — closing it needs provenanc
 offer, and inventing a marker this pipeline signs would be a trust model neither the tools nor this
 contract has. The residue is bounded by where the durable record actually lives: the outstanding
 list reaches the planning commit's message and the handoff on every route, per
-**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract.md`), so what a forged
+**Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`), so what a forged
 section can cost is the tracker copy of work that is recorded in git either way — never the record
 itself.
 
@@ -465,7 +463,5 @@ produces exactly the invisibility the rule was written to prevent — and report
 is what would make it silent. Both later steps are attempted even if the other fails, so one refused
 write costs one property, not two.
 
-A failed creation and a failed join degrade exactly as every other Jira write does — one
-`⚠ Jira: skipped — <reason>` line, with the run continuing and writing its state as it would have,
-per **Never blocking** (`jira-integration.md`). A **partial** join degrades the same way: it
-is one line, it blocks nothing, and the run writes its state exactly as it would have.
+A failed creation, a failed join, and a **partial** join all degrade exactly as every other Jira
+write does, per **Never blocking** (`jira-integration.md`).

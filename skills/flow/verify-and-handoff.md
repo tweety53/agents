@@ -45,6 +45,9 @@ exit is the dropped-row case (exit 1, relay the script's own lines verbatim and 
 cannot-answer case (exit 2, stop the same way) — stop **before** `## lint` and `## test`, without
 writing the state file.
 
+**Load `skills/flow-contracts/workspace-isolation.md`** — it is canonical for the cache index row
+below.
+
 **A declared `cache index` row is never among the printed `KEY=value` lines** — the script reports
 it by name on stderr instead. On an exit-0 run whose stderr names a `cache index` row, probe the
 project's cache here, claim a free index atomically, and record that claim in the cache itself under
@@ -59,6 +62,9 @@ export were performed manually and why.
 the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
+
+**Load `skills/flow-contracts/project-configuration.md`** — the `## lint`/`## test` keys below are
+canonical there.
 
 Run the `## lint` and `## test` commands from `<project>/.flow/project.md` (auto-detect if
 absent) and show the output. **Nothing runs them later** — `/flow`'s integrate phase has no

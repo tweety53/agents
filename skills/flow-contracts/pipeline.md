@@ -1,7 +1,8 @@
 # flow pipeline
 
 The three-state pipeline itself: state definitions, the command→state transition table and the
-handoff shape. See **Finish contract** (`skills/flow-contracts/finish-contract.md`).
+handoff shape. See **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`,
+`skills/flow-contracts/finish-contract-run2.md`).
 
 **Load this file when running `/flow`.** It is split out of
 `rules/flow-manual-review.mdc` so the always-on rule layer carries only the trigger, not the
@@ -77,7 +78,7 @@ ignored word is indistinguishable from a flag that stopped working.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/flow` | *(none — creates the change)* · `STARTED` · `IN_PROGRESS` | `STARTED` from a creating run that stops early, or `IN_PROGRESS` in the same invocation; from `STARTED`, resumes and ends at `STARTED` or `IN_PROGRESS`; from `IN_PROGRESS` with an argument, unchanged (fix run); from a bare invocation at `IN_PROGRESS`, `IN_PROGRESS` or `FINISHED` depending on the route chosen — see `skills/flow/SKILL.md`'s own **State transitions** and **Stage keys** for the full detail this row summarises |
+| `/flow` | *(none — creates the change)* · `STARTED` · `IN_PROGRESS` | per state, exactly as `skills/flow/SKILL.md`'s own **State transitions** table states it — that table is `/flow`'s actual, current contract; see its **Stage keys** too |
 | `/flow-status` | any — read-only, never block | unchanged |
 
 **This table is authoritative.** Every command file — in **both** command trees (`commands/` and
@@ -254,9 +255,8 @@ Next:
   holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
 - **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
   integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
-  is deliberately not on it — a capability spec is implementation, per **Git boundaries**
-  (`skills/flow-contracts/git-boundaries.md`). Neither is a change directory's `link.md`, for the same
-  reason and per the same file. The integrate phase
+  and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
+  (`skills/flow-contracts/git-boundaries.md`) for why. The integrate phase
   stages the rest and commits it separately from the implementation, so nothing is lost. See
   **Handoff output** (`skills/flow-contracts/pipeline-rationale.md`) for why leaving them unstaged
   — rather than filtering a display — is what keeps them out of every view of the staging area:
@@ -408,9 +408,11 @@ Each command names, in its own text, the guards *it* can invoke — exactly the 
 
 ## Finish contract
 
-**Finish contract** (`skills/flow-contracts/finish-contract.md`) governs the preflight signals,
-both runs' procedures, base-branch resolution and worktree cleanup, and `/flow`'s integrate/archive
-phase is the only phase that loads it.
+**Finish contract** (`skills/flow-contracts/finish-contract-run1.md`,
+`skills/flow-contracts/finish-contract-run2.md`) governs the preflight signals, both runs'
+procedures, base-branch resolution and worktree cleanup, split by run: `/flow`'s integrate phase
+loads `finish-contract-run1.md` and its archive phase loads `finish-contract-run2.md` — no other
+phase loads either.
 
 ## State file
 

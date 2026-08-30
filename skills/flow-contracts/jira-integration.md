@@ -242,7 +242,7 @@ one exists.
 
 **A self-review finding adds one more label.** An issue filed from a self-review finding carries,
 on top of the set above, the label naming the angle that produced it. The angle-to-label table is
-canonical in step 9 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`),
+canonical in step 9 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`),
 cited here rather than copied, so the two cannot drift.
 
 **Creation is a Jira write like any other, and fails the same way.** `createJiraIssue` can be

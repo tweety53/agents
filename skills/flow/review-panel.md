@@ -18,6 +18,8 @@ flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -s
 check-panel-citation-trigger.sh <worktree> <merge-base>
 ```
 
+**Load `skills/flow-contracts/project-configuration.md`** — the key below is canonical there.
+
 On exit 0, read `<project>/.flow/project.md`'s `## review panel citation check` key (**Guard
 resolution**, `skills/flow-contracts/pipeline.md`; the key itself is canonical in **Project
 configuration**, `skills/flow-contracts/project-configuration.md`). If declared, run its command
@@ -54,8 +56,7 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
 five entries, never a sixth. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
-for this run — the settings store's `defaultModel`, or this run's session-instruction override.
-There is no parent-model inheritance and no economy tier. Bugbot and Security are dispatched by
+for this run. There is no parent-model inheritance and no economy tier. Bugbot and Security are dispatched by
 `subagent_type` and carry their own agent definitions — pass them **no** model override, unless the
 harness running this stage does not offer that agent type — see below.
 
@@ -141,7 +142,7 @@ flow record dispatch end -change <name> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
 
-`-slot` is `Primary`, `Bugbot`, `Principles`, `Code review (low)`, or `Security`. `-role` is
+`-slot` names the slot from **The roster** table above. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is the sha a delta-slot's delta
 starts from, passed on a slot dispatched against a delta and on no other. `-model` is `DEFAULT_MODEL`
 (or this run's override) for every slot except Bugbot and Security dispatched by their own

@@ -109,7 +109,7 @@ row. Each worktree in the resolved set is answered in **three steps, in this ord
 2. **`HEAD` against that resolved merge base.** Equal → the branch has **no commits of its own**,
    so it is **not merged**, and no ancestor test is run.
 3. otherwise resolve `<base>`, **in the same worktree**, by invoking `resolve-base-branch.sh`
-   exactly as **Finish contract** (`skills/flow-contracts/finish-contract.md`) does — never a
+   exactly as **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) does — never a
    hand-derived name, and never `HEAD@{upstream}`, for the reason stated there; running it in this
    worktree is also what satisfies its unconditional assertion that the base differs from the
    current branch, since `HEAD` here is the change's own branch. **A non-zero exit is
@@ -130,7 +130,7 @@ its comment (b) are what `pipeline.md` cites in turn.
 **A multi-repo change has one merge status per worktree, and the change's is the weakest of them.**
 The resolved set may carry more than one worktree, so the merge-status check is answered once per
 worktree in it and the answers must then be combined. Combine them exactly as
-**Finish contract** (`skills/flow-contracts/finish-contract.md`) already combines the preflight's
+**Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) already combines the preflight's
 verdicts — run 2 proceeds only when **every** worktree in the resolved set says so — which here
 means: the
 change reads **merged** only when every worktree is proven merged; any worktree proven **not

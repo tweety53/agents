@@ -82,6 +82,9 @@ own run.
 
 On a fix run, resume the existing worktree and make no such copy. **Never create a second one.**
 
+**Load `skills/flow-contracts/worktree-resolution.md`** — it derives this run's resolved worktree
+set.
+
 **This run's resolved worktree set — the set `skills/flow/verify-and-handoff.md` iterates — is the
 worktree just created or resumed above, plus any additional worktree this change affects.** Per
 **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
@@ -92,6 +95,9 @@ in it**, where `<canonical-peer>` is the canonical repository's own name in that
 `<project>/spectre/peers` file. Record what the command wrote — or that it refused — alongside that
 worktree's merge base in this run's working notes. A failure is reported and the run continues: the
 link is not a gate, and a change with one worktree runs nothing here.
+
+**Load `skills/flow-contracts/workspace-isolation.md`** — the workspace id derivation below is
+stated there.
 
 **Then compute this worktree's workspace id from the change name.** The derivation is stated once
 under **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — do not re-derive it
@@ -118,7 +124,7 @@ two, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 > - **Create a linked `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that adds
 >   scope the parent change does not describe
 
-If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
+**Load `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
 **Description sync** in Jira integration (`skills/flow-contracts/jira-integration.md`). Never
 transition the issue here.
 
@@ -226,6 +232,8 @@ as it stands after the fold.
 > **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
 > proposal, design, plan and engineering principles, gathered for you. You **must** still read the
 > actual diff and the actual code — the bundle is shared *input*, never a substitute for the source.
+> It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do
+> not need to open `<project>/.flow/project.md` yourself for them.
 
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. When what you

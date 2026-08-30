@@ -114,7 +114,7 @@ and reuses a running instance.
 ## Guard resolution
 
 Resolution against the **running command's own** skill directory is what lets a contract loaded
-by more than one command — `skills/flow-contracts/finish-contract.md`, loaded by both
+by more than one command — `skills/flow-contracts/finish-contract-run1.md`, loaded by both
 `/myflow-finish` and `/flow-status` — name a guard at all: the same basename resolves inside
 whichever command is actually running, never a fixed one of them.
 
@@ -171,7 +171,7 @@ defined; the two call sites point here rather than each describing them.
 
    **The cost of this order is that a worktree half which stops early takes the removal with it.**
    Any failed check leaves every worktree alone —
-   **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`) — and the removal behind it
+   **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`) — and the removal behind it
    does not run, so a run blocked by something unrelated to the workspace, an
    uncommitted file in a worktree say, has its database and bucket named as leftovers at step 7 as
    well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has

@@ -8,7 +8,7 @@ rather than its own mark) and this task's own resolution of open question `write
 
 ## Deciding which run this is
 
-**`skills/flow-contracts/finish-contract.md` is canonical for every procedure below** — the
+**`skills/flow-contracts/finish-contract-run1.md` is canonical for every procedure below** — the
 base-branch resolution, the preflight checks, the removal sequence and their rationales live in
 that file, unchanged by this rework. This file carries only what is specific to *executing* it
 under `/flow`.
@@ -19,7 +19,7 @@ under `/flow`.
 already run at the top of this invocation.
 
 Run `check-finish-preflight.sh` once per worktree in the set found by **Resolving a change's
-worktrees** (`skills/flow-contracts/finish-contract.md`) — never a raw read of the state file's
+worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw read of the state file's
 `worktrees` map. Its `<base-ref>` argument is `origin/$BASE`, `$BASE` being what
 `resolve-base-branch.sh` prints for that worktree.
 
@@ -80,7 +80,7 @@ flow stage begin -command '/flow' -stage flow.landing-question -harness <harness
 
 **Check whether the base branch has moved first.** Run `check-base-moved.sh` once per worktree in
 the resolved set, report every verdict, and ask only on overlap, per **Finish contract**
-(`skills/flow-contracts/finish-contract.md`). On an overlap from any worktree, one aggregated
+(`skills/flow-contracts/finish-contract-run1.md`). On an overlap from any worktree, one aggregated
 prompt, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 
 > **The base branch has moved and touches paths this change also touched — how should
@@ -226,7 +226,7 @@ transition that only ever follows a successful route, keeps one mark's three sub
 order they already have to run in, rather than three marks whose middle one records nothing a reader
 could not already infer from the other two.
 
-Per **Finish contract** (`skills/flow-contracts/finish-contract.md`) → run 1. Push with `-u` so
+Per **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) → run 1. Push with `-u` so
 the branch has an upstream.
 
 **Every git step here can fail, and none of them may fail silently.** A rejected push, a merge
@@ -242,6 +242,8 @@ the answer is No, leave `prUrl` null and say what to do next.
 **Sub-step: write the state.** Write `state` unchanged at `IN_PROGRESS`, `prUrl` set if a PR was
 opened, and every other field carried forward.
 
+**Load `skills/flow-contracts/jira-integration.md`** — it is canonical for the transition below.
+
 **Sub-step: transition the issue to In Review**, whichever route was taken — pull request, merge and
 push, or manual — per **Transitions** (`skills/flow-contracts/jira-integration.md`): after the
 state write, never before, never blocking. A run that stopped on a failed push does **not**
@@ -254,7 +256,7 @@ flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <n
 ## No verification gate
 
 **Run no tests, no linters, and no spec-coverage check** — see **Finish contract**
-(`skills/flow-contracts/finish-contract.md`). Correctness was established during
+(`skills/flow-contracts/finish-contract-run1.md`). Correctness was established during
 `skills/flow/review-panel.md` and by the human gate. **One exception:** the scoped
 re-verification in step 2 above, triggered only by a rebase this stage itself performed, never a
 general re-opening of this rule.
