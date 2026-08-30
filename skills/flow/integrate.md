@@ -86,6 +86,7 @@ prompt, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`)
 > **The base branch has moved and touches paths this change also touched — how should
 > integration proceed?**
 > - **Stop — I'll rebase or reorder first** *(recommended)*
+> - **Rebase onto `<base>` now, then continue**
 > - **Continue — land anyway**
 
 **Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed, and
@@ -98,6 +99,42 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <n
 **Continue** carries the reported movement into the handoff and proceeds to the landing question
 below. No overlap anywhere → report the counts and go straight to the landing question, with no
 extra prompt.
+
+**Rebase** runs `git -C <worktree> rebase origin/$BASE` once per worktree in the resolved set whose
+own `check-base-moved.sh` verdict was `MOVED` — never a worktree whose verdict was `CLEAR`, even
+though the prompt above is asked once for the whole change per **ask-only-on-overlap** — per
+design.md's `rebase-is-a-confirmed-choice`: the rebase never runs on its own, only after the
+operator picks this option, and only against the worktree(s) that actually moved.
+
+- **Clean** (exit 0): the merge base carried forward for the rest of **this run** becomes
+  `origin/$BASE`'s resolved tip at rebase time — call it `<rebased-merge-base>` below.
+  **This is a this-run-only value, never written to the state file**: it supersedes, for every
+  remaining step of this run, every place below that would otherwise read the state file's
+  recorded, pre-rebase merge base for this worktree — most concretely **3. Commit the staged
+  work**'s reshape, whose own `<recorded-merge-base>` means `<rebased-merge-base>` for a worktree
+  this step rebased, and the state file's original recorded value for every other worktree. Re-run
+  `check-base-moved.sh` once more against `<rebased-merge-base>`; a fresh `MOVED` overlap re-offers
+  this same three-option prompt rather than looping silently. Otherwise, run **Scoped
+  re-verification** below, then proceed to the landing question.
+- **Conflict** (non-zero exit): never auto-abort, per design.md's `never-auto-abort` — and never
+  attempt to resolve the conflict yourself, by editing the conflicting files or otherwise. Leave the
+  worktree mid-rebase exactly as `git rebase` left it, report the conflicting file(s) from
+  `git status`, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves
+  it) or `git -C <worktree> rebase --abort` as the operator's next manual step. State stays
+  `IN_PROGRESS`; this run stops here, exactly as **Stop** already does, and closes the mark
+  `stopped`.
+
+**Scoped re-verification**, per design.md's `scoped-reverify-not-full-suite`: for each path
+`check-base-moved.sh` reported under `overlaps:`, look for a discoverable guard test —
+`<agents repo>/scripts/test-<basename-without-ext>.sh` beside `<agents repo>/scripts/<name>.sh`,
+the same naming `<agents repo>/scripts/run-guard-tests.sh` already discovers by glob — and run it
+if found. A path with none is
+stated in the handoff as having no verification to run, not silently skipped. A non-zero exit from
+any discovered test blocks this stage exactly like any other verify-stage failure: report it, leave
+the change `IN_PROGRESS`, stop before the landing question, and close the mark `stopped`. **Never**
+re-run the project's whole `## lint`/`## test` list here. A clean rebase whose overlap set clears
+this stage proceeds to the landing question and closes the mark `completed`, exactly like
+**Continue**.
 
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*
@@ -123,8 +160,11 @@ flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harnes
 
 **Before any route commits, reshape the branch.** Run `git -C <worktree> reset --soft
 <recorded-merge-base>`, where `<recorded-merge-base>` is the merge base recorded in the state
-file's `worktrees` map for this worktree. This collapses every per-task and fixup commit back into
-the working tree, uncommitted.
+file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a
+worktree this run rebased**, never the state file's now-stale pre-rebase value for that worktree.
+This collapses every per-task and fixup commit back into the working tree, uncommitted; using the
+stale value here would also collapse in the upstream commits the rebase just brought in, silently
+smuggling them into the implementation commit below.
 
 All three routes commit — implementation, the `<project>/spectre/changes/` planning artifacts, and
 the session records under `<project>/docs/superpowers/` — as **two** commits, never one.
@@ -215,7 +255,9 @@ flow stage end -command '/flow' -stage flow.landing-routes -outcome completed <n
 
 **Run no tests, no linters, and no spec-coverage check** — see **Finish contract**
 (`skills/flow-contracts/finish-contract.md`). Correctness was established during
-`skills/flow/review-panel.md` and by the human gate.
+`skills/flow/review-panel.md` and by the human gate. **One exception:** the scoped
+re-verification in step 2 above, triggered only by a rebase this stage itself performed, never a
+general re-opening of this rule.
 
 ## Handoff
 

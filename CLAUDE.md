@@ -129,9 +129,10 @@ description or Jira key); anything else is reported rather than ignored.
 The branch's merge status alone decides which `/flow` integrate/archive run happens — so a PR you
 merged on the forge and a merge it performed itself are indistinguishable to it, which is correct.
 
-**Verification runs during `/flow`'s implementation phase and nowhere else.** The integrate/archive
-phase has no verification gate: re-running tests immediately before the one irreversible step
-repeats finished work, and a gap found there routes back to a fix run anyway.
+**Verification runs during `/flow`'s implementation phase and nowhere else**, with one exception —
+`skills/flow/integrate.md`'s own in-pipeline rebase step, scoped to what it rebased in. The
+integrate/archive phase otherwise has no verification gate: re-running tests immediately before the
+one irreversible step repeats finished work, and a gap found there routes back to a fix run anyway.
 
 ### How to invoke a skill
 

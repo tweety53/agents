@@ -189,7 +189,7 @@ skills/flow/archive.md 18748
 skills/flow/brainstorm.md 26964
 skills/flow/engineering-principles.md 10732
 skills/flow/implement.md 16559
-skills/flow/integrate.md 14370
+skills/flow/integrate.md 18602
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 35985
 skills/flow/security-reviewer-prompt.md 1540
