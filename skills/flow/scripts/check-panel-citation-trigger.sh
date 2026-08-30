@@ -1,0 +1,1 @@
+../../../scripts/check-panel-citation-trigger.sh

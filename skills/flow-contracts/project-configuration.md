@@ -31,6 +31,7 @@ bodies are constrained to what that procedure accepts.
 | `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`skills/flow-contracts/jira-followups.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
 | `## workspace isolation` | Optional. The resources an apply worktree runs against its own copy of: for each one, the environment variable that carries it and the value it falls back to, plus the commands that create them, remove them and report which of them survived. Most of those values are derived from the workspace id, and one is not — the cache index is claimed at run time and is not derived from it. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader, and is where a project records what it has deliberately **not** isolated. Absent means the project is not isolated, which is a supported state and not a misconfiguration — again, see below. Which resources there are, and how each derived value is derived, is stated once under **What the id derives** (`skills/flow-contracts/workspace-isolation.md`). |
 | `## visual verification` | Optional. What the `flow.visual-verify` stage validates before it runs: which UI paths in a change's diff trigger it, where captured screenshots land, the `setup`/`verify`/`capture` commands, and an optional `regression checkout` naming the repository the spec and its PNGs commit to, with `regression repo` recording the identity — never an authorisation — that checkout's real `origin` must equal. Its rows are resolved and validated rather than read, so the two tables specified below are the whole of what this body means to the resolver — prose beside them is for the reader. Absent means the stage is not configured for this project, a supported state and not a misconfiguration. Mechanically enforced by `<agents repo>/scripts/check-visual-verification.sh`, canonical for what it checks. |
+| `## review panel citation check` | Optional. A single fenced command block and nothing else in the section — unlike `## workspace isolation` and `## visual verification` above, this key gets no dedicated parsing guard: the whole of what it means to the resolver is "a fenced block exists, read literally". **Absent means the whole pre-panel step is skipped**, exactly like every other optional key. The command runs from the apply worktree only when `check-panel-citation-trigger.sh` exits 0 (**Guard resolution**, `skills/flow-contracts/pipeline.md`, is how `skills/flow/review-panel.md` names it, which is also canonical for the full wiring procedure); its combined stdout+stderr is captured verbatim and its exit code is never gating. |
 
 **How a `## standards` entry resolves to a file.** Every entry in the `## standards` section is
 one of three forms, and there is no fourth. **"Bare" is mechanical throughout: the entry contains
@@ -520,6 +521,25 @@ section once granted was dropped, on evidence a panel slot demonstrated, is desi
 
 **Mechanically enforced** by `<agents repo>/scripts/check-visual-verification.sh`, canonical for the
 section's exact shape and every violation it reports.
+
+## review panel citation check
+
+**This key declares one command, and reading it is the whole of what this file does with it.** No
+dedicated parsing guard checks its shape, unlike `## workspace isolation` and `## visual
+verification` above — the section is a single fenced command block and nothing else, and the whole
+of what it means to the resolver is "a fenced block exists, read literally".
+
+`skills/flow/review-panel.md`'s `flow.review-panel` stage runs the declared command from the apply
+worktree, but only when `check-panel-citation-trigger.sh` exits 0 (**Guard resolution**,
+`skills/flow-contracts/pipeline.md`) — that guard decides whether the change's own diff touches a
+`.md` or `.mdc` path at all, so a purely-code change never pays for this section's cost. **Absent
+key means the whole pre-panel step is skipped**, exactly like every other optional key here.
+
+**Never blocks.** The command's combined stdout+stderr is captured verbatim; its exit code is read
+by nobody. A finding it reports reaches the panel as information for a reviewer to raise, never as a
+gate — the actual gate remains `flow.verify`'s existing `## lint` run. The full wiring procedure —
+where the captured output is written, and how each panel slot's dispatch prompt is told about it —
+is canonical in `skills/flow/review-panel.md`, not restated here.
 
 **The file is optional, and every key within it is optional.**
 

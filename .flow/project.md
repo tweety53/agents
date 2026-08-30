@@ -294,6 +294,12 @@ Stopping the dev stack is an **operator** action, deliberately. The commands liv
 starts it: `## run` above, and `stats/README.md`'s "Running the daemon at login" section for the
 launchd agent.
 
+## review panel citation check
+
+```bash
+scripts/check-references.sh
+```
+
 ## standards
 
 - `CLAUDE.md`

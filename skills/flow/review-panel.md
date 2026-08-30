@@ -12,6 +12,25 @@ diff-size/touched-area trigger table.
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**Run the citation pre-check before rebuilding the dispatch context bundle below**:
+
+```bash
+check-panel-citation-trigger.sh <worktree> <merge-base>
+```
+
+On exit 0, read `<project>/.flow/project.md`'s `## review panel citation check` key (**Guard
+resolution**, `skills/flow-contracts/pipeline.md`; the key itself is canonical in **Project
+configuration**, `skills/flow-contracts/project-configuration.md`). If declared, run its command
+from the apply worktree and capture combined stdout+stderr verbatim to
+`<abs-worktree>/.superpowers/sdd/citation-check.md`. On exit 1, or the key absent, skip silently — no
+file written, no CITATION CHECK paragraph added below. Exit 2 — the guard could not answer (usage
+error, `<worktree>` not a directory or not a git repo, or the merge-base not resolving) — report its
+stderr and skip this worktree the same way exit 1 does.
+
+**Never blocks.** The configured command's exit code is read by nobody — a non-zero exit (findings
+present) still just writes the file. The real gate stays `flow.verify`'s existing `## lint` run,
+unchanged by this step.
+
 **Rebuild the dispatch context bundle at the start of this stage too** — never reused from
 `skills/flow/implement.md`'s run. Overwrite the same path:
 
@@ -160,6 +179,15 @@ for reading `final-review.diff` itself.
 > thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
+
+**Every slot's dispatch prompt also carries the CITATION CHECK paragraph, present only when the
+citation pre-check above wrote `<abs-worktree>/.superpowers/sdd/citation-check.md`**, naming its
+absolute path alongside `final-review.diff`:
+
+> **CITATION CHECK:** `<abs-worktree>/.superpowers/sdd/citation-check.md` carries this project's
+> pre-panel citation scan, captured before your dispatch. It is informational — its own exit code
+> was not gating — but a stale citation it reports is worth raising as your own finding if it sits
+> in this diff's blast radius.
 
 ### No forking, and a wall-clock ceiling on every slot
 
