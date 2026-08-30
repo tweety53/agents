@@ -191,12 +191,12 @@ skills/flow/engineering-principles.md 10732
 skills/flow/implement.md 16559
 skills/flow/integrate.md 14370
 skills/flow/principles-reviewer-prompt.md 13103
-skills/flow/review-panel.md 27420
+skills/flow/review-panel.md 35985
 skills/flow/security-reviewer-prompt.md 1540
 skills/flow/verify-and-handoff.md 24862
 skills/flow-contracts/SKILL.md 9665
 skills/flow-contracts/artifacts-registry-rationale.md 6981
-skills/flow-contracts/artifacts-registry.md 7620
+skills/flow-contracts/artifacts-registry.md 8447
 skills/flow-contracts/build-green.md 6678
 skills/flow-contracts/finish-contract.md 54286
 skills/flow-contracts/git-boundaries-rationale.md 2317

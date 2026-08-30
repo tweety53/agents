@@ -118,6 +118,10 @@
 #   archived with the change, so nothing removes them and there is nothing for
 #   this guard to find gone
 # registry-row-not-checked: Dispatch context bundle — removed with the worktree
+# registry-row-not-checked: Bugbot's throwaway worktree copy — created and removed
+#   entirely within the review panel stage, immediately after that Bugbot dispatch
+#   closes; it never survives to run 2, so there is nothing here for this guard to
+#   find gone
 # registry-row-not-checked: Archive branch — nothing in this pipeline removes it;
 #   run 2 is terminal and the pull request it opens outlives the run, so there is
 #   no later run to delete the branch it was opened from (kan-239)

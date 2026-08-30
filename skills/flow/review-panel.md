@@ -30,7 +30,7 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 | `primary` | **Primary** — plan alignment + code quality | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints | `DEFAULT_MODEL` |
 | `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL` |
 | `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL` |
-| `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below | none — records `unknown (agent-defined)` |
+| `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below (own throwaway worktree — see **Bugbot's throwaway worktree** below) | none — records `unknown (agent-defined)` |
 | `security` | **Security** | `subagent_type: security-review`, same shape as Bugbot | none — records `unknown (agent-defined)` |
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
@@ -66,7 +66,9 @@ slot; forcing it to prove each finding by mutation is.
 own agent definition, which a substitute is not. The panel record and the handoff additionally say
 in prose which slots were substituted and ran as general-purpose. **A dispatch recorded as Bugbot
 that was not Bugbot corrupts the one record that says what reviewed this branch** — the recording
-rule above exists to keep that record honest, not merely tidy.
+rule above exists to keep that record honest, not merely tidy. A substituted Bugbot's dispatch runs
+against the same throwaway worktree treatment as the real slot (**Bugbot's throwaway worktree**),
+since it carries the same mutation-testing brief.
 
 **No slot is ever added by diff size, touched area, or any other automatic trigger: the roster is
 exactly the resolved list above, and anything beyond it reaches the panel only through an explicit
@@ -180,6 +182,52 @@ each behaviour the diff changes, mutate it — flip a condition, drop a guard, m
 a branch — and establish whether an existing test fails. A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
 operator withdraws it with a reason.
+
+### Bugbot's throwaway worktree
+
+Bugbot mutates code in place to run its brief; every other slot only reads the diff. Dispatching
+Bugbot into the same worktree a reading slot concurrently reads is the KAN-366 collision — a
+mutation applied for Bugbot's test is visible to whatever a concurrently dispatched reading slot
+reads from `<worktree>` at that moment. Bugbot's dispatch — pass 1, and every fix-round re-run,
+a substituted general-purpose Bugbot included (**An unspawnable id is substituted, not skipped**) —
+therefore runs against a throwaway worktree, never the shared `<worktree>` the other slots read:
+
+```bash
+git -C <worktree> worktree add --detach <worktree>-bugbot-<round> HEAD
+git -C <worktree> diff HEAD --binary | git -C <worktree>-bugbot-<round> apply --allow-empty
+git -C <worktree> status --porcelain -z | \
+  while IFS= read -r -d '' entry; do
+    st="${entry:0:2}"; f="${entry:3}"
+    [ "$st" = "??" ] || continue
+    mkdir -p "<worktree>-bugbot-<round>/$(dirname "$f")"
+    cp -a "<worktree>/$f" "<worktree>-bugbot-<round>/$f"
+  done
+```
+
+`git diff HEAD --binary` — against `HEAD`, not a bare `git diff --binary` — is the same "staged and
+unstaged together" semantics `final-review.diff` above already uses, and covers the transplant in
+one diff rather than the working-tree-only diff a bare `git diff` produces: a bare `git diff` misses
+anything staged, and (independently) fails to reconstruct a rename whose move is already reflected
+in the index. `--allow-empty` on the `apply` side makes the sequence a no-op, not a failure, when
+there is nothing to transplant — the common case, since task and fix-round work is committed and
+`worktree add --detach ... HEAD` already carries every committed change on its own. The
+untracked-file loop reads `git status --porcelain -z`, NUL-delimited, into `read -r -d ''` — the
+plain-text `awk` form cannot survive git's quote-escaping of a filename with a space or another
+special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
+byte string through untouched, regardless of what the filename contains.
+
+Dispatch Bugbot with `Full Repository Path: <worktree>-bugbot-<round>` in place of `<worktree>`.
+Remove the copy unconditionally once that dispatch closes — completed, timed out (including after
+the wall-clock re-dispatch), or the run stopped:
+
+```bash
+git -C <worktree> worktree remove --force <worktree>-bugbot-<round>
+```
+
+Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
+reproducer still runs against the real `<worktree>` at verification time, never against Bugbot's
+copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
+mutate anything, so it keeps sharing `<worktree>` with the reading slots.
 
 Principles, when dispatched, is the panel's judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
