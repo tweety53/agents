@@ -455,6 +455,169 @@ case "$OUT" in
   *) pass "symlink-cycle proposal.md: not misreported as refused" ;;
 esac
 
+# ===========================================================================
+# CASE 22: .flow/project.md declares ## lint and ## test sections -> the
+# bundle carries a "## project commands" heading whose body reproduces both
+# sections' fenced command blocks verbatim.
+# ===========================================================================
+
+new_repo
+mkdir -p "$REPO/.flow"
+cat > "$REPO/.flow/project.md" <<'EOF'
+# Project configuration
+
+## lint
+
+```bash
+scripts/check-lint-marker.sh
+```
+
+## test
+
+```bash
+scripts/check-test-marker.sh
+```
+EOF
+run_it
+if [ "$RC" -eq 0 ] && case "$OUT" in
+  *"## project commands"*"scripts/check-lint-marker.sh"*"scripts/check-test-marker.sh"*) true ;;
+  *) false ;;
+esac; then
+  pass "project.md with lint and test: bundle reproduces both sections' fenced blocks verbatim"
+else
+  fail "project.md with lint and test: rc=$RC out=$OUT"
+fi
+
+# ===========================================================================
+# CASE 23: .flow/project.md exists but declares none of ## lint / ## test /
+# ## run -> reported as skipped, the same shape as an absent source.
+# ===========================================================================
+
+new_repo
+mkdir -p "$REPO/.flow"
+cat > "$REPO/.flow/project.md" <<'EOF'
+# Project configuration
+
+## apps
+
+Nothing here concerns lint, test or run.
+EOF
+run_it
+if [ "$RC" -eq 0 ] && case "$OUT" in
+  *"skipped: project commands (absent)"*) true ;;
+  *) false ;;
+esac && case "$OUT" in
+  *"## project commands"*) false ;;
+  *) true ;;
+esac; then
+  pass "project.md with no lint/test/run: reported skipped, no project commands heading"
+else
+  fail "project.md with no lint/test/run: rc=$RC out=$OUT"
+fi
+
+# ===========================================================================
+# CASE 24: no .flow/project.md at all -> reported as skipped, not a script
+# error.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -eq 0 ] && case "$OUT" in
+  *"skipped: project commands (absent)"*) true ;;
+  *) false ;;
+esac; then
+  pass "no project.md: reported skipped, not a script error"
+else
+  fail "no project.md: rc=$RC out=$OUT"
+fi
+
+# ===========================================================================
+# CASE 25: .flow/project.md's ## lint section stops at the next top-level
+# "## " heading (## test) rather than swallowing it. Regression test for a
+# mutated section-boundary exit condition (/^## / -> /^### /) that would
+# make the lint section run to EOF and absorb the test section's content.
+# ===========================================================================
+
+new_repo
+mkdir -p "$REPO/.flow"
+cat > "$REPO/.flow/project.md" <<'EOF'
+# Project configuration
+
+## lint
+
+LINT-ONLY-MARKER
+
+## test
+
+TEST-ONLY-MARKER
+EOF
+run_it
+LINT_BLOCK="$(printf '%s\n' "$OUT" | sed -n '/^### lint$/,/^### test$/p')"
+if [ "$RC" -eq 0 ] && case "$OUT" in
+  *TEST-ONLY-MARKER*) true ;;
+  *) false ;;
+esac && case "$LINT_BLOCK" in
+  *TEST-ONLY-MARKER*) false ;;
+  *) true ;;
+esac; then
+  pass "project.md lint section stops at next ## heading: test content not swallowed into lint"
+else
+  fail "project.md lint section stops at next ## heading: rc=$RC out=$OUT"
+fi
+
+# ===========================================================================
+# CASE 26: .flow/project.md's ## lint section body is whitespace-only ->
+# treated as absent, same as a missing section. Regression test for a
+# weakened emptiness check ([ -n "$section" ] instead of stripping whitespace
+# first) that would wrongly emit a populated but blank "### lint" heading.
+# ===========================================================================
+
+new_repo
+mkdir -p "$REPO/.flow"
+printf '# Project configuration\n\n## lint\n   \t   \n\n## test\n\nscripts/check-test-marker.sh\n' \
+  > "$REPO/.flow/project.md"
+run_it
+if [ "$RC" -eq 0 ] && case "$OUT" in
+  *"### test"*) true ;;
+  *) false ;;
+esac && case "$OUT" in
+  *"### lint"*) false ;;
+  *) true ;;
+esac; then
+  pass "project.md whitespace-only lint section: treated as absent, no ### lint heading"
+else
+  fail "project.md whitespace-only lint section: rc=$RC out=$OUT"
+fi
+
+# ===========================================================================
+# CASE 27: .flow/project.md has a "## linter" heading (a superstring of
+# "## lint") but no exact "## lint" heading -> not captured as the lint
+# section. Regression test for a weakened key match ($0 == key -> $0 ~ key)
+# that would let "## linter" match the "lint" key as a substring/regex.
+# ===========================================================================
+
+new_repo
+mkdir -p "$REPO/.flow"
+cat > "$REPO/.flow/project.md" <<'EOF'
+# Project configuration
+
+## linter
+
+scripts/should-not-be-captured.sh
+EOF
+run_it
+if [ "$RC" -eq 0 ] && case "$OUT" in
+  *"skipped: project commands (absent)"*) true ;;
+  *) false ;;
+esac && case "$OUT" in
+  *"scripts/should-not-be-captured.sh"*) false ;;
+  *) true ;;
+esac; then
+  pass "project.md '## linter' heading: not captured as the lint section"
+else
+  fail "project.md '## linter' heading: rc=$RC out=$OUT"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

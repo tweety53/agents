@@ -32,9 +32,10 @@ pipeline itself. The pipeline is one file, loaded on demand:
 **States** and **State transitions** (`skills/flow-contracts/pipeline.md`) — **load that file
 first**, before any other step of `/flow`. It is canonical for the state
 definitions, the command→state transition table, the wrong-state handoff, the
-handoff output shape. The finish contract itself lives in
-`skills/flow-contracts/finish-contract.md`, which is canonical for it and is loaded by
-`/flow`'s integrate/archive phase alone.
+handoff output shape. The finish contract itself is split by run:
+`skills/flow-contracts/finish-contract-run1.md`, canonical for run 1 and loaded by `/flow`'s
+integrate phase alone, and `skills/flow-contracts/finish-contract-run2.md`, canonical for run 2
+and loaded by `/flow`'s archive phase alone.
 
 Never act on a remembered version of any of that. A command that skips the load is running on a
 stale copy of the state machine — the failure this split exists to prevent.
@@ -53,7 +54,8 @@ first time a contract is added, nothing checks it against the table, and that is
 | **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
 | **The build-green tag** (`skills/flow-contracts/build-green.md`) | writing or checking a task's build tag |
 | **Workspace isolation** (`skills/flow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
-| **Finish contract** (`skills/flow-contracts/finish-contract.md`) | `/flow`'s two-run integrate/archive procedure — the preflight signals, both runs, base-branch resolution and worktree cleanup |
+| **Finish contract — run 1 (the branch is not merged)** (`skills/flow-contracts/finish-contract-run1.md`) | `/flow`'s integrate phase — the preflight signals, run 1's procedure, base-branch resolution |
+| **Finish contract — run 2 (the branch is merged)** (`skills/flow-contracts/finish-contract-run2.md`) | `/flow`'s archive phase — run 2's procedure and worktree cleanup |
 
 **A `/flow` run never loads a rationale appendix.** `pipeline-rationale.md` and
 `jira-integration-rationale.md` hold the reasoning behind the two largest contracts — why an

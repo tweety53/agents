@@ -83,7 +83,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
-| `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
+| `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract-run1.md`/`finish-contract-run2.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
 ### /flow commands summary
 
@@ -108,8 +108,8 @@ and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
 Also follow `rules/flow-manual-review.mdc` (always-on) — it is a stub, so **load
 `skills/flow-contracts/pipeline.md` first**; that file holds the states, transitions, git
 boundaries and the handoff shape, and is canonical for them. The finish contract lives in
-`skills/flow-contracts/finish-contract.md`, canonical for itself and loaded by `/flow`'s
-integrate/archive phase alone.
+`skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`,
+canonical for themselves and loaded by `/flow`'s integrate/archive phase alone.
 
 `<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (non-archived)
 change relevant to that state is used automatically; if there are multiple, you're asked which.

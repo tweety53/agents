@@ -43,11 +43,6 @@ no `/`** — see the containment rule below, which every form must pass.
 | **Any other bare filename, e.g. `<project>/CLAUDE.md` or `CONTRIBUTING.md`** | The **project's own** file: `<project>/<name>`, where the project root is the apply worktree when one exists, otherwise the main checkout. |
 | **Path** (repo-relative like `<project>/docs/standards/api.md`, or absolute) | Used as-is, subject to the containment rule below; a repo-relative path resolves against the apply worktree when one exists, otherwise the main checkout. |
 
-**The `.mdc` extension is what selects the shared library, and nothing else.** A project-local
-`.mdc` is still nameable — write it as a path (`<project>/.cursor/rules/api.mdc`), which form 3 takes as-is.
-See **The `.mdc` routing rule** (`skills/flow-contracts/project-configuration-rationale.md`)
-for why.
-
 Resolve each entry to an absolute path before passing it to any reviewer. **An entry that resolves
 to no existing file is reported by name and dropped** — never silently ignored, never substituted
 with a standard from another project.
@@ -179,8 +174,10 @@ never has to guess whether a cell is a value or an instruction:
   port cell is the literal `+<offset>` and cannot be written as part of a URL, and a bucket cell is
   the bucket and nothing around it. `<id>` and `<id_underscored>` cover what `<value:…>` cannot —
   a URL embedding a derived *name* whose own row spells that name inside a larger value, so there
-  is no row whose whole value could be substituted. The worked example below carries both kinds —
-  two `url` rows built from a `<value:…>` reference, and one built from `<id_underscored>` directly.
+  is no row whose whole value could be substituted. The worked example in **Project configuration
+  — authoring guidance** (`skills/flow-contracts/project-configuration-authoring.md`) carries both
+  kinds — two `url` rows built from a `<value:…>` reference, and one built from `<id_underscored>`
+  directly.
 
 **What a `url` row may reference, and what it may not.** A `<value:…>` reference names a
 `database`, `bucket` or `port` row in the same table — **never another `url` row, and never a
@@ -253,7 +250,7 @@ rather than left to the caller.** See
   (`skills/flow-contracts/project-configuration-rationale.md`) for how
   `<agents repo>/scripts/check-cleanup-complete.sh` invokes it.
 - **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
-  step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract.md`). See
+  step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`). See
   **Working directory for `survivors`, `remove`, and `create`**
   (`skills/flow-contracts/project-configuration-rationale.md`) for why.
 - **`create` runs from the apply worktree**, because of who calls it: whatever starts the project's
@@ -299,7 +296,7 @@ guard reading them cannot ask a follow-up question:
   would run one the author may not have meant and then report the row verified on its answer.
 - **No answer within the bound** — the command is given **60 seconds**, the same bound the project's
   stop command gets under
-  **Worktree cleanup** (`skills/flow-contracts/finish-contract.md`), and is terminated if it
+  **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), and is terminated if it
   exceeds it. A terminated command has said nothing about survivors, so this joins the skip above,
   **reported as a timeout rather than as an exit code** — the number a killed process carries
   describes the guard's own signal, not the project's answer, and an operator has to be able to
@@ -338,34 +335,6 @@ remember alongside it. `<value:…>` is **not** substituted in a command: a comm
 derived value reads the exported variable, which is already in its environment. **Which command a
 project names is the project's own decision**, reusing one
 it already ships or adding one, per **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`).
-
-Written out, with placeholder names standing in for a real project's own — this file carries no
-project's databases, ports or task names, per its opening paragraph:
-
-```markdown
-## workspace isolation
-
-| Resource | Variable | Default | In a workspace |
-|----------|----------|---------|----------------|
-| `database` | `DB_URL` | `jdbc:postgresql://localhost:5432/appdb` | `jdbc:postgresql://localhost:5432/appdb_<id_underscored>` |
-| `bucket` | `MEDIA_BUCKET` | `appdb-media` | `appdb-media-<id>` |
-| `cache index` | `CACHE_INDEX` | `0` | `probed` |
-| `port` | `API_PORT` | `8080` | `+<offset>` |
-| `port` | `WEB_PORT` | `3000` | `+<offset>` |
-| `url` | `MEDIA_BASE_URL` | `http://localhost:9000/appdb-media` | `http://localhost:9000/<value:MEDIA_BUCKET>` |
-| `url` | `WEB_URL` | `http://localhost:3000` | `http://localhost:<value:WEB_PORT>` |
-| `url` | `DB_CONSOLE_URL` | `http://localhost:8081/?db=appdb` | `http://localhost:8081/?db=appdb_<id_underscored>` |
-
-| Command | Runs |
-|---------|------|
-| `create` | `./scripts/workspace create` |
-| `remove` | `./scripts/workspace remove` |
-| `survivors` | `./scripts/workspace survivors` |
-```
-
-See **The three-`url`-rows worked example**
-(`skills/flow-contracts/project-configuration-rationale.md`) for a walkthrough of the three
-`url` rows in the worked example above.
 
 **A project declares only the ports it can actually move.** An application whose port is fixed
 outside the declaring project's own repository — in a build file of a repository the change does not
@@ -409,13 +378,6 @@ contained exactly as a `## standards` path is — the rule follows the read, not
 **No path is isolated inside a command**
 (`skills/flow-contracts/project-configuration-rationale.md`)
 for why.
-
-**Which of these rules a script checks, and which are left to the agent.** The distinction matters
-because the two failure modes are not alike: a rule a script checks fails the same way on every run,
-and a rule an agent applies is re-performed from this text each time and can be skipped without
-anything erroring. So the split is written down rather than left to be inferred from a passing lint
-run — a reader who assumed the whole of this section were checked would trust a green run further
-than it goes.
 
 **Mechanically enforced** by `<agents repo>/scripts/check-workspace-isolation.sh`, which reads
 `<project>/.flow/project.md` and reports each failing row by name with the rule it broke: the closed

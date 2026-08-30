@@ -138,8 +138,8 @@ field is how it gets erased.
 - `branch` — the change's branch, `spectre/<name>`; `null` before one exists.
 - `worktrees` — an object **keyed by the absolute path** of each affected worktree, whose value is
   that worktree's merge base. `{}` when none exist or all were removed. **A `FINISHED` change may
-  legitimately carry a non-empty map:** `/flow`'s archive phase clears only the entries whose removal
-  actually succeeded, so a worktree that could not be removed stays listed and remains findable.
+  legitimately carry a non-empty map** — per **Run 2 — the branch is merged**
+  (`finish-contract-run2.md`) step 8, a worktree that could not be removed stays listed and findable.
   See **A change spanning repositories is one record** below.
 
   **A value is either JSON `null` or a 40-character lowercase hexadecimal sha, and nothing else** —
@@ -338,7 +338,7 @@ looping over this map directly. The scalar `branch` names the shared branch only
 worktree path from a conventional layout; layout differs per repository.
 
 The **order** those repositories land in is not recorded here at all: it lives in the canonical
-`link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract.md`)
+`link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
 reads to sequence run 1's routes.
 
 ```json

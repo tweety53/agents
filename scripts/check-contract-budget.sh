@@ -188,7 +188,7 @@ skills/flow/SKILL.md 16278
 skills/flow/archive.md 18748
 skills/flow/brainstorm.md 26964
 skills/flow/engineering-principles.md 10732
-skills/flow/implement.md 16559
+skills/flow/implement.md 20877
 skills/flow/integrate.md 18602
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 35985
@@ -198,7 +198,8 @@ skills/flow-contracts/SKILL.md 9665
 skills/flow-contracts/artifacts-registry-rationale.md 6981
 skills/flow-contracts/artifacts-registry.md 8447
 skills/flow-contracts/build-green.md 6678
-skills/flow-contracts/finish-contract.md 54286
+skills/flow-contracts/finish-contract-run1.md 30090
+skills/flow-contracts/finish-contract-run2.md 36019
 skills/flow-contracts/git-boundaries-rationale.md 2317
 skills/flow-contracts/git-boundaries.md 7258
 skills/flow-contracts/handoff-blocks-rationale.md 13086
@@ -212,6 +213,7 @@ skills/flow-contracts/operator-prompts.md 2432
 skills/flow-contracts/pipeline-rationale.md 14943
 skills/flow-contracts/pipeline.md 36155
 skills/flow-contracts/plan-provenance.md 30695
+skills/flow-contracts/project-configuration-authoring.md 3028
 skills/flow-contracts/project-configuration-rationale.md 16982
 skills/flow-contracts/project-configuration.md 48175
 skills/flow-contracts/session-records-rationale.md 2365

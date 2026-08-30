@@ -8,6 +8,9 @@ resuming run (`STARTED`).
 
 ## A. Resolve the change and write `STARTED`
 
+**Load `skills/flow-contracts/jira-integration.md`** — this section resolves the linked issue and
+derives the change name from it.
+
 **Resolve the linked Jira issue first** — it decides the change name. Follow **Resolution (how
 `jiraIssue` is decided)** in `skills/flow-contracts/jira-integration.md` exactly. This is the
 only phase that resolves a key.
@@ -340,11 +343,13 @@ column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; tha
 `  - [ ] **Step N: …**` lines indented two columns beneath it. The rule in full is the `Placement`
 paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`).
 
-While enriching `tasks.md`, tag every fenced block and every numeric claim per **Plan provenance**
+**Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
+block and every numeric claim per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
 and **kept**.
 
-While enriching `tasks.md`, also tag every task with `**Build:**` per **The build-green tag**
+**Load `skills/flow-contracts/build-green.md`.** While enriching `tasks.md`, also tag every task
+with `**Build:**` per **The build-green tag**
 (`skills/flow-contracts/build-green.md`), and with the mechanically-checkable field family
 `flow-task-commit-fields` requires:
 
