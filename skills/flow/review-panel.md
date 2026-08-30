@@ -137,6 +137,12 @@ dispatch prompt.
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same one
 `skills/flow/implement.md`'s implementer dispatch carries.
 
+**Every slot's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
+
+> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or poll it to
+> completion, before you stop.
+
 **Every slot's dispatch prompt also carries the REPRODUCE, DON'T READ paragraph**:
 
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
@@ -472,6 +478,12 @@ against its defect identity. **Inline no source excerpt.**
 > never a source of fact. Where the two disagree the report wins. Where the block asserts
 > something the report does not, treat it as unchecked and establish it yourself before building
 > on it.
+
+**Every fix subagent's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
+
+> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or poll it to
+> completion, before you stop.
 
 Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
