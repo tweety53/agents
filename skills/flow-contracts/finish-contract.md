@@ -163,7 +163,9 @@ nothing about the single-repository path changes.
 **Before any route commits, reshape the branch.** Run
 `git -C <abs-worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
-**Resolving a change's worktrees** and the finish-preflight verdict above both reference. This
+**Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or the
+this-run-only rebased merge base, for a worktree `skills/flow/integrate.md`'s own in-pipeline
+rebase step rebased**; that file is canonical for the exception, not restated here. This
 collapses every per-task and fixup commit `/myflow-do` made on the branch back into the working
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
@@ -297,7 +299,10 @@ failure, which sends the operator debugging the wrong thing. Offer to leave the 
 **No verification gate runs before integration.** No tests, no linters, no spec-coverage check.
 Correctness was established during `/myflow-do` — TDD per task, per-task review, the final review
 panel — and by the human gate. Re-running it here would repeat finished work immediately before
-the one irreversible step.
+the one irreversible step. One exception exists: `skills/flow/integrate.md`'s own in-pipeline
+rebase step runs a scoped re-verification, over the rebase's overlap set only, when a clean rebase
+actually changed a file this change also touches — that file is canonical for the exception's
+scope.
 
 ### Run 2 — the branch is merged
 
