@@ -1272,3 +1272,77 @@ Slot 0 SHALL NOT be scoped out by this rule: it reads the whole diff and has no 
 
 - **WHEN** a delta slot raised an open finding on an earlier pass and its delta is empty on this pass
 - **THEN** that finding remains open and the handoff is still blocked
+
+### Requirement: A relocation-declaring plan gets a mechanical passage comparison
+
+`tasks.md`'s header SHALL carry an explicit `**Relocation:** yes — <one-line reason>` or
+`**Relocation:** no` field. This field SHALL be required and explicit on every plan — never
+omitted, per this repository's "missing rather than dropped" convention.
+
+Where the header declares `yes`, `/flow` SHALL generate a mechanical before/after passage
+comparison, scoped to the union of every task's own `**Files:**` field across the plan, before the
+review panel is dispatched.
+
+The comparison SHALL classify each passage it finds into exactly one of four categories:
+
+1. **Moved** — the passage's text is identical, and only its file or heading changed.
+2. **Repointed** — the passage's text is identical modulo exactly the two edits
+   `myflow-contract-economy`'s split requirement already permits a moved passage: repointing a
+   citation's backticked path and the bold section token beside it, or deleting a stale `above` or
+   `below` position word the move made false.
+3. **Added** — the passage has no matching passage before the change.
+4. **Removed** — the passage has no matching passage after the change.
+
+Generation SHALL NOT block the panel. Where the generation script fails, `/flow` SHALL print one
+line stating the failure and dispatch the panel without the comparison file — the same fallback
+shape the dispatch-context bundle's own missing-bundle case already uses.
+
+Every review-panel slot's dispatch prompt SHALL name the comparison file's absolute path, when it
+exists, alongside the existing dispatch-context bundle pointer.
+
+#### Scenario: The header is required and explicit
+
+- **WHEN** a plan's `tasks.md` header is enriched by writing-plans
+- **THEN** it carries an explicit `**Relocation:** yes — <reason>` or `**Relocation:** no` line,
+  never an omitted one
+
+#### Scenario: A `yes` plan scopes the comparison to the plan's own files
+
+- **WHEN** a plan declares `**Relocation:** yes` and its tasks' `**Files:**` fields name three files
+  between them
+- **THEN** the comparison reads exactly those three files, and no file outside that union
+
+#### Scenario: An identical passage under a new heading is moved
+
+- **WHEN** a passage's text is byte-for-byte unchanged but now sits under a different heading in a
+  different file
+- **THEN** the comparison classifies it as moved
+
+#### Scenario: A repointed citation is not misclassified as added and removed
+
+- **WHEN** a moved passage's only changes are a repointed backticked path and bold section token, or
+  the deletion of a stale `above` or `below`
+- **THEN** the comparison classifies it as repointed, not as one removed passage plus one added
+  passage
+
+#### Scenario: A genuinely new passage is added
+
+- **WHEN** a passage in the after-state has no matching passage in the before-state
+- **THEN** the comparison classifies it as added
+
+#### Scenario: A genuinely deleted passage is removed
+
+- **WHEN** a passage in the before-state has no matching passage in the after-state
+- **THEN** the comparison classifies it as removed
+
+#### Scenario: A failed generation does not block the panel
+
+- **WHEN** the generation script exits non-zero
+- **THEN** `/flow` prints one line stating the failure and dispatches the panel without a comparison
+  file
+
+#### Scenario: Every slot's prompt names the comparison file
+
+- **WHEN** a relocation-declaring plan's comparison file exists at dispatch time
+- **THEN** every panel slot's dispatch prompt names that file's absolute path, alongside the
+  dispatch-context bundle pointer

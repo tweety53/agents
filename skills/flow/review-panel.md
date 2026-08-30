@@ -85,6 +85,13 @@ skipped review.
 **Before writing `final-review.diff`**, run
 
 ```bash
+generate-relocation-comparison.sh <worktree> <changeRoot> <merge-base>
+```
+
+A non-zero exit (`2` — cannot answer) prints one line and the run continues without the comparison
+file. This call is never a gate — generation never blocks the panel.
+
+```bash
 check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
@@ -135,7 +142,10 @@ defect, or the literal exemption form `none — <reason>`. Carry this requiremen
 dispatch prompt.
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same one
-`skills/flow/implement.md`'s implementer dispatch carries.
+`skills/flow/implement.md`'s implementer dispatch carries. **When
+`<abs-worktree>/.superpowers/sdd/relocation-comparison.md` exists, every slot's dispatch prompt also
+names its absolute path**, framed as a review input to audit against the diff — never a substitute
+for reading `final-review.diff` itself.
 
 **Every slot's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
 

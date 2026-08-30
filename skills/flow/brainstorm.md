@@ -371,6 +371,18 @@ Add this header to `tasks.md`:
 > passes spec + quality review.
 ```
 
+Add a second header line, in the same block, declaring whether this plan relocates existing
+prose:
+
+```markdown
+> **Relocation:** yes — <one-line reason>
+```
+
+or `**Relocation:** no`. This line is required and explicit on every plan — never omitted, per
+this repository's "missing rather than dropped" convention. `yes` scopes a mechanical passage
+comparison (generated later in the pipeline, by a script this change adds elsewhere) to the union
+of every task's own `**Files:**` field across the plan.
+
 Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
 project's configured plan-provenance guard and its configured build-green guard, if the project
 declares them, and fix any hit.
