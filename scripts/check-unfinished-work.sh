@@ -43,18 +43,20 @@
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.
 #
-# WHY THE CHECKLIST PATTERN IS ANCHORED. `- [ ]` is matched only at the start of
-# a line (leading whitespace allowed, for a nested item). Unanchored, it also
-# matches a plan that merely QUOTES a checklist inside a fenced example, which
-# this repository's own plans do — measured: 44 unanchored hits against 42
-# anchored ones in this repository's own kan-17-finish-gate-jira-and-commit-hygiene
-# change's tasks.md (now archived), the two extra being `printf` lines in fenced
-# shell. A guard that
-# fires on every plan that documents a checkbox is a guard the operator learns
-# to click past. Fence tracking was rejected as the fuller fix: it is real
-# complexity, and what it would still catch — a fenced example whose line BEGINS
-# with `- [ ]` — errs toward OUTSTANDING, which prompts the operator rather than
-# clearing the gate silently.
+# WHY THE CHECKLIST PATTERN IS ANCHORED TO COLUMN 0. `- [ ]` is matched only at
+# the very start of a line — no leading whitespace at all. A task line sits at
+# column 0 by this repository's task/step grammar (`build-green.md`); a step's
+# checkbox is indented two columns beneath its task, and `implement.md` is
+# explicit that "a step's checkbox tracks the step and gates nothing" — so a
+# ticked or unticked step must never move this guard's count. Column-0
+# anchoring also keeps the original reason for anchoring at all: unanchored,
+# `- [ ]` also matches a plan that merely QUOTES a checklist inside a fenced
+# example, which this repository's own plans do. A guard that fires on every
+# plan that documents a checkbox is a guard the operator learns to click past.
+# Fence tracking was rejected as the fuller fix: it is real complexity, and
+# what it would still catch — a fenced example whose line BEGINS with `- [ ]`
+# at column 0 — errs toward OUTSTANDING, which prompts the operator rather
+# than clearing the gate silently.
 #
 # A SATELLITE'S MISSING LOCAL PLAN IS NOT THE MISSING-RECORD CASE ABOVE
 # REJECTS. "A missing file counts as OUTSTANDING, not CLEAR" is about a
@@ -188,7 +190,7 @@ count_matching() {
 # are the same knowledge about what an unticked box looks like, and separate
 # copies would drift.
 count_unticked() {
-  count_matching "$1" '^[[:space:]]*- \[ \]'
+  count_matching "$1" '^- \[ \]'
 }
 
 # Signal one — the plan, including any fix sub-change.

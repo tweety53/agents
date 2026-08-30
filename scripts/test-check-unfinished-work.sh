@@ -743,6 +743,16 @@ assert_verdict "OUTSTANDING:" \
 assert_reason "1 unchecked plan item(s)" \
   "the unchecked canonical-fix sibling is counted, even though the canonical plan itself is fully checked"
 
+# 13. KAN-368: an unticked STEP indented two columns beneath a checked task
+#     line must never be read as an unchecked plan item. A step's checkbox
+#     tracks the step and gates nothing (implement.md); only a column-0 task
+#     checkbox counts (count_unticked's anchor).
+new_fixture
+printf -- '- [x] 1. done\n  - [ ] **Step 1: still shows unticked, and must not count**\n' \
+  > "$WT/spectre/changes/demo/tasks.md"
+run_guard "$WT" demo
+assert_verdict "CLEAR:" "an unticked step beneath a checked task does not gate the guard"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
