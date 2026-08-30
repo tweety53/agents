@@ -29,6 +29,26 @@
 # required blocks glued with no blank line between them, where the first
 # is deficient and must not pass by absorbing the second's phrases.
 #
+# Cases 16-19 cover KAN-263's FOREGROUND BUILDS paragraph, required twice
+# in each of implement.md and review-panel.md: case 1's fixtures (and
+# every other case's fixtures asserted clean) now carry two correct
+# FOREGROUND BUILDS blocks per file alongside their existing blocks; case
+# 16 is the label absent entirely from implement.md; cases 17-19 are one
+# case per required phrase, each dropped in turn.
+#
+# Cases 20-21 close a gap Bugbot found in review: cases 16-19 only cover
+# "label entirely absent" (block_count 0) and "a block present but missing
+# one required phrase" (a phrase-level failure, block_count still meets
+# min_blocks since the deficient block still counts as one) — never the
+# min_blocks=2 threshold itself, i.e. exactly ONE fully-correct FOREGROUND
+# BUILDS block present and the SECOND required occurrence entirely
+# missing. That is precisely the failure mode a dispatcher forgetting the
+# second required occurrence would produce. Mutating either foreground
+# SITE_MIN_BLOCKS entry from 2 to 1 left every existing case green; case 20
+# (implement.md, one correct block, second omitted) and case 21
+# (review-panel.md, same shape) each pin the min-blocks violation's own
+# message, so that mutation now fails them.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -133,6 +153,26 @@ VERBATIM_BLOCK_NO_REPORT_WINS='> **VERBATIM REPORT — THE FACT:** each finding 
 > something the report does not, treat it as unchecked and establish it yourself before building
 > on it.'
 
+# The FOREGROUND BUILDS paragraph, reproduced verbatim from
+# skills/flow/implement.md and skills/flow/review-panel.md.
+FOREGROUND_BLOCK='> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or poll it to
+> completion, before you stop.'
+
+# Variants of FOREGROUND_BLOCK, each with exactly one required phrase
+# dropped while staying a plausible paragraph — cases 17-19.
+FOREGROUND_BLOCK_NO_STILL_EXECUTING='> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command left running in the background. Run it in the foreground, or poll it to
+> completion, before you stop.'
+
+FOREGROUND_BLOCK_NO_RUN_FOREGROUND='> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Bring it to the foreground, or poll it to
+> completion, before you stop.'
+
+FOREGROUND_BLOCK_NO_POLL_COMPLETION='> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or wait for it to
+> finish, before you stop.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -140,15 +180,26 @@ write_site() {
 
 # ===========================================================================
 # Case 1: both required sites correct — exit 0. review-panel.md now carries
-# both the REPRODUCE reviewer block and the VERBATIM REPORT block.
+# both the REPRODUCE reviewer block and the VERBATIM REPORT block, plus two
+# FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix dispatch);
+# implement.md carries two FOREGROUND BUILDS blocks too (implementer
+# dispatch, per-task reviewer dispatch).
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
 
-$VERBATIM_BLOCK"
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
-$IMPLEMENTER_BLOCK"
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -456,6 +507,168 @@ run_guard
 case "$OUT" in
   *"exercise the real thing"*) pass "case 15: names the phrase the glued block did not actually carry" ;;
   *) fail "case 15: expected 'exercise the real thing' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 16: the FOREGROUND BUILDS label is absent entirely from
+# implement.md — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 16: exits 1" || fail "case 16: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"FOREGROUND BUILDS"*) pass "case 16: names implement.md and the missing FOREGROUND BUILDS block" ;;
+  *) fail "case 16: expected implement.md and FOREGROUND BUILDS named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 17: a FOREGROUND BUILDS block is present but missing
+# "still executing in the background" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK_NO_STILL_EXECUTING
+
+$FOREGROUND_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 17: exits 1" || fail "case 17: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"still executing in the background"*) pass "case 17: names the missing phrase" ;;
+  *) fail "case 17: expected \"still executing in the background\" named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 18: a FOREGROUND BUILDS block is present but missing
+# "Run it in the foreground" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK_NO_RUN_FOREGROUND
+
+$FOREGROUND_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 18: exits 1" || fail "case 18: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"Run it in the foreground"*) pass "case 18: names the missing phrase" ;;
+  *) fail "case 18: expected \"Run it in the foreground\" named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 19: a FOREGROUND BUILDS block is present but missing
+# "poll it to completion" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK_NO_POLL_COMPLETION
+
+$FOREGROUND_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 19: exits 1" || fail "case 19: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"poll it to completion"*) pass "case 19: names the missing phrase" ;;
+  *) fail "case 19: expected \"poll it to completion\" named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 20: implement.md carries exactly ONE correct FOREGROUND BUILDS
+# block; the second required occurrence is entirely missing (not
+# deficient — simply absent) — exit 1, names implement.md and the
+# min-blocks violation at its own threshold (2).
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 20: exits 1" || fail "case 20: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*) pass "case 20: names implement.md" ;;
+  *) fail "case 20: expected implement.md named in output, got: $OUT" ;;
+esac
+case "$OUT" in
+  *"requires at least 2 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"*) \
+    pass "case 20: names the min-blocks violation at its own threshold" ;;
+  *) fail "case 20: expected the FOREGROUND BUILDS min-blocks violation message, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 21: review-panel.md carries exactly ONE correct FOREGROUND BUILDS
+# block; the second required occurrence is entirely missing — exit 1,
+# names review-panel.md and the min-blocks violation at its own threshold
+# (2). Same shape as case 20, other site.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 21: exits 1" || fail "case 21: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*) pass "case 21: names review-panel.md" ;;
+  *) fail "case 21: expected review-panel.md named in output, got: $OUT" ;;
+esac
+case "$OUT" in
+  *"requires at least 2 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"*) \
+    pass "case 21: names the min-blocks violation at its own threshold" ;;
+  *) fail "case 21: expected the FOREGROUND BUILDS min-blocks violation message, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

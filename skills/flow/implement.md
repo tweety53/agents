@@ -232,6 +232,12 @@ as it stands after the fold.
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
 > contradicts the plan** (`skills/flow-contracts/plan-provenance.md`).
 
+Every implementer dispatch **must** also carry:
+
+> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or poll it to
+> completion, before you stop.
+
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one test you write MUST exercise the real
 > thing. A test backed by a fake or a hand-built value passes while the real integration is broken:
@@ -263,6 +269,10 @@ DEFAULT_MODEL`. **The per-task review is a single combined reviewer**, covering 
 code quality together, dispatched on `DEFAULT_MODEL` — `/flow`'s panel carries no roster, so there
 is no `full`-preset split into two per-task reviewers. Mark a **task's** checkbox `[x]` only after
 that task passes spec **and** quality review; a step's checkbox tracks the step and gates nothing.
+
+> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or poll it to
+> completion, before you stop.
 
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one check you make MUST exercise the real

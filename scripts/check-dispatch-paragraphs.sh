@@ -13,7 +13,12 @@
 # REPORT — THE FACT blockquote that tells the fix subagent its slot's
 # report file outranks the dispatcher's summary — and generalized this
 # guard from one hard-coded paragraph to a table of them so a third would
-# cost a table row, not a second copy of the machinery.
+# cost a table row, not a second copy of the machinery. KAN-263 added a
+# third required paragraph — FOREGROUND BUILDS, which forbids a dispatched
+# agent from ending its turn with a build/test/long-running command still
+# running in the background — at all four dispatch sites that can run one:
+# the implementer dispatch, the per-task reviewer dispatch, the review
+# panel's slot dispatch, and the panel-fix subagent dispatch.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -36,6 +41,8 @@
 #   **REPRODUCE, DON'T READ:**         skills/flow/review-panel.md  1   reviewer
 #   **REPRODUCE, DON'T READ:**         skills/flow/implement.md     2   reviewer AND implementer
 #   **VERBATIM REPORT — THE FACT:**    skills/flow/review-panel.md  1   (none)
+#   **FOREGROUND BUILDS:**             skills/flow/implement.md     2   (none)
+#   **FOREGROUND BUILDS:**             skills/flow/review-panel.md  2   (none)
 #
 #   REPRODUCE, DON'T READ shared phrases: "crosses a boundary", "the store,
 #   the filesystem, a guard, a real transcript", "exercise the real thing"
@@ -45,6 +52,12 @@
 #   VERBATIM REPORT — THE FACT shared phrases (no variants — every block
 #   carrying the label must carry all three): "the reviewer's own report",
 #   "never a source of fact", "the report wins"
+#
+#   FOREGROUND BUILDS shared phrases (no variants — every block carrying the
+#   label must carry all three): "still executing in the background", "Run
+#   it in the foreground", "poll it to completion". Required twice in each
+#   of implement.md (implementer dispatch, per-task reviewer dispatch) and
+#   review-panel.md (panel slot dispatch, panel-fix subagent dispatch).
 #
 # A BLOCK is a line carrying a label, plus every immediately-following line
 # that continues the same markdown blockquote (a line beginning with `>`) —
@@ -96,11 +109,13 @@ US=$'\x1f'
 declare -A ENTRY_LABEL=(
   [reproduce]="**REPRODUCE, DON'T READ:**"
   [verbatim]="**VERBATIM REPORT — THE FACT:**"
+  [foreground]="**FOREGROUND BUILDS:**"
 )
 
 declare -A ENTRY_SHARED_PHRASES=(
   [reproduce]="crosses a boundary${US}the store, the filesystem, a guard, a real transcript${US}exercise the real thing"
   [verbatim]="the reviewer's own report${US}never a source of fact${US}the report wins"
+  [foreground]="still executing in the background${US}Run it in the foreground${US}poll it to completion"
 )
 
 # Variant names per entry, space-separated; empty means the entry has no
@@ -108,6 +123,7 @@ declare -A ENTRY_SHARED_PHRASES=(
 declare -A ENTRY_VARIANTS=(
   [reproduce]="reviewer implementer"
   [verbatim]=""
+  [foreground]=""
 )
 
 # Each variant's own load-bearing phrase, keyed "<entry>:<variant>".
@@ -120,10 +136,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
-SITE_MIN_BLOCKS=(1 2 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md")
+SITE_MIN_BLOCKS=(1 2 1 2 2)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {
