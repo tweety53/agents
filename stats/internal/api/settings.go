@@ -47,12 +47,17 @@ type settingsHandler struct {
 // shape GET and PUT exchange. Field names match store.Settings' own
 // field-for-field, following changeDTO's own precedent.
 type settingsDTO struct {
-	DefaultModel string   `json:"defaultModel"`
-	Reviewers    []string `json:"reviewers"`
+	DefaultModel    string   `json:"defaultModel"`
+	SelfReviewModel string   `json:"selfReviewModel"`
+	Reviewers       []string `json:"reviewers"`
 }
 
 func toSettingsDTO(s store.Settings) settingsDTO {
-	return settingsDTO{DefaultModel: s.DefaultModel, Reviewers: s.Reviewers}
+	return settingsDTO{
+		DefaultModel:    s.DefaultModel,
+		SelfReviewModel: s.SelfReviewModel,
+		Reviewers:       s.Reviewers,
+	}
 }
 
 // get serves GET /api/v1/settings.
@@ -78,7 +83,11 @@ func (h *settingsHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s := store.Settings{DefaultModel: dto.DefaultModel, Reviewers: dto.Reviewers}
+	s := store.Settings{
+		DefaultModel:    dto.DefaultModel,
+		SelfReviewModel: dto.SelfReviewModel,
+		Reviewers:       dto.Reviewers,
+	}
 	if err := h.store.PutSettings(r.Context(), s); err != nil {
 		if errors.Is(err, store.ErrInvalidModel) || errors.Is(err, store.ErrInvalidReviewer) {
 			// A caller mistake, not a store failure -- mapStoreError's

@@ -149,6 +149,14 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    with no interactive channel to present this prompt still runs self-review, exactly as an explicit
    **Yes** would.
 
+   **On anything but No, the combined reasoning pass runs as a subagent, on `SELF_REVIEW_MODEL`**
+   (**Model resolution**, `skills/flow/SKILL.md`) — not inline in this session. Hand the subagent
+   the script's output and the five-angle table below; it returns the five angles' findings (each
+   angle's findings, or an explicit none-marker) as its report body and nothing else — it does not
+   write the report file, does not ask the rating question, and does not run the filing prompts.
+   This session receives that back and runs everything below itself, since a subagent cannot drive
+   `AskUserQuestion`.
+
    | # | Angle | Label |
    |---|-------|-------|
    | 1 | Problems encountered, and what pipeline change would avoid them | `myflow-fix` |
