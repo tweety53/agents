@@ -1051,6 +1051,85 @@ def _commit_reverted(worktree: str, commit_sha: str):
         run_git(worktree, ["reset", "--hard", commit_sha])
 
 
+# _STASH_MESSAGE: the guard's own stash entries are tagged with this message
+# so a human reading `git stash list` after a refused pop (see
+# _uncommitted_work_protected below) can tell which entry is this guard's
+# doing, rather than guessing among whatever else the worktree's history of
+# stashing has left behind.
+_STASH_MESSAGE = "check-task-commit-fields: protecting uncommitted work"
+
+
+@contextlib.contextmanager
+def _uncommitted_work_protected(worktree: str):
+    """Shield every staged, unstaged and untracked tracked-file change in
+    `worktree` from `_commit_reverted`'s own `git reset --hard`, for the
+    body of the `with` block, by stashing them away on entry and popping
+    them back on exit (KAN-162).
+
+    `_commit_reverted` resets hard to make the revert-and-test cycle
+    repeatable, but `git reset --hard` resets the *whole* index and working
+    tree, not merely what the revert touched — and a `/flow` worktree
+    carries staged-but-uncommitted planning artifacts
+    (`spectre/changes/`, `docs/superpowers/`) throughout implementation, so
+    an unconditional reset destroys them on every `Regression:`/`Baseline:`
+    check. Stashing first makes the tree `_commit_reverted` operates on
+    already clean of anything worth protecting, so its own reset has
+    nothing left to destroy.
+
+    This wraps `check_regression` and `check_baseline` **together**, once,
+    at the `check_task_commit` call site — not once per check inside
+    `_commit_reverted` itself — so a task declaring both fields stashes and
+    pops exactly once rather than twice for no benefit, and a failure
+    partway through never leaves the second check operating against a tree
+    whose stash state is uncertain.
+
+    `git stash push` reports `No local changes to save` and exits 0 when
+    the tree is already clean; that is not an error; detect it and skip the
+    pop; the checks then run exactly as they do without this wrapper.
+
+    A `git stash pop` that itself fails — a conflict against whatever
+    `_commit_reverted` left behind — is the one situation stashing cannot
+    transparently recover from. This never falls back to `git reset --hard`
+    to force a clean state: that would silently discard the very data the
+    stash exists to protect, the same failure this whole context manager
+    fixes, just moved one step later. Instead it re-raises as the guard's
+    own hard failure, naming `git stash list` as the recovery path, and
+    leaves the stash entry exactly where `git stash pop` left it.
+
+    If the `with`-body was itself propagating an exception when the pop
+    conflicts (e.g. `_commit_reverted`'s own revert/reset failing inside
+    `check_regression`/`check_baseline`), Python's finally-raises-a-new-
+    exception semantics would otherwise discard that original exception
+    from the value `main()` prints — it prints only `str(exc)`, never the
+    `__cause__`/`__context__` chain, so the original failure has to be
+    folded into the raised message's own text to stay visible, not merely
+    linked via `from`."""
+    output = run_git(
+        worktree, ["stash", "push", "--include-untracked", "-m", _STASH_MESSAGE]
+    )
+    stashed = "No local changes to save" not in output
+    try:
+        yield
+    finally:
+        if stashed:
+            in_flight = sys.exc_info()[1]
+            try:
+                run_git(worktree, ["stash", "pop"])
+            except RuntimeError as exc:
+                if in_flight is not None:
+                    raise RuntimeError(
+                        f"{exc}; the stash was left in place — see `git "
+                        f"stash list` in {worktree} to recover it — this "
+                        "also masks an exception that was already in "
+                        f"flight when the stash pop was attempted: "
+                        f"{in_flight}"
+                    ) from exc
+                raise RuntimeError(
+                    f"{exc}; the stash was left in place — see `git stash "
+                    f"list` in {worktree} to recover it"
+                ) from exc
+
+
 def check_regression(task: TaskFields, worktree: str, commit_sha: str) -> Optional[CheckOutcome]:
     """Verify `Regression:` by reverting `commit_sha`, running the task's
     first declared test with `--only`, and confirming it now reports
@@ -1218,10 +1297,12 @@ def check_task_commit(
     violations += check_commit_subject(folded, actual_subject)
     violations += check_commit_scope(task, change_name)
 
-    for outcome in (
-        check_regression(task, worktree, commit_sha),
-        check_baseline(task, worktree, commit_sha),
-    ):
+    with _uncommitted_work_protected(worktree):
+        outcomes = (
+            check_regression(task, worktree, commit_sha),
+            check_baseline(task, worktree, commit_sha),
+        )
+    for outcome in outcomes:
         if outcome is None:
             continue
         (notices if outcome.skipped else violations).append(outcome.message)
