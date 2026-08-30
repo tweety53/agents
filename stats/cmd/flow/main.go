@@ -37,6 +37,7 @@ commands:
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
+  tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
 `
 
 func main() {
@@ -66,6 +67,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runJournal(ctx, args[1:], stdout, stderr)
 	case "settings":
 		return runSettings(ctx, args[1:], stdout, stderr)
+	case "tasks":
+		return runTasks(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown command %q\n", args[0])
 		fmt.Fprint(stderr, usage)
