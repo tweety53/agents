@@ -78,9 +78,9 @@ fallback shape `dispatch-context.md`'s own missing-bundle case already uses.
 ### Spec
 
 A new requirement lands under `myflow-review-panel-economics` (the capability already owning
-"Every panel slot is dispatched with the shared context bundle"), plus a small addition to
-`myflow-contract-economy` for the `**Relocation:**` header field itself: writing-plans writes it,
-review-panel reads it.
+"Every panel slot is dispatched with the shared context bundle"). The `**Relocation:**` header
+field itself — writing-plans writes it, review-panel reads it — is consolidated into that same
+new requirement, not split into a separate addition to `myflow-contract-economy`.
 
 ## Out of scope
 
