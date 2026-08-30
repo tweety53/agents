@@ -353,6 +353,13 @@ When a review finding requires a code change to a task that is already committed
 `git commit --fixup=<task-sha>`, where `<task-sha>` is the **original** task commit. Immediately
 `git rebase --autosquash` to fold it in.
 
+**A clean `git rebase --autosquash` is not evidence the fix survived it.** Where the fixup and the
+commit it folds into touch nearby lines, git's 3-way auto-merge can resolve in favour of the
+pre-fix side — it exits 0, prints no conflict marker, and leaves no `fixup!` commit behind. The
+reproducer rerun and diff check below (**Once the fix subagent reports…**) are what catch this;
+they must run against the post-rebase file content, never be satisfied by the fixup commit's
+presence or the rebase's own exit code.
+
 | Mode | Who re-runs | Diff they get |
 |------|-------------|----------------|
 | **Targeted** (default) | Primary, when the roster carries it, as an integration check, plus every agent that raised a finding | `fix-round-N.diff` |
