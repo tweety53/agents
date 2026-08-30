@@ -1,0 +1,13 @@
+-- 0016_flow_settings_self_review_model.sql: adds flow_settings.self_review_model, the model
+-- /flow's archive-phase self-review reasoning pass runs on.
+--
+-- TEXT NOT NULL DEFAULT '' -- not nullable -- for the same reason
+-- default_model and reviewers are NOT NULL in 0015_flow_settings.sql: so
+-- GetSettings never has to distinguish "column is NULL" from "column is
+-- the empty string" -- both already mean the same thing here, "inherit
+-- default_model". Unlike default_model, an empty self_review_model is a
+-- valid, meaningful value (inherit) rather than a missing one, so the
+-- default itself -- not just NOT NULL -- carries that meaning: a fresh
+-- row created before /flow-settings has ever set this column already
+-- resolves to "inherit" rather than an unset state a caller must special-case.
+ALTER TABLE flow_settings ADD COLUMN self_review_model TEXT NOT NULL DEFAULT '';

@@ -165,8 +165,9 @@ func (c *Client) settingsURL() string { return c.baseURL + "/api/v1/settings" }
 // the same boundary reason StateBoardRow is copied rather than imported:
 // the CLI knows only HTTP, never the daemon's internal packages.
 type Settings struct {
-	DefaultModel string   `json:"defaultModel"`
-	Reviewers    []string `json:"reviewers"`
+	DefaultModel    string   `json:"defaultModel"`
+	SelfReviewModel string   `json:"selfReviewModel"`
+	Reviewers       []string `json:"reviewers"`
 }
 
 // ErrSettingsRejected means the store was reached and refused a

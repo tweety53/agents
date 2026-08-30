@@ -182,7 +182,7 @@ rules/never-touch-production.mdc 2336
 rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
 skills/flow-research/SKILL.md 13047
-skills/flow-settings/SKILL.md 5439
+skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
 skills/flow/SKILL.md 16278
 skills/flow/archive.md 18748

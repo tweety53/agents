@@ -19,8 +19,9 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	want := store.Settings{
-		DefaultModel: "opus",
-		Reviewers:    []string{"primary", "principles", "code-review-low", "bugbot"},
+		DefaultModel:    "opus",
+		SelfReviewModel: "haiku",
+		Reviewers:       []string{"primary", "principles", "code-review-low", "bugbot"},
 	}
 
 	if err := st.PutSettings(ctx, want); err != nil {
@@ -44,12 +45,23 @@ func TestSettingsStore_RoundTripUpdates(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 
-	first := store.Settings{DefaultModel: "sonnet", Reviewers: []string{"primary"}}
-	second := store.Settings{DefaultModel: "haiku", Reviewers: []string{"primary", "security"}}
+	first := store.Settings{DefaultModel: "sonnet", SelfReviewModel: "", Reviewers: []string{"primary"}}
+	second := store.Settings{DefaultModel: "haiku", SelfReviewModel: "opus", Reviewers: []string{"primary", "security"}}
 
 	if err := st.PutSettings(ctx, first); err != nil {
 		t.Fatalf("first PutSettings: %v", err)
 	}
+	// The empty-string SelfReviewModel ("inherit") must round-trip exactly
+	// as written, not as some other sentinel -- the whole point of
+	// NOT NULL DEFAULT '' rather than nullable.
+	gotFirst, err := st.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings after first PutSettings: %v", err)
+	}
+	if !reflect.DeepEqual(gotFirst, first) {
+		t.Errorf("GetSettings = %+v, want %+v (the first write, empty SelfReviewModel)", gotFirst, first)
+	}
+
 	if err := st.PutSettings(ctx, second); err != nil {
 		t.Fatalf("second PutSettings: %v", err)
 	}
@@ -90,6 +102,32 @@ func TestSettingsStore_RejectsUnknownModel(t *testing.T) {
 	// The rejected write must not have landed.
 	if _, getErr := st.GetSettings(ctx); getErr != nil {
 		t.Fatalf("GetSettings after rejected write: %v", getErr)
+	}
+}
+
+// TestSettingsStore_RejectsUnknownSelfReviewModel asserts PutSettings
+// refuses a self_review_model value off the harness's fixed model enum the
+// same way it refuses a bad default_model -- SelfReviewModel is the one
+// field where empty is valid, but a non-empty value must still fall within
+// ValidModels.
+func TestSettingsStore_RejectsUnknownSelfReviewModel(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	const badModel = "gpt-5"
+	err := st.PutSettings(ctx, store.Settings{
+		DefaultModel:    "sonnet",
+		SelfReviewModel: badModel,
+		Reviewers:       []string{"primary"},
+	})
+	if err == nil {
+		t.Fatal("PutSettings: got nil error, want ErrInvalidModel")
+	}
+	if !errors.Is(err, store.ErrInvalidModel) {
+		t.Errorf("PutSettings error = %v, want it to wrap ErrInvalidModel", err)
+	}
+	if !strings.Contains(err.Error(), badModel) {
+		t.Errorf("PutSettings error = %q, want it to name the rejected value %q", err.Error(), badModel)
 	}
 }
 

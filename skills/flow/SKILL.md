@@ -107,6 +107,8 @@ The full key list, in the order each phase file marks them:
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
+SELF_REVIEW_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.selfReviewModel')"
+[ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL="$DEFAULT_MODEL"
 ```
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
@@ -128,6 +130,12 @@ An empty list can never reach this table from `/flow-settings`: `<agents repo>/s
 `settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the
 store. The empty-list row exists because this resolver must still define a value for a state the
 store's schema permits, not because an operator can produce one.
+
+**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL`, and is the one role that does**
+— it is the model the archive-phase self-review subagent dispatch
+(`skills/flow/archive.md` step 9) runs on. An empty `selfReviewModel` from the store, or an
+unreachable store, both resolve to `DEFAULT_MODEL` — inheriting is the field's own explicit
+"unset" meaning, not a degraded fallback the way `DEFAULT_MODEL`'s own `sonnet` literal is.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix

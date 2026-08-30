@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -889,7 +890,10 @@ var _ api.StatsStore = stubStageStore{}
 // ProjectKeysByDisplayName's own doc comment gives: api.New gained a
 // fifth store parameter (task 2) for the settings routes, and every
 // implementer must keep compiling -- this file's tests never exercise
-// /api/v1/settings.
+// /api/v1/settings through stubStageStore itself
+// (TestSettingsRoundTripsSelfReviewModel below fakes the HTTP layer
+// directly, the same genuineDaemon pattern every other test in this file
+// uses).
 func (stubStageStore) GetSettings(context.Context) (store.Settings, error) {
 	return store.Settings{}, errStageStoreNotImplemented
 }
@@ -899,6 +903,71 @@ func (stubStageStore) PutSettings(context.Context, store.Settings) error {
 }
 
 var _ api.SettingsStore = stubStageStore{}
+
+// TestSettingsRoundTripsSelfReviewModel asserts client.PutSettings then
+// client.GetSettings round-trips SelfReviewModel through the fake
+// transport (genuineDaemon) this file's other tests already use -- both a
+// non-empty value and, separately, the empty-string "inherit
+// DefaultModel" value task 1 makes the one valid empty model field.
+//
+// The PUT body is decoded through a map first, asserting the literal
+// "selfReviewModel" wire key is present, rather than straight into
+// client.Settings -- decoding into the same type this test is proving
+// round-trips is self-consistent by construction and would still pass
+// under a wrong json tag on SelfReviewModel (measured: renaming the tag to
+// "selfReviewModelXXX" left an earlier version of this test green).
+func TestSettingsRoundTripsSelfReviewModel(t *testing.T) {
+	var stored client.Settings
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodPut:
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read PUT body: %v", err)
+			}
+			var wire map[string]json.RawMessage
+			if err := json.Unmarshal(body, &wire); err != nil {
+				t.Fatalf("decode PUT body as a map: %v", err)
+			}
+			if _, ok := wire["selfReviewModel"]; !ok {
+				t.Fatalf("PUT body carries no %q key: %s", "selfReviewModel", body)
+			}
+			if err := json.Unmarshal(body, &stored); err != nil {
+				t.Fatalf("decode PUT body: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(stored)
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode(stored)
+		default:
+			t.Fatalf("unexpected method: %s", r.Method)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+
+	for _, want := range []client.Settings{
+		{DefaultModel: "sonnet", SelfReviewModel: "opus", Reviewers: []string{"primary"}},
+		{DefaultModel: "sonnet", SelfReviewModel: "", Reviewers: []string{"primary"}},
+	} {
+		put, err := c.PutSettings(context.Background(), want)
+		if err != nil {
+			t.Fatalf("PutSettings(%+v): %v", want, err)
+		}
+		if put.SelfReviewModel != want.SelfReviewModel {
+			t.Errorf("PutSettings echo selfReviewModel = %q, want %q", put.SelfReviewModel, want.SelfReviewModel)
+		}
+
+		got, err := c.GetSettings(context.Background())
+		if err != nil {
+			t.Fatalf("GetSettings: %v", err)
+		}
+		if got.SelfReviewModel != want.SelfReviewModel {
+			t.Errorf("GetSettings selfReviewModel = %q, want %q", got.SelfReviewModel, want.SelfReviewModel)
+		}
+	}
+}
 
 // TestClientAgreesWithRealDaemonOverDaemonHeader is F6's fix: the daemon
 // header value exists in three places -- api.DaemonHeaderValue (the

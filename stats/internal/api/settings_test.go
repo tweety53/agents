@@ -72,8 +72,9 @@ func TestSettingsAPI_Get(t *testing.T) {
 	}
 
 	var got struct {
-		DefaultModel string   `json:"defaultModel"`
-		Reviewers    []string `json:"reviewers"`
+		DefaultModel    string   `json:"defaultModel"`
+		SelfReviewModel string   `json:"selfReviewModel"`
+		Reviewers       []string `json:"reviewers"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -81,8 +82,42 @@ func TestSettingsAPI_Get(t *testing.T) {
 	if got.DefaultModel != store.DefaultModel {
 		t.Errorf("defaultModel = %q, want %q", got.DefaultModel, store.DefaultModel)
 	}
+	if got.SelfReviewModel != "" {
+		t.Errorf("selfReviewModel = %q, want empty (harness default)", got.SelfReviewModel)
+	}
 	if len(got.Reviewers) != len(store.DefaultReviewers) {
 		t.Errorf("reviewers = %v, want %v", got.Reviewers, store.DefaultReviewers)
+	}
+}
+
+// TestSettingsAPI_Get_EchoesSelfReviewModel asserts GET /api/v1/settings
+// echoes whatever selfReviewModel the stub store returns -- including a
+// non-empty value -- not just the empty "harness default" case
+// TestSettingsAPI_Get already covers.
+func TestSettingsAPI_Get_EchoesSelfReviewModel(t *testing.T) {
+	fs := newFakeStore()
+	fs.settings = &store.Settings{
+		DefaultModel:    "sonnet",
+		SelfReviewModel: "opus",
+		Reviewers:       []string{"primary"},
+	}
+	ts := newSettingsTestServer(t, fs)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/v1/settings")
+	if err != nil {
+		t.Fatalf("GET /api/v1/settings: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var got struct {
+		SelfReviewModel string `json:"selfReviewModel"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.SelfReviewModel != "opus" {
+		t.Errorf("selfReviewModel = %q, want %q", got.SelfReviewModel, "opus")
 	}
 }
 
@@ -95,7 +130,7 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 	ts := newSettingsTestServer(t, fs)
 	defer ts.Close()
 
-	body := `{"defaultModel":"opus","reviewers":["primary","principles","code-review-low","security"]}`
+	body := `{"defaultModel":"opus","selfReviewModel":"","reviewers":["primary","principles","code-review-low","security"]}`
 	req, err := http.NewRequest(http.MethodPut, ts.URL+"/api/v1/settings", bytes.NewReader([]byte(body)))
 	if err != nil {
 		t.Fatalf("build request: %v", err)
@@ -115,6 +150,9 @@ func TestSettingsAPI_Put_Valid(t *testing.T) {
 	}
 	if got.DefaultModel != "opus" {
 		t.Errorf("stored defaultModel = %q, want %q", got.DefaultModel, "opus")
+	}
+	if got.SelfReviewModel != "" {
+		t.Errorf("stored selfReviewModel = %q, want empty", got.SelfReviewModel)
 	}
 	want := []string{"primary", "principles", "code-review-low", "security"}
 	if len(got.Reviewers) != len(want) {
@@ -147,6 +185,11 @@ func TestSettingsAPI_Put_RejectsInvalidValue(t *testing.T) {
 			name:        "unknown reviewer",
 			body:        `{"defaultModel":"sonnet","reviewers":["primary","principles","not-a-real-slot"]}`,
 			wantInError: "not-a-real-slot",
+		},
+		{
+			name:        "unknown self-review model",
+			body:        `{"defaultModel":"sonnet","selfReviewModel":"gpt-5","reviewers":["primary","principles","code-review-low"]}`,
+			wantInError: "gpt-5",
 		},
 	}
 

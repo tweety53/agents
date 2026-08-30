@@ -20,7 +20,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"defaultModel":"opus","reviewers":["primary","principles","code-review-low"]}`))
+		_, _ = w.Write([]byte(`{"defaultModel":"opus","selfReviewModel":"haiku","reviewers":["primary","principles","code-review-low"]}`))
 	}))
 	defer srv.Close()
 
@@ -33,14 +33,18 @@ func TestSettingsCmd_Get(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
 	}
 	var got struct {
-		DefaultModel string   `json:"defaultModel"`
-		Reviewers    []string `json:"reviewers"`
+		DefaultModel    string   `json:"defaultModel"`
+		SelfReviewModel string   `json:"selfReviewModel"`
+		Reviewers       []string `json:"reviewers"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
 		t.Fatalf("decode stdout %q: %v", stdout.String(), err)
 	}
 	if got.DefaultModel != "opus" {
 		t.Errorf("defaultModel = %q, want %q", got.DefaultModel, "opus")
+	}
+	if got.SelfReviewModel != "haiku" {
+		t.Errorf("selfReviewModel = %q, want %q", got.SelfReviewModel, "haiku")
 	}
 	want := []string{"primary", "principles", "code-review-low"}
 	if len(got.Reviewers) != len(want) {
@@ -117,5 +121,45 @@ func TestSettingsCmd_Set_Valid(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "sonnet") {
 		t.Errorf("stdout = %q, want it to echo back the written settings", stdout.String())
+	}
+}
+
+// TestSettingsCmd_Set_WithSelfReviewModel asserts `settings set` passes
+// -self-review-model through to the store when given -- unlike -model and
+// -reviewers, it is optional (TestSettingsCmd_Set_Valid above already
+// proves a run succeeds with it omitted).
+func TestSettingsCmd_Set_WithSelfReviewModel(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/settings" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		var body struct {
+			DefaultModel    string   `json:"defaultModel"`
+			SelfReviewModel string   `json:"selfReviewModel"`
+			Reviewers       []string `json:"reviewers"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if body.SelfReviewModel != "opus" {
+			t.Errorf("request selfReviewModel = %q, want %q", body.SelfReviewModel, "opus")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
+			"-model", "sonnet", "-reviewers", "primary,principles,code-review-low",
+			"-self-review-model", "opus"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "opus") {
+		t.Errorf("stdout = %q, want it to echo back selfReviewModel", stdout.String())
 	}
 }
