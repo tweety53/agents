@@ -146,7 +146,11 @@ as the preflight verdict above does.
 verdicts by hand, in the same order, and say in the handoff that the check was run manually. The
 check is never skipped for want of the script.
 
-Only then ask, **before any git action**, how the branch should land:
+Only then decide, **before any git action**, how the branch should land. Read
+`<project>/.flow/project.md`'s `## default landing route` (canonical in
+**Project configuration**, `skills/flow-contracts/project-configuration.md`); a resolved default
+is taken without asking, stated in the handoff as coming from the configured default rather than an
+operator choice. Only an absent or unresolved default falls back to asking:
 
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*

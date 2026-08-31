@@ -140,16 +140,16 @@ this stage proceeds to the landing question and closes the mark `completed`, exa
 is canonical there. Read `<project>/.flow/project.md`'s `## default landing route` section, if
 present, and resolve it against the three literals `pull request` / `merge and push` /
 `manual`, byte-for-byte after trimming leading/trailing whitespace. A body matching none of
-them exactly is reported by name and dropped, resolving as absent. Absent → `pull request`
-stays the recommended default, exactly as today.
+them exactly is reported by name and dropped, resolving as absent.
+
+**A resolved default skips the question entirely** — take that route without asking, and say so
+in the handoff (`Route: <route> — from this project's configured default, not asked`). Only an
+absent or unresolved default falls back to asking:
 
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*
 > - **Merge and push**
 > - **Handle it manually**
-
-The `(default, recommended)` marker moves to whichever option the resolution above named;
-`pull request` keeps it when nothing resolved.
 
 Having asked once, run to completion without asking again.
 
