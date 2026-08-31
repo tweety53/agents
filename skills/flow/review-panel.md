@@ -421,6 +421,37 @@ Targeting is a cost optimization, never a coverage waiver: a targeted re-run is 
 agents, and handoff still requires **zero open findings at any severity** from every agent that has
 run.
 
+### The diff-size cap check on a re-run
+
+**The cap check re-runs too, gated on the per-slot max this round, never the aggregate branch
+diff.** Pass 1's own check (**The roster**, above) is unaffected: every slot reads the full diff
+there, so the full-branch count already is the per-slot max.
+
+**On a Full re-run:**
+
+1. If Primary, or any other slot dispatched this round with no held last-reviewed sha, is in
+   this round's dispatch, run `check-panel-diff-size.sh <worktree> <merge-base> <cap>` — the
+   same full-branch count pass 1 measures.
+2. For every returning slot dispatched this round against a scoped delta, run
+   `check-panel-diff-size.sh <worktree> <that slot's last-reviewed sha> <cap>`, once per
+   **distinct** sha among this round's dispatched slots (two slots sharing a sha need one
+   call, not two).
+3. **The gating count is the largest of every count from 1 and 2** — the largest single read
+   any one agent this round actually faces. An exit-1 result from whichever call produced that
+   count is what puts the over-cap choice to the operator (**The roster**, above), naming the
+   gating count and, when it is not the full-branch count, the full-branch count too, for
+   context.
+
+Record both the gating count and (when computed and different from it) the full-branch count
+in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round, alongside the
+existing mode/agents/why fields **Panel re-runs** already records.
+
+**On a Targeted re-run**, run `check-panel-diff-size.sh <worktree> <FIX_BASE> <cap>` once —
+`fix-round-N.diff`'s own range is the only diff any re-run slot reads this round, so its count
+is directly the gating count; there is no per-slot max to take. **Targeted carries no cap
+check today**; this is the same over-cap prompt as Full and pass 1, gated on this one number,
+closing that gap.
+
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
 one-sentence Note column, reduced to its own defect noun phrase — the shortest phrase naming what is
