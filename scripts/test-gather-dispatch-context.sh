@@ -5,11 +5,20 @@
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
 # contract — the Requirements and Scenarios in this repository's archived
 # kan-201-reduce-context-rediscovery-across-review-panel change's
-# myflow-dispatch-economy spec — never against whatever the script happens to
+# myflow-dispatch-economy spec, plus kan-288's own skip-when-unchanged
+# contract in design.md — never against whatever the script happens to
 # print.
 # scripts/test-check-plan-provenance.sh's header records that suite encoding
 # the guard's own defects as its specification more than once, which then
 # made each defect look verified; the same mistake is possible here.
+#
+# CASES 28-32 ADD kan-288's <output-path> ARGUMENT AND ITS SKIP-WHEN-
+# UNCHANGED WRITE. Every case before them predates that change and is kept
+# rather than replaced: they pin the path-validation, symlink-handling and
+# project-commands-extraction behavior tasks.md's Task 1 states is
+# unchanged, and dropping them would silently lose that coverage. CASE 9 is
+# the one exception — it always tested a missing REQUIRED argument, and is
+# repointed at the new 5th one rather than duplicated.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,8 +43,9 @@ cleanup() {
 trap cleanup EXIT
 
 # new_repo -> sets REPO (a real git repository), CHANGE_ROOT (a fully
-# populated change directory under it) and PRINCIPLES (a principles file).
-# The fixture shape tasks.md records: a proposal, a design, a plan and a
+# populated change directory under it), PRINCIPLES (a principles file) and
+# OUTPUT_PATH (the bundle destination this suite's calls write to). The
+# fixture shape tasks.md records: a proposal, a design, a plan and a
 # principles file. There is no specs/ leaf: under spectre a change has no
 # specs/ subdirectory, and the script no longer reads one.
 #
@@ -64,14 +74,78 @@ new_repo() {
   printf 'TASKS-BODY\n' > "$CHANGE_ROOT/tasks.md"
   PRINCIPLES="$REPO/PRINCIPLES.md"
   printf 'PRINCIPLES-BODY\n' > "$PRINCIPLES"
+  OUTPUT_PATH="$REPO/.superpowers/sdd/dispatch-context.md"
 }
 
-# run_it -> sets RC and OUT, invoking with the standard four arguments.
-run_it() {
+# capture <worktree> <change-root> <name> <principles-path> <output-path> ->
+# sets RC, ERR (the script's own stderr) and OUT. Every case before kan-288
+# asserted against the bundle body on stdout; now that the script writes the
+# body to <output-path> instead, OUT is that file's content (when the script
+# wrote one) with ERR appended, so every pre-existing content assertion
+# below keeps working unchanged and a case asserting on the script's own
+# diagnostic (a usage error, a refusal) still finds it in OUT too.
+capture() {
+  local out_path="$5"
   set +e
-  OUT="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
+  ERR="$("$SCRIPT" "$1" "$2" "$3" "$4" "$out_path" 2>&1 1>/dev/null)"
   RC=$?
   set -e
+  if [ -f "$out_path" ]; then
+    OUT="$(cat "$out_path")
+$ERR"
+  else
+    OUT="$ERR"
+  fi
+}
+
+# run_it -> sets RC and OUT, invoking with the standard five arguments.
+run_it() {
+  capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+}
+
+# make_no_hash_tool_dir <dest-dir> -> populates <dest-dir> with a symlink to
+# every executable on the current PATH EXCEPT shasum/sha256sum/openssl, so a
+# call made with PATH="<dest-dir>" still finds mkdir/cat/awk/date/git (which
+# the script itself calls) but no SHA-256 tool. Shared by case 32 and case 33
+# (kan-288, F3) — both need the same no-hash-tool PATH, and a second caller is
+# exactly when duplicating this loop stops being the simplest thing.
+make_no_hash_tool_dir() {
+  local dest="$1" dir bin base
+  for dir in $(printf '%s' "$PATH" | tr ':' '\n'); do
+    [ -d "$dir" ] || continue
+    for bin in "$dir"/*; do
+      [ -f "$bin" ] && [ -x "$bin" ] || continue
+      base="$(basename "$bin")"
+      case "$base" in
+        shasum | sha256sum | openssl) continue ;;
+      esac
+      [ -e "$dest/$base" ] || ln -s "$bin" "$dest/$base" 2>/dev/null || true
+    done
+  done
+}
+
+# make_openssl_only_dir <dest-dir> -> populates <dest-dir> with a symlink to
+# every executable on the current PATH EXCEPT shasum/sha256sum, so a call made
+# with PATH="<dest-dir>" finds openssl (this case's target branch) plus every
+# other tool the script needs (mkdir/cat/awk/date/git/...), but neither of the
+# two hash tools sha256_hex tries before openssl. The mirror image of
+# make_no_hash_tool_dir above: that one excludes all three hash tools to
+# exercise the "no hash tool available" branch; this one excludes only the
+# first two so sha256_hex's openssl branch (line 38 of lib/sha256-hex.sh) is
+# the one actually reached, for case 35 (F5).
+make_openssl_only_dir() {
+  local dest="$1" dir bin base
+  for dir in $(printf '%s' "$PATH" | tr ':' '\n'); do
+    [ -d "$dir" ] || continue
+    for bin in "$dir"/*; do
+      [ -f "$bin" ] && [ -x "$bin" ] || continue
+      base="$(basename "$bin")"
+      case "$base" in
+        shasum | sha256sum) continue ;;
+      esac
+      [ -e "$dest/$base" ] || ln -s "$bin" "$dest/$base" 2>/dev/null || true
+    done
+  done
 }
 
 # ===========================================================================
@@ -187,26 +261,29 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# CASE 9: missing fourth argument
+# CASE 9 (kan-288): missing the required <output-path> argument. Repointed
+# from the pre-kan-288 "missing fourth argument" case to the new 5th one —
+# the same case, following the argument the exit-2 guard now covers.
 # ===========================================================================
 
 new_repo
 set +e
-OUT="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo 2>&1)"
+OUT="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
 RC=$?
 set -e
-[ "$RC" -eq 2 ] && pass "missing fourth argument: exits 2" \
-  || fail "missing fourth argument: expected exit 2, rc=$RC out=$OUT"
+[ "$RC" -eq 2 ] && pass "missing output-path argument: exits 2" \
+  || fail "missing output-path argument: expected exit 2, rc=$RC out=$OUT"
+case "$OUT" in
+  *'<output-path>'*) pass "missing output-path argument: usage line names <output-path>" ;;
+  *) fail "missing output-path argument: usage line does not name <output-path>: $OUT" ;;
+esac
 
 # ===========================================================================
 # CASE 10: change name containing '/'
 # ===========================================================================
 
 new_repo
-set +e
-OUT="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" "a/b" "$PRINCIPLES" 2>&1)"
-RC=$?
-set -e
+capture "$REPO" "$CHANGE_ROOT" "a/b" "$PRINCIPLES" "$OUTPUT_PATH"
 [ "$RC" -eq 2 ] && pass "change name with slash: exits 2" \
   || fail "change name with slash: expected exit 2, rc=$RC out=$OUT"
 case "$OUT" in
@@ -219,10 +296,7 @@ esac
 # ===========================================================================
 
 new_repo
-set +e
-OUT="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" "a*b" "$PRINCIPLES" 2>&1)"
-RC=$?
-set -e
+capture "$REPO" "$CHANGE_ROOT" "a*b" "$PRINCIPLES" "$OUTPUT_PATH"
 [ "$RC" -eq 2 ] && pass "change name with glob metacharacter: exits 2" \
   || fail "change name with glob metacharacter: expected exit 2, rc=$RC out=$OUT"
 
@@ -239,10 +313,7 @@ mkdir -p "$REPO/spectre-symlink"
 rm -rf "$REPO/spectre-symlink"
 ln -s "$OUTSIDE_12" "$REPO/spectre-symlink"
 SYMLINKED_CHANGE_ROOT="$REPO/spectre-symlink/changes/demo"
-set +e
-OUT="$("$SCRIPT" "$REPO" "$SYMLINKED_CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
-RC=$?
-set -e
+capture "$REPO" "$SYMLINKED_CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
 [ "$RC" -eq 2 ] && pass "change-root through symlinked ancestor: exits 2" \
   || fail "change-root through symlinked ancestor: expected exit 2, rc=$RC out=$OUT"
 case "$OUT" in
@@ -293,10 +364,7 @@ SYMLINKED_SKILL_DIR_14="$(mktemp -u "${TMPDIR:-/tmp}/gather-dispatch-test-symlin
 ln -s "$REAL_SKILL_DIR_14" "$SYMLINKED_SKILL_DIR_14"
 TREES+=("$SYMLINKED_SKILL_DIR_14")
 ANCESTOR_PRINCIPLES_14="$SYMLINKED_SKILL_DIR_14/engineering-principles.md"
-set +e
-OUT="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$ANCESTOR_PRINCIPLES_14" 2>&1)"
-RC=$?
-set -e
+capture "$REPO" "$CHANGE_ROOT" demo "$ANCESTOR_PRINCIPLES_14" "$OUTPUT_PATH"
 [ "$RC" -eq 0 ] && pass "principles-path through symlinked ancestor: exits 0" \
   || fail "principles-path through symlinked ancestor: rc=$RC out=$OUT"
 case "$OUT" in
@@ -313,10 +381,7 @@ OUTSIDE_14="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-outside14.XXXXXX")
 TREES+=("$OUTSIDE_14")
 mkdir -p "$OUTSIDE_14/demo"
 printf 'PROPOSAL-BODY\n' > "$OUTSIDE_14/demo/proposal.md"
-set +e
-OUT="$("$SCRIPT" "$REPO" "$OUTSIDE_14/demo" demo "$PRINCIPLES" 2>&1)"
-RC=$?
-set -e
+capture "$REPO" "$OUTSIDE_14/demo" demo "$PRINCIPLES" "$OUTPUT_PATH"
 [ "$RC" -eq 2 ] && pass "change-root outside the worktree: exits 2" \
   || fail "change-root outside the worktree: expected exit 2, rc=$RC out=$OUT"
 
@@ -348,7 +413,7 @@ esac
 
 # CASE 17 IS GONE, not renumbered: it pinned the refusal disposition for a
 # symlinked delta spec, and there is no delta-spec source left to symlink.
-# Case 15 above pins the same disposition on proposal.md, which is the source
+# Case 16 above pins the same disposition on proposal.md, which is the source
 # that still exists.
 
 # ===========================================================================
@@ -385,10 +450,7 @@ esac
 # ===========================================================================
 
 new_repo
-set +e
-OUT="$("$SCRIPT" "$REPO/" "$CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
-RC=$?
-set -e
+capture "$REPO/" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
 [ "$RC" -eq 0 ] && pass "worktree with trailing slash: exits 0" \
   || fail "worktree with trailing slash: rc=$RC out=$OUT"
 case "$OUT" in
@@ -405,16 +467,21 @@ esac
 
 new_repo
 set +e
-OUT="$(cd "$REPO" && "$SCRIPT" "." "$CHANGE_ROOT" demo "$PRINCIPLES" 2>&1)"
+ERR="$(cd "$REPO" && "$SCRIPT" "." "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" 2>&1 1>/dev/null)"
 RC=$?
 set -e
+if [ -f "$OUTPUT_PATH" ]; then
+  OUT="$(cat "$OUTPUT_PATH")
+$ERR"
+else
+  OUT="$ERR"
+fi
 [ "$RC" -eq 0 ] && pass "worktree as relative path '.': exits 0" \
   || fail "worktree as relative path '.': rc=$RC out=$OUT"
 case "$OUT" in
   *PROPOSAL-BODY*) pass "worktree as relative path '.': proposal content present" ;;
   *) fail "worktree as relative path '.': proposal content missing: $OUT" ;;
 esac
-
 
 # ===========================================================================
 # CASE 21: proposal.md is a symlink cycle (F36, pass 7 of this change's own
@@ -618,8 +685,288 @@ else
   fail "project.md '## linter' heading: rc=$RC out=$OUT"
 fi
 
+# ===========================================================================
+# CASE 28 (kan-288): first call, no existing bundle -> exit 0, <output-path>
+# and <output-path>.hash both created, stderr says rebuilt — no cached
+# bundle.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "first call: gatherer exited $RC: $OUT"
+elif [ ! -f "$OUTPUT_PATH" ]; then
+  fail "first call: no output file written"
+elif [ ! -f "$OUTPUT_PATH.hash" ]; then
+  fail "first call: no .hash sidecar written"
+elif ! printf '%s' "$ERR" | grep -q 'bundle rebuilt — no cached bundle'; then
+  fail "first call: stderr missing 'bundle rebuilt — no cached bundle': $ERR"
+else
+  pass "first call rebuilds and writes the bundle plus its hash sidecar"
+fi
+
+# ===========================================================================
+# CASE 29 (kan-288): second call, nothing changed -> exit 0, stderr says
+# unchanged — reusing, mtime and content are byte-for-byte unchanged.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "unchanged second call: first call (setup) exited $RC: $OUT"
+else
+  BEFORE_CONTENT_29="$(cat "$OUTPUT_PATH")"
+  BEFORE_MTIME_29="$(stat -f '%m' "$OUTPUT_PATH" 2>/dev/null || stat -c '%Y' "$OUTPUT_PATH")"
+  sleep 1
+  run_it
+  AFTER_CONTENT_29="$(cat "$OUTPUT_PATH")"
+  AFTER_MTIME_29="$(stat -f '%m' "$OUTPUT_PATH" 2>/dev/null || stat -c '%Y' "$OUTPUT_PATH")"
+  if [ "$RC" -ne 0 ]; then
+    fail "unchanged second call: second call exited $RC: $OUT"
+  elif ! printf '%s' "$ERR" | grep -q 'bundle unchanged — reusing'; then
+    fail "unchanged second call: stderr missing 'bundle unchanged — reusing': $ERR"
+  elif [ "$BEFORE_CONTENT_29" != "$AFTER_CONTENT_29" ]; then
+    fail "unchanged second call: content changed on an unchanged second call"
+  elif [ "$BEFORE_MTIME_29" != "$AFTER_MTIME_29" ]; then
+    fail "unchanged second call: mtime changed on an unchanged second call ($BEFORE_MTIME_29 -> $AFTER_MTIME_29)"
+  else
+    pass "unchanged second call reuses the bundle untouched"
+  fi
+fi
+
+# ===========================================================================
+# CASE 30 (kan-288): edit tasks.md, call again -> exit 0, stderr says
+# rebuilt — inputs changed, content contains the edited text.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "rebuild-on-edit: first call (setup) exited $RC: $OUT"
+else
+  printf 'EDITED-TASKS-BODY\n' > "$CHANGE_ROOT/tasks.md"
+  run_it
+  if [ "$RC" -ne 0 ]; then
+    fail "rebuild-on-edit: second call exited $RC: $OUT"
+  elif ! printf '%s' "$ERR" | grep -q 'bundle rebuilt — inputs changed'; then
+    fail "rebuild-on-edit: stderr missing 'bundle rebuilt — inputs changed': $ERR"
+  elif ! grep -q 'EDITED-TASKS-BODY' "$OUTPUT_PATH"; then
+    fail "rebuild-on-edit: edited tasks text not found in rebuilt bundle"
+  else
+    pass "editing tasks.md triggers a rebuild carrying the new content"
+  fi
+fi
+
+# ===========================================================================
+# CASE 31 (kan-288): delete only <output-path>.hash, call again with no
+# other change -> exit 0, stderr says rebuilt — no cached bundle (a missing
+# cache is absent, not "no change to compare against").
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "rebuild-on-missing-hash-file: first call (setup) exited $RC: $OUT"
+else
+  rm -f "$OUTPUT_PATH.hash"
+  run_it
+  if [ "$RC" -ne 0 ]; then
+    fail "rebuild-on-missing-hash-file: second call exited $RC: $OUT"
+  elif ! printf '%s' "$ERR" | grep -q 'bundle rebuilt — no cached bundle'; then
+    fail "rebuild-on-missing-hash-file: stderr missing 'bundle rebuilt — no cached bundle': $ERR"
+  else
+    pass "a missing .hash sidecar forces a rebuild"
+  fi
+fi
+
+# ===========================================================================
+# CASE 32 (kan-288): no hash tool on PATH -> exit 0, stderr says no hash
+# tool available, and the bundle is rewritten every call (no stale .hash
+# file survives to cause a wrong skip once a hash tool is available again).
+# ===========================================================================
+
+new_repo
+NO_HASH_TOOL_DIR_32="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-nohash32.XXXXXX")"
+TREES+=("$NO_HASH_TOOL_DIR_32")
+make_no_hash_tool_dir "$NO_HASH_TOOL_DIR_32"
+run_no_hash_tool() {
+  set +e
+  ERR="$(PATH="$NO_HASH_TOOL_DIR_32" "$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" 2>&1 1>/dev/null)"
+  RC=$?
+  set -e
+}
+run_no_hash_tool
+if [ "$RC" -ne 0 ]; then
+  fail "no-hash-tool fallback: first call exited $RC: $ERR"
+elif ! printf '%s' "$ERR" | grep -q 'no hash tool available'; then
+  fail "no-hash-tool fallback: stderr missing 'no hash tool available': $ERR"
+elif [ -f "$OUTPUT_PATH.hash" ]; then
+  fail "no-hash-tool fallback: a stale .hash file survived a run with no hash tool available"
+else
+  BEFORE_MTIME_32="$(stat -f '%m' "$OUTPUT_PATH" 2>/dev/null || stat -c '%Y' "$OUTPUT_PATH")"
+  sleep 1
+  run_no_hash_tool
+  AFTER_MTIME_32="$(stat -f '%m' "$OUTPUT_PATH" 2>/dev/null || stat -c '%Y' "$OUTPUT_PATH")"
+  if [ "$RC" -ne 0 ]; then
+    fail "no-hash-tool fallback: second call exited $RC: $ERR"
+  elif ! printf '%s' "$ERR" | grep -q 'no hash tool available'; then
+    fail "no-hash-tool fallback: second call stderr missing 'no hash tool available': $ERR"
+  elif [ "$BEFORE_MTIME_32" = "$AFTER_MTIME_32" ]; then
+    fail "no-hash-tool fallback: bundle was not rewritten on a second call with no hash tool available"
+  else
+    pass "no hash tool on PATH rewrites the bundle every call with no stale .hash"
+  fi
+fi
+
+# ===========================================================================
+# CASE 33 (kan-288, F3): stale .hash cleanup on the no-hash-tool path is
+# actually exercised, not merely present. Sequence: (1) a normal call with the
+# hash tool available writes a bundle + .hash; (2) tasks.md is edited AND the
+# hash tool is made unavailable, so the no-hash-tool branch's own
+# `rm -f "$HASH_PATH"` runs and removes the .hash that step 1 wrote (if that
+# `rm -f` were dropped, a STALE .hash from step 1 would silently survive);
+# (3) tasks.md is restored to its ORIGINAL content and the hash tool is made
+# available again — this must rebuild (the .hash is gone, so REASON is "no
+# cached bundle"), not wrongly reuse a bundle by comparing NEW_HASH against a
+# leftover .hash that happened to match the now-restored content again.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "stale-hash-cleanup: first call (setup) exited $RC: $OUT"
+else
+  ORIGINAL_TASKS_33="$(cat "$CHANGE_ROOT/tasks.md")"
+  printf 'EDITED-TASKS-BODY-33\n' > "$CHANGE_ROOT/tasks.md"
+  NO_HASH_TOOL_DIR_33="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-nohash33.XXXXXX")"
+  TREES+=("$NO_HASH_TOOL_DIR_33")
+  make_no_hash_tool_dir "$NO_HASH_TOOL_DIR_33"
+  set +e
+  ERR="$(PATH="$NO_HASH_TOOL_DIR_33" "$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" 2>&1 1>/dev/null)"
+  RC=$?
+  set -e
+  if [ "$RC" -ne 0 ]; then
+    fail "stale-hash-cleanup: no-hash-tool call exited $RC: $ERR"
+  elif [ -f "$OUTPUT_PATH.hash" ]; then
+    fail "stale-hash-cleanup: .hash sidecar survived the no-hash-tool call — the F3 rm -f is not running"
+  else
+    printf '%s' "$ORIGINAL_TASKS_33" > "$CHANGE_ROOT/tasks.md"
+    run_it
+    if [ "$RC" -ne 0 ]; then
+      fail "stale-hash-cleanup: final call exited $RC: $OUT"
+    elif ! printf '%s' "$ERR" | grep -q 'bundle rebuilt — no cached bundle'; then
+      fail "stale-hash-cleanup: final call stderr missing 'bundle rebuilt — no cached bundle': $ERR"
+    elif ! grep -q "$ORIGINAL_TASKS_33" "$OUTPUT_PATH"; then
+      fail "stale-hash-cleanup: final bundle does not carry the restored tasks.md content"
+    else
+      pass "the no-hash-tool path's rm -f HASH_PATH prevents a stale hash from wrongly reusing the bundle"
+    fi
+  fi
+fi
+
+# ===========================================================================
+# CASE 34 (kan-288, F4): the OUTPUT_PATH-missing half of
+# `elif [ ! -f "$HASH_PATH" ] || [ ! -f "$OUTPUT_PATH" ]` is exercised.
+# Sequence: run once normally (bundle + .hash both written), delete ONLY the
+# bundle file (leave .hash in place, so NEW_HASH == the cached hash), then
+# re-run — must rebuild (REASON "no cached bundle") because the bundle itself
+# is gone, never wrongly report "bundle unchanged — reusing" while
+# OUTPUT_PATH does not exist.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "missing-output-path: first call (setup) exited $RC: $OUT"
+elif [ ! -f "$OUTPUT_PATH.hash" ]; then
+  fail "missing-output-path: first call did not write a .hash sidecar"
+else
+  rm -f "$OUTPUT_PATH"
+  run_it
+  if [ "$RC" -ne 0 ]; then
+    fail "missing-output-path: second call exited $RC: $OUT"
+  elif [ ! -f "$OUTPUT_PATH" ]; then
+    fail "missing-output-path: second call did not rebuild the bundle"
+  elif ! printf '%s' "$ERR" | grep -q 'bundle rebuilt — no cached bundle'; then
+    fail "missing-output-path: stderr missing 'bundle rebuilt — no cached bundle' (wrongly treated the missing bundle as unchanged): $ERR"
+  else
+    pass "a missing bundle file with an intact .hash still forces a rebuild"
+  fi
+fi
+
+# ===========================================================================
+# CASE 35 (round-2 review panel, F5): sha256_hex's openssl-only branch (the
+# THIRD tool it tries, lib/sha256-hex.sh:33-40) is exercised on its own, not
+# merely as a side effect of the "no hash tool" case's exclude-all-three
+# PATH. A PATH containing openssl but neither shasum nor sha256sum must still
+# produce a correct 64-hex-char digest and therefore a normal cached-bundle
+# run — the awk shape-check at line 40 selects the hex FIELD out of openssl's
+# "(stdin)= <hex>" line, and a mutation weakening that awk to a bare
+# first-field grab (`{ print $1; exit }`) would instead capture the literal
+# string "(stdin)=", which is not 64 hex characters. Skipped outright if this
+# machine has no real openssl to test against, rather than faking a pass.
+# ===========================================================================
+
+if ! command -v openssl >/dev/null 2>&1; then
+  fail "openssl-only hash: no real openssl binary on this machine to test against"
+else
+  new_repo
+  OPENSSL_ONLY_DIR_35="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-opensslonly35.XXXXXX")"
+  TREES+=("$OPENSSL_ONLY_DIR_35")
+  make_openssl_only_dir "$OPENSSL_ONLY_DIR_35"
+  run_openssl_only() {
+    set +e
+    ERR="$(PATH="$OPENSSL_ONLY_DIR_35" "$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" 2>&1 1>/dev/null)"
+    RC=$?
+    set -e
+  }
+  run_openssl_only
+  if [ "$RC" -ne 0 ]; then
+    fail "openssl-only hash: first call exited $RC: $ERR"
+  elif ! printf '%s' "$ERR" | grep -q 'bundle rebuilt — no cached bundle'; then
+    fail "openssl-only hash: stderr missing 'bundle rebuilt — no cached bundle': $ERR"
+  elif [ ! -f "$OUTPUT_PATH.hash" ]; then
+    fail "openssl-only hash: no .hash sidecar written — openssl branch did not produce a usable digest"
+  elif ! grep -qE '^[0-9a-f]{64}$' "$OUTPUT_PATH.hash"; then
+    fail "openssl-only hash: .hash sidecar is not a bare 64-hex-char digest: $(cat "$OUTPUT_PATH.hash")"
+  else
+    run_openssl_only
+    if [ "$RC" -ne 0 ]; then
+      fail "openssl-only hash: second call exited $RC: $ERR"
+    elif ! printf '%s' "$ERR" | grep -q 'bundle unchanged — reusing'; then
+      fail "openssl-only hash: second call did not recognize the bundle as unchanged: $ERR"
+    else
+      pass "sha256_hex's openssl-only branch produces a correct digest and a stable unchanged-skip"
+    fi
+  fi
+fi
+
+# ===========================================================================
+# CASE 36 (round-2 review panel, F6): the F2 trailing-newline fix
+# (gather-dispatch-context.sh:476, `printf '%s\n' "$BODY"`) is asserted by
+# reading the written bundle's LAST BYTE directly, never via
+# `$(cat "$OUTPUT_PATH")`, which a command substitution silently strips
+# trailing newlines from — every other content assertion in this suite reads
+# through such a substitution and would not catch a regression here. A
+# mutation reverting that printf to `printf '%s' "$BODY"` (no trailing
+# newline) must fail this case.
+# ===========================================================================
+
+new_repo
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "trailing-newline: call exited $RC: $OUT"
+else
+  LAST_BYTE_36="$(tail -c 1 "$OUTPUT_PATH" | od -An -tx1 | tr -d ' \n')"
+  if [ "$LAST_BYTE_36" != "0a" ]; then
+    fail "trailing-newline: bundle's last byte is not a newline (0a): got '$LAST_BYTE_36'"
+  else
+    pass "the written bundle ends with a trailing newline"
+  fi
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
 fi
-printf 'gather-dispatch-context: all cases pass\n'
+echo "all cases passed"

@@ -39,8 +39,11 @@ unchanged by this step.
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  > <worktree>/.superpowers/sdd/dispatch-context.md
+  <worktree>/.superpowers/sdd/dispatch-context.md
 ```
+
+Report the script's stderr line (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as part
+of this stage's own reporting.
 
 ## The roster
 
@@ -509,7 +512,8 @@ Bugbot is neither in the resolved roster nor added this run is exactly where the
 is the only mutation reasoning that happens at all.
 
 **Rebuild the dispatch context bundle before dispatching the fix subagent**, same as above,
-overwriting the same path.
+overwriting the same path. Report the script's stderr line (`bundle unchanged — reusing …` or
+`bundle rebuilt — …`) as part of this round's own reporting.
 
 **Carry each surviving finding to the fix subagent as a structured block**, not a bare restatement
 of its prose: its `F<n>`, the slot that raised it, its severity, its `file:line`, its theme, the

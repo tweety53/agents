@@ -143,7 +143,7 @@ flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -sessio
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  > <worktree>/.superpowers/sdd/dispatch-context.md
+  <worktree>/.superpowers/sdd/dispatch-context.md
 ```
 
 where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
@@ -151,7 +151,9 @@ where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this
 `skills/flow/`, always. A non-zero exit — including the guard being absent — is reported, and
 dispatching proceeds with the prompt shape this stage used before this capability existed; the
 bundle never gates a run. Confirm the bundle was actually written (`test -f
-<worktree>/.superpowers/sdd/dispatch-context.md`) and report plainly if it is not.
+<worktree>/.superpowers/sdd/dispatch-context.md`) and report plainly if it is not. Report the
+script's stderr line for this stage (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as
+part of this stage's own reporting.
 
 **At most one implementer subagent may be in flight against a given worktree at any moment.** The
 parent waits for the previous implementer's commit sha for that worktree before dispatching the

@@ -465,6 +465,7 @@ esac
 # Row four — the change directory, which run 2 moves into the archive.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/spec-root.sh"
+source "$SCRIPT_DIR/lib/sha256-hex.sh"
 CHANGES_LEAF="$(spec_root_leaf "$REPO")"
 if [ -d "$REPO/$CHANGES_LEAF/changes/$NAME" ]; then
   add "$CHANGES_LEAF/changes/$NAME was never moved into the archive"
@@ -501,35 +502,13 @@ fi
 # common case and includes this repository: nothing is read, nothing is run, and
 # the verdict line is byte-for-byte what it was before this row existed.
 
-# sha256_hex <string> — the lowercase hex SHA-256 of the string's bytes, or a
-# non-zero exit if this machine has no SHA-256 tool.
-#
-# The TOOL is not part of the contract, only the bytes are, so the three the
-# canonical file names as equally acceptable are tried in turn — `shasum` is on
-# stock macOS and Linux, `sha256sum` is on Linux, `openssl` is nearly
-# everywhere. All three print the digest as a whitespace-delimited field
-# somewhere on their line (`<hex>  -` for the first two, `(stdin)= <hex>` for
-# openssl), so the field is selected by its SHAPE rather than by its position:
-# stripping non-hex characters instead would keep the `d` out of openssl's
-# "(stdin)" and produce a digest that is wrong by one byte in exactly the way
-# this whole derivation exists to prevent.
-sha256_hex() {
-  local input="$1" tool raw hex
-  for tool in shasum sha256sum openssl; do
-    command -v "$tool" >/dev/null 2>&1 || continue
-    case "$tool" in
-      shasum)    raw="$(printf '%s' "$input" | shasum -a 256 2>/dev/null || true)" ;;
-      sha256sum) raw="$(printf '%s' "$input" | sha256sum 2>/dev/null || true)" ;;
-      openssl)   raw="$(printf '%s' "$input" | openssl dgst -sha256 2>/dev/null || true)" ;;
-    esac
-    hex="$(printf '%s\n' "$raw" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^[0-9a-f]{64}$/) { print $i; exit } }')"
-    if [ -n "$hex" ]; then
-      printf '%s' "$hex"
-      return 0
-    fi
-  done
-  return 1
-}
+# sha256_hex, used below to derive the workspace id from NAME, is sourced
+# from lib/sha256-hex.sh (F1, kan-288's own review panel) rather than
+# carried inline — scripts/gather-dispatch-context.sh grew a
+# byte-for-byte-identical copy of this function, and a second caller is
+# exactly when rules/build-the-simplest-thing.mdc's "no abstraction until a
+# second caller exists" calls for extracting the shared helper. See
+# lib/sha256-hex.sh for the function itself.
 
 # The bound on the project's `survivors` command, in seconds — the same 60 the
 # `## stop` command gets under **Worktree cleanup**

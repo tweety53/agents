@@ -6,7 +6,7 @@
 # proposal.md, design.md, tasks.md and the engineering principles on its
 # own.
 #
-# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path>
+# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path>
 #
 # <worktree> and <change-root> are absolute paths; <change-root> is expected
 # to sit under <worktree> (spectre/changes/<name>/, but this script does not
@@ -17,13 +17,26 @@
 # global install (~/.claude/skills/myflow-do/engineering-principles.md), so
 # it is validated but never checked for containment under <worktree>.
 #
-# Prints one bundle to stdout: a header naming the change, the generating
+# Writes the bundle to <output-path>, falling back to reusing the existing
+# file unchanged when its content hash matches the freshly computed one (see
+# SKIP-WHEN-UNCHANGED below): a header naming the change, the generating
 # instant and the worktree's HEAD sha; a found/skipped/refused census line;
 # one "refused: <src> (resolves outside the change directory)" line per source
 # whose leaf resolves outside <change-root> (see LEAF VALIDATION below), one
 # "skipped: <src> (absent)" line per missing source; then each found source
 # under its own "## " heading, in this fixed order: proposal.md, design.md,
 # tasks.md, then the principles file.
+#
+# SKIP-WHEN-UNCHANGED. Everything the bundle prints after the header's
+# `generated:`/`head:` lines (the census plus every "## <label>" section) is
+# hashed with sha256_hex() and compared against a sidecar <output-path>.hash
+# from the previous call. A match skips the write entirely — the existing
+# <output-path> and its .hash are left untouched — because a dispatch reads
+# that body, and identical bytes need not be rewritten just to refresh a
+# timestamp. Either outcome is reported to stderr as
+# "gather-dispatch-context: bundle unchanged — reusing <output-path>" or
+# "gather-dispatch-context: bundle rebuilt — <reason>", and this path always
+# exits 0.
 #
 # THERE IS NO SPEC SOURCE, AND ADDING ONE BACK WOULD BE A MISTAKE. This
 # script used to also carry every <change-root>/specs/*/spec.md — the
@@ -119,14 +132,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/resolve-file.sh"
 source "$SCRIPT_DIR/lib/within-root.sh"
 source "$SCRIPT_DIR/lib/lexical-normalize.sh"
+source "$SCRIPT_DIR/lib/sha256-hex.sh"
 
 WORKTREE="${1:-}"
 CHANGE_ROOT="${2:-}"
 NAME="${3:-}"
 PRINCIPLES_PATH="${4:-}"
+OUTPUT_PATH="${5:-}"
 
-if [ -z "$WORKTREE" ] || [ -z "$CHANGE_ROOT" ] || [ -z "$NAME" ] || [ -z "$PRINCIPLES_PATH" ]; then
-  echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path>" >&2
+if [ -z "$WORKTREE" ] || [ -z "$CHANGE_ROOT" ] || [ -z "$NAME" ] || [ -z "$PRINCIPLES_PATH" ] || [ -z "$OUTPUT_PATH" ]; then
+  echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path>" >&2
   exit 2
 fi
 
@@ -371,44 +386,101 @@ else
   SKIPPED_LABELS+=("project commands")
 fi
 
-echo "# Dispatch context bundle for $NAME"
-echo "generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "head: $(git -C "$WORKTREE_REAL" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-echo
-echo "found: ${#FOUND_LABELS[@]} source(s); skipped: ${#SKIPPED_LABELS[@]} source(s); refused: ${#REFUSED_LABELS[@]} source(s)"
-if [ "${#REFUSED_LABELS[@]}" -gt 0 ]; then
-  i=0
-  while [ "$i" -lt "${#REFUSED_LABELS[@]}" ]; do
-    case "${REFUSED_REASONS[$i]}" in
-      outside_change) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the change directory)" ;;
-      outside_worktree) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the worktree)" ;;
-      *) echo "refused: ${REFUSED_LABELS[$i]} (could not be resolved: a symlink loop or other failure walking its path)" ;;
-    esac
-    i=$((i + 1))
-  done
-fi
-if [ "${#SKIPPED_LABELS[@]}" -gt 0 ]; then
-  i=0
-  while [ "$i" -lt "${#SKIPPED_LABELS[@]}" ]; do
-    echo "skipped: ${SKIPPED_LABELS[$i]} (absent)"
-    i=$((i + 1))
-  done
-fi
-echo
+# render_body — everything printed after the header's `generated:`/`head:`
+# lines: the found/skipped/refused census and every "## <label>" section.
+# Captured once into BODY and hashed by sha256_hex below, so the header's
+# own per-call metadata (the timestamp, the HEAD sha) never enters the
+# comparison — see SKIP-WHEN-UNCHANGED above and design.md's
+# header-excluded-from-hash decision.
+render_body() {
+  echo "found: ${#FOUND_LABELS[@]} source(s); skipped: ${#SKIPPED_LABELS[@]} source(s); refused: ${#REFUSED_LABELS[@]} source(s)"
+  if [ "${#REFUSED_LABELS[@]}" -gt 0 ]; then
+    i=0
+    while [ "$i" -lt "${#REFUSED_LABELS[@]}" ]; do
+      case "${REFUSED_REASONS[$i]}" in
+        outside_change) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the change directory)" ;;
+        outside_worktree) echo "refused: ${REFUSED_LABELS[$i]} (resolves outside the worktree)" ;;
+        *) echo "refused: ${REFUSED_LABELS[$i]} (could not be resolved: a symlink loop or other failure walking its path)" ;;
+      esac
+      i=$((i + 1))
+    done
+  fi
+  if [ "${#SKIPPED_LABELS[@]}" -gt 0 ]; then
+    i=0
+    while [ "$i" -lt "${#SKIPPED_LABELS[@]}" ]; do
+      echo "skipped: ${SKIPPED_LABELS[$i]} (absent)"
+      i=$((i + 1))
+    done
+  fi
+  echo
 
-if [ "${#FOUND_LABELS[@]}" -gt 0 ]; then
-  i=0
-  while [ "$i" -lt "${#FOUND_LABELS[@]}" ]; do
-    echo "## ${FOUND_LABELS[$i]}"
-    echo
-    if [ -n "${FOUND_PATHS[$i]}" ]; then
-      cat "${FOUND_PATHS[$i]}"
-    else
-      printf '%s' "$PROJECT_COMMANDS_BODY"
-    fi
-    echo
-    i=$((i + 1))
-  done
+  if [ "${#FOUND_LABELS[@]}" -gt 0 ]; then
+    i=0
+    while [ "$i" -lt "${#FOUND_LABELS[@]}" ]; do
+      echo "## ${FOUND_LABELS[$i]}"
+      echo
+      if [ -n "${FOUND_PATHS[$i]}" ]; then
+        cat "${FOUND_PATHS[$i]}"
+      else
+        printf '%s' "$PROJECT_COMMANDS_BODY"
+      fi
+      echo
+      i=$((i + 1))
+    done
+  fi
+}
+
+# sha256_hex — the hashing primitive SKIP-WHEN-UNCHANGED above compares BODY
+# against. Sourced from lib/sha256-hex.sh (F1, this change's own review
+# panel), not carried inline: scripts/check-cleanup-complete.sh carried a
+# byte-for-byte-identical copy, and once this script grew a second caller,
+# rules/build-the-simplest-thing.mdc's "no abstraction until a second caller
+# exists" calls for extracting the shared helper rather than — as this
+# comment used to argue — leaving two copies free to drift apart, exactly
+# the failure lib/within-root.sh's own header records happening to
+# within_root before its extraction. See lib/sha256-hex.sh for the function
+# itself.
+
+BODY="$(render_body)"
+NEW_HASH="$(sha256_hex "$BODY" 2>/dev/null || true)"
+HASH_PATH="$OUTPUT_PATH.hash"
+
+REASON=""
+if [ -z "$NEW_HASH" ]; then
+  REASON="no hash tool available"
+elif [ ! -f "$HASH_PATH" ] || [ ! -f "$OUTPUT_PATH" ]; then
+  REASON="no cached bundle"
+elif [ "$(cat "$HASH_PATH")" != "$NEW_HASH" ]; then
+  REASON="inputs changed"
 fi
 
+if [ -z "$REASON" ]; then
+  echo "gather-dispatch-context: bundle unchanged — reusing $OUTPUT_PATH" >&2
+  exit 0
+fi
+
+mkdir -p "$(dirname "$OUTPUT_PATH")"
+{
+  echo "# Dispatch context bundle for $NAME"
+  echo "generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "head: $(git -C "$WORKTREE_REAL" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  echo
+  # BODY's own trailing newline(s) are stripped by the `$(render_body)`
+  # command substitution above (F2, this change's own review panel) — the
+  # hash comparison is unaffected, since NEW_HASH is derived from that same
+  # stripped BODY on every call, but the file this writes must still end
+  # with a newline the way the pre-kan-288 stdout-redirected script always
+  # did (its own last `echo`, per source, was never swallowed by a capture).
+  # `%s\n` restores exactly that: one trailing newline, appended after
+  # BODY's own content rather than baked into what gets hashed.
+  printf '%s\n' "$BODY"
+} > "$OUTPUT_PATH"
+
+if [ -n "$NEW_HASH" ]; then
+  printf '%s' "$NEW_HASH" > "$HASH_PATH"
+else
+  rm -f "$HASH_PATH"
+fi
+
+echo "gather-dispatch-context: bundle rebuilt — $REASON" >&2
 exit 0
