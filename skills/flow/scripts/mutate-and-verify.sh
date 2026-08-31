@@ -1,0 +1,1 @@
+../../../scripts/mutate-and-verify.sh
