@@ -80,8 +80,10 @@
    with the workspace id substituted into its text by the mechanism that same file defines. **Run 2
    is not handed that id and does not need to be**: it is derived from the change name and from
    nothing else, deterministically and without ever being recorded, per
-   **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 re-derives it
-   and arrives at the id `/myflow-do` used, in a session that shared nothing with it.
+   **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 runs `flow
+   workspace-id <name>` for it, rather than re-deriving it by hand from that contract's own
+   derivation, and arrives at the same id `/myflow-do` used, in a session that shared nothing with
+   it.
 
    **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
    half skipped rather than failed** — a step whose artifact is already absent is a success, which is
