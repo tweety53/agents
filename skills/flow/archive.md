@@ -199,13 +199,11 @@ flow stage end -command '/flow' -stage flow.self-review -outcome completed <name
 flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-10. **Push the archive branch and open its pull request.** Push `chore/archive-<name>`; open a pull
-    request against `<base>` via a PR CLI when usable, else print the forge's create-PR URL and ask
-    whether it was opened. This push carries both the archive commit and the self-review report, so
-    there is no window in which the archive PR merges while the report is still unwritten. Never
-    pushes to `<base>`.
-
-    A failed push, or a failed PR creation, is reported and never moves the change off `FINISHED`.
+10. **Push the archive branch and land it.** The procedure — the two-row route table keyed on how
+    this run of `archive.md` was reached, the guarantee that the archive commit and step 9's
+    self-review report always land together, and the failure-reporting rules — is **Run 2 — the
+    branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 10, canonical for
+    it.
 11. **Restore the main checkout to `<base>`.** Successful or not — never leave the checkout on the
     archive branch. Runs inside step 10's mark.
 
@@ -218,7 +216,7 @@ flow stage end -command '/flow' -stage flow.push-archive -outcome completed <nam
 
 **Change:** <name>
 **Archived:** spectre/changes/archive/<name>/ (committed on chore/archive-<name>)
-**Archive PR:** <prUrl> | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open a PR against <base>
+**Archive PR:** <prUrl> | none — merged directly into <base> | not pushed — <reason>; land it with: git -C <main-checkout> push -u origin chore/archive-<name>, then open a PR against <base>
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified

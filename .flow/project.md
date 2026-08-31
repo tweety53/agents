@@ -309,6 +309,10 @@ scripts/check-references.sh
 
 `KAN`
 
+## default landing route
+
+`merge and push`
+
 ## workspace isolation
 
 | Resource | Variable | Default | In a workspace |

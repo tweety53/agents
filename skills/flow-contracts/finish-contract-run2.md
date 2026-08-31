@@ -214,18 +214,33 @@
    the report path. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre
    cutover and not migrated, so it records where the rule came from and governs nothing: the
    statement above is both the requirement and the runtime source of the procedure.
-10. **Push the archive branch and open its pull request.** Push `chore/archive-<name>`; open a pull
-    request against `<base>` via a PR CLI when usable for the host, else print the forge's
-    create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route
-    (`skills/flow-contracts/finish-contract-run1.md`) uses. This push carries both the archive commit and the self-review report from step 9, so
-    there is no window in which the archive pull request merges while the report is still
-    unwritten. Run 2 never pushes to `<base>`.
+10. **Push the archive branch and land it — the route depends on how this run of archive.md was
+    reached.**
 
-    A failed push, or a failed pull-request creation, is reported with the command's own output. It
-    never moves the change off `FINISHED` — the change is already terminal by step 8 — and the
-    handoff names the unpushed branch `chore/archive-<name>` and prints the exact push and
-    pull-request commands needed to land it by hand. The archive is never reported as landed until
-    this step actually lands it.
+    | Reached via | Then |
+    |---|---|
+    | the merge-and-push continuation, same invocation as run 1 | push `chore/archive-<name>`; merge it into `<base>`; push `<base>` — the same three sub-steps Run 1's own merge-and-push route (`skills/flow-contracts/finish-contract-run1.md`) performs, applied to the archive branch instead |
+    | a standalone invocation | push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, else print the forge's create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route uses |
+
+    This push carries both the archive commit and the self-review report from step 9 either way,
+    so there is no window in which the archive lands while the report is still unwritten. Run 2
+    never pushes anything but `chore/archive-<name>` and, on the merge-and-push row, `<base>`
+    itself.
+
+    A failed push, a failed merge, or a failed pull-request creation is reported with the
+    command's own output. It never moves the change off `FINISHED` — the change is already
+    terminal by step 8. On the standalone row, the handoff names the unpushed branch
+    `chore/archive-<name>` and prints the exact push and pull-request commands needed to land it
+    by hand. The archive is never reported as landed until this step actually lands it, on either
+    row.
+
+    **This split reads no persisted field.** The merge-and-push row is recognized because this run
+    of archive.md is executing as `skills/flow/integrate.md`'s own same-invocation continuation —
+    a fact already in scope for that one call path, never written to the state file. A standalone
+    invocation (the PR and manual routes always defer archiving this way) has no way to know what
+    the original route was, or whether the operator merged the PR through some mechanism this
+    pipeline never chose — so it always takes the standalone row, which is the same behavior this
+    step already had before this change.
 11. **Restore the main checkout to `<base>`.** Successful or not, run 2 leaves the main checkout on
     `<base>`, never on the archive branch.
 

@@ -136,10 +136,20 @@ re-run the project's whole `## lint`/`## test` list here. A clean rebase whose o
 this stage proceeds to the landing question and closes the mark `completed`, exactly like
 **Continue**.
 
+**Load `skills/flow-contracts/project-configuration.md`** — the `## default landing route` key
+is canonical there. Read `<project>/.flow/project.md`'s `## default landing route` section, if
+present, and resolve it against the three literals `pull request` / `merge and push` /
+`manual`, byte-for-byte after trimming leading/trailing whitespace. A body matching none of
+them exactly is reported by name and dropped, resolving as absent. Absent → `pull request`
+stays the recommended default, exactly as today.
+
 > **How should this branch land?**
 > - **Open a pull request** *(default, recommended)*
 > - **Merge and push**
 > - **Handle it manually**
+
+The `(default, recommended)` marker moves to whichever option the resolution above named;
+`pull request` keeps it when nothing resolved.
 
 Having asked once, run to completion without asking again.
 
