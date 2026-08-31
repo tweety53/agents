@@ -30,3 +30,9 @@ stats/web/tsconfig.tsbuildinfo
 stats/web/test-results/
 stats/web/playwright-report/
 stats/web/blob-report/
+
+# IntelliJ's own per-checkout project name -- churns with whatever an
+# "open in IntelliJ" run instruction last named the window, and repeatedly
+# shows up as stray local noise that must not be swept into an unrelated
+# commit.
+.idea/.name
