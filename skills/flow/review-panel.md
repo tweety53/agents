@@ -483,6 +483,13 @@ fails, and restore. An unclear case goes to the operator through the same handba
 **Each mutation alters one mechanism.** Where a single revert would also change state a second check
 reads, split it into surgical mutations, one per mechanism.
 
+**`<agents repo>/scripts/mutate-and-verify.sh` mechanizes the mechanical steps** — backup, apply, run, report,
+restore — for a mutation expressed as a patch file against one or more test harnesses. Which
+mechanism to mutate, and whether a survivor is real or an equivalent mutant, remain **your** own
+judgment calls; the script has no opinion on either. Its per-harness report line already carries
+`<path>`, what changed, and the failing test, so a `fix-mutation:` line below can be drawn directly
+from that report rather than typed by hand.
+
 **A surviving mutation is repaired in this round.** Add the test that catches it before the round
 closes.
 
