@@ -144,6 +144,9 @@ fail() {
 assert_eq() { # <desc> <expected> <actual>
   if [[ "$2" == "$3" ]]; then pass "$1"; else fail "$1" "expected [$2], got [$3]"; fi
 }
+assert_ne() { # <desc> <not-expected> <actual>
+  if [[ "$2" != "$3" ]]; then pass "$1"; else fail "$1" "expected something other than [$2], got [$3]"; fi
+}
 assert_exists() { # <desc> <path>
   if [[ -e "$2" || -L "$2" ]]; then pass "$1"; else fail "$1" "$2 does not exist"; fi
 }
@@ -374,17 +377,26 @@ real_home_fingerprint() {
 # itself: a global install fills the sandbox with symlinks pointing back into this repo, so
 # any sandbox path a case writes may in fact be a repo path. The seed_guard above blocks the
 # route that was found; this catches the routes that were not.
-source_tree_fingerprint() {
+# tree_fingerprint <path>... — stat-lines every regular file found under the given paths,
+# skipping any directory named __pycache__: a generated, .gitignore'd Python bytecode cache is
+# not source, the same reason .git itself is never walked. Shared between
+# source_tree_fingerprint() below and this harness's own KAN-369 regression case, so the case
+# can never drift from what production actually runs.
+tree_fingerprint() {
   local f
+  find "$@" -name '__pycache__' -prune -o -type f -print0 2>/dev/null | sort -z | while IFS= read -r -d '' f; do
+    stat_line "$f"
+  done
+}
+
+source_tree_fingerprint() {
   # scripts/ and README.md are included deliberately: without them the harness cannot
   # detect damage to ITSELF or to the vocabulary guard, which is the one blind spot a
   # write-through incident would exploit twice.
-  find "$REPO_ROOT/skills" "$REPO_ROOT/rules" "$REPO_ROOT/commands" "$REPO_ROOT/commands-claude" \
-       "$REPO_ROOT/scripts" \
-       "$REPO_ROOT/setup.sh" "$REPO_ROOT/CLAUDE.md" "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md" \
-       -type f -print0 2>/dev/null | sort -z | while IFS= read -r -d '' f; do
-    stat_line "$f"
-  done
+  tree_fingerprint \
+    "$REPO_ROOT/skills" "$REPO_ROOT/rules" "$REPO_ROOT/commands" "$REPO_ROOT/commands-claude" \
+    "$REPO_ROOT/scripts" \
+    "$REPO_ROOT/setup.sh" "$REPO_ROOT/CLAUDE.md" "$REPO_ROOT/AGENTS.md" "$REPO_ROOT/README.md"
 }
 
 REAL_HOME_BEFORE="$(real_home_fingerprint | hash_stdin)"
@@ -1136,6 +1148,29 @@ REAL_HOME_AFTER="$(real_home_fingerprint | hash_stdin)"
 assert_eq "~/.claude, ~/.cursor and ~/.codex are unchanged" "$REAL_HOME_BEFORE" "$REAL_HOME_AFTER"
 SOURCE_TREE_AFTER="$(source_tree_fingerprint | hash_stdin)"
 assert_eq "the repo's own skills, rules and commands are unchanged" "$SOURCE_TREE_BEFORE" "$SOURCE_TREE_AFTER"
+
+group "KAN-369: __pycache__ churn does not flake the source-tree fingerprint"
+
+PYCACHE_FIXTURE="$SANDBOX/pycache-fixture"
+mkdir -p "$PYCACHE_FIXTURE/scripts/__pycache__" "$PYCACHE_FIXTURE/skills"
+printf 'x\n' > "$PYCACHE_FIXTURE/scripts/real.py"
+printf 'y\n' > "$PYCACHE_FIXTURE/scripts/__pycache__/real.cpython-314.pyc"
+
+FP_BEFORE="$(tree_fingerprint "$PYCACHE_FIXTURE/scripts" "$PYCACHE_FIXTURE/skills" | hash_stdin)"
+
+# Simulate a sibling harness's Python invocation rewriting the bytecode cache mid-run — the
+# exact race KAN-369 reports. A fixed future mtime (portable across GNU and BSD touch, per the
+# same two-tool split this file already uses for stat) guarantees a changed %Y even when the
+# whole test runs inside one filesystem-mtime-resolution tick.
+touch -t 203001010000 "$PYCACHE_FIXTURE/scripts/__pycache__/real.cpython-314.pyc"
+FP_AFTER_PYCACHE="$(tree_fingerprint "$PYCACHE_FIXTURE/scripts" "$PYCACHE_FIXTURE/skills" | hash_stdin)"
+assert_eq "a .pyc rewrite under __pycache__ leaves the fingerprint unchanged" "$FP_BEFORE" "$FP_AFTER_PYCACHE"
+
+# Sanity check: the prune must not blind the assertion to a real source change — a rewrite of
+# an ordinary file in the same tree still has to move the fingerprint.
+touch -t 203001010000 "$PYCACHE_FIXTURE/scripts/real.py"
+FP_AFTER_REAL="$(tree_fingerprint "$PYCACHE_FIXTURE/scripts" "$PYCACHE_FIXTURE/skills" | hash_stdin)"
+assert_ne "a real source-file change still moves the fingerprint" "$FP_BEFORE" "$FP_AFTER_REAL"
 
 # ===========================================================================
 
