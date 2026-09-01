@@ -19,13 +19,14 @@ See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`).
 (`skills/flow-contracts/model-policy-rationale.md`) for where the rule was first written and why
 that layer no longer governs.
 
-`/myflow-start` should run on **Opus** (or the harness's strongest available model) — brainstorming
-and design benefit most from stronger reasoning. Every other
-`/flow*` command should run on
-**Sonnet** (or the harness's standard default), and **every review-panel reviewer runs on the
-panel's model — Sonnet by default** — regardless of the parent model. Sonnet is the default rather
-than an absolute because a change may record its own panel model, per the three roles below; what
-never varies is that the panel's model is *chosen*, not inherited from the parent session.
+Planning — brainstorming, design and writing-plans — runs in a planner subagent dispatched on
+`PLANNING_MODEL` (`fable` by default, `opus` on a verified fallback), never on the parent session;
+see **Model resolution** (`skills/flow/SKILL.md`), canonical for the resolution and the dispatch.
+The parent session itself runs on **Sonnet** (or the harness's standard default) for the whole of
+`/flow`, and **every review-panel reviewer runs on the panel's model — Sonnet by default** —
+regardless of the parent model. Sonnet is the default rather than an absolute because a change may
+record its own panel model, per the three roles below; what never varies is that the panel's model
+is *chosen*, not inherited from the parent session.
 
 **Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
 available model), which **explicitly overrides** superpowers:subagent-driven-development's model
@@ -90,11 +91,12 @@ duty itself.
 neither the write into the store nor the render out of it invents a model slug. See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for why.
 
-- **Claude Code**: the **session** model is enforced via `model: opus` / `model: sonnet` in each
-  command's frontmatter (`commands-claude/*.md`) — no manual action needed *for the session*.
-  Frontmatter cannot set a **subagent's** model, so the implementer rule above is not enforced by
-  it: `/myflow-do` must name the model on each implementer dispatch, and the ledger line for that
-  task is what records that it did.
+- **Claude Code**: a command's `model:` frontmatter (`commands-claude/*.md`) applies only to the
+  turn that command starts, never to any turn after it — so it enforces no **session** model for a
+  multi-turn run like `/flow`, and no **subagent's** model either. Every role's model is set at
+  dispatch time instead, which every harness supports equally: the implementer, panel and planner
+  dispatches each name their model explicitly, and the ledger line for that dispatch is what
+  records that they did.
 - **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) —
   each `.cursor/commands/flow*.md` file carries an explicit note; switch models manually in the
   composer/chat picker.

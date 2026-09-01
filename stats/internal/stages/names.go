@@ -59,7 +59,6 @@ var Table = []Stage{
 	// /flow -- mints its own flow.* namespace rather than reusing start./do./finish.,
 	// per design.md's flow-rename-content-split (see README.md's Level 1 table for why).
 	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{Flow}},
-	{Key: "flow.resolve-change", Name: "Resolve the change", Commands: []Command{Flow}},
 	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow}},
 	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow}},
 	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow}},

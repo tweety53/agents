@@ -572,7 +572,6 @@ EXPECTED_ZERO_REVIEWER_PROMPTS=(
 EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name"
 
 EXPECTED_ZERO_RATIONALE_DOCS=(
-  "skills/flow-research/SKILL.md"
   "skills/flow-contracts/git-boundaries-rationale.md"
   "skills/flow-contracts/worktree-resolution-rationale.md"
   "skills/flow-contracts/project-configuration-authoring.md"

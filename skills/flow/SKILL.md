@@ -76,7 +76,7 @@ The full key list, in the order each phase file marks them:
 
 | Phase file | Keys |
 |------------|------|
-| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.resolve-change`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
 | `skills/flow/review-panel.md` | `flow.review-panel` |
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
@@ -102,6 +102,9 @@ DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 SELF_REVIEW_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.selfReviewModel')"
 [ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL="$DEFAULT_MODEL"
+PLANNING_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.planningModel // empty')"
+# <project>/.flow/project.md's `## planning model` body, when present and a ValidModels member, wins
+[ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
 ```
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
@@ -124,11 +127,21 @@ An empty list can never reach this table from `/flow-settings`: `<agents repo>/s
 store. The empty-list row exists because this resolver must still define a value for a state the
 store's schema permits, not because an operator can produce one.
 
-**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL`, and is the one role that does**
+**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL`**
 — it is the model the archive-phase self-review subagent dispatch
 (`skills/flow/archive.md` step 9) runs on. An empty `selfReviewModel` from the store, or an
 unreachable store, both resolve to `DEFAULT_MODEL` — inheriting is the field's own explicit
 "unset" meaning, not a degraded fallback the way `DEFAULT_MODEL`'s own `sonnet` literal is.
+
+**`PLANNING_MODEL` resolves independently of `DEFAULT_MODEL` and governs three roles**: the
+planner dispatch (`skills/flow/brainstorm.md`), `flow.document-fix`'s planner dispatch
+(`skills/flow/implement.md`), and `/flow-research`'s research subagent
+(`skills/flow-research/SKILL.md`). `<project>/.flow/project.md`'s `## planning model` key, when
+present and a valid `ValidModels` member, wins over the store's `planningModel` field; when both
+are empty, or the store is unreachable, `PLANNING_MODEL` falls back to the literal `fable`, naming
+this a fallback exactly as `DEFAULT_MODEL`'s own `sonnet` literal is. A plain-language session
+instruction overrides `PLANNING_MODEL` for that run only, recorded with the dispatch it changes and
+never written back to the settings store or the project key.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix

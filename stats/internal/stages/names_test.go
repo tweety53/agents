@@ -294,7 +294,7 @@ func TestFlowStatusHasNoDocumentedStages(t *testing.T) {
 			}
 		}
 	}
-	if err := stages.Validate("/flow-status", "flow.resolve-change"); err == nil {
+	if err := stages.Validate("/flow-status", "flow.kickoff"); err == nil {
 		t.Error("Validate(/flow-status, ...) = nil, want a rejection naming that the command has no documented stages")
 	}
 }

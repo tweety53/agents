@@ -21,6 +21,7 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 	want := store.Settings{
 		DefaultModel:    "opus",
 		SelfReviewModel: "haiku",
+		PlanningModel:   "fable",
 		Reviewers:       []string{"primary", "principles", "code-review-low", "bugbot"},
 	}
 
@@ -45,8 +46,8 @@ func TestSettingsStore_RoundTripUpdates(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 
-	first := store.Settings{DefaultModel: "sonnet", SelfReviewModel: "", Reviewers: []string{"primary"}}
-	second := store.Settings{DefaultModel: "haiku", SelfReviewModel: "opus", Reviewers: []string{"primary", "security"}}
+	first := store.Settings{DefaultModel: "sonnet", SelfReviewModel: "", PlanningModel: "", Reviewers: []string{"primary"}}
+	second := store.Settings{DefaultModel: "haiku", SelfReviewModel: "opus", PlanningModel: "fable", Reviewers: []string{"primary", "security"}}
 
 	if err := st.PutSettings(ctx, first); err != nil {
 		t.Fatalf("first PutSettings: %v", err)
@@ -128,6 +129,43 @@ func TestSettingsStore_RejectsUnknownSelfReviewModel(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), badModel) {
 		t.Errorf("PutSettings error = %q, want it to name the rejected value %q", err.Error(), badModel)
+	}
+}
+
+// TestSettingsStore_RejectsUnknownPlanningModel asserts PutSettings
+// refuses a planning_model value off the harness's fixed model enum, but
+// accepts both "" (the store's own default) and "fable" -- the value
+// ValidModels must carry for planning_model's own default to remain
+// writable, unlike self_review_model's "inherit" default which needs no
+// such entry.
+func TestSettingsStore_RejectsUnknownPlanningModel(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	const badModel = "architect"
+	err := st.PutSettings(ctx, store.Settings{
+		DefaultModel:  "sonnet",
+		PlanningModel: badModel,
+		Reviewers:     []string{"primary"},
+	})
+	if err == nil {
+		t.Fatal("PutSettings: got nil error, want ErrInvalidModel")
+	}
+	if !errors.Is(err, store.ErrInvalidModel) {
+		t.Errorf("PutSettings error = %v, want it to wrap ErrInvalidModel", err)
+	}
+	if !strings.Contains(err.Error(), badModel) {
+		t.Errorf("PutSettings error = %q, want it to name the rejected value %q", err.Error(), badModel)
+	}
+
+	for _, ok := range []string{"", "fable"} {
+		if err := st.PutSettings(ctx, store.Settings{
+			DefaultModel:  "sonnet",
+			PlanningModel: ok,
+			Reviewers:     []string{"primary"},
+		}); err != nil {
+			t.Errorf("PutSettings with PlanningModel %q: %v, want nil", ok, err)
+		}
 	}
 }
 

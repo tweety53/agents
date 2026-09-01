@@ -121,6 +121,36 @@ func TestSettingsAPI_Get_EchoesSelfReviewModel(t *testing.T) {
 	}
 }
 
+// TestSettingsAPI_Get_EchoesPlanningModel asserts GET /api/v1/settings
+// echoes whatever planningModel the stub store returns, mirroring
+// TestSettingsAPI_Get_EchoesSelfReviewModel above for the new field.
+func TestSettingsAPI_Get_EchoesPlanningModel(t *testing.T) {
+	fs := newFakeStore()
+	fs.settings = &store.Settings{
+		DefaultModel:  "sonnet",
+		PlanningModel: "fable",
+		Reviewers:     []string{"primary"},
+	}
+	ts := newSettingsTestServer(t, fs)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/v1/settings")
+	if err != nil {
+		t.Fatalf("GET /api/v1/settings: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var got struct {
+		PlanningModel string `json:"planningModel"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.PlanningModel != "fable" {
+		t.Errorf("planningModel = %q, want %q", got.PlanningModel, "fable")
+	}
+}
+
 // TestSettingsAPI_Put_Valid asserts a well-formed PUT overwrites
 // flow_settings' single row, and that a following GET reports exactly
 // what was written -- the round-trip DecodeChangeBody/put already proves
@@ -190,6 +220,11 @@ func TestSettingsAPI_Put_RejectsInvalidValue(t *testing.T) {
 			name:        "unknown self-review model",
 			body:        `{"defaultModel":"sonnet","selfReviewModel":"gpt-5","reviewers":["primary","principles","code-review-low"]}`,
 			wantInError: "gpt-5",
+		},
+		{
+			name:        "unknown planning model",
+			body:        `{"defaultModel":"sonnet","planningModel":"architect","reviewers":["primary","principles","code-review-low"]}`,
+			wantInError: "architect",
 		},
 	}
 

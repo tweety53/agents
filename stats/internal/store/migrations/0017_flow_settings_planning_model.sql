@@ -1,0 +1,13 @@
+-- 0017_flow_settings_planning_model.sql: adds flow_settings.planning_model, the model /flow's
+-- planning stages (task 4's PLANNING_MODEL) run on.
+--
+-- TEXT NOT NULL DEFAULT '' -- not nullable -- for the same reason self_review_model is NOT NULL
+-- in 0016_flow_settings_self_review_model.sql: so GetSettings never has to distinguish "column is
+-- NULL" from "column is the empty string" -- both already mean the same thing here.
+--
+-- Unlike self_review_model, empty here does NOT mean "inherit default_model" -- it means the
+-- literal "fable", skills/flow/SKILL.md's own planning-model fallback. planning_model and
+-- default_model are two independent fields whose empty values mean different things: a fresh row
+-- created before /flow-settings has ever set this column resolves to "fable", not to whatever
+-- default_model happens to hold.
+ALTER TABLE flow_settings ADD COLUMN planning_model TEXT NOT NULL DEFAULT '';
