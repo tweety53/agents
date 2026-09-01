@@ -1232,6 +1232,14 @@ func newIntegrationTestServer(t *testing.T, st *store.Store) *httptest.Server {
 	return ts
 }
 
+// UpdatedAt is a fixed instant, not time.Now(): every caller's own period
+// window is hardcoded around 2026-08, and a live wall-clock timestamp
+// eventually rolls past that window's fixed upper bound -- exactly what
+// made TestMultiRepoChangeIsOneRowInEveryView's state-board assertion fail
+// once the real date reached 2026-09-01, with no change to the seeded
+// data or the code under test.
+var integrationChangeUpdatedAt = time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+
 func mustPutIntegrationChange(t *testing.T, st *store.Store, projectKey, name string, repos []store.Repo) {
 	t.Helper()
 	err := st.PutChange(context.Background(), store.Change{
@@ -1240,7 +1248,7 @@ func mustPutIntegrationChange(t *testing.T, st *store.Store, projectKey, name st
 		Name:             name,
 		State:            store.StateInProgress,
 		Repos:            repos,
-		UpdatedAt:        time.Now().UTC(),
+		UpdatedAt:        integrationChangeUpdatedAt,
 		UpdatedBy:        "test",
 	})
 	if err != nil {
