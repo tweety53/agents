@@ -150,7 +150,9 @@ still had a declared budget row) and two stale comment citations in
 this task's commit via `git commit --fixup` + `git rebase --autosquash`, same mechanism as the
 first ruling.
 
-**Tests:** **none** — prose relocation, no code
+**Tests:** this task's own diff to `test-check-cleanup-complete.sh` and
+`test-check-contract-budget.sh` (second ruling) only corrects stale comment/fixture citations —
+no test case added, removed, or changed in behavior; the prose relocation itself declares no test
 **Regression:** n/a — no test declared
 **Baseline:** n/a — no test declared
 **Commit:** `docs(flow-contracts): split finish-contract.md by run`
