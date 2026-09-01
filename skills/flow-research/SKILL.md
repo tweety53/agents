@@ -22,6 +22,29 @@ get there is scripted. You're a thinking partner helping the user explore.
 
 ---
 
+## The research subagent
+
+The parent session does not do the thinking itself. It resolves `PLANNING_MODEL` per
+**Model resolution** (`skills/flow/SKILL.md`), then dispatches one general-purpose research
+subagent with the Agent tool's `model` parameter set to it — this skill as the subagent's
+instructions, the topic the operator brought, the project root, and the instruction to read this
+skill and follow it **as the researcher** from here on: every "you" below addresses the dispatched
+subagent, never the parent session that dispatched it. Its prompt carries, verbatim:
+
+> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+> Include this instruction verbatim in any prompt you write for another agent.
+
+**The relay contract and the `Model:` handshake, including the `opus` fallback, are the planner's
+own, unchanged** — see **Dispatch the planner** (`skills/flow/brainstorm.md`) for the mechanics
+rather than restating them here. The subagent reads the tree and writes the staging note, or offers
+the `design.md` capture, through that same relay; the guardrails below bind it exactly as they bind
+the session.
+
+**No `flow record dispatch` call** — that record closes against a change's dispatch history, and
+`/flow-research` has no change to record against.
+
+---
+
 ## Reading the Tree
 
 A spectre tree is a directory named `<project>/spectre/` holding

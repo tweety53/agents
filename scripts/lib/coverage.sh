@@ -218,18 +218,39 @@ coverage_report() {
 # each of which records every corpus member it enumerates before checking
 # whether that member's declaration applies — so this second pass costs
 # nothing on a healthy guard and only fires on a genuinely stale declaration.
+#
+# KAN-374 F9: the first pass above only ever reasons about a member recorded
+# at count 0 — a member that was declared expected-zero and whose recorded
+# count later becomes non-zero falls into neither branch (it is not 0, so
+# the undeclared-zero check never runs; coverage_report's own "(declared:
+# ...)" suffix is gated on the same count-is-0 condition, so it silently
+# stops rendering the reason too) and the guard kept exiting 0 with the
+# stale reason just quietly dropped. A declared zero is a claim ("nothing
+# will ever be checked here, because ...") and the moment the count is
+# non-zero that claim is false — exactly the case a declaration mechanism
+# exists to make loud, the same way an undeclared zero already is.
 coverage_verdict() {
   local n=${#COVERAGE_MEMBERS[@]}
   if [ "$n" -eq 0 ]; then
     printf 'coverage: no member was ever recorded — this guard checked nothing (empty corpus)\n'
     return 1
   fi
-  local i member count rc=0
+  local i member count reason rc=0
   for i in "${!COVERAGE_MEMBERS[@]}"; do
     member="${COVERAGE_MEMBERS[$i]}"
     count="${COVERAGE_COUNTS[$i]}"
     if [ "$count" -eq 0 ] && ! coverage_is_declared "$member"; then
       printf '%s: 0 checked, and not declared expected-zero (coverage)\n' "$member"
+      rc=1
+    elif [ "$count" -ne 0 ] && coverage_is_declared "$member"; then
+      reason="$(coverage_declared_reason "$member")"
+      if [ -n "$reason" ]; then
+        printf '%s: %s checked, but declared expected-zero (%s) — declaration is now false (coverage)\n' \
+          "$member" "$count" "$reason"
+      else
+        printf '%s: %s checked, but declared expected-zero — declaration is now false (coverage)\n' \
+          "$member" "$count"
+      fi
       rc=1
     fi
   done

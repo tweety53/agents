@@ -5,21 +5,18 @@ category: flow
 description: Single-command pipeline — brainstorm, implement behind the review panel resolved from the settings store, and integrate, pausing only at the human gates
 ---
 
-**Model:** keep this **session** on Sonnet (or your default). See "Model policy" in
-`skills/flow-contracts/model-policy.md` for the per-harness enforcement notes that still apply —
-its three-role table does not; see `skills/flow/SKILL.md`'s own **Model resolution**, which is
-canonical for `/flow`. Cursor doesn't yet support a per-command model frontmatter field, so the
-session setting is a recommendation rather than an enforced switch — but the subagent models are
-set at dispatch time and apply in every harness.
+**Model:** planning and implementation both run in subagents whose models are set at dispatch time
+(**Model resolution**, `skills/flow/SKILL.md`), so the session model is not load-bearing.
 
 Use the **flow** skill — installed globally, so let your harness resolve it by name rather than
 assuming a project-local path.
 
 Follow that skill exactly. Accepts **no state** (creates a change), **`STARTED`** (resumes a
 creating run that stopped before implementation), or **`IN_PROGRESS`**. On a creating run it writes
-`STARTED` immediately, then runs brainstorming (unchanged, fully interactive) and, in the same
-invocation, implementation behind the review panel resolved from the settings store, ending at
-`IN_PROGRESS`. Re-invoked with an argument at `IN_PROGRESS`, the argument is fix instructions.
+`STARTED` immediately, then runs brainstorming (unchanged, fully interactive, now in a planner
+subagent on the configured planning model) and, in the same invocation, implementation behind the
+review panel resolved from the settings store, ending at `IN_PROGRESS`. Re-invoked with an argument
+at `IN_PROGRESS`, the argument is fix instructions.
 Re-invoked bare at `IN_PROGRESS`, it asks how to land the branch; merge-and-push continues in the
 same invocation through archive to `FINISHED`, while open PR and manual stop and hand off.
 

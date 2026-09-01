@@ -20,7 +20,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"defaultModel":"opus","selfReviewModel":"haiku","reviewers":["primary","principles","code-review-low"]}`))
+		_, _ = w.Write([]byte(`{"defaultModel":"opus","selfReviewModel":"haiku","planningModel":"fable","reviewers":["primary","principles","code-review-low"]}`))
 	}))
 	defer srv.Close()
 
@@ -35,6 +35,7 @@ func TestSettingsCmd_Get(t *testing.T) {
 	var got struct {
 		DefaultModel    string   `json:"defaultModel"`
 		SelfReviewModel string   `json:"selfReviewModel"`
+		PlanningModel   string   `json:"planningModel"`
 		Reviewers       []string `json:"reviewers"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
@@ -45,6 +46,9 @@ func TestSettingsCmd_Get(t *testing.T) {
 	}
 	if got.SelfReviewModel != "haiku" {
 		t.Errorf("selfReviewModel = %q, want %q", got.SelfReviewModel, "haiku")
+	}
+	if got.PlanningModel != "fable" {
+		t.Errorf("planningModel = %q, want %q", got.PlanningModel, "fable")
 	}
 	want := []string{"primary", "principles", "code-review-low"}
 	if len(got.Reviewers) != len(want) {
@@ -161,5 +165,45 @@ func TestSettingsCmd_Set_WithSelfReviewModel(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "opus") {
 		t.Errorf("stdout = %q, want it to echo back selfReviewModel", stdout.String())
+	}
+}
+
+// TestSettingsCmd_Set_WithPlanningModel asserts `settings set` passes
+// -planning-model through to the store when given, mirroring
+// TestSettingsCmd_Set_WithSelfReviewModel above for the new flag -- also
+// optional, per -self-review-model's own precedent.
+func TestSettingsCmd_Set_WithPlanningModel(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut || r.URL.Path != "/api/v1/settings" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		var body struct {
+			DefaultModel  string   `json:"defaultModel"`
+			PlanningModel string   `json:"planningModel"`
+			Reviewers     []string `json:"reviewers"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if body.PlanningModel != "fable" {
+			t.Errorf("request planningModel = %q, want %q", body.PlanningModel, "fable")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(body)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"settings", "set", "-addr", srv.URL, "-timeout", "2s",
+			"-model", "sonnet", "-reviewers", "primary,principles,code-review-low",
+			"-planning-model", "fable"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "fable") {
+		t.Errorf("stdout = %q, want it to echo back planningModel", stdout.String())
 	}
 }

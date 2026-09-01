@@ -25,17 +25,20 @@ import (
 )
 
 // recordRoles is the closed set of roles a dispatch row may record --
-// design.md's own `implementer · reviewer · panel-fix · red-partner`. It is
-// checked here, before the store is ever contacted, for exactly the reason
-// `stage begin` checks its stage key against internal/stages first: an
-// unrecognised role is a defect in the caller, and a caller mistake taking
-// the never-block fallback path would journal a write that a replay could
-// only ever be refused for a second time.
+// design.md's own `implementer · reviewer · panel-fix · red-partner ·
+// planner`, planner being the subagent `/flow` dispatches for sections
+// B-D of skills/flow/brainstorm.md and for flow.document-fix
+// (design.md's planner-role). It is checked here, before the store is
+// ever contacted, for exactly the reason `stage begin` checks its stage
+// key against internal/stages first: an unrecognised role is a defect in
+// the caller, and a caller mistake taking the never-block fallback path
+// would journal a write that a replay could only ever be refused for a
+// second time.
 //
 // Unlike a stage key, a role has no documented table elsewhere to
 // transcribe -- design.md's schema comment is the whole of it -- so the
 // list lives here rather than behind a package of its own.
-var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner"}
+var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner"}
 
 // validateFindingStatus judges a finding's status the way validateRole
 // judges -role, before the store is ever contacted: "open" and "fixed" are
@@ -146,7 +149,7 @@ and replayed carrying the identical key, so it updates the row the first
 attempt inserted instead of inserting a second row for one dispatch. Write
 it as a literal, unique among the dispatches of one -session-token.
 
--role is one of: implementer, reviewer, panel-fix, red-partner.
+-role is one of: implementer, reviewer, panel-fix, red-partner, planner.
 
 -agent-id is the harness's own identifier for the subagent that was
 dispatched, where the harness exposes one. It is optional because two of

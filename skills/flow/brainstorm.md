@@ -66,8 +66,6 @@ change: `/flow` asks no planning-effort or model question on a creating run
 
 ```bash
 flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
-flow stage begin -command '/flow' -stage flow.resolve-change -harness <harness> -session-token mf-<literal-token> <name>
-flow stage end   -command '/flow' -stage flow.resolve-change -outcome completed <name>
 ```
 
 **No further command runs before this point on a creating run** — the state write above is the
@@ -96,7 +94,108 @@ at `STARTED` reads what actually exists and continues from there, the same princ
 `/flow` re-entry point already applies. State the resumption point plainly before continuing:
 "resuming `<name>` at `<point>`."
 
+## Dispatch the planner
+
+Sections **B**, **C** and **D** below are the planner's work, not the parent's — one planner
+subagent runs all three, resumed between rounds so its context carries from the first question to
+the finished plan.
+
+**Resolve `PLANNING_MODEL`** per **Model resolution** (`skills/flow/SKILL.md`) before dispatching —
+this is the first of its three governed call sites. Mark the stage and record the dispatch before
+the subagent goes out:
+
+```bash
+flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
+flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> \
+  -key planner -session-token mf-<literal-token> -started-at <ts>
+```
+
+`-role`, `-key`, `-session-token` and `-started-at` carry the same semantics that section 4 of
+`skills/flow/implement.md` states for an implementer dispatch — cited, not restated. `-task` is
+omitted: this dispatch runs against no single task.
+
+Dispatch one subagent with the Agent tool's `model` parameter set to `PLANNING_MODEL`,
+`subagent_type: general-purpose`. Its prompt carries, verbatim:
+
+> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+> Include this instruction verbatim in any prompt you write for another agent.
+
+and states: the change name `<name>`; the linked Jira key and issue text, when one exists; the
+project root; `<changeRoot>`; and the instruction to read this file's sections **B**, **C** and
+**D** and follow them **as the planner** — every "you" in those sections addresses the dispatched
+subagent from here on, never the parent.
+
+**The relay contract**, stated in the same prompt: the planner has no channel to the operator. It
+ends every turn with exactly one `## Question` block — the question, plus named options when it has
+any — or, at the three returns below, with `## Design`, `## Artifacts` or `## Plan` and nothing
+else. The first line of its first reply is `Model: <the model named in its own system prompt>`.
+
+**The handshake.** Compare that first line against `PLANNING_MODEL`. A match proceeds into the
+relay loop below. A mismatch:
+
+```bash
+flow record dispatch end -change <name> -key planner -session-token mf-<literal-token> \
+  -outcome fallback -ended-at <ts>
+flow record dispatch begin -change <name> -role planner -model opus \
+  -key planner-opus -session-token mf-<literal-token> -started-at <ts>
+```
+
+and re-dispatch once, on `model: opus`. **The re-dispatch records under its own key, `planner-opus`,
+never a repeat of `planner`**: the store treats a second `begin` under the same `(session_token,
+key)` as an idempotent replay of the first (`stats/internal/store/records.go`'s `insertDispatch`),
+which would silently discard the `fallback` outcome just recorded. A **second** mismatch is not
+retried again — continue on whatever model answered, the running planner, no third dispatch — and:
+
+```bash
+flow record dispatch end -change <name> -key planner-opus -session-token mf-<literal-token> \
+  -outcome fallback -ended-at <ts>
+flow record dispatch begin -change <name> -role planner -model <the model the handshake line named> \
+  -key planner-<that model, lowercased> -session-token mf-<literal-token> -started-at <ts>
+```
+
+report the model in this run's own output. The persisted rows then read `fable`→fallback,
+`opus`→fallback, `<actual>`→completed — never a record claiming opus ran when the handshake just
+proved otherwise. **A mark or a record never blocks** — proceed on the handshake's outcome
+regardless of whether any `flow` call above reached the store.
+
+**The relay.** The parent asks each `## Question` block verbatim through **AskUserQuestion** and
+resumes the planner with the operator's answer via **SendMessage**. Section B's convergence
+confirm, its third-round offer, and the HARD GATE design-approval question are relayed the same
+way — the planner poses each exactly as B states it, the parent asks it exactly as received, and
+the planner's next turn opens with the operator's answer. The parent marks `flow.brainstorm` end
+and `flow.design-approval` begin/end around the HARD GATE approval, exactly as today:
+
+```bash
+flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
+# … the operator approves the design, relayed through the planner's HARD GATE question …
+flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
+```
+
+**The three returns.** After the `flow.design-approval` mark above closes, the parent marks
+`flow.create-artifacts` begin, resumes the planner via SendMessage, and marks it end when the
+planner's turn ends with `## Artifacts`. It then marks `flow.writing-plans` begin, resumes the
+planner again, and marks it end when the planner's turn ends with `## Plan`. Once `## Plan`
+returns:
+
+```bash
+flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
+  -outcome completed -ended-at <ts> -agent-id <id>
+```
+
+closes the dispatch record under whichever key the handshake left open — `planner` on a clean
+handshake, `planner-opus` after one mismatch, `planner-<model>` after a second — and the parent
+continues into `skills/flow/implement.md` exactly as today.
+
 ## B. Basic Workflow #1 — Brainstorming
+
+**This section's stage marks are run by the parent, not the planner.** The `flow.brainstorm` begin
+mark now lives in **Dispatch the planner** above, and the `flow.brainstorm` end /
+`flow.design-approval` begin/end marks under **Convergence** below stay exactly where they are,
+run by the parent around the relayed HARD GATE approval. Everywhere else in this section — and in
+**C** and **D** below — that addresses "you" means the dispatched planner: the seeded-note
+discovery and its deletion, the checklist, and the convergence loop are the planner's own work,
+relayed back through the returns **Dispatch the planner** describes.
 
 ### Seed from a staged research note, if one exists
 
@@ -174,10 +273,6 @@ this note-found condition holds.
 
 ### The checklist
 
-```bash
-flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
-```
-
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
@@ -250,8 +345,13 @@ flow stage end   -command '/flow' -stage flow.design-approval -outcome completed
 
 ## C. Create the change and its artifacts
 
+**This section's stage marks are run by the parent**, around the planner's `## Artifacts` return —
+see **Dispatch the planner** above. Everywhere below that addresses "you" means the planner:
+`spectre new`, the three artifacts, and the staging-note deletion are its own work.
+
 ```bash
 flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
+# … the parent resumes the planner via SendMessage; everything from here is the planner's own turn …
 spectre new "<name>"
 ```
 
@@ -330,6 +430,11 @@ flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed 
 
 ## D. Basic Workflow #3 — Writing plans
 
+**This section's stage marks are run by the parent**, around the planner's `## Plan` return — see
+**Dispatch the planner** above. Everywhere below that addresses "you" means the planner: the
+writing-plans enrichment and the guards at the end of this section are its own work, and their
+output is what the `## Plan` return carries.
+
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
@@ -396,7 +501,6 @@ declares them, and fix any hit.
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
 ```
 
-Once this phase completes and the change's artifacts exist, continue — within the same invocation
-and without a further command from the operator — into `skills/flow/implement.md`, exactly as
-`/flow` runs implementation from `STARTED`. There is no human gate between brainstorming converging
-and implementation starting.
+What happens once `## Plan` returns is the parent's job, not the planner's — see **Dispatch the
+planner** above. There is no human gate between brainstorming converging and implementation
+starting.

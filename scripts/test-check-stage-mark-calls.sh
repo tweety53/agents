@@ -614,6 +614,29 @@ case "$OUT" in
   *) fail "case 30: expected a -session-token finding, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 31 (KAN-374): the widened corpus scans the skills/flow/ phase files
+# directly, not just SKILL.md/pipeline.md — a substituted session token in a
+# fixture file named brainstorm.md (one of the six phase-file basenames) is
+# caught, proving the FIND pattern's new -name clauses actually reach it.
+# ===========================================================================
+new_fixture
+PHASE_FILE="$FIXTURE/brainstorm.md"
+cat >"$PHASE_FILE" <<'EOF'
+```bash
+flow record dispatch begin -change <name> -role planner -model opus \
+  -key planner-opus -session-token "mf-$(date +%s)" -started-at <ts>
+```
+EOF
+rm -f "$FIXTURE_FILE"
+run_guard "$FIXTURE"
+[ "$RC" -eq 1 ] && pass "case 31: a substituted token in a phase file (brainstorm.md) is caught" \
+  || fail "case 31: rc=$RC out=$OUT"
+case "$OUT" in
+  *"$PHASE_FILE"*'command substitution'*) pass "case 31: finding names the phase file and the substitution shape" ;;
+  *) fail "case 31: expected a phase-file substitution finding, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

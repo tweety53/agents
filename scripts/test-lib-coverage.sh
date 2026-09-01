@@ -216,6 +216,22 @@ assert_contains "case 7: a declared-but-never-recorded member is named in the ve
 assert_nonzero_rc "case 7: a declared-but-never-recorded member exits non-zero" "$RC"
 
 # ---------------------------------------------------------------------------
+# 8: a declared-zero member whose recorded count turns out non-zero is a
+# violation, not a silent pass — the panel's F9 reproducer (planted a real
+# call into a declared-zero router; the guard kept exiting 0). The verdict
+# line names the member, its actual count and its now-false reason so the
+# stale declaration is loud instead of just quietly dropped from the report.
+# ---------------------------------------------------------------------------
+coverage_reset
+coverage_record "flow.SKILL" 1
+coverage_declare "flow.SKILL" "a legitimate zero-mark router"
+run_verdict
+assert_contains "case 8: a declared member gone non-zero is named in the verdict" "$VERDICT" "flow.SKILL"
+assert_contains "case 8: the verdict carries the actual count" "$VERDICT" "1"
+assert_contains "case 8: the verdict carries the now-false reason" "$VERDICT" "a legitimate zero-mark router"
+assert_nonzero_rc "case 8: a declared member gone non-zero exits non-zero" "$RC"
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0

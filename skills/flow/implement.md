@@ -114,23 +114,44 @@ here:
 
 ```bash
 flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
+flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> \
+  -key planner-fix-<n> -session-token mf-<literal-token> -started-at <ts>
 ```
 
-Record what changed **before** writing code, so the proposal never goes stale. Ask which of exactly
-two, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
+Record what changed **before** writing code, so the proposal never goes stale. `<n>` is this fix
+run's own ordinal — one more than the number of fix rounds already recorded in `proposal.md`/
+`tasks.md` or as `<name>-fix-N` sub-changes, the same `N` the "where should it go" prompt's
+sub-change option below names — so the first fix run's dispatch is `planner-fix-1`, the second
+`planner-fix-2`, and so on. Dispatch this fix's planner the same way **Dispatch the planner**
+(`skills/flow/brainstorm.md`) dispatches a creating run's — same handshake, same `opus` fallback
+**and the same key-suffix rule that section states: the opus re-dispatch records under
+`planner-fix-<n>-opus`, and a second mismatch's under `planner-fix-<n>-<model>`, never a repeat of
+`planner-fix-<n>`** — same relay contract, same `Model:` first line — with the fix instructions in
+place of the design checklist; that section is canonical for the mechanics and is not restated
+here.
+
+The planner opens with a `## Question` asking where the fix should go, relayed through the parent
+exactly as any other, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
 
 > **This fix has to be recorded before it is written — where should it go?**
 > - **Append to `proposal.md` and `tasks.md`** *(default, recommended)* — nothing new is created
 > - **Create a linked `<name>-fix-N` sub-change** — its own proposal and plan, for a fix that adds
 >   scope the parent change does not describe
 
-**Load `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not describe, sync the issue **description** per
-**Description sync** in Jira integration (`skills/flow-contracts/jira-integration.md`). Never
-transition the issue here.
+The planner writes the append, or the sub-change's own proposal and plan, and returns `## Plan`.
+**The Jira description sync stays in the parent** — never the planner's job. **Load
+`skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
+describe, sync the issue **description** per **Description sync** in Jira integration
+(`skills/flow-contracts/jira-integration.md`). Never transition the issue here.
 
 ```bash
 flow stage end -command '/flow' -stage flow.document-fix -outcome completed <name>
+flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
+  -outcome completed -ended-at <ts> -agent-id <id>
 ```
+
+`<the key currently open>` is `planner-fix-<n>` on a clean handshake, `planner-fix-<n>-opus` after
+one mismatch, or `planner-fix-<n>-<model>` after a second — the same rule stated above.
 
 ## 4. Execute (SDD + TDD)
 

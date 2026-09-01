@@ -231,16 +231,25 @@ guess_placeholder() {
 # KAN-197 FIX ROUND, F1 — the corpus is narrowed to the members CAPABLE of
 # carrying a `stage begin` call, not every Markdown file under skills/. Before
 # this fix the scan glob was '*.md', which reached 33 files while only a
-# SKILL.md or pipeline.md can ever hold a checked invocation (a contract
-# doc, a rationale file or a reviewer-prompt file structurally cannot) — so 28
-# of 33 declared entries were declared not because their zero was meaningful
-# but because they were never candidates, and every new rationale or
-# reviewer-prompt file added under skills/ would need a line here purely to
-# stay green. Narrowing the FIND pattern below to these two filenames removes
-# that whole non-candidate class from the corpus rather than declaring around
-# it. Detection is preserved: a SKILL.md or pipeline.md that loses all its
-# marks is still a member of this narrower corpus and still fires — see
-# test-check-stage-mark-calls.sh's mutation case for the check.
+# SKILL.md or pipeline.md could then ever hold a checked invocation (a
+# contract doc, a rationale file or a reviewer-prompt file structurally
+# cannot) — so 28 of 33 declared entries were declared not because their zero
+# was meaningful but because they were never candidates, and every new
+# rationale or reviewer-prompt file added under skills/ would need a line
+# here purely to stay green. Narrowing the FIND pattern below removes that
+# whole non-candidate class from the corpus rather than declaring around it.
+#
+# KAN-374 — the six `skills/flow/` PHASE FILES (brainstorm.md, implement.md,
+# review-panel.md, verify-and-handoff.md, integrate.md, archive.md) are added
+# to the FIND pattern alongside SKILL.md/pipeline.md: `skills/flow/SKILL.md`
+# is a zero-mark router (see its reason below) and every `flow.*` mark and
+# `flow record dispatch` call actually lives in these six phase files, so a
+# guard meant to catch a missing `-session-token`/`-harness` or a substituted
+# token at its true call site has to scan them directly rather than only
+# their router. Detection is preserved for every existing candidate: a
+# SKILL.md or pipeline.md that loses all its marks is still a member of this
+# corpus and still fires — see test-check-stage-mark-calls.sh's mutation case
+# for the check.
 #
 # EXPECTED-ZERO FILES — after narrowing, only two SKILL.md files under
 # skills/ genuinely carry no checked call site of their own — neither a
@@ -262,9 +271,9 @@ EXPECTED_ZERO_FILES=(
 )
 EXPECTED_ZERO_REASONS=(
   "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"
-  "a thinking-partner research mode with no implementation or verification stage to mark and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
+  "a thinking-partner research mode with no implementation or verification stage to mark; it dispatches a research subagent on PLANNING_MODEL (its own 'The research subagent' section) but writes no dispatch record, since research has no change to record one against"
   "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
-  "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, archive.md) that owns the phase in force; every flow.* mark lives in one of those phase files, never in this one"
+  "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, archive.md) that owns the phase in force; every flow.* mark lives in one of those phase files, which this guard's corpus now scans directly, never in this router itself"
 )
 
 # declare_expected_zeros — called ONLY for the guard's own default, full-
@@ -304,12 +313,17 @@ fi
 
 for target in "${TARGETS[@]}"; do
   if [[ -d "$target" ]]; then
-    # KAN-197 F1: narrowed to the two filenames capable of ever carrying a
-    # checked call — see the corpus comment above EXPECTED_ZERO_FILES.
+    # KAN-197 F1: narrowed to the filenames capable of ever carrying a
+    # checked call. KAN-374 widens this from SKILL.md/pipeline.md alone to
+    # also the six skills/flow/ phase files, where every flow.* mark and
+    # flow record dispatch call actually lives — see the corpus comment
+    # above EXPECTED_ZERO_FILES.
     FILES=()
     while IFS= read -r -d '' f; do
       FILES+=("$f")
-    done < <(find "$target" -type f \( -name 'SKILL.md' -o -name 'pipeline.md' \) -print0)
+    done < <(find "$target" -type f \( -name 'SKILL.md' -o -name 'pipeline.md' \
+      -o -name 'brainstorm.md' -o -name 'implement.md' -o -name 'review-panel.md' \
+      -o -name 'verify-and-handoff.md' -o -name 'integrate.md' -o -name 'archive.md' \) -print0)
     if [[ ${#FILES[@]} -eq 0 ]]; then
       # KAN-197 F7: a directory target that enumerates to ZERO candidate
       # files produced no file for the loop below to iterate, so

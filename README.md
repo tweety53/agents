@@ -119,7 +119,6 @@ key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a 
 | Key | Name | Commands |
 |-----|------|----------|
 | `flow.kickoff` | Kickoff — write `STARTED` | `/flow` |
-| `flow.resolve-change` | Resolve the change | `/flow` |
 | `flow.brainstorm` | Brainstorm ▸ | `/flow` |
 | `flow.design-approval` | Design approval | `/flow` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow` |

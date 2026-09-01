@@ -15,7 +15,7 @@ import (
 )
 
 const settingsUsage = `usage: flow settings get [-addr url] [-timeout dur]
-       flow settings set [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name]
+       flow settings set [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name] [-planning-model name]
 
 settings get prints the harness-wide settings record (default model and
 reviewer slots) as one line of JSON.
@@ -107,6 +107,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	model := fset.String("model", "", "the default model, e.g. sonnet (required)")
 	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, e.g. primary,principles,code-review-low (required)")
 	selfReviewModel := fset.String("self-review-model", "", "self-review's model, e.g. opus; empty inherits -model")
+	planningModel := fset.String("planning-model", "", "planning's model, e.g. fable; empty resolves to the store's default")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -130,6 +131,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	in := client.Settings{
 		DefaultModel:    *model,
 		SelfReviewModel: *selfReviewModel,
+		PlanningModel:   *planningModel,
 		Reviewers:       strings.Split(*reviewers, ","),
 	}
 	s, err := putSettings(ctx, f.addr, f.timeout, in)
