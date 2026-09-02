@@ -5,9 +5,9 @@
 -- in 0016_flow_settings_self_review_model.sql: so GetSettings never has to distinguish "column is
 -- NULL" from "column is the empty string" -- both already mean the same thing here.
 --
--- Unlike self_review_model, empty here does NOT mean "inherit default_model" -- it means the
--- literal "fable", skills/flow/SKILL.md's own planning-model fallback. planning_model and
--- default_model are two independent fields whose empty values mean different things: a fresh row
--- created before /flow-settings has ever set this column resolves to "fable", not to whatever
--- default_model happens to hold.
+-- Both planning_model and self_review_model resolve an empty value to the literal "fable",
+-- skills/flow/SKILL.md's own planning-model fallback. planning_model and default_model are two
+-- independent fields whose empty values mean different things: a fresh row created before
+-- /flow-settings has ever set this column resolves to "fable", not to whatever default_model
+-- happens to hold.
 ALTER TABLE flow_settings ADD COLUMN planning_model TEXT NOT NULL DEFAULT '';

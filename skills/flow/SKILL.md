@@ -61,8 +61,9 @@ The full key list, in the order each phase file marks them:
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
-SELF_REVIEW_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.selfReviewModel')"
-[ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL="$DEFAULT_MODEL"
+SELF_REVIEW_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.selfReviewModel // empty')"
+# <project>/.flow/project.md's `## self review model` body, when present and a ValidModels member, wins
+[ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
 PLANNING_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.planningModel // empty')"
 # <project>/.flow/project.md's `## planning model` body, when present and a ValidModels member, wins
 [ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
@@ -72,7 +73,8 @@ A non-zero exit from `flow settings get` means the settings store could not be r
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
 `sonnet` (the store's own no-row default, per `<agents repo>/stats/internal/store/settings.go`'s `DefaultModel`),
 naming that this is a fallback rather than a resolved value, and continue: settings unreachable is
-never a reason to block implementation.
+never a reason to block implementation. `SELF_REVIEW_MODEL` falls back to the literal `fable` on
+the same failure, naming that this too is a fallback rather than a resolved value.
 
 **`REVIEWERS` resolves from the same call, into the roster the panel dispatches**
 (`skills/flow/review-panel.md` is canonical for what dispatching it means):
@@ -88,11 +90,13 @@ An empty list can never reach this table from `/flow-settings`: `<agents repo>/s
 store. The empty-list row exists because this resolver must still define a value for a state the
 store's schema permits, not because an operator can produce one.
 
-**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL`**
-— it is the model the archive-phase self-review subagent dispatch
-(`skills/flow/archive.md` step 9) runs on. An empty `selfReviewModel` from the store, or an
-unreachable store, both resolve to `DEFAULT_MODEL` — inheriting is the field's own explicit
-"unset" meaning, not a degraded fallback the way `DEFAULT_MODEL`'s own `sonnet` literal is.
+**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL` and governs the archive-phase
+self-review subagent dispatch** (`skills/flow/archive.md` step 9). `<project>/.flow/project.md`'s
+`## self review model` key, when present and a valid `ValidModels` member, wins over the store's
+`selfReviewModel` field; when both are empty, or the store is unreachable, `SELF_REVIEW_MODEL` falls
+back to the literal `fable`, naming this a fallback exactly as `DEFAULT_MODEL`'s own `sonnet` literal
+is. A plain-language session instruction overrides `SELF_REVIEW_MODEL` for that run only, recorded
+with the dispatch it changes and never written back.
 
 **`PLANNING_MODEL` resolves independently of `DEFAULT_MODEL` and governs three roles**: the
 planner dispatch (`skills/flow/brainstorm.md`), `flow.document-fix`'s planner dispatch

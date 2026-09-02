@@ -153,10 +153,11 @@
    input by invoking `gather-self-review-context.sh` rather than having the reasoning pass
    re-read files inline, and runs **one** combined reasoning pass covering all five angles below,
    together with the operator's 1-5 rating, never as five separate dispatches. **The reasoning pass
-   itself runs as a subagent, on the harness-wide `selfReviewModel` setting** (empty inherits
-   `defaultModel` — **Model resolution**, `skills/flow/SKILL.md`) rather than inline in the
-   session driving `/flow` — the operator's rating and the per-angle filing prompts still run in
-   that session, since only it can drive `AskUserQuestion`.
+   itself runs as a subagent, on `SELF_REVIEW_MODEL`** — resolved project key, then the store's
+   `selfReviewModel`, then the literal `fable`, with a verified `opus` fallback on a mismatch (**Model
+   resolution**, `skills/flow/SKILL.md`) — rather than inline in the session driving `/flow` — the
+   operator's rating and the per-angle filing prompts still run in that session, since only it can
+   drive `AskUserQuestion`.
 
    | # | Angle | Label |
    |---|-------|-------|

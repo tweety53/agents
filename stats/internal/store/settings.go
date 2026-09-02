@@ -67,13 +67,14 @@ type Settings struct {
 	DefaultModel string
 	// SelfReviewModel is the model /flow's archive-phase self-review
 	// reasoning pass runs on. Unlike DefaultModel, empty is a valid value
-	// here -- it means "inherit DefaultModel", not "unset".
+	// here -- it means the literal "fable", skills/flow/SKILL.md's own
+	// fallback, not "unset".
 	SelfReviewModel string
 	// PlanningModel is the model /flow's planning stages run on. Empty is
-	// a valid value here too, but -- unlike SelfReviewModel -- it does not
-	// mean "inherit DefaultModel": it means the literal "fable",
-	// skills/flow/SKILL.md's own fallback. Resolving that fallback is the
-	// skill's job, not GetSettings'; the wire shape stays a record of intent.
+	// a valid value here too, and means the same thing: the literal
+	// "fable", skills/flow/SKILL.md's own fallback. Resolving that
+	// fallback is the skill's job, not GetSettings'; the wire shape stays
+	// a record of intent.
 	PlanningModel string
 	Reviewers     []string
 }

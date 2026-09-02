@@ -106,7 +106,7 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	registerSettingsConnFlags(fset, &f)
 	model := fset.String("model", "", "the default model, e.g. sonnet (required)")
 	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, e.g. primary,principles,code-review-low (required)")
-	selfReviewModel := fset.String("self-review-model", "", "self-review's model, e.g. opus; empty inherits -model")
+	selfReviewModel := fset.String("self-review-model", "", "self-review's model, e.g. opus; empty resolves to the store's default")
 	planningModel := fset.String("planning-model", "", "planning's model, e.g. fable; empty resolves to the store's default")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
