@@ -588,8 +588,8 @@ _ESCAPED_DELIMITER_RE = re.compile(
 # the escape and class-wide vetoes exactly as shipped with the angle-bracket
 # veto left out: 37 numeric claims are exempted, and 9 sit on a line
 # containing `<`. Every one of those 9 is either a worked demonstration of
-# this very veto — quoted on purpose in `plan-provenance.md`'s own prose
-# (`skills/flow-contracts/plan-provenance.md`), in the live delta spec
+# this very veto — quoted on purpose in `plan-provenance-guard.md`'s own prose
+# (`skills/flow-contracts/plan-provenance-guard.md`), in the live delta spec
 # (`openspec/specs/myflow-plan-provenance/spec.md`), in an archived copy of
 # that spec, or in an archived design document that walked through the same
 # veto — or a claim already carrying a provenance tag on the same line, so
@@ -901,7 +901,7 @@ def _veto_note(relfile: str, lineno: int, veto: str) -> str:
     return (
         f"{relfile}:{lineno}: note: the quotation exemption was withdrawn "
         f"on this line ({veto}) — {_VETO_REMEDIES[veto]}; "
-        "see skills/flow-contracts/plan-provenance.md"
+        "see skills/flow-contracts/plan-provenance-guard.md"
     )
 
 
@@ -2631,7 +2631,7 @@ class ProvenanceGuard:
                 # fix wave): the message also says scanning of THIS FILE
                 # stopped here — no line after this point in this file is
                 # scanned on this run (see check_file's docstring and
-                # skills/flow-contracts/plan-provenance.md's "What the
+                # skills/flow-contracts/plan-provenance-guard.md's "What the
                 # guard does not do") — rather than leaving that only
                 # implied by the fact that no more of this file's output
                 # appears.

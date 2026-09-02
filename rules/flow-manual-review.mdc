@@ -55,6 +55,7 @@ first time a contract is added, nothing checks it against the table, and that is
 | **Jira integration** (`skills/flow-contracts/jira-integration.md`) | any Jira-related step |
 | **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) | filing or joining a follow-up issue — `/flow`'s integrate run 1 only |
 | **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) | writing or checking a plan's provenance tags |
+| **Plan provenance — the guard** (`skills/flow-contracts/plan-provenance-guard.md`) | what the plan-provenance guard enforces |
 | **The build-green tag** (`skills/flow-contracts/build-green.md`) | writing or checking a task's build tag |
 | **Workspace isolation** (`skills/flow-contracts/workspace-isolation.md`) | resolving a worktree's own database, cache index, bucket or ports |
 | **Finish contract — run 1 (the branch is not merged)** (`skills/flow-contracts/finish-contract-run1.md`) | `/flow`'s integrate phase — the preflight signals, run 1's procedure, base-branch resolution |

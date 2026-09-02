@@ -8,14 +8,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
+	"github.com/tweety53/agents/stats/internal/store"
 )
 
-const settingsUsage = `usage: flow settings get [-addr url] [-timeout dur]
-       flow settings set [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name] [-planning-model name]
+const settingsUsage = `usage: flow settings get    [-addr url] [-timeout dur]
+       flow settings set    [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name] [-planning-model name]
+       flow settings models
 
 settings get prints the harness-wide settings record (default model and
 reviewer slots) as one line of JSON.
@@ -25,6 +28,10 @@ before. Unlike state/stage's never-block-on-store-failure pattern, a
 rejected -model or -reviewers value is a caller mistake, not a store
 failure: there is no fallback value to record for an invalid one, so this
 prints the store's rejection reason and exits non-zero.
+
+settings models prints the harness's fixed set of valid model
+identifiers, sorted, one per line. It takes no flags and makes no store
+call.
 `
 
 func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) int {
@@ -38,6 +45,8 @@ func runSettings(ctx context.Context, args []string, stdout, stderr io.Writer) i
 		return runSettingsGet(ctx, args[1:], stdout, stderr)
 	case "set":
 		return runSettingsSet(ctx, args[1:], stdout, stderr)
+	case "models":
+		return runSettingsModels(stdout)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown settings command %q\n", args[0])
 		fmt.Fprint(stderr, settingsUsage)
@@ -145,6 +154,24 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 		fmt.Fprintf(stderr, "flow: settings set: %v\n", err)
 		return 1
 	}
+}
+
+// runSettingsModels implements `flow settings models`: the fixed
+// vocabulary skills/flow/SKILL.md's model-resolution block validates a
+// project's `## self review model`/`## planning model` bodies against, so
+// a project value the store would refuse is reported and dropped before
+// it ever reaches a dispatch. No flags, no store call -- store.ValidModels
+// is a compiled-in constant, not something a running store could change.
+func runSettingsModels(stdout io.Writer) int {
+	names := make([]string, 0, len(store.ValidModels))
+	for name := range store.ValidModels {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		fmt.Fprintln(stdout, name)
+	}
+	return 0
 }
 
 // writeSettingsOutput encodes s as one line of JSON to stdout, mirroring

@@ -4057,7 +4057,7 @@ case "$OUT" in
   *) fail "class-wide veto note missing: out=$OUT" ;;
 esac
 case "$OUT" in
-  *"balance them or reword the line"*"skills/flow-contracts/plan-provenance.md"*) \
+  *"balance them or reword the line"*"skills/flow-contracts/plan-provenance-guard.md"*) \
     pass "class-wide veto names the remedy and the contract" ;;
   *) fail "class-wide veto remedy/contract missing: out=$OUT" ;;
 esac
@@ -4455,7 +4455,7 @@ case "$OUT" in
   *) fail "escape veto note missing: out=$OUT" ;;
 esac
 case "$OUT" in
-  *"unescape it or reword the line"*"skills/flow-contracts/plan-provenance.md"*) \
+  *"unescape it or reword the line"*"skills/flow-contracts/plan-provenance-guard.md"*) \
     pass "escape veto names the remedy and the contract" ;;
   *) fail "escape veto remedy/contract missing: out=$OUT" ;;
 esac
@@ -4545,7 +4545,7 @@ case "$OUT" in
   *) fail "angle-bracket veto note missing: out=$OUT" ;;
 esac
 case "$OUT" in
-  *"remove the \`<\` or reword the line"*"skills/flow-contracts/plan-provenance.md"*) \
+  *"remove the \`<\` or reword the line"*"skills/flow-contracts/plan-provenance-guard.md"*) \
     pass "angle-bracket veto names the remedy and the contract" ;;
   *) fail "angle-bracket veto remedy/contract missing: out=$OUT" ;;
 esac

@@ -58,14 +58,23 @@ The full key list, in the order each phase file marks them:
 **Resolve this once, near the top of every run, before any dispatch below reads it:**
 
 ```bash
+MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
 SETTINGS_JSON="$(flow settings get)"
 DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
 REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
 SELF_REVIEW_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.selfReviewModel // empty')"
-# <project>/.flow/project.md's `## self review model` body, when present and a ValidModels member, wins
+PROJECT_SRM="$(project-get.sh "$MAIN_CHECKOUT" 'self review model' 2>/dev/null | tr -d '`' | xargs)"
+if [ -n "$PROJECT_SRM" ]; then
+  if flow settings models | grep -qx -- "$PROJECT_SRM"; then SELF_REVIEW_MODEL="$PROJECT_SRM"
+  else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi
+fi
 [ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
 PLANNING_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.planningModel // empty')"
-# <project>/.flow/project.md's `## planning model` body, when present and a ValidModels member, wins
+PROJECT_PM="$(project-get.sh "$MAIN_CHECKOUT" 'planning model' 2>/dev/null | tr -d '`' | xargs)"
+if [ -n "$PROJECT_PM" ]; then
+  if flow settings models | grep -qx -- "$PROJECT_PM"; then PLANNING_MODEL="$PROJECT_PM"
+  else echo "⚠ flow: .flow/project.md '## planning model' body '$PROJECT_PM' is not a valid model — dropped" >&2; fi
+fi
 [ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
 ```
 

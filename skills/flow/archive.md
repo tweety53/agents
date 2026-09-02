@@ -77,15 +77,12 @@ flow stage end   -command '/flow' -stage flow.commit-archive -outcome completed 
 flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**Load `skills/flow-contracts/project-configuration.md`** — the `remove` command below is
-canonical there.
-
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
-   database and bucket.** The workspace half runs the project's `remove` command from **Project
-   configuration** (`skills/flow-contracts/project-configuration.md`), run from the **main
-   checkout**, with the workspace id re-derived here from the change name — never handed to this
-   run. A project declaring no `## workspace isolation` section, or no `remove` command, has this
-   half **skipped, not failed**. A removal that fails is **the one exception to the
+   database and bucket.** The workspace half runs the `remove` row of the command table
+   `project-get.sh <main-checkout> "workspace isolation"` prints (exit 1: the skipped-not-failed
+   case below), from the **main checkout**, with `<id>` from `flow workspace-id <name>` — never
+   handed to this run. A project declaring no `## workspace isolation` section, or no `remove`
+   command, has this half **skipped, not failed**. A removal that fails is **the one exception to the
    stop-at-the-first-failure rule**: report it and carry on to step 7, which decides the verdict
    from the project's survivor report, never from this command's exit code.
 6. **Remove the proposal artifact source** — always the literal `null`/absent under `/flow`, since

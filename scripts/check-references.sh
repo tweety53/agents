@@ -557,6 +557,7 @@ EXPECTED_ZERO_CONTRACT_DOCS=(
   "CLAUDE.md"
   "skills/flow-contracts/build-green.md"
   "skills/flow-contracts/operator-prompts.md"
+  "skills/flow-contracts/plan-provenance.md"
   "skills/flow-contracts/SKILL.md"
 )
 EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as a plain parenthetical backtick path or a [label](path) Markdown link, never as a bold token adjacent to the path"

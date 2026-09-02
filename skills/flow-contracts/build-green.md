@@ -71,6 +71,6 @@ that no declared-`red` task is left unresolved. It does **not** attempt to verif
 tag is true — it never runs the build, never runs the task's own verification command, and never
 checks that the state left by preceding tasks is actually what a `green` tag claims. This is the
 same accepted limit as **What the guard does not do**
-(`skills/flow-contracts/plan-provenance.md`): a script can confirm a claim was written down, not
+(`skills/flow-contracts/plan-provenance-guard.md`): a script can confirm a claim was written down, not
 that the claim is correct. Whether a `green` tag is honest is a human judgment made when writing
 or reviewing the plan, not something this guard can hold anyone to.

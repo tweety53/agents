@@ -163,40 +163,19 @@ harness has to gain a task tool to satisfy the rule. See **Progress visibility**
 `flow stage end` when it closes, both naming the command, the stage and the change. The stage
 identifier is the **key**, never the prose name, from **Level 1 — the stages of each command**
 (`<agents repo>/README.md`) — that table is restated nowhere here, on purpose: a second copy is exactly what its
-own README-parsing test (`<agents repo>/stats/internal/stages/names_test.go`) exists to make impossible. Each
-skill's own mark calls sit at that skill's own stage boundaries, in that skill's own `SKILL.md`, and
-name the stage by its Key column exactly — the CLI compares the `-stage` value byte for byte against
-the documented key and rejects anything else, naming the documented alternatives.
+own README-parsing test (`<agents repo>/stats/internal/stages/names_test.go`) exists to make impossible.
 
-**A `stage begin` mark MUST carry `-session-token` and `-harness`.** Neither is optional, and a call
-missing either is a caller mistake the CLI rejects before it ever reaches the store (see below).
-`-session-token` is a literal, unique token this **run** — not this mark — generates once, at the
-start of the run, and then passes unchanged on every mark that run makes, so the daemon can later
-find it in the calling session's own transcript and bind every stage run carrying it to that
-transcript's own `sessionId` — design.md's "bind after the fact, by a correlator the caller writes"
-and "one token per session, not one per mark" (kan-172). Generate the token once, near the start of
+**A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
 same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
 — `claude-code`, `cursor` or `codex`.
-
-**The token is per run, generated fresh, never reused across runs.** See **Stage marks**
-(`skills/flow-contracts/pipeline-rationale.md`) for why. A run
-that starts identifies itself with its own new token; a run that already has one (mid-run, at a
-later mark) reuses it.
-
-**The `<change>` argument is always a resolved change name, never a guess.** See **Stage marks**
-(`skills/flow-contracts/pipeline-rationale.md`) for what marking writes when it is not.
-`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
-written as a placeholder naming a guess.
 
 **Neither `-session-token` nor `-harness` is ever a hardcoded value in the skill text: both are
 filled in by the agent at call time, from a placeholder — `<literal-token>` and `<harness>` below —
 because one skill source installs into `~/.claude/skills/`, `~/.cursor/skills/` and
 `~/.codex/skills/` alike, and a hardcoded `-harness claude-code` would mislabel every Cursor and
 Codex run as Claude Code, hiding the very thing the field exists to record: that Cursor and Codex
-write no transcript, so their runs are *explicitly unavailable* rather than zero.
-`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a hardcoded `-harness` literal in skill source the same
-way it rejects a substituted session token.
+write no transcript, so their runs are *explicitly unavailable* rather than zero.**
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -207,22 +186,9 @@ flow stage begin -command '/flow' -stage flow.verify -harness <harness> -session
 ```
 
 **The session token MUST be a literal, written directly into the command — never a shell
-substitution.** `-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
-backtick or a `$VAR` reference. See **Stage marks** (`skills/flow-contracts/pipeline-rationale.md`)
-for why. A reader who does not know this will
-"improve" the literal into a substitution the first chance they get, which is exactly the regression
-this paragraph, `<agents repo>/stats/cmd/flow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
-`validateSessionTokenShape`, and `<agents repo>/scripts/check-stage-mark-calls.sh` all exist to stop. Write a
-concrete token in its place — `<literal-token>` above means "invent a short, unique string right
-here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
-at every mark".
+substitution.**
 
-**A mark never blocks, delays, or alters the stage it marks.** On any store failure the CLI
-journals the intent, prints one warning line, and exits 0 — the same never-block guarantee **State
-file** (`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
-`flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
-still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
-the mark exactly the block it is required not to be. The only nonzero exit is a caller mistake — an
+**A mark never blocks, delays, or alters the stage it marks.** The only nonzero exit is a caller mistake — an
 undocumented stage key, a missing required flag, or a session token carrying a substitution shape —
 which is a defect in the skill's own call, not an outcome of the stage, and is fixed by correcting the
 call rather than worked around.
@@ -442,51 +408,21 @@ Jira-related step.
 
 ## Change name resolution (all `/flow*` commands)
 
-`<name>` is **optional** on `/flow` and `/flow-status`. When omitted, the candidate set is built
-from the store when the daemon answers, and from the filesystem only when it does not — and the
-command building it says which of the two produced the set, per **State file**
-(`skills/flow-contracts/state-file.md`).
+`<name>` is **optional** on `/flow` and `/flow-status`.
 
-**The store is reached first, through the CLI — `flow state list [-C dir]`, never a hand-written
-HTTP call.** `state list` enumerates the store on the caller's behalf (`GET
-/api/v1/stats/state-board` under the hood, over a period wide enough to cover every change ever
-recorded, since the store starts empty per **State file**) and prints one JSON object:
-`"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`), and
-`"records"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`). See
-**Change name resolution (all `/flow*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
-for why this goes through the CLI rather than a skill calling `curl` directly.
-
-**When `"source":"store"`**, the candidate set is every record's `name`, dropping one whose `state`
-is `FINISHED` — **States** above already defines `FINISHED` as archived, so this is the store-backed
-form of the same exclusion.
-
-**When `"source":"fallback"`** — `state list` could not reach the daemon and instead scanned the
-local on-disk fallback directory — the candidate set falls back to the union of two filesystem
-sources:
-
-- the non-archived ids `spectre list --json` reports, read from each entry's `id` field in its
-  `{"changes":[{"id","done","total"}]}` output; and
-- the names `state list`'s own `"records"` carries in this mode — the basenames of whatever is
-  directly under the project's state directory, `/Users/tweety53/Agents/flow/state/<project-key>/`
-  — which, per **State file**'s "The store starts empty", now holds only the CLI's on-disk fallback
-  records, never a second live source. A name found only here is one whose last write could not
-  reach the store.
-
-From that union, drop any name whose `<project>/spectre/changes/<name>/` directory has already reached
-`<project>/spectre/changes/archive/`. The state directory is per-project rather than per-worktree, so a
-fallback record is reachable from the main checkout regardless of which worktree wrote it. See
-**Change name resolution (all `/flow*` commands)** (`skills/flow-contracts/pipeline-rationale.md`)
-for why the filesystem source is needed at all now that the store is the normal path.
+**The candidate set is `flow state resolve -C <main-checkout>`'s `candidates` — never a
+hand-written HTTP call, never a directory listing of your own.** It prints one JSON object:
+`"source"` (`"store"` or `"fallback"`), `"complete"` (`true` only for `"source":"store"`),
+`"candidates"` (each carrying `name`, `state`, `updatedAt`, `updatedBy`) and `"unreadable"` (the
+names of fallback records that could not be read). A `FINISHED` change is never a candidate, and
+neither is one already under `<project>/spectre/changes/archive/`.
 
 **A record `state list` marks `"unreadable":true` is reported and skipped from the union — never
 silently dropped.** Name the unreadable file in the resolution's own output; do not fold it into a
 "zero matches" or "no change" result as if it were never there.
 
 **Every command that resolves this candidate set reports which of the two sources produced it** —
-`state list`'s own `"source"` field, echoed rather than re-derived. A
-report built from the filesystem fallback during an outage must never be presented the way a report
-built from the live store is — that is precisely the silent-stale-data outcome this resolution
-exists to prevent.
+`state list`'s own `"source"` field, echoed rather than re-derived.
 
 Once the candidate set is built, resolution proceeds exactly as before:
 

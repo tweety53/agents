@@ -28,7 +28,8 @@ always-on rule layer carries only the trigger, without being asked to load anyth
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — apps, run, stop, test, lint, standards, jira — including standards-entry resolution and containment. Resolution rules only — see below for authoring guidance |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, the confirmation, and the three ordered writes a join makes. **Loaded by `/myflow-finish` run 1 and no other command** |
-| [plan-provenance.md](plan-provenance.md) | Write or check a plan's provenance tags: the four tags, the asymmetry rule, the guard's scope, and what the guard does not do |
+| [plan-provenance.md](plan-provenance.md) | Write a plan's provenance tags: the four tags, the asymmetry rule, the implementer's duty |
+| [plan-provenance-guard.md](plan-provenance-guard.md) | What check-plan-provenance.py enforces: the guard's scope, the quotation exemption and its vetoes, what the guard does not do |
 | [build-green.md](build-green.md) | Write or check a plan's build-state tags: the tag vocabulary, the merge-partner rule, and the guard's scope |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
 | [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, and the guarded two-commit chain that enforces the split between implementation and planning artifacts. **Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** |

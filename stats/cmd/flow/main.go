@@ -25,6 +25,7 @@ commands:
   state get <name>    print the change's current state
   state set <name>    write the change's whole state, reading it from stdin
   state list          enumerate every change the store holds for this project
+  state resolve       print the change-name candidate set: source, complete, candidates, unreadable
   stage begin <name>  record the start of one documented pipeline stage
   stage end <name>    record the end, outcome and metrics of a stage
   record dispatch     record one subagent dispatch of a change's run record
@@ -37,6 +38,7 @@ commands:
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
+  settings models      print the harness's fixed set of valid model identifiers
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
   workspace-id <name>  print a change's workspace id, derived from its name
 `

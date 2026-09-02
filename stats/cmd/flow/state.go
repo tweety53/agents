@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"time"
@@ -87,9 +88,10 @@ const defaultTimeout = 2 * time.Second
 // locally instead of buffering an unbounded stream first.
 const maxStdinBytes = 1 << 20
 
-const stateUsage = `usage: flow state get  [-addr url] [-timeout dur] [-C dir] <name>
-       flow state set  [-addr url] [-timeout dur] [-C dir] <name>
-       flow state list [-addr url] [-timeout dur] [-C dir]
+const stateUsage = `usage: flow state get     [-addr url] [-timeout dur] [-C dir] <name>
+       flow state set     [-addr url] [-timeout dur] [-C dir] <name>
+       flow state list    [-addr url] [-timeout dur] [-C dir]
+       flow state resolve [-addr url] [-timeout dur] [-C dir]
 
 state set reads the change's whole state as JSON from stdin.
 state list enumerates every change the store holds for the resolved
@@ -99,6 +101,14 @@ only ever holds records a failed write left behind -- prints one warning
 line, and still exits 0. It prints one JSON object to stdout, carrying
 "source" ("store" or "fallback") and "complete" (false whenever the
 fallback was used), so a partial list is never mistaken for a full one.
+state resolve prints the change-name candidate set a caller resolves a
+bare change name against. Source "store": every board row whose state is
+not FINISHED. Source "fallback": the union of every readable fallback
+record's name and every directory directly under
+<main-checkout>/spectre/changes/ other than "archive", minus any name
+archived under spectre/changes/archive/<name>/. It carries the same
+"source"/"complete" fields as state list, plus "candidates" and
+"unreadable" (both always arrays, never null).
 `
 
 func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -114,6 +124,8 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStateSet(ctx, args[1:], stdin, stdout, stderr)
 	case "list":
 		return runStateList(ctx, args[1:], stdout, stderr)
+	case "resolve":
+		return runStateResolve(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown state command %q\n", args[0])
 		fmt.Fprint(stderr, stateUsage)
@@ -440,6 +452,139 @@ func writeStateListOutput(stdout, stderr io.Writer, out stateListOutput) int {
 	encoded, err := json.Marshal(out)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: state list: encode output: %v\n", err)
+		return 1
+	}
+	_, _ = stdout.Write(encoded)
+	fmt.Fprintln(stdout)
+	return 0
+}
+
+// stateResolveOutput is the one JSON object `state resolve` prints to
+// stdout. Source and Complete mean exactly what state list's own pair
+// mean; Candidates is the change-name candidate set a caller resolves a
+// bare name against, and Unreadable names every fallback record that
+// could not be read or parsed -- both always present as arrays, never
+// null, so a caller can range over them without a nil check.
+type stateResolveOutput struct {
+	Source     string            `json:"source"`
+	Complete   bool              `json:"complete"`
+	Candidates []stateListRecord `json:"candidates"`
+	Unreadable []string          `json:"unreadable"`
+}
+
+// runStateResolve implements `flow state resolve`. It shares its
+// connection flags and store/fallback boundary with `state list`
+// (parseStateListFlags, listStateBoard, fallbackStateListRecords) and
+// differs only in what it does with the rows once it has them:
+// resolveCandidates drops FINISHED rows on the store path, and unions the
+// fallback records with spectre/changes/ directory names (minus the
+// archived ones) on the fallback path. Never blocks: a store failure
+// falls back exactly as state list's does, and a changes-directory read
+// error is reported on stderr while the fallback candidates still print,
+// exit 0.
+func runStateResolve(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow state resolve", flag.ContinueOnError)
+	f, err := parseStateListFlags(fset, args, stderr)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stateUsage)
+		return 2
+	}
+
+	projectKey, mainCheckout, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	rows, listErr := listStateBoard(ctx, f.addr, f.timeout, projectKey)
+	if listErr == nil {
+		cands, unreadable, _ := resolveCandidates(toStateListRecords(rows), "", true)
+		return writeStateResolveOutput(stdout, stderr, stateResolveOutput{
+			Source:     "store",
+			Complete:   true,
+			Candidates: cands,
+			Unreadable: unreadable,
+		})
+	}
+
+	// Every outcome other than a clean store answer takes the fallback,
+	// exactly as runStateList's own fallback branch does.
+	fmt.Fprintln(stderr, "⚠ flow: store unreachable — listing local fallback files (partial: only failed writes are recorded there)")
+	records, fbErr := fallbackStateListRecords(projectKey)
+	if fbErr != nil {
+		fmt.Fprintf(stderr, "flow: state resolve: read local fallback directory: %v\n", fbErr)
+	}
+	changesDir := filepath.Join(mainCheckout, "spectre", "changes")
+	cands, unreadable, dirErr := resolveCandidates(records, changesDir, false)
+	if dirErr != nil {
+		fmt.Fprintf(stderr, "flow: state resolve: read %s: %v\n", changesDir, dirErr)
+	}
+	return writeStateResolveOutput(stdout, stderr, stateResolveOutput{
+		Source:     "fallback",
+		Complete:   false,
+		Candidates: cands,
+		Unreadable: unreadable,
+	})
+}
+
+// resolveCandidates turns rows (either the store's board rows or the
+// fallback directory's parsed records) into the change-name candidate
+// set. fromStore selects which rule applies: on the store path a
+// FINISHED row is dropped and changesDir is never consulted; on the
+// fallback path every directory directly under changesDir is unioned in
+// (skipping "archive" itself and any name already seen), then any name
+// archived under changesDir/archive/<name>/ is removed regardless of
+// which side it came from -- a fallback record for an archived change is
+// exactly as stale as a leftover directory for one.
+func resolveCandidates(rows []stateListRecord, changesDir string, fromStore bool) (cands []stateListRecord, unreadable []string, err error) {
+	seen := map[string]bool{}
+	for _, r := range rows {
+		switch {
+		case r.Unreadable:
+			unreadable = append(unreadable, r.Name)
+		case fromStore && r.State == "FINISHED":
+		case !seen[r.Name]:
+			seen[r.Name] = true
+			cands = append(cands, r)
+		}
+	}
+	if fromStore {
+		return cands, unreadable, nil
+	}
+
+	entries, err := os.ReadDir(changesDir)
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != "archive" && !seen[e.Name()] {
+			seen[e.Name()] = true
+			cands = append(cands, stateListRecord{Name: e.Name()})
+		}
+	}
+	cands = slices.DeleteFunc(cands, func(r stateListRecord) bool {
+		_, statErr := os.Stat(filepath.Join(changesDir, "archive", r.Name))
+		return statErr == nil
+	})
+	return cands, unreadable, err
+}
+
+// writeStateResolveOutput encodes out as one line of JSON to stdout,
+// mirroring writeStateListOutput -- with the one addition that
+// Candidates/Unreadable are normalised to empty slices first, so the
+// printed JSON always carries "candidates":[] and "unreadable":[] rather
+// than "null" when either is empty.
+func writeStateResolveOutput(stdout, stderr io.Writer, out stateResolveOutput) int {
+	if out.Candidates == nil {
+		out.Candidates = []stateListRecord{}
+	}
+	if out.Unreadable == nil {
+		out.Unreadable = []string{}
+	}
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: state resolve: encode output: %v\n", err)
 		return 1
 	}
 	_, _ = stdout.Write(encoded)

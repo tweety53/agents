@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/store"
 )
 
 // TestSettingsCmd_Get asserts `flow settings get` prints the store's
@@ -205,5 +208,29 @@ func TestSettingsCmd_Set_WithPlanningModel(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "fable") {
 		t.Errorf("stdout = %q, want it to echo back planningModel", stdout.String())
+	}
+}
+
+// TestSettingsCmd_Models asserts `flow settings models` prints
+// store.ValidModels' keys, sorted, one per line, with no store call and
+// no flags -- the fixed vocabulary skills/flow/SKILL.md's model-resolution
+// block validates a project's model keys against (task 6).
+func TestSettingsCmd_Models(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"settings", "models"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr=%s", code, stderr.String())
+	}
+	names := make([]string, 0, len(store.ValidModels))
+	for name := range store.ValidModels {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	want := strings.Join(names, "\n") + "\n"
+	if stdout.String() != want {
+		t.Errorf("stdout = %q, want %q", stdout.String(), want)
 	}
 }

@@ -212,9 +212,10 @@ skills/flow-contracts/jira-integration.md 19932
 skills/flow-contracts/model-policy-rationale.md 7963
 skills/flow-contracts/model-policy.md 8010
 skills/flow-contracts/operator-prompts.md 2432
-skills/flow-contracts/pipeline-rationale.md 14943
+skills/flow-contracts/pipeline-rationale.md 20935
 skills/flow-contracts/pipeline.md 36155
-skills/flow-contracts/plan-provenance.md 30695
+skills/flow-contracts/plan-provenance-guard.md 24295
+skills/flow-contracts/plan-provenance.md 7533
 skills/flow-contracts/project-configuration-authoring.md 3028
 skills/flow-contracts/project-configuration-rationale.md 16982
 skills/flow-contracts/project-configuration.md 48175
