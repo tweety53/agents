@@ -183,6 +183,8 @@ declare_if_present "commands/flow-settings.md" \
   "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "commands-claude/flow-settings.md" \
   "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "skills/flow-contracts/plan-provenance.md" \
+  "the guard-facing sections moved to plan-provenance-guard.md — cites no .md/.mdc path at all"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

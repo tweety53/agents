@@ -96,12 +96,8 @@ in it**, where `<canonical-peer>` is the canonical repository's own name in that
 worktree's merge base in this run's working notes. A failure is reported and the run continues: the
 link is not a gate, and a change with one worktree runs nothing here.
 
-**Load `skills/flow-contracts/workspace-isolation.md`** — the workspace id derivation below is
-stated there.
-
-**Then compute this worktree's workspace id from the change name.** The derivation is stated once
-under **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — do not re-derive it
-by hand. Compute it once per run, on a fix run exactly as on the first.
+**Then run `flow workspace-id <name>` for this worktree's workspace id**, once per run, on a fix
+run exactly as on the first.
 
 ```bash
 flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed <name>

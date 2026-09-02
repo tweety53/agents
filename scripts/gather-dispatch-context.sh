@@ -133,6 +133,7 @@ source "$SCRIPT_DIR/lib/resolve-file.sh"
 source "$SCRIPT_DIR/lib/within-root.sh"
 source "$SCRIPT_DIR/lib/lexical-normalize.sh"
 source "$SCRIPT_DIR/lib/sha256-hex.sh"
+source "$SCRIPT_DIR/lib/project-section.sh"
 
 WORKTREE="${1:-}"
 CHANGE_ROOT="${2:-}"
@@ -341,26 +342,18 @@ fi
 # principles file section, as the last "found" entry — see FOUND_LABELS
 # ordering above.
 #
-# extract_project_section <file> <key> -> prints the body of "## <key>"
-# (everything after that heading line up to, but not including, the next
-# top-level "## " heading, or EOF), or nothing if <key> is not a heading in
-# <file>.
-extract_project_section() {
-  local file="$1" key="$2"
-  awk -v key="## $key" '
-    $0 == key { grab = 1; next }
-    /^## / { if (grab) exit }
-    grab { print }
-  ' "$file"
-}
-
+# project_section <file> <key> -> prints the trimmed body of "## <key>",
+# sourced from lib/project-section.sh (see that file's header for why this
+# script, gather-self-review-context.sh's earlier extraction of
+# within_root, and check-model-keys.sh all source one shared definition
+# rather than each carrying its own copy of the identical awk).
 PROJECT_FILE="$WORKTREE_REAL/.flow/project.md"
 PROJECT_COMMANDS_BODY=""
 if [ -f "$PROJECT_FILE" ]; then
   PROJECT_FILE_RESOLVED="$(resolve_file "$PROJECT_FILE")" || PROJECT_FILE_RESOLVED=""
   if [ -n "$PROJECT_FILE_RESOLVED" ] && within_root "$PROJECT_FILE_RESOLVED" "$WORKTREE_REAL"; then
     for key in lint test run; do
-      section="$(extract_project_section "$PROJECT_FILE_RESOLVED" "$key")"
+      section="$(project_section "$PROJECT_FILE_RESOLVED" "$key")"
       if [ -n "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
         PROJECT_COMMANDS_BODY="${PROJECT_COMMANDS_BODY}### ${key}
 

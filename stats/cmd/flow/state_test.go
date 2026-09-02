@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -1086,6 +1087,203 @@ func TestStateListFallbackReportsLocalRecords(t *testing.T) {
 	r := out.Records[0]
 	if r.Name != "kan-9" || r.State != "IN_PROGRESS" || r.UpdatedBy != "/myflow-do" || r.Unreadable {
 		t.Errorf("records[0] = %+v", r)
+	}
+}
+
+// --- state resolve: the change-name candidate set ---
+
+// stateResolveOutputForTest mirrors stateResolveOutput's JSON shape.
+type stateResolveOutputForTest struct {
+	Source     string `json:"source"`
+	Complete   bool   `json:"complete"`
+	Candidates []struct {
+		Name  string `json:"name"`
+		State string `json:"state"`
+	} `json:"candidates"`
+	Unreadable []string `json:"unreadable"`
+}
+
+func decodeStateResolveOutput(t *testing.T, raw []byte) stateResolveOutputForTest {
+	t.Helper()
+	var out stateResolveOutputForTest
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode state resolve output: %v (%s)", err, raw)
+	}
+	return out
+}
+
+func candidateNames(out stateResolveOutputForTest) []string {
+	names := make([]string, len(out.Candidates))
+	for i, c := range out.Candidates {
+		names[i] = c.Name
+	}
+	return names
+}
+
+func containsName(names []string, name string) bool {
+	for _, n := range names {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+// changesDirFixture creates <mainCheckout>/spectre/changes/kan-a,
+// spectre/changes/kan-b, and spectre/changes/archive/kan-b (which also
+// creates spectre/changes/archive itself) -- the fixture shape
+// TestStateResolveFallbackUnionsChangesDir and
+// TestStateResolveFallbackDropsArchived both need: an unarchived change,
+// an archived one, and the archive directory itself.
+func changesDirFixture(t *testing.T, mainCheckout string) {
+	t.Helper()
+	dir := filepath.Join(mainCheckout, "spectre", "changes")
+	for _, name := range []string{"kan-a", "kan-b", filepath.Join("archive", "kan-b")} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+	}
+}
+
+func TestStateResolveStoreDropsFinished(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"view":"state-board","rows":[
+			{"projectKey":"proj","name":"kan-1","state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/myflow-do"},
+			{"projectKey":"proj","name":"kan-2","state":"FINISHED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/myflow-finish"}
+		]}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "resolve", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	out := decodeStateResolveOutput(t, stdout.Bytes())
+	if out.Source != "store" || !out.Complete {
+		t.Fatalf("source/complete = %q/%v, want store/true", out.Source, out.Complete)
+	}
+	names := candidateNames(out)
+	if !containsName(names, "kan-1") {
+		t.Errorf("candidates = %v, want kan-1 present", names)
+	}
+	if containsName(names, "kan-2") {
+		t.Errorf("candidates = %v, want kan-2 (FINISHED) dropped", names)
+	}
+}
+
+func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	changesDirFixture(t, repo)
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/myflow-do"}`)
+	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
+		t.Fatalf("seed state file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	out := decodeStateResolveOutput(t, stdout.Bytes())
+	if out.Source != "fallback" || out.Complete {
+		t.Fatalf("source/complete = %q/%v, want fallback/false", out.Source, out.Complete)
+	}
+	names := candidateNames(out)
+	for _, want := range []string{"kan-a", "kan-9"} {
+		if !containsName(names, want) {
+			t.Errorf("candidates = %v, want %q present", names, want)
+		}
+	}
+	if containsName(names, "archive") {
+		t.Errorf("candidates = %v, want the archive directory itself never listed as a change", names)
+	}
+}
+
+func TestStateResolveFallbackDropsArchived(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	changesDirFixture(t, repo)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	out := decodeStateResolveOutput(t, stdout.Bytes())
+	names := candidateNames(out)
+	if containsName(names, "kan-b") {
+		t.Errorf("candidates = %v, want kan-b dropped (archived under spectre/changes/archive/kan-b)", names)
+	}
+	if !containsName(names, "kan-a") {
+		t.Errorf("candidates = %v, want kan-a (not archived) present", names)
+	}
+}
+
+// TestStateResolveFallbackNamesUnreadable is state resolve's own version
+// of the never-rebuild-by-inference rule TestStateListFallbackReportsUnreadableFileByName
+// already covers for `state list`: an unparseable fallback file must
+// still be named in "unreadable", never silently dropped from the
+// candidate set.
+func TestStateResolveFallbackNamesUnreadable(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-corrupt"), []byte(`not json at all`)); err != nil {
+		t.Fatalf("seed corrupt state file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "resolve", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	out := decodeStateResolveOutput(t, stdout.Bytes())
+	if len(out.Unreadable) != 1 || out.Unreadable[0] != "kan-corrupt" {
+		t.Errorf("unreadable = %v, want exactly [kan-corrupt]", out.Unreadable)
+	}
+	if containsName(candidateNames(out), "kan-corrupt") {
+		t.Errorf("candidates = %v, want kan-corrupt absent (it belongs in unreadable, not candidates)", candidateNames(out))
+	}
+}
+
+func TestStateResolveTakesNoPositionalArguments(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "resolve", "-C", repo, "unexpected-arg"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (usage error)", code)
 	}
 }
 

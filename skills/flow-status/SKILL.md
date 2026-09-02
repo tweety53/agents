@@ -30,17 +30,18 @@ reimplements `check-finish-preflight.sh`'s other merge-status steps in prose rat
 that script (see the note there); only base-branch resolution is delegated to a real guard.
 
 Enumerate the candidate set exactly as **Change name resolution**
-(`skills/flow-contracts/pipeline.md`) defines it — through `flow state list [-C dir]`, never a
+(`skills/flow-contracts/pipeline.md`) defines it — through `flow state resolve [-C dir]`, never a
 hand-written HTTP call:
 
 ```bash
 MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
-BOARD="$(flow state list -C "$MAIN_CHECKOUT")"
+BOARD="$(flow state resolve -C "$MAIN_CHECKOUT")"
 ```
 
 `$BOARD` is one JSON object: `"source"` (`"store"` or `"fallback"`), `"complete"`
-(`true` only when `"source":"store"`), and `"records"` (each `name`, `state`, `updatedAt`,
-`updatedBy`, and `"unreadable":true` for a fallback file that could not be parsed).
+(`true` only when `"source":"store"`), `"candidates"` (each `name`, `state`, `updatedAt`,
+`updatedBy`) and `"unreadable"` (the names of fallback records that could not be read). The table
+below is built from `candidates`; print every `unreadable` name, by name, above it.
 
 **Report which source produced the set, before the table** — `jq -r .source <<<"$BOARD"`. When it
 reads `fallback`, say so in one line — `⚠ store unreachable — reporting from local fallback files,

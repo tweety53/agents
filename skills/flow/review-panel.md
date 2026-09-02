@@ -18,16 +18,16 @@ flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -s
 check-panel-citation-trigger.sh <worktree> <merge-base>
 ```
 
-**Load `skills/flow-contracts/project-configuration.md`** — the key below is canonical there.
-
-On exit 0, read `<project>/.flow/project.md`'s `## review panel citation check` key (**Guard
-resolution**, `skills/flow-contracts/pipeline.md`; the key itself is canonical in **Project
-configuration**, `skills/flow-contracts/project-configuration.md`). If declared, run its command
+On exit 0, run `project-get.sh <worktree> "review panel citation check"` (**Guard resolution**,
+`skills/flow-contracts/pipeline.md`; the key itself is canonical in **Project configuration**,
+`skills/flow-contracts/project-configuration.md`). If declared, run its command
 from the apply worktree and capture combined stdout+stderr verbatim to
-`<abs-worktree>/.superpowers/sdd/citation-check.md`. On exit 1, or the key absent, skip silently — no
-file written, no CITATION CHECK paragraph added below. Exit 2 — the guard could not answer (usage
-error, `<worktree>` not a directory or not a git repo, or the merge-base not resolving) — report its
-stderr and skip this worktree the same way exit 1 does.
+`<abs-worktree>/.superpowers/sdd/citation-check.md`. `project-get.sh` exit 1 is the "key absent —
+skip silently" case just named; exit 2 is reported and the worktree skipped, the same way the
+guard's own exit 2 below is. On exit 1, skip silently — no file written, no CITATION CHECK
+paragraph added below. Exit 2 — the guard could not answer (usage error, `<worktree>` not a
+directory or not a git repo, or the merge-base not resolving) — report its stderr and skip this
+worktree the same way exit 1 does.
 
 **Never blocks.** The configured command's exit code is read by nobody — a non-zero exit (findings
 present) still just writes the file. The real gate stays `flow.verify`'s existing `## lint` run,
@@ -285,9 +285,10 @@ its standards files.
 of `engineering-principles.md` **beside this file** — `skills/flow/`, always. Confirm the file
 exists before spawning; if it does not, stop and report rather than dispatching a blind reviewer.
 
-**Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the `## standards` entries in
-`<project>/.flow/project.md`, per **Project configuration**
-(`skills/flow-contracts/project-configuration.md`). Pass an **empty** value when none resolve.
+**Resolve `[STANDARDS_PATHS]` before dispatching the principles slot**, from the entries
+`project-get.sh <worktree> standards` prints (exit 1: none declared), resolved per the entry-form
+and containment rule the `[STANDARDS_PATHS]` step of `skills/flow/principles-reviewer-prompt.md`
+carries. Pass an **empty** value when none resolve.
 Record which standards files were passed, or that none resolved.
 
 ## Recording findings, and the record's format

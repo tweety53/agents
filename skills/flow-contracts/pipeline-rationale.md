@@ -56,6 +56,46 @@ The reason is what makes the whole binding mechanism work: the transcript record
 expands it. A substitution therefore lands in every calling session's transcript as the identical,
 unexpanded string, and discriminates nothing between them.
 
+Each
+skill's own mark calls sit at that skill's own stage boundaries, in that skill's own `SKILL.md`, and
+name the stage by its Key column exactly — the CLI compares the `-stage` value byte for byte against
+the documented key and rejects anything else, naming the documented alternatives.
+
+Neither is optional, and a call
+missing either is a caller mistake the CLI rejects before it ever reaches the store (see below).
+`-session-token` is a literal, unique token this **run** — not this mark — generates once, at the
+start of the run, and then passes unchanged on every mark that run makes, so the daemon can later
+find it in the calling session's own transcript and bind every stage run carrying it to that
+transcript's own `sessionId` — design.md's "bind after the fact, by a correlator the caller writes"
+and "one token per session, not one per mark" (kan-172).
+
+**The token is per run, generated fresh, never reused across runs.** A run
+that starts identifies itself with its own new token; a run that already has one (mid-run, at a
+later mark) reuses it.
+
+**The `<change>` argument is always a resolved change name, never a guess.**
+`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a `stage begin` call site whose change argument is
+written as a placeholder naming a guess.
+
+`<agents repo>/scripts/check-stage-mark-calls.sh` rejects a hardcoded `-harness` literal in skill source the same
+way it rejects a substituted session token.
+
+`-session-token "mf-$(date +%s)-$$"` is rejected, and so is any token carrying a
+backtick or a `$VAR` reference. A reader who does not know this will
+"improve" the literal into a substitution the first chance they get, which is exactly the regression
+this paragraph, `<agents repo>/stats/cmd/flow/stage.go`'s `validateSessionToken`, `<agents repo>/stats/internal/api/stages.go`'s
+`validateSessionTokenShape`, and `<agents repo>/scripts/check-stage-mark-calls.sh` all exist to stop. Write a
+concrete token in its place — `<literal-token>` above means "invent a short, unique string right
+here, once, and reuse it", not "leave this placeholder in the invocation" and not "invent a new one
+at every mark".
+
+On any store failure the CLI
+journals the intent, prints one warning line, and exits 0 — the same never-block guarantee **State
+file** (`skills/flow-contracts/state-file.md`) already states for `state set`. Do not branch on
+`flow stage`'s exit code as a signal about the stage itself: a mark that could not reach the store
+still exits 0, so there is nothing to react to, and treating its output as a stage failure would make
+the mark exactly the block it is required not to be.
+
 ## Handoff output
 
 ### The block each state renders

@@ -130,9 +130,8 @@ re-run the project's whole `## lint`/`## test` list here. A clean rebase whose o
 this stage proceeds to the landing question and closes the mark `completed`, exactly like
 **Continue**.
 
-**Load `skills/flow-contracts/project-configuration.md`** — the `## default landing route` key
-is canonical there. Read `<project>/.flow/project.md`'s `## default landing route` section, if
-present, and resolve it against the three literals `pull request` / `merge and push` /
+Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), and resolve it
+against the three literals `pull request` / `merge and push` /
 `manual`, byte-for-byte after trimming leading/trailing whitespace. A body matching none of
 them exactly is reported by name and dropped, resolving as absent.
 

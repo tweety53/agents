@@ -34,6 +34,7 @@ die() {
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/project-section.sh"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SETTINGS_GO="$REPO_ROOT/stats/internal/store/settings.go"
 
@@ -79,11 +80,7 @@ is_valid_model() {
 # kind of body.
 extract_section_body() {
   local file="$1" heading="$2"
-  awk -v heading="## $heading" '
-    $0 == heading { grabbing = 1; next }
-    grabbing && /^## / { exit }
-    grabbing { print }
-  ' "$file" | awk '
+  project_section "$file" "$heading" | awk '
     { lines[NR] = $0 }
     END {
       start = 1
