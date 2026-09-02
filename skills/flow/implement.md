@@ -16,6 +16,93 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 **Never** invoke `finishing-a-development-branch`. Integration is `skills/flow/integrate.md`'s job.
 
+## Dispatch the conductor
+
+Sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and
+`skills/flow/verify-and-handoff.md` are the **conductor's** work, not the parent's — one conductor
+subagent runs `flow.load-context` through `flow.write-in-progress`, resumed between its returns so
+its context carries from the plan to the handoff. Every "you" in those files addresses it. The
+parent's own work on this branch is what this section states, plus — on a fix run — section **3**
+below, which runs **before** the dispatch: the parent resolves the worktree from the state file's
+`worktrees` map, runs section 3's planner dispatch and Jira sync, and only then dispatches the
+conductor. A fix run's stage order is therefore document-fix → load-context → isolate (resume) →
+sdd-tdd → …, so the appended plan is validated after the fix's edit.
+
+**Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`),
+and run the guard-presence check, before dispatching. Dispatch one subagent with the Agent tool's
+`model` parameter set to `DEFAULT_MODEL` — or the run's plain-language session override, recorded
+with the dispatch — and `subagent_type: general-purpose`. Its prompt carries, verbatim:
+
+> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+> Include this instruction verbatim in any prompt you write for another agent.
+
+and states: the change name `<name>`; the project root; `<changeRoot>`; this run's literal session
+token; the harness; `DEFAULT_MODEL` and the resolved `REVIEWERS` list; the guard-presence result;
+the run kind (creating or fix) and, on a fix run, the operator's fix instructions; and the
+instruction to read this file's sections **1**, **2** and **4**, `skills/flow/review-panel.md` and
+`skills/flow/verify-and-handoff.md` and follow them **as the conductor**, running every stage mark
+in that range itself with the token it was given.
+
+**The relay contract**, stated in the same prompt. The conductor has no channel to the operator and
+no task-list tool. It ends a turn only with one of three blocks, and never with a child subagent
+still in flight — it waits for every implementer, reviewer, slot and fix subagent it launched
+first:
+
+- `## Question` — the question plus named options; the parent asks it verbatim through
+  **AskUserQuestion** and resumes the conductor via **SendMessage** with the answer. Every operator
+  prompt inside the covered stages goes this way: the over-cap choice, a second wall-clock breach,
+  the non-converging-finding handback, BLOCKED, an empty resolved-worktree set, a plan-quality
+  repair that needs the operator.
+- `## Stage flow.<key>` plus one line of outcome, at every `flow stage end` it runs; the parent
+  updates the harness task list — the stage is the granularity on this branch, per **Progress
+  visibility** (`skills/flow-contracts/pipeline.md`) — and resumes it with `continue`.
+- `## Handoff` carrying the `IN_PROGRESS` handoff block verbatim; the parent prints it unchanged.
+
+The first line of its first reply is `Model: <the model named in its own system prompt>`.
+
+**Record the dispatch immediately after the launch returns its identifier**, before anything else:
+
+```bash
+flow record dispatch begin -change <name> -role conductor -model <DEFAULT_MODEL> \
+  -key conductor -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+```
+
+**The handshake.** Compare the `Model:` line against `DEFAULT_MODEL` (or the override). A match
+proceeds. A mismatch records the model that answered and **continues on the running agent — no
+re-dispatch**: the planner's opus re-dispatch (**Dispatch the planner**,
+`skills/flow/brainstorm.md`) exists because fable may be unavailable, which `DEFAULT_MODEL` does
+not share, and a re-dispatch onto a costlier model would raise what this dispatch exists to cut:
+
+```bash
+flow record dispatch end -change <name> -key conductor -session-token mf-<literal-token> \
+  -outcome fallback -ended-at <ts>
+flow record dispatch begin -change <name> -role conductor -model <the model the handshake named> \
+  -key conductor-<that model, lowercased> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+```
+
+**A mark or a record never blocks** — proceed on the handshake's outcome regardless of whether any
+`flow` call reached the store.
+
+**The return.** Once `## Handoff` arrives, print the block unchanged and close the record under
+whichever key is open:
+
+```bash
+flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
+  -outcome completed -ended-at <ts>
+```
+
+The run is at `IN_PROGRESS`; nothing further runs in this invocation.
+
+**A conductor that ends without one of the three blocks, or whose agent dies, is closed with
+`-outcome aborted`, reported, and not retried**: print `/flow <name>` for the operator — a re-run
+resumes from whatever the conductor left (checkbox state, the state file's worktrees, findings in
+the store) through this file's own re-entry rules, and the operator should see the death rather
+than have it hidden by a second dispatch.
+
+**At depth, the Agent tool offers no `bugbot` or `security-review` type.** **An unspawnable id is
+substituted, not skipped** (`skills/flow/review-panel.md`) applies unchanged; under the conductor
+it is the norm, not the exception.
+
 ## 1. Load context and validate the plan
 
 ```bash
@@ -105,6 +192,9 @@ flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed
 
 ## 3. Documenting a fix, before implementing it
 
+**Parent work, run before the conductor is dispatched** — see **Dispatch the conductor** above.
+Everything below is the parent's own; the conductor never sees this section.
+
 **Fix runs only** — a first run creates the worktree instead, per **2** above, and marks nothing
 here:
 
@@ -168,13 +258,14 @@ where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this
 `skills/flow/`, always. A non-zero exit — including the guard being absent — is reported, and
 dispatching proceeds with the prompt shape this stage used before this capability existed; the
 bundle never gates a run. Confirm the bundle was actually written (`test -f
-<worktree>/.superpowers/sdd/dispatch-context.md`) and report plainly if it is not. Report the
-script's stderr line for this stage (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as
-part of this stage's own reporting.
+<worktree>/.superpowers/sdd/dispatch-context.md`) and report plainly if it is not. **Never read the
+bundle back into this context** — `test -f` is the whole check; its content is the implementer's
+input, not the dispatcher's. Report the script's stderr line for this stage (`bundle unchanged —
+reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
 
-**At most one implementer subagent may be in flight against a given worktree at any moment.** The
-parent waits for the previous implementer's commit sha for that worktree before dispatching the
-next implementer into it; dispatches into different worktrees remain free to run concurrently. This
+**At most one implementer subagent may be in flight against a given worktree at any moment** —
+a reviewer is not one: it reads an immutable commit range, and any number of them may run beside
+the one implementer. Dispatches into different worktrees remain free to run concurrently. This
 explicitly overrides `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks.
 
@@ -183,7 +274,7 @@ Immediately before dispatching:
 
 ```bash
 flow record dispatch begin -change <name> -task <n> -role implementer -model <m> \
-  -key task-<n>-implementer -session-token mf-<literal-token> -started-at <ts>
+  -key task-<n>-implementer -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 ```
 
 and as soon as that dispatch reports back, before the next one goes out:
@@ -194,13 +285,15 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
   -agent-id <id>
 ```
 
-**Both calls are required, and `begin` must go out BEFORE the dispatch does — never delayed to
-obtain an identifier.** `-key` is this dispatch's own literal label, unique within the run's
-session token — `task-<n>-implementer`, reused identically in both calls. `-role` is one of
-`implementer`, `reviewer`, `panel-fix` or `red-partner`; `-task` is the task's flat integer id,
-omitted for a dispatch against no single task; `-started-at`/`-ended-at` are RFC 3339.
-`-session-token` takes a literal, never a shell substitution. `-agent-id` goes on `end` here — a
-serialized implementer dispatch reports its own identifier only once it comes back.
+**Both calls are required. Every launch is asynchronous and returns the agent's identifier at
+launch, so `begin` carries `-agent-id <id>` and is recorded immediately after the launch returns,
+before any other action; `end` may repeat the id.** `-key` is this dispatch's own literal label,
+unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
+`-role` is one of `implementer`, `reviewer`, `panel-fix` or `red-partner`; `-task` is the task's
+flat integer id, omitted for a dispatch against no single task; `-started-at`/`-ended-at` are
+RFC 3339 — `-started-at` the launch time. `-session-token` takes a literal, never a shell
+substitution. Two dispatches starting at one instant are told apart only by id, and a resumed
+dispatch shares its id with the original — which is why the id is recorded at launch.
 
 **`-model` is the model this dispatch was actually given — `DEFAULT_MODEL`** (`skills/flow/SKILL.md`'s
 **Model resolution**), or the run's session-instruction override when one was given for the
@@ -272,31 +365,52 @@ Every implementer dispatch **must** also carry:
 > the shape you construct by hand is not the shape the real producer emits. Build the value the way
 > production builds it, or assert against the real boundary.
 
-**Guard the commit before dispatching review.** As soon as the implementer reports the task's
-commit sha back, and **before** the parent dispatches that task for review, pass the canonical
-worktree's absolute path — the worktree created or resumed in step **2** above, recorded in this
-run's working notes — as the guard's fifth argument, and this run's own resolved `<name>` as its
-sixth, so the guard never has to guess which change a task belongs to even when other changes are
-live in the same worktree:
+**Review overlaps the next implementer.** The unit is the bundle `plan-dispatch-bundles.sh` emits;
+"bundle N's reviewers" is one reviewer per task in it. At each boundary, in this order:
 
-```bash
-check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
-```
+1. **Bundle N+1's implementer commits** and reports its shas.
+2. **A pending fix for bundle N folds in first.** If bundle N's review raised a fix, resume that
+   bundle's implementer (`SendMessage`; record the resumption as its own pair under
+   `task-<n>-implementer-fix-<k>`, `-agent-id` the implementer's own id) with the reviewer's
+   report path; it commits `git commit --fixup=<task-sha>` and runs `git rebase --autosquash`. A
+   conflict there is between two of the branch's own commits and the implementer resolves it —
+   `skills/flow/integrate.md`'s never-auto-resolve rule concerns the operator's base branch.
+3. **Guard every commit whose sha is new** — bundle N+1's tasks and every task the rebase rewrote —
+   before dispatching review for it, passing the canonical worktree's absolute path (the worktree
+   created or resumed in step **2** above) as the guard's fifth argument and this run's resolved
+   `<name>` as its sixth:
 
-A nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round slot.
-The parent sends the task back to the **same implementer** to correct it, then re-runs the guard.
+   ```bash
+   check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
+   ```
+
+   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes. A
+   nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round
+   slot; send the task back to the **same implementer**, then re-run the guard, before anything
+   below.
+4. **Dispatch together:** bundle N's re-reviewer if step 2 ran (the task's full range,
+   `git diff <task-base>..<new-task-sha>`), bundle N+1's reviewers, and bundle N+2's implementer.
 
 **When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
-**Per-task review:** the parent gives the reviewer the commit-range diff `git diff
-<task-base>..<task-sha>` — a real commit diff, never a snapshot of the uncommitted working tree.
-**Record the reviewer's dispatch too** — `-role reviewer`, the same `-task <n>`, and `-model
-DEFAULT_MODEL`. **The per-task review is a single combined reviewer**, covering spec compliance and
-code quality together, dispatched on `DEFAULT_MODEL` — `/flow`'s panel carries no roster, so there
-is no `full`-preset split into two per-task reviewers. Mark a **task's** checkbox `[x]` only after
-that task passes spec **and** quality review; a step's checkbox tracks the step and gates nothing.
+**Per-task review:** the reviewer gets the commit-range diff `git diff <task-base>..<task-sha>` —
+a real commit diff, never a snapshot of the working tree, which the next implementer is editing.
+**Record the reviewer's dispatch too** — `-role reviewer`, the same `-task <n>`, `-model
+DEFAULT_MODEL`, `-agent-id` on `begin` — and close it with **`-outcome clean` or `-outcome fix`**,
+so per-task review yield is measurable. **The per-task review is a single combined reviewer**,
+covering spec compliance and code quality together, dispatched on `DEFAULT_MODEL` — `/flow`'s
+panel carries no roster, so there is no `full`-preset split into two per-task reviewers. Mark a
+**task's** checkbox `[x]` (`flow tasks tick`) only after that task passes spec **and** quality
+review — the guard has already passed by then; a step's checkbox tracks the step and gates nothing.
+
+**The last bundle's reviewers run alone.** Overlap them only with the review panel's pre-work —
+its citation check, bundle rebuild, relocation comparison and diff-size check; `final-review.diff`
+is written and the slots dispatched once the last review is clean and any fix folded.
+
+**Never end a turn with a child in flight** — wait for every implementer and reviewer launched
+before reporting a stage boundary or asking the operator anything.
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to

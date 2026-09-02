@@ -136,8 +136,16 @@ that step finishes — so the harness's live progress view, a count line and one
 renders throughout the run rather than arriving with the handoff. The count line then distinguishes
 done, in progress and open at every point. One entry per whichever cited stage is running at the
 time, at that stage's own granularity — brainstorming checklist items and artifacts on the
-creating/resuming branch, `tasks.md` items on the implementation branch, a finish run's steps on
-the integrate/archive branch.
+creating/resuming branch, stages on the implementation branch, a finish run's steps on the
+integrate/archive branch.
+
+**On the implementation branch the granularity is the stage.** The stages from
+`flow.load-context` to `flow.write-in-progress` run inside a conductor subagent
+(**Dispatch the conductor**, `skills/flow/implement.md`) that has no task-list tool; the parent
+updates the list at each `## Stage` return it relays — one entry per stage, not per `tasks.md`
+item. The per-task granularity named above is what a harness with the conductor in the parent
+session would show; this is the accepted visibility trade of design.md's `conductor-stage-returns`
+in the change that introduced it.
 
 `/flow-status` is read-only and **registers nothing**. Registering steps for a
 report would put entries on the operator's task list for work nobody is doing.

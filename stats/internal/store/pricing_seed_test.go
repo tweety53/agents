@@ -81,6 +81,36 @@ func TestSeedPricingIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestSeedPricingRatesCarryFable pins the row for the operator's own
+// session model -- absent, every fable-orchestrated run priced its parent
+// at zero (design.md's fable-pricing-row). Rates are the published table
+// read on 2026-09-02; the cache-read rate is the one column that is not
+// 0.1x input on this model.
+func TestSeedPricingRatesCarryFable(t *testing.T) {
+	var fable *store.PricingRate
+	for _, rate := range store.SeedPricingRates() {
+		if rate.Model == "claude-fable-5-1" {
+			rate := rate
+			fable = &rate
+		}
+	}
+	if fable == nil {
+		t.Fatal("no seeded rate for claude-fable-5-1")
+	}
+	if fable.InputPerMTok != 10 || fable.OutputPerMTok != 50 {
+		t.Errorf("input/output = %v/%v, want 10/50", fable.InputPerMTok, fable.OutputPerMTok)
+	}
+	if fable.CacheWrite5mPerMTok != 12.5 || fable.CacheWrite1hPerMTok == nil || *fable.CacheWrite1hPerMTok != 20 {
+		t.Errorf("cache writes = %v/%v, want 12.5/20", fable.CacheWrite5mPerMTok, fable.CacheWrite1hPerMTok)
+	}
+	if fable.CacheReadPerMTok != 0.25 {
+		t.Errorf("cache read = %v, want 0.25", fable.CacheReadPerMTok)
+	}
+	if fable.FastInputPerMTok != nil || fable.FastOutputPerMTok != nil {
+		t.Error("fast rate present, want nil (fast mode is Opus 5 / 4.8 only)")
+	}
+}
+
 // TestSeedPricingRatesOmitFastForModelsWithNone pins the table's own
 // documented gap: claude-sonnet-5 and claude-haiku-4-5 have no published
 // fast-mode rate (the source table's "—" cells), and this seed must not
@@ -88,7 +118,7 @@ func TestSeedPricingIsIdempotent(t *testing.T) {
 func TestSeedPricingRatesOmitFastForModelsWithNone(t *testing.T) {
 	for _, rate := range store.SeedPricingRates() {
 		switch rate.Model {
-		case "claude-sonnet-5", "claude-haiku-4-5":
+		case "claude-sonnet-5", "claude-haiku-4-5", "claude-fable-5-1":
 			if rate.FastInputPerMTok != nil || rate.FastOutputPerMTok != nil {
 				t.Errorf("%s: fast rate present, want nil (no fast-mode rate is published for this model)", rate.Model)
 			}

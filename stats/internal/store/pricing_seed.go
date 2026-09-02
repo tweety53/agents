@@ -22,19 +22,31 @@ func fastRate(v float64) *float64 { return &v }
 
 // SeedPricingRates is the published Anthropic rate table this task's own
 // plan-provenance tag cites: read from
-// https://platform.claude.com/docs/en/about-claude/pricing on 2026-08-14.
+// https://platform.claude.com/docs/en/about-claude/pricing on 2026-08-14,
+// with the claude-fable-5-1 row read from the same page on 2026-09-02.
 // Prices are USD per million tokens (per_mtok).
 //
 // These figures are not re-derived, adjusted, or supplemented from
 // memory -- they are exactly the table task 23's plan carries, and a
-// model or rate this table does not name (claude-sonnet-5 and
-// claude-haiku-4-5 have no fast-mode rate at all, per the source table's
-// own "—" cells) is priced as unavailable by Store.Price rather than at
-// an invented rate: see PricingRate's own doc comment, and
-// chargeableTokens.cost, for how a nil rate here is treated at pricing
-// time.
+// model or rate this table does not name (claude-sonnet-5,
+// claude-haiku-4-5 and claude-fable-5-1 have no fast-mode rate at all,
+// per the source table's own "—" cells) is priced as unavailable by
+// Store.Price rather than at an invented rate: see PricingRate's own doc
+// comment, and chargeableTokens.cost, for how a nil rate here is treated
+// at pricing time.
 func SeedPricingRates() []PricingRate {
 	return []PricingRate{
+		{
+			Model:               "claude-fable-5-1",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        10,
+			OutputPerMTok:       50,
+			CacheWritePerMTok:   12.50, // legacy column; superseded by the 5m/1h split below.
+			CacheWrite5mPerMTok: 12.50,
+			CacheWrite1hPerMTok: fastRate(20),
+			CacheReadPerMTok:    0.25, // 0.025x input on this model, not the 0.1x every other row uses.
+			// No fast-mode rate published for this model (Opus 5 / 4.8 only).
+		},
 		{
 			Model:               "claude-opus-5",
 			EffectiveFrom:       pricingSeedEffectiveFrom,
