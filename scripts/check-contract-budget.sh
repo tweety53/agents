@@ -185,8 +185,10 @@ skills/flow-research/SKILL.md 13047
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
 skills/flow/SKILL.md 16278
+skills/flow/SKILL-rationale.md 7198
 skills/flow/archive.md 18748
 skills/flow/brainstorm.md 35015
+skills/flow/brainstorm-planner.md 23248
 skills/flow/engineering-principles.md 10732
 skills/flow/implement.md 20877
 skills/flow/integrate.md 18602

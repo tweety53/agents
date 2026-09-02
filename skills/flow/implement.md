@@ -214,7 +214,7 @@ read records the literal `unknown (agent-defined)` and never a guess.
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
 and exits 0 — never branch on this command's exit code as a signal about the record.
 
-Invoke **superpowers:subagent-driven-development**, dispatching one implementer per bundle from:
+Dispatch one implementer per bundle from:
 
 ```bash
 plan-dispatch-bundles.sh <changeRoot>/tasks.md
@@ -249,8 +249,9 @@ as it stands after the fold.
 > **REQUIRED SUB-SKILL:** When a test fails for a reason RED-GREEN-REFACTOR did not plan, invoke
 > superpowers:systematic-debugging before writing a fix. An expected RED step needs no invocation.
 
-> **REQUIRED READING:** `engineering-principles.md` — your implementation must satisfy these
-> principles; the panel's principles reviewer checks the diff against them.
+> **REQUIRED READING:** the engineering principles section of the context bundle below — your
+> implementation must satisfy these principles; the panel's principles reviewer checks the diff
+> against them.
 
 > **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
 > proposal, design, plan and engineering principles, gathered for you. You **must** still read the

@@ -3,11 +3,6 @@
 Use this template for the panel's **Principles** slot — required on every `/flow` run, per
 **Review panel** (`skills/flow/review-panel.md`).
 
-**All three principle groups always apply**, and this template takes no parameter selecting among
-them. Earlier rosters made Simplicity & state and Robustness & ops conditional, dispatched only when
-something asked for them; that is gone, along with the substitution that existed to name which was in
-force.
-
 The principle list itself is **not** restated here — the reviewer reads
 [engineering-principles.md](engineering-principles.md) (this file's sibling, inside the installed
 skill directory), which is the single source of truth. Never paste the list into a dispatch
@@ -172,9 +167,8 @@ Subagent (generalPurpose):
   than dispatching a reviewer with no principles.
 - `[STANDARDS_PATHS]` — the project's own written standards. Resolve in this order:
   1. the entries listed under the `## standards` section of `<project>/.flow/project.md`, when the
-     project has one — resolved to absolute paths **per the entry-form table and the
-     containment rule in `skills/flow-contracts/project-configuration.md`**,
-     which is canonical. Entries are not paths to use as-is: a bare `*.mdc` filename means
+     project has one — resolved to absolute paths per the `## standards` entry-form table and
+     containment rule. Entries are not paths to use as-is: a bare `*.mdc` filename means
      the shared agents rule library, any other bare filename means the project's own file,
      and a path that escapes the project root is dropped;
   2. otherwise auto-detect: `<project>/CLAUDE.md`, `<project>/AGENTS.md`, `CONTRIBUTING.md`, and any

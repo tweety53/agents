@@ -85,55 +85,6 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
 | `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract-run1.md`/`finish-contract-run2.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
-### /flow commands summary
-
-**Pipeline (3 states):** `STARTED` → `IN_PROGRESS` → `FINISHED`
-
-```text
-/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
-/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
-/flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
-```
-
-**That digest is the one piece of pipeline content this file copies, and the copy is deliberate.**
-Claude Code loads this file into every session in this project, before `/flow` runs
-and before anything loads `skills/flow-contracts/pipeline.md` — being present without that load is
-the whole job of the block, which is why the always-on rule `rules/flow-manual-review.mdc` carries
-the same three lines. **What the copy reproduces is the states and the transitions, not the
-wording**, and the two are deliberately **not** kept byte-identical: a difference in what the lines
-*say* is drift worth reporting; a difference in how they are phrased is not. Everything else is
-cited rather than copied: the state diagram lives under **How the pipeline works** (`<agents repo>/README.md`),
-and `/flow`'s own stage sequence is spelled out across `skills/flow/*.md`.
-
-Also follow `rules/flow-manual-review.mdc` (always-on) — it is a stub, so **load
-`skills/flow-contracts/pipeline.md` first**; that file holds the states, transitions, git
-boundaries and the handoff shape, and is canonical for them. The finish contract lives in
-`skills/flow-contracts/finish-contract-run1.md` and `skills/flow-contracts/finish-contract-run2.md`,
-canonical for themselves and loaded by `/flow`'s integrate/archive phase alone.
-
-`<name>` is **optional** on `/flow` and `/flow-status` — if omitted, the sole active (non-archived)
-change relevant to that state is used automatically; if there are multiple, you're asked which.
-
-**No command takes a flag.** The only argument is the change name (or, on a creating `/flow` run, a
-description or Jira key); anything else is reported rather than ignored.
-
-**Model:** See "Model resolution" in `skills/flow/SKILL.md`, canonical for `/flow`; "Model policy" in
-`skills/flow-contracts/model-policy.md` for the per-harness enforcement notes that still apply.
-
-| Command | What it does |
-|---------|-------------|
-| `/flow <name>` | No state creates the change and writes `STARTED` immediately, then — same invocation — runs brainstorming (fully interactive, unchanged) and implementation behind the review panel resolved from the settings store's reviewer list (`skills/flow/review-panel.md` is canonical for the roster), ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question on a creating run, and publishes no proposal artifact. An argument at `IN_PROGRESS` is a fix run — state unchanged. Bare at `IN_PROGRESS`, it asks how to land the branch — open PR *(default)*, merge and push, or manual, though a project's `<project>/.flow/project.md` `## default landing route` key can change which option is recommended — and, on merge-and-push, continues the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. **Runs no tests, linters or coverage check outside implementation's own verify stage** |
-| *(gate)* | **You** — creating run or fix: review the staged diff **and** run the apps; integrate with open PR or manual: wait for the branch to merge (or finish your manual steps); merge-and-push: nothing — the state is terminal |
-| `/flow-status <name>` | Read-only state report for open changes |
-
-The branch's merge status alone decides which `/flow` integrate/archive run happens — so a PR you
-merged on the forge and a merge it performed itself are indistinguishable to it, which is correct.
-
-**Verification runs during `/flow`'s implementation phase and nowhere else**, with one exception —
-`skills/flow/integrate.md`'s own in-pipeline rebase step, scoped to what it rebased in. The
-integrate/archive phase otherwise has no verification gate: re-running tests immediately before the
-one irreversible step repeats finished work, and a gap found there routes back to a fix run anyway.
-
 ### How to invoke a skill
 
 Read the skill file, then follow it:

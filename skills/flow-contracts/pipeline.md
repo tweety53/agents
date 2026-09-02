@@ -63,7 +63,7 @@ records the confirm itself as an open question and ends the stage there, since n
 could ever arrive through it. An operator who is present but silent is not that exception and still
 gets another round.
 
-See **Convergence** (`skills/flow/brainstorm.md`).
+See **Convergence** (`skills/flow/brainstorm-planner.md`).
 
 ## Command surface
 
@@ -78,8 +78,14 @@ ignored word is indistinguishable from a flag that stopped working.
 
 | Command | Accepts | Ends at |
 |---------|---------|---------|
-| `/flow` | *(none — creates the change)* · `STARTED` · `IN_PROGRESS` | per state, exactly as `skills/flow/SKILL.md`'s own **State transitions** table states it — that table is `/flow`'s actual, current contract; see its **Stage keys** too |
+| `/flow` | *(no state — creates the change)* | `STARTED`, same invocation continuing to `IN_PROGRESS` unless it stops early (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`) |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still resuming) or `IN_PROGRESS` |
+| `/flow` | `IN_PROGRESS`, with an argument | fix run; state unchanged |
+| `/flow` | `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
+| `/flow` | `FINISHED` | wrong-state handoff — the change is archived |
 | `/flow-status` | any — read-only, never block | unchanged |
+
+Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/SKILL.md`).
 
 **This table is authoritative.** Every command file — in **both** command trees (`commands/` and
 `commands-claude/`) — must state exactly the states its row lists, and must agree with the skill it

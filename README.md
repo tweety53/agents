@@ -189,7 +189,7 @@ while it does, another round opens or is offered. The stage closes only the way 
 does — **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
 
 The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
-both honest are **Convergence** (`skills/flow/brainstorm.md`).
+both honest are **Convergence** (`skills/flow/brainstorm-planner.md`).
 
 The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
 gate itself. The three levels and which of them is the default are owned by **Planning effort**
@@ -326,7 +326,7 @@ topic (per `/flow-research`'s staging behaviour below) and, if found, seeds the 
 without ever skipping straight to artifact-writing (design.md's `flow-research-staging`).
 
 The stage iterates rather than passing once, the same way `/myflow-start`'s does — see
-**Convergence** (`skills/flow/brainstorm.md`) for the threshold, the two prompts, and the bounded
+**Convergence** (`skills/flow/brainstorm-planner.md`) for the threshold, the two prompts, and the bounded
 exception, which apply unchanged.
 
 No planning-effort, model, or review-panel-roster question runs on a creating run — the three

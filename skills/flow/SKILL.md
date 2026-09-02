@@ -8,7 +8,7 @@ license: MIT
 Drive the three-state pipeline (`STARTED` → `IN_PROGRESS` → `FINISHED`) end to end in one command.
 `/flow` replaces `/myflow-start`, `/myflow-do`, `/myflow-finish` and `/myflow-fast` — one command,
 one state file, the same three states, content reorganized by topic rather than by the old
-start/do/finish boundary (design.md's `flow-rename-content-split`). This file is the router: it
+start/do/finish boundary. This file is the router: it
 resolves state and dispatches into the topic file that owns the phase in force. Nothing here
 duplicates that file's own content.
 
@@ -25,10 +25,8 @@ they are printed rather than invoked:
 
 **Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
-handoff shape and change-name resolution. `/flow` is not yet a row in that file's own transition
-table or in `<agents repo>/README.md`'s Level 1 stages table — both are cross-repo references this task does not
-touch (a later task repoints them); read this file's own **State transitions** and **Stage keys**
-below as `/flow`'s actual contract in the meantime.
+handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
+**Stage keys** below names which phase file marks each key.
 
 **Then register this run's steps** with the harness's task-list mechanism, before any work begins,
 and keep each entry's status current as the run proceeds, per **Progress visibility**
@@ -37,40 +35,12 @@ the planning branch, one entry per `tasks.md` item on the implementation branch,
 of whichever finish run is executing on the integrate/archive branch — the same granularity
 `/myflow-fast` used for the branch it is running, since `/flow` runs the same branches.
 
-## State transitions
-
-| Accepts | Ends at |
-|---------|---------|
-| *(no state — creates the change)* | `STARTED`, same invocation continuing to `IN_PROGRESS` unless it stops early (see **Resuming at `STARTED`** in `skills/flow/brainstorm.md`) |
-| `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still resuming) or `IN_PROGRESS` |
-| `IN_PROGRESS`, with an argument | fix run; state unchanged |
-| `IN_PROGRESS`, bare | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
-| `FINISHED` | wrong-state handoff — the change is archived |
-
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
 
 ## Stage keys
 
-Every stage `/flow` marks uses a `flow.*` key, minted fresh for this command rather than reusing
-`start.*`/`do.*`/`finish.*` — the old namespacing was tied to the three commands this one replaces,
-and reusing it here would misdescribe a stage that no longer runs under the command its key names.
-**This is a design decision this task makes, not one resolved upstream of it**: the alternative —
-keeping the old keys, unioned, as `/myflow-fast` did — was rejected because several stages here are
-not the old stage unchanged (`flow.verify` merges two, `flow.landing-routes` absorbs two more,
-`flow.kickoff` is new), so a reused key would sometimes mean something different than its history
-records.
-
-**This introduces a real, known gap**, disclosed rather than hidden: `<agents repo>/stats/internal/stages/names.go`
-(the CLI's documented-key table, mechanically derived from `<agents repo>/README.md`'s Level 1 stages table) does
-not yet list any `flow.*` key or a `/flow` command constant. Until a later task adds them, every
-`flow stage begin -stage flow.*` call below is rejected by the CLI as an undocumented key — a
-caller mistake, per **Stage marks** (`skills/flow-contracts/pipeline.md`) — and reports rather
-than blocks the run it marks, exactly as that section already requires for any rejected mark. This
-is exactly the kind of gap `check-references.sh` and this task's own dispatch note it is "fine and
-expected" to leave for the cross-repo reference sweep: `<agents repo>/README.md`'s Level 1 table, `<agents repo>/setup.sh` and
-`<agents repo>/stats/internal/stages/names.go` are outside this task's file scope (`skills/flow/`,
-`commands/flow.md`, `commands-claude/flow.md`).
+Every stage `/flow` marks uses a `flow.*` key.
 
 The full key list, in the order each phase file marks them:
 
@@ -82,15 +52,6 @@ The full key list, in the order each phase file marks them:
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
 | `skills/flow/integrate.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
 | `skills/flow/archive.md` | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.verify-cleanup`, `flow.write-finished`, `flow.self-review`, `flow.push-archive` |
-
-**`skills/flow-contracts/model-policy.md` is only partly current for `/flow`.** Its per-harness
-enforcement notes (Claude Code frontmatter, Cursor, Codex) and its override-recording mechanism
-still apply unchanged. Its three-role table (`models.implementation`/`reviewPanel`/`panelFix`,
-separate defaults) and its planning-effort-question framing do **not** — design.md's
-`model-default-sonnet`, `models-fields-collapse` and `settings-scope` decisions collapse all three
-roles to one default, read from the settings store rather than asked per change and rather than
-recorded in the per-change state file. **Model resolution** below is `/flow`'s own, current
-statement; do not follow the three-role table for this command.
 
 ## Model resolution
 
@@ -145,8 +106,7 @@ never written back to the settings store or the project key.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix
-subagent (`skills/flow/review-panel.md`) — per design.md's `model-default-sonnet`: one default,
-chosen once per run, not three per-role defaults. Slots dispatched by `subagent_type` (Bugbot,
+subagent (`skills/flow/review-panel.md`). Slots dispatched by `subagent_type` (Bugbot,
 Security) take no override from this value; see **Review panel** (`skills/flow/review-panel.md`)
 for why.
 
@@ -203,7 +163,7 @@ a guess or the best available name, which is legal for a read; it is never legal
 **Generate this run's session token once, right here, before the first mark any phase file below
 makes — a short, unique literal string — and reuse that exact same value at every `stage begin` this
 run makes, including inside every phase file it dispatches into.** One run, one token, never a fresh
-one per mark or per phase file (design.md's "one token per session, not one per mark").
+one per mark or per phase file.
 
 ## Guardrails
 

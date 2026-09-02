@@ -8,7 +8,7 @@ This file is the reasoning behind `skills/flow-contracts/pipeline.md`.
 ## Stage exit — never the command's own judgment
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
-harmonised belong to the command itself — **Convergence** (`skills/flow/brainstorm.md`).
+harmonised belong to the command itself — **Convergence** (`skills/flow/brainstorm-planner.md`).
 
 ## Command surface
 
