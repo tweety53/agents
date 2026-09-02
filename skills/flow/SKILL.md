@@ -138,11 +138,13 @@ flow state get <name-or-best-guess> -C <repo-root>
 ```
 
 - **Exit 1**, or exit 0 with `"synthetic": true` — **no state**: a creating run. See
-  **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`).
+  **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`); once `## Plan`
+  returns, **Dispatch the conductor** (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
   **Resuming at `STARTED`** (`skills/flow/brainstorm.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run. See
-  **3. Documenting a fix, before implementing it** (`skills/flow/implement.md`).
+  **3. Documenting a fix, before implementing it** and then **Dispatch the conductor**
+  (`skills/flow/implement.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
 - **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
@@ -193,7 +195,8 @@ one per mark or per phase file.
   start of the panel stage and at every fix round; see **Review panel**
   (`skills/flow/review-panel.md`).
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
-  fixed slot count moves this bar.
+  fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
+  defines it.
 - **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or fixup
   commit. **Never** push, merge, or open a PR outside the integrate/archive branches' own routes.
 - **Never** advance the state past what the phase in force is entitled to write — a fix never moves
@@ -201,3 +204,6 @@ one per mark or per phase file.
   writes `FINISHED`.
 - **No flags.** The only argument is the optional change name/description, or fix instructions at
   `IN_PROGRESS`; report anything else rather than ignoring it.
+- **Never** run `implement.md` sections 1, 2 or 4, <!-- refs-guard:allow -->
+  `review-panel.md` or `verify-and-handoff.md` in the parent session — the conductor runs them; the
+  parent dispatches it, relays its questions and prints its handoff.

@@ -786,13 +786,17 @@ func dispatchIDsKey(ids []int64) string {
 //
 //  1. By identifier: every window whose non-empty AgentID equals the
 //     record's own non-empty agentID, with the interval ignored entirely.
-//     Exactly one such window is the answer. More than one is ambiguous --
-//     an identifier naming two dispatches has said nothing about which one
-//     incurred the record, and a tie broken by interval or by row order
-//     would reintroduce, one layer down, exactly the silent misattribution
-//     this rule exists to remove. An empty agentID on either side is "not
-//     reported", never a value, and matches nothing, including another
-//     empty one.
+//     Exactly one such window is the answer. More than one is narrowed by
+//     the record's own timestamp -- a dispatch resumed via SendMessage
+//     shares the original's agent id, so the id alone no longer picks one
+//     window, and the timestamp decides where the id cannot: exactly one
+//     containing window wins. Still more than one, or none, after
+//     narrowing is ambiguous -- an identifier naming two dispatches has
+//     said nothing about which one incurred the record, and a tie broken
+//     by row order would reintroduce, one layer down, exactly the silent
+//     misattribution this rule exists to remove. An empty agentID on
+//     either side is "not reported", never a value, and matches nothing,
+//     including another empty one.
 //  2. By interval, reached only when the identifier pass found no
 //     candidate at all: every window whose contains(ts) is true. Exactly
 //     one such window is the answer; more than one is ambiguous for the
@@ -846,6 +850,23 @@ func bestDispatchWindow(windows []DispatchWindow, agentID string, ts time.Time) 
 		case 1:
 			return byID[0], true, nil
 		default:
+			// More than one window carries this id -- a dispatch resumed via
+			// SendMessage shares the original's agent id. The timestamp
+			// decides where the id cannot: exactly one containing window
+			// wins; otherwise the narrowed set (or, if none contains ts, the
+			// whole id-matched set) is the ambiguity reported.
+			var narrowed []DispatchWindow
+			for _, w := range byID {
+				if w.contains(ts) {
+					narrowed = append(narrowed, w)
+				}
+			}
+			if len(narrowed) == 1 {
+				return narrowed[0], true, nil
+			}
+			if len(narrowed) > 1 {
+				return DispatchWindow{}, false, narrowed
+			}
 			return DispatchWindow{}, false, byID
 		}
 	}

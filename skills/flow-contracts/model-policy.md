@@ -94,9 +94,9 @@ neither the write into the store nor the render out of it invents a model slug. 
 - **Claude Code**: a command's `model:` frontmatter (`commands-claude/*.md`) applies only to the
   turn that command starts, never to any turn after it — so it enforces no **session** model for a
   multi-turn run like `/flow`, and no **subagent's** model either. Every role's model is set at
-  dispatch time instead, which every harness supports equally: the implementer, panel and planner
-  dispatches each name their model explicitly, and the ledger line for that dispatch is what
-  records that they did.
+  dispatch time instead, which every harness supports equally: the implementer, panel, planner and
+  conductor dispatches each name their model explicitly, and the ledger line for that dispatch is
+  what records that they did.
 - **Cursor**: not enforceable yet (no per-command model frontmatter support as of this writing) —
   each `.cursor/commands/flow*.md` file carries an explicit note; switch models manually in the
   composer/chat picker.

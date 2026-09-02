@@ -1526,6 +1526,53 @@ func TestDispatchAmbiguousOverlapAttributesToNone(t *testing.T) {
 	})
 }
 
+// TestDispatchSameAgentIDNarrowedByInterval is kan-374's own case: a
+// task-N-implementer-fix-1 dispatch resumed the implementer and so
+// carries its agent id, giving two windows for one id. The record's
+// timestamp falls inside exactly one of them, and that one wins
+// (design.md's agent-id-on-begin).
+func TestDispatchSameAgentIDNarrowedByInterval(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:20:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:21:00Z"))},
+	}
+	records := []harvest.Record{sidechainRecord(t, "a1", "2026-01-01T00:20:30Z", 5)}
+
+	attributeInEveryOrder(t, windows, records, func(t *testing.T, deltas map[int64]harvest.TokenDelta) {
+		if got := deltas[42].Sidechain.Input; got != 5 {
+			t.Fatalf("dispatch 42 input = %v, want 5 -- two windows share the id and only 42 contains the timestamp", got)
+		}
+		if _, ok := deltas[41]; ok {
+			t.Fatalf("dispatch 41 received usage; the interval narrowed the id match to 42 alone")
+		}
+	})
+}
+
+// TestDispatchSameAgentIDOutsideBothStaysAmbiguous guards the other
+// direction: an id-matched record inside neither window is still refused,
+// with both windows reported as the candidates.
+func TestDispatchSameAgentIDOutsideBothStaysAmbiguous(t *testing.T) {
+	windows := []harvest.DispatchWindow{
+		{DispatchID: 41, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:10:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:11:00Z"))},
+		{DispatchID: 42, AgentID: "a1", StartedAt: mustParse(t, "2026-01-01T00:20:00Z"), EndedAt: ptrTime(mustParse(t, "2026-01-01T00:21:00Z"))},
+	}
+	records := []harvest.Record{sidechainRecord(t, "a1", "2026-01-01T00:15:00Z", 5)}
+
+	a := harvest.NewDispatchAttributor(&fakeDispatchWindowSource{
+		bySession: map[string][]harvest.DispatchWindow{mainSessionID: windows},
+	})
+	deltas, ambiguous, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	if len(deltas) != 0 {
+		t.Fatalf("deltas = %v, want empty", deltas)
+	}
+	if len(ambiguous) != 1 || len(ambiguous[0].DispatchIDs) != 2 {
+		t.Fatalf("ambiguous = %+v, want one entry naming dispatches 41 and 42", ambiguous)
+	}
+}
+
 // TestDispatchNonOverlappingIntervalStillAttributes is the guard against
 // over-correcting: the interval rule is the fallback, not a legacy path. A
 // single containing window with no agent id on either side still attributes

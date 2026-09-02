@@ -57,6 +57,11 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 | `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below (own throwaway worktree — see **Bugbot's throwaway worktree** below) | none — records `unknown (agent-defined)` |
 | `security` | **Security** | `subagent_type: security-review`, same shape as Bugbot | none — records `unknown (agent-defined)` |
 
+**A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
+`code-reviewer.md` (Primary), `principles-reviewer-prompt.md` and `engineering-principles.md`
+(Principles), and `<project>/.flow/project.md`'s standards files are inputs to the slot that reads
+them; the dispatcher resolves their paths, confirms each exists, and names them in the prompt.
+
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
 five entries, never a sixth. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
 for this run. There is no parent-model inheritance and no economy tier. Bugbot and Security are dispatched by
@@ -184,6 +189,14 @@ for reading `final-review.diff` itself.
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
 
+**Every slot's dispatch prompt also carries the REPORT FILE paragraph**, with the round and the
+slot's resolved id substituted:
+
+> **REPORT FILE:** write your full report to
+> `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every
+> finding with its `file:line`, severity, the sentence naming the defect, and its reproducer. Your
+> return message is the findings summary; the file is the record.
+
 **Every slot's dispatch prompt also carries the CITATION CHECK paragraph, present only when the
 citation pre-check above wrote `<abs-worktree>/.superpowers/sdd/citation-check.md`**, naming its
 absolute path alongside `final-review.diff`:
@@ -293,14 +306,15 @@ Record which standards files were passed, or that none resolved.
 
 ## Recording findings, and the record's format
 
-**Beside the existing dispatch recording**: as each slot's report comes back and its `flow record
-dispatch end` is recorded, write that report byte for byte to
-`<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md`. `<round>` is the same value that
-round's findings carry on `-round` (`0` initial, `1..n` fix rounds); `<id>` is the resolved reviewer
-id, never the slot display name. Every dispatched slot writes one, including a slot that raised
-nothing and a slot substituted per **An unspawnable id is substituted, not skipped**. A report that
-cannot be captured verbatim still writes its file, carrying the single line `no verbatim report
-captured — <reason>`.
+**The slot writes its own report.** Each slot writes
+`<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` itself, per the REPORT FILE paragraph
+its prompt carries — `<round>` the same value that round's findings carry on `-round` (`0` initial,
+`1..n` fix rounds), `<id>` the resolved reviewer id, never the slot display name. As each slot's
+`flow record dispatch end` is recorded, confirm the file exists and is non-empty (`test -s`); when
+it is not, write it yourself carrying the single line `no verbatim report captured — <reason>`.
+Every dispatched slot ends up with one, a slot that raised nothing and a substituted slot
+included. **Never re-emit a slot's report from this context** — record its `F<n>` rows and cite the
+file.
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** As each slot
 raises a finding, record it — one call, as it is raised:
@@ -393,65 +407,44 @@ reproducer rerun and diff check below (**Once the fix subagent reports…**) are
 they must run against the post-rebase file content, never be satisfied by the fixup commit's
 presence or the rebase's own exit code.
 
-| Mode | Who re-runs | Diff they get |
-|------|-------------|----------------|
-| **Targeted** (default) | Primary, when the roster carries it, as an integration check, plus every agent that raised a finding | `fix-round-N.diff` |
-| **Full** (escalation) | Every slot in the resolved roster, plus every added slot already dispatched in an earlier pass of this run | Primary (when it runs) the rewritten `final-review.diff`; every other diff-reading slot its own delta, below |
+**Which slots re-run, and on what, follows from the severities the round raised — never from a
+mode table, a trigger list, or a round count.**
 
-**A delta is `git diff <the HEAD sha that slot last reviewed> HEAD`**, written to
-`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff`. Each dispatch sets that slot's sha
-to the HEAD it was dispatched against, and a slot not dispatched in a round keeps the sha it had. A
-slot for which no last-reviewed sha is held reads the whole `final-review.diff`. Bugbot and Security
-read no diff file and are unaffected. Every slot's dispatch prompt names the path it was given and,
-for a delta, the sha that delta starts from.
+**A Minor finding blocks and is fixed, and triggers no re-run.** Every finding the round raised goes
+to the fix subagent below; each is closed by the verification that follows it — the reproducer
+re-run exits 0 *and* the fix diff touches a path the finding named. When every finding the round
+raised was Minor, no slot re-runs: proceed to `check-panel-findings-closed.sh` and the stage close.
+A finding that fails verification takes the handback below, and that loop re-runs no slot either.
 
-**A resolved-roster slot whose delta is empty is not dispatched**, and the record states `not re-run
-— nothing new since its last read`. Primary, when it runs, reads the whole diff, has no delta, and
-is never scoped out by this. **A slot outside the resolved roster that the operator has not (yet)
-named at all for this run is never dispatched under Full mode either** — Full escalates breadth
-among slots already in play, it never adds a slot the operator has not asked for; that addition
-happens only through the explicit-request check this file's **The roster** section states, at the
-start of any round including a Full one.
+**When the round raised anything above Minor, re-run on deltas.** A delta is `git diff <the HEAD
+sha that slot last reviewed> HEAD`, written to `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff`.
+Each dispatch sets that slot's sha to the HEAD it was dispatched against, and a slot not dispatched
+in a round keeps the sha it had; a slot for which no last-reviewed sha is held reads the whole
+`final-review.diff`. Every slot's dispatch prompt names the path it was given and, for a delta, the
+sha that delta starts from. Then:
 
-**Escalate automatically** — do not ask, and say why in the record — when the fix touched a file
-outside the set named in the findings; the fix altered a capability spec, a migration, or a guard's
-behaviour; a targeted re-run surfaced a **new** Critical finding; three or more fix rounds have
-already run; or the fix diff exceeds ~150 changed lines **and** adds a new file.
+- **every diff-reading slot** in the resolved roster — Primary included, reading a delta like the
+  rest — plus every operator-added slot already dispatched in an earlier pass of this run, re-runs
+  on its delta. **A slot whose delta is empty is not dispatched**, and the record states `not re-run
+  — nothing new since its last read`;
+- **Bugbot and Security**, which read no diff file, re-run only when that slot raised a finding in
+  the previous round or the previous round raised a new Critical;
+- **a slot the operator has not named for this run is never added here** — that addition happens
+  only through the explicit-request check **The roster** states, at the start of any round.
 
-Targeting is a cost optimization, never a coverage waiver: a targeted re-run is never fewer than two
-agents, and handoff still requires **zero open findings at any severity** from every agent that has
-run.
+**The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
+**distinct** last-reviewed sha among the diff-reading slots dispatched this round (two slots
+sharing a sha need one call, not two); a slot with no held sha counts as the merge base. **The
+gating count is the largest of those counts** — the largest single read any one slot this round
+faces — and an exit-1 result from the call that produced it puts the over-cap choice to the
+operator (**The roster**, above), naming the gating count and, when it differs, the full-branch
+count too. Record both in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round,
+alongside the agents-ran/why/diff-path fields the fix pass records.
 
-### The diff-size cap check on a re-run
-
-**The cap check re-runs too, gated on the per-slot max this round, never the aggregate branch
-diff.** Pass 1's own check (**The roster**, above) is unaffected: every slot reads the full diff
-there, so the full-branch count already is the per-slot max.
-
-**On a Full re-run:**
-
-1. If Primary, or any other slot dispatched this round with no held last-reviewed sha, is in
-   this round's dispatch, run `check-panel-diff-size.sh <worktree> <merge-base> <cap>` — the
-   same full-branch count pass 1 measures.
-2. For every returning slot dispatched this round against a scoped delta, run
-   `check-panel-diff-size.sh <worktree> <that slot's last-reviewed sha> <cap>`, once per
-   **distinct** sha among this round's dispatched slots (two slots sharing a sha need one
-   call, not two).
-3. **The gating count is the largest of every count from 1 and 2** — the largest single read
-   any one agent this round actually faces. An exit-1 result from whichever call produced that
-   count is what puts the over-cap choice to the operator (**The roster**, above), naming the
-   gating count and, when it is not the full-branch count, the full-branch count too, for
-   context.
-
-Record both the gating count and (when computed and different from it) the full-branch count
-in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round, alongside the
-existing mode/agents/why fields **Panel re-runs** already records.
-
-**On a Targeted re-run**, run `check-panel-diff-size.sh <worktree> <FIX_BASE> <cap>` once —
-`fix-round-N.diff`'s own range is the only diff any re-run slot reads this round, so its count
-is directly the gating count; there is no per-slot max to take. **Targeted carries no cap
-check today**; this is the same over-cap prompt as Full and pass 1, gated on this one number,
-closing that gap.
+Handoff still requires **zero open findings at any severity** from every agent that has run, and
+no stale result — where **a slot's clean result is stale when the rule above required that slot to
+re-run and it has not**. A non-Minor fix Bugbot did not raise leaves Bugbot's result current: the
+round's own mutation-proof (below) covers what the fix changed.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
@@ -568,6 +561,13 @@ against its defect identity. **Inline no source excerpt.**
 > something the report does not, treat it as unchecked and establish it yourself before building
 > on it.
 
+**Every fix subagent's dispatch prompt also carries the PLAN FIELDS paragraph**:
+
+> **PLAN FIELDS:** when your fix changes what a task's `**Baseline:**` counts or `**Files:**` paths
+> declare — a test case added, a file created — update that field in the worktree's
+> `<project>/spectre/changes/<name>/tasks.md` in this same pass. Edit it; do not stage or commit
+> it — it is a planning path and is committed later by the pipeline, never in a fixup.
+
 **Every fix subagent's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
@@ -580,7 +580,7 @@ writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-defau
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
 old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
 per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. Record
-every pass in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: mode, which agents ran, why,
+every pass in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.
 
@@ -588,15 +588,16 @@ identity together with the reproducer output it carried back.
 
 ```bash
 flow record dispatch begin -change <name> -role panel-fix -model <m> \
-  -key panel-fix-<round> -session-token mf-<literal-token> -started-at <ts>
+  -key panel-fix-<round> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 flow record dispatch end -change <name> -key panel-fix-<round> \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
   -agent-id <id>
 ```
 
-`-commit` is the task commit the fixup was folded into. `-agent-id` goes on `end`.
+`-commit` is the task commit the fixup was folded into.
 
-A minor finding blocks the handoff exactly as a critical one does. When fix rounds do not converge,
+A minor finding blocks the handoff exactly as a critical one does, and triggers no re-run — see
+above. When fix rounds do not converge,
 the run hands back to the operator, one finding at a time:
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**
@@ -619,5 +620,6 @@ return to the handback loop above for it. Exit 2 stops the run.
 flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>
 ```
 
-Once this stage ends clean — zero open findings at any severity, no stale result — continue into
+Once this stage ends clean — zero open findings at any severity, no stale result as **Panel
+re-runs** defines it — continue into
 `skills/flow/verify-and-handoff.md`.

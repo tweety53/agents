@@ -131,6 +131,7 @@ type rawLine struct {
 }
 
 type rawMessage struct {
+	ID      string            `json:"id"`
 	Model   string            `json:"model"`
 	Usage   *rawUsage         `json:"usage"`
 	Content []rawContentBlock `json:"content"`
@@ -212,19 +213,23 @@ func SplitCompleteLines(raw []byte) (complete, tail []byte) {
 
 // ParseAssistantRecords decodes every assistant record found in complete
 // (as SplitCompleteLines defines "complete") into a Record, in file
-// order. Every other line -- a different "type", or a line that fails to
-// decode as JSON at all -- is skipped rather than treated as fatal:
-// unlike a journal entry (this package's own format, task 6), a
-// transcript line is written by the harness across versions this package
-// does not control, so a shape it does not recognise is exactly the
-// "must be tolerated" case these instructions call out, not a corruption
-// signal. A record whose timestamp fails to parse as RFC 3339 is skipped
-// for the same reason: it cannot be attributed to any window without a
-// timestamp, so keeping it would only ever produce a zero-value time
-// that silently sorted into whichever window happened to start at the
-// Unix epoch.
+// order -- one Record per message.id, not per line: Claude Code writes
+// one JSONL line per content block of a single API response, every line
+// repeating that response's message.id and usage verbatim, so only the
+// first line for a given id is kept. Every other line -- a different
+// "type", or a line that fails to decode as JSON at all -- is skipped
+// rather than treated as fatal: unlike a journal entry (this package's
+// own format, task 6), a transcript line is written by the harness
+// across versions this package does not control, so a shape it does not
+// recognise is exactly the "must be tolerated" case these instructions
+// call out, not a corruption signal. A record whose timestamp fails to
+// parse as RFC 3339 is skipped for the same reason: it cannot be
+// attributed to any window without a timestamp, so keeping it would only
+// ever produce a zero-value time that silently sorted into whichever
+// window happened to start at the Unix epoch.
 func ParseAssistantRecords(complete []byte) []Record {
 	var out []Record
+	seen := map[string]bool{}
 	start := 0
 	for start < len(complete) {
 		idx := bytes.IndexByte(complete[start:], '\n')
@@ -248,6 +253,22 @@ func ParseAssistantRecords(complete []byte) []Record {
 		ts, err := time.Parse(time.RFC3339Nano, raw.Timestamp)
 		if err != nil {
 			continue
+		}
+
+		// One API response is written as one line per content block, each
+		// line repeating the same message.id and the same usage (measured:
+		// 56 assistant lines for 15 ids on one real transcript). The first
+		// line per id is the whole message's usage; the rest are repeats.
+		// A line with no id is an older or foreign shape and is kept as is.
+		// ponytail: dedupe is per call, so a message whose lines straddle
+		// two reads counts twice -- lines of one message land in one write
+		// burst, so this is bounded by one message per read boundary; carry
+		// the last id beside harvest_offsets if it ever shows up in the data.
+		if id := raw.Message.ID; id != "" {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
 		}
 
 		u := raw.Message.Usage

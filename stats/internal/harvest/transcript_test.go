@@ -14,6 +14,7 @@ const (
 	mainThreadFixture = "../../testdata/transcripts/main-thread.jsonl"
 	sidechainFixture  = "../../testdata/transcripts/sidechain.jsonl"
 	truncatedFixture  = "../../testdata/transcripts/truncated.jsonl"
+	multiBlockFixture = "../../testdata/transcripts/multi-block.jsonl"
 )
 
 func readFixture(t *testing.T, path string) []byte {
@@ -319,6 +320,28 @@ func TestParseAssistantRecordsCarriesAgentID(t *testing.T) {
 	}
 	if records[0].AgentID != "abc123" {
 		t.Errorf("AgentID = %q, want %q", records[0].AgentID, "abc123")
+	}
+}
+
+// TestParseAssistantRecordsDeduplicatesByMessageID pins that a
+// multi-block API response -- one JSONL line per content block, every
+// line carrying the same message.id and identical usage -- is counted
+// once, and that a line carrying no id at all is never collapsed into a
+// neighbour (design.md's harvest-dedupe-by-message-id).
+func TestParseAssistantRecordsDeduplicatesByMessageID(t *testing.T) {
+	complete, _ := harvest.SplitCompleteLines(readFixture(t, multiBlockFixture))
+	records := harvest.ParseAssistantRecords(complete)
+	if len(records) != 3 {
+		t.Fatalf("got %d records, want 3 (three lines share msg_dup, one has no id, one is msg_two)", len(records))
+	}
+	if got := records[0].Usage.InputTokens; got != 5 {
+		t.Errorf("first record input = %d, want 5 (msg_dup, counted once)", got)
+	}
+	if got := records[1].Usage.InputTokens; got != 11 {
+		t.Errorf("second record input = %d, want 11 (the id-less line is kept)", got)
+	}
+	if got := records[2].Usage.InputTokens; got != 13 {
+		t.Errorf("third record input = %d, want 13 (msg_two)", got)
 	}
 }
 

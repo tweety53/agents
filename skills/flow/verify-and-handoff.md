@@ -370,6 +370,10 @@ The pre-edit description line is present only on a fix run that synced the descr
 Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or
 reflowing it.
 
+**This block is returned, not printed, by the conductor** — its turn ends with `## Handoff` and the
+block verbatim beneath it, and the parent prints it unchanged (**Dispatch the conductor**,
+`skills/flow/implement.md`).
+
 ## Guardrails
 
 - **Commit per task and per fixup** — never `<project>/spectre/changes/` or
@@ -378,5 +382,6 @@ reflowing it.
 - **Never** run `finishing-a-development-branch`.
 - **Never** create a second worktree for the same change.
 - **Never** advance the state from `IN_PROGRESS`; write back what you read.
-- **Never** hand off with an open finding of any severity, or a stale clean result.
+- **Never** hand off with an open finding of any severity, or a stale clean result — stale as
+  **Panel re-runs** (`skills/flow/review-panel.md`) defines it.
 - **Never** mark a task's checkbox before that task's review passes.
