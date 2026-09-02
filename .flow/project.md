@@ -139,6 +139,8 @@ scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
 scripts/check-normative-inventory.sh
+scripts/check-model-keys.sh
+scripts/check-model-resolution-shell.sh
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b
@@ -312,6 +314,10 @@ scripts/check-references.sh
 ## default landing route
 
 `merge and push`
+
+## self review model
+
+`fable`
 
 ## workspace isolation
 

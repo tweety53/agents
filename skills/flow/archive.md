@@ -158,7 +158,16 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    angle's findings, or an explicit none-marker) as its report body and nothing else — it does not
    write the report file, does not ask the rating question, and does not run the filing prompts.
    This session receives that back and runs everything below itself, since a subagent cannot drive
-   `AskUserQuestion`.
+   `AskUserQuestion`. **The relay contract, stated in the same prompt:** the dispatch instructs the
+   subagent that the first line of its reply must be `Model: <the model named in its own system
+   prompt>` — the handshake below depends on that line actually being requested, not assumed.
+
+   **The handshake:** the subagent's report opens with `Model: <the model named in its own system
+   prompt>`. This session compares that line with `SELF_REVIEW_MODEL`; a mismatch re-dispatches
+   once on `opus`; a second mismatch proceeds on whatever model answered and names it in the run's
+   own output. The `Model:` line is stripped before the five-angle body below is used. No dispatch
+   record is written for either dispatch — self-review records none today and this change adds
+   none. The handshake never blocks: a self-review that runs on the wrong model still runs.
 
    | # | Angle | Label |
    |---|-------|-------|
