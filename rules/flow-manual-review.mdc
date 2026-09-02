@@ -3,6 +3,7 @@ description: flow state machine — three states (STARTED, IN_PROGRESS, FINISHED
 globs:
 alwaysApply: true
 ---
+<!-- core -->
 
 # flow — /flow, start to finish
 
@@ -39,6 +40,8 @@ and loaded by `/flow`'s archive phase alone.
 
 Never act on a remembered version of any of that. A command that skips the load is running on a
 stale copy of the state machine — the failure this split exists to prevent.
+
+<!-- /core -->
 
 Narrower contracts sit beside it; load the one a step actually needs, not the directory. **The table
 is the list, and this sentence deliberately carries no count of it** — a written count goes stale the

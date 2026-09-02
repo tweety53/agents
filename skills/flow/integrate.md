@@ -1,10 +1,6 @@
 # Integrate (run 1)
 
-Loaded by `skills/flow/SKILL.md` on a **bare** invocation at `IN_PROGRESS` — no argument. Run 1 of
-what was `/myflow-finish`, unchanged in procedure except two folds design.md decides:
-`move-in-review-fold` (the Jira "move to In Review" step becomes a sub-step of `flow.landing-routes`
-rather than its own mark) and this task's own resolution of open question `write-in-progress-fold`
-(below).
+Loaded by `skills/flow/SKILL.md` on a **bare** invocation at `IN_PROGRESS` — no argument.
 
 ## Deciding which run this is
 
@@ -102,9 +98,7 @@ extra prompt.
 
 **Rebase** runs `git -C <worktree> rebase origin/$BASE` once per worktree in the resolved set whose
 own `check-base-moved.sh` verdict was `MOVED` — never a worktree whose verdict was `CLEAR`, even
-though the prompt above is asked once for the whole change per **ask-only-on-overlap** — per
-design.md's `rebase-is-a-confirmed-choice`: the rebase never runs on its own, only after the
-operator picks this option, and only against the worktree(s) that actually moved.
+though the prompt above is asked once for the whole change per **ask-only-on-overlap**.
 
 - **Clean** (exit 0): the merge base carried forward for the rest of **this run** becomes
   `origin/$BASE`'s resolved tip at rebase time — call it `<rebased-merge-base>` below.
@@ -116,7 +110,7 @@ operator picks this option, and only against the worktree(s) that actually moved
   `check-base-moved.sh` once more against `<rebased-merge-base>`; a fresh `MOVED` overlap re-offers
   this same three-option prompt rather than looping silently. Otherwise, run **Scoped
   re-verification** below, then proceed to the landing question.
-- **Conflict** (non-zero exit): never auto-abort, per design.md's `never-auto-abort` — and never
+- **Conflict** (non-zero exit): never auto-abort — and never
   attempt to resolve the conflict yourself, by editing the conflicting files or otherwise. Leave the
   worktree mid-rebase exactly as `git rebase` left it, report the conflicting file(s) from
   `git status`, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves
@@ -124,7 +118,7 @@ operator picks this option, and only against the worktree(s) that actually moved
   `IN_PROGRESS`; this run stops here, exactly as **Stop** already does, and closes the mark
   `stopped`.
 
-**Scoped re-verification**, per design.md's `scoped-reverify-not-full-suite`: for each path
+**Scoped re-verification**: for each path
 `check-base-moved.sh` reported under `overlaps:`, look for a discoverable guard test —
 `<agents repo>/scripts/test-<basename-without-ext>.sh` beside `<agents repo>/scripts/<name>.sh`,
 the same naming `<agents repo>/scripts/run-guard-tests.sh` already discovers by glob — and run it
@@ -223,18 +217,7 @@ flow stage end -command '/flow' -stage flow.commit-two -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-This stage carries three sub-steps under one mark, per this task's own resolution of open question
-`write-in-progress-fold` and design.md's `move-in-review-fold`: the git route, the state write, and
-the Jira transition — three sub-steps that used to be three separate top-level marks
-(`finish.landing-routes`, `finish.write-in-progress`, `finish.move-in-review`) now recorded as one.
-**This task's own choice**: fold `write-in-progress` in alongside `move-in-review`, rather than
-leave it standalone. The write is a genuine no-op (`IN_PROGRESS` → `IN_PROGRESS`, nothing changes
-but `prUrl` and `updatedAt`/`updatedBy`) exactly as design.md's open question describes, and by the
-time this mark reaches it, the route sub-step immediately above has already decided what `prUrl`
-becomes — folding the write in with the route that produces its one real input, and with the Jira
-transition that only ever follows a successful route, keeps one mark's three sub-steps in the causal
-order they already have to run in, rather than three marks whose middle one records nothing a reader
-could not already infer from the other two.
+This stage carries three sub-steps under one mark: the git route, the state write, and the Jira transition.
 
 Per **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`) → run 1. Push with `-u` so
 the branch has an upstream.
