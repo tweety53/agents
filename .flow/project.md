@@ -128,6 +128,7 @@ scripts/check-plan-shape.sh
 scripts/check-workspace-isolation.sh
 scripts/check-visual-verification.sh .
 printf 'stats/web/src/App.tsx\n' | scripts/check-visual-trigger.sh .
+scripts/check-spec-reach.sh .
 scripts/resolve-visual-screenshots.sh . baseline.spec.ts
 scripts/check-uitest-overrides.sh
 scripts/check-contract-budget.sh

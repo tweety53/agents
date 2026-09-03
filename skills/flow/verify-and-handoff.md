@@ -103,7 +103,9 @@ Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <workt
 (auto-detect on exit 1) the same way as before, and dispatch one verifier per worktree whose prompt
 states: the absolute worktree path; the `KEY=value` lines `prepare-workspace.sh` printed for that
 worktree, to export before every command; the lint commands, then the test commands, in the order
-printed; and the report shape below. The verifier runs every command in order and does not stop at
+printed, then `check-spec-reach.sh <worktree>` — one more command in the same list, whose exit 0
+line `Spec reach: not configured` is the ordinary case for a project with no `regression checkout`
+(its header is canonical for its exit codes); and the report shape below. The verifier runs every command in order and does not stop at
 the first failure. **Nothing runs them later** — `/flow`'s integrate phase has no verification
 gate — so a non-zero exit blocks this handoff.
 
@@ -182,7 +184,10 @@ as written, committing and pushing nothing.
    `skills/flow-contracts/project-configuration.md`; nothing here restates it. **`capture` creates
    this change's baseline**: writing a PNG that does not yet exist is its success path, not a
    failure — `verify` is the regression gate over an already-committed baseline, `capture` is not,
-   and only a `capture` failure for some other reason blocks (see **Blocking** below).
+   and only a `capture` failure for some other reason blocks (see **Blocking** below). Then run
+   `check-spec-reach.sh <worktree>` — the spec `capture` just wrote must be reached by a
+   `package.json` script of the `regression checkout`; exit 1 (an orphan, named) or 2 (cannot
+   answer) blocks.
 7. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
 
    ```bash
@@ -219,6 +224,7 @@ as written, committing and pushing nothing.
   <output, verbatim or last 40 lines>
 - capture: exit <n>
   <output, verbatim or last 40 lines>
+- spec reach: exit <n>
 - spec: <absolute spec path>
 - <view>: <absolute PNG path> — <what was seen, including any defect>
 - visual-verification.md: written | not written — <reason>
@@ -229,7 +235,8 @@ is carried in the report; the `Visual:` handoff line is built from its view entr
 
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: a failed `setup`, a failed `verify`,
 a genuine `capture` failure — **never a first-run snapshot write, which is `capture`'s own success
-path per step 6 above** — a stack that could not be started, an unreadable PNG, and **a defect the
+path per step 6 above** — a stack that could not be started, a `check-spec-reach.sh` exit 1 or 2,
+an unreadable PNG, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
 both test suites, and obvious the moment the page was opened.
