@@ -438,7 +438,7 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 	if contacted {
 		t.Error("the store was contacted for an unrecognised role -- it must be refused first")
 	}
-	for _, role := range []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor"} {
+	for _, role := range []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"} {
 		if !strings.Contains(stderr.String(), role) {
 			t.Errorf("stderr does not name the accepted role %q:\n%s", role, stderr.String())
 		}
@@ -507,6 +507,37 @@ func TestRecordAcceptsConductorRole(t *testing.T) {
 	}
 	if !contacted {
 		t.Error("the store was not contacted for the conductor role")
+	}
+}
+
+// TestRecordAcceptsVerifierRole pins that "verifier" is in the
+// accepted-role allowlist -- the role `/flow` records for the subagent
+// skills/flow/verify-and-handoff.md dispatches for flow.verify and
+// flow.visual-verify.
+func TestRecordAcceptsVerifierRole(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1,"role":"verifier","model":"sonnet","startedAt":"2026-01-02T03:04:05Z"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "verifier", "-model", "sonnet", "-key", "k1",
+			"-session-token", "mf-record-verifier-role", "-started-at", "2026-01-02T03:04:05Z"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !contacted {
+		t.Error("the store was not contacted for the verifier role")
 	}
 }
 

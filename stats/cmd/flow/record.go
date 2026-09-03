@@ -26,21 +26,25 @@ import (
 
 // recordRoles is the closed set of roles a dispatch row may record --
 // design.md's own `implementer · reviewer · panel-fix · red-partner ·
-// planner · conductor`, planner being the subagent `/flow` dispatches for
-// sections B-D of skills/flow/brainstorm.md and for flow.document-fix
-// (design.md's planner-role), and conductor being the subagent `/flow`
-// dispatches to run skills/flow/implement.md, review-panel.md and
-// verify-and-handoff.md (design.md's conductor-runs-implementation-half).
-// It is checked here, before the store is ever contacted, for exactly the
-// reason `stage begin` checks its stage key against internal/stages
-// first: an unrecognised role is a defect in the caller, and a caller
-// mistake taking the never-block fallback path would journal a write that
-// a replay could only ever be refused for a second time.
+// planner · conductor · verifier`, planner being the subagent `/flow`
+// dispatches for sections B-D of skills/flow/brainstorm.md and for
+// flow.document-fix (design.md's planner-role), conductor being the
+// subagent `/flow` dispatches to run skills/flow/implement.md,
+// review-panel.md and verify-and-handoff.md
+// (design.md's conductor-runs-implementation-half), and verifier being the
+// subagent `/flow` dispatches from skills/flow/verify-and-handoff.md to run
+// the project's lint and test commands and its visual verification steps
+// on a fixed model (design.md's verifier-role-recorded). It is checked
+// here, before the store is ever contacted, for exactly the reason
+// `stage begin` checks its stage key against internal/stages first: an
+// unrecognised role is a defect in the caller, and a caller mistake taking
+// the never-block fallback path would journal a write that a replay could
+// only ever be refused for a second time.
 //
 // Unlike a stage key, a role has no documented table elsewhere to
 // transcribe -- design.md's schema comment is the whole of it -- so the
 // list lives here rather than behind a package of its own.
-var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor"}
+var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"}
 
 // validateFindingStatus judges a finding's status the way validateRole
 // judges -role, before the store is ever contacted: "open" and "fixed" are

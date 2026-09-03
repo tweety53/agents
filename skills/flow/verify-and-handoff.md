@@ -6,7 +6,9 @@ order design.md's `workspace-export-lint-merge` and `run-instructions-reorder` d
 `do.run-instructions → do.workspace-export → do.lint-and-test → do.stage-diff → do.write-in-progress`
 order, with the middle two merged into one `flow.verify` stage and `run-instructions` moved to
 immediately before the state write. `flow.visual-verify` sits between `flow.verify` and
-`flow.stage-diff` — a later insertion, not part of either decision above.
+`flow.stage-diff` — a later insertion, not part of either decision above. Both `flow.verify` and
+`flow.visual-verify` run their commands through a `verifier` subagent (**The verifier dispatch**,
+below); the conductor keeps every mark and every block decision.
 
 ## Verify
 
@@ -64,9 +66,54 @@ the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
-Run the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
-(auto-detect on exit 1) and show the output. **Nothing runs them later** — `/flow`'s integrate phase
-has no verification gate — so a non-zero exit blocks this handoff.
+### The verifier dispatch
+
+`flow.verify` and `flow.visual-verify` both dispatch this subagent, one verifier per worktree per
+stage: `subagent_type: general-purpose`, the Agent tool's `model` parameter set to `VERIFY_MODEL`
+(**Model resolution**, `skills/flow/SKILL.md`) — the literal `sonnet`, never `DEFAULT_MODEL` and
+never a session override. Its prompt carries, verbatim:
+
+> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+> Include this instruction verbatim in any prompt you write for another agent.
+
+**The relay contract.** The verifier has no operator channel, fixes nothing, edits no source, and
+runs every command in the foreground. Its turn ends with a single `## Report` block. The first line
+of its first reply is `Model: <the model named in its own system prompt>`.
+
+**Recording.** The conductor records each dispatch as a pair, `-role verifier`, `-task` omitted,
+`-model sonnet`, `-key verify` here and `visual-verify` in **Visual verification** below, suffixed
+`-<worktree basename>` when this run's resolved set holds more than one worktree — the pair's
+semantics are section 4 of `skills/flow/implement.md`, cited here, not restated.
+
+**Handshake.** Compare the `Model:` line against `sonnet`. A match proceeds. A mismatch records the
+model that answered and continues on the running agent — no re-dispatch:
+
+```bash verified:shape of the conductor handshake in skills/flow/implement.md
+flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
+  -outcome fallback -ended-at <ts>
+flow record dispatch begin -change <name> -role verifier -model <the model the handshake named> \
+  -key <key>-<that model, lowercased> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+```
+
+**A mark or a record never blocks — proceed regardless of whether it reached the store.** A
+verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted` and
+blocks this handoff exactly as a failed command would, naming the death.
+
+Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
+(auto-detect on exit 1) the same way as before, and dispatch one verifier per worktree whose prompt
+states: the absolute worktree path; the `KEY=value` lines `prepare-workspace.sh` printed for that
+worktree, to export before every command; the lint commands, then the test commands, in the order
+printed; and the report shape below. The verifier runs every command in order and does not stop at
+the first failure. **Nothing runs them later** — `/flow`'s integrate phase has no verification
+gate — so a non-zero exit blocks this handoff.
+
+```text verified:design.md section 2 of this change
+## Report
+- `<command>` — exit <n>
+  <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
+```
+
+The conductor shows the report as this stage's output.
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
@@ -100,6 +147,14 @@ Reads the `## visual verification` section, canonical in
 `skills/flow-contracts/project-configuration.md`. This stage owns its procedure — nothing else in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
+
+Steps 1, 2 and 9 are the conductor's. Steps 3–8 and 10 are run by one verifier per worktree
+surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
+conductor applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
+`KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`
+commands and `screenshots` root; the worktree-resolved URL of each app `ui paths` matched; the
+project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–8 and 10 below
+as written, committing and pushing nothing.
 
 1. **Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
    its own shape and closed vocabulary. A project declaring no section → this worktree prints
@@ -156,10 +211,26 @@ this pipeline restates it. Resolve once per worktree in this run's resolved set,
 10. **Stop the stack only if step 4 started it.** A stack the operator already had running is left
     alone.
 
+```text verified:design.md section 3 of this change
+## Report
+- setup: <not declared | exit <n>>
+- stack: <already running | started and stopped | could not be started — <output>>
+- verify: exit <n>
+  <output, verbatim or last 40 lines>
+- capture: exit <n>
+  <output, verbatim or last 40 lines>
+- spec: <absolute spec path>
+- <view>: <absolute PNG path> — <what was seen, including any defect>
+- visual-verification.md: written | not written — <reason>
+```
+
+Every non-zero exit, unreadable PNG, `resolve-visual-screenshots.sh` exit 1 or 2 and named defect
+is carried in the report; the `Visual:` handoff line is built from its view entries.
+
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: a failed `setup`, a failed `verify`,
 a genuine `capture` failure — **never a first-run snapshot write, which is `capture`'s own success
 path per step 6 above** — a stack that could not be started, an unreadable PNG, and **a defect the
-agent sees in a captured screenshot — even when every assertion passed.** That last one is the whole
+verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
 both test suites, and obvious the moment the page was opened.
 

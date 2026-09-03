@@ -76,6 +76,7 @@ if [ -n "$PROJECT_PM" ]; then
   else echo "⚠ flow: .flow/project.md '## planning model' body '$PROJECT_PM' is not a valid model — dropped" >&2; fi
 fi
 [ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
+VERIFY_MODEL=sonnet
 ```
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
@@ -116,6 +117,13 @@ are empty, or the store is unreachable, `PLANNING_MODEL` falls back to the liter
 this a fallback exactly as `DEFAULT_MODEL`'s own `sonnet` literal is. A plain-language session
 instruction overrides `PLANNING_MODEL` for that run only, recorded with the dispatch it changes and
 never written back to the settings store or the project key.
+
+**`VERIFY_MODEL` governs the two verifier dispatches** — `flow.verify`'s and
+`flow.visual-verify`'s (**Verify** and **Visual verification**, `skills/flow/verify-and-handoff.md`);
+it is the fixed literal `sonnet`, read from neither the settings store nor
+`<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
+never falls back, because it is never resolved — the point is a predictable model for mechanical
+test and verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix

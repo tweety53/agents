@@ -289,7 +289,8 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
 launch, so `begin` carries `-agent-id <id>` and is recorded immediately after the launch returns,
 before any other action; `end` may repeat the id.** `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
-`-role` is one of `implementer`, `reviewer`, `panel-fix` or `red-partner`; `-task` is the task's
+`-role` is one of `implementer`, `reviewer`, `panel-fix`, `red-partner` or `verifier` (**Verify**,
+`skills/flow/verify-and-handoff.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task; `-started-at`/`-ended-at` are
 RFC 3339 — `-started-at` the launch time. `-session-token` takes a literal, never a shell
 substitution. Two dispatches starting at one instant are told apart only by id, and a resumed
