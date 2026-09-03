@@ -109,7 +109,9 @@ though the prompt above is asked once for the whole change per **ask-only-on-ove
   this step rebased, and the state file's original recorded value for every other worktree. Re-run
   `check-base-moved.sh` once more against `<rebased-merge-base>`; a fresh `MOVED` overlap re-offers
   this same three-option prompt rather than looping silently. Otherwise, run **Scoped
-  re-verification** below, then proceed to the landing question.
+  re-verification** below, then proceed to the landing question. If this change's verification
+  compares against a recorded baseline, recapture it now — a proof taken against the pre-rebase
+  base is void.
 - **Conflict** (non-zero exit): never auto-abort — and never
   attempt to resolve the conflict yourself, by editing the conflicting files or otherwise. Leave the
   worktree mid-rebase exactly as `git rebase` left it, report the conflicting file(s) from
