@@ -8,8 +8,11 @@ myflow-dispatch-economy spec, "Requirement:
 Implementer dispatches are bundled by declared file overlap" — do not
 restate it here, the same Single Source of Truth discipline check-task-
 build-green.py's own docstring already states). Two unchecked tasks join
-the same bundle when they declare any common path under **Files:**; the
-relation is transitive. An **Allowed-collateral:** glob is read but
+the same bundle when they declare any common path under **Files:**, or
+when one carries a `**Squash-with:**` field naming the other (the
+build-green contract's "dispatched together as a single unit",
+`skills/flow-contracts/build-green.md`); the relation is transitive. An
+**Allowed-collateral:** glob is read but
 deliberately never joins two tasks — it names paths a legitimate sweep may
 also touch, not paths the task owns.
 
@@ -82,17 +85,22 @@ from __future__ import annotations
 
 import re
 import sys
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+from plan_grammar import select_squash_with
 
 # TASK_ID / TASK_LINE_RE / FENCE_RE / BODY_BOUNDARY_RE mirror check-
 # task-build-green.py's own constants exactly, so the two guards never read
 # the same tasks.md's structure two different ways. TASK_LINE_RE is
 # spectre's own task grammar character for character: group "state" is the
 # mark between the brackets, a space for an open task and an `x` for a done
-# one, and group "id" is the task's id, a flat integer. The dotted id
-# grammar lives on in lib/plan_grammar.py for `Squash-with:` partner ids,
-# and is deliberately not mirrored here — this guard reads no partner.
+# one, and group "id" is the task's id, a flat integer. `Squash-with:` is
+# read through lib/plan_grammar.py's `select_squash_with`, the one grammar
+# both build-green guards gate it with, so this script never extracts a
+# partner id from free text.
 TASK_ID = r"\d+"
 TASK_LINE_RE = re.compile(rf"^- \[(?P<state>[ x])\] (?P<id>{TASK_ID})\. ")
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
@@ -139,6 +147,7 @@ class Task:
     unchecked: bool = False
     files_present: bool = False
     files: List[str] = field(default_factory=list)
+    partners: List[str] = field(default_factory=list)
 
 
 def _extract_paths(entry_text: str) -> List[str]:
@@ -169,6 +178,9 @@ def parse_tasks(lines: List[str]) -> List[Task]:
         in_files = False
         offset = 0
         body_lines = lines[body_start:end_index]
+        squash = select_squash_with(body_lines)
+        if squash is not None and squash.partners is not None:
+            current.partners = squash.partners
         while offset < len(body_lines):
             body_line = body_lines[offset]
             if FENCE_RE.match(body_line):
@@ -273,6 +285,12 @@ def compute_bundles(tasks: List[Task]) -> Tuple[List[List[Task]], List[str]]:
                 uf.union(by_path[path], task.id)
             else:
                 by_path[path] = task.id
+
+    unchecked_ids = {t.id for t in unchecked}
+    for task in unchecked:
+        for partner in task.partners:
+            if partner in unchecked_ids:
+                uf.union(task.id, partner)
 
     groups: Dict[str, List[Task]] = {}
     for task in unchecked:

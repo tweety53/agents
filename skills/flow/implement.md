@@ -289,7 +289,7 @@ flow record dispatch end -change <name> -key task-<n>-implementer \
 launch, so `begin` carries `-agent-id <id>` and is recorded immediately after the launch returns,
 before any other action; `end` may repeat the id.** `-key` is this dispatch's own literal label,
 unique within the run's session token — `task-<n>-implementer`, reused identically in both calls.
-`-role` is one of `implementer`, `reviewer`, `panel-fix`, `red-partner` or `verifier` (**Verify**,
+`-role` is one of `implementer`, `reviewer`, `panel-fix` or `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task; `-started-at`/`-ended-at` are
 RFC 3339 — `-started-at` the launch time. `-session-token` takes a literal, never a shell
@@ -313,8 +313,9 @@ plan-dispatch-bundles.sh <changeRoot>/tasks.md
 Exit 0 proceeds. A non-zero exit is a plan defect: exit 1 names a task missing its `**Files:**`
 field, repaired by `superpowers:writing-plans` before any dispatch happens; exit 2 stops the run.
 Bundling does not change the commit-per-task model — an implementer handed a bundle still makes one
-commit per task, carrying that task's own `Task-Id:` trailer, and a `Build: red` task still folds
-into the commit its `**Squash-with:**` field names. Every implementer dispatch **must** carry:
+commit per task, carrying that task's own `Task-Id:` trailer — a red task and its partner make one
+commit between them — and a `Build: red` task is bundled with, and commits with, the partner its
+`**Squash-with:**` field names. Every implementer dispatch **must** carry:
 
 > **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
@@ -325,13 +326,11 @@ into the commit its `**Squash-with:**` field names. Every implementer dispatch *
 > **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
 > `**Files:**` names one, edit it and commit it here, in this task's own commit.
 
-**A `Build: red` task's commit folds into its green partner.** Once the partner task has its own
-commit, fold the red task's commit into it: `git commit --fixup=<partner-task-sha>` followed by
-`git rebase --autosquash`.
-
-**A `Build: red` task's own dispatch records `-role red-partner`, not `implementer`.** Record it as
-a pair like any other, with `-task` its own id and the end call's `-commit` the green partner's sha
-as it stands after the fold.
+**A `Build: red` task is dispatched with its `Squash-with:` partner, in one bundle.** The
+implementer runs the red task first — writes its tests, runs them, and reports the failing
+output — then the green partner, and makes **one** commit for the pair: the partner's declared
+`**Commit:**` subject and `Task-Id: <partner>` trailer. The red task never has a commit of its
+own; `check-task-commit-fields.sh` resolves the pair from either id against that commit.
 
 > **REQUIRED SUB-SKILL:** Use superpowers:test-driven-development — RED-GREEN-REFACTOR for this
 > task. Delete any code written before its test.
@@ -367,7 +366,8 @@ Every implementer dispatch **must** also carry:
 > production builds it, or assert against the real boundary.
 
 **Review overlaps the next implementer.** The unit is the bundle `plan-dispatch-bundles.sh` emits;
-"bundle N's reviewers" is one reviewer per task in it. At each boundary, in this order:
+"bundle N's reviewers" is one reviewer per commit in it — a red task and its partner share one. At
+each boundary, in this order:
 
 1. **Bundle N+1's implementer commits** and reports its shas.
 2. **A pending fix for bundle N folds in first.** If bundle N's review raised a fix, resume that
@@ -405,6 +405,7 @@ covering spec compliance and code quality together, dispatched on `DEFAULT_MODEL
 panel carries no roster, so there is no `full`-preset split into two per-task reviewers. Mark a
 **task's** checkbox `[x]` (`flow tasks tick`) only after that task passes spec **and** quality
 review — the guard has already passed by then; a step's checkbox tracks the step and gates nothing.
+A red task's checkbox is ticked together with its partner's, when their one commit passes review.
 
 **The last bundle's reviewers run alone.** Overlap them only with the review panel's pre-work —
 its citation check, bundle rebuild, relocation comparison and diff-size check; `final-review.diff`

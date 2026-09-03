@@ -265,6 +265,7 @@ chmod +x "$FIXTURE/scripts/plan-dispatch-bundles.sh"
 cp "$SCRIPT_DIR/plan-dispatch-bundles.py" "$FIXTURE/scripts/plan-dispatch-bundles.py"
 cp "$SCRIPT_DIR/lib/resolve-file.sh" "$FIXTURE/scripts/lib/resolve-file.sh"
 cp "$SCRIPT_DIR/lib/spec-root.sh" "$FIXTURE/scripts/lib/spec-root.sh"
+cp "$SCRIPT_DIR/lib/plan_grammar.py" "$FIXTURE/scripts/lib/plan_grammar.py"
 ln -s ../../../scripts/plan-dispatch-bundles.sh \
   "$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.sh"
 ln -s ../../../scripts/plan-dispatch-bundles.py \
@@ -350,6 +351,85 @@ run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 14: an indented task-shaped line opens no task" || fail "case 14: rc=$RC out=$OUT"
 EXPECTED='bundle 1: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 14: only the column-0 task bundles" || fail "case 14: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 15: a `**Squash-with:**` field is a bundling edge. A red task declaring
+# only its test file and the green partner it names declaring only the source
+# file share no path, so the Files: join alone splits the pair — which is
+# what dispatched KAN-212's three pairs as six implementers. The contract
+# (skills/flow-contracts/build-green.md) has always said the pair is
+# dispatched as one unit; this edge is what makes that true.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Red: the failing tests\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 2\n\n'
+  printf '**Files:**\n- Create: `a_test.go`\n\n'
+  printf -- '  - [ ] **Step 1: write them**\n\n'
+  printf -- '- [ ] 2. Green: the implementation\n\n'
+  printf '**Build:** green\n\n'
+  printf '**Files:**\n- Modify: `a.go`\n\n'
+  printf -- '  - [ ] **Step 1: make them pass**\n\n'
+  printf -- '- [ ] 3. Unrelated task\n\n'
+  printf '**Build:** green\n\n'
+  printf '**Files:**\n- Modify: `b.go`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 15: a Squash-with pair exits 0" || fail "case 15: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1 2\nbundle 2: 3'
+[ "$OUT" = "$EXPECTED" ] && pass "case 15: a red task bundles with the partner it names" || fail "case 15: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 16: the edge reaches only UNCHECKED partners. A partner already
+# marked `[x]` takes no part in any bundle — the same rule the Files: join
+# applies — so a red task naming it forms its own bundle rather than
+# dragging a done task back into dispatch.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Red: the failing tests\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** Task 2\n\n'
+  printf '**Files:**\n- Create: `a_test.go`\n\n'
+  printf -- '  - [ ] **Step 1: write them**\n\n'
+  printf -- '- [x] 2. Green: the implementation, already done\n\n'
+  printf '**Build:** green\n\n'
+  printf '**Files:**\n- Modify: `a.go`\n\n'
+  printf -- '  - [x] **Step 1: make them pass**\n\n'
+  printf -- '- [ ] 3. Unrelated task\n\n'
+  printf '**Build:** green\n\n'
+  printf '**Files:**\n- Modify: `b.go`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 16: a red task naming a checked partner exits 0" || fail "case 16: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nbundle 2: 3'
+[ "$OUT" = "$EXPECTED" ] && pass "case 16: a checked partner joins nothing" || fail "case 16: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 17: a malformed/ungated `**Squash-with:**` value (not `Task <id>`)
+# does not gate — select_squash_with returns it with partners=None — so the
+# task's partners stay at their [] default and it bundles alone, rather than
+# crashing compute_bundles's `for partner in task.partners:` on a None.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Red: malformed squash field\n\n'
+  printf '**Build:** red\n\n'
+  printf '**Squash-with:** not-a-valid-id\n\n'
+  printf '**Files:**\n- Create: `a_test.go`\n\n'
+  printf -- '  - [ ] **Step 1: write them**\n\n'
+  printf -- '- [ ] 2. Unrelated task\n\n'
+  printf '**Build:** green\n\n'
+  printf '**Files:**\n- Modify: `b.go`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 17: an ungated Squash-with value exits 0, not a crash" || fail "case 17: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nbundle 2: 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 17: the malformed value bundles the task alone" || fail "case 17: expected [$EXPECTED], got [$OUT]"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

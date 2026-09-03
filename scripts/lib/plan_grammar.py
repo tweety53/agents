@@ -309,7 +309,9 @@ class TaskBody(NamedTuple):
     # is a field no test can pin — the reviewer inverted this one's
     # assignment and all three suites still passed — so it is not carried
     # until a caller exists. TASK_LINE_RE's `state` group is where it comes
-    # from when one does.
+    # from when one does. That script does import `select_squash_with`, so
+    # the field's line-scoping and gate are read one way by all three
+    # callers.
 
 
 def iter_tasks(lines: Sequence[str]) -> List[TaskBody]:
