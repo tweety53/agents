@@ -14,10 +14,11 @@ that task's body**:
   given only the state left by the tasks before it.
 - `**Build:** red` — this task alone does not leave a green build. A `red`-tagged task also
   carries a separate `**Squash-with:** Task <N>` field, naming one or more other tasks in the same
-  plan (comma- or whitespace-separated ids, e.g. `2, 4`) that this task is dispatched
-  together with as a single unit and whose commit this task's commit folds into. The field's own
-  grammar still admits a dotted id, so a partner written `2.1` parses and then names no task —
-  reported as the absent partner it is, rather than silently ignored.
+  plan (comma- or whitespace-separated ids, e.g. `2, 4`) that this task is dispatched together
+  with as a single unit — `plan-dispatch-bundles.py` places a red task in its partner's bundle —
+  and whose commit this task's work lands in. The field's own grammar still admits a dotted id, so
+  a partner written `2.1` parses and then names no task — reported as the absent partner it is,
+  rather than silently ignored.
 
 **Placement.** A task begins at a column-0 `- [ ] <id>. <title>` checkbox line — spectre's own task
 grammar, where `<id>` is a **flat integer** (`1`, `2`, `17`, …) and the mark between the brackets
