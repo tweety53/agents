@@ -98,17 +98,13 @@ rule above exists to keep that record honest, not merely tidy. A substituted Bug
 against the same throwaway worktree treatment as the real slot (**Bugbot's throwaway worktree**),
 since it carries the same mutation-testing brief.
 
-**No slot is ever added by diff size, touched area, or any other automatic trigger: the roster is
-exactly the resolved list above, and anything beyond it reaches the panel only through an explicit
-per-run operator instruction, for that run only.** Check for one at two points: at the start of this stage (has the operator, in this run's own argument or
+Check for one at two points: at the start of this stage (has the operator, in this run's own argument or
 in the session before this stage, named an id the resolved list does not carry?), and again at the
 start of every fix round below — an operator may ask mid-run, after seeing pass 1's result, and that
 request adds the slot starting from the round it was made, never retroactively to a pass already
 closed. It is never written back to the settings store. Record which slots were added this way and
 why (the operator's own words), and record explicitly when none were: "no addition this round — the
-resolved list ran alone." — a documentation-, prompt-, or test-only diff with no operator addition
-runs the resolved list alone, and that is a correct outcome, said so explicitly, never a silently
-skipped review.
+resolved list ran alone."
 
 **Before writing `final-review.diff`**, run
 
@@ -134,6 +130,38 @@ Exit 0 proceeds. Exit 1 puts the choice to the operator, shape per Operator prom
 Exit 2 stops the run. Record the measured count, the cap in force, and the operator's answer where
 one was given in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` on **every** run, including
 exit-0 runs.
+
+Then run
+
+```bash
+check-panel-docs-only.sh <worktree> <merge-base>
+```
+
+### The docs-only reduction
+
+Per design.md's `docs-only-reduces-to-primary` (narrowing `roster-from-settings`): **exit 0 —
+every path this branch touched, committed since the merge base, staged or unstaged, ends `.md` or
+`.mdc` — reduces pass 1 to `primary` alone**, plus every slot the operator's per-run instruction
+named at this stage's start. Every other resolved slot is recorded in
+`<abs-worktree>/.superpowers/sdd/final-review-panel.md` as `not dispatched — docs-only
+reduction`. `primary` is the reduced roster even when the resolved list does not carry it — the
+same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
+On a docs-only branch the whole-branch read covers the text every per-task reviewer already read
+against the same plan; there is no code seam between commits for a second slot to find (KAN-312).
+
+**Exit 1 runs the resolved roster unchanged**; the path the guard printed — the first
+non-documentation path — is recorded beside the verdict. An empty touched-path set is exit 1 too.
+**Exit 2 reports the guard's stderr and runs the resolved roster unchanged**: an unanswered
+question never reduces a panel.
+
+Record the verdict, the printed path where there is one, and the roster actually dispatched in
+`<abs-worktree>/.superpowers/sdd/final-review-panel.md` on **every** run, beside the diff-size
+fields above.
+
+**This is the one automatic reduction, and it only ever removes.** No slot is ever added by diff
+size, touched area, or any other automatic trigger: beyond the reduced or resolved roster,
+anything reaches the panel only through an explicit per-run operator instruction, for that run
+only.
 
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and
 unstaged), then dispatch **separate** review subagents — one per included slot, in **every**
@@ -389,8 +417,9 @@ by the parent at the fix round's verification step below, never by the fix subag
 
 ## Panel re-runs
 
-**Pass 1 always runs the resolved roster plus every slot the operator named at this stage's start
-that the resolved roster did not already carry.** Only re-runs after a fix are scoped. Record
+**Pass 1 runs the roster **The docs-only reduction** chose — the resolved roster, or `primary`
+alone on a docs-only branch — plus every slot the operator named at this stage's start that it
+did not already carry.** Only re-runs after a fix are scoped. Record
 `FIX_BASE=<task-sha>` — the task's
 commit as it stood before this fix round — then, once the fix is folded into that commit via `git
 commit --fixup=<task-sha>` and `git rebase --autosquash`, write
@@ -440,6 +469,14 @@ faces — and an exit-1 result from the call that produced it puts the over-cap 
 operator (**The roster**, above), naming the gating count and, when it differs, the full-branch
 count too. Record both in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round,
 alongside the agents-ran/why/diff-path fields the fix pass records.
+
+**The docs-only guard runs again beside that cap check**, `check-panel-docs-only.sh <worktree>
+<merge-base>`, per design.md's `fix-rounds-reclassify`. A branch that stays docs-only keeps the
+reduced roster, and `primary` re-runs on its delta as above. A branch the fix round made no
+longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
+resolved slot not yet dispatched this run, each reading the whole `final-review.diff` under the
+no-last-reviewed-sha rule above; Bugbot and Security among them take their pass-1 shape, throwaway
+worktree included. Record which slots joined this way and the path the guard printed.
 
 Handoff still requires **zero open findings at any severity** from every agent that has run, and
 no stale result — where **a slot's clean result is stale when the rule above required that slot to

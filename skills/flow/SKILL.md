@@ -154,7 +154,7 @@ flow state get <name-or-best-guess> -C <repo-root>
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — the full list is the union carried by
 `skills/flow/scripts/`: `check-base-moved.sh`, `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
-`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-findings-closed.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `check-task-commit-fields.sh`,
+`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `check-task-commit-fields.sh`,
 `check-unfinished-work.sh`, `check-visual-trigger.sh`,
 `check-visual-verification.sh`, `check-workspace-isolation.sh`,
 `check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,
@@ -192,8 +192,9 @@ one per mark or per phase file.
   themselves.
 - **Never** add a slot beyond the resolved roster automatically, by diff size, touched area, or any
   other trigger — only an explicit operator instruction adds one, for that run only, checked at the
-  start of the panel stage and at every fix round; see **Review panel**
-  (`skills/flow/review-panel.md`).
+  start of the panel stage and at every fix round. The one automatic change to the roster is a
+  reduction — `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone — and it
+  only ever removes; see **The docs-only reduction** (`skills/flow/review-panel.md`).
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it.

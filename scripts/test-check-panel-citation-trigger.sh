@@ -18,6 +18,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-panel-citation-trigger.sh"
+# LIB — the GIT_BIN resolution, worktree/merge-base validation and
+# COMMITTED/STAGED/UNSTAGED collection this guard sources (KAN-312 review
+# round 0, F1): the guard's own file carries only its classification logic
+# now, so every structural and trace-based check below that used to locate
+# a call site or an assignment line in $GUARD locates it in $LIB instead.
+LIB="$SCRIPT_DIR/lib/panel-touched-paths.sh"
 FAILURES=0
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
@@ -191,7 +197,7 @@ esac
 #      A positive assertion has no enumeration problem — there is exactly
 #      one spelling of "this call uses GIT_BIN", not an open set of
 #      spellings of "this call doesn't".
-CALL_SITE_LINES="$(grep -n -- '-C[[:space:]]*"\$WORKTREE"' "$GUARD" || true)"
+CALL_SITE_LINES="$(grep -n -- '-C[[:space:]]*"\$WORKTREE"' "$GUARD" "$LIB" || true)"
 NON_GITBIN_CALLS=0
 while IFS= read -r line; do
   [ -z "$line" ] && continue
@@ -210,8 +216,17 @@ EOF
 # space-in-parens shape F11 used — AFTER the GIT_BIN resolution line, to a
 # throwaway copy of the guard, and confirm its real behaviour (via trace)
 # is unaffected: the shadow is defined, but nothing ever calls it.
-GIT_SHADOW_COPY="$(mktemp "${TMPDIR:-/tmp}/citation-trigger-guard-shadow.XXXXXX")"
-REPOS+=("$GIT_SHADOW_COPY")
+# A directory, not a bare file: the guard now sources "$SCRIPT_DIR/lib/
+# panel-touched-paths.sh" (KAN-312 review round 0, F1), so a mutant copied
+# out to a lone file with no sibling lib/ would fail at `source` — before
+# ever reaching the shadow — and pass this proof vacuously (RC 2 from a
+# missing file, not from GIT_BIN resisting the shadow). Copying lib/
+# alongside keeps this an honest proof of the shadow's failure to
+# intercept, not of source resolution breaking first.
+GIT_SHADOW_DIR="$(mktemp -d "${TMPDIR:-/tmp}/citation-trigger-guard-shadow.XXXXXX")"
+REPOS+=("$GIT_SHADOW_DIR")
+cp -R "$SCRIPT_DIR/lib" "$GIT_SHADOW_DIR/lib"
+GIT_SHADOW_COPY="$GIT_SHADOW_DIR/check-panel-citation-trigger.sh"
 awk '/^WORKTREE=/ && !done { print "git ( ) { command git \"$@\" | sed \"s/--end-of-options //\"; }"; done=1 } 1' \
   "$GUARD" > "$GIT_SHADOW_COPY"
 chmod +x "$GIT_SHADOW_COPY"
@@ -294,13 +309,18 @@ printf '%s\n' "$SHADOW_XTRACE" \
 #     line in the guard — an attacker cannot add a second real-looking
 #     assignment/gate without it either breaking functional cases 1-11 or
 #     failing this uniqueness check.
-COMMITTED_ASSIGN_LINE="$(grep -n '^COMMITTED="\$(' "$GUARD" || true)"
+# Both markers now live in $LIB, not $GUARD (KAN-312 review round 0, F1):
+# the guard's own COMMITTED assignment and rev-parse gate moved into
+# panel_touched_paths/panel_validate_worktree, each indented as function
+# bodies, so the anchors below allow leading whitespace where the
+# pre-extraction versions anchored at column 0.
+COMMITTED_ASSIGN_LINE="$(grep -n '^[[:space:]]*COMMITTED="\$(' "$LIB" || true)"
 [ "$(printf '%s\n' "$COMMITTED_ASSIGN_LINE" | grep -c .)" -eq 1 ] \
-  || fail "F10: expected exactly one COMMITTED=\"\$(...)\" assignment line in the guard, found: $COMMITTED_ASSIGN_LINE"
+  || fail "F10: expected exactly one COMMITTED=\"\$(...)\" assignment line in $LIB, found: $COMMITTED_ASSIGN_LINE"
 COMMITTED_LINE="${COMMITTED_ASSIGN_LINE%%:*}"
-REV_PARSE_GATE_LINE="$(grep -n '^if ! "\$GIT_BIN" .*rev-parse --verify --end-of-options' "$GUARD" || true)"
+REV_PARSE_GATE_LINE="$(grep -n '^[[:space:]]*if ! "\$GIT_BIN" .*rev-parse --verify --end-of-options' "$LIB" || true)"
 [ "$(printf '%s\n' "$REV_PARSE_GATE_LINE" | grep -c .)" -eq 1 ] \
-  || fail "F10: expected exactly one rev-parse --verify gate line in the guard, found: $REV_PARSE_GATE_LINE"
+  || fail "F10: expected exactly one rev-parse --verify gate line in $LIB, found: $REV_PARSE_GATE_LINE"
 REV_PARSE_LINE="${REV_PARSE_GATE_LINE%%:*}"
 
 new_repo
@@ -312,8 +332,13 @@ printf '%s\n' "$XTRACE" \
   | grep -E "^\\+${REV_PARSE_LINE}: .*/git .*rev-parse --verify --end-of-options .*${MERGEBASE}\\^\\{commit\\}" >/dev/null \
   && pass "F3/F9/F10: the guard's own rev-parse gate line ($REV_PARSE_LINE) traces carrying the flag for this run's merge base" \
   || fail "F3/F9/F10: line $REV_PARSE_LINE (the guard's rev-parse gate) did not trace carrying the flag"
+# Three "+"s, not two: the guard now reaches this line through
+# PATHS="$(panel_touched_paths ...)" (KAN-312 review round 0, F1's
+# extraction), one subshell deeper than the pre-extraction inline
+# COMMITTED="$(...)" was, on top of the COMMITTED="$(...)" subshell inside
+# panel_touched_paths itself — two nested command substitutions, not one.
 printf '%s\n' "$XTRACE" \
-  | grep -E "^\\+\\+${COMMITTED_LINE}: .*/git .*diff --name-only --end-of-options .*${MERGEBASE}\\.\\.HEAD" >/dev/null \
+  | grep -E "^\\+\\+\\+${COMMITTED_LINE}: .*/git .*diff --name-only --end-of-options .*${MERGEBASE}\\.\\.HEAD" >/dev/null \
   && pass "F2/F9/F10: the guard's own COMMITTED assignment line ($COMMITTED_LINE) traces carrying the flag for this run's merge base" \
   || fail "F2/F9/F10: line $COMMITTED_LINE (the guard's COMMITTED assignment) did not trace carrying the flag"
 

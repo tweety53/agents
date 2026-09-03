@@ -16,61 +16,26 @@
 # what is staged, and what is unstaged.
 set -euo pipefail
 
-# GIT_BIN (KAN-304 review round 6, F10-F13): resolved to an absolute path
-# with `type -P`, which — unlike a bare `git` word — ignores any shell
-# function or alias named `git` and performs a real PATH search. Every
-# call below invokes "$GIT_BIN", never bare `git`: invoking a command by
-# absolute path never triggers bash's function/alias lookup, so a `git()`
-# function or `alias git=` defined ANYWHERE in this file (any spacing, any
-# position on its line) cannot intercept these calls, closing F8/F11/F13's
-# whole bypass class structurally rather than by pattern-matching the
-# shapes that class can take. This line is also the reason F12's scoped
-# PATH swap around one call no longer matters: GIT_BIN is captured here,
-# once, before any later line in this file runs, so a PATH change further
-# down is resolved against nothing — "$GIT_BIN" is already an absolute
-# path by the time any later line could execute.
-GIT_BIN="$(type -P git)" || {
-  echo "check-panel-citation-trigger: no git binary found on PATH" >&2
-  exit 2
-}
+PROG="check-panel-citation-trigger"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# GIT_BIN resolution (KAN-304 review round 6, F8/F11/F13), argument/worktree
+# /merge-base validation, and the COMMITTED/STAGED/UNSTAGED path collection
+# are shared with check-panel-docs-only.sh — see lib/panel-touched-paths.sh
+# for the full rationale, including why GIT_BIN is resolved to an absolute
+# path with `type -P` rather than invoked as a bare `git` word (KAN-312
+# review round 0, F1 on why this preamble is a sourced library rather than
+# two copies).
+source "$SCRIPT_DIR/lib/panel-touched-paths.sh"
 
 WORKTREE="${1:-}"
 MERGEBASE="${2:-}"
 
-if [ -z "$WORKTREE" ] || [ -z "$MERGEBASE" ]; then
-  echo "check-panel-citation-trigger: usage: check-panel-citation-trigger.sh <worktree> <merge-base>" >&2
-  exit 2
-fi
+GIT_BIN="$(panel_resolve_git "$PROG")" || exit 2
+panel_validate_worktree "$PROG" "$WORKTREE" "$MERGEBASE" "$GIT_BIN" || exit 2
+PATHS="$(panel_touched_paths "$PROG" "$WORKTREE" "$MERGEBASE" "$GIT_BIN")" || exit 2
 
-if [ ! -d "$WORKTREE" ]; then
-  echo "check-panel-citation-trigger: $WORKTREE is not a directory — cannot determine anything" >&2
-  exit 2
-fi
-
-if ! "$GIT_BIN" -C "$WORKTREE" rev-parse --git-dir >/dev/null 2>&1; then
-  echo "check-panel-citation-trigger: $WORKTREE is not a git worktree — cannot determine anything" >&2
-  exit 2
-fi
-
-if ! "$GIT_BIN" -C "$WORKTREE" rev-parse --verify --end-of-options "${MERGEBASE}^{commit}" >/dev/null 2>&1; then
-  echo "check-panel-citation-trigger: merge base '$MERGEBASE' does not resolve in $WORKTREE" >&2
-  exit 2
-fi
-
-COMMITTED="$("$GIT_BIN" -C "$WORKTREE" diff --name-only --end-of-options "${MERGEBASE}..HEAD" 2>/dev/null)" || {
-  echo "check-panel-citation-trigger: cannot list this change's committed paths in $WORKTREE" >&2
-  exit 2
-}
-STAGED="$("$GIT_BIN" -C "$WORKTREE" diff --name-only --cached 2>/dev/null)" || {
-  echo "check-panel-citation-trigger: cannot list this change's staged paths in $WORKTREE" >&2
-  exit 2
-}
-UNSTAGED="$("$GIT_BIN" -C "$WORKTREE" diff --name-only 2>/dev/null)" || {
-  echo "check-panel-citation-trigger: cannot list this change's unstaged paths in $WORKTREE" >&2
-  exit 2
-}
-
-MATCH="$(printf '%s\n%s\n%s\n' "$COMMITTED" "$STAGED" "$UNSTAGED" | awk 'NF && ($0 ~ /\.mdc?$/) { print; exit }')"
+MATCH="$(printf '%s\n' "$PATHS" | awk 'NF && ($0 ~ /\.mdc?$/) { print; exit }')"
 
 if [ -n "$MATCH" ]; then
   exit 0

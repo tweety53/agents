@@ -1,0 +1,1 @@
+../../../scripts/check-panel-docs-only.sh
