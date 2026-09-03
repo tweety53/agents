@@ -148,11 +148,19 @@ TASK_LINE_RE: Pattern[str] = re.compile(
 # `iter_tasks` below, which tests for a task line before this pattern.
 BODY_BOUNDARY_RE: Pattern[str] = re.compile(r"^#{2,3}(?:\s|$)")
 
-# BUILD_TAG_RE — the `**Build:**` tag's vocabulary and its scope: the WHOLE
-# physical line, whose value is a bare `green` or `red`. Group "kind" is
-# that word. Anything else on the line (`**Build:** yellow`, or a prose line
-# joined onto it) is not a tag, and a body carrying no tag line has no tag.
-BUILD_TAG_RE: Pattern[str] = re.compile(r"^\*\*Build:\*\*\s+(?P<kind>green|red)\s*$")
+# BUILD_LINE_RE — a column-0 `**Build:**` line. The FIRST non-fenced one in
+# a body is the task's tag line, whatever its value says. Group "value" is
+# everything after the field name.
+BUILD_LINE_RE: Pattern[str] = re.compile(r"^\*\*Build:\*\*(?P<value>.*)$")
+
+# BUILD_KIND_RE — the tag's vocabulary, applied to BUILD_LINE_RE's value: a
+# `green` or `red` opening the value and ending on a word boundary. Text
+# after the keyword (`green — 2259 tests`, `green (unchanged)`) is free
+# prose and ignored (KAN-394). A value opening with neither word (`yellow`,
+# `greenish`, a bare backticked path) has no kind, and
+# check-task-build-green.py reports that line as a malformed tag rather
+# than as a missing one.
+BUILD_KIND_RE: Pattern[str] = re.compile(r"^\s+(?P<kind>green|red)\b")
 
 # SQUASH_WITH_FIELD_RE — the field's PRESENCE on one physical line. Group
 # "value" is everything after the field name, and is what `partner_ids`
@@ -257,23 +265,29 @@ def select_squash_with(body: Sequence[str]) -> Optional[SquashWithField]:
 
 
 class BuildTag(NamedTuple):
-    """A task body's `**Build:**` tag. `offset` is the 0-based index, within
-    the body sequence handed to `select_build_tag`, of the line it was read
-    from; `kind` is "green" or "red"."""
+    """A task body's `**Build:**` tag line. `offset` is the 0-based index,
+    within the body sequence handed to `select_build_tag`, of the line it
+    was read from; `kind` is "green" or "red", or None when the line's value
+    opens with neither (a malformed tag); `value` is the text after
+    `**Build:**`, stripped, for the malformed-tag message."""
 
     offset: int
-    kind: str
+    kind: Optional[str]
+    value: str
 
 
 def select_build_tag(body: Sequence[str]) -> Optional[BuildTag]:
-    """The `**Build:**` tag `body` carries, or None if it carries none.
-    `body` is a task's body lines, in order, fences included.
+    """The `**Build:**` tag line `body` carries, or None if it carries no
+    `**Build:**` line at all. `body` is a task's body lines, in order,
+    fences included.
 
     WHICH line is the tag is defined here and nowhere else (fix round 9,
-    F20): the FIRST non-fenced line matching `BUILD_TAG_RE` in full. The tag
-    is line-scoped for the same reason `Squash-with:` is — its grammar is
-    one closed word, so it never needs to wrap, and a prose line placed
-    under it with no blank line between must not change what it says.
+    F20): the FIRST non-fenced line matching `BUILD_LINE_RE`, well-formed or
+    not (KAN-394) — a malformed first line is reported as such rather than
+    letting a later line decide. The tag is line-scoped for the same reason
+    `Squash-with:` is: its keyword opens the value and nothing after it on
+    the line is read, and a prose line placed under it with no blank line
+    between must not change what it says.
     """
     in_fence = False
     for offset, line in enumerate(body):
@@ -282,9 +296,15 @@ def select_build_tag(body: Sequence[str]) -> Optional[BuildTag]:
             continue
         if in_fence:
             continue
-        match = BUILD_TAG_RE.match(line)
+        match = BUILD_LINE_RE.match(line)
         if match is not None:
-            return BuildTag(offset=offset, kind=match.group("kind"))
+            value = match.group("value")
+            kind = BUILD_KIND_RE.match(value)
+            return BuildTag(
+                offset=offset,
+                kind=kind.group("kind") if kind is not None else None,
+                value=value.strip(),
+            )
     return None
 
 

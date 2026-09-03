@@ -144,8 +144,10 @@ run_guard "$TASKS_MD"
 [ -z "$OUT" ] && pass "case 6: no output" || fail "case 6: expected no output, got: $OUT"
 
 # ===========================================================================
-# Case 7: a malformed tag line (e.g. "**Build:** yellow") is treated as NO
-# tag -- falls through to case 2's violation, not a separate parse error.
+# Case 7 (KAN-394): a malformed tag line (e.g. "**Build:** yellow") is its
+# OWN violation, naming the tag line and its value -- it used to fall
+# through to case 2's "no tag", which named the consequence and hid the
+# cause.
 # ===========================================================================
 new_fixture
 {
@@ -155,8 +157,8 @@ new_fixture
 run_guard "$TASKS_MD"
 [ "$RC" -eq 1 ] && pass "case 7: malformed tag fails" || fail "case 7: rc=$RC out=$OUT"
 case "$OUT" in
-  *"task 1 has no **Build:** tag"*) pass "case 7: reported as missing tag" ;;
-  *) fail "case 7: expected missing-tag message, out=$OUT" ;;
+  *"tasks.md:3: task 1 has a **Build:** line reading \"yellow\", which is neither green nor red"*) pass "case 7: reported as a malformed tag at its own line" ;;
+  *) fail "case 7: expected malformed-tag message, out=$OUT" ;;
 esac
 
 # ===========================================================================
@@ -740,6 +742,140 @@ new_fixture
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 28: an indented task-shaped line opens no task" || fail "case 28: rc=$RC out=$OUT"
 [ -z "$OUT" ] && pass "case 28: no output" || fail "case 28: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 29 (KAN-394): the keyword is a PREFIX of the tag's value. A green tag
+# followed by prose on the same line -- the shape KAN-29's plan wrote six
+# times and this guard rejected for the change's whole life -- is green.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Green tag with trailing prose\n\n'
+  printf '**Build:** green — `:shared:desktopTest` 2259, matching the predicted +1 exactly\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 29: green followed by prose is green" || fail "case 29: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 29: no output" || fail "case 29: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 30 (KAN-394): a parenthesised remark after the keyword is prose too.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Green tag with a parenthesised remark\n\n'
+  printf '**Build:** green (unchanged; `:shared:desktopTest` still 2258, nothing was touched)\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 30: green with a parenthesised remark is green" || fail "case 30: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 30: no output" || fail "case 30: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 31 (KAN-394): a red tag with trailing prose is still red -- its
+# partner is resolved exactly as for a bare `red`. The same body is asserted
+# against check-task-commit-fields.sh as its own case 87.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Red tag with trailing prose\n\n'
+  printf '**Build:** red — lands with task 2\n'
+  printf '**Squash-with:** Task 2\n\n'
+  printf -- '- [ ] 2. Green partner\n\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 31: red followed by prose is red and resolves its partner" || fail "case 31: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 31: no output" || fail "case 31: expected no output, got: $OUT"
+
+# ===========================================================================
+# Case 32 (KAN-394): the prefix ends on a WORD BOUNDARY. `greenish` opens
+# with `green` but is not the keyword, so the line is a malformed tag.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Not quite green\n\n'
+  printf '**Build:** greenish\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 32: greenish is not green" || fail "case 32: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 1 has a **Build:** line reading \"greenish\", which is neither green nor red"*) pass "case 32: reported as a malformed tag" ;;
+  *) fail "case 32: expected malformed-tag message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 33 (KAN-394): KAN-29's eighth line, whose value opens with a
+# backticked path and no keyword at all -- a malformed tag, with the whole
+# value quoted so the operator sees what the guard could not read.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. A tag that names no colour\n\n'
+  printf '**Build:** `tests/` 33 of 34 — see the flake below\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 33: a keyword-less value fails" || fail "case 33: rc=$RC out=$OUT"
+case "$OUT" in
+  *'task 1 has a **Build:** line reading "`tests/` 33 of 34 — see the flake below", which is neither green nor red'*) pass "case 33: the value is quoted in the message" ;;
+  *) fail "case 33: expected the quoted value, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 34 (KAN-394): the FIRST **Build:** line decides, well-formed or not.
+# A malformed line followed by a green one is a malformed tag at the first
+# line -- the later line does not quietly win, unlike before this change,
+# when the malformed line matched nothing and the green one was the tag.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Malformed then green\n\n'
+  printf '**Build:** yellow\n'
+  printf '**Build:** green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 34: the first Build line decides" || fail "case 34: rc=$RC out=$OUT"
+case "$OUT" in
+  *"tasks.md:3: task 1 has a **Build:** line reading \"yellow\""*) pass "case 34: the malformed first line is the one reported" ;;
+  *) fail "case 34: expected line 3 reported, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 35 (KAN-394): BUILD_KIND_RE requires at least one whitespace character
+# between the `**Build:**` field name and the keyword. `**Build:**green`
+# (no space) does not match it, so the value -- stripped to "green" -- is
+# still reported as a malformed tag, not silently accepted as a well-formed
+# green tag. Pins the required `\s+` against a mutant that widens it to
+# `\s*`.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. No space before the keyword\n\n'
+  printf -- '**Build:**green\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 35: no space before the keyword fails" || fail "case 35: rc=$RC out=$OUT"
+case "$OUT" in
+  *'task 1 has a **Build:** line reading "green", which is neither green nor red'*) pass "case 35: reported as a malformed tag, not accepted as green" ;;
+  *) fail "case 35: expected malformed-tag message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 36 (KAN-394): a malformed-tag violation is the ONLY violation for its
+# task -- the `continue` after it must skip the "no **Build:** tag" branch,
+# not fall through into it too. Case 7 already pins that the malformed-tag
+# message is present; this pins that the "no **Build:** tag" message is
+# absent from the same output.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Some task\n\n'
+  printf -- '**Build:** yellow\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 36: malformed tag fails" || fail "case 36: rc=$RC out=$OUT"
+case "$OUT" in
+  *"has no **Build:** tag"*) fail "case 36: malformed tag must not also report as no tag, out=$OUT" ;;
+  *) pass "case 36: no duplicate no-tag violation" ;;
+esac
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

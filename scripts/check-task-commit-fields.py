@@ -120,7 +120,9 @@ that comment had been wrong once already, and the false claim survived four
 review rounds).
 
 `**Build:**` is read from the body by that module's `select_build_tag`: the
-first line that is `**Build:** green` or `**Build:** red` in full. It used
+first `**Build:**` line, whose value opens with `green` or `red` on a word
+boundary and may carry prose after the keyword (KAN-394); a first line
+opening with neither has no kind, which this guard treats as not red. It used
 to be read through FIELD_RE's alternation below, which joined continuation
 lines onto its value and let a later `**Build:**` line overwrite an earlier
 one — so `**Build:** red` followed by `**Build:** green` was green here and
@@ -476,7 +478,8 @@ def parse_task_fields(lines: List[str], task_id: str) -> TaskFields:
         else None
     )
 
-    # The tag is the first line-gated `**Build:** green|red` in the body,
+    # The tag is the first `**Build:**` line in the body, its kind the
+    # `green`/`red` prefix of that line's value (None when malformed),
     # per lib/plan_grammar.py's select_build_tag — never a value assembled
     # from FIELD_RE's capture above, which joined continuation lines onto it
     # and let a later tag line overwrite an earlier one (fix round 9, F20).

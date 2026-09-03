@@ -18,7 +18,7 @@ Exit codes:
   0  clean — every task in the file carries a resolvable **Build:** tag
      (including a file with zero tasks).
   1  violations found — one or more of: a duplicate task id, a task with no
-     tag, a `red` task with no **Squash-with:** field at all, a
+     tag, a malformed tag, a `red` task with no **Squash-with:** field at all, a
      **Squash-with:** field naming zero ids, a named partner that does not
      exist in this file, or a named partner that is itself `red`. Printed
      one per line as `file:line: message`.
@@ -70,16 +70,23 @@ Splitting a file into tasks, and resolving an id to a task, are
 `lib/plan_grammar.py`'s `iter_tasks` and `select_task`. Within that body,
 the FIRST line (also outside any fence) matching
 
-    ^\\*\\*Build:\\*\\*\\s+(green|red)\\s*$
+    ^\\*\\*Build:\\*\\*(?P<value>.*)$
 
-is the task's tag, and that selection is `lib/plan_grammar.py`'s
-`select_build_tag` (fix round 9, F20). A body with no such line has no tag at all — this
-includes a line that merely looks like an attempt at one (`**Build:**
-yellow`), which is deliberately treated the same as no tag rather than as a
-separate parse-error class: the fixed vocabulary is `green` or `red`, and
-anything else is simply absent, reported the same way an entirely missing
-line is. `Build:` no longer carries any inline suffix — a `red` task's
-partner is read from a separate field.
+is the task's tag line, and its kind is read from that value by
+
+    ^\\s+(?P<kind>green|red)\\b
+
+— the keyword as a prefix ending on a word boundary, with anything after it
+on the line (`green — 2259 tests`, `green (unchanged)`) ignored. Both
+patterns and the selection are `lib/plan_grammar.py`'s `BUILD_LINE_RE`,
+`BUILD_KIND_RE` and `select_build_tag` (fix round 9, F20; KAN-394). A body
+with no `**Build:**` line has no tag at all. A first `**Build:**` line whose
+value opens with neither keyword (`**Build:** yellow`, `**Build:** greenish`,
+a bare backticked path) is a MALFORMED tag, its own violation naming the
+line and the value — never folded into "no tag", which would name the
+consequence and hide the cause, and never overridden by a well-formed
+`**Build:**` line further down. `Build:` carries no inline partner — a
+`red` task's partner is read from a separate field.
 
 Independently, within that same body, the FIRST line (also outside any
 fence) that is a `**Squash-with:**` field whose value gates as `Task
@@ -170,8 +177,9 @@ class Task:
 
     id: str
     task_line: int
-    tag_kind: Optional[str] = None  # "green", "red", or None (no tag)
-    tag_line: Optional[int] = None
+    tag_kind: Optional[str] = None  # "green", "red", or None (no tag, or malformed)
+    tag_line: Optional[int] = None  # None: no **Build:** line at all
+    tag_value: Optional[str] = None  # the tag line's value, for the malformed message
     squash_line: Optional[int] = None  # None: no **Squash-with:** field
     partners: List[str] = field(default_factory=list)
     # The line of a fence this task's body opens and never closes, or None
@@ -191,6 +199,7 @@ def parse_tasks(lines: List[str]) -> List[Task]:
         if tag is not None:
             task.tag_kind = tag.kind
             task.tag_line = found.body_start + tag.offset + 1
+            task.tag_value = tag.value
         squash = select_squash_with(found.lines)
         # A value that does not gate is not a Squash-with field at all — a
         # red task carrying one is reported as having no field, not as
@@ -241,6 +250,17 @@ def check_tasks(tasks: List[Task], relfile: str) -> List[str]:
                 f"{relfile}:{task.fence_line}: task {task.id} opens a code "
                 "fence here that is never closed in its body, so every "
                 "field below it is inside the fence and was not read"
+            )
+            continue
+        # A `**Build:**` line whose value opens with neither keyword is a
+        # malformed tag, named by its own line and value (KAN-394) — never
+        # folded into "no tag", which would name the consequence and hide
+        # the cause exactly as the unclosed-fence case above would.
+        if task.tag_line is not None and task.tag_kind is None:
+            violations.append(
+                f"{relfile}:{task.tag_line}: task {task.id} has a **Build:** "
+                f'line reading "{task.tag_value}", which is neither green '
+                "nor red"
             )
             continue
         if task.tag_kind is None:

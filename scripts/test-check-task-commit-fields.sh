@@ -3246,6 +3246,81 @@ case "$OUT" in
   *) fail "case 86: original revert-conflict failure text missing from stderr, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 87 (KAN-394): a `**Build:** red` tag with prose after the keyword is
+# still red here -- the keyword is a word-boundary prefix of the value, read
+# through lib/plan_grammar.py's select_build_tag as in the other guard, so
+# the fold is resolved and the missing partner reported rather than the
+# task dropping onto the single-commit path. The same body is asserted
+# against check-task-build-green.sh as its own case 31 (with a real partner).
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Red task whose tag carries trailing prose
+
+**Files:** `alpha.txt`
+**Commit:** test: add alpha
+**Build:** red — lands with its partner
+
+**Squash-with:** Task 9
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'a\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "test: add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 87: red followed by prose is still red" || fail "case 87: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 1: Squash-with: names Task 9, which does not exist in this plan"*) pass "case 87: the red task's missing partner is reported" ;;
+  *) fail "case 87: expected the missing-partner message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 88 (KAN-394): the `partner.build == "red"` comparisons at lines
+# 588/637/659 treat a Squash-with partner whose OWN `**Build:**` line is
+# malformed (neither green nor red) as not-red — same as case 30's green
+# partner, not case 33's red one. A malformed tag has no kind
+# (lib/plan_grammar.py's BUILD_KIND_RE match is None), so `partner.build` is
+# `None`, which the equality against the string `"red"` never matches. The
+# fold must therefore resolve exactly as case 30's does: exit 0, the red
+# task's own declared subject not required, and the file set the union of
+# both tasks -- never "which is itself red".
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Red half
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** test: add alpha
+**Build:** red
+
+**Squash-with:** Task 2
+
+- [ ] 2. Half with a malformed tag
+
+**Files:** `beta.txt`
+**Commit:** feat: add alpha and beta
+**Build:** yellow
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+printf 'b\n' > "$REPO/beta.txt"
+git -C "$REPO" add alpha.txt beta.txt
+git -C "$REPO" commit -q -m "feat: add alpha and beta"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 88: a malformed-tag partner is treated as not-red" || fail "case 88: rc=$RC out=$OUT"
+case "$OUT" in
+  *"itself red"*) fail "case 88: malformed-tag partner wrongly reported as itself red, out=$OUT" ;;
+  *) pass "case 88: no itself-red violation for the malformed-tag partner" ;;
+esac
+case "$OUT" in
+  *"not declared in Files:"*) fail "case 88: partner's files reported as undeclared collateral, out=$OUT" ;;
+  *) pass "case 88: the file set is the union of both tasks" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

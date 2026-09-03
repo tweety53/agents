@@ -32,8 +32,11 @@ step is indented two columns beneath its task, belongs to that task's body, and 
 its own, which is also what keeps spectre's malformed-task check off it.
 
 **The two columns of indent belong to the steps alone: a task's FIELDS sit at column 0.** The
-`Build:` tag is read as `^\*\*Build:\*\*\s+(green|red)\s*$` — anchored at column 0, exactly as the
-task line above it is — and `**Squash-with:**` is anchored the same way, as is every field the
+`Build:` tag line is read as `^\*\*Build:\*\*(?P<value>.*)$` — anchored at column 0, exactly as the
+task line above it is — and its kind from that value as `^\s+(green|red)\b`: the keyword is a
+prefix ending on a word boundary, and whatever follows it on the line (`green — 2259 tests`,
+`green (unchanged)`) is free prose the guard ignores, still line-scoped. `**Squash-with:**` is
+anchored at column 0 the same way, as is every field the
 `flow-task-commit-fields` family adds to a task. Indenting the fields along with the steps is the
 natural reading of "the body sits beneath its task", and it is wrong in a way nothing catches
 kindly: `spectre validate` reports no findings, because an indented `**Build:**` line is no more a
@@ -41,11 +44,14 @@ task line to spectre than a step is, while this file's own guard reports
 `task <id> has no **Build:** tag` — naming the consequence and hiding the cause, since the tag is
 there, one column short of where its regex looks. Measured on a one-task plan written both ways.
 
-Within that body, the `Build:` tag is the **first** line matching the vocabulary above; a body with
-no such line has no tag at all, and a line that merely resembles one (`**Build:** yellow`) is
-treated the same as no tag rather than as a separate malformed-tag class. This is the same
-placement rule the guard script's own docstring states as a regex — this file states it in prose,
-and the two are required to describe the same rule, the column-0 anchor included.
+Within that body, the `Build:` tag is the **first** column-0 `**Build:**` line, well-formed or not; a
+body with no such line has no tag at all. A first line whose value opens with neither keyword
+(`**Build:** yellow`, `**Build:** greenish`, a bare backticked path) is a **malformed tag** — its
+own violation, reported by that line and its value, never as a missing tag (which would name the
+consequence and hide the cause, exactly as the unclosed-fence finding refuses to), and never
+overridden by a well-formed `**Build:**` line further down. This is the same placement rule the
+guard script's own docstring states as a regex — this file states it in prose, and the two are
+required to describe the same rule, the column-0 anchor included.
 
 ## The guard's scope
 
@@ -54,6 +60,7 @@ A guard script (`<agents repo>/scripts/check-task-build-green.py`, wrapped by
 `tasks.md` and fails the run when:
 
 - a task has no `**Build:**` tag;
+- a task's first `**Build:**` line is malformed — its value opens with neither `green` nor `red`;
 - a task is tagged `red` with no `**Squash-with:**` field naming a merge partner;
 - a partner named by `**Squash-with:**` does not exist among the tasks in that same plan; or
 - a partner named by `**Squash-with:**` exists but is itself tagged `red` — which is how the guard
