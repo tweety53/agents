@@ -12,6 +12,58 @@ diff-size/touched-area trigger table.
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+## Check base movement first
+
+Once per worktree in this run's resolved set (**Resolving a change's worktrees**,
+`skills/flow-contracts/worktree-resolution.md`), on every panel run — creating, resumed, or fix:
+
+```bash
+BASE="$(resolve-base-branch.sh <worktree>)"
+check-base-moved.sh <worktree> "origin/$BASE" <working-notes-merge-base>
+```
+
+`<working-notes-merge-base>` is the merge base `skills/flow/implement.md`'s isolate-workspace step
+recorded in this run's working notes — never the state file's `worktrees` map, which a creating run
+has not written yet. `check-base-moved.sh` performs no fetch of its own; `resolve-base-branch.sh` is
+what fetches, so this order — resolve, then check — is load-bearing.
+
+Report every worktree's verdict and handle it the way `skills/flow/integrate.md`'s step 2 already
+does: `MOVED` with no overlap continues with no prompt; `REFUSE`, an exit 2, or an empty resolved
+set stops and asks; an overlap from any worktree asks once for the whole change, shape per Operator
+prompts (`skills/flow-contracts/operator-prompts.md`):
+
+> **The base branch has moved and touches paths this change also touched — how should the
+> panel proceed?**
+> - **Stop — I'll rebase or reorder first** *(recommended)*
+> - **Rebase onto `<base>` now, then continue**
+> - **Continue — review as is**
+
+**Stop** closes `flow.review-panel` with `-outcome stopped` and leaves the change at its current
+state with nothing committed by this stage. **Continue** carries the reported movement into the
+handoff and proceeds to the citation pre-check below.
+
+**Rebase** runs `git -C <worktree> rebase origin/$BASE` only in a worktree whose own verdict was
+`MOVED` — never one whose verdict was `CLEAR`, even though the prompt above is asked once for the
+whole change.
+
+- **Clean** (exit 0): that worktree's working-notes merge base becomes `origin/$BASE`'s resolved
+  tip at rebase time; every later `<merge-base>` this file and the `worktrees` map
+  `skills/flow/verify-and-handoff.md` writes read the working notes, so nothing else needs
+  plumbing. Re-run `check-base-moved.sh` once more against the new value; a fresh overlap re-offers
+  the prompt above rather than looping silently. The rebase clears every slot's held last-reviewed
+  sha, so a re-run after it reads the whole `final-review.diff` under **Panel re-runs**' existing
+  no-held-sha rule below. No re-verification runs here — the panel reads the rebased tree, and
+  `flow.verify` follows. End the clean-rebase report with the fixed literal:
+
+  > If this change's verification compares against a recorded baseline, recapture it now — a
+  > proof taken against the pre-rebase base is void.
+
+- **Conflict** (non-zero exit): never auto-abort, and never resolve the conflict — by editing the
+  conflicting files or otherwise. Leave the worktree mid-rebase exactly as `git rebase` left it,
+  report the conflicting file(s) from `git status`, and hand off `git -C <worktree> rebase
+  --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the
+  next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
+
 **Run the citation pre-check before rebuilding the dispatch context bundle below**:
 
 ```bash
@@ -450,7 +502,9 @@ sha that slot last reviewed> HEAD`, written to `<abs-worktree>/.superpowers/sdd/
 Each dispatch sets that slot's sha to the HEAD it was dispatched against, and a slot not dispatched
 in a round keeps the sha it had; a slot for which no last-reviewed sha is held reads the whole
 `final-review.diff`. Every slot's dispatch prompt names the path it was given and, for a delta, the
-sha that delta starts from. Then:
+sha that delta starts from. **Check base movement first** above clears every slot's held
+last-reviewed sha on a clean panel-entry rebase, so a round right after one falls under this same
+no-held-sha rule. Then:
 
 - **every diff-reading slot** in the resolved roster — Primary included, reading a delta like the
   rest — plus every operator-added slot already dispatched in an earlier pass of this run, re-runs
