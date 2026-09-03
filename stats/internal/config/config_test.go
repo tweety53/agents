@@ -42,8 +42,12 @@ func TestFromEnvAcceptsValidPort(t *testing.T) {
 }
 
 // TestFromEnvDefaultsPortWhenUnset confirms an unset FLOWD_PORT still
-// resolves to DefaultPort, distinguishing "unset" from "invalid".
+// resolves to DefaultPort, distinguishing "unset" from "invalid". It pins
+// FLOWD_PORT to empty because the caller's shell may already export it (a
+// /flow worktree does), and FromEnv treats an empty value as unset.
 func TestFromEnvDefaultsPortWhenUnset(t *testing.T) {
+	t.Setenv("FLOWD_PORT", "")
+
 	cfg, err := config.FromEnv()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

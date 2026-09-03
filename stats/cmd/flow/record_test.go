@@ -996,6 +996,11 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 
 	srv := httptest.NewServer(renderDaemon(t, `{"change":"demo","dispatches":[],"findings":[]}`))
 	defer srv.Close()
+	// The guard shells out to `flow record findings` with no -addr, and that
+	// subprocess inherits this process's environment. Pinning FLOW_ADDR to
+	// srv.URL keeps the guard reading from this test's daemon rather than
+	// from the caller's FLOW_ADDR or the dev daemon on 4173.
+	t.Setenv("FLOW_ADDR", srv.URL)
 
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
