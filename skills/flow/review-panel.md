@@ -64,6 +64,13 @@ whole change.
   --continue` (after the **operator** resolves it) or `git -C <worktree> rebase --abort` as the
   next manual step. State stays as it was; this stage stops here and closes the mark `stopped`.
 
+**Everything from the citation pre-check to the throwaway worktrees and the `[PRINCIPLES_PATH]`
+and `[STANDARDS_PATHS]` resolution below is one Bash call**, under **Turn discipline**
+(`skills/flow/implement.md`): every verdict printed, and only the dispatch depends on them — an
+over-cap exit, a `REFUSE`, an absent principles file or an operator prompt is read off that call's
+output and handled before any slot launches. The base-movement check above is the one exception:
+its rebase branch changes what every later step reads, so it runs and is read first.
+
 **Run the citation pre-check before rebuilding the dispatch context bundle below**:
 
 ```bash
@@ -253,6 +260,12 @@ flow record dispatch end -change <name> -key panel-<round>-<slot> \
   -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
 
+Every slot of a round launches in one message; every `begin` is recorded in the next Bash call,
+one call for all; the round's wait is one call whose condition is `test -s` on every launched
+slot's report file; every `end` is recorded in one call once they all exist (**Turn
+discipline**, `skills/flow/implement.md`). A slot whose report never appears within its ceiling
+takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
+
 `-slot` names the slot from **The roster** table above. `-role` is
 `reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a slot dispatched against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha for that slot, and the
@@ -441,8 +454,8 @@ Every dispatched slot ends up with one, a slot that raised nothing and a substit
 included. **Never re-emit a slot's report from this context** — record its `F<n>` rows and cite the
 file.
 
-**Every finding is a row in the store. The panel record is rendered from those rows.** As each slot
-raises a finding, record it — one call, as it is raised:
+**Every finding is a row in the store. The panel record is rendered from those rows.** Every
+finding a round raised is recorded in one Bash call, one `flow record finding` per finding:
 
 ```bash
 flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
@@ -601,7 +614,9 @@ dispatch; a **rejected reproducer shape** (a shell metacharacter, an absolute pa
 a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **unverifiable** and put to
 the operator, never silently rewritten. Exit 2 stops the run.
 
-**For each open finding whose record carries a runnable `finding-reproducer:` command**, run
+**For each open finding whose record carries a runnable `finding-reproducer:` command**, run —
+every finding's run and every throwaway worktree removal in one Bash call, each run followed by
+`; echo "F<n>: exit $?"` so every exit code stays readable:
 
 ```bash
 run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
@@ -630,8 +645,10 @@ flow record status -change <name> -ref F<n> -status fixed
 ```
 
 **The parent records it, never the fix subagent** — the parent is what ran the reproducer and
-walked the diff. **Record it per finding, as its verdict is reached, not batched at the round's
-end** — an aborted round still leaves every already-verified finding closed. **A finding failing
+walked the diff. **Record every verdict this turn reached in one call,
+never deferred to the round's end** — the reproducer re-runs and the fix diff are read in one
+call, each finding judged, then every `status fixed` recorded together, so an aborted round
+still leaves every already-verified finding closed. **A finding failing
 either condition is left untouched** on `open`, for the handback below.
 
 ### The fix round mutation-proves what it changed
@@ -712,6 +729,14 @@ against its defect identity. **Inline no source excerpt.**
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
+
+**Every fix subagent's dispatch prompt also carries the REPORT FILE paragraph**:
+
+> **REPORT FILE:** write your report to
+> `<abs-worktree>/.superpowers/sdd/panel-fix-report-<round>.md` as your **last** act — after
+> the rebase and your final test run — naming each finding you addressed, the executable
+> behaviours your fix changed, and the task commit each fixup folded into. The dispatcher waits
+> on that file's presence.
 
 Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before

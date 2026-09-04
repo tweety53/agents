@@ -375,32 +375,42 @@ Every implementer dispatch **must** also carry:
 > the shape you construct by hand is not the shape the real producer emits. Build the value the way
 > production builds it, or assert against the real boundary.
 
+> **REPORT FILE:** write your report to
+> `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your
+> commit and your final test run — carrying each commit's sha, the failing RED output you saw,
+> and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
+> file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
+
 **Review overlaps the next implementer.** The unit is the bundle `plan-dispatch-bundles.sh` emits;
 "bundle N's reviewers" is one reviewer per commit in it — a red task and its partner share one. At
 each boundary, in this order:
 
-1. **Bundle N+1's implementer commits** and reports its shas.
+1. **Bundle N+1's implementer commits** and writes its report; the wait above ends.
 2. **A pending fix for bundle N folds in first.** If bundle N's review raised a fix, resume that
    bundle's implementer (`SendMessage`; record the resumption as its own pair under
    `task-<n>-implementer-fix-<k>`, `-agent-id` the implementer's own id) with the reviewer's
-   report path; it commits `git commit --fixup=<task-sha>` and runs `git rebase --autosquash`. A
-   conflict there is between two of the branch's own commits and the implementer resolves it —
-   `skills/flow/integrate.md`'s never-auto-resolve rule concerns the operator's base branch.
-3. **Guard every commit whose sha is new** — bundle N+1's tasks and every task the rebase rewrote —
-   before dispatching review for it, passing the canonical worktree's absolute path (the worktree
-   created or resumed in step **2** above) as the guard's fifth argument and this run's resolved
-   `<name>` as its sixth:
+   report path; it commits `git commit --fixup=<task-sha>`, runs `git rebase --autosquash` and
+   writes `implementer-report-<k>-fix-<n>.md`. A conflict there is between two of the branch's own
+   commits and the implementer resolves it — `skills/flow/integrate.md`'s never-auto-resolve rule
+   concerns the operator's base branch.
+3. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
+   is new** — bundle N+1's tasks and every task the rebase rewrote — **and bundle N+2's gather.**
+   The guard takes the canonical worktree's absolute path (the worktree created or resumed in
+   step **2** above) as its fifth argument and this run's resolved `<name>` as its sixth:
 
    ```bash
    check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
    ```
 
-   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes. A
-   nonzero exit is a guard failure, not a review finding — it does **not** consume a fix-round
-   slot; send the task back to the **same implementer**, then re-run the guard, before anything
-   below.
-4. **Dispatch together:** bundle N's re-reviewer if step 2 ran (the task's full range,
+   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes. Its
+   verdict is read before anything launches: a nonzero exit is a guard failure, not a review
+   finding — it does **not** consume a fix-round slot; send the task back to the **same
+   implementer**, then re-run the guard, before anything below.
+4. **One message launches together:** bundle N's re-reviewer if step 2 ran (the task's full range,
    `git diff <task-base>..<new-task-sha>`), bundle N+1's reviewers, and bundle N+2's implementer.
+   **The next Bash call records every launch's `begin`** — the very next action after the launches
+   return, which is what "recorded immediately after the launch returns" above requires. The
+   reviewer's `record end` and `flow tasks tick` share one call once its report file exists.
 
 **When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the
@@ -417,12 +427,31 @@ panel carries no roster, so there is no `full`-preset split into two per-task re
 review — the guard has already passed by then; a step's checkbox tracks the step and gates nothing.
 A red task's checkbox is ticked together with its partner's, when their one commit passes review.
 
-**The last bundle's reviewers run alone.** Overlap them only with the review panel's pre-work —
-its citation check, bundle rebuild, relocation comparison and diff-size check; `final-review.diff`
-is written and the slots dispatched once the last review is clean and any fix folded.
+**The last bundle's reviewers run alone.** Overlap them only with the review panel's pre-work, in
+its one call. `final-review.diff` is written and the slots dispatched once the last review is
+clean and any fix folded.
 
 **Never end a turn with a child in flight** — wait for every implementer and reviewer launched
 before reporting a stage boundary or asking the operator anything.
+
+**Turn discipline.** A turn is spent only where an output must be read before the next action is
+chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each
+read afterwards — and launches that do not depend on one another share one message. A stage's
+`flow stage begin` rides its first command and its `flow stage end` its last, in the same Bash
+call. **A wait on a child is one foreground call, never a chain of idle calls:**
+
+```bash
+for i in $(seq 1 110); do test -s <report> && break; sleep 5; done
+test -s <report> && echo ready || echo still-running
+```
+
+`<report>` is the file the child's REPORT FILE paragraph names — every child kind writes one as
+its last act, after its commit and its final test run, so the file's presence is the child's
+completion. The loop is bounded under the Bash tool's ten-minute cap; `still-running` re-issues
+the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
+`skills/flow/review-panel.md`) is tracked across the calls. `skills/flow/review-panel.md` and
+`skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
+none of it.
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to

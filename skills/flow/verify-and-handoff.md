@@ -77,8 +77,12 @@ never a session override. Its prompt carries, verbatim:
 > Include this instruction verbatim in any prompt you write for another agent.
 
 **The relay contract.** The verifier has no operator channel, fixes nothing, edits no source, and
-runs every command in the foreground. Its turn ends with a single `## Report` block. The first line
-of its first reply is `Model: <the model named in its own system prompt>`.
+runs every command in the foreground. Its turn ends with a single `## Report` block, and its last
+act before that is writing the same block to
+`<abs-worktree>/.superpowers/sdd/verify-report-<key>.md` — `<key>` this dispatch's own key from
+**Recording** below — which is what the conductor waits on (**Turn discipline**,
+`skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its
+own system prompt>`.
 
 **Recording.** The conductor records each dispatch as a pair, `-role verifier`, `-task` omitted,
 `-model sonnet`, `-key verify` here and `visual-verify` in **Visual verification** below, suffixed
@@ -115,7 +119,9 @@ gate — so a non-zero exit blocks this handoff.
   <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
 ```
 
-The conductor shows the report as this stage's output.
+The conductor shows the report as this stage's output. `prepare-workspace.sh`, both
+`project-get.sh` calls and this stage's `begin` mark are one Bash call; the wait, the verifier's
+`record dispatch end` and the ledger render below are one more.
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
@@ -265,7 +271,9 @@ flow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> -ses
 Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one
 commit per completed task, with every fix-round and red-task-partner fixup already folded in via
 `git rebase --autosquash` — no stray `fixup!` commit should remain unsquashed, unless a PR already
-exists (below).
+exists (below). From here to the handoff, each stage's `begin` mark rides its first command and
+its `end` mark its last (**Turn discipline**,
+`skills/flow/implement.md`); the `## Stage` returns are unchanged.
 
 In **every** affected worktree:
 
