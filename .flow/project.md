@@ -365,6 +365,13 @@ still exits non-zero on the identical case, so it is not the mechanism this proj
 `verify` above carries no such flag — it must keep failing on real drift against the committed
 baseline, which is the whole point of a regression gate.
 
+**`fingerprint` compares `index.html`, rebuilt first.** Vite content-hashes its asset filenames and
+rewrites `index.html` to reference them, so the served `index.html` names the exact bundle the
+daemon embeds, and `web.Handler` serves that embedded file byte-for-byte at `/`. The `npm run
+build` in front makes the comparison mean "the worktree's source", not "whatever `dist/` last
+held"; `make ui-test-up` rebuilds too, so a stack this stage started matches first time and only a
+reused stack pays the restart.
+
 | Setting | Value |
 |---------|-------|
 | `ui paths` | `stats/web/src/**` |
@@ -375,3 +382,4 @@ baseline, which is the whole point of a regression gate.
 | `setup` | `cd stats/web && npm install && npx playwright install chromium` |
 | `verify` | `cd stats/web && npm run test:visual` |
 | `capture` | `cd stats/web && npx playwright test <spec> --update-snapshots` |
+| `fingerprint` | `cd stats/web && npm run build && curl -sf http://127.0.0.1:4174/ \| cmp -s - ../internal/web/dist/index.html` |

@@ -743,6 +743,63 @@ assert_out_contains "case 27" "ui paths"
 assert_out_contains "case 27" "no usable glob"
 assert_out_not_contains "case 27" "VISUAL-OK"
 
+# ===========================================================================
+# Case 28 (KAN-395): a `fingerprint` row is a member of the closed `Command`
+# vocabulary -- accepted, never reported as an unknown command -- and it is
+# OPTIONAL: every case above declares none and passes or fails on other
+# grounds alone, which is the absence-is-silent half of this case, asserted
+# by cases 1 and 24 rather than restated here.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |
+| \`fingerprint\` | \`curl -sf http://127.0.0.1:4174/ \| cmp -s - internal/web/dist/index.html\` |"
+run_guard
+assert_rc "case 28" 0
+assert_out_contains "case 28" "VISUAL-OK"
+assert_out_not_contains "case 28" "vocabulary is closed"
+assert_out_not_contains "case 28" "fingerprint"
+
+# ===========================================================================
+# Case 29 (KAN-395 panel round 0, mutation finding): an unrecognized Command
+# row's violation message must name the full four-word closed vocabulary --
+# `setup`, `verify`, `capture` and `fingerprint` -- not just claim the
+# vocabulary is closed. Cases 12/25 assert the substring "vocabulary is
+# closed" alone, which a message listing any subset of words would still
+# satisfy; this case pins the exact word list so a future edit that drops
+# one of the four from the message string (while the admit logic stays
+# correct) fails a test instead of surviving silently.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`.\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`true\` |
+| \`capture\` | \`true\` |
+| \`deploy\` | \`npm run deploy\` |"
+run_guard
+assert_rc "case 29" 1
+assert_out_contains "case 29" "vocabulary is closed"
+assert_out_contains "case 29" "\`setup\`"
+assert_out_contains "case 29" "\`verify\`"
+assert_out_contains "case 29" "\`capture\`"
+assert_out_contains "case 29" "\`fingerprint\`"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
