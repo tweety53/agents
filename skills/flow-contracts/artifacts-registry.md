@@ -31,7 +31,7 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |
-| Bugbot's throwaway worktree copy | `/flow`'s review panel | sibling of the apply worktree, `<worktree>-bugbot-<round>` | the review panel itself, immediately after that Bugbot dispatch closes — never survives to run 2 |
+| Bugbot's or Mutation's throwaway worktree copy | `/flow`'s review panel | sibling of the apply worktree, `<worktree>-<slot>-<round>` | the review panel itself, immediately after that slot's dispatch closes — never survives to run 2 |
 
 **A change's spec edits are not an artifact and carry no row.** `/myflow-do`'s implementer writes
 them directly into `<project>/spectre/specs/<capability>.md` on the change's branch, in the task
