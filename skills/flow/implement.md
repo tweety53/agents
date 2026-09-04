@@ -245,24 +245,6 @@ one mismatch, or `planner-fix-<n>-<model>` after a second — the same rule stat
 flow stage begin -command '/flow' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**Gather the dispatch context bundle before dispatching any implementer.**
-
-```bash
-mkdir -p <worktree>/.superpowers/sdd
-gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context.md
-```
-
-where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
-`<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
-`skills/flow/`, always. A non-zero exit — including the guard being absent — is reported, and
-dispatching proceeds with the prompt shape this stage used before this capability existed; the
-bundle never gates a run. Confirm the bundle was actually written (`test -f
-<worktree>/.superpowers/sdd/dispatch-context.md`) and report plainly if it is not. **Never read the
-bundle back into this context** — `test -f` is the whole check; its content is the implementer's
-input, not the dispatcher's. Report the script's stderr line for this stage (`bundle unchanged —
-reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
-
 **At most one implementer subagent may be in flight against a given worktree at any moment** —
 a reviewer is not one: it reads an immutable commit range, and any number of them may run beside
 the one implementer. Dispatches into different worktrees remain free to run concurrently. This
@@ -315,7 +297,34 @@ field, repaired by `superpowers:writing-plans` before any dispatch happens; exit
 Bundling does not change the commit-per-task model — an implementer handed a bundle still makes one
 commit per task, carrying that task's own `Task-Id:` trailer — a red task and its partner make one
 commit between them — and a `Build: red` task is bundled with, and commits with, the partner its
-`**Squash-with:**` field names. Every implementer dispatch **must** carry:
+`**Squash-with:**` field names.
+
+**Gather one bundle per dispatch bundle, immediately before that bundle's implementer goes out.**
+Take `<k>` and the ids from the `bundle <k>: <ids>` line `plan-dispatch-bundles.sh` printed for
+it, comma-separated:
+
+```bash
+mkdir -p <worktree>/.superpowers/sdd
+gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
+  <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md <id>[,<id>…]
+```
+
+where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
+`<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
+`skills/flow/`, always. A non-zero exit — including the guard being absent — is reported, and
+dispatching proceeds with the prompt shape this stage used before this capability existed; the
+bundle never gates a run. Confirm the bundle was actually written (`test -f
+<worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md`) and report plainly if it is not.
+**Never read the bundle back into this context** — `test -f` is the whole check; its content is the
+implementer's input, not the dispatcher's. Report the script's stderr line for this stage (`bundle
+unchanged — reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
+
+The sixth argument scopes the bundle's `## tasks.md` section to the plan header and the named
+tasks' blocks (per design.md's `scope-tasks-not-files`); a named id the plan does not carry is
+exit 2, a plan defect reported like a missing `**Files:**` field. The panel's and the fix
+subagent's bundles (`skills/flow/review-panel.md`) keep the five-argument call and the whole plan.
+
+Every implementer dispatch **must** carry:
 
 > **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
@@ -342,8 +351,9 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.
 
-> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context.md` carries this change's
-> proposal, design, plan and engineering principles, gathered for you. You **must** still read the
+> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md` carries this
+> change's proposal, design, engineering principles, and — under `## tasks.md` — the plan header
+> plus your bundle's own task(s) only, gathered for you. You **must** still read the
 > actual diff and the actual code — the bundle is shared *input*, never a substitute for the source.
 > It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do
 > not need to open `<project>/.flow/project.md` yourself for them.

@@ -171,6 +171,10 @@ file. This call is never a gate — generation never blocks the panel.
 check-panel-diff-size.sh <worktree> <merge-base>
 ```
 
+once per worktree in the resolved set, unchanged. **The gating count is the sum across
+worktrees** — one slot now reads every section — and the over-cap prompt names the sum and each
+worktree's own count (design.md's `cap-sum-across-worktrees`).
+
 Exit 0 proceeds. Exit 1 puts the choice to the operator, shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`):
 
@@ -191,9 +195,10 @@ check-panel-docs-only.sh <worktree> <merge-base>
 
 ### The docs-only reduction
 
-Per design.md's `docs-only-reduces-to-primary` (narrowing `roster-from-settings`): **exit 0 —
-every path this branch touched, committed since the merge base, staged or unstaged, ends `.md` or
-`.mdc` — reduces pass 1 to `primary` alone**, plus every slot the operator's per-run instruction
+Per design.md's `docs-only-reduces-to-primary` (narrowing `roster-from-settings`): **exit 0 from
+every worktree in the resolved set — every path this branch touched, committed since the merge
+base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus every
+slot the operator's per-run instruction
 named at this stage's start. Every other resolved slot is recorded in
 `<abs-worktree>/.superpowers/sdd/final-review-panel.md` as `not dispatched — docs-only
 reduction`. `primary` is the reduced roster even when the resolved list does not carry it — the
@@ -201,8 +206,9 @@ same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an 
 On a docs-only branch the whole-branch read covers the text every per-task reviewer already read
 against the same plan; there is no code seam between commits for a second slot to find (KAN-312).
 
-**Exit 1 runs the resolved roster unchanged**; the path the guard printed — the first
-non-documentation path — is recorded beside the verdict. An empty touched-path set is exit 1 too.
+**Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
+printed is recorded beside the verdict. An empty touched-path set is exit 1 too. One worktree at
+exit 1 or 2 runs the resolved roster unchanged for the whole change.
 **Exit 2 reports the guard's stderr and runs the resolved roster unchanged**: an unanswered
 question never reduces a panel.
 
@@ -215,9 +221,25 @@ size, touched area, or any other automatic trigger: beyond the reduced or resolv
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
 
-Write `<abs-worktree>/.superpowers/sdd/final-review.diff` from `git diff <merge-base>` (staged and
-unstaged), then dispatch **separate** review subagents — one per included slot, in **every**
-affected worktree. Never merge two slots into one prompt.
+Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
+worktree in the change's resolved set (**Resolving a change's worktrees**,
+`skills/flow-contracts/worktree-resolution.md`), in resolved order — each worktree's section
+opened by a header naming it and its own working-notes merge base, then that worktree's
+`git diff <merge-base>` (staged and unstaged):
+
+```sh
+: > <abs-worktree>/.superpowers/sdd/final-review.diff
+# for each <worktree> in the resolved set, in order:
+printf '# worktree: %s — merge base %s\n' "<worktree>" "<merge-base>" \
+  >> <abs-worktree>/.superpowers/sdd/final-review.diff
+git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-review.diff
+```
+
+A single-worktree change writes the same shape with one header. Then dispatch **separate** review
+subagents — **one per included slot per round**, in the canonical worktree, each reading the whole
+combined file. Never merge two slots into one prompt, and never dispatch a slot once per worktree:
+one slot reads every worktree's section, so a seam between two repositories is in one reviewer's
+view (design.md's `combined-diff-per-round`).
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
@@ -231,8 +253,10 @@ flow record dispatch end -change <name> -key panel-<round>-<slot> \
 ```
 
 `-slot` names the slot from **The roster** table above. `-role` is
-`reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is the sha a delta-slot's delta
-starts from, passed on a slot dispatched against a delta and on no other. `-model` is `DEFAULT_MODEL`
+`reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a slot dispatched against a delta and on no other; it takes one
+sha, so it carries the **canonical worktree's** held last-reviewed sha for that slot, and the
+panel record names every worktree's sha beside the delta path (design.md's
+`diff-base-canonical-sha`). `-model` is `DEFAULT_MODEL`
 (or this run's override) for every slot except Bugbot and Security dispatched by their own
 `subagent_type`, which record `unknown (agent-defined)` — narrowed by **An unspawnable id is
 substituted, not skipped**, above: a *substituted* Bugbot or Security slot records the model
@@ -249,8 +273,10 @@ printed — `recorded: dispatch <seq>` — into each of that slot's `flow record
 defect, or the literal exemption form `none — <reason>`. Carry this requirement on every slot's
 dispatch prompt.
 
-**Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same one
-`skills/flow/implement.md`'s implementer dispatch carries. **When
+**Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape
+`skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
+resolved set, naming that worktree's own five-argument bundle
+`<abs-worktree>/.superpowers/sdd/dispatch-context.md`, one path each. **For every worktree whose
 `<abs-worktree>/.superpowers/sdd/relocation-comparison.md` exists, every slot's dispatch prompt also
 names its absolute path**, framed as a review input to audit against the diff — never a substitute
 for reading `final-review.diff` itself.
@@ -277,9 +303,17 @@ slot's resolved id substituted:
 > finding with its `file:line`, severity, the sentence naming the defect, and its reproducer. Your
 > return message is the findings summary; the file is the record.
 
-**Every slot's dispatch prompt also carries the CITATION CHECK paragraph, present only when the
-citation pre-check above wrote `<abs-worktree>/.superpowers/sdd/citation-check.md`**, naming its
-absolute path alongside `final-review.diff`:
+**Every slot's dispatch prompt also carries the WORKTREES paragraph**, listing the resolved set
+and, when it holds more than one worktree, the qualification rule:
+
+> **WORKTREES:** this change spans `<abs-worktree-1>`, `<abs-worktree-2>`, …; `final-review.diff`
+> is sectioned by worktree, each section headed `# worktree: <path> — merge base <sha>`. When more
+> than one is listed, prefix every finding's `file:line` with that worktree's basename
+> (`gymie-frontend:src/Foo.tsx:42`) and write its reproducer to run from that worktree.
+
+**Every slot's dispatch prompt also carries the CITATION CHECK paragraph, present for every
+worktree whose citation pre-check above wrote `<abs-worktree>/.superpowers/sdd/citation-check.md`,
+one path each**, naming its absolute path alongside `final-review.diff`:
 
 > **CITATION CHECK:** `<abs-worktree>/.superpowers/sdd/citation-check.md` carries this project's
 > pre-panel citation scan, captured before your dispatch. It is informational — its own exit code
@@ -333,6 +367,9 @@ reads from `<worktree>` at that moment. Bugbot's dispatch — pass 1, and every 
 a substituted general-purpose Bugbot included (**An unspawnable id is substituted, not skipped**) —
 therefore runs against a throwaway worktree, never the shared `<worktree>` the other slots read:
 
+Run the sequence below once per worktree in the resolved set, producing one
+`<worktree>-bugbot-<round>` per repository.
+
 ```bash
 git -C <worktree> worktree add --detach <worktree>-bugbot-<round> HEAD
 git -C <worktree> diff HEAD --binary | git -C <worktree>-bugbot-<round> apply --allow-empty
@@ -357,18 +394,22 @@ plain-text `awk` form cannot survive git's quote-escaping of a filename with a s
 special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
 byte string through untouched, regardless of what the filename contains.
 
-Dispatch Bugbot with `Full Repository Path: <worktree>-bugbot-<round>` in place of `<worktree>`.
-Remove the copy unconditionally once that dispatch closes — completed, timed out (including after
+Dispatch Bugbot **once**, its prompt listing every `<worktree>-bugbot-<round>` copy as the
+repository paths to mutate and test in, in place of `<worktree>` (design.md's
+`bugbot-security-one-dispatch`).
+Remove every copy unconditionally once that dispatch closes — completed, timed out (including after
 the wall-clock re-dispatch), or the run stopped:
 
 ```bash
+# for each copy:
 git -C <worktree> worktree remove --force <worktree>-bugbot-<round>
 ```
 
 Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
 reproducer still runs against the real `<worktree>` at verification time, never against Bugbot's
 copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
-mutate anything, so it keeps sharing `<worktree>` with the reading slots.
+mutate anything, so it keeps sharing `<worktree>` with the reading slots. It too is dispatched
+once, its prompt naming every worktree in the resolved set.
 
 Principles, when dispatched, is the panel's judgment check on *how* the code is built. It reads
 `engineering-principles.md` — never a pasted copy — and owns the project's **hard invariants** from
@@ -497,31 +538,34 @@ re-run exits 0 *and* the fix diff touches a path the finding named. When every f
 raised was Minor, no slot re-runs: proceed to `check-panel-findings-closed.sh` and the stage close.
 A finding that fails verification takes the handback below, and that loop re-runs no slot either.
 
-**When the round raised anything above Minor, re-run on deltas.** A delta is `git diff <the HEAD
-sha that slot last reviewed> HEAD`, written to `<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff`.
-Each dispatch sets that slot's sha to the HEAD it was dispatched against, and a slot not dispatched
-in a round keeps the sha it had; a slot for which no last-reviewed sha is held reads the whole
-`final-review.diff`. Every slot's dispatch prompt names the path it was given and, for a delta, the
-sha that delta starts from. **Check base movement first** above clears every slot's held
-last-reviewed sha on a clean panel-entry rebase, so a round right after one falls under this same
-no-held-sha rule. Then:
+**When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
+held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
+was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
+`<abs-worktree>/.superpowers/sdd/slot-delta-<round>-<slot>.diff` (the canonical worktree's), combined exactly as
+`final-review.diff` is — one `# worktree:` header per worktree, followed by that worktree's `git
+diff <held-sha> HEAD`; a worktree in which the slot holds no sha contributes its whole `git diff
+<merge-base>` section. Every slot's dispatch prompt names the path it was given and, for a delta,
+each worktree's starting sha. **Check base movement first** above clears every slot's held sha in
+the rebased worktree on a clean panel-entry rebase, so that worktree's section falls under the
+no-held-sha rule in the next round. Then:
 
 - **every diff-reading slot** in the resolved roster — Primary included, reading a delta like the
   rest — plus every operator-added slot already dispatched in an earlier pass of this run, re-runs
-  on its delta. **A slot whose delta is empty is not dispatched**, and the record states `not re-run
-  — nothing new since its last read`;
+  on its delta. **A slot whose delta is empty in every worktree is not dispatched**, and the record
+  states `not re-run — nothing new since its last read`;
 - **Bugbot and Security**, which read no diff file, re-run only when that slot raised a finding in
   the previous round or the previous round raised a new Critical;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round.
 
 **The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
-**distinct** last-reviewed sha among the diff-reading slots dispatched this round (two slots
-sharing a sha need one call, not two); a slot with no held sha counts as the merge base. **The
-gating count is the largest of those counts** — the largest single read any one slot this round
-faces — and an exit-1 result from the call that produced it puts the over-cap choice to the
-operator (**The roster**, above), naming the gating count and, when it differs, the full-branch
-count too. Record both in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round,
+worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots
+sharing a sha in a worktree need one call there, not two); a slot with no held sha in a worktree
+counts from that worktree's merge base. **The gating count is the largest per-slot sum across
+worktrees** — the largest single combined read any one slot this round faces — and an exit-1
+result from a call contributing to it puts the over-cap choice to the operator (**The roster**,
+above), naming the gating sum, its per-worktree counts and, when it differs, the full-branch sum.
+Record both in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round,
 alongside the agents-ran/why/diff-path fields the fix pass records.
 
 **The docs-only guard runs again beside that cap check**, `check-panel-docs-only.sh <worktree>

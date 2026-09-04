@@ -6,7 +6,16 @@
 # proposal.md, design.md, tasks.md and the engineering principles on its
 # own.
 #
-# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path>
+# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids>]
+#
+# <task-ids> is optional: a comma-separated list of integer task ids. When
+# given, the "## tasks.md" section carries only the plan's header (every
+# line before the first task line) plus the named tasks' own blocks, in
+# document order, instead of the whole file — a named id the plan does not
+# carry is a malformed invocation (exit 2), reported like any other plan
+# defect. Task-line, body-boundary and fence grammar are
+# plan-dispatch-bundles.py's (see its docstring) — the ids that script
+# printed are the ids this finds.
 #
 # <worktree> and <change-root> are absolute paths; <change-root> is expected
 # to sit under <worktree> (spectre/changes/<name>/, but this script does not
@@ -140,9 +149,15 @@ CHANGE_ROOT="${2:-}"
 NAME="${3:-}"
 PRINCIPLES_PATH="${4:-}"
 OUTPUT_PATH="${5:-}"
+TASK_IDS="${6:-}"
 
 if [ -z "$WORKTREE" ] || [ -z "$CHANGE_ROOT" ] || [ -z "$NAME" ] || [ -z "$PRINCIPLES_PATH" ] || [ -z "$OUTPUT_PATH" ]; then
-  echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path>" >&2
+  echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids>]" >&2
+  exit 2
+fi
+
+if [ -n "$TASK_IDS" ] && ! printf '%s' "$TASK_IDS" | grep -qE '^[0-9]+(,[0-9]+)*$'; then
+  echo "gather-dispatch-context: task ids '$TASK_IDS' must be a comma-separated list of integers" >&2
   exit 2
 fi
 
@@ -322,9 +337,56 @@ add_fixed_source() {
   fi
 }
 
+# scope_tasks <tasks-file> <ids> — print the plan header and the named tasks'
+# blocks, in document order. Task-line, body-boundary and fence grammar are
+# plan-dispatch-bundles.py's (see its docstring), so the ids that script
+# printed are the ids this finds. Exits 1, naming each missing id on stderr.
+scope_tasks() {
+  awk -v ids="$2" '
+    BEGIN {
+      gsub(/ /, "", ids)
+      n = split(ids, want, ",")
+      for (i = 1; i <= n; i++) w[want[i]] = 1
+      fence = 0; header = 1; cur = ""
+    }
+    {
+      if ($0 ~ /^ {0,3}(```|~~~)/) { fence = !fence; if (header || cur != "") print; next }
+      if (!fence && $0 ~ /^- \[[ x]\] [0-9]+\. /) {
+        id = $0; sub(/^- \[[ x]\] /, "", id); sub(/\..*$/, "", id)
+        header = 0
+        cur = (id in w) ? id : ""
+        if (cur != "") seen[cur] = 1
+      } else if (!fence && !header && $0 ~ /^##(#)?([ \t]|$)/) {
+        cur = ""
+      }
+      if (header || cur != "") print
+    }
+    END {
+      bad = 0
+      for (i = 1; i <= n; i++) if (!(want[i] in seen)) {
+        printf "gather-dispatch-context: task %s not found in tasks.md\n", want[i] > "/dev/stderr"
+        bad = 1
+      }
+      exit bad
+    }
+  ' "$1"
+}
+
 add_fixed_source "$PROPOSAL_FILE" "proposal.md"
 add_fixed_source "$DESIGN_FILE" "design.md"
 add_fixed_source "$TASKS_FILE" "tasks.md"
+
+TASKS_SCOPED_BODY=""
+if [ -n "$TASK_IDS" ]; then
+  last=$(( ${#FOUND_LABELS[@]} - 1 ))
+  if [ "$last" -lt 0 ] || [ "${FOUND_LABELS[$last]}" != "tasks.md" ]; then
+    echo "gather-dispatch-context: task ids given but tasks.md is absent or refused" >&2
+    exit 2
+  fi
+  TASKS_SCOPED_BODY="$(scope_tasks "${FOUND_PATHS[$last]}" "$TASK_IDS")" || exit 2
+  FOUND_LABELS[$last]="tasks.md (scoped to task(s) $TASK_IDS)"
+  FOUND_PATHS[$last]="@scoped-tasks"
+fi
 
 if [ -n "$PRINCIPLES_REAL" ] && [ -f "$PRINCIPLES_REAL" ]; then
   FOUND_LABELS+=("$PRINCIPLES_PATH")
@@ -412,11 +474,11 @@ render_body() {
     while [ "$i" -lt "${#FOUND_LABELS[@]}" ]; do
       echo "## ${FOUND_LABELS[$i]}"
       echo
-      if [ -n "${FOUND_PATHS[$i]}" ]; then
-        cat "${FOUND_PATHS[$i]}"
-      else
-        printf '%s' "$PROJECT_COMMANDS_BODY"
-      fi
+      case "${FOUND_PATHS[$i]}" in
+        "@scoped-tasks") printf '%s\n' "$TASKS_SCOPED_BODY" ;;
+        "") printf '%s' "$PROJECT_COMMANDS_BODY" ;;
+        *) cat "${FOUND_PATHS[$i]}" ;;
+      esac
       echo
       i=$((i + 1))
     done
