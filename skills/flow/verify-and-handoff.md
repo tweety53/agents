@@ -150,13 +150,13 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-Steps 1, 2 and 9 are the conductor's. Steps 3–8 and 10 are run by one verifier per worktree
+Steps 1, 2 and 10 are the conductor's. Steps 3–9 and 11 are run by one verifier per worktree
 surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 conductor applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
-`KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`
-commands and `screenshots` root; the worktree-resolved URL of each app `ui paths` matched; the
-project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–8 and 10 below
-as written, committing and pushing nothing.
+`KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
+`fingerprint` commands and `screenshots` root; the worktree-resolved URL of each app `ui paths`
+matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–9
+and 11 below as written, committing and pushing nothing.
 
 1. **Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
    its own shape and closed vocabulary. A project declaring no section → this worktree prints
@@ -177,9 +177,18 @@ as written, committing and pushing nothing.
 4. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
    this worktree per **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) —
    never the project's declared default. If nothing answers, start the stack from `## run` and
-   record that this stage started it — needed at step 10.
-5. **Run `verify`.** A non-zero exit blocks.
-6. **Capture** — author a spec covering the views this change touched, then run `capture` with
+   record that this stage started it — needed at step 11.
+5. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
+   of what the app was serving when it was taken, and a stack step 4 found already running may be
+   serving a build older than the worktree — KAN-29's last fix round captured, and nearly accepted,
+   the bug the fix had removed. Run `fingerprint`. Exit 0 → the served bundle is the worktree's
+   build; continue. Non-zero → stop the stack, start it from `## run`, record that this stage
+   started it (step 11 stops it), and run `fingerprint` once more. A second non-zero exit blocks,
+   carrying the command's output. No row declared → report `fingerprint: not declared` and
+   continue; the report makes the gap visible in every handoff, but this stage cannot prove what
+   it was never told how to check.
+6. **Run `verify`.** A non-zero exit blocks.
+7. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration.md`; nothing here restates it. **`capture` creates
    this change's baseline**: writing a PNG that does not yet exist is its success path, not a
@@ -188,7 +197,7 @@ as written, committing and pushing nothing.
    `check-spec-reach.sh <worktree>` — the spec `capture` just wrote must be reached by a
    `package.json` script of the `regression checkout`; exit 1 (an orphan, named) or 2 (cannot
    answer) blocks.
-7. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
+8. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
 
    ```bash
    resolve-visual-screenshots.sh <worktree> <spec's basename>
@@ -200,26 +209,27 @@ as written, committing and pushing nothing.
    that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
    script can do that — and state, per view, what was seen. An unreadable PNG is reported and blocks
    too.
-8. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
-   path, resolved by the same recursive search step 7 used, and what was seen.
-9. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
-   them; with none declared, commit to the change's own branch instead. **Never push** — see
-   `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another
-   repository, so no guard here grants one. `regression repo` still records which repository the
-   checkout is expected to be, and `check-visual-verification.sh` still reports a mismatch against
-   its real `origin`, but that is an identity assertion, not an authorisation. When a commit landed
-   in a `regression checkout`, print the push command for the operator to run by hand:
+9. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
+   path, resolved by the same recursive search step 8 used, and what was seen.
+10. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
+    them; with none declared, commit to the change's own branch instead. **Never push** — see
+    `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another
+    repository, so no guard here grants one. `regression repo` still records which repository the
+    checkout is expected to be, and `check-visual-verification.sh` still reports a mismatch against
+    its real `origin`, but that is an identity assertion, not an authorisation. When a commit landed
+    in a `regression checkout`, print the push command for the operator to run by hand:
 
-   ```bash
-   git -C <regression checkout> push
-   ```
-10. **Stop the stack only if step 4 started it.** A stack the operator already had running is left
+    ```bash
+    git -C <regression checkout> push
+    ```
+11. **Stop the stack only if step 4 or step 5 started it.** A stack the operator already had running is left
     alone.
 
 ```text verified:design.md section 3 of this change
 ## Report
 - setup: <not declared | exit <n>>
 - stack: <already running | started and stopped | could not be started — <output>>
+- fingerprint: <not declared | exit 0 | mismatch → restarted → exit <n>>
 - verify: exit <n>
   <output, verbatim or last 40 lines>
 - capture: exit <n>
@@ -235,7 +245,8 @@ is carried in the report; the `Visual:` handoff line is built from its view entr
 
 **Blocking.** This stage blocks the `IN_PROGRESS` handoff on: a failed `setup`, a failed `verify`,
 a genuine `capture` failure — **never a first-run snapshot write, which is `capture`'s own success
-path per step 6 above** — a stack that could not be started, a `check-spec-reach.sh` exit 1 or 2,
+path per step 7 above** — a stack that could not be started, **a `fingerprint` that still exits
+non-zero after step 5's restart**, a `check-spec-reach.sh` exit 1 or 2,
 an unreadable PNG, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
@@ -325,7 +336,7 @@ Resolve the run instructions for the handoff's `Run it:` section. It writes no f
   `flow` database inside it are never stopped, restarted or dropped by any run —
   `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
   own `## run` names that service, the prohibition wins over this reload rule, never the reverse.
-  This is separate from **Visual verification**'s own start/stop rule above (step 10): that stage
+  This is separate from **Visual verification**'s own start/stop rule above (step 11): that stage
   stops only the stack it started for its own probe, and that rule is not restated here. This rule
   reloads whatever the run instructions name, on every fix run, regardless of whether that stage ran
   or started anything.
@@ -341,7 +352,7 @@ Resolve the run instructions for the handoff's `Run it:` section. It writes no f
   <project>/CLAUDE.md's "Never stop the dev workspace's stats service or its storage".
   ```
 
-  `flow.visual-verify`'s own `make ui-test-up`/`make ui-test-down` pair (step 4 and step 10 above)
+  `flow.visual-verify`'s own `make ui-test-up`/`make ui-test-down` pair (steps 4–5 and step 11 above)
   is a different mechanism entirely — it starts and stops the disposable UI-test stack on
   `127.0.0.1:4174` for that stage's own probe, and `4174` is not an application `## apps` names at
   all, so it is never this rule's reload target.
@@ -441,7 +452,7 @@ line is printed the same way — always, `unknown` included.**
 
 **The `Visual:` line reports `flow.visual-verify`'s own outcome.** Every screenshot path in it is
 absolute, per **Handoff output** (`skills/flow-contracts/pipeline.md`)'s every-path-is-absolute
-rule — the operator must be able to open the PNG. **Its push clause appears only when step 9
+rule — the operator must be able to open the PNG. **Its push clause appears only when step 10
 committed to a `regression checkout`** — the stage never pushes itself, per `no-automatic-push`, so
 this is the command the operator runs by hand to land that commit.
 
