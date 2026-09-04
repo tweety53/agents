@@ -103,7 +103,7 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 
 | id | Slot | How to spawn | Model |
 |---|------|---------------|-------|
-| `primary` | **Primary** — plan alignment + code quality | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints | `DEFAULT_MODEL` |
+| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; code quality is `code-review-low`'s and Bugbot's | `DEFAULT_MODEL` |
 | `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL` |
 | `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL` |
 | `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below (own throwaway worktree — see **The throwaway worktree** below) | none — records `unknown (agent-defined)` |
@@ -111,9 +111,9 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 | `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL` |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
-`code-reviewer.md` (Primary), `principles-reviewer-prompt.md` and `engineering-principles.md`
-(Principles), and `<project>/.flow/project.md`'s standards files are inputs to the slot that reads
-them; the dispatcher resolves their paths, confirms each exists, and names them in the prompt.
+`principles-reviewer-prompt.md` and `engineering-principles.md` (Principles), and
+`<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
+dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
 six entries, never a seventh. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
