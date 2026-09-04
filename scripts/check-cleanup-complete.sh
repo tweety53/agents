@@ -118,8 +118,8 @@
 #   archived with the change, so nothing removes them and there is nothing for
 #   this guard to find gone
 # registry-row-not-checked: Dispatch context bundle — removed with the worktree
-# registry-row-not-checked: Bugbot's throwaway worktree copy — created and removed
-#   entirely within the review panel stage, immediately after that Bugbot dispatch
+# registry-row-not-checked: Bugbot's or Mutation's throwaway worktree copy — created and removed
+#   entirely within the review panel stage, immediately after that slot's dispatch
 #   closes; it never survives to run 2, so there is nothing here for this guard to
 #   find gone
 # registry-row-not-checked: Archive branch — nothing in this pipeline removes it;

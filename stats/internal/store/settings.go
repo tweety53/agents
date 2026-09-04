@@ -24,7 +24,7 @@ var ValidModels = map[string]bool{
 }
 
 // ValidReviewers is the fixed vocabulary a flow_settings.reviewers entry
-// may take. The panel dispatches exactly the resolved list; these five ids
+// may take. The panel dispatches exactly the resolved list; these six ids
 // no longer split into a required subset and an on-demand-only subset
 // (design.md's roster-from-settings decision superseded that split).
 var ValidReviewers = map[string]bool{
@@ -33,6 +33,7 @@ var ValidReviewers = map[string]bool{
 	"code-review-low": true,
 	"bugbot":          true,
 	"security":        true,
+	"mutation":        true,
 }
 
 // ErrInvalidModel is returned by PutSettings when DefaultModel is not one

@@ -106,8 +106,9 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 | `primary` | **Primary** — plan alignment + code quality | **superpowers:requesting-code-review** with `final-review.diff` + the plan/spec constraints | `DEFAULT_MODEL` |
 | `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL` |
 | `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL` |
-| `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below (own throwaway worktree — see **Bugbot's throwaway worktree** below) | none — records `unknown (agent-defined)` |
+| `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below (own throwaway worktree — see **The throwaway worktree** below) | none — records `unknown (agent-defined)` |
 | `security` | **Security** | `subagent_type: security-review`, same shape as Bugbot | none — records `unknown (agent-defined)` |
+| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL` |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `code-reviewer.md` (Primary), `principles-reviewer-prompt.md` and `engineering-principles.md`
@@ -115,7 +116,7 @@ Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carr
 them; the dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
-five entries, never a sixth. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
+six entries, never a seventh. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
 for this run. There is no parent-model inheritance and no economy tier. Bugbot and Security are dispatched by
 `subagent_type` and carry their own agent definitions — pass them **no** model override, unless the
 harness running this stage does not offer that agent type — see below.
@@ -147,7 +148,7 @@ own agent definition, which a substitute is not. The panel record and the handof
 in prose which slots were substituted and ran as general-purpose. **A dispatch recorded as Bugbot
 that was not Bugbot corrupts the one record that says what reviewed this branch** — the recording
 rule above exists to keep that record honest, not merely tidy. A substituted Bugbot's dispatch runs
-against the same throwaway worktree treatment as the real slot (**Bugbot's throwaway worktree**),
+against the same throwaway worktree treatment as the real slot (**The throwaway worktree**),
 since it carries the same mutation-testing brief.
 
 Check for one at two points: at the start of this stage (has the operator, in this run's own argument or
@@ -350,35 +351,38 @@ pass.
 Code review (low), when dispatched, invokes no skill — unlike Primary and Principles above. Its
 findings are ordinary `F<n>` rows, exactly like every other slot's.
 
-### Bugbot's mutation-testing brief
+### The mutation-testing brief
 
-Wherever the panel dispatches Bugbot, its dispatch prompt carries a mutation-testing brief: for
-each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a boundary, remove
-a branch — and establish whether an existing test fails. A mutation no test catches is a
+Wherever the panel dispatches Bugbot or Mutation, the dispatch prompt carries a mutation-testing
+brief: for each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a
+boundary, remove a branch, move an interaction off its target, overlay an earlier commit's tree and
+run the tests — and establish whether an existing test fails. A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
 operator withdraws it with a reason.
 
-### Bugbot's throwaway worktree
+### The throwaway worktree
 
-Bugbot mutates code in place to run its brief; every other slot only reads the diff. Dispatching
-Bugbot into the same worktree a reading slot concurrently reads is the KAN-366 collision — a
-mutation applied for Bugbot's test is visible to whatever a concurrently dispatched reading slot
-reads from `<worktree>` at that moment. Bugbot's dispatch — pass 1, and every fix-round re-run,
-a substituted general-purpose Bugbot included (**An unspawnable id is substituted, not skipped**) —
-therefore runs against a throwaway worktree, never the shared `<worktree>` the other slots read:
+Bugbot and Mutation both mutate code in place to run their brief; every other slot only reads the
+diff. Dispatching either into the same worktree a reading slot concurrently reads is the KAN-366
+collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched
+reading slot reads from `<worktree>` at that moment. Bugbot's and Mutation's dispatch — pass 1, and
+every fix-round re-run, a substituted general-purpose slot included (**An unspawnable id is
+substituted, not skipped**) — therefore both run there, against a throwaway worktree, never the
+shared `<worktree>` the other slots read:
 
-Run the sequence below once per worktree in the resolved set, producing one
-`<worktree>-bugbot-<round>` per repository.
+Run the sequence below once per worktree in the resolved set per slot, producing one
+`<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot` or `mutation`),
+so a roster carrying both produces two copies per repository per round.
 
 ```bash
-git -C <worktree> worktree add --detach <worktree>-bugbot-<round> HEAD
-git -C <worktree> diff HEAD --binary | git -C <worktree>-bugbot-<round> apply --allow-empty
+git -C <worktree> worktree add --detach <worktree>-<slot>-<round> HEAD
+git -C <worktree> diff HEAD --binary | git -C <worktree>-<slot>-<round> apply --allow-empty
 git -C <worktree> status --porcelain -z | \
   while IFS= read -r -d '' entry; do
     st="${entry:0:2}"; f="${entry:3}"
     [ "$st" = "??" ] || continue
-    mkdir -p "<worktree>-bugbot-<round>/$(dirname "$f")"
-    cp -a "<worktree>/$f" "<worktree>-bugbot-<round>/$f"
+    mkdir -p "<worktree>-<slot>-<round>/$(dirname "$f")"
+    cp -a "<worktree>/$f" "<worktree>-<slot>-<round>/$f"
   done
 ```
 
@@ -394,20 +398,20 @@ plain-text `awk` form cannot survive git's quote-escaping of a filename with a s
 special character, and silently drops that file from the copy; the `-z`/NUL form carries the literal
 byte string through untouched, regardless of what the filename contains.
 
-Dispatch Bugbot **once**, its prompt listing every `<worktree>-bugbot-<round>` copy as the
-repository paths to mutate and test in, in place of `<worktree>` (design.md's
+Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
+that slot as the repository paths to mutate and test in, in place of `<worktree>` (design.md's
 `bugbot-security-one-dispatch`).
-Remove every copy unconditionally once that dispatch closes — completed, timed out (including after
-the wall-clock re-dispatch), or the run stopped:
+Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
+(including after the wall-clock re-dispatch), or the run stopped:
 
 ```bash
 # for each copy:
-git -C <worktree> worktree remove --force <worktree>-bugbot-<round>
+git -C <worktree> worktree remove --force <worktree>-<slot>-<round>
 ```
 
 Findings and reproducers are unaffected: a finding's `file:line` is repo-relative, and every
-reproducer still runs against the real `<worktree>` at verification time, never against Bugbot's
-copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
+reproducer still runs against the real `<worktree>` at verification time, never against Bugbot's or
+Mutation's copy, exactly as today. Security is **not** isolated this way — nothing in this file requires it to
 mutate anything, so it keeps sharing `<worktree>` with the reading slots. It too is dispatched
 once, its prompt naming every worktree in the resolved set.
 
@@ -553,7 +557,7 @@ no-held-sha rule in the next round. Then:
   rest — plus every operator-added slot already dispatched in an earlier pass of this run, re-runs
   on its delta. **A slot whose delta is empty in every worktree is not dispatched**, and the record
   states `not re-run — nothing new since its last read`;
-- **Bugbot and Security**, which read no diff file, re-run only when that slot raised a finding in
+- **Bugbot, Mutation and Security**, which read no diff file, re-run only when that slot raised a finding in
   the previous round or the previous round raised a new Critical;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round.
@@ -573,12 +577,12 @@ alongside the agents-ran/why/diff-path fields the fix pass records.
 reduced roster, and `primary` re-runs on its delta as above. A branch the fix round made no
 longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
 resolved slot not yet dispatched this run, each reading the whole `final-review.diff` under the
-no-last-reviewed-sha rule above; Bugbot and Security among them take their pass-1 shape, throwaway
+no-last-reviewed-sha rule above; Bugbot, Mutation and Security among them take their pass-1 shape, throwaway
 worktree included. Record which slots joined this way and the path the guard printed.
 
 Handoff still requires **zero open findings at any severity** from every agent that has run, and
 no stale result — where **a slot's clean result is stale when the rule above required that slot to
-re-run and it has not**. A non-Minor fix Bugbot did not raise leaves Bugbot's result current: the
+re-run and it has not**. A non-Minor fix Bugbot or Mutation did not raise leaves that slot's result current: the
 round's own mutation-proof (below) covers what the fix changed.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
@@ -675,7 +679,7 @@ now — checked by running the named covering test against the **pre-fix** code 
 fails.
 
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
-Bugbot is neither in the resolved roster nor added this run is exactly where the round's own proof
+neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
 is the only mutation reasoning that happens at all.
 
 **Rebuild the dispatch context bundle before dispatching the fix subagent**, same as above,

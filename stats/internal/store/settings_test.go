@@ -22,7 +22,7 @@ func TestSettingsStore_RoundTrip(t *testing.T) {
 		DefaultModel:    "opus",
 		SelfReviewModel: "haiku",
 		PlanningModel:   "fable",
-		Reviewers:       []string{"primary", "principles", "code-review-low", "bugbot"},
+		Reviewers:       []string{"primary", "principles", "code-review-low", "bugbot", "mutation"},
 	}
 
 	if err := st.PutSettings(ctx, want); err != nil {
