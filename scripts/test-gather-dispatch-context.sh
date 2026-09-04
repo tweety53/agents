@@ -965,6 +965,165 @@ else
   fi
 fi
 
+# ===========================================================================
+# CASES 37-41 (kan-402): the optional sixth argument scopes the ## tasks.md
+# section to the named task ids. design.md's scope-tasks-not-files and
+# unknown-task-id-exit-2 decisions are the contract; plan-dispatch-bundles.py
+# is the task-line and fence grammar.
+# ===========================================================================
+
+# capture_scoped <task-ids> -> RC, ERR, OUT, invoking with the six arguments.
+capture_scoped() {
+  set +e
+  ERR="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" "$1" 2>&1 1>/dev/null)"
+  RC=$?
+  set -e
+  if [ -f "$OUTPUT_PATH" ]; then
+    OUT="$(cat "$OUTPUT_PATH")
+$ERR"
+  else
+    OUT="$ERR"
+  fi
+}
+
+# write_plan_fixture -> overwrites CHANGE_ROOT/tasks.md with three tasks, a
+# step line under task 1, and a fenced task-line lookalike inside task 2.
+# The fence lines are built from a variable so this suite's own file carries
+# no fence at column 0 inside a fenced plan block (the plan-provenance and
+# build-green guards toggle fence state on any such line).
+write_plan_fixture() {
+  local fence='```'
+  printf '%s\n' \
+    '# demo plan' '' '> **Execution:** header line' '' \
+    '- [ ] 1. First' '**Files:** `a`' '  - [ ] **Step 1: one**' '' \
+    '- [ ] 2. Second' '**Files:** `b`' '' \
+    "${fence}sh" '- [ ] 9. Not a task' "$fence" '' \
+    '- [ ] 3. Third' '**Files:** `c`' > "$CHANGE_ROOT/tasks.md"
+}
+
+# CASE 37: one id -> the header, task 1's block (its step included), nothing else.
+new_repo
+write_plan_fixture
+capture_scoped 1
+if [ "$RC" -ne 0 ]; then
+  fail "scoped one id: call exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^> \*\*Execution:\*\* header line$'; then
+  fail "scoped one id: plan header missing from the section: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^- \[ \] 1\. First$'; then
+  fail "scoped one id: task 1's line missing: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^  - \[ \] \*\*Step 1: one\*\*$'; then
+  fail "scoped one id: task 1's step missing: $OUT"
+elif printf '%s' "$OUT" | grep -q 'Second\|Third\|Not a task'; then
+  fail "scoped one id: another task's block leaked into the section: $OUT"
+else
+  pass "scoped to one id: header plus that task's block only"
+fi
+
+# CASE 38: ids "3,1" -> both blocks, task 1 before task 3, task 2 absent.
+new_repo
+write_plan_fixture
+capture_scoped 3,1
+if [ "$RC" -ne 0 ]; then
+  fail "scoped two ids: call exited $RC: $OUT"
+elif printf '%s' "$OUT" | grep -q 'Second'; then
+  fail "scoped two ids: task 2 leaked: $OUT"
+else
+  LINE_1_38="$(printf '%s\n' "$OUT" | grep -n '^- \[ \] 1\. First$' | cut -d: -f1)"
+  LINE_3_38="$(printf '%s\n' "$OUT" | grep -n '^- \[ \] 3\. Third$' | cut -d: -f1)"
+  if [ -z "$LINE_1_38" ] || [ -z "$LINE_3_38" ]; then
+    fail "scoped two ids: a named task's line is missing: $OUT"
+  elif [ "$LINE_1_38" -gt "$LINE_3_38" ]; then
+    fail "scoped two ids: task 3 printed before task 1 — not document order: $OUT"
+  else
+    pass "scoped to two ids given in reverse: document order"
+  fi
+fi
+
+# CASE 39: the fenced `- [ ] 9.` line is worked-example text, never a task.
+new_repo
+write_plan_fixture
+capture_scoped 9
+if [ "$RC" -ne 2 ]; then
+  fail "fenced lookalike: expected exit 2, got $RC: $OUT"
+elif ! printf '%s' "$ERR" | grep -q 'task 9 not found in tasks.md'; then
+  fail "fenced lookalike: stderr does not name the missing task: $ERR"
+else
+  pass "a fenced task-line lookalike is not a task: exit 2"
+fi
+
+# CASE 40: an id with no task line at all.
+new_repo
+write_plan_fixture
+capture_scoped 7
+if [ "$RC" -ne 2 ]; then
+  fail "unknown id: expected exit 2, got $RC: $OUT"
+elif ! printf '%s' "$ERR" | grep -q 'task 7 not found in tasks.md'; then
+  fail "unknown id: stderr does not name the missing task: $ERR"
+else
+  pass "an unknown id exits 2 naming it"
+fi
+
+# CASE 41: without the sixth argument the whole plan is carried, lookalike included.
+new_repo
+write_plan_fixture
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "five-argument call: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^- \[ \] 2\. Second$' \
+  || ! printf '%s' "$OUT" | grep -q '^- \[ \] 9\. Not a task$'; then
+  fail "five-argument call: the plan section is no longer the whole file: $OUT"
+else
+  pass "the five-argument call keeps the whole plan"
+fi
+
+# CASE 42 (review fix): plan-dispatch-bundles.py's FENCE_RE allows 0-3
+# leading spaces before the backtick/tilde run (`^ {0,3}(\`{3,}|~{3,})`);
+# scope_tasks's own fence regex must recognize an indented fence the same
+# way. The fenced lookalike below reuses task id 1 (already wanted) with a
+# unique **Files:** marker: if the indented fence markers are not
+# recognized as fences, the parser never re-enters "inside task 2, not
+# wanted" state and instead treats the lookalike as a second, real
+# "- [ ] 1." task line, leaking FAKE-MARKER into the output.
+write_indented_fence_fixture() {
+  local fence='```'
+  printf '%s\n' \
+    '# demo plan' '' '> **Execution:** header line' '' \
+    '- [ ] 1. First' '**Files:** `a`' '' \
+    '- [ ] 2. Second' '**Files:** `b`' \
+    "  ${fence}sh" '- [ ] 1. Fake' '**Files:** `FAKE-MARKER`' "  ${fence}" '' \
+    '- [ ] 3. Third' '**Files:** `c`' > "$CHANGE_ROOT/tasks.md"
+}
+
+new_repo
+write_indented_fence_fixture
+capture_scoped 1,3
+if [ "$RC" -ne 0 ]; then
+  fail "indented fence: call exited $RC: $OUT"
+elif printf '%s' "$OUT" | grep -q 'FAKE-MARKER\|Fake\|Second'; then
+  fail "indented fence: the fenced lookalike or task 2 leaked into the section: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^- \[ \] 1\. First$' \
+  || ! printf '%s' "$OUT" | grep -q '^- \[ \] 3\. Third$'; then
+  fail "indented fence: a named task's line is missing: $OUT"
+else
+  pass "an indented (1-3 space) fence still hides its lookalike task line"
+fi
+
+# CASE 43 (review fix): task ids given while tasks.md itself is absent —
+# the guard at gather-dispatch-context.sh's TASK_IDS block
+# (`"${FOUND_LABELS[$last]}" != "tasks.md"`) must refuse with exit 2 rather
+# than silently scoping the wrong FOUND_LABELS/FOUND_PATHS slot (whichever
+# content source — proposal.md or design.md — happened to be last found).
+new_repo
+rm "$CHANGE_ROOT/tasks.md"
+capture_scoped 1
+if [ "$RC" -ne 2 ]; then
+  fail "tasks.md absent: expected exit 2, got $RC: $OUT"
+elif ! printf '%s' "$ERR" | grep -q 'task ids given but tasks.md is absent or refused'; then
+  fail "tasks.md absent: stderr does not name the absence: $ERR"
+else
+  pass "task ids given while tasks.md is absent exits 2 naming it"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
