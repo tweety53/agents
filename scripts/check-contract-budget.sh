@@ -193,7 +193,7 @@ skills/flow/engineering-principles.md 10732
 skills/flow/implement.md 32500
 skills/flow/integrate.md 18602
 skills/flow/principles-reviewer-prompt.md 13103
-skills/flow/review-panel.md 45213
+skills/flow/review-panel.md 58732
 skills/flow/security-reviewer-prompt.md 1540
 skills/flow/verify-and-handoff.md 33199
 skills/flow-contracts/SKILL.md 9665
