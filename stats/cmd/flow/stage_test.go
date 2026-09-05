@@ -344,6 +344,129 @@ func TestStageBeginCannotDetectShellExpandedSessionToken(t *testing.T) {
 	}
 }
 
+// TestStageBeginDefaultsSessionFromClaudeCodeEnv pins design.md's env bind:
+// when -session is not given, a begin mark picks up CLAUDE_CODE_SESSION_ID
+// so the row is born with session_id set and the harvester's transcript
+// search never has to run for it.
+func TestStageBeginDefaultsSessionFromClaudeCodeEnv(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "6af6b60e-72da-4615-8e3f-75d37bdf8f9d")
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-env-bind", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if got["sessionId"] != "6af6b60e-72da-4615-8e3f-75d37bdf8f9d" {
+		t.Errorf("sessionId = %v, want the CLAUDE_CODE_SESSION_ID value", got["sessionId"])
+	}
+	if got["sessionToken"] != "mf-session-token-env-bind" {
+		t.Errorf("sessionToken = %v, want mf-session-token-env-bind", got["sessionToken"])
+	}
+}
+
+// TestStageBeginSessionFlagWinsOverClaudeCodeEnv pins the precedence design.md
+// states: -session, when given, wins over CLAUDE_CODE_SESSION_ID.
+func TestStageBeginSessionFlagWinsOverClaudeCodeEnv(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "6af6b60e-72da-4615-8e3f-75d37bdf8f9d")
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session", "sess-flag",
+			"-session-token", "mf-session-token-flag-wins", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if got["sessionId"] != "sess-flag" {
+		t.Errorf("sessionId = %v, want sess-flag (the flag must win over the env var)", got["sessionId"])
+	}
+	if got["sessionToken"] != "mf-session-token-flag-wins" {
+		t.Errorf("sessionToken = %v, want mf-session-token-flag-wins", got["sessionToken"])
+	}
+}
+
+// TestStageBeginOmitsSessionWhenEnvUnset pins that when neither -session nor
+// CLAUDE_CODE_SESSION_ID is set, the begin mark omits sessionId entirely
+// rather than sending it as an empty string (a mutation slot finding: a
+// mark born with session_id = "" would skip the harvester's transcript
+// search the same way a real session id does, but attribute nothing).
+func TestStageBeginOmitsSessionWhenEnvUnset(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Fatalf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.sdd-tdd", "-session-token", "mf-session-token-no-env", "kan-16"},
+		strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(gotBody, &got); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if _, ok := got["sessionId"]; ok {
+		t.Errorf("sessionId = %v, want the field absent (not empty-string)", got["sessionId"])
+	}
+}
+
 // --- stage end: records outcome and metrics ---
 
 // TestStageEndRecordsOutcomeAndMetrics pins that `stage end` sends the
