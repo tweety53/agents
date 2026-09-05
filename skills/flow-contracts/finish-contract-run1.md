@@ -302,7 +302,7 @@ failure, which sends the operator debugging the wrong thing. Offer to leave the 
 `IN_PROGRESS` with the work staged; there is nothing to lose, because nothing was pushed.
 
 **No verification gate runs before integration.** No tests, no linters, no spec-coverage check.
-Correctness was established during `/myflow-do` — TDD per task, per-task review, the final review
+Correctness was established during `/myflow-do` — TDD per task, the final review
 panel — and by the human gate. Re-running it here would repeat finished work immediately before
 the one irreversible step. One exception exists: `skills/flow/integrate.md`'s own in-pipeline
 rebase step runs a scoped re-verification, over the rebase's overlap set only, when a clean rebase

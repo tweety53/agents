@@ -33,7 +33,7 @@ still apply.
 | **2** | using-git-worktrees | `/flow` (implementation) |
 | **4** | subagent-driven-development | `/flow` (implementation) |
 | **5** | test-driven-development | `/flow`, every implementer dispatch |
-| **6** | requesting-code-review + the panel | `/flow` (implementation) |
+| **6** | the review panel | `/flow` (implementation) |
 | **8** | verification-before-completion | `/flow` (implementation) |
 
 `finishing-a-development-branch` is **never** invoked — integration is `/flow`'s own job.

@@ -288,8 +288,8 @@ its commit folds into.
 Add this header to `tasks.md`:
 
 ```markdown
-> **Execution:** `/flow` implements this plan. Mark a task's own checkbox when that task
-> passes spec + quality review.
+> **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
+> `check-task-commit-fields.sh` passes on that task's commit.
 ```
 
 Add a second header line, in the same block, declaring whether this plan relocates existing

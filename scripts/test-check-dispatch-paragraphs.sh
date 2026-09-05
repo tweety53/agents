@@ -179,11 +179,11 @@ write_site() {
 }
 
 # ===========================================================================
-# Case 1: both required sites correct — exit 0. review-panel.md now carries
-# both the REPRODUCE reviewer block and the VERBATIM REPORT block, plus two
-# FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix dispatch);
-# implement.md carries two FOREGROUND BUILDS blocks too (implementer
-# dispatch, per-task reviewer dispatch).
+# Case 1: both required sites correct — exit 0. review-panel.md now
+# carries both the REPRODUCE reviewer block and the VERBATIM REPORT block,
+# plus two FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix
+# dispatch); implement.md carries two FOREGROUND BUILDS blocks too
+# (implementer dispatch, the conductor's own §4 instruction).
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -318,7 +318,7 @@ esac
 # deleting that branch outright still left this harness printing
 # `all cases passed`, because a later layer caught the same fixture and
 # reported a different reason. Found by mutation-testing during task 1's
-# per-task review. Asserting the branch's own wording is what makes deleting
+# review. Asserting the branch's own wording is what makes deleting
 # it fail here.
 case "$OUT" in
   *"does not exist"*) pass "case 6: reports it through the existence branch" ;;
