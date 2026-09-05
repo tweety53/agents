@@ -156,8 +156,16 @@ regardless of whether any `flow` call above reached the store.
 resumes the planner with the operator's answer via **SendMessage**. Section B's merged
 convergence-and-approval confirm and its third-round offer are relayed the same
 way — the planner poses each exactly as B states it, the parent asks it exactly as received, and
-the planner's next turn opens with the operator's answer. The parent marks `flow.brainstorm` end
-and `flow.design-approval` begin/end around the HARD GATE approval, exactly as today:
+the planner's next turn opens with the operator's answer.
+
+**Prose preceding a `## Question` block is relayed too, not dropped.** When the planner's turn
+carries a summary before the question — most concretely the convergence confirm's "state what you
+believe settled" paragraph — the parent shows that prose to the operator (as ordinary text, before
+the **AskUserQuestion** call), not only the bare question and options. The operator approving or
+answering the question is approving against the summary they were actually shown.
+
+The parent marks `flow.brainstorm` end and `flow.design-approval` begin/end around the merged
+convergence-and-approval confirm, exactly as today:
 
 ```bash
 flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
