@@ -332,9 +332,27 @@ if [ "$OPEN_COUNT" -gt 0 ]; then
   add "$OPEN_COUNT open finding(s) in the review panel record"
 fi
 
-if [ -z "$REASONS" ]; then
-  echo "CLEAR: $WORKTREE — every plan item is checked and no finding is open"
-else
-  echo "OUTSTANDING: $WORKTREE — $REASONS"
+# THE VERDICT IS RECORDED, AND PRIOR FALSE POSITIVES ARE ADVISORY. Both
+# `flow` calls below are wrapped so that neither can move the verdict line
+# or the exit code this guard already committed to above: `flow record
+# verdict` is guarded by `|| true`, and `flow record verdicts` only ever
+# feeds an `echo` on stderr, chained with `&&` so any failure in the chain
+# — the call itself, `jq`, or an empty/zero count — simply skips the echo.
+# The prior-false-positive read runs only on OUTSTANDING: on CLEAR there is
+# no breakdown for a prior false positive to be a hint about, and a gate
+# that cannot fire without a store must never block on a hint (design.md's
+# script-reads-are-advisory decision). A store outage's only visible trace
+# would be the write's own `⚠ flow: store unreachable — wrote local journal`
+# line, but that write's stdout and stderr are both discarded, so the
+# outage stays as silent as the write's own exit code.
+VERDICT_LINE="CLEAR: $WORKTREE — every plan item is checked and no finding is open"
+[ -n "$REASONS" ] && VERDICT_LINE="OUTSTANDING: $WORKTREE — $REASONS"
+flow record verdict -change "$NAME" -guard check-unfinished-work -worktree "$WORKTREE" \
+  -verdict "$VERDICT_LINE" -C "$WORKTREE" >/dev/null 2>&1 || true
+if [ -n "$REASONS" ]; then
+  PRIOR="$(flow record verdicts -guard check-unfinished-work -false-positive -C "$WORKTREE" 2>/dev/null)" \
+    && N="$(printf '%s' "$PRIOR" | jq 'length' 2>/dev/null)" && [ "${N:-0}" -gt 0 ] \
+    && echo "check-unfinished-work: prior false positives for this guard on this project: $N — last: $(printf '%s' "$PRIOR" | jq -r '.[0] | "\(.falsePositiveReason) (\(.change), \(.flaggedAt[:10]))"')" >&2
 fi
+echo "$VERDICT_LINE"
 exit 0

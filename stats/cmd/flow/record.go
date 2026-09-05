@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -101,6 +102,16 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -ref F<n> -status status
        flow record findings [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record verdict  [-addr url] [-timeout dur] [-C dir]
+                             -change name -guard guard -worktree path -verdict line
+       flow record verdict false-positive [-addr url] [-timeout dur] [-C dir]
+                             -change name -guard guard -reason text
+       flow record verdicts [-addr url] [-timeout dur] [-C dir]
+                             [-guard guard] [-false-positive]
+       flow record incident [-addr url] [-timeout dur] [-C dir]
+                             -guard guard -symptom text -recovery text
+                             -minutes-lost n [-change name]
+       flow record incidents [-addr url] [-timeout dur] [-C dir]
        flow record render   [-addr url] [-timeout dur] [-C dir]
                              -change name -kind ledger|panel|all -repo dir
        flow record journal-count [-C dir] -change name
@@ -136,10 +147,33 @@ is nothing to replay, so a store findings could not reach is reported to
 stderr and exits non-zero rather than printing a JSON array a caller could
 mistake for "no findings."
 
+verdict, verdict false-positive and verdicts are a guard's own record of
+what it found: verdict writes the guard's whole verdict line, verbatim, on
+one change; verdict false-positive is an operator's judgment that the most
+recent verdict a named guard reached for that change was wrong, naming no
+verdict id -- "the latest one for this change and guard" is always the row
+meant; verdicts reads a project's guard verdicts back as a JSON array,
+newest first, restricted by -guard or -false-positive where given, findings'
+own read contract, verbatim. Both writes journal on store failure like
+every other write; a (change, guard) pair verdict false-positive holds no
+verdict for is refused outright rather than journalled, since a replay of
+it could never succeed.
+
+incident and incidents are a project's log of a guard actually costing
+time: incident records what went wrong, the recovery taken and how many
+minutes it cost, journalling on store failure like every other write;
+incidents reads them back as a JSON array, newest first. Both take no
+-change identity flag -- the project is the key, since an incident can be
+recorded against a project with no change in flight, or after one has
+archived -- so incident offers -change only optionally. -minutes-lost must
+parse as a non-negative integer, checked before the store is ever
+contacted.
+
 The only non-zero exits are caller mistakes -- a missing required flag, an
-unrecognised -role, or a -session-token carrying a shell substitution --
-a write the store was reached for and refused, and a read (findings) the
-store could not answer.
+unrecognised -role, a -session-token carrying a shell substitution, or a
+-minutes-lost that does not parse as a non-negative integer -- a write the
+store was reached for and refused, and a read (findings, verdicts,
+incidents) the store could not answer.
 
 A dispatch is recorded in TWO calls. "begin" writes the row as the
 dispatch starts; "end" closes it as the dispatch finishes. Both are
@@ -194,6 +228,14 @@ func runRecord(ctx context.Context, args []string, stdout, stderr io.Writer) int
 		return runRecordFinding(ctx, args[1:], stdout, stderr)
 	case "findings":
 		return runRecordFindings(ctx, args[1:], stdout, stderr)
+	case "verdict":
+		return runRecordVerdict(ctx, args[1:], stdout, stderr)
+	case "verdicts":
+		return runRecordVerdicts(ctx, args[1:], stdout, stderr)
+	case "incident":
+		return runRecordIncident(ctx, args[1:], stdout, stderr)
+	case "incidents":
+		return runRecordIncidents(ctx, args[1:], stdout, stderr)
 	case "status":
 		return runRecordStatus(ctx, args[1:], stdout, stderr)
 	case "render":
@@ -224,19 +266,30 @@ type recordIdentityFlags struct {
 	change  string
 }
 
-func registerRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
+// registerRecordConnFlags registers the store connection and project flags
+// every record subcommand takes -- -addr, -timeout and -C -- without
+// -change, which belongs only to a subcommand whose record is scoped to a
+// change. `verdicts` and `incidents` are project-scoped, not change-scoped
+// (design.md's guard-log routes take {project} alone), so they register
+// this set and nothing else; `incident` registers it plus its own optional
+// -change.
+func registerRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+}
+
+func registerRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) {
+	registerRecordConnFlags(fset, f)
 	fset.StringVar(&f.change, "change", "", "the change this record belongs to (required)")
 }
 
-func finishRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) error {
+// finishRecordConnFlags resolves -C to the working directory and refuses a
+// stray positional argument -- the checks shared by every record
+// subcommand, whether or not it also requires -change.
+func finishRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) error {
 	if fset.NArg() != 0 {
-		return fmt.Errorf("expected no positional arguments; the change is named by -change")
-	}
-	if f.change == "" {
-		return fmt.Errorf("-change is required")
+		return fmt.Errorf("expected no positional arguments")
 	}
 	if f.dir == "" {
 		wd, err := os.Getwd()
@@ -246,6 +299,13 @@ func finishRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) error
 		f.dir = wd
 	}
 	return nil
+}
+
+func finishRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) error {
+	if f.change == "" {
+		return fmt.Errorf("-change is required")
+	}
+	return finishRecordConnFlags(fset, f)
 }
 
 // parseRecordFlags parses args into fset and finishes the identity flags,
@@ -264,6 +324,27 @@ func parseRecordFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string,
 	}
 	noteAddrEnvUsage(fset, stderr)
 	if err := finishRecordIdentityFlags(fset, f); err != nil {
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, recordUsage)
+		return false, 2
+	}
+	return true, 0
+}
+
+// parseRecordConnFlags is parseRecordFlags for a subcommand that takes no
+// -change at all -- `verdicts` and `incidents`, which design.md's
+// guard-log routes scope to {project} rather than {project}/{change}.
+func parseRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []string, stderr io.Writer) (ok bool, code int) {
+	if err := fset.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return false, 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, recordUsage)
+		return false, 2
+	}
+	noteAddrEnvUsage(fset, stderr)
+	if err := finishRecordConnFlags(fset, f); err != nil {
 		fmt.Fprintf(stderr, "flow: %v\n", err)
 		fmt.Fprint(stderr, recordUsage)
 		return false, 2
@@ -1101,6 +1182,246 @@ func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Wri
 	body, err := json.Marshal(run.Findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: encode findings: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordVerdict implements `flow record verdict`: one guard's verdict on
+// one change, journalled on any store failure exactly as every other record
+// write is. It dispatches its own "false-positive" sub-verb the way
+// runRecordDispatchVerb splits "begin"/"end" -- `flow record verdict
+// false-positive` is a distinct write with its own flags, not a variant of
+// this one's.
+//
+// RecordedAt is stamped here, from time.Now(), rather than left to the
+// store: the CLI is the one caller that knows when the guard actually
+// reached this verdict, and a journalled write replayed minutes or hours
+// later must not report the replay's own instant as the moment the guard
+// ran.
+func runRecordVerdict(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "false-positive" {
+		return runRecordVerdictFalsePositive(ctx, args[1:], stdout, stderr)
+	}
+
+	fset := flag.NewFlagSet("flow record verdict", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	guard := fset.String("guard", "", "the guard that reached this verdict (required)")
+	worktree := fset.String("worktree", "", "the worktree the guard ran against (required)")
+	verdict := fset.String("verdict", "", "the guard's whole verdict line, verbatim (required)")
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-guard", *guard},
+		[2]string{"-worktree", *worktree},
+		[2]string{"-verdict", *verdict},
+	) {
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.Verdict{
+		Guard:      *guard,
+		Worktree:   *worktree,
+		Verdict:    *verdict,
+		RecordedAt: time.Now(),
+	}
+	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Verdict, error) {
+		return cl.RecordVerdict(ctx, projectKey, f.change, in)
+	})
+	if callErr == nil {
+		fmt.Fprintln(stdout, "recorded: verdict")
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "verdict", in, stderr)
+}
+
+// runRecordVerdictFalsePositive implements `flow record verdict
+// false-positive`: an operator's judgment that the most recent verdict a
+// named guard reached for a change was wrong, and why. It names no verdict
+// id -- design.md's flag-latest-verdict decision means "the latest one for
+// this change and guard" is always the row meant.
+//
+// A (change, guard) pair the store holds no verdict for is ErrNotFound
+// (404), classified by classifyRecordWrite as a definitive refusal --
+// reported and exited non-zero, never journalled -- for the identical
+// reason a finding ref naming nothing is: a replay of it would be refused
+// identically forever.
+func runRecordVerdictFalsePositive(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record verdict false-positive", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	guard := fset.String("guard", "", "the guard whose latest verdict is being flagged (required)")
+	reason := fset.String("reason", "", "why the verdict was wrong (required)")
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr, [2]string{"-guard", *guard}, [2]string{"-reason", *reason}) {
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.VerdictFlag{Guard: *guard, Reason: *reason}
+	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Verdict, error) {
+		return cl.FlagVerdictFalsePositive(ctx, projectKey, f.change, in)
+	})
+	if callErr == nil {
+		fmt.Fprintln(stdout, "updated: verdict")
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "verdict-false-positive", in, stderr)
+}
+
+// runRecordVerdicts implements `flow record verdicts`: a project's guard
+// verdicts, newest first, as a JSON array -- `findings`' own read contract,
+// verbatim (see runRecordFindings' doc comment for the whole of it). It
+// takes no -change: design.md's guard-log routes scope this read to
+// {project} alone, since a verdict list spans every change on the project.
+func runRecordVerdicts(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record verdicts", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f)
+	guard := fset.String("guard", "", "restrict to one guard; empty means every guard")
+	falsePositive := fset.Bool("false-positive", false, "restrict to verdicts an operator has flagged as false positives")
+
+	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Verdict, error) {
+		return cl.ListVerdicts(ctx, projectKey, *guard, *falsePositive)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: verdicts: %v\n", callErr)
+		return 1
+	}
+	if out == nil {
+		out = []records.Verdict{}
+	}
+	body, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode verdicts: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordIncident implements `flow record incident`: a per-project record
+// of one guard actually costing time. It takes no required -change --
+// design.md's guard-log schema leaves Incident.Change nullable, since an
+// incident can be recorded against a project with no change in flight, or
+// after the change that produced it has archived -- but the flag itself is
+// still offered, optionally, for the ordinary case where one was in flight.
+//
+// -minutes-lost is parsed and refused (non-numeric, or negative) before the
+// store is ever contacted, the identical caller-mistake contract every
+// other required flag on this command carries.
+func runRecordIncident(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record incident", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f)
+	fset.StringVar(&f.change, "change", "", "the change this incident happened during, where one was in flight")
+	guard := fset.String("guard", "", "the guard involved (required)")
+	symptom := fset.String("symptom", "", "what went wrong (required)")
+	recovery := fset.String("recovery", "", "the recovery that was taken (required)")
+	minutesLost := fset.String("minutes-lost", "", "minutes lost to the incident, a non-negative integer (required)")
+
+	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-guard", *guard},
+		[2]string{"-symptom", *symptom},
+		[2]string{"-recovery", *recovery},
+		[2]string{"-minutes-lost", *minutesLost},
+	) {
+		return 2
+	}
+	minutes, err := strconv.Atoi(*minutesLost)
+	if err != nil || minutes < 0 {
+		fmt.Fprintf(stderr, "flow: -minutes-lost %q must be a non-negative integer\n", *minutesLost)
+		fmt.Fprint(stderr, recordUsage)
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.Incident{
+		Change:      f.change,
+		Guard:       *guard,
+		Symptom:     *symptom,
+		Recovery:    *recovery,
+		MinutesLost: minutes,
+	}
+	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Incident, error) {
+		return cl.RecordIncident(ctx, projectKey, in)
+	})
+	if callErr == nil {
+		fmt.Fprintln(stdout, "recorded: incident")
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "incident", in, stderr)
+}
+
+// runRecordIncidents implements `flow record incidents`: a project's
+// incidents, newest first, as a JSON array -- `verdicts`' own read
+// contract, verbatim.
+func runRecordIncidents(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record incidents", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f)
+
+	if ok, code := parseRecordConnFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Incident, error) {
+		return cl.ListIncidents(ctx, projectKey)
+	})
+	if callErr != nil {
+		fmt.Fprintf(stderr, "flow: incidents: %v\n", callErr)
+		return 1
+	}
+	if out == nil {
+		out = []records.Incident{}
+	}
+	body, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode incidents: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))

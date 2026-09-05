@@ -19,9 +19,9 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// nopRecordStore satisfies api.RecordWriter with nothing but errors -- for
+// nopRecordStore satisfies api.RecordStore with nothing but errors -- for
 // the tests that exercise the state or stage journal only and never touch a
-// record write, now that reconcile.New requires a record writer alongside
+// record write, now that reconcile.New requires a record store alongside
 // the other two stores. Mirrors nopStageStore, which exists for the
 // identical reason on the stage side.
 type nopRecordStore struct{}
@@ -44,7 +44,31 @@ func (nopRecordStore) SetFindingStatus(context.Context, string, string, string, 
 	return errRecordStoreNotExercised
 }
 
-var _ api.RecordWriter = nopRecordStore{}
+func (nopRecordStore) RunRecord(context.Context, string, string) (records.Run, error) {
+	return records.Run{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) RecordVerdict(context.Context, string, string, records.Verdict) (records.Verdict, error) {
+	return records.Verdict{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) FlagVerdictFalsePositive(context.Context, string, string, records.VerdictFlag) (records.Verdict, error) {
+	return records.Verdict{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListVerdicts(context.Context, string, string, bool) ([]records.Verdict, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) RecordIncident(context.Context, string, records.Incident) (records.Incident, error) {
+	return records.Incident{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+var _ api.RecordStore = nopRecordStore{}
 
 // recordJournalPath mirrors cmd/flow/record.go's own recordJournalPath
 // (the state journal path with ".record" appended) -- reproduced here
@@ -101,7 +125,7 @@ func pendingRecordCount(t *testing.T, root, project, name string) int {
 	return len(entries)
 }
 
-// fakeRecordStore is an in-memory api.RecordWriter that appends one
+// fakeRecordStore is an in-memory api.RecordStore that appends one
 // short description per call, in the order the calls arrive. File order is
 // the whole point of a replay -- a dispatch's seq is allocated in the order
 // the store sees it, and a status write that overtook the finding it
@@ -117,7 +141,7 @@ type fakeRecordStore struct {
 	applied []string
 }
 
-var _ api.RecordWriter = (*fakeRecordStore)(nil)
+var _ api.RecordStore = (*fakeRecordStore)(nil)
 
 func (f *fakeRecordStore) record(desc string) {
 	f.mu.Lock()
@@ -138,6 +162,33 @@ func (f *fakeRecordStore) EndDispatch(_ context.Context, projectKey, change stri
 func (f *fakeRecordStore) UpsertFinding(_ context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error) {
 	f.record(fmt.Sprintf("finding %s/%s ref=%s status=%s", projectKey, change, in.Ref, in.Status))
 	return in, true, nil
+}
+
+func (f *fakeRecordStore) RunRecord(context.Context, string, string) (records.Run, error) {
+	return records.Run{}, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RecordVerdict(_ context.Context, projectKey, change string, in records.Verdict) (records.Verdict, error) {
+	f.record(fmt.Sprintf("verdict %s/%s guard=%s worktree=%s verdict=%q", projectKey, change, in.Guard, in.Worktree, in.Verdict))
+	return in, nil
+}
+
+func (f *fakeRecordStore) FlagVerdictFalsePositive(_ context.Context, projectKey, change string, in records.VerdictFlag) (records.Verdict, error) {
+	f.record(fmt.Sprintf("verdict-false-positive %s/%s guard=%s reason=%q", projectKey, change, in.Guard, in.Reason))
+	return records.Verdict{Guard: in.Guard, FalsePositiveReason: in.Reason}, nil
+}
+
+func (f *fakeRecordStore) ListVerdicts(context.Context, string, string, bool) ([]records.Verdict, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RecordIncident(_ context.Context, projectKey string, in records.Incident) (records.Incident, error) {
+	f.record(fmt.Sprintf("incident %s guard=%s minutesLost=%d", projectKey, in.Guard, in.MinutesLost))
+	return in, nil
+}
+
+func (f *fakeRecordStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
+	return nil, errRecordStoreNotExercised
 }
 
 func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status string) error {
@@ -240,6 +291,54 @@ func TestReplayAppliesPendingRecordEntries(t *testing.T) {
 		"dispatch-end proj-record/chg-record key=task-7-implementer commit=3aa9a4a outcome=completed",
 		"finding proj-record/chg-record ref=F1 status=open",
 		"status proj-record/chg-record ref=F1 status=fixed",
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (every applied entry retired)", n)
+	}
+}
+
+// TestReplayAppliesVerdictAndIncidentEntries is KAN-451's own addition to
+// TestReplayAppliesPendingRecordEntries' scenario: the three journal kinds
+// `flow record verdict`, `flow record verdict false-positive` and
+// `flow record incident` fall back to -- "verdict", "verdict-false-positive"
+// and "incident" -- must reach the store through applyRecordEntry's three
+// new case arms and retire, exactly as the four existing kinds do.
+func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-guardlog", "chg-record-guardlog"
+
+	appendRecordWrite(t, root, project, change, "verdict", records.Verdict{
+		Guard:    "check-unfinished-work",
+		Worktree: "/wt/kan-451",
+		Verdict:  "OUTSTANDING: /wt/kan-451 -- one plan item unchecked",
+	})
+	appendRecordWrite(t, root, project, change, "verdict-false-positive", records.VerdictFlag{
+		Guard:  "check-unfinished-work",
+		Reason: "verified structural",
+	})
+	appendRecordWrite(t, root, project, change, "incident", records.Incident{
+		Guard:       "check-unfinished-work",
+		Symptom:     "guard blocked a clean merge",
+		Recovery:    "flagged the verdict false positive",
+		MinutesLost: 15,
+	})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Journals != 1 || result.Applied != 3 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:3 Refused:0}", result)
+	}
+
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		`verdict proj-record-guardlog/chg-record-guardlog guard=check-unfinished-work worktree=/wt/kan-451 verdict="OUTSTANDING: /wt/kan-451 -- one plan item unchecked"`,
+		`verdict-false-positive proj-record-guardlog/chg-record-guardlog guard=check-unfinished-work reason="verified structural"`,
+		"incident proj-record-guardlog guard=check-unfinished-work minutesLost=15",
 	})
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {

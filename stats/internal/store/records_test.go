@@ -1760,3 +1760,345 @@ func TestMarkDispatchesUnattributedByIDRepeatStampIsIdempotent(t *testing.T) {
 		t.Errorf("metrics after two identical stamps = %s, want %s -- candidates must not double on a repeat stamp, and the real tokens figure must still survive", byID[measuredRecorded.ID], want)
 	}
 }
+
+// TestGuardLogMigrationAppliesTwiceIdempotently is
+// TestRunRecordsMigrationAppliesTwiceIdempotently's counterpart for this
+// change's own migration file: applying the full embedded set twice must
+// record 0018_guard_log.sql exactly once and leave both tables it creates
+// in place.
+func TestGuardLogMigrationAppliesTwiceIdempotently(t *testing.T) {
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("second RunMigrations call: %v", err)
+	}
+
+	var recorded int
+	if err := pool.QueryRow(ctx,
+		"SELECT count(*) FROM schema_migrations WHERE filename LIKE '0018\\_%'",
+	).Scan(&recorded); err != nil {
+		t.Fatalf("count schema_migrations rows for this change's migration: %v", err)
+	}
+	if recorded != 1 {
+		t.Errorf("schema_migrations holds %d rows for 0018_*, want exactly 1 after two runs", recorded)
+	}
+
+	for _, table := range []string{"guard_verdicts", "incidents"} {
+		var exists bool
+		if err := pool.QueryRow(ctx,
+			"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1)", table,
+		).Scan(&exists); err != nil {
+			t.Fatalf("check for table %s: %v", table, err)
+		}
+		if !exists {
+			t.Errorf("table %s does not exist after the migration ran", table)
+		}
+	}
+}
+
+// baseVerdict is the minimal valid verdict every case in this file starts
+// from: the columns the schema marks NOT NULL and nothing else.
+func baseVerdict(guard, verdict string, recordedAt time.Time) records.Verdict {
+	return records.Verdict{
+		Guard:      guard,
+		Worktree:   "/tmp/worktree",
+		Verdict:    verdict,
+		RecordedAt: recordedAt,
+	}
+}
+
+// TestRecordVerdictRoundTrips asserts RecordVerdict returns an allocated ID
+// and that ListVerdicts reads the row back with Change joined in and
+// FalsePositive false, exactly as an unflagged verdict should read.
+func TestRecordVerdictRoundTrips(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verdict-roundtrip-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	in := baseVerdict("check-unfinished-work", "OUTSTANDING: /tmp/worktree -- task 3 unchecked",
+		time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC))
+	got, err := st.RecordVerdict(ctx, projectKey, "kan-1", in)
+	if err != nil {
+		t.Fatalf("RecordVerdict: %v", err)
+	}
+	if got.ID == 0 {
+		t.Errorf("RecordVerdict returned ID 0, want an allocated id")
+	}
+
+	list, err := st.ListVerdicts(ctx, projectKey, "", false)
+	if err != nil {
+		t.Fatalf("ListVerdicts: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("ListVerdicts returned %d rows, want 1", len(list))
+	}
+	row := list[0]
+	if row.Change != "kan-1" {
+		t.Errorf("Change = %q, want %q", row.Change, "kan-1")
+	}
+	if row.Guard != in.Guard || row.Worktree != in.Worktree || row.Verdict != in.Verdict {
+		t.Errorf("ListVerdicts row = %+v, want guard/worktree/verdict of %+v round-tripped", row, in)
+	}
+	if !row.RecordedAt.Equal(in.RecordedAt) {
+		t.Errorf("RecordedAt = %v, want %v", row.RecordedAt, in.RecordedAt)
+	}
+	if row.FalsePositive {
+		t.Errorf("FalsePositive = true, want false for a verdict never flagged")
+	}
+	if row.FlaggedAt != nil {
+		t.Errorf("FlaggedAt = %v, want nil for a verdict never flagged", row.FlaggedAt)
+	}
+}
+
+// TestFlagVerdictFalsePositiveFlagsTheLatestForChangeAndGuard asserts
+// FlagVerdictFalsePositive flags only the newest verdict for the (change,
+// guard) pair it names -- not an older verdict for the same pair, and not a
+// verdict recorded under the same change but a different guard -- and that
+// flagging the same row a second time overwrites the reason rather than
+// erroring or stacking a second flag.
+func TestFlagVerdictFalsePositiveFlagsTheLatestForChangeAndGuard(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verdict-flag-latest-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	older, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-unfinished-work",
+		"OUTSTANDING: older", time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict older: %v", err)
+	}
+	newer, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-unfinished-work",
+		"OUTSTANDING: newer", time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict newer: %v", err)
+	}
+	otherGuard, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-finish-preflight",
+		"OUTSTANDING: other guard", time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict other guard: %v", err)
+	}
+
+	flagged, err := st.FlagVerdictFalsePositive(ctx, projectKey, "kan-1",
+		records.VerdictFlag{Guard: "check-unfinished-work", Reason: "verified structural"})
+	if err != nil {
+		t.Fatalf("FlagVerdictFalsePositive: %v", err)
+	}
+	if flagged.ID != newer.ID {
+		t.Errorf("FlagVerdictFalsePositive flagged id %d, want the newest verdict's id %d", flagged.ID, newer.ID)
+	}
+	if !flagged.FalsePositive {
+		t.Errorf("FalsePositive = false, want true after flagging")
+	}
+	if flagged.FalsePositiveReason != "verified structural" {
+		t.Errorf("FalsePositiveReason = %q, want %q", flagged.FalsePositiveReason, "verified structural")
+	}
+	if flagged.FlaggedAt == nil {
+		t.Fatalf("FlaggedAt = nil, want a timestamp after flagging")
+	}
+
+	list, err := st.ListVerdicts(ctx, projectKey, "check-unfinished-work", false)
+	if err != nil {
+		t.Fatalf("ListVerdicts: %v", err)
+	}
+	byID := make(map[int64]records.Verdict, len(list))
+	for _, v := range list {
+		byID[v.ID] = v
+	}
+	if byID[older.ID].FalsePositive {
+		t.Errorf("older verdict was flagged, want only the newest for this change+guard flagged")
+	}
+	if !byID[newer.ID].FalsePositive {
+		t.Errorf("newer verdict was not flagged")
+	}
+	otherList, err := st.ListVerdicts(ctx, projectKey, "check-finish-preflight", false)
+	if err != nil {
+		t.Fatalf("ListVerdicts other guard: %v", err)
+	}
+	for _, v := range otherList {
+		if v.ID == otherGuard.ID && v.FalsePositive {
+			t.Errorf("a different guard's verdict was flagged by a call naming check-unfinished-work")
+		}
+	}
+
+	reflagged, err := st.FlagVerdictFalsePositive(ctx, projectKey, "kan-1",
+		records.VerdictFlag{Guard: "check-unfinished-work", Reason: "second reason"})
+	if err != nil {
+		t.Fatalf("FlagVerdictFalsePositive (re-flag): %v", err)
+	}
+	if reflagged.ID != newer.ID {
+		t.Errorf("re-flag flagged id %d, want the same row %d", reflagged.ID, newer.ID)
+	}
+	if reflagged.FalsePositiveReason != "second reason" {
+		t.Errorf("FalsePositiveReason after re-flag = %q, want the overwritten reason %q", reflagged.FalsePositiveReason, "second reason")
+	}
+}
+
+// TestFlagVerdictFalsePositiveReportsNoVerdict asserts flagging a
+// (change, guard) pair the store holds no verdict for is a reported error,
+// not a silent no-op -- the same not-found reporting EndDispatch gives an
+// unknown (session token, key) pair, and the same sentinel this store
+// already exports for exactly that shape of failure.
+func TestFlagVerdictFalsePositiveReportsNoVerdict(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verdict-flag-missing-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	_, err := st.FlagVerdictFalsePositive(ctx, projectKey, "kan-1",
+		records.VerdictFlag{Guard: "check-unfinished-work", Reason: "no such verdict exists"})
+	if !errors.Is(err, store.ErrDispatchNotFound) {
+		t.Errorf("FlagVerdictFalsePositive error = %v, want errors.Is(_, store.ErrDispatchNotFound)", err)
+	}
+}
+
+// TestListVerdictsFiltersByGuardAndFlag asserts ListVerdicts' two filters
+// compose independently and that, whichever filter is applied, the result
+// is newest first.
+func TestListVerdictsFiltersByGuardAndFlag(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-verdict-list-filter-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	a, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-unfinished-work", "first",
+		time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict a: %v", err)
+	}
+	b, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-unfinished-work", "second",
+		time.Date(2026, 9, 1, 10, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict b: %v", err)
+	}
+	c, err := st.RecordVerdict(ctx, projectKey, "kan-1", baseVerdict("check-finish-preflight", "third",
+		time.Date(2026, 9, 1, 11, 0, 0, 0, time.UTC)))
+	if err != nil {
+		t.Fatalf("RecordVerdict c: %v", err)
+	}
+	if _, err := st.FlagVerdictFalsePositive(ctx, projectKey, "kan-1",
+		records.VerdictFlag{Guard: "check-unfinished-work", Reason: "flagged"}); err != nil {
+		t.Fatalf("FlagVerdictFalsePositive: %v", err)
+	}
+
+	byGuard, err := st.ListVerdicts(ctx, projectKey, "check-unfinished-work", false)
+	if err != nil {
+		t.Fatalf("ListVerdicts by guard: %v", err)
+	}
+	if len(byGuard) != 2 {
+		t.Fatalf("ListVerdicts by guard returned %d rows, want 2", len(byGuard))
+	}
+	if byGuard[0].ID != b.ID || byGuard[1].ID != a.ID {
+		t.Errorf("ListVerdicts by guard = [%d, %d], want newest first [%d, %d]", byGuard[0].ID, byGuard[1].ID, b.ID, a.ID)
+	}
+	for _, v := range byGuard {
+		if v.ID == c.ID {
+			t.Errorf("ListVerdicts by guard %q returned a row for a different guard", "check-unfinished-work")
+		}
+	}
+
+	flaggedOnly, err := st.ListVerdicts(ctx, projectKey, "", true)
+	if err != nil {
+		t.Fatalf("ListVerdicts falsePositiveOnly: %v", err)
+	}
+	if len(flaggedOnly) != 1 || flaggedOnly[0].ID != b.ID {
+		t.Errorf("ListVerdicts falsePositiveOnly = %+v, want exactly the flagged verdict %d", flaggedOnly, b.ID)
+	}
+
+	all, err := st.ListVerdicts(ctx, projectKey, "", false)
+	if err != nil {
+		t.Fatalf("ListVerdicts unfiltered: %v", err)
+	}
+	if len(all) != 3 || all[0].ID != c.ID || all[1].ID != b.ID || all[2].ID != a.ID {
+		t.Errorf("ListVerdicts unfiltered = %+v, want newest first [%d, %d, %d]", all, c.ID, b.ID, a.ID)
+	}
+}
+
+// TestRecordIncidentWithAndWithoutAChange asserts Change is optional on the
+// write side -- empty stores NULL and reads back empty, a known change
+// resolves to its name, and an unknown change name is the same not-found
+// error RecordDispatch gives for the same shape of failure -- and that a
+// zero OccurredAt takes the column's own now() default instead of storing
+// the zero time literally.
+func TestRecordIncidentWithAndWithoutAChange(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-incident-change-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	before := time.Now().Add(-time.Minute)
+
+	noChange, err := st.RecordIncident(ctx, projectKey, records.Incident{
+		Guard: "check-task-commit-fields", Symptom: "planning dir wiped",
+		Recovery: "restored from stash", MinutesLost: 55,
+	})
+	if err != nil {
+		t.Fatalf("RecordIncident without a change: %v", err)
+	}
+	if noChange.Change != "" {
+		t.Errorf("Change = %q, want empty for an incident recorded with no change", noChange.Change)
+	}
+	if noChange.OccurredAt.Before(before) {
+		t.Errorf("OccurredAt = %v, want the column default (roughly now), not the zero time", noChange.OccurredAt)
+	}
+
+	withChange, err := st.RecordIncident(ctx, projectKey, records.Incident{
+		Change: "kan-1", Guard: "check-unfinished-work", Symptom: "false OUTSTANDING",
+		Recovery: "hand-verified and overridden", MinutesLost: 5,
+	})
+	if err != nil {
+		t.Fatalf("RecordIncident with a known change: %v", err)
+	}
+	if withChange.Change != "kan-1" {
+		t.Errorf("Change = %q, want %q", withChange.Change, "kan-1")
+	}
+
+	_, err = st.RecordIncident(ctx, projectKey, records.Incident{
+		Change: "kan-does-not-exist", Guard: "check-unfinished-work", Symptom: "x", Recovery: "y",
+	})
+	if !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("RecordIncident with an unknown change error = %v, want errors.Is(_, store.ErrChangeNotFound)", err)
+	}
+}
+
+// TestListIncidentsNewestFirst asserts ListIncidents orders newest first
+// and that the project filter excludes another project's rows.
+func TestListIncidentsNewestFirst(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-incident-list-%d", time.Now().UnixNano())
+	otherProjectKey := fmt.Sprintf("proj-incident-list-other-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, otherProjectKey, "kan-2")
+
+	older, err := st.RecordIncident(ctx, projectKey, records.Incident{
+		Guard: "check-unfinished-work", Symptom: "older", Recovery: "r", MinutesLost: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecordIncident older: %v", err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	newer, err := st.RecordIncident(ctx, projectKey, records.Incident{
+		Guard: "check-unfinished-work", Symptom: "newer", Recovery: "r", MinutesLost: 2,
+	})
+	if err != nil {
+		t.Fatalf("RecordIncident newer: %v", err)
+	}
+	if _, err := st.RecordIncident(ctx, otherProjectKey, records.Incident{
+		Change: "kan-2", Guard: "check-unfinished-work", Symptom: "other project", Recovery: "r", MinutesLost: 3,
+	}); err != nil {
+		t.Fatalf("RecordIncident other project: %v", err)
+	}
+
+	list, err := st.ListIncidents(ctx, projectKey)
+	if err != nil {
+		t.Fatalf("ListIncidents: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("ListIncidents returned %d rows, want 2 (the other project's row must be excluded)", len(list))
+	}
+	if list[0].ID != newer.ID || list[1].ID != older.ID {
+		t.Errorf("ListIncidents = [%d, %d], want newest first [%d, %d]", list[0].ID, list[1].ID, newer.ID, older.ID)
+	}
+}

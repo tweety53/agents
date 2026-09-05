@@ -225,6 +225,140 @@ func refDigits(ref string) (int, bool) {
 	return n, true
 }
 
+// verdictRecord is fakeStore's in-memory stand-in for a guard_verdicts row.
+// See dispatchRecord's doc comment for why the owning identity sits beside
+// the row rather than inside it.
+type verdictRecord struct {
+	verdict    records.Verdict
+	projectKey string
+	changeName string
+}
+
+// incidentRecord is fakeStore's in-memory stand-in for an incidents row.
+// Unlike a verdict, an incident belongs to a project directly (its
+// change_id is nullable), so only the project key is kept beside it.
+type incidentRecord struct {
+	incident   records.Incident
+	projectKey string
+}
+
+// RecordVerdict mirrors store.Store.RecordVerdict: every call inserts a new
+// row (a guard's re-entered run is a distinct verdict, never a replay), and
+// an unknown (projectKey, change) pair is store.ErrChangeNotFound, the
+// condition the handler must answer 404 to.
+func (f *fakeStore) RecordVerdict(_ context.Context, projectKey, change string, in records.Verdict) (records.Verdict, error) {
+	f.recordCalls++
+	if f.recordVerdictErr != nil {
+		return records.Verdict{}, f.recordVerdictErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.Verdict{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	f.nextVerdictID++
+	out := in
+	out.ID = f.nextVerdictID
+	out.Change = change
+	f.verdicts = append(f.verdicts, verdictRecord{verdict: out, projectKey: projectKey, changeName: change})
+	return out, nil
+}
+
+// FlagVerdictFalsePositive mirrors store.Store.FlagVerdictFalsePositive: it
+// flags the most recently recorded verdict for (projectKey, change, guard),
+// and a pair holding none is store.ErrDispatchNotFound -- the reused
+// sentinel the handler must answer 404 to, exactly as the real store does.
+func (f *fakeStore) FlagVerdictFalsePositive(_ context.Context, projectKey, change string, in records.VerdictFlag) (records.Verdict, error) {
+	f.recordCalls++
+	if f.flagVerdictErr != nil {
+		return records.Verdict{}, f.flagVerdictErr
+	}
+	var found *verdictRecord
+	for i := range f.verdicts {
+		v := &f.verdicts[i]
+		if v.projectKey != projectKey || v.changeName != change || v.verdict.Guard != in.Guard {
+			continue
+		}
+		if found == nil || v.verdict.ID > found.verdict.ID {
+			found = v
+		}
+	}
+	if found == nil {
+		return records.Verdict{}, fmt.Errorf("%w: verdict for guard %q in %s/%s", store.ErrDispatchNotFound, in.Guard, projectKey, change)
+	}
+	found.verdict.FalsePositive = true
+	found.verdict.FalsePositiveReason = in.Reason
+	flaggedAt := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	found.verdict.FlaggedAt = &flaggedAt
+	return found.verdict, nil
+}
+
+// ListVerdicts mirrors store.Store.ListVerdicts' filtering: guard == ""
+// means every guard, and falsePositiveOnly restricts to flagged rows. It
+// also records the args it was called with, so a test can assert the
+// handler parsed and forwarded the query rather than merely that some
+// filter fired.
+func (f *fakeStore) ListVerdicts(_ context.Context, projectKey, guard string, falsePositiveOnly bool) ([]records.Verdict, error) {
+	f.recordCalls++
+	f.lastListVerdictsGuard = guard
+	f.lastListVerdictsFalsePositiveOnly = falsePositiveOnly
+	if f.listVerdictsErr != nil {
+		return nil, f.listVerdictsErr
+	}
+	var out []records.Verdict
+	for i := len(f.verdicts) - 1; i >= 0; i-- {
+		v := f.verdicts[i]
+		if v.projectKey != projectKey {
+			continue
+		}
+		if guard != "" && v.verdict.Guard != guard {
+			continue
+		}
+		if falsePositiveOnly && !v.verdict.FalsePositive {
+			continue
+		}
+		out = append(out, v.verdict)
+	}
+	return out, nil
+}
+
+// RecordIncident mirrors store.Store.RecordIncident: in.Change, when
+// non-empty, must name a change this fake already knows about -- an unknown
+// name is store.ErrChangeNotFound -- and left empty stores no change at
+// all, exactly as the real store's nullable change_id does.
+func (f *fakeStore) RecordIncident(_ context.Context, projectKey string, in records.Incident) (records.Incident, error) {
+	f.recordCalls++
+	if f.recordIncidentErr != nil {
+		return records.Incident{}, f.recordIncidentErr
+	}
+	if in.Change != "" {
+		if _, ok := f.changes[changeKey(projectKey, in.Change)]; !ok {
+			return records.Incident{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, in.Change)
+		}
+	}
+	f.nextIncidentID++
+	out := in
+	out.ID = f.nextIncidentID
+	if out.OccurredAt.IsZero() {
+		out.OccurredAt = time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC).Add(time.Duration(f.nextIncidentID) * time.Second)
+	}
+	f.incidents = append(f.incidents, incidentRecord{incident: out, projectKey: projectKey})
+	return out, nil
+}
+
+// ListIncidents mirrors store.Store.ListIncidents' ordering: newest first.
+func (f *fakeStore) ListIncidents(_ context.Context, projectKey string) ([]records.Incident, error) {
+	f.recordCalls++
+	if f.listIncidentsErr != nil {
+		return nil, f.listIncidentsErr
+	}
+	var out []records.Incident
+	for i := len(f.incidents) - 1; i >= 0; i-- {
+		if f.incidents[i].projectKey == projectKey {
+			out = append(out, f.incidents[i].incident)
+		}
+	}
+	return out, nil
+}
+
 // --- test helpers ---
 
 // recordTestServer returns a server backed by a fake that already knows
@@ -774,5 +908,220 @@ func TestRecordDispatchRouteIsIdempotentUnderOneKey(t *testing.T) {
 	}
 	if len(run.Dispatches) != 1 {
 		t.Fatalf("the change holds %d dispatch rows, want 1", len(run.Dispatches))
+	}
+}
+
+// --- guard verdicts and incidents (KAN-451) ---
+
+// verdictBody is the wire body a verdict POST carries.
+func verdictBody(guard, worktree, verdict string) map[string]any {
+	return map[string]any{
+		"guard":      guard,
+		"worktree":   worktree,
+		"verdict":    verdict,
+		"recordedAt": time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC).Format(time.RFC3339),
+	}
+}
+
+// incidentBody is the wire body an incident POST carries.
+func incidentBody(guard, symptom, recovery string, minutesLost int) map[string]any {
+	return map[string]any{
+		"guard":       guard,
+		"symptom":     symptom,
+		"recovery":    recovery,
+		"minutesLost": minutesLost,
+	}
+}
+
+// TestRecordVerdictRouteAnswers201 pins that a recorded verdict is created
+// (201) with the store's own row -- its allocated id included -- and that a
+// body missing guard, worktree or verdict is refused before the store is
+// touched at all.
+func TestRecordVerdictRouteAnswers201(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/verdicts"
+
+	resp, body := postJSON(t, url, verdictBody("check-unfinished-work", "/wt/kan-1", "CLEAR: /wt/kan-1 -- every plan item is checked and no finding is open"))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST verdicts = %d (%s), want 201", resp.StatusCode, body)
+	}
+	var got records.Verdict
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.ID == 0 {
+		t.Errorf("id = 0, want the stored row's own id")
+	}
+	if got.Guard != "check-unfinished-work" || got.Worktree != "/wt/kan-1" || got.Verdict == "" {
+		t.Errorf("response = %+v, want the recorded verdict round-tripped", got)
+	}
+	if len(fs.verdicts) != 1 {
+		t.Errorf("store holds %d verdicts, want 1", len(fs.verdicts))
+	}
+
+	for _, field := range []string{"guard", "worktree", "verdict"} {
+		t.Run("missing "+field, func(t *testing.T) {
+			before := fs.recordCalls
+			b := verdictBody("check-unfinished-work", "/wt/kan-1", "CLEAR: /wt/kan-1")
+			delete(b, field)
+			resp, respBody := postJSON(t, url, b)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("POST verdicts missing %s = %d (%s), want 400", field, resp.StatusCode, respBody)
+			}
+			if fs.recordCalls != before {
+				t.Errorf("the store was reached for a body missing %s", field)
+			}
+		})
+	}
+}
+
+// TestFlagVerdictRouteAnswers200And404 pins the false-positive flag's three
+// outcomes: 200 with the flagged row for a real (change, guard) pair, 400
+// for an empty reason (a caller mistake, judged before the store), and 404
+// -- not 500 -- for a guard the change holds no verdict under, the mapping
+// internal/client's classification depends on.
+func TestFlagVerdictRouteAnswers200And404(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+	verdictsURL := ts.URL + recordsPath("proj", "kan-1") + "/verdicts"
+	flagURL := ts.URL + recordsPath("proj", "kan-1") + "/verdicts/false-positive"
+
+	resp, body := postJSON(t, verdictsURL, verdictBody("check-unfinished-work", "/wt/kan-1", "OUTSTANDING: /wt/kan-1 -- 2 items unchecked"))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST verdicts = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	resp, body = postJSON(t, flagURL, map[string]any{"guard": "check-unfinished-work", "reason": "verified structural: 19/19 tasks ticked"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("POST verdicts/false-positive = %d (%s), want 200", resp.StatusCode, body)
+	}
+	var flagged records.Verdict
+	if err := json.Unmarshal(body, &flagged); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if !flagged.FalsePositive || flagged.FalsePositiveReason != "verified structural: 19/19 tasks ticked" {
+		t.Errorf("flagged verdict = %+v, want falsePositive=true with the operator's reason", flagged)
+	}
+
+	resp, body = postJSON(t, flagURL, map[string]any{"guard": "check-unfinished-work", "reason": ""})
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST verdicts/false-positive with an empty reason = %d (%s), want 400", resp.StatusCode, body)
+	}
+
+	resp, body = postJSON(t, flagURL, map[string]any{"guard": "no-such-guard", "reason": "x"})
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("POST verdicts/false-positive for a guard with no recorded verdict = %d (%s), want 404", resp.StatusCode, body)
+	}
+}
+
+// TestListVerdictsRouteFiltersByQuery pins that the route parses guard and
+// falsePositive from the query string and forwards exactly what it parsed
+// to the store -- no query means ("", false); falsePositive=maybe is a
+// caller mistake, refused as 400 before the store is ever touched.
+func TestListVerdictsRouteFiltersByQuery(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	status, body := doGet(t, ts, "/api/v1/verdicts/proj")
+	if status != http.StatusOK {
+		t.Fatalf("GET verdicts = %d (%s), want 200", status, body)
+	}
+	if fs.lastListVerdictsGuard != "" || fs.lastListVerdictsFalsePositiveOnly {
+		t.Errorf("no query: store called with (%q, %t), want (\"\", false)", fs.lastListVerdictsGuard, fs.lastListVerdictsFalsePositiveOnly)
+	}
+
+	status, body = doGet(t, ts, "/api/v1/verdicts/proj?guard=check-unfinished-work&falsePositive=true")
+	if status != http.StatusOK {
+		t.Fatalf("GET verdicts?guard=...&falsePositive=true = %d (%s), want 200", status, body)
+	}
+	if fs.lastListVerdictsGuard != "check-unfinished-work" || !fs.lastListVerdictsFalsePositiveOnly {
+		t.Errorf("store called with (%q, %t), want (\"check-unfinished-work\", true)", fs.lastListVerdictsGuard, fs.lastListVerdictsFalsePositiveOnly)
+	}
+
+	before := fs.recordCalls
+	status, body = doGet(t, ts, "/api/v1/verdicts/proj?falsePositive=maybe")
+	if status != http.StatusBadRequest {
+		t.Fatalf("GET verdicts?falsePositive=maybe = %d (%s), want 400", status, body)
+	}
+	if fs.recordCalls != before {
+		t.Errorf("the store was reached for an unparsable falsePositive value")
+	}
+}
+
+// TestRecordIncidentRouteAnswers201AndValidatesMinutes pins that a recorded
+// incident is created (201) with its allocated id, and that a negative
+// minutesLost or a missing guard/symptom/recovery is refused as a caller
+// mistake before the store is touched at all.
+func TestRecordIncidentRouteAnswers201AndValidatesMinutes(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + "/api/v1/incidents/proj"
+
+	resp, body := postJSON(t, url, incidentBody("check-task-commit-fields", "Baseline revert re-entered mid-flight", "aborted revert, restored dir from stash", 55))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST incidents = %d (%s), want 201", resp.StatusCode, body)
+	}
+	var got records.Incident
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if got.ID == 0 || got.MinutesLost != 55 {
+		t.Errorf("response = %+v, want an allocated id and minutesLost 55", got)
+	}
+	if len(fs.incidents) != 1 {
+		t.Errorf("store holds %d incidents, want 1", len(fs.incidents))
+	}
+
+	before := fs.recordCalls
+	resp, body = postJSON(t, url, incidentBody("check-task-commit-fields", "s", "r", -1))
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST incidents with minutesLost=-1 = %d (%s), want 400", resp.StatusCode, body)
+	}
+	if fs.recordCalls != before {
+		t.Errorf("the store was reached for a negative minutesLost")
+	}
+
+	for _, field := range []string{"guard", "symptom", "recovery"} {
+		t.Run("missing "+field, func(t *testing.T) {
+			before := fs.recordCalls
+			b := incidentBody("g", "s", "r", 1)
+			delete(b, field)
+			resp, respBody := postJSON(t, url, b)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("POST incidents missing %s = %d (%s), want 400", field, resp.StatusCode, respBody)
+			}
+			if fs.recordCalls != before {
+				t.Errorf("the store was reached for a body missing %s", field)
+			}
+		})
+	}
+}
+
+// TestListIncidentsRouteReturnsNewestFirst pins that the route hands back
+// exactly the array the store returned, in the newest-first order
+// ListIncidents documents.
+func TestListIncidentsRouteReturnsNewestFirst(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+	incidentsURL := ts.URL + "/api/v1/incidents/proj"
+
+	first, firstBody := postJSON(t, incidentsURL, incidentBody("check-task-commit-fields", "first", "r1", 10))
+	if first.StatusCode != http.StatusCreated {
+		t.Fatalf("first POST incidents = %d (%s), want 201", first.StatusCode, firstBody)
+	}
+	second, secondBody := postJSON(t, incidentsURL, incidentBody("check-unfinished-work", "second", "r2", 20))
+	if second.StatusCode != http.StatusCreated {
+		t.Fatalf("second POST incidents = %d (%s), want 201", second.StatusCode, secondBody)
+	}
+
+	status, body := doGet(t, ts, "/api/v1/incidents/proj")
+	if status != http.StatusOK {
+		t.Fatalf("GET incidents = %d (%s), want 200", status, body)
+	}
+	var got []records.Incident
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("incidents = %d, want 2", len(got))
+	}
+	if got[0].Symptom != "second" || got[1].Symptom != "first" {
+		t.Errorf("incidents = %+v, want newest (\"second\") first", got)
 	}
 }

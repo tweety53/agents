@@ -89,7 +89,7 @@ On `OUTSTANDING` the operator is offered **exactly three** courses:
 | Course | What run 1 then does |
 |--------|----------------------|
 | **Stop — I'll finish it first** *(recommended)* | stop, leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed |
-| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff |
+| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff — and, where the operator called the verdict structural, records it as a guard false positive per **1. Check for unfinished work** (`skills/flow/integrate.md`) |
 | **File or join a Jira follow-up, then continue** | put the outstanding items on a follow-up issue — joining an open one where the operator confirms a candidate, otherwise filing a new one — then proceed |
 
 **Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**

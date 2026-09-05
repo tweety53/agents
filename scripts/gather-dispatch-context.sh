@@ -283,6 +283,10 @@ TASKS_FILE="$CHANGE_ROOT_REAL/tasks.md"
 FOUND_LABELS=()
 FOUND_PATHS=()
 SKIPPED_LABELS=()
+# Every entry pushed here must already be the complete "skipped: " line's
+# payload — either self-describing (e.g. "incidents (none)") or a bare
+# identifier with " (absent)" already appended. render_body below only
+# echoes each entry verbatim; it does no further formatting.
 REFUSED_LABELS=()
 # REFUSED_REASONS runs parallel to REFUSED_LABELS (bash 3.2 has no
 # associative arrays) — "outside" for a genuine within_root containment
@@ -320,7 +324,7 @@ REFUSED_REASONS=()
 add_fixed_source() {
   local path="$1" label="$2" resolved
   if [ ! -f "$path" ]; then
-    SKIPPED_LABELS+=("$label")
+    SKIPPED_LABELS+=("$label (absent)")
     return 0
   fi
   resolved="$(resolve_file "$path")" || {
@@ -392,7 +396,7 @@ if [ -n "$PRINCIPLES_REAL" ] && [ -f "$PRINCIPLES_REAL" ]; then
   FOUND_LABELS+=("$PRINCIPLES_PATH")
   FOUND_PATHS+=("$PRINCIPLES_REAL")
 else
-  SKIPPED_LABELS+=("$PRINCIPLES_PATH")
+  SKIPPED_LABELS+=("$PRINCIPLES_PATH (absent)")
 fi
 
 # --- project commands: the ## lint, ## test and ## run sections of
@@ -428,7 +432,7 @@ ${section}
       FOUND_LABELS+=("project commands")
       FOUND_PATHS+=("")
     else
-      SKIPPED_LABELS+=("project commands")
+      SKIPPED_LABELS+=("project commands (absent)")
     fi
   elif [ -n "$PROJECT_FILE_RESOLVED" ]; then
     REFUSED_LABELS+=("project commands")
@@ -438,8 +442,45 @@ ${section}
     REFUSED_REASONS+=("unresolvable")
   fi
 else
-  SKIPPED_LABELS+=("project commands")
+  SKIPPED_LABELS+=("project commands (absent)")
 fi
+
+# --- incidents: this project's guard-incident log, from
+# `flow record incidents -C "$WORKTREE_REAL"`, so every dispatch already
+# carries the hazards prior runs hit instead of relying on someone re-reading
+# memory before dispatching (KAN-451). Three outcomes: `flow` absent or the
+# call failing skips as "incidents (flow unavailable)"; a `[]` result skips
+# as "incidents (none)"; anything else renders the "## incidents" section, a
+# six-column table built with `jq -r`. The section is part of the hashed
+# BODY below, so a newly recorded incident forces a rebuild.
+INCIDENTS_BODY=""
+INCIDENTS_ERR_FILE="$(mktemp)"
+if INCIDENTS_JSON="$(flow record incidents -C "$WORKTREE_REAL" 2>"$INCIDENTS_ERR_FILE")" \
+  && INCIDENTS_COUNT="$(printf '%s' "$INCIDENTS_JSON" | jq 'length' 2>/dev/null)" \
+  && [ -n "$INCIDENTS_COUNT" ]; then
+  if [ "$INCIDENTS_COUNT" -gt 0 ]; then
+    INCIDENTS_ROWS="$(printf '%s' "$INCIDENTS_JSON" | jq -r '
+      .[] | [
+        (.occurredAt[:10]),
+        .guard,
+        (.symptom | gsub("\\|"; "\\|")),
+        (.recovery | gsub("\\|"; "\\|")),
+        (.minutesLost | tostring),
+        (.change // "—")
+      ] | "| " + join(" | ") + " |"
+    ')"
+    INCIDENTS_BODY="| when | guard | symptom | recovery | minutes lost | change |
+|------|-------|---------|----------|--------------|--------|
+${INCIDENTS_ROWS}"
+    FOUND_LABELS+=("incidents")
+    FOUND_PATHS+=("@incidents")
+  else
+    SKIPPED_LABELS+=("incidents (none)")
+  fi
+else
+  SKIPPED_LABELS+=("incidents (flow unavailable)")
+fi
+rm -f "$INCIDENTS_ERR_FILE"
 
 # render_body — everything printed after the header's `generated:`/`head:`
 # lines: the found/skipped/refused census and every "## <label>" section.
@@ -463,7 +504,7 @@ render_body() {
   if [ "${#SKIPPED_LABELS[@]}" -gt 0 ]; then
     i=0
     while [ "$i" -lt "${#SKIPPED_LABELS[@]}" ]; do
-      echo "skipped: ${SKIPPED_LABELS[$i]} (absent)"
+      echo "skipped: ${SKIPPED_LABELS[$i]}"
       i=$((i + 1))
     done
   fi
@@ -476,6 +517,7 @@ render_body() {
       echo
       case "${FOUND_PATHS[$i]}" in
         "@scoped-tasks") printf '%s\n' "$TASKS_SCOPED_BODY" ;;
+        "@incidents") printf '%s\n' "$INCIDENTS_BODY" ;;
         "") printf '%s' "$PROJECT_COMMANDS_BODY" ;;
         *) cat "${FOUND_PATHS[$i]}" ;;
       esac

@@ -415,6 +415,30 @@ func (fakeStore) RunRecord(context.Context, string, string) (records.Run, error)
 	return records.Run{}, nil
 }
 
+// RecordVerdict, FlagVerdictFalsePositive, ListVerdicts, RecordIncident and
+// ListIncidents (KAN-451) are here for the same reason RunRecord above is:
+// api.New requires a full api.RecordStore, and this file's fakeStore never
+// exercises a guard-verdict or incident route.
+func (fakeStore) RecordVerdict(context.Context, string, string, records.Verdict) (records.Verdict, error) {
+	return records.Verdict{}, nil
+}
+
+func (fakeStore) FlagVerdictFalsePositive(context.Context, string, string, records.VerdictFlag) (records.Verdict, error) {
+	return records.Verdict{}, nil
+}
+
+func (fakeStore) ListVerdicts(context.Context, string, string, bool) ([]records.Verdict, error) {
+	return nil, nil
+}
+
+func (fakeStore) RecordIncident(context.Context, string, records.Incident) (records.Incident, error) {
+	return records.Incident{}, nil
+}
+
+func (fakeStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
+	return nil, nil
+}
+
 // GetSettings and PutSettings are here for the same reason
 // AllRecordedRunsUnmeasured's own doc comment gives: api.New gained a
 // fifth store parameter (task 2) for the settings routes, and every

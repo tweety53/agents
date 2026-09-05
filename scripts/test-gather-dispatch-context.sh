@@ -148,6 +148,47 @@ make_openssl_only_dir() {
   done
 }
 
+# make_no_flow_dir <dest-dir> -> populates <dest-dir> with a symlink to every
+# executable on the current PATH EXCEPT flow, so a call made with
+# PATH="<dest-dir>" finds every tool the script itself needs but no `flow` —
+# the "flow unavailable" branch of the ## incidents section (kan-451),
+# regardless of whether the developer's own machine happens to have a real
+# `flow` on PATH.
+make_no_flow_dir() {
+  local dest="$1" dir bin base
+  for dir in $(printf '%s' "$PATH" | tr ':' '\n'); do
+    [ -d "$dir" ] || continue
+    for bin in "$dir"/*; do
+      [ -f "$bin" ] && [ -x "$bin" ] || continue
+      base="$(basename "$bin")"
+      [ "$base" = "flow" ] && continue
+      [ -e "$dest/$base" ] || ln -s "$bin" "$dest/$base" 2>/dev/null || true
+    done
+  done
+}
+
+# make_flow_stub_dir <dest-dir> <incidents-json> -> populates <dest-dir> with
+# a symlink to every executable on the current PATH except flow (via
+# make_no_flow_dir), then adds a stub `flow` that answers
+# `record incidents -C <dir>` with <incidents-json> on stdout and exit 0,
+# and fails loudly on any other invocation this suite does not expect.
+make_flow_stub_dir() {
+  local dest="$1" json="$2"
+  make_no_flow_dir "$dest"
+  cat > "$dest/flow" <<STUB
+#!/usr/bin/env bash
+if [ "\$1" = "record" ] && [ "\$2" = "incidents" ]; then
+  cat <<'JSON'
+$json
+JSON
+  exit 0
+fi
+echo "flow: unexpected invocation: \$*" >&2
+exit 1
+STUB
+  chmod +x "$dest/flow"
+}
+
 # ===========================================================================
 # CASE 1: all five sources present
 # ===========================================================================
@@ -1123,6 +1164,149 @@ elif ! printf '%s' "$ERR" | grep -q 'task ids given but tasks.md is absent or re
 else
   pass "task ids given while tasks.md is absent exits 2 naming it"
 fi
+
+# ===========================================================================
+# CASES 44-47 (kan-451): the ## incidents section, sourced from
+# `flow record incidents -C <worktree>`. Each uses the restricted-PATH
+# pattern above (make_no_flow_dir / make_flow_stub_dir), mirroring the
+# no-hash-tool / openssl-only cases rather than a hand-built shortcut.
+# ===========================================================================
+
+TWO_INCIDENTS='[
+  {"occurredAt":"2026-09-03T14:20:00Z","guard":"check-task-commit-fields","symptom":"Baseline revert re-entered mid-flight","recovery":"aborted revert, restored dir from stash^3","minutesLost":55,"change":"kan-423"},
+  {"occurredAt":"2025-01-01T00:00:00Z","guard":"check-unfinished-work","symptom":"x","recovery":"y","minutesLost":10,"change":null}
+]'
+
+# CASE 44: a stub `flow` returning two incidents -> the bundle carries a
+# "## incidents" section after "## project commands" holding a six-column
+# table with the newer row first, and the census counts it as found.
+new_repo
+FLOW_DIR_44="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_44")
+make_flow_stub_dir "$FLOW_DIR_44" "$TWO_INCIDENTS"
+PATH="$FLOW_DIR_44" capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+LINE_NEWER="$(printf '%s' "$OUT" | grep -n 'check-task-commit-fields' | head -1 | cut -d: -f1)" || true
+LINE_OLDER="$(printf '%s' "$OUT" | grep -n 'check-unfinished-work' | head -1 | cut -d: -f1)" || true
+if [ "$RC" -ne 0 ]; then
+  fail "incidents with two rows: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^found: 5 source(s)'; then
+  fail "incidents with two rows: census does not count incidents as found: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## incidents'; then
+  fail "incidents with two rows: no ## incidents heading: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '| 2026-09-03 | check-task-commit-fields | Baseline revert re-entered mid-flight | aborted revert, restored dir from stash^3 | 55 | kan-423 |'; then
+  fail "incidents with two rows: expected row missing or malformed: $OUT"
+elif [ -z "$LINE_NEWER" ] || [ -z "$LINE_OLDER" ] || [ "$LINE_NEWER" -gt "$LINE_OLDER" ]; then
+  fail "incidents with two rows: newer row is not listed first: $OUT"
+else
+  pass "incidents with two rows: table present with newer row first, counted as found"
+fi
+
+# CASE 45: `flow record incidents` returning [] -> "skipped: incidents
+# (none)" and no ## incidents section.
+new_repo
+FLOW_DIR_45="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_45")
+make_flow_stub_dir "$FLOW_DIR_45" '[]'
+PATH="$FLOW_DIR_45" capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+if [ "$RC" -ne 0 ]; then
+  fail "incidents empty: exited $RC: $OUT"
+elif ! printf '%s\n' "$OUT" | grep -qxF 'skipped: incidents (none)'; then
+  fail "incidents empty: no skipped-none line (exact): $OUT"
+elif printf '%s' "$OUT" | grep -qF '## incidents'; then
+  fail "incidents empty: ## incidents heading present despite empty array: $OUT"
+else
+  pass "incidents empty: skipped as (none), no section"
+fi
+
+# CASE 46: no `flow` on PATH -> "skipped: incidents (flow unavailable)", no
+# section, exit 0.
+new_repo
+NO_FLOW_DIR_46="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$NO_FLOW_DIR_46")
+make_no_flow_dir "$NO_FLOW_DIR_46"
+PATH="$NO_FLOW_DIR_46" capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+if [ "$RC" -ne 0 ]; then
+  fail "incidents no flow: exited $RC (expected 0): $OUT"
+elif ! printf '%s\n' "$OUT" | grep -qxF 'skipped: incidents (flow unavailable)'; then
+  fail "incidents no flow: no skipped-unavailable line (exact): $OUT"
+elif printf '%s' "$OUT" | grep -qF '## incidents'; then
+  fail "incidents no flow: ## incidents heading present with no flow on PATH: $OUT"
+else
+  pass "incidents no flow on PATH: skipped as (flow unavailable), exit 0"
+fi
+
+# CASE 47: a new incident changes the body hash, so the bundle is rebuilt
+# rather than reused unchanged.
+new_repo
+FLOW_DIR_47A="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+FLOW_DIR_47B="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_47A" "$FLOW_DIR_47B")
+make_flow_stub_dir "$FLOW_DIR_47A" '[{"occurredAt":"2026-01-01T00:00:00Z","guard":"g","symptom":"s","recovery":"r","minutesLost":1,"change":null}]'
+make_flow_stub_dir "$FLOW_DIR_47B" '[{"occurredAt":"2026-01-02T00:00:00Z","guard":"g","symptom":"s2","recovery":"r","minutesLost":1,"change":null}]'
+PATH="$FLOW_DIR_47A" "$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" >/dev/null 2>&1
+ERR="$(PATH="$FLOW_DIR_47B" "$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" 2>&1 1>/dev/null)"
+if ! printf '%s' "$ERR" | grep -qF 'bundle rebuilt'; then
+  fail "incidents changed: expected a rebuild, got: $ERR"
+elif ! grep -qF 's2' "$OUTPUT_PATH"; then
+  fail "incidents changed: new incident's symptom not in rebuilt bundle"
+else
+  pass "a new incident changes the body hash, so the bundle is rebuilt"
+fi
+
+# ===========================================================================
+# CASE 48 (F3 mutation repair): <principles-path> with a literal "(" that
+# does NOT put the whole label in a trailing "(...)" shape — e.g. a caller
+# installed under a parenthesized directory name, such as
+# "Application Support (beta)/engineering-principles.md" — must still get
+# the "(absent)" suffix when the file is missing. Before the fix,
+# render_body treated ANY skip label containing "(" anywhere as already
+# self-describing (the "incidents (none)"/"incidents (flow unavailable)"
+# shape) and silently dropped "(absent)"; this label has a mid-string "("
+# but ends in ".md", not ")", so it must still be reported skipped/absent.
+# ===========================================================================
+
+new_repo
+PAREN_DIR_48="$REPO/weird (dir)"
+mkdir -p "$PAREN_DIR_48"
+PRINCIPLES_48="$PAREN_DIR_48/PRINCIPLES-MISSING.md"
+capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES_48" "$OUTPUT_PATH"
+[ "$RC" -eq 0 ] && pass "principles-path with mid-string paren: exits 0" \
+  || fail "principles-path with mid-string paren: rc=$RC out=$OUT"
+case "$OUT" in
+  *"skipped: $PRINCIPLES_48 (absent)"*) pass "principles-path with mid-string paren: absent suffix appended" ;;
+  *) fail "principles-path with mid-string paren: absent suffix missing: $OUT" ;;
+esac
+
+# ===========================================================================
+# CASE 49 (F6/F7 design fix): render_body no longer pattern-matches the skip
+# label's shape at all — every label is formatted in full at the point it's
+# pushed onto SKIPPED_LABELS, so there is nothing left for a shape-sniffing
+# regex to misfire on. This proves the two adversarial shapes round 1 found
+# against the old pattern-matching approach:
+#   F6: a genuinely-absent path ending in "(v2)" (has " (" earlier AND a
+#       trailing ")", so the old *" ("*")" pattern wrongly treated it as
+#       already self-describing and dropped "(absent)").
+#   F7: a genuinely-absent path shaped "foo(bar)" (trailing ")" but no space
+#       before "(", so the old pattern variant without the space
+#       requirement wrongly matched it too).
+# Both must still get "(absent)" appended now.
+# ===========================================================================
+
+new_repo
+PRINCIPLES_49A="$REPO/notes (v2)"
+capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES_49A" "$OUTPUT_PATH"
+case "$OUT" in
+  *"skipped: $PRINCIPLES_49A (absent)"*) pass "principles-path shaped 'notes (v2)': absent suffix appended" ;;
+  *) fail "principles-path shaped 'notes (v2)': absent suffix missing: $OUT" ;;
+esac
+
+new_repo
+PRINCIPLES_49B="$REPO/foo(bar)"
+capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES_49B" "$OUTPUT_PATH"
+case "$OUT" in
+  *"skipped: $PRINCIPLES_49B (absent)"*) pass "principles-path shaped 'foo(bar)': absent suffix appended" ;;
+  *) fail "principles-path shaped 'foo(bar)': absent suffix missing: $OUT" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
