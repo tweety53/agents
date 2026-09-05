@@ -329,6 +329,14 @@ scripts/check-references.sh
 
 `merge and push`
 
+## self review
+
+`skip`
+
+The report series ended at kan-380: the six changes after it all answered "No" to a prompt that
+fires after `FINISHED`, when the operator has walked away, and the 30 reports before it yielded 9
+Jira tickets. This key ratifies that and ends the series; set `run` to bring it back.
+
 ## self review model
 
 `fable`

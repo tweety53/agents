@@ -29,10 +29,8 @@ variant states:
 This contract fixes the shape, not the default's polarity: the call site chooses it, and states it
 plainly. A safe default may resolve silence to the empty set (an explicit "None" option, marked
 recommended) or to the full set (every listed option, silence needing no option of its own to name
-it) — whichever matches what the options actually control. The two existing multi-select call
-sites choose oppositely: the self-review filing ask's safe default is "file nothing" (silence
-selects None), while `skills/myflow-do/SKILL.md`'s optional review-slot ask defaults to "include
-all of them" (silence selects every fired trigger).
+it) — whichever matches what the options actually control. The one live multi-select call site,
+the self-review filing ask, chooses the empty set: silence selects **None — file nothing**.
 
 ## The doctrine
 

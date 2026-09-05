@@ -139,7 +139,13 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    <archived-change-path> <name> <state-dir> <main-checkout>`, resolving `<archived-change-path>` as
    `<project>/spectre/changes/archive/<name>/`, and passing `<main-checkout>` as the trust anchor.
 
-   The skip prompt fires first:
+   Run `project-get.sh <main-checkout> "self review"` (exit 1: absent) and match the body against
+   the two literals `run` / `skip` byte-for-byte after trimming leading/trailing whitespace; a
+   body matching neither is reported by name and dropped, resolving as absent. `skip` ends step 9
+   here, the handoff's `Self-review` line reading `skipped — project default`. `run` proceeds to
+   the reasoning pass below with no prompt. Absent: the skip prompt fires as today.
+
+   When the key is absent, the skip prompt fires first:
 
    > **Run self-review for this change?**
    > - **Yes — run it** *(default, recommended)*
@@ -153,7 +159,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    (**Model resolution**, `skills/flow/SKILL.md`) — not inline in this session. Hand the subagent
    the script's output and the five-angle table below; it returns the five angles' findings (each
    angle's findings, or an explicit none-marker) as its report body and nothing else — it does not
-   write the report file, does not ask the rating question, and does not run the filing prompts.
+   write the report file and does not run the filing-and-rating prompt.
    This session receives that back and runs everything below itself, since a subagent cannot drive
    `AskUserQuestion`. **The relay contract, stated in the same prompt:** the dispatch instructs the
    subagent that the first line of its reply must be `Model: <the model named in its own system
@@ -175,15 +181,23 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    | 5 | What could move to the Go app or its persistent storage | `myflow-stats-app` |
 
    **One combined pass** — never five separate dispatches. Every finding is explained in the message
-   body first, before any prompt fires. The filing ask is **one multi-select prompt per angle**,
-   defaulting to filing none:
+   body first, before any prompt fires. The filing ask and the rating are **one `AskUserQuestion`
+   call** — one multi-select question per three findings, each option `<label>: <finding>`, the
+   rating last:
 
-   > **File any of this angle's findings as Jira issues?**
-   > - **<finding 1>**
-   > - **<finding 2>**
+   > **File any of these findings as Jira issues?**
+   > - **`<label>`: <finding 1>**
+   > - **`<label>`: <finding 2>**
+   > - **`<label>`: <finding 3>**
    > - **None — file nothing** *(default, recommended)*
+   >
+   > **Rate this flow run:**
+   > - **5 — excellent**
+   > - **4 — good**
+   > - **3 — fine**
+   > - **2 — rough** — a `1` is typed through the tool's free-text "Other"
 
-   Then ask the operator to rate the run: **Rate this flow run, 1 (rough) to 5 (excellent):**
+   More than nine findings roll the overflow into one further call without the rating.
 
    Write `<project>/docs/self-review/<name>-self-review.md` — one section per angle, all five
    present; each finding one line naming its angle's label, the finding, and its disposition; an
@@ -226,7 +240,7 @@ flow stage end -command '/flow' -stage flow.push-archive -outcome completed <nam
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** <path> (rating: <n>/5) | skipped
+**Self-review:** <path> (rating: <n>/5) | skipped | skipped — project default
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
@@ -278,5 +292,5 @@ as they stop the base contract. Check 4 turning up something genuinely irreplace
 - **Never** `git add` the state file, and never move it into the archive.
 - **Never** let a Jira call block the archive — one skipped-with-reason line.
 - **Never** let self-review block, delay, or undo the `FINISHED` write.
-- **Never** ask the self-review skip prompt, a per-angle filing ask, or the rating question before
-  `FINISHED` has been written.
+- **Never** ask the self-review skip prompt or the filing-and-rating prompt, nor resolve the
+  `## self review` key, before `FINISHED` has been written.

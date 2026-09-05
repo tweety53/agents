@@ -149,14 +149,16 @@
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
 9. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
-   the change off `FINISHED`. It is skippable per run, with running it the default. It gathers its
+   the change off `FINISHED`. It is skippable per run, with running it the default. A project's
+   `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
+   decides without asking when present and valid; the per-run prompt is the absent case. It gathers its
    input by invoking `gather-self-review-context.sh` rather than having the reasoning pass
    re-read files inline, and runs **one** combined reasoning pass covering all five angles below,
    together with the operator's 1-5 rating, never as five separate dispatches. **The reasoning pass
    itself runs as a subagent, on `SELF_REVIEW_MODEL`** — resolved project key, then the store's
    `selfReviewModel`, then the literal `fable`, with a verified `opus` fallback on a mismatch (**Model
    resolution**, `skills/flow/SKILL.md`) — rather than inline in the session driving `/flow` — the
-   operator's rating and the per-angle filing prompts still run in that session, since only it can
+   filing-and-rating prompt still runs in that session, since only it can
    drive `AskUserQuestion`.
 
    | # | Angle | Label |
@@ -194,11 +196,15 @@
    the prompt records the decision only: a filed issue is durable, and an explanation arriving
    afterward describes something the operator did not agree to.
 
-   The filing ask is **one multi-select prompt per angle**, listing that angle's findings and
-   defaulting to filing none of them, shape per **Operator prompts**
-   (`skills/flow-contracts/operator-prompts.md`). A finding filed this way carries its angle's
-   label on top of the set **Labels on issues the pipeline creates**
-   (`skills/flow-contracts/jira-integration.md`) already defines.
+   The filing ask and the rating are **one `AskUserQuestion` call**. Findings from every angle
+   fill up to three multi-select questions, each carrying at most three findings — every option
+   prefixed with its angle's label — plus **None — file nothing** as that question's `(default,
+   recommended)` option; the rating is the call's last question, options `5 — excellent` /
+   `4 — good` / `3 — fine` / `2 — rough`, a `1` typed through the tool's free-text "Other". More
+   than nine findings roll the overflow into one further call of the same shape, without the
+   rating. Shape per **Operator prompts** (`skills/flow-contracts/operator-prompts.md`). A finding
+   filed this way carries its angle's label on top of the set **Labels on issues the pipeline
+   creates** (`skills/flow-contracts/jira-integration.md`) already defines.
 
    The report is committed onto `chore/archive-<name>` — asserting that branch rather than assuming
    it, and not pushed here; step 10 carries the push — to
@@ -213,7 +219,7 @@
    **There is no requirements layer above this one; change this file.** The procedure was first
    written as **Requirement: Self-review runs only after FINISHED is written**
    (`<agents repo>/openspec/specs/myflow-self-review/spec.md`), alongside sibling requirements in that
-   same file for context gathering, the combined pass, the per-angle filing ask, the rating and
+   same file for context gathering, the combined pass, the filing ask, the rating and
    the report path. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre
    cutover and not migrated, so it records where the rule came from and governs nothing: the
    statement above is both the requirement and the runtime source of the procedure.
