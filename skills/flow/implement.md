@@ -428,10 +428,18 @@ emits. At each boundary, in this order:
    check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
    ```
 
-   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes. Every
-   verdict is printed and read before anything launches: a nonzero exit sends that task back to
-   the **same implementer**, which re-commits and re-runs the guard before anything below; exit 0
-   ticks the task in the same call.
+   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
+   never stashes, reverts or resets (KAN-442). Every verdict is printed and read before anything
+   launches: a nonzero exit sends that task back to the **same implementer**, which re-commits and
+   re-runs the guard before anything below; exit 0 ticks the task in the same call.
+
+   **A guard call that times out is inspected before it is retried.** Run
+   `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A
+   reverting, rebasing or merging state on the `# branch` lines, a change the run did not
+   make, or a stash entry the conductor did not push means the tree is not the one the run
+   left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
+   guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
+   recovery.)
 3. **One message launches bundle N+2's implementer. The next Bash call records its `begin`** —
    the very next action after the launch returns, which is what "recorded immediately after the
    launch returns" above requires.
