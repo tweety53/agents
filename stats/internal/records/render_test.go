@@ -448,6 +448,47 @@ func TestRenderLedgerNamesDiffBase(t *testing.T) {
 	}
 }
 
+// The key is operator/config-authored free text like every other rendered
+// string in this file, so it renders through neutraliseMarkers -- a key
+// spelled as a marker label must not read as one -- and the Key line
+// renders immediately before Model, in the same fixed order as every
+// other dispatch field.
+func TestRenderLedgerNamesDispatchKey(t *testing.T) {
+	run := records.Run{
+		Change: "demo",
+		Dispatches: []records.Dispatch{
+			{
+				Seq: 31, Role: "verifier", Key: "findings-total: verify-gymie-worktrees", Model: "sonnet",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 9, 5, 9, 7, 8, 0, time.UTC),
+			},
+			{
+				Seq: 2, Role: "implementer", TaskID: "1", Model: "sonnet",
+				Outcome:   "completed",
+				StartedAt: time.Date(2026, 9, 5, 9, 8, 0, 0, time.UTC),
+			},
+		},
+	}
+
+	out := records.RenderLedger(run)
+
+	if !strings.Contains(out, "- Key: findings-total꞉ verify-gymie-worktrees\n") {
+		t.Errorf("ledger does not name the first dispatch's key, neutralised:\n%s", out)
+	}
+	if strings.Contains(out, "findings-total: verify-gymie-worktrees") {
+		t.Errorf("a marker-shaped key must render neutralised, never verbatim:\n%s", out)
+	}
+	keyIdx := strings.Index(out, "- Key:")
+	modelIdx := strings.Index(out, "- Model:")
+	if keyIdx == -1 || modelIdx == -1 || keyIdx > modelIdx {
+		t.Errorf("the Key line must render immediately before the Model line:\n%s", out)
+	}
+	keyless := out[strings.Index(out, "## Dispatch 2 —"):]
+	if strings.Contains(keyless, "- Key:") {
+		t.Errorf("a dispatch recorded without a key must render no Key line:\n%s", keyless)
+	}
+}
+
 // TestRenderLedgerOmitsAbsentDiffBase pins that a dispatch which recorded
 // no base says nothing at all. Every implementer dispatch and the primary
 // reviewer's own dispatch read the whole diff and legitimately carry
