@@ -994,7 +994,21 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 		t.Fatalf("write plan: %v", err)
 	}
 
-	srv := httptest.NewServer(renderDaemon(t, `{"change":"demo","dispatches":[],"findings":[]}`))
+	// renderDaemon itself is GET-only -- correct for the tests that call
+	// only `record render`. This test also shells out to the guard below,
+	// which (since check-unfinished-work.sh's own advisory verdict write)
+	// POSTs its verdict to this same FLOW_ADDR. That write's outcome is
+	// irrelevant here -- the guard's own combined output already silences
+	// it -- so this handler answers GET with the render body and accepts
+	// any other method rather than failing the test over it.
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"findings":[]}`))
+	}))
 	defer srv.Close()
 	// The guard shells out to `flow record findings` with no -addr, and that
 	// subprocess inherits this process's environment. Pinning FLOW_ADDR to
@@ -1587,6 +1601,360 @@ func TestRecordFindingRejectsWithdrawnWithNoReason(t *testing.T) {
 				t.Error("a reasonless withdrawn status wrote a record journal")
 			}
 		})
+	}
+}
+
+// --- KAN-451: guard verdicts and incidents ---
+
+// TestRecordVerdictWritesAndFallsBackToJournal pins `flow record verdict`'s
+// two outcomes: a reachable store gets a POST body carrying every flag and
+// a non-zero recordedAt, the identical never-block fallback every other
+// record write shares.
+func TestRecordVerdictWritesAndFallsBackToJournal(t *testing.T) {
+	t.Run("writes the verdict", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var gotPath string
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"guard":"check-unfinished-work","worktree":"/wt/kan-451","verdict":"CLEAR: /wt/kan-451 -- every plan item is checked and no finding is open","recordedAt":"2026-01-02T03:04:05Z"}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdict", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-451", "-guard", "check-unfinished-work", "-worktree", "/wt/kan-451",
+				"-verdict", "CLEAR: /wt/kan-451 -- every plan item is checked and no finding is open"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.HasSuffix(gotPath, "/kan-451/verdicts") {
+			t.Errorf("request path = %s, want it to end in /kan-451/verdicts", gotPath)
+		}
+
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		if sent["guard"] != "check-unfinished-work" {
+			t.Errorf("guard = %v, want check-unfinished-work", sent["guard"])
+		}
+		if sent["worktree"] != "/wt/kan-451" {
+			t.Errorf("worktree = %v, want /wt/kan-451", sent["worktree"])
+		}
+		if sent["verdict"] != "CLEAR: /wt/kan-451 -- every plan item is checked and no finding is open" {
+			t.Errorf("verdict = %v, want the verbatim verdict line", sent["verdict"])
+		}
+		if v, ok := sent["recordedAt"]; !ok || v == "" || v == "0001-01-01T00:00:00Z" {
+			t.Errorf("recordedAt = %v, want a non-zero instant the CLI stamped", v)
+		}
+	})
+
+	t.Run("falls back to the journal", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdict", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-451", "-guard", "check-unfinished-work", "-worktree", "/wt/kan-451",
+				"-verdict", "OUTSTANDING: /wt/kan-451 -- one item unchecked"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "store unreachable") {
+			t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
+		}
+
+		entries, exists := recordJournalEntries(t, repo, "kan-451")
+		if !exists || len(entries) != 1 {
+			t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
+		}
+		var body struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+			t.Fatalf("decode journalled body: %v", err)
+		}
+		if body.Kind != "verdict" {
+			t.Errorf("journalled kind = %q, want verdict", body.Kind)
+		}
+	})
+}
+
+// TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable pins
+// `flow record verdict false-positive`'s three outcomes: a 404 (no verdict
+// recorded yet) is a definitive refusal, an unreachable store journals for
+// replay, and an empty -reason is a caller mistake refused before the store
+// is ever contacted.
+func TestRecordVerdictFalsePositiveRefusesNoVerdictAndJournalsUnreachable(t *testing.T) {
+	t.Run("404 refuses without journalling", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"no verdict for guard"}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdict", "false-positive", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", "verified structural"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code == 0 {
+			t.Fatalf("exit code = 0, want non-zero for a 404; stdout:\n%s", stdout.String())
+		}
+		if _, exists := recordJournalEntries(t, repo, "kan-451"); exists {
+			t.Error("a 404 (definitive refusal) wrote a record journal")
+		}
+	})
+
+	t.Run("dead port journals for replay", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdict", "false-positive", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", "verified structural"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+		}
+		entries, exists := recordJournalEntries(t, repo, "kan-451")
+		if !exists || len(entries) != 1 {
+			t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
+		}
+		var body struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(entries[0].Body, &body); err != nil {
+			t.Fatalf("decode journalled body: %v", err)
+		}
+		if body.Kind != "verdict-false-positive" {
+			t.Errorf("journalled kind = %q, want verdict-false-positive", body.Kind)
+		}
+	})
+
+	t.Run("empty reason exits 2 without contacting the store", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		contacted := false
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+			contacted = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdict", "false-positive", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-451", "-guard", "check-unfinished-work", "-reason", ""},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 2 {
+			t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+		}
+		if contacted {
+			t.Error("the store was contacted for an empty -reason -- it must be refused first")
+		}
+		if !strings.Contains(stderr.String(), "-reason is required") {
+			t.Errorf("stderr = %q, want it to name -reason as required", stderr.String())
+		}
+	})
+}
+
+// TestRecordVerdictsPrintsArrayAndFailsLoudly pins the read verb's contract
+// -- the same one `findings` already carries -- plus its two query
+// parameters landing on the request.
+func TestRecordVerdictsPrintsArrayAndFailsLoudly(t *testing.T) {
+	t.Run("prints the array verbatim", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		body := `[{"id":1,"guard":"check-unfinished-work","worktree":"/wt/kan-451","verdict":"CLEAR: /wt/kan-451 -- ok","recordedAt":"2026-01-02T03:04:05Z","falsePositive":false}]`
+		var gotQuery string
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdicts", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-guard", "check-unfinished-work", "-false-positive"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if got := strings.TrimRight(stdout.String(), "\n"); got != body {
+			t.Errorf("stdout = %q, want the array verbatim %q", got, body)
+		}
+		if !strings.Contains(gotQuery, "guard=check-unfinished-work") {
+			t.Errorf("query = %q, want guard=check-unfinished-work", gotQuery)
+		}
+		if !strings.Contains(gotQuery, "falsePositive=true") {
+			t.Errorf("query = %q, want falsePositive=true", gotQuery)
+		}
+	})
+
+	t.Run("empty for no rows", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdicts", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if got := strings.TrimRight(stdout.String(), "\n"); got != "[]" {
+			t.Fatalf("stdout = %q, want exactly []", got)
+		}
+	})
+
+	t.Run("dead port fails loudly", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "verdicts", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code == 0 {
+			t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
+		}
+		if strings.Contains(stdout.String(), "[") {
+			t.Errorf("stdout = %q, want no JSON array when the store is unreachable", stdout.String())
+		}
+		if stderr.Len() == 0 {
+			t.Error("stderr is empty, want it to report the unreachable store")
+		}
+	})
+}
+
+// TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore pins
+// `flow record incident`'s caller-mistake checks -- a -minutes-lost that
+// does not parse as a non-negative integer is refused before the store is
+// ever contacted -- and that an omitted -change (incidents take no
+// required change identity) leaves the field out of the request body.
+func TestRecordIncidentRejectsNegativeMinutesWithoutContactingStore(t *testing.T) {
+	for _, minutes := range []string{"-1", "abc"} {
+		t.Run(minutes, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			contacted := false
+			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+				contacted = true
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(),
+				[]string{"record", "incident", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+					"-guard", "check-unfinished-work", "-symptom", "s", "-recovery", "r",
+					"-minutes-lost", minutes},
+				strings.NewReader(""), &stdout, &stderr)
+
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+			}
+			if contacted {
+				t.Error("the store was contacted for an invalid -minutes-lost -- it must be refused first")
+			}
+		})
+	}
+
+	t.Run("valid write without -change omits change from the body", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var gotBody []byte
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			gotBody, err = readAll(r)
+			if err != nil {
+				t.Errorf("read request body: %v", err)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1,"guard":"check-unfinished-work","symptom":"s","recovery":"r","minutesLost":5}`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "incident", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-guard", "check-unfinished-work", "-symptom", "s", "-recovery", "r",
+				"-minutes-lost", "5"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		var sent map[string]any
+		if err := json.Unmarshal(gotBody, &sent); err != nil {
+			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+		}
+		if _, ok := sent["change"]; ok {
+			t.Errorf("body carries change = %v, want it omitted when -change is not given", sent["change"])
+		}
+	})
+}
+
+// TestRecordIncidentsPrintsArray pins the second read verb's contract --
+// identical to `verdicts`' own.
+func TestRecordIncidentsPrintsArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	body := `[{"id":1,"guard":"check-unfinished-work","symptom":"s","recovery":"r","minutesLost":5,"occurredAt":"2026-01-02T03:04:05Z"}]`
+	srv := httptest.NewServer(renderDaemon(t, body))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "incidents", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if got := strings.TrimRight(stdout.String(), "\n"); got != body {
+		t.Errorf("stdout = %q, want the array verbatim %q", got, body)
 	}
 }
 

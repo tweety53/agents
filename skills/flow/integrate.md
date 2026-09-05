@@ -44,8 +44,10 @@ the link instead of reporting an absence.
 
 - **`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator.
-- **`OUTSTANDING:`** → show the breakdown, and offer exactly three courses, shape per Operator
-  prompts (`skills/flow-contracts/operator-prompts.md`):
+- **`OUTSTANDING:`** → show the breakdown — and the guard's
+  `prior false positives for this guard on this project` stderr line when it printed — and offer
+  exactly three courses, shape per Operator prompts
+  (`skills/flow-contracts/operator-prompts.md`):
 
   > **This change carries unfinished work — how should integration proceed?**
   > - **Stop — I'll finish it first** *(recommended)*
@@ -56,11 +58,20 @@ the link instead of reporting an absence.
 - **No verdict line at all, and a non-zero exit** → stop and ask.
 
 **Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed.
-**Continue** carries the outstanding list into **3**'s planning commit and into the handoff. **File
-or join a Jira follow-up** puts the outstanding items on a follow-up issue and continues. See
-**Follow-up issues** (`skills/flow-contracts/jira-followups.md`) for the search, the
-confirmation, and how it is labelled; a filing that fails is one skipped-with-reason line and the
-run still continues.
+**Continue** carries the outstanding list into **3**'s planning commit and into the handoff. When
+the operator's answer says the verdict was verified structural — the plan held in another worktree
+with every task ticked and no open finding — run, once per worktree that reported `OUTSTANDING`
+and before proceeding to **2**:
+
+```bash verified:the flag set is design.md §5's; the call shape mirrors the flow record findings call at scripts/check-unfinished-work.sh:317
+flow record verdict false-positive -change <name> -guard check-unfinished-work \
+  -reason "<the operator's reason, verbatim>" -C <worktree>
+```
+
+A write that falls back to the journal is one warning line and the run continues. **File or join a
+Jira follow-up** puts the outstanding items on a follow-up issue and continues. See **Follow-up
+issues** (`skills/flow-contracts/jira-followups.md`) for the search, the confirmation, and how it
+is labelled; a filing that fails is one skipped-with-reason line and the run still continues.
 
 ```bash
 flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome completed <name>

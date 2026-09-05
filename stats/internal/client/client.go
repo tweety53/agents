@@ -771,6 +771,116 @@ func (c *Client) GetCostStatus(ctx context.Context, project, change string) (rec
 	return out, nil
 }
 
+// verdictsURL and incidentsURL are KAN-451's guard-log endpoints -- project
+// scoped rather than change scoped, per design.md §4, since a verdict list
+// spans every change on the project and an incident can be recorded
+// against a project with no change in flight at all.
+func (c *Client) verdictsURL(project string) string {
+	return c.baseURL + "/api/v1/verdicts/" + url.PathEscape(project)
+}
+
+func (c *Client) incidentsURL(project string) string {
+	return c.baseURL + "/api/v1/incidents/" + url.PathEscape(project)
+}
+
+// RecordVerdict records one guard's verdict for project/change and returns
+// the row the daemon stored, carrying the id the store allocated. See
+// RecordDispatch's doc comment for how every outcome other than a 201 is
+// classified.
+func (c *Client) RecordVerdict(ctx context.Context, project, change string, in records.Verdict) (records.Verdict, error) {
+	var out records.Verdict
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/verdicts", in,
+		map[int]bool{http.StatusCreated: true}, &out)
+	if err != nil {
+		return records.Verdict{}, err
+	}
+	return out, nil
+}
+
+// FlagVerdictFalsePositive flags the most recent verdict project/change
+// recorded for in.Guard as a false positive, with the operator's reason,
+// and returns the row as it now stands.
+//
+// A (change, guard) pair the daemon holds no verdict for is ErrNotFound,
+// classified exactly as EndDispatch's unknown key is (see its own doc
+// comment) -- the daemon answered, and the CLI journals a network failure
+// while refusing a genuine "no verdict" outright, since no replay could
+// ever make one exist.
+func (c *Client) FlagVerdictFalsePositive(ctx context.Context, project, change string, in records.VerdictFlag) (records.Verdict, error) {
+	var out records.Verdict
+	_, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/verdicts/false-positive", in,
+		map[int]bool{http.StatusOK: true}, &out)
+	if err != nil {
+		return records.Verdict{}, err
+	}
+	return out, nil
+}
+
+// ListVerdicts fetches project's guard verdicts, newest first. guard == ""
+// means every guard; falsePositiveOnly restricts to rows an operator has
+// flagged. See GetRunRecord's own doc comment for how a non-200 outcome is
+// classified -- this route names no change, so it can answer only
+// ErrUnavailable, never ErrNotFound.
+func (c *Client) ListVerdicts(ctx context.Context, project, guard string, falsePositiveOnly bool) ([]records.Verdict, error) {
+	q := url.Values{}
+	if guard != "" {
+		q.Set("guard", guard)
+	}
+	if falsePositiveOnly {
+		q.Set("falsePositive", "true")
+	}
+	u := c.verdictsURL(project)
+	if len(q) > 0 {
+		u += "?" + q.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.Verdict
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RecordIncident records one per-project incident -- a guard, what went
+// wrong, the recovery taken and how many minutes it cost -- and returns the
+// row the daemon stored, carrying the id it allocated.
+func (c *Client) RecordIncident(ctx context.Context, project string, in records.Incident) (records.Incident, error) {
+	var out records.Incident
+	_, err := c.writeRecord(ctx, http.MethodPost, c.incidentsURL(project), in,
+		map[int]bool{http.StatusCreated: true}, &out)
+	if err != nil {
+		return records.Incident{}, err
+	}
+	return out, nil
+}
+
+// ListIncidents fetches project's incidents, newest first. See
+// ListVerdicts' own doc comment for why this route can answer only
+// ErrUnavailable, never ErrNotFound.
+func (c *Client) ListIncidents(ctx context.Context, project string) ([]records.Incident, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.incidentsURL(project), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.Incident
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // findingStatusWireRequest is the body PATCH .../findings/{ref} carries:
 // the one column a fix round rewrites.
 type findingStatusWireRequest struct {

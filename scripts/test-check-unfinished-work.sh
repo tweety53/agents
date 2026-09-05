@@ -200,6 +200,45 @@ STUB
   chmod +x "$WT/bin/flow"
 }
 
+# set_prior_false_positives <json> -- (re)writes the current fixture's stub
+# data file so the next `flow record verdicts` call inside $WT answers with
+# this JSON array of prior false-positive verdicts.
+set_prior_false_positives() {
+  printf '%s\n' "$1" > "$WT/bin/verdicts.json"
+}
+
+# set_verdicts_unreachable -- replaces the current fixture's stub `flow` so
+# only `verdicts` exits non-zero; `findings` and `verdict` keep new_fixture's
+# behaviour.
+set_verdicts_unreachable() {
+  cat > "$WT/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "$2" in
+  findings) cat "$(dirname -- "$0")/findings.json" ;;
+  verdict) printf '%s\n' "$*" >> "$(dirname -- "$0")/verdict.args" ;;
+  verdicts) echo "flow: connect: connection refused" >&2; exit 1 ;;
+esac
+exit 0
+STUB
+  chmod +x "$WT/bin/flow"
+}
+
+# set_verdict_unreachable -- replaces the current fixture's stub `flow` so
+# only `verdict` exits non-zero; `findings` and `verdicts` keep new_fixture's
+# behaviour.
+set_verdict_unreachable() {
+  cat > "$WT/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "$2" in
+  findings) cat "$(dirname -- "$0")/findings.json" ;;
+  verdict) echo "flow: connect: connection refused" >&2; exit 1 ;;
+  verdicts) cat "$(dirname -- "$0")/verdicts.json" ;;
+esac
+exit 0
+STUB
+  chmod +x "$WT/bin/flow"
+}
+
 # new_fixture -> sets WT to a worktree holding a fully finished change named
 # "demo": every plan item checked, one closed ("fixed") finding answered by a
 # stub `flow` on WT/bin, ahead of the real one on PATH for any guard
@@ -209,9 +248,14 @@ new_fixture() {
   SANDBOXES+=("$WT")
   mkdir -p "$WT/spectre/changes/demo" "$WT/.superpowers/sdd" "$WT/bin"
   printf -- '- [x] 1.1 done\n' > "$WT/spectre/changes/demo/tasks.md"
+  printf '[]\n' > "$WT/bin/verdicts.json"
   cat > "$WT/bin/flow" <<'STUB'
 #!/usr/bin/env bash
-cat "$(dirname -- "$0")/findings.json"
+case "$2" in
+  findings) cat "$(dirname -- "$0")/findings.json" ;;
+  verdict) printf '%s\n' "$*" >> "$(dirname -- "$0")/verdict.args"; ;;
+  verdicts) cat "$(dirname -- "$0")/verdicts.json" ;;
+esac
 exit 0
 STUB
   chmod +x "$WT/bin/flow"
@@ -752,6 +796,90 @@ printf -- '- [x] 1. done\n  - [ ] **Step 1: still shows unticked, and must not c
   > "$WT/spectre/changes/demo/tasks.md"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "an unticked step beneath a checked task does not gate the guard"
+
+# 20. THE RECORDED VERDICT ARGUMENT EQUALS THE PRINTED VERDICT LINE, on both
+#     CLEAR and OUTSTANDING -- proving the guard's own `flow record verdict
+#     -verdict "..."` call carries the exact same line it prints to stdout,
+#     never a paraphrase of it.
+new_fixture
+run_guard "$WT" demo
+CLEAR_OUT="$OUT"
+CLEAR_OK=0
+grep -qF -- "-verdict $CLEAR_OUT" "$WT/bin/verdict.args" 2>/dev/null && CLEAR_OK=1
+new_fixture
+printf -- '- [ ] 1.1 not done\n' > "$WT/spectre/changes/demo/tasks.md"
+run_guard "$WT" demo
+OUTSTANDING_OUT="$OUT"
+OUTSTANDING_OK=0
+grep -qF -- "-verdict $OUTSTANDING_OUT" "$WT/bin/verdict.args" 2>/dev/null && OUTSTANDING_OK=1
+if [ "$CLEAR_OK" -eq 1 ] && [ "$OUTSTANDING_OK" -eq 1 ]; then
+  pass "case 20: the recorded -verdict argument equals the printed verdict line on both CLEAR and OUTSTANDING"
+else
+  fail "case 20: recorded -verdict argument does not equal the printed line (CLEAR ok=$CLEAR_OK, OUTSTANDING ok=$OUTSTANDING_OK)"
+fi
+
+# 21. OUTSTANDING with two prior false positives on this guard/project prints
+#     the advisory line, naming the count and the newest reason, on stderr
+#     after the verdict.
+new_fixture
+printf -- '- [ ] 1.1 not done\n' > "$WT/spectre/changes/demo/tasks.md"
+set_prior_false_positives '[
+  {"id":2,"guard":"check-unfinished-work","worktree":"/wt","verdict":"OUTSTANDING: /wt - x","recordedAt":"2026-08-30T12:00:00Z","falsePositive":true,"falsePositiveReason":"verified structural: plan lives in backend repo","flaggedAt":"2026-08-30T12:00:00Z","change":"kan-393"},
+  {"id":1,"guard":"check-unfinished-work","worktree":"/wt","verdict":"OUTSTANDING: /wt - y","recordedAt":"2026-08-01T09:00:00Z","falsePositive":true,"falsePositiveReason":"older reason","flaggedAt":"2026-08-01T09:00:00Z","change":"kan-260"}
+]'
+run_guard "$WT" demo
+case "$OUT" in
+  "OUTSTANDING:"*) : ;;
+  *) fail "case 21: expected OUTSTANDING, got: $OUT" ;;
+esac
+case "$ERR" in
+  *"prior false positives for this guard on this project: 2 — last: verified structural: plan lives in backend repo (kan-393, 2026-08-30)"*)
+    pass "case 21: OUTSTANDING with two prior false positives prints the advisory line naming the count and newest reason" ;;
+  *) fail "case 21: expected the prior-false-positive advisory line on stderr, got: $ERR" ;;
+esac
+
+# 22. OUTSTANDING with `[]` (no prior false positives) prints no advisory
+#     line at all -- new_fixture's default fixture data.
+new_fixture
+printf -- '- [ ] 1.1 not done\n' > "$WT/spectre/changes/demo/tasks.md"
+run_guard "$WT" demo
+if [ "$RC" -eq 0 ] && [ "${OUT%%:*}:" = "OUTSTANDING:" ] && [ "${ERR#*"prior false positives"}" = "$ERR" ]; then
+  pass "case 22: OUTSTANDING with no prior false positives prints no advisory line"
+else
+  fail "case 22: expected OUTSTANDING with no advisory line, got rc=$RC out=$OUT err=$ERR"
+fi
+
+# 23. `flow record verdicts` failing prints no advisory line, and the
+#     verdict line and exit 0 are unchanged -- the read is advisory
+#     (design.md's script-reads-are-advisory decision).
+new_fixture
+printf -- '- [ ] 1.1 not done\n' > "$WT/spectre/changes/demo/tasks.md"
+set_verdicts_unreachable
+run_guard "$WT" demo
+if [ "$RC" -eq 0 ] && [ "${OUT%%:*}:" = "OUTSTANDING:" ] && [ "${ERR#*"prior false positives"}" = "$ERR" ]; then
+  pass "case 23: verdicts unreachable prints no advisory line and leaves the verdict and exit 0 unchanged"
+else
+  fail "case 23: expected OUTSTANDING, exit 0, no advisory line; got rc=$RC out=$OUT err=$ERR"
+fi
+
+# 24. `flow record verdict` failing leaves the verdict line and exit 0
+#     unchanged -- the write is advisory too.
+new_fixture
+set_verdict_unreachable
+run_guard "$WT" demo
+assert_verdict "CLEAR:" "case 24: verdict write unreachable leaves the verdict line and exit 0 unchanged"
+
+# 25. CLEAR never calls `flow record verdicts` at all -- even with prior
+#     false positives on file, no advisory line ever reaches stderr on the
+#     signal-free path.
+new_fixture
+set_prior_false_positives '[{"id":1,"guard":"check-unfinished-work","worktree":"/wt","verdict":"OUTSTANDING: /wt - x","recordedAt":"2026-08-01T09:00:00Z","falsePositive":true,"falsePositiveReason":"should never be read","flaggedAt":"2026-08-01T09:00:00Z","change":"kan-260"}]'
+run_guard "$WT" demo
+if [ "$RC" -eq 0 ] && [ "${OUT%%:*}:" = "CLEAR:" ] && [ "${ERR#*"prior false positives"}" = "$ERR" ]; then
+  pass "case 25: CLEAR never calls verdicts, so no advisory line ever prints"
+else
+  fail "case 25: expected CLEAR with no advisory line, got rc=$RC out=$OUT err=$ERR"
+fi
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -741,6 +742,287 @@ func readFindings(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Fin
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("read findings: %w", err)
+	}
+	return out, nil
+}
+
+// verdictColumns is the column list every read of a guard_verdicts row
+// selects, in the order scanVerdictRow scans them -- the same
+// one-list-shared-by-every-reader shape dispatchColumns gives insertDispatch,
+// EndDispatch and readDispatches. Callers reading through a join qualify it
+// with qualifiedVerdictColumns; FlagVerdictFalsePositive's UPDATE has only
+// one table in scope and uses it bare.
+const verdictColumns = `id, guard, worktree, verdict, recorded_at,
+	          false_positive, false_positive_reason, flagged_at`
+
+// qualifiedVerdictColumns is verdictColumns with every name qualified by
+// alias, for RecordVerdict's and ListVerdicts' joins -- the same reasoning
+// qualifiedDispatchColumns carries.
+func qualifiedVerdictColumns(alias string) string {
+	cols := strings.Split(verdictColumns, ",")
+	for i, c := range cols {
+		cols[i] = alias + "." + strings.TrimSpace(c)
+	}
+	return strings.Join(cols, ", ")
+}
+
+// scanVerdictRow decodes one row of verdictColumns, plus a change name
+// joined in ahead of it, into a records.Verdict.
+func scanVerdictRow(row dispatchRowScanner) (records.Verdict, error) {
+	var (
+		v      records.Verdict
+		change string
+		reason *string
+	)
+	if err := row.Scan(
+		&change, &v.ID, &v.Guard, &v.Worktree, &v.Verdict, &v.RecordedAt,
+		&v.FalsePositive, &reason, &v.FlaggedAt,
+	); err != nil {
+		return records.Verdict{}, err
+	}
+	v.Change = change
+	v.FalsePositiveReason = derefOrEmpty(reason)
+	return v, nil
+}
+
+// RecordVerdict records one guard's verdict against a change and worktree.
+// Unlike RecordDispatch it allocates no seq and dedups on nothing: a guard
+// that runs the same check twice (retried by an operator, or re-entered
+// mid-flight) is two distinct verdicts, not one replayed write, so every
+// call inserts a new row.
+//
+// RecordedAt is the caller's own timestamp, exactly as in.StartedAt is on
+// RecordDispatch -- the CLI stamps time.Now() before the call, rather than
+// this method defaulting it, so a journalled write replayed later still
+// carries the moment the guard actually ran rather than the moment the
+// journal was drained.
+//
+// An unknown (projectKey, change) pair is ErrChangeNotFound, the same
+// sentinel RecordDispatch returns for the same shape of failure.
+func (s *Store) RecordVerdict(ctx context.Context, projectKey, change string, in records.Verdict) (records.Verdict, error) {
+	row := s.pool.QueryRow(ctx, `
+		WITH ins AS (
+			INSERT INTO guard_verdicts (change_id, guard, worktree, verdict, recorded_at)
+			SELECT c.id, $3, $4, $5, $6
+			FROM changes c
+			WHERE c.project_key = $1 AND c.name = $2
+			RETURNING `+verdictColumns+`
+		)
+		SELECT $2, `+qualifiedVerdictColumns("ins")+`
+		FROM ins
+	`, projectKey, change, in.Guard, in.Worktree, in.Verdict, in.RecordedAt)
+
+	out, err := scanVerdictRow(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.Verdict{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.Verdict{}, fmt.Errorf("store: record verdict for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
+// FlagVerdictFalsePositive marks the most recent verdict a change recorded
+// for the named guard as a false positive, with the operator's reason.
+//
+// "The most recent one" is deliberate -- see design.md's
+// flag-latest-verdict decision -- because the operator at the gate has no
+// row id to name: they know the change, the guard and their own
+// adjudication, and the newest verdict for that pair is always the one the
+// gate just showed them.
+//
+// Re-flagging the same row is not an error: it overwrites reason and
+// flagged_at, so an operator correcting their own wording does not have to
+// go through a store-side unflag first.
+//
+// A (change, guard) pair the store holds no verdict for is
+// ErrDispatchNotFound -- not a new sentinel, but a reuse of the one
+// EndDispatch already returns for "no row answers to this key", since a
+// flag naming no verdict is the same shape of failure: an operator, or a
+// guard's advisory call, pointing at a row that never existed.
+func (s *Store) FlagVerdictFalsePositive(ctx context.Context, projectKey, change string, in records.VerdictFlag) (records.Verdict, error) {
+	row := s.pool.QueryRow(ctx, `
+		UPDATE guard_verdicts gv
+		SET false_positive = true, false_positive_reason = $4, flagged_at = now()
+		WHERE gv.id = (
+			SELECT gv2.id
+			FROM guard_verdicts gv2
+			JOIN changes c ON c.id = gv2.change_id
+			WHERE c.project_key = $1 AND c.name = $2 AND gv2.guard = $3
+			ORDER BY gv2.recorded_at DESC, gv2.id DESC
+			LIMIT 1
+		)
+		RETURNING `+verdictColumns+`
+	`, projectKey, change, in.Guard, in.Reason)
+
+	out, err := scanFlaggedVerdictRow(row, change)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.Verdict{}, fmt.Errorf("%w: verdict for guard %q in %s/%s", ErrDispatchNotFound, in.Guard, projectKey, change)
+		}
+		return records.Verdict{}, fmt.Errorf("store: flag verdict false positive for %s/%s guard %q: %w", projectKey, change, in.Guard, err)
+	}
+	return out, nil
+}
+
+// scanFlaggedVerdictRow decodes a verdictColumns row that carries no joined
+// change name of its own -- FlagVerdictFalsePositive's UPDATE ... RETURNING
+// already knows the change from its caller, unlike a read that joins it in.
+func scanFlaggedVerdictRow(row dispatchRowScanner, change string) (records.Verdict, error) {
+	var (
+		v      records.Verdict
+		reason *string
+	)
+	if err := row.Scan(
+		&v.ID, &v.Guard, &v.Worktree, &v.Verdict, &v.RecordedAt,
+		&v.FalsePositive, &reason, &v.FlaggedAt,
+	); err != nil {
+		return records.Verdict{}, err
+	}
+	v.Change = change
+	v.FalsePositiveReason = derefOrEmpty(reason)
+	return v, nil
+}
+
+// ListVerdicts reads a project's guard verdicts, newest first. guard == ""
+// means every guard; falsePositiveOnly restricts to rows an operator has
+// flagged. The two filters compose independently, since the guard prompt
+// in check-unfinished-work.sh's advisory line needs exactly "this guard,
+// flagged only" while a future per-project view would want "every guard,
+// flagged only".
+func (s *Store) ListVerdicts(ctx context.Context, projectKey, guard string, falsePositiveOnly bool) ([]records.Verdict, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.name, `+qualifiedVerdictColumns("gv")+`
+		FROM guard_verdicts gv
+		JOIN changes c ON c.id = gv.change_id
+		WHERE c.project_key = $1
+		  AND ($2 = '' OR gv.guard = $2)
+		  AND (NOT $3 OR gv.false_positive)
+		ORDER BY gv.recorded_at DESC, gv.id DESC
+	`, projectKey, guard, falsePositiveOnly)
+	if err != nil {
+		return nil, fmt.Errorf("store: list verdicts for %s: %w", projectKey, err)
+	}
+	defer rows.Close()
+
+	var out []records.Verdict
+	for rows.Next() {
+		v, err := scanVerdictRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: list verdicts for %s: scan: %w", projectKey, err)
+		}
+		out = append(out, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list verdicts for %s: %w", projectKey, err)
+	}
+	return out, nil
+}
+
+// incidentColumns is the column list every read of an incidents row
+// selects, in the order scanIncidentRow scans them. ListIncidents qualifies
+// it with qualifiedIncidentColumns; RecordIncident's plain INSERT ...
+// RETURNING, with only one table in scope, uses it bare.
+const incidentColumns = `id, guard, symptom, recovery, minutes_lost, occurred_at`
+
+// qualifiedIncidentColumns is incidentColumns with every name qualified by
+// alias, for ListIncidents' join -- the same reasoning
+// qualifiedDispatchColumns carries.
+func qualifiedIncidentColumns(alias string) string {
+	cols := strings.Split(incidentColumns, ",")
+	for i, c := range cols {
+		cols[i] = alias + "." + strings.TrimSpace(c)
+	}
+	return strings.Join(cols, ", ")
+}
+
+// scanIncidentRow decodes one row of incidentColumns, plus a change name
+// (possibly absent) joined in ahead of it, into a records.Incident.
+func scanIncidentRow(row dispatchRowScanner) (records.Incident, error) {
+	var (
+		i      records.Incident
+		change *string
+	)
+	if err := row.Scan(
+		&change, &i.ID, &i.Guard, &i.Symptom, &i.Recovery, &i.MinutesLost, &i.OccurredAt,
+	); err != nil {
+		return records.Incident{}, err
+	}
+	i.Change = derefOrEmpty(change)
+	return i, nil
+}
+
+// RecordIncident records one per-project incident: a guard, what went
+// wrong, the recovery taken and how many minutes it cost.
+//
+// in.Change, when non-empty, must name a change the project already holds
+// -- an unknown name is ErrChangeNotFound, the same sentinel RecordDispatch
+// returns for the same shape of failure -- and resolves to change_id. Left
+// empty, change_id is NULL: an incident can be recorded against a project
+// with no change in flight, or after the change that produced it has
+// archived, which is why incidents carries project_key of its own rather
+// than deriving it through a change the way guard_verdicts does.
+//
+// in.OccurredAt left at the zero time takes the column's own now() default
+// rather than storing the zero time literally, so a hand-written incident
+// that omits it is stamped with when it was actually recorded.
+func (s *Store) RecordIncident(ctx context.Context, projectKey string, in records.Incident) (records.Incident, error) {
+	var changeID *int64
+	if in.Change != "" {
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id FROM changes WHERE project_key = $1 AND name = $2`,
+			projectKey, in.Change,
+		).Scan(&changeID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return records.Incident{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, in.Change)
+			}
+			return records.Incident{}, fmt.Errorf("store: resolve change for incident in %s: %w", projectKey, err)
+		}
+	}
+
+	var occurredAt *time.Time
+	if !in.OccurredAt.IsZero() {
+		occurredAt = &in.OccurredAt
+	}
+
+	row := s.pool.QueryRow(ctx, `
+		INSERT INTO incidents (project_key, change_id, guard, symptom, recovery, minutes_lost, occurred_at)
+		VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()))
+		RETURNING `+incidentColumns+`
+	`, projectKey, changeID, in.Guard, in.Symptom, in.Recovery, in.MinutesLost, occurredAt)
+
+	var out records.Incident
+	if err := row.Scan(&out.ID, &out.Guard, &out.Symptom, &out.Recovery, &out.MinutesLost, &out.OccurredAt); err != nil {
+		return records.Incident{}, fmt.Errorf("store: record incident for %s: %w", projectKey, err)
+	}
+	out.Change = in.Change
+	return out, nil
+}
+
+// ListIncidents reads a project's incidents, newest first.
+func (s *Store) ListIncidents(ctx context.Context, projectKey string) ([]records.Incident, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.name, `+qualifiedIncidentColumns("i")+`
+		FROM incidents i
+		LEFT JOIN changes c ON c.id = i.change_id
+		WHERE i.project_key = $1
+		ORDER BY i.occurred_at DESC, i.id DESC
+	`, projectKey)
+	if err != nil {
+		return nil, fmt.Errorf("store: list incidents for %s: %w", projectKey, err)
+	}
+	defer rows.Close()
+
+	var out []records.Incident
+	for rows.Next() {
+		i, err := scanIncidentRow(rows)
+		if err != nil {
+			return nil, fmt.Errorf("store: list incidents for %s: scan: %w", projectKey, err)
+		}
+		out = append(out, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: list incidents for %s: %w", projectKey, err)
 	}
 	return out, nil
 }

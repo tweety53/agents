@@ -122,7 +122,7 @@ type Result struct {
 type Reconciler struct {
 	store       ChangeStore
 	stageStore  api.StageStore
-	recordStore api.RecordWriter
+	recordStore api.RecordStore
 	root        string
 	logger      *slog.Logger
 
@@ -145,7 +145,7 @@ type Reconciler struct {
 // Every store is required rather than optional: a nil one would make a
 // whole journal kind silently unreplayed, which is the failure the record
 // journal exists to prevent, not one it can afford to reintroduce.
-func New(cs ChangeStore, ss api.StageStore, rs api.RecordWriter, root string, logger *slog.Logger) *Reconciler {
+func New(cs ChangeStore, ss api.StageStore, rs api.RecordStore, root string, logger *slog.Logger) *Reconciler {
 	return &Reconciler{store: cs, stageStore: ss, recordStore: rs, root: root, logger: logger}
 }
 
@@ -592,9 +592,11 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 }
 
 // recordJournalBody mirrors cmd/flow/record.go's own recordJournalBody
-// exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status",
-// "request":<the records.Dispatch, records.DispatchEnd, records.Finding or
-// status request that was journalled>}. It is a second declaration of the same wire shape for the
+// exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status"|"verdict"|
+// "verdict-false-positive"|"incident", "request":<the records.Dispatch,
+// records.DispatchEnd, records.Finding, status request, records.Verdict,
+// records.VerdictFlag or records.Incident that was journalled>}. It is a
+// second declaration of the same wire shape for the
 // same reason stageMarkJournalBody is one: cmd/flow is a main package
 // and cannot be imported. The two field names here and record.go's
 // ".journal"+".record" suffix are the two literals that must stay in step
@@ -702,6 +704,27 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 			return fmt.Errorf("%w: decode status: %v", errRecordEntryDecodeFailed, err)
 		}
 		return api.ApplyFindingStatus(ctx, r.recordStore, e.Project, e.Name, in.Ref, in.Status)
+	case "verdict":
+		var in records.Verdict
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode verdict: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyVerdictRecord(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "verdict-false-positive":
+		var in records.VerdictFlag
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode verdict flag: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyVerdictFlag(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "incident":
+		var in records.Incident
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode incident: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyIncidentRecord(ctx, r.recordStore, e.Project, in)
+		return err
 	default:
 		return fmt.Errorf("%w: unknown record write kind %q", errRecordEntryDecodeFailed, body.Kind)
 	}

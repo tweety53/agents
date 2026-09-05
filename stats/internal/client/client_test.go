@@ -871,6 +871,28 @@ func (stubStageStore) RunRecord(context.Context, string, string) (records.Run, e
 	return records.Run{}, errStageStoreNotImplemented
 }
 
+// stubStageStore's guard-verdict / incident methods (KAN-451) -- see the
+// doc comment above for why every one of these is unreachable here.
+func (stubStageStore) RecordVerdict(context.Context, string, string, records.Verdict) (records.Verdict, error) {
+	return records.Verdict{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) FlagVerdictFalsePositive(context.Context, string, string, records.VerdictFlag) (records.Verdict, error) {
+	return records.Verdict{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListVerdicts(context.Context, string, string, bool) ([]records.Verdict, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) RecordIncident(context.Context, string, records.Incident) (records.Incident, error) {
+	return records.Incident{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 var _ api.RecordStore = stubStageStore{}
 
 // ProjectKeysByDisplayName is here for the same reason

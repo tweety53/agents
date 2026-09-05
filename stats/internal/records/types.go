@@ -160,6 +160,66 @@ type Finding struct {
 	Reproducer  string `json:"reproducer,omitempty"`
 }
 
+// Verdict is one recorded outcome a guard reached against one worktree, at
+// one point in time -- the record `check-unfinished-work.sh` and any guard
+// like it leaves behind so that "this guard tripped here before" stops
+// being a fact only memory or chat holds.
+//
+// Change is the change name on the read side (joined from `changes`, the
+// way ListVerdicts and RunRecord report it) and is left empty on the write
+// side, where the URL already names the change.
+//
+// Verdict carries the guard's whole verdict line verbatim -- e.g.
+// "OUTSTANDING: <worktree> -- <breakdown>" -- rather than a structured
+// breakdown of its own, so the reason the guard gave survives exactly as an
+// operator saw it, without a second schema to keep in sync with the first.
+//
+// FlaggedAt is a pointer because a verdict starts unflagged: nil means "no
+// operator has said this was a false positive", not "flagged at the zero
+// time", and it is only ever set together with FalsePositiveReason.
+type Verdict struct {
+	ID                  int64      `json:"id"`
+	Change              string     `json:"change,omitempty"`
+	Guard               string     `json:"guard"`
+	Worktree            string     `json:"worktree"`
+	Verdict             string     `json:"verdict"`
+	RecordedAt          time.Time  `json:"recordedAt"`
+	FalsePositive       bool       `json:"falsePositive"`
+	FalsePositiveReason string     `json:"falsePositiveReason,omitempty"`
+	FlaggedAt           *time.Time `json:"flaggedAt,omitempty"`
+}
+
+// VerdictFlag is the payload `flow record verdict false-positive` sends: an
+// operator's judgment that the most recent verdict a named guard reached
+// for a change was wrong, and why. It names no verdict id, deliberately --
+// see FlagVerdictFalsePositive's own doc comment for why "the latest one
+// for this change and guard" is the row it always means.
+type VerdictFlag struct {
+	Guard  string `json:"guard"`
+	Reason string `json:"reason"`
+}
+
+// Incident is one per-project record of a guard actually costing time: what
+// guard, what went wrong, what recovery was taken and how many minutes it
+// cost. Unlike Verdict, an incident is written by hand -- see this change's
+// design.md decision "incident-written-by-hand" -- because most verdicts
+// are unremarkable and only a fraction ever become an incident worth
+// keeping.
+//
+// Change is optional on both sides: an incident can be recorded against a
+// project with no change in flight, or after the change that produced it
+// has archived, so a NULL/empty Change is a legitimate case rather than a
+// missing value.
+type Incident struct {
+	ID          int64     `json:"id"`
+	Change      string    `json:"change,omitempty"`
+	Guard       string    `json:"guard"`
+	Symptom     string    `json:"symptom"`
+	Recovery    string    `json:"recovery"`
+	MinutesLost int       `json:"minutesLost"`
+	OccurredAt  time.Time `json:"occurredAt"`
+}
+
 // Run is one change's whole derived record: its dispatches in seq order
 // and its findings in ref order.
 type Run struct {

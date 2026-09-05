@@ -305,6 +305,11 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", rh.recordFinding)
 	mux.HandleFunc("PATCH /api/v1/records/{project}/{change}/findings/{ref}", rh.setFindingStatus)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/verdicts", rh.recordVerdict)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/verdicts/false-positive", rh.flagVerdict)
+	mux.HandleFunc("GET /api/v1/verdicts/{project}", rh.listVerdicts)
+	mux.HandleFunc("POST /api/v1/incidents/{project}", rh.recordIncident)
+	mux.HandleFunc("GET /api/v1/incidents/{project}", rh.listIncidents)
 	mux.HandleFunc("GET /api/v1/settings", seth.get)
 	mux.HandleFunc("PUT /api/v1/settings", seth.put)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {

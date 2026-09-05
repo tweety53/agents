@@ -64,6 +64,28 @@ type fakeStore struct {
 	setFindingStatusErr error
 	runRecordErr        error
 
+	// --- guard verdict / incident bookkeeping (KAN-451,
+	// internal/api/records_test.go's fakeStore methods operate on these)
+	// ---
+	verdicts       []verdictRecord
+	incidents      []incidentRecord
+	nextVerdictID  int64
+	nextIncidentID int64
+
+	recordVerdictErr error
+	flagVerdictErr   error
+	listVerdictsErr  error
+
+	recordIncidentErr error
+	listIncidentsErr  error
+
+	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
+	// the args ListVerdicts was last called with, so a test can assert the
+	// handler forwarded the query it parsed rather than merely that some
+	// filter was applied.
+	lastListVerdictsGuard             string
+	lastListVerdictsFalsePositiveOnly bool
+
 	// recordCalls counts every call that reached one of the record
 	// methods, so a test can assert that a request rejected on its way in
 	// -- a body that did not decode -- never reached the store at all,

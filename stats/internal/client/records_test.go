@@ -268,3 +268,121 @@ func TestEndDispatchReadsTheClosedRowAndDistinguishesAnUnknownKey(t *testing.T) 
 		}
 	})
 }
+
+// minimalVerdict is the smallest verdict a guard records.
+func minimalVerdict() records.Verdict {
+	return records.Verdict{
+		Guard:      "check-unfinished-work",
+		Worktree:   "/wt/kan-1",
+		Verdict:    "CLEAR: /wt/kan-1 -- every plan item is checked and no finding is open",
+		RecordedAt: time.Date(2026, 9, 5, 9, 0, 0, 0, time.UTC),
+	}
+}
+
+// TestRecordVerdictReturnsTheRecordedRow pins that a 201 is read as success
+// and that the row the daemon allocated -- its id -- comes back to the
+// caller rather than being discarded with the response body.
+func TestRecordVerdictReturnsTheRecordedRow(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/records/proj/kan-1/verdicts" {
+			t.Errorf("request = %s %s, want POST /api/v1/records/proj/kan-1/verdicts", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":9,"guard":"check-unfinished-work","worktree":"/wt/kan-1","verdict":"CLEAR: /wt/kan-1","recordedAt":"2026-09-05T09:00:00Z"}`))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	got, err := c.RecordVerdict(context.Background(), "proj", "kan-1", minimalVerdict())
+	if err != nil {
+		t.Fatalf("RecordVerdict: %v", err)
+	}
+	if got.ID != 9 {
+		t.Errorf("recorded verdict = %+v, want id 9 as the daemon allocated it", got)
+	}
+}
+
+// TestFlagVerdictDistinguishesNoVerdictFromAnUnreachableStore pins the same
+// mapping TestSetFindingStatusDistinguishesAnUnknownRefFromAnUnreachableStore
+// pins for findings: a 404 means the daemon answered and no verdict exists
+// for that (change, guard) pair, which no replay can fix, while anything
+// that is not the daemon answering is ErrUnavailable and belongs in the
+// journal.
+func TestFlagVerdictDistinguishesNoVerdictFromAnUnreachableStore(t *testing.T) {
+	ok := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/records/proj/kan-1/verdicts/false-positive" {
+			t.Errorf("request = %s %s, want POST /api/v1/records/proj/kan-1/verdicts/false-positive", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":9,"guard":"check-unfinished-work","worktree":"/wt/kan-1","verdict":"OUTSTANDING","recordedAt":"2026-09-05T09:00:00Z","falsePositive":true,"falsePositiveReason":"verified structural"}`))
+	}))
+	defer ok.Close()
+	got, err := client.New(ok.URL, ok.Client()).FlagVerdictFalsePositive(context.Background(), "proj", "kan-1", records.VerdictFlag{Guard: "check-unfinished-work", Reason: "verified structural"})
+	if err != nil {
+		t.Fatalf("FlagVerdictFalsePositive against a 200: %v", err)
+	}
+	if !got.FalsePositive || got.FalsePositiveReason != "verified structural" {
+		t.Errorf("flagged verdict = %+v, want falsePositive=true with the reason", got)
+	}
+
+	missing := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"store: verdict for guard \"no-such-guard\" in proj/kan-1 not found"}`))
+	}))
+	defer missing.Close()
+	_, err = client.New(missing.URL, missing.Client()).FlagVerdictFalsePositive(context.Background(), "proj", "kan-1", records.VerdictFlag{Guard: "no-such-guard", Reason: "x"})
+	if !errors.Is(err, client.ErrNotFound) {
+		t.Errorf("FlagVerdictFalsePositive for a guard with no recorded verdict = %v, want ErrNotFound", err)
+	}
+	if errors.Is(err, client.ErrUnavailable) {
+		t.Error("a 404 was classified as an unreachable store -- a genuine \"no verdict\" must never be journalled for a replay that can never succeed")
+	}
+}
+
+// TestListVerdictsAndIncidentsReadArrays pins that both list reads decode
+// the JSON array the daemon answers with, and that a change the daemon has
+// never heard of -- an unrelated failure a project-scoped list route cannot
+// even ask about -- is not conflated with a transport failure: only the
+// daemon-header check and the response's own status decide ErrUnavailable
+// here, since neither route resolves a change at all.
+func TestListVerdictsAndIncidentsReadArrays(t *testing.T) {
+	verdicts := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/verdicts/proj" {
+			t.Errorf("request = %s %s, want GET /api/v1/verdicts/proj", r.Method, r.URL.Path)
+		}
+		if got := r.URL.Query().Get("guard"); got != "check-unfinished-work" {
+			t.Errorf("guard query = %q, want check-unfinished-work", got)
+		}
+		if got := r.URL.Query().Get("falsePositive"); got != "true" {
+			t.Errorf("falsePositive query = %q, want true", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[{"id":1,"guard":"check-unfinished-work","worktree":"/wt/kan-1","verdict":"OUTSTANDING","recordedAt":"2026-09-05T09:00:00Z","falsePositive":true}]`))
+	}))
+	defer verdicts.Close()
+
+	gotVerdicts, err := client.New(verdicts.URL, verdicts.Client()).ListVerdicts(context.Background(), "proj", "check-unfinished-work", true)
+	if err != nil {
+		t.Fatalf("ListVerdicts: %v", err)
+	}
+	if len(gotVerdicts) != 1 || gotVerdicts[0].ID != 1 {
+		t.Errorf("verdicts = %+v, want one row with id 1", gotVerdicts)
+	}
+
+	incidents := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/incidents/proj" {
+			t.Errorf("request = %s %s, want GET /api/v1/incidents/proj", r.Method, r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer incidents.Close()
+
+	gotIncidents, err := client.New(incidents.URL, incidents.Client()).ListIncidents(context.Background(), "proj")
+	if err != nil {
+		t.Fatalf("ListIncidents: %v", err)
+	}
+	if len(gotIncidents) != 0 {
+		t.Errorf("incidents = %+v, want an empty slice for an empty array", gotIncidents)
+	}
+}

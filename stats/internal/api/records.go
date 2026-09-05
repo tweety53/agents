@@ -39,6 +39,18 @@ type RecordWriter interface {
 type RecordStore interface {
 	RecordWriter
 	RunRecord(ctx context.Context, projectKey, change string) (records.Run, error)
+
+	// RecordVerdict, FlagVerdictFalsePositive, ListVerdicts, RecordIncident
+	// and ListIncidents are KAN-451's guard-log methods -- see
+	// design.md's schema section for what each table records. They sit on
+	// RecordStore rather than RecordWriter: internal/reconcile's replay
+	// path (RecordWriter's own reason for existing, see its doc comment)
+	// is a later task's concern, not this one's.
+	RecordVerdict(ctx context.Context, projectKey, change string, in records.Verdict) (records.Verdict, error)
+	FlagVerdictFalsePositive(ctx context.Context, projectKey, change string, in records.VerdictFlag) (records.Verdict, error)
+	ListVerdicts(ctx context.Context, projectKey, guard string, falsePositiveOnly bool) ([]records.Verdict, error)
+	RecordIncident(ctx context.Context, projectKey string, in records.Incident) (records.Incident, error)
+	ListIncidents(ctx context.Context, projectKey string) ([]records.Incident, error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the
@@ -128,6 +140,43 @@ func ApplyFindingStatus(ctx context.Context, rw RecordWriter, projectKey, change
 		return fmt.Errorf("%w: status is required", ErrInvalidRecord)
 	}
 	return rw.SetFindingStatus(ctx, projectKey, change, ref, status)
+}
+
+// ApplyVerdictRecord records one guard's verdict against rw, refusing a
+// record whose guard, worktree or verdict line is empty before the store is
+// touched. It takes RecordStore rather than RecordWriter -- unlike the four
+// checks above, KAN-451's guard-log methods sit on RecordStore alone (see
+// RecordStore's own doc comment for why) -- so this is what
+// internal/reconcile's replay of a journalled "verdict" entry shares with
+// this route, for the identical reason ApplyDispatchRecord exists.
+func ApplyVerdictRecord(ctx context.Context, rw RecordStore, projectKey, change string, in records.Verdict) (records.Verdict, error) {
+	if in.Guard == "" || in.Worktree == "" || in.Verdict == "" {
+		return records.Verdict{}, fmt.Errorf("%w: guard, worktree and verdict are all required", ErrInvalidRecord)
+	}
+	return rw.RecordVerdict(ctx, projectKey, change, in)
+}
+
+// ApplyVerdictFlag flags project/change's most recent verdict for in.Guard
+// as a false positive, refusing an empty guard or reason before the store
+// is touched. See ApplyVerdictRecord for why it takes RecordStore.
+func ApplyVerdictFlag(ctx context.Context, rw RecordStore, projectKey, change string, in records.VerdictFlag) (records.Verdict, error) {
+	if in.Guard == "" || in.Reason == "" {
+		return records.Verdict{}, fmt.Errorf("%w: guard and reason are both required", ErrInvalidRecord)
+	}
+	return rw.FlagVerdictFalsePositive(ctx, projectKey, change, in)
+}
+
+// ApplyIncidentRecord records one per-project incident against rw, refusing
+// an empty guard, symptom or recovery, or a negative minutesLost, before the
+// store is touched. See ApplyVerdictRecord for why it takes RecordStore.
+func ApplyIncidentRecord(ctx context.Context, rw RecordStore, projectKey string, in records.Incident) (records.Incident, error) {
+	if in.Guard == "" || in.Symptom == "" || in.Recovery == "" {
+		return records.Incident{}, fmt.Errorf("%w: guard, symptom and recovery are all required", ErrInvalidRecord)
+	}
+	if in.MinutesLost < 0 {
+		return records.Incident{}, fmt.Errorf("%w: minutesLost must not be negative", ErrInvalidRecord)
+	}
+	return rw.RecordIncident(ctx, projectKey, in)
 }
 
 // recordHandler serves the four run-record endpoints. Each is thin: decode
@@ -326,4 +375,138 @@ func (h *recordHandler) costStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, records.CostStatusOf(rec))
+}
+
+// recordVerdict serves POST /api/v1/records/{project}/{change}/verdicts:
+// one guard's verdict on one change. Every call inserts a new row -- see
+// store.RecordVerdict's own doc comment for why a re-entered run is a
+// distinct verdict, never a replay -- so this always answers 201.
+func (h *recordHandler) recordVerdict(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.Verdict
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, err := ApplyVerdictRecord(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record verdict for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// flagVerdict serves POST
+// /api/v1/records/{project}/{change}/verdicts/false-positive: an
+// operator's judgment that the most recent verdict the named guard reached
+// for this change was wrong, and why -- see design.md's
+// flag-latest-verdict decision for why no verdict id is named.
+//
+// A (change, guard) pair the store holds no verdict for is a 404, through
+// mapStoreError's store.ErrDispatchNotFound case (the same reused sentinel
+// EndDispatch's unknown key answers) -- not 500, for the reason every other
+// 404 in this file is deliberate: internal/client reads a 500 as "the store
+// is unavailable", and a mistaken flag would be journalled for a replay
+// that could never succeed.
+func (h *recordHandler) flagVerdict(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.VerdictFlag
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, err := ApplyVerdictFlag(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("flag verdict false positive for %s/%s guard %q", project, change, in.Guard), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// listVerdicts serves GET
+// /api/v1/verdicts/{project}?guard=&falsePositive=true: a project's guard
+// verdicts, newest first. guard absent means every guard; falsePositive,
+// when present, must be exactly "true" or "false" -- anything else is a
+// caller mistake, refused before the store is touched, since a query
+// silently ignored would answer a different question than the one asked.
+func (h *recordHandler) listVerdicts(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+	guard := r.URL.Query().Get("guard")
+
+	falsePositiveOnly := false
+	if v := r.URL.Query().Get("falsePositive"); v != "" {
+		switch v {
+		case "true":
+			falsePositiveOnly = true
+		case "false":
+			falsePositiveOnly = false
+		default:
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("falsePositive must be true or false, got %q", v))
+			return
+		}
+	}
+
+	out, err := h.store.ListVerdicts(r.Context(), project, guard, falsePositiveOnly)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list verdicts for %s", project), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// recordIncident serves POST /api/v1/incidents/{project}: a per-project
+// record of one guard actually costing time -- what went wrong, the
+// recovery taken and how many minutes it cost. guard, symptom and recovery
+// are refused empty, and a negative minutesLost is refused before the
+// store is touched -- both caller mistakes a different request would have
+// avoided.
+func (h *recordHandler) recordIncident(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+
+	var in records.Incident
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, err := ApplyIncidentRecord(r.Context(), h.store, project, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record incident for %s", project), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// listIncidents serves GET /api/v1/incidents/{project}: a project's
+// incidents, newest first, exactly as store.ListIncidents returns them.
+func (h *recordHandler) listIncidents(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+
+	out, err := h.store.ListIncidents(r.Context(), project)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list incidents for %s", project), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
