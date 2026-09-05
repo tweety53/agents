@@ -17,7 +17,7 @@
 # third required paragraph — FOREGROUND BUILDS, which forbids a dispatched
 # agent from ending its turn with a build/test/long-running command still
 # running in the background — at all four dispatch sites that can run one:
-# the implementer dispatch, the per-task reviewer dispatch, the review
+# the implementer dispatch, the conductor's own §4 instruction, the review
 # panel's slot dispatch, and the panel-fix subagent dispatch.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
@@ -56,8 +56,9 @@
 #   FOREGROUND BUILDS shared phrases (no variants — every block carrying the
 #   label must carry all three): "still executing in the background", "Run
 #   it in the foreground", "poll it to completion". Required twice in each
-#   of implement.md (implementer dispatch, per-task reviewer dispatch) and
-#   review-panel.md (panel slot dispatch, panel-fix subagent dispatch).
+#   of implement.md (implementer dispatch, the conductor's own §4
+#   instruction) and review-panel.md (panel slot dispatch, panel-fix
+#   subagent dispatch).
 #
 # A BLOCK is a line carrying a label, plus every immediately-following line
 # that continues the same markdown blockquote (a line beginning with `>`) —

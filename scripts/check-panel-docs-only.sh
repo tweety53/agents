@@ -16,8 +16,9 @@
 # staged and unstaged paths, exactly as check-panel-citation-trigger.sh
 # collects them.
 #
-# WHY THIS GUARD EXISTS (KAN-312): the whole-branch panel re-reads a
-# docs-only branch every per-task reviewer already read.
+# WHY THIS GUARD EXISTS (KAN-312): a docs-only branch has no code seam for a
+# second slot to find; the implementer's self-review and the prose guards
+# cover it.
 set -euo pipefail
 
 PROG="check-panel-docs-only"

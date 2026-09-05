@@ -211,8 +211,8 @@ named at this stage's start. Every other resolved slot is recorded in
 `<abs-worktree>/.superpowers/sdd/final-review-panel.md` as `not dispatched — docs-only
 reduction`. `primary` is the reduced roster even when the resolved list does not carry it — the
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
-On a docs-only branch the whole-branch read covers the text every per-task reviewer already read
-against the same plan; there is no code seam between commits for a second slot to find (KAN-312).
+On a docs-only branch the implementer's self-review and the vocabulary and reference guards cover
+the prose; there is no code seam between commits for a second slot to find (KAN-312).
 
 **Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
 printed is recorded beside the verdict. An empty touched-path set is exit 1 too. One worktree at
@@ -653,8 +653,7 @@ either condition is left untouched** on `open`, for the handback below.
 
 ### The fix round mutation-proves what it changed
 
-**This binds the review panel's fix round and not the per-task review's fix** in
-`skills/flow/implement.md`.
+**This binds the review panel's fix round.**
 
 **Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
 adds.** The fix subagent names the executable behaviours its fix changed. **You** then mutate each

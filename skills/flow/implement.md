@@ -10,7 +10,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 | **3** | **superpowers:writing-plans** | Validate the plan; repair `tasks.md` if it is not apply-ready |
 | **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
-| **6** | **superpowers:requesting-code-review** + the review panel | Per-task review, then the final whole-branch panel |
+| **6** | the review panel | The final whole-branch panel |
 | **7** | **superpowers:systematic-debugging** | An unexpected test failure during implementation, or a review-panel finding confirmed as a real defect |
 | **8** | **superpowers:verification-before-completion** | Evidence before claiming done |
 
@@ -327,7 +327,7 @@ subagent's bundles (`skills/flow/review-panel.md`) keep the five-argument call a
 Every implementer dispatch **must** carry:
 
 > **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
-> RED-GREEN-REFACTOR completes for this task — before the parent dispatches review for it — commit
+> RED-GREEN-REFACTOR completes for this task — before the guard runs on it — commit
 > your work with `git commit`, carrying a `Task-Id: <n>` trailer. The trailer identifies the task;
 > the subject is this task's declared `**Commit:**` field, reproduced exactly. **Never weaken or
 > bypass a project's commit validation to fit** — no `--no-verify`. You **may** `git add`/`git
@@ -381,58 +381,44 @@ Every implementer dispatch **must** also carry:
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
 > file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
 
-**Review overlaps the next implementer.** The unit is the bundle `plan-dispatch-bundles.sh` emits;
-"bundle N's reviewers" is one reviewer per commit in it — a red task and its partner share one. At
-each boundary, in this order:
+**The next implementer overlaps the guard.** The unit is the bundle `plan-dispatch-bundles.sh`
+emits. At each boundary, in this order:
 
 1. **Bundle N+1's implementer commits** and writes its report; the wait above ends.
-2. **A pending fix for bundle N folds in first.** If bundle N's review raised a fix, resume that
-   bundle's implementer (`SendMessage`; record the resumption as its own pair under
-   `task-<n>-implementer-fix-<k>`, `-agent-id` the implementer's own id) with the reviewer's
-   report path; it commits `git commit --fixup=<task-sha>`, runs `git rebase --autosquash` and
-   writes `implementer-report-<k>-fix-<n>.md`. A conflict there is between two of the branch's own
-   commits and the implementer resolves it — `skills/flow/integrate.md`'s never-auto-resolve rule
-   concerns the operator's base branch.
-3. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
-   is new** — bundle N+1's tasks and every task the rebase rewrote — **and bundle N+2's gather.**
-   The guard takes the canonical worktree's absolute path (the worktree created or resumed in
-   step **2** above) as its fifth argument and this run's resolved `<name>` as its sixth:
+2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
+   is new, `flow tasks tick` for every task the guard passed, and bundle N+2's gather.** The
+   guard takes the canonical worktree's absolute path (the worktree created or resumed in
+   **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
+   its sixth:
 
    ```bash
    check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree> <name>
    ```
 
-   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes. Its
-   verdict is read before anything launches: a nonzero exit is a guard failure, not a review
-   finding — it does **not** consume a fix-round slot; send the task back to the **same
-   implementer**, then re-run the guard, before anything below.
-4. **One message launches together:** bundle N's re-reviewer if step 2 ran (the task's full range,
-   `git diff <task-base>..<new-task-sha>`), bundle N+1's reviewers, and bundle N+2's implementer.
-   **The next Bash call records every launch's `begin`** — the very next action after the launches
-   return, which is what "recorded immediately after the launch returns" above requires. The
-   reviewer's `record end` and `flow tasks tick` share one call once its report file exists.
+   The guard reads git objects and `tasks.md` only, so it is safe while the tree changes. Every
+   verdict is printed and read before anything launches: a nonzero exit sends that task back to
+   the **same implementer**, which re-commits and re-runs the guard before anything below; exit 0
+   ticks the task in the same call.
+3. **One message launches bundle N+2's implementer. The next Bash call records its `begin`** —
+   the very next action after the launch returns, which is what "recorded immediately after the
+   launch returns" above requires.
 
 **When the script cannot be located**, apply `flow-task-commit-fields`'s rules by hand: check the
 commit's `Files:` against `git diff --name-only <task-base>..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
-**Per-task review:** the reviewer gets the commit-range diff `git diff <task-base>..<task-sha>` —
-a real commit diff, never a snapshot of the working tree, which the next implementer is editing.
-**Record the reviewer's dispatch too** — `-role reviewer`, the same `-task <n>`, `-model
-DEFAULT_MODEL`, `-agent-id` on `begin` — and close it with **`-outcome clean` or `-outcome fix`**,
-so per-task review yield is measurable. **The per-task review is a single combined reviewer**,
-covering spec compliance and code quality together, dispatched on `DEFAULT_MODEL` — `/flow`'s
-panel carries no roster, so there is no `full`-preset split into two per-task reviewers. Mark a
-**task's** checkbox `[x]` (`flow tasks tick`) only after that task passes spec **and** quality
-review — the guard has already passed by then; a step's checkbox tracks the step and gates nothing.
-A red task's checkbox is ticked together with its partner's, when their one commit passes review.
+**The guard's pass is the tick.** Mark a **task's** checkbox `[x]` (`flow tasks tick`) once
+`check-task-commit-fields.sh` exits 0 on its commit — no reviewer runs per task; the whole-branch
+panel (`skills/flow/review-panel.md`) is this branch's review. A step's checkbox tracks the step
+and gates nothing. A red task's checkbox is ticked together with its partner's, on their one
+commit's guard pass.
 
-**The last bundle's reviewers run alone.** Overlap them only with the review panel's pre-work, in
-its one call. `final-review.diff` is written and the slots dispatched once the last review is
-clean and any fix folded.
+**The last bundle's guard pass is the stage's last boundary.** `final-review.diff` is written and
+the slots dispatched once it has passed; the review panel's pre-work may share the last
+implementer's wait, in its one call.
 
-**Never end a turn with a child in flight** — wait for every implementer and reviewer launched
-before reporting a stage boundary or asking the operator anything.
+**Never end a turn with a child in flight** — wait for every implementer launched before
+reporting a stage boundary or asking the operator anything.
 
 **Turn discipline.** A turn is spent only where an output must be read before the next action is
 chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each
