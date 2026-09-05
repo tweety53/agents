@@ -731,6 +731,15 @@ against its defect identity. **Inline no source excerpt.**
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
 
+**Every fix subagent's dispatch prompt also carries the TARGETED TESTS paragraph**:
+
+> **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
+> tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
+> '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
+> run the module or repository suite mid-task: the full `## test` list runs once per worktree at
+> the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
+> run costs lines of context, not a build log.
+
 **Every fix subagent's dispatch prompt also carries the REPORT FILE paragraph**:
 
 > **REPORT FILE:** write your report to

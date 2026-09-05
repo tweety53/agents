@@ -386,6 +386,13 @@ Every implementer dispatch **must** also carry:
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
 
+> **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
+> tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
+> '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
+> run the module or repository suite mid-task: the full `## test` list runs once per worktree at
+> the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
+> run costs lines of context, not a build log.
+
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one test you write MUST exercise the real
 > thing. A test backed by a fake or a hand-built value passes while the real integration is broken:
@@ -397,6 +404,15 @@ Every implementer dispatch **must** also carry:
 > commit and your final test run — carrying each commit's sha, the failing RED output you saw,
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
 > file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
+
+**The last bundle's implementer dispatch — the last `bundle <k>` line `plan-dispatch-bundles.sh`
+printed — alone also carries:**
+
+> **FULL SUITE:** Yours is the last bundle. After GREEN and before your commit, run the resolved
+> `## test` list once, in the foreground, in the order the context bundle carries it. A failure in
+> a file this task's `**Files:**` field names is yours: fix it and re-run. Any other failure is
+> not: record the command and its output verbatim in your REPORT FILE under a `## Full suite`
+> heading, unfixed, and still commit your own task.
 
 **The next implementer overlaps the guard.** The unit is the bundle `plan-dispatch-bundles.sh`
 emits. At each boundary, in this order:
@@ -431,8 +447,11 @@ and gates nothing. A red task's checkbox is ticked together with its partner's, 
 commit's guard pass.
 
 **The last bundle's guard pass is the stage's last boundary.** `final-review.diff` is written and
-the slots dispatched once it has passed; the review panel's pre-work may share the last
-implementer's wait, in its one call.
+the slots dispatched once it has passed and the last implementer's report carries no `## Full
+suite` failure; the review panel's pre-work may share the last implementer's wait, in its one
+call. A report that records a full-suite failure ends your turn with `## Question` — the failing
+command and its output, verbatim — before `final-review.diff` is written: the panel never runs on
+a red branch, and the operator resolves it through a fix run.
 
 **Never end a turn with a child in flight** — wait for every implementer launched before
 reporting a stage boundary or asking the operator anything.

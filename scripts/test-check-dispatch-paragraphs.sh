@@ -49,6 +49,14 @@
 # (review-panel.md, same shape) each pin the min-blocks violation's own
 # message, so that mutation now fails them.
 #
+# Cases 22-26 cover KAN-441's TARGETED TESTS paragraph, required once in
+# each of implement.md and review-panel.md (the panel-fix dispatch): case
+# 1's fixtures (and every other case's fixtures asserted clean) now carry
+# one correct TARGETED_BLOCK per file alongside their existing blocks; case
+# 22 is the label absent entirely from implement.md; cases 23-25 are one
+# case per required phrase, each dropped in turn; case 26 is the label
+# absent entirely from review-panel.md.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -173,6 +181,38 @@ FOREGROUND_BLOCK_NO_POLL_COMPLETION='> **FOREGROUND BUILDS:** Never end your tur
 > command still executing in the background. Run it in the foreground, or wait for it to
 > finish, before you stop.'
 
+# The TARGETED TESTS paragraph, reproduced verbatim from
+# skills/flow/implement.md and skills/flow/review-panel.md.
+TARGETED_BLOCK='> **TARGETED TESTS:** Run only the tests this task'"'"'s `**Tests:**` field names, through the build
+> tool'"'"'s own selector — `--tests '"'"'<class>'"'"'` for Gradle, `-run '"'"'<name>'"'"'` for `go test`, `-t
+> '"'"'<name>'"'"'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
+> run the module or repository suite mid-task: the full `## test` list runs once per worktree at
+> the last bundle, and again in `flow.verify`. Pipe a test run'"'"'s output through `tail` so a green
+> run costs lines of context, not a build log.'
+
+# Variants of TARGETED_BLOCK, each with exactly one required phrase dropped
+# while staying a plausible paragraph — cases 23-25.
+TARGETED_BLOCK_NO_SELECTOR='> **TARGETED TESTS:** Run only the tests this task'"'"'s `**Tests:**` field names, through whichever
+> selector applies — `--tests '"'"'<class>'"'"'` for Gradle, `-run '"'"'<name>'"'"'` for `go test`, `-t
+> '"'"'<name>'"'"'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
+> run the module or repository suite mid-task: the full `## test` list runs once per worktree at
+> the last bundle, and again in `flow.verify`. Pipe a test run'"'"'s output through `tail` so a green
+> run costs lines of context, not a build log.'
+
+TARGETED_BLOCK_NO_RED_GREEN='> **TARGETED TESTS:** Run only the tests this task'"'"'s `**Tests:**` field names, through the build
+> tool'"'"'s own selector — `--tests '"'"'<class>'"'"'` for Gradle, `-run '"'"'<name>'"'"'` for `go test`, `-t
+> '"'"'<name>'"'"'` for vitest — once before the fix and once after, and again only after a source edit.
+> Never run the module or repository suite mid-task: the full `## test` list runs once per worktree
+> at the last bundle, and again in `flow.verify`. Pipe a test run'"'"'s output through `tail` so a
+> green run costs lines of context, not a build log.'
+
+TARGETED_BLOCK_NO_SUITE='> **TARGETED TESTS:** Run only the tests this task'"'"'s `**Tests:**` field names, through the build
+> tool'"'"'s own selector — `--tests '"'"'<class>'"'"'` for Gradle, `-run '"'"'<name>'"'"'` for `go test`, `-t
+> '"'"'<name>'"'"'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
+> run the whole test suite mid-task: the full `## test` list runs once per worktree at
+> the last bundle, and again in `flow.verify`. Pipe a test run'"'"'s output through `tail` so a green
+> run costs lines of context, not a build log.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -182,8 +222,10 @@ write_site() {
 # Case 1: both required sites correct — exit 0. review-panel.md now
 # carries both the REPRODUCE reviewer block and the VERBATIM REPORT block,
 # plus two FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix
-# dispatch); implement.md carries two FOREGROUND BUILDS blocks too
-# (implementer dispatch, the conductor's own §4 instruction).
+# dispatch) and one TARGETED TESTS block (panel-fix dispatch); implement.md
+# carries two FOREGROUND BUILDS blocks too (implementer dispatch, the
+# conductor's own §4 instruction) and one TARGETED TESTS block
+# (implementer dispatch).
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -192,14 +234,18 @@ $VERBATIM_BLOCK
 
 $FOREGROUND_BLOCK
 
-$FOREGROUND_BLOCK"
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
 
 $FOREGROUND_BLOCK
 
-$FOREGROUND_BLOCK"
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -669,6 +715,152 @@ case "$OUT" in
   *"requires at least 2 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"*) \
     pass "case 21: names the min-blocks violation at its own threshold" ;;
   *) fail "case 21: expected the FOREGROUND BUILDS min-blocks violation message, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 22: the TARGETED TESTS label is absent entirely from implement.md —
+# exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 22: exits 1" || fail "case 22: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"TARGETED TESTS"*) pass "case 22: names implement.md and the missing TARGETED TESTS block" ;;
+  *) fail "case 22: expected implement.md and TARGETED TESTS named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 23: a TARGETED TESTS block is present but missing "the build tool's
+# own selector" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK_NO_SELECTOR"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 23: exits 1" || fail "case 23: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"the build tool"*"own selector"*) pass "case 23: names implement.md and the missing phrase" ;;
+  *) fail "case 23: expected implement.md and the build tool's own selector named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 24: a TARGETED TESTS block is present but missing "once for RED,
+# once for GREEN" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK_NO_RED_GREEN"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 24: exits 1" || fail "case 24: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"once for RED, once for GREEN"*) pass "case 24: names implement.md and the missing phrase" ;;
+  *) fail "case 24: expected implement.md and 'once for RED, once for GREEN' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 25: a TARGETED TESTS block is present but missing "module or
+# repository suite mid-task" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK_NO_SUITE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 25: exits 1" || fail "case 25: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"module or repository suite mid-task"*) pass "case 25: names implement.md and the missing phrase" ;;
+  *) fail "case 25: expected implement.md and 'module or repository suite mid-task' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 26: the TARGETED TESTS label is absent entirely from
+# review-panel.md — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 26: exits 1" || fail "case 26: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"TARGETED TESTS"*) pass "case 26: names review-panel.md and the missing TARGETED TESTS block" ;;
+  *) fail "case 26: expected review-panel.md and TARGETED TESTS named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then
