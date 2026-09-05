@@ -328,7 +328,7 @@ git -C "$REPO" worktree list --porcelain \
 ```
 
 **Never guess a path.** Worktree layout differs per repository — this repo keeps worktrees under
-`<agents repo>/.worktrees/` (git-ignored, per `superpowers:using-git-worktrees`), which is not where every
+`<agents repo>/.worktrees/` (git-ignored, per **2. Isolate the workspace** in `skills/flow/implement.md`), which is not where every
 repository this pipeline is installed into keeps them.
 
 **Here, a resolved set that is still empty means the map was absent or empty *and* the scan found no
