@@ -265,7 +265,7 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f)
 	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
-	sessionFlag := fset.String("session", "", "the harness session id, if known")
+	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (required)")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -306,9 +306,23 @@ func runStageBegin(ctx context.Context, args []string, stderr io.Writer) int {
 		return 1
 	}
 
+	// The transcript records a mark's command text before the shell expands
+	// it, so a token written as -session-token $TOKEN is never found by the
+	// harvester's search (internal/harvest's isSessionMarkCommand). A row
+	// born with its session_id already set skips that search entirely
+	// (store.UnresolvedSessionTokens selects session_id IS NULL): binding
+	// from CLAUDE_CODE_SESSION_ID here, when the caller did not pass
+	// -session, makes the mark self-attributing on Claude Code. The token
+	// search remains the fallback for a mark made where the variable is
+	// unset.
 	var sessionID *string
-	if *sessionFlag != "" {
+	switch {
+	case *sessionFlag != "":
 		sessionID = sessionFlag
+	default:
+		if v := os.Getenv("CLAUDE_CODE_SESSION_ID"); v != "" {
+			sessionID = &v
+		}
 	}
 	req := client.BeginStageRequest{
 		ProjectKey:       projectKey,

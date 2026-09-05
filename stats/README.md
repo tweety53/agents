@@ -160,7 +160,9 @@ honestly — that is the *recorded, not measured* state (see "Pricing"
 above and this repository's `myflow-run-telemetry` capability), not a
 symptom by itself. What is a symptom: every stage run staying unbound
 minutes after it should have flushed, across every change — that is
-exactly what KAN-16 looked like.
+exactly what KAN-16 looked like. On Claude Code `sessionId` is set by the mark itself from
+`CLAUDE_CODE_SESSION_ID` and is present before the first harvest cycle; only `metrics` waits on the
+harvester.
 
 ## Cutting over from the `myflow` names
 
