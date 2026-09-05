@@ -61,7 +61,8 @@ explicit operator answer: at a confirm, or by declining an offer, recording what
 rather than assuming it away. The one bounded exception is a session that cannot ask at all: it
 records the confirm itself as an open question and ends the stage there, since no operator answer
 could ever arrive through it. An operator who is present but silent is not that exception and still
-gets another round.
+gets another round. The same explicit answer may both close the checklist and grant the design
+approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
 
 See **Convergence** (`skills/flow/brainstorm-planner.md`).
 

@@ -9,6 +9,9 @@ This file is the reasoning behind `skills/flow-contracts/pipeline.md`.
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
 harmonised belong to the command itself — **Convergence** (`skills/flow/brainstorm-planner.md`).
+`flow.design-approval`'s median wall clock was 0 s over 49 runs in this repository's dev stats
+store on 2026-09-04 — the approval was a reflex seconds after the confirm — which is why one answer
+now serves as both.
 
 ## Command surface
 

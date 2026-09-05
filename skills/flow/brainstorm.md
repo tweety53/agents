@@ -153,8 +153,8 @@ proved otherwise. **A mark or a record never blocks** — proceed on the handsha
 regardless of whether any `flow` call above reached the store.
 
 **The relay.** The parent asks each `## Question` block verbatim through **AskUserQuestion** and
-resumes the planner with the operator's answer via **SendMessage**. Section B's convergence
-confirm, its third-round offer, and the HARD GATE design-approval question are relayed the same
+resumes the planner with the operator's answer via **SendMessage**. Section B's merged
+convergence-and-approval confirm and its third-round offer are relayed the same
 way — the planner poses each exactly as B states it, the parent asks it exactly as received, and
 the planner's next turn opens with the operator's answer. The parent marks `flow.brainstorm` end
 and `flow.design-approval` begin/end around the HARD GATE approval, exactly as today:
@@ -162,7 +162,7 @@ and `flow.design-approval` begin/end around the HARD GATE approval, exactly as t
 ```bash
 flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-# … the operator approves the design, relayed through the planner's HARD GATE question …
+# … the operator's approve-and-move-on answer, relayed through the planner's merged confirm — the HARD GATE …
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 

@@ -89,7 +89,9 @@ the design.
 
 - Save the design to `<project>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it
   when the brainstorming skill requires it.
-- **HARD GATE:** do not run `spectre new` until the user approves the design.
+- **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
+  merged confirm's first option under **Convergence** below; no separate approval question is
+  asked.
 - For multi-subsystem work, decompose before proposing.
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
@@ -114,16 +116,21 @@ answers and the decisions this stage now rests on — **and every question still
 Open questions`**, including one deferred as far back as round one. Then ask, with named options:
 
 > **That is everything I have settled. Anything still unclear before I move on?**
-> - **Nothing unclear — move on** *(recommended)*
-> - **Another round — I have something** *(default — anything short of an explicit "move on" is
->   treated as this)*
+> - **Nothing unclear — approve the design and move on** *(recommended)*
+> - **Another round — I have something** *(default — anything short of an explicit "approve and
+>   move on" is treated as this)*
+> - **Revise — I have a change to the design**
 
-End the stage only on an explicit choice of **move on**. An answer that names something opens
-another round. **This is the one prompt in this file where the safe default and the recommended
-option differ, and deliberately so** — shape per Operator prompts
+End the stage only on an explicit choice of **approve the design and move on**. An answer that
+names something opens another round. **This is the one prompt in this file where the safe default
+and the recommended option differ, and deliberately so** — shape per Operator prompts
 (`skills/flow-contracts/operator-prompts.md`): silence or a stalled prompt from an operator who is
-present is not "move on," and defaults to another round rather than to the recommended choice. Print
-`⚠ another round — no explicit answer` when this default fires.
+present is not "approve the design and move on," and defaults to another round rather than to the
+recommended choice. Print `⚠ another round — no explicit answer` when this default fires.
+
+*Revise* is a round — it counts toward the third-round offer below exactly as *Another round*
+does — and differs only in what the planner's next turn opens with: the changed design section(s),
+re-presented before the next confirm, in place of new questions.
 
 When no answer is possible at all — no channel to ask through — record the confirm itself under `##
 Open questions` and end the stage, printing `⚠ open question recorded — no answer was possible`.
@@ -143,14 +150,14 @@ explicit answer` when this default fires.
 Rounds one and two open without asking. **There is no hard cap.** No round count ends the stage —
 see **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
 
-The convergence loop's own exit — an explicit **move on** at the confirm above — is what closes the
-checklist itself; the **design approval** the HARD GATE requires is a separate, later act by the
-same operator and gets its own mark:
+The explicit **approve the design and move on** answer is at once the convergence exit that closes
+the checklist and the design approval the HARD GATE requires; the parent still marks
+`flow.brainstorm` end, then `flow.design-approval` begin and end, around that one relayed answer:
 
 ```bash
 flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-# … the operator approves the design — this is the HARD GATE above …
+# … the operator's approve-and-move-on answer, relayed — this is the HARD GATE above …
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
