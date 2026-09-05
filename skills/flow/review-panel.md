@@ -595,7 +595,9 @@ worktree included. Record which slots joined this way and the path the guard pri
 
 Handoff still requires **zero open findings at any severity** from every agent that has run, and
 no stale result — where **a slot's clean result is stale when the rule above required that slot to
-re-run and it has not**. A non-Minor fix Bugbot or Mutation did not raise leaves that slot's result current: the
+re-run and it has not, or when any commit or working-tree change to source landed after that slot's
+last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
+stale by definition, not only one a fix round produced. A non-Minor fix Bugbot or Mutation did not raise leaves that slot's result current: the
 round's own mutation-proof (below) covers what the fix changed.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the

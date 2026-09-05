@@ -66,6 +66,13 @@ the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
+**After the panel closes, the conductor edits no source and runs none of the `## lint` or `## test`
+commands itself.** Its work in this stage is `prepare-workspace.sh`, the verifier dispatch(es) below
+and the ledger render — nothing else. Any source change from here on makes every slot's result stale
+(**Panel re-runs**, `skills/flow/review-panel.md`), and the only path that changes source is a fix
+run the operator starts. A failing check is never "just re-run to see" by the conductor: the
+verifier is re-dispatched with it, per **The verifier dispatch** below.
+
 ### The verifier dispatch
 
 `flow.verify` and `flow.visual-verify` both dispatch this subagent, one verifier per worktree per
@@ -88,6 +95,16 @@ own system prompt>`.
 `-model sonnet`, `-key verify` here and `visual-verify` in **Visual verification** below, suffixed
 `-<worktree basename>` when this run's resolved set holds more than one worktree — the pair's
 semantics are section 4 of `skills/flow/implement.md`, cited here, not restated.
+
+**A `## Report` carrying any non-zero exit is re-dispatched once.** The second dispatch is recorded
+under `-key verify-2` here and `visual-verify-2` in **Visual verification** below — the same
+`-<worktree basename>` suffix rule — with a prompt identical to the first plus the first `## Report`
+verbatim under a `## Previous attempt` heading, so the verifier can tell an environmental failure
+(a build the worktree lacked, a flaky harness) from a defect in the branch. **The second report is
+final.** Another non-zero exit ends your turn with `## Question` naming the failing command and its
+output, verbatim; the operator resolves it through a fix run. Never run the failing command yourself
+to check it, and never dispatch a third verifier. The ledger render and this stage's `end` mark
+follow whichever report was last.
 
 **Handshake.** Compare the `Model:` line against `sonnet`. A match proceeds. A mismatch records the
 model that answered and continues on the running agent — no re-dispatch:
@@ -483,3 +500,5 @@ block verbatim beneath it, and the parent prints it unchanged (**Dispatch the co
 - **Never** hand off with an open finding of any severity, or a stale clean result — stale as
   **Panel re-runs** (`skills/flow/review-panel.md`) defines it.
 - **Never** mark a task's checkbox before that task's review passes.
+- **Never** edit source, and **never** run a `## lint` or `## test` command yourself, after the
+  panel closes — the verifier runs them, and a fix run changes source.

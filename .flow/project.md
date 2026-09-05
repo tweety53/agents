@@ -117,6 +117,19 @@ above, but worth naming here since it is the one guard in this repository paying
 rather than a plain file scan.
 <!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch openspec/kan-102-citations-resolve-to-installed-paths -->
 
+## worktree setup
+
+```bash
+cd stats && make web-build
+```
+
+`stats/internal/web/dist/` is gitignored and `stats/internal/web/embed.go`'s `//go:embed all:dist`
+refuses to compile without it, so a fresh worktree's first `go test ./...` or `go build ./...`
+fails until the SPA is built once. kan-389's verifier hit exactly that, and its conductor then ran
+the whole `## test` list itself to get past it — a fresh-worktree fact, not a branch defect, and
+the reason this key exists. `make web-build` is `npm ci && npm run build` in `stats/web`
+(`stats/Makefile`), the same prerequisite `make test` and `make build` already carry.
+
 ## lint
 
 ```bash

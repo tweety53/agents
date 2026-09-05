@@ -1954,3 +1954,40 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 		t.Errorf("stdout = %q, want exactly \"[]\" for a change with dispatches but zero findings", got)
 	}
 }
+
+// TestRecordUsageNamesEveryRole pins the usage text's "-role is one of:"
+// line to recordRoles in both directions, so neither can drift out of sync
+// with the other: a role added to the slice cannot stay missing from the
+// help a caller reads -- which is how "verifier" was accepted by the CLI
+// while the usage still listed six roles -- and a role dropped from the
+// slice cannot stay advertised as accepted by a stale usage line.
+func TestRecordUsageNamesEveryRole(t *testing.T) {
+	for _, role := range recordRoles {
+		if !strings.Contains(recordUsage, " "+role+",") && !strings.Contains(recordUsage, " "+role+".") {
+			t.Errorf("recordUsage does not list role %q on its -role line", role)
+		}
+	}
+
+	const marker = "-role is one of: "
+	var usageLine string
+	for _, line := range strings.Split(recordUsage, "\n") {
+		if strings.Contains(line, marker) {
+			usageLine = line
+			break
+		}
+	}
+	if usageLine == "" {
+		t.Fatal(`recordUsage has no "-role is one of:" line`)
+	}
+	list := strings.TrimSuffix(strings.TrimSpace(strings.SplitN(usageLine, marker, 2)[1]), ".")
+
+	known := make(map[string]bool, len(recordRoles))
+	for _, role := range recordRoles {
+		known[role] = true
+	}
+	for _, role := range strings.Split(list, ", ") {
+		if !known[role] {
+			t.Errorf("recordUsage's -role line names %q, which is not in recordRoles", role)
+		}
+	}
+}

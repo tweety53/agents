@@ -155,7 +155,7 @@ and replayed carrying the identical key, so it updates the row the first
 attempt inserted instead of inserting a second row for one dispatch. Write
 it as a literal, unique among the dispatches of one -session-token.
 
--role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor.
+-role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier.
 
 -agent-id is the harness's own identifier for the subagent that was
 dispatched, where the harness exposes one. It is optional because two of

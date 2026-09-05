@@ -30,7 +30,7 @@ still apply.
 |------|-------|----------------|
 | **1** | brainstorming | `/flow` (creating run) |
 | **3** | writing-plans | `/flow` (creating run) |
-| **2** | using-git-worktrees | `/flow` (implementation) |
+| **2** | worktree creation, stated in `skills/flow/implement.md` (no skill) | `/flow` (implementation) |
 | **4** | subagent-driven-development | `/flow` (implementation) |
 | **5** | test-driven-development | `/flow`, every implementer dispatch |
 | **6** | the review panel | `/flow` (implementation) |

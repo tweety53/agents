@@ -6,7 +6,7 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 | Step | Skill | When |
 |------|-------|------|
-| **2** | **superpowers:using-git-worktrees** | Before the first code change, on a first run |
+| **2** | worktree creation and `## worktree setup`, stated in **2. Isolate the workspace** below | Before the first code change, on a first run |
 | **3** | **superpowers:writing-plans** | Validate the plan; repair `tasks.md` if it is not apply-ready |
 | **4** | **superpowers:subagent-driven-development** | Execute the remaining tasks |
 | **5** | **superpowers:test-driven-development** | Every implementer dispatch, every task |
@@ -155,10 +155,27 @@ creates are rows in it.
 flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Invoke **superpowers:using-git-worktrees**. Branch `spectre/<name>`. Never implement on the default
-branch without explicit consent. Record each worktree's merge base and absolute path in this run's
-own working notes as soon as the worktree exists — the state file's `worktrees` map is written only
-at the end of `skills/flow/verify-and-handoff.md`.
+Create the worktree yourself — no skill is invoked here, and no baseline test suite runs: `flow.verify`
+runs the project's `## test` list at the end of this same run, and the base-branch guards cover the
+base. Never implement on the default branch without explicit consent.
+
+1. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
+   `<project>/.worktrees/` to `<project>/.gitignore` and commit that on the default branch first —
+   an unignored worktree directory commits the whole tree into the repository.
+2. `git worktree add <project>/.worktrees/<name> -b spectre/<name>` from the default branch's HEAD.
+3. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
+   root, in order, in the foreground — the printed body can carry fence markers and trailing prose
+   outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does);
+   run only the fenced command lines, not those. Exit 1: the project declares no `## worktree
+   setup`; say so and continue. Exit 2: stop the run, relaying the script's own line. **A command's
+   non-zero exit
+   ends your turn with `## Question`** naming the command and its output — a worktree that cannot
+   be set up fails `flow.verify` later anyway, and the operator should see it here. The key is
+   canonical in **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+
+Record each worktree's merge base and absolute path in this run's own working notes as soon as the
+worktree exists — the state file's `worktrees` map is written only at the end of
+`skills/flow/verify-and-handoff.md`.
 
 **First run only:** copy `<project>/spectre/changes/<name>/` from the main checkout into the same
 relative path inside the new worktree, then remove the main checkout's own copy of that directory.
