@@ -5,15 +5,16 @@ and `Commit:` fields in `tasks.md` against the real commit that closed it.
 Rule (canonical definition, in the frozen tree:
 openspec/changes/archive/2026-08-09-kan-100-myflow-get-rid-of-staging-
 use-commits/specs/myflow-task-commit-fields/spec.md — "A runtime guard
-checks each field against the real commit", and "Regression and Baseline
-checks skip, rather than fail, when unsupported"). `Files:`,
-`Tests:` and `Commit:` are checked directly against git (`check_files`,
-`check_tests`, `check_commit_subject`). `Regression:` and `Baseline:`
-(`check_regression`, `check_baseline`) additionally need the project's
-`## test` command, read out of `.flow/project.md` in the worktree
-(`read_single_test_command`) — when that command cannot be targeted at a
-single named test or does not report a parseable count, both checks report
-skipped-not-verified instead of failing the run.
+checks each field against the real commit"). That frozen tree also carried
+"Regression and Baseline checks skip, rather than fail, when unsupported":
+the runtime check behind that requirement was removed by KAN-442, because
+it reverted, tested and reset the canonical worktree the conductor
+overlaps with the next implementer (KAN-423's incident), cost two full
+test suites per task, and verified nothing against any real runner, since
+it required a `COUNT:`/`RESULT` protocol no project's `## test` command
+speaks. `Regression:` and `Baseline:` remain plan declarations the grammar
+still parses. `Files:`, `Tests:` and `Commit:` are checked directly
+against git (`check_files`, `check_tests`, `check_commit_subject`).
 
 Scope is one task, in one tasks.md, in one worktree, checked against one
 commit (and its parent) — unlike check-task-build-green.py, which scans an
@@ -190,17 +191,14 @@ sentence, which is what produced false failures against this plan's own
 `Tests:` fields before this parsing was added.
 
 Exit codes:
-  0  clean — every checked field matches the real commit (a `Regression:`
-     or `Baseline:` check that fell back to skipped-not-verified still
-     prints its own notice line, but does not affect this exit code).
+  0  clean — every checked field matches the real commit.
   1  violations found — one or more of: an undeclared file, a missing
      declared test, a commit subject mismatch, a `Squash-with:` value that
      does not gate as `Task <id>[, <id>...]`, an unresolvable
      `Squash-with:` partner, a set of partners — or two folds joined by a
      shared partner — disagreeing about the folded commit's subject, or a
-     fold declaring none at all, a `Regression:` revert that
-     did not make its named test fail, or a `Baseline:` count mismatch. Printed one per line
-     as `task <id>: message`.
+     fold declaring none at all. Printed one per line as `task <id>:
+     message`.
   2  invocation error — wrong argument count, the tasks.md cannot be read,
      the task id does not exist in it, or git cannot resolve the commit
      range in the given worktree.
@@ -211,11 +209,9 @@ why this repository restricts itself to that).
 
 from __future__ import annotations
 
-import contextlib
 import fnmatch
 import os
 import re
-import shlex
 import subprocess
 import sys
 from dataclasses import dataclass, field, replace
@@ -285,33 +281,6 @@ BASELINE_COUNTS_RE = re.compile(r"before=(\d+)\s+after=(\d+)")
 SUBJECT_SCOPE_RE = re.compile(r"^[A-Za-z]+\(([^)]*)\)!?:")
 TASK_ID_SCOPE_RE = re.compile(rf"^{DOTTED_ID}$")
 
-# The minimal contract this guard requires of a project's `## test` command
-# in order to verify Regression:/Baseline: at all — not a real test-runner
-# protocol, just what these two checks need out of it. A project whose
-# `## test` command does not speak this (this repository's own included,
-# whose `## test` section lists several independent shell scripts rather
-# than one command that understands either line) never matches these, and
-# the corresponding check falls back to skipped-not-verified rather than
-# failing — seeing PROJECT_TEST_SECTION_RE.
-#
-#   `<command> --only <name>`  ->  a line `RESULT <name>: pass` or
-#                                   `RESULT <name>: fail` (Regression:)
-#   `<command>`                ->  a line `COUNT: <N>` (Baseline:)
-TARGETED_RESULT_RE = re.compile(r"^RESULT\s+(\S+):\s*(pass|fail)\s*$", re.MULTILINE)
-TOTAL_COUNT_RE = re.compile(r"^COUNT:\s*(\d+)\s*$", re.MULTILINE)
-
-# PROJECT_TEST_SECTION_RE / MARKDOWN_HEADING_RE / FENCE_LINE_RE — read the
-# fenced command list under `.flow/project.md`'s own `## test` heading,
-# the same section `.flow/project.md`'s own prose documents as the source
-# of truth for this repository's test commands. FENCE_LINE_RE is scoped to
-# that file: it gates the whole physical line on three backticks, which is
-# all `## test`'s own block has ever used. A task body's fences are
-# lib/plan_grammar.py's FENCE_RE instead, everywhere this guard reads one.
-PROJECT_TEST_SECTION_RE = re.compile(r"^## test\s*$", re.IGNORECASE)
-MARKDOWN_HEADING_RE = re.compile(r"^#{1,6}\s")
-FENCE_LINE_RE = re.compile(r"^```")
-
-
 class TestSpec(NamedTuple):
     """One declared test extracted from a `Tests:` field: `label` is what a
     violation message names, `pattern` is what must appear in the diff."""
@@ -351,20 +320,6 @@ class TaskFields:
     # rather than as an empty declaration the commit is then blamed for
     # exceeding (fix round 11, F22).
     unclosed_fence_line: Optional[int] = None
-
-
-class CheckOutcome(NamedTuple):
-    """The result of `check_regression`/`check_baseline` when they have
-    something to report: `skipped=True` is skipped-not-verified (goes to
-    `main`'s notices, never affects the exit code), `skipped=False` is a
-    real violation (goes to `main`'s violations, exit 1). Returning `None`
-    from either check (not this type at all) means the check passed
-    outright, or the task declared nothing checkable — both silent, the
-    same convention `check_files`/`check_tests` use for "nothing to
-    report"."""
-
-    skipped: bool
-    message: str
 
 
 class TaskNotFoundError(Exception):
@@ -973,280 +928,11 @@ def check_commit_scope(task: TaskFields, change_name: str) -> List[str]:
     return []
 
 
-def read_single_test_command(worktree: str) -> Optional[str]:
-    """Read `<worktree>/.flow/project.md`'s `## test` section and return
-    its one command line, or `None` when the section is absent, empty, or
-    names more than one command.
-
-    A single command is what `check_regression`/`check_baseline` need: one
-    they can re-invoke with `--only <name>` (Regression:) or with no
-    arguments to get a total count (Baseline:). A list of several
-    independent commands — this repository's own `## test` section, a list
-    of shell scripts with no way to target one named test — can never
-    satisfy either need, which is exactly the case the skip-not-verified
-    fallback exists for; it is not a parsing failure, so this returns
-    `None` rather than raising.
-    """
-    project_md = os.path.join(worktree, ".flow", "project.md")
-    try:
-        with open(project_md, "r", encoding="utf-8") as handle:
-            lines = handle.read().splitlines()
-    except OSError:
-        return None
-
-    commands: List[str] = []
-    in_section = False
-    in_fence = False
-    for line in lines:
-        if PROJECT_TEST_SECTION_RE.match(line):
-            in_section = True
-            in_fence = False
-            continue
-        if in_section and not in_fence and MARKDOWN_HEADING_RE.match(line):
-            break
-        if not in_section:
-            continue
-        if FENCE_LINE_RE.match(line):
-            in_fence = not in_fence
-            continue
-        if in_fence and line.strip():
-            commands.append(line.strip())
-
-    return commands[0] if len(commands) == 1 else None
-
-
-def _run_test_command(worktree: str, command: str, extra_args: List[str]) -> str:
-    result = subprocess.run(
-        shlex.split(command) + extra_args,
-        cwd=worktree,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout
-
-
-@contextlib.contextmanager
-def _commit_reverted(worktree: str, commit_sha: str):
-    """Revert `commit_sha` in `worktree`'s working tree (uncommitted, via
-    `git revert --no-commit`) for the body of the `with` block, then
-    unconditionally restore the pre-revert state with `git reset --hard
-    commit_sha` on the way out — the "revert, ..., un-revert" `flow-task-
-    commit-fields` describes for `Regression:`, reused for `Baseline:`'s
-    "run at the parent commit" (a task commit's revert lands exactly on its
-    parent's tree, since this runs immediately after that commit with
-    nothing built on top of it yet).
-
-    A failure in the revert itself (conflict against dirty local state, or
-    any other reason `git revert` exits non-zero) still leaves the worktree
-    exactly as found: the revert attempt is cleaned up with the same `git
-    reset --hard commit_sha` before the original error is re-raised, so
-    every exit path — success, a later failure inside the `with` block, or
-    the revert itself failing — restores state rather than leaving the
-    worktree mid-conflict."""
-    try:
-        run_git(worktree, ["revert", "--no-commit", "--no-edit", commit_sha])
-    except Exception:
-        run_git(worktree, ["reset", "--hard", commit_sha])
-        raise
-    try:
-        yield
-    finally:
-        run_git(worktree, ["reset", "--hard", commit_sha])
-
-
-# _STASH_MESSAGE: the guard's own stash entries are tagged with this message
-# so a human reading `git stash list` after a refused pop (see
-# _uncommitted_work_protected below) can tell which entry is this guard's
-# doing, rather than guessing among whatever else the worktree's history of
-# stashing has left behind.
-_STASH_MESSAGE = "check-task-commit-fields: protecting uncommitted work"
-
-
-@contextlib.contextmanager
-def _uncommitted_work_protected(worktree: str):
-    """Shield every staged, unstaged and untracked tracked-file change in
-    `worktree` from `_commit_reverted`'s own `git reset --hard`, for the
-    body of the `with` block, by stashing them away on entry and popping
-    them back on exit (KAN-162).
-
-    `_commit_reverted` resets hard to make the revert-and-test cycle
-    repeatable, but `git reset --hard` resets the *whole* index and working
-    tree, not merely what the revert touched — and a `/flow` worktree
-    carries staged-but-uncommitted planning artifacts
-    (`spectre/changes/`, `docs/superpowers/`) throughout implementation, so
-    an unconditional reset destroys them on every `Regression:`/`Baseline:`
-    check. Stashing first makes the tree `_commit_reverted` operates on
-    already clean of anything worth protecting, so its own reset has
-    nothing left to destroy.
-
-    This wraps `check_regression` and `check_baseline` **together**, once,
-    at the `check_task_commit` call site — not once per check inside
-    `_commit_reverted` itself — so a task declaring both fields stashes and
-    pops exactly once rather than twice for no benefit, and a failure
-    partway through never leaves the second check operating against a tree
-    whose stash state is uncertain.
-
-    `git stash push` reports `No local changes to save` and exits 0 when
-    the tree is already clean; that is not an error; detect it and skip the
-    pop; the checks then run exactly as they do without this wrapper.
-
-    A `git stash pop` that itself fails — a conflict against whatever
-    `_commit_reverted` left behind — is the one situation stashing cannot
-    transparently recover from. This never falls back to `git reset --hard`
-    to force a clean state: that would silently discard the very data the
-    stash exists to protect, the same failure this whole context manager
-    fixes, just moved one step later. Instead it re-raises as the guard's
-    own hard failure, naming `git stash list` as the recovery path, and
-    leaves the stash entry exactly where `git stash pop` left it.
-
-    If the `with`-body was itself propagating an exception when the pop
-    conflicts (e.g. `_commit_reverted`'s own revert/reset failing inside
-    `check_regression`/`check_baseline`), Python's finally-raises-a-new-
-    exception semantics would otherwise discard that original exception
-    from the value `main()` prints — it prints only `str(exc)`, never the
-    `__cause__`/`__context__` chain, so the original failure has to be
-    folded into the raised message's own text to stay visible, not merely
-    linked via `from`."""
-    output = run_git(
-        worktree, ["stash", "push", "--include-untracked", "-m", _STASH_MESSAGE]
-    )
-    stashed = "No local changes to save" not in output
-    try:
-        yield
-    finally:
-        if stashed:
-            in_flight = sys.exc_info()[1]
-            try:
-                run_git(worktree, ["stash", "pop"])
-            except RuntimeError as exc:
-                if in_flight is not None:
-                    raise RuntimeError(
-                        f"{exc}; the stash was left in place — see `git "
-                        f"stash list` in {worktree} to recover it — this "
-                        "also masks an exception that was already in "
-                        f"flight when the stash pop was attempted: "
-                        f"{in_flight}"
-                    ) from exc
-                raise RuntimeError(
-                    f"{exc}; the stash was left in place — see `git stash "
-                    f"list` in {worktree} to recover it"
-                ) from exc
-
-
-def check_regression(task: TaskFields, worktree: str, commit_sha: str) -> Optional[CheckOutcome]:
-    """Verify `Regression:` by reverting `commit_sha`, running the task's
-    first declared test with `--only`, and confirming it now reports
-    `fail` — then always restoring, whatever the outcome. Declares nothing
-    checkable when the task names no tests at all (mirrors `check_tests`).
-    Falls back to skipped-not-verified when the project's `## test`
-    command cannot be targeted at all, or does not report a recognisable
-    `RESULT <name>: pass|fail` line for the named test."""
-    if not task.tests:
-        return None
-
-    command = read_single_test_command(worktree)
-    if command is None:
-        return CheckOutcome(
-            skipped=True,
-            message=(
-                f"task {task.id}: Regression: skipped, not verified — the "
-                "project's `## test` command cannot target a single named "
-                "test"
-            ),
-        )
-
-    label = task.tests[0].label
-    with _commit_reverted(worktree, commit_sha):
-        output = _run_test_command(worktree, command, ["--only", label])
-
-    match = next(
-        (m for m in TARGETED_RESULT_RE.finditer(output) if m.group(1) == label),
-        None,
-    )
-    if match is None:
-        return CheckOutcome(
-            skipped=True,
-            message=(
-                f"task {task.id}: Regression: skipped, not verified — the "
-                "project's `## test` command does not support targeting a "
-                "single named test"
-            ),
-        )
-    if match.group(2) == "fail":
-        return None
-    return CheckOutcome(
-        skipped=False,
-        message=(
-            f"task {task.id}: Regression: reverting the commit did not "
-            f"make {label} fail"
-        ),
-    )
-
-
-def check_baseline(task: TaskFields, worktree: str, commit_sha: str) -> Optional[CheckOutcome]:
-    """Verify `Baseline:` by running the project's `## test` command at the
-    task's own commit and, reverted, at its parent, comparing the two
-    `COUNT: <N>` totals against the declared `before=<N> after=<N>`.
-    Declares nothing checkable when the task's `Baseline:` field carries no
-    parseable `before=/after=` counts (e.g. "not applicable — ..."). Falls
-    back to skipped-not-verified when the project's `## test` command
-    cannot be targeted at all, or does not report a parseable count at
-    either commit."""
-    if task.baseline is None:
-        return None
-    declared_before, declared_after = task.baseline
-
-    command = read_single_test_command(worktree)
-    if command is None:
-        return CheckOutcome(
-            skipped=True,
-            message=(
-                f"task {task.id}: Baseline: skipped, not verified — the "
-                "project's `## test` command cannot be run as a single, "
-                "targetable command"
-            ),
-        )
-
-    after_output = _run_test_command(worktree, command, [])
-    after_match = TOTAL_COUNT_RE.search(after_output)
-
-    with _commit_reverted(worktree, commit_sha):
-        before_output = _run_test_command(worktree, command, [])
-    before_match = TOTAL_COUNT_RE.search(before_output)
-
-    if after_match is None or before_match is None:
-        return CheckOutcome(
-            skipped=True,
-            message=(
-                f"task {task.id}: Baseline: skipped, not verified — the "
-                "project's `## test` command does not report a parseable "
-                "count"
-            ),
-        )
-
-    actual_before = int(before_match.group(1))
-    actual_after = int(after_match.group(1))
-    if (actual_before, actual_after) == (declared_before, declared_after):
-        return None
-    return CheckOutcome(
-        skipped=False,
-        message=(
-            f"task {task.id}: Baseline: declared before={declared_before} "
-            f"after={declared_after} but measured before={actual_before} "
-            f"after={actual_after}"
-        ),
-    )
-
-
 def check_task_commit(
     tasks_md_path: str, task_id: str, worktree: str, commit_sha: str,
     parent_sha: Optional[str] = None,
-) -> Tuple[List[str], List[str]]:
-    """Returns `(violations, notices)`: `violations` fail the run (exit 1),
-    `notices` are skipped-not-verified reports from `Regression:`/
-    `Baseline:` that are printed but never affect the exit code, per
-    `flow-task-commit-fields`'s requirement **Regression and Baseline
-    checks skip, rather than fail, when unsupported**."""
+) -> List[str]:
+    """Returns the violations that fail the run (exit 1)."""
     with open(tasks_md_path, "r", encoding="utf-8") as handle:
         lines = handle.read().splitlines()
     task = parse_task_fields(lines, task_id)
@@ -1268,14 +954,14 @@ def check_task_commit(
             f"{task.unclosed_fence_line} is never closed in this task's "
             "body, so every field below it is inside the fence and was not "
             "read"
-        ], []
+        ]
 
     # A folded pair is resolved before anything is checked; an unresolvable
     # one is a plan defect reported on its own, since checking a red task
     # against a commit that is not its own would report every field wrong.
     folded, squash_violations = resolve_folded_task(lines, task)
     if squash_violations:
-        return squash_violations, []
+        return squash_violations
 
     resolved_parent = parent_sha or resolve_parent(worktree, commit_sha)
     changed_files = [
@@ -1291,7 +977,6 @@ def check_task_commit(
     ).strip()
 
     violations: List[str] = []
-    notices: List[str] = []
     # `folded` carries the union file set and the surviving commit's expected
     # subject; `task` carries what this task itself declared, which is what
     # Tests: and the declared-scope check are about either way.
@@ -1300,17 +985,7 @@ def check_task_commit(
     violations += check_commit_subject(folded, actual_subject)
     violations += check_commit_scope(task, change_name)
 
-    with _uncommitted_work_protected(worktree):
-        outcomes = (
-            check_regression(task, worktree, commit_sha),
-            check_baseline(task, worktree, commit_sha),
-        )
-    for outcome in outcomes:
-        if outcome is None:
-            continue
-        (notices if outcome.skipped else violations).append(outcome.message)
-
-    return violations, notices
+    return violations
 
 
 def main(argv: List[str]) -> int:
@@ -1326,15 +1001,13 @@ def main(argv: List[str]) -> int:
     parent_sha = argv[5] if len(argv) == 6 else None
 
     try:
-        violations, notices = check_task_commit(
+        violations = check_task_commit(
             tasks_md_path, task_id, worktree, commit_sha, parent_sha
         )
     except (OSError, TaskNotFoundError, RuntimeError) as exc:
         print(f"{argv[0]}: {exc}", file=sys.stderr)
         return 2
 
-    for notice in notices:
-        print(notice)
     if not violations:
         return 0
     for violation in violations:
