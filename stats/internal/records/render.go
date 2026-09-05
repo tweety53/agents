@@ -336,6 +336,9 @@ func RenderLedger(r Run) string {
 		if strings.TrimSpace(d.Slot) != "" {
 			fmt.Fprintf(&b, "- Slot: %s\n", neutraliseMarkers(d.Slot))
 		}
+		if strings.TrimSpace(d.Key) != "" {
+			fmt.Fprintf(&b, "- Key: %s\n", neutraliseMarkers(d.Key))
+		}
 		fmt.Fprintf(&b, "- Model: %s\n", orElse(d.Model, "not recorded"))
 		fmt.Fprintf(&b, "- Commit: %s\n", orElse(d.CommitSHA, "no commit"))
 		// Conditional, in the shape the Slot and Notes lines use, rather
