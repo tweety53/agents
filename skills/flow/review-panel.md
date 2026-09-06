@@ -284,8 +284,17 @@ printed — `recorded: dispatch <seq>` — into each of that slot's `flow record
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
-defect, or the literal exemption form `none — <reason>`. Carry this requirement on every slot's
-dispatch prompt.
+defect, or the literal exemption form `none — <reason>`. A demonstrating command needing a pipe, a
+quote, a glob or any other shell metacharacter is written as a script rather than abandoned — the
+guards refuse a metacharacter in the recorded line, never one inside a script. The slot writes it
+to `<abs-worktree>/.superpowers/sdd/reproducers/<round>-<id>-<n>.sh` — `<round>` this round's
+number, `<id>` the slot's own resolved reviewer id, `<n>` that slot's own 1-based finding index —
+gives it a shebang and `chmod +x`, and records that same path, the path relative to the worktree —
+not the `<abs-worktree>/`-prefixed form above; `run-reproducer.sh` refuses an absolute token.
+Bugbot and Mutation write theirs into the canonical worktree, never their own
+`<worktree>-<slot>-<round>` copy, which is removed the moment their dispatch closes. The parent
+records the path the slot supplied verbatim — there is no rename step. Carry this requirement on
+every slot's dispatch prompt.
 
 **Every slot's dispatch prompt also carries the CONTEXT BUNDLE paragraph** — the same shape
 `skills/flow/implement.md`'s implementer dispatch carries; for every worktree in this run's
@@ -566,12 +575,15 @@ each worktree's starting sha. **Check base movement first** above clears every s
 the rebased worktree on a clean panel-entry rebase, so that worktree's section falls under the
 no-held-sha rule in the next round. Then:
 
-- **every diff-reading slot** in the resolved roster — Primary included, reading a delta like the
-  rest — plus every operator-added slot already dispatched in an earlier pass of this run, re-runs
-  on its delta. **A slot whose delta is empty in every worktree is not dispatched**, and the record
-  states `not re-run — nothing new since its last read`;
-- **Bugbot, Mutation and Security**, which read no diff file, re-run only when that slot raised a finding in
-  the previous round or the previous round raised a new Critical;
+- **a slot re-runs only when it raised a finding in the previous round, or the previous round
+  raised a new Critical** — every slot in the resolved roster, Primary included, and every
+  operator-added slot already dispatched in an earlier pass of this run, on that one rule. A slot
+  that raised nothing keeps the result it has; the round's own mutation-proof (below) covers what
+  the fix changed;
+- **a diff-reading slot that re-runs reads its delta**; Bugbot, Mutation and Security read no diff
+  file and re-run in their pass-1 shape, throwaway worktree included. **A diff-reading slot whose
+  delta is empty in every worktree is not dispatched**, and the record states `not re-run —
+  nothing new since its last read`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round.
 
@@ -597,8 +609,9 @@ Handoff still requires **zero open findings at any severity** from every agent t
 no stale result — where **a slot's clean result is stale when the rule above required that slot to
 re-run and it has not, or when any commit or working-tree change to source landed after that slot's
 last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
-stale by definition, not only one a fix round produced. A non-Minor fix Bugbot or Mutation did not raise leaves that slot's result current: the
-round's own mutation-proof (below) covers what the fix changed.
+stale by definition, not only one a fix round produced. A fix against which a slot raised no
+finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
+fix changed.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
@@ -658,24 +671,11 @@ either condition is left untouched** on `open`, for the handback below.
 **This binds the review panel's fix round.**
 
 **Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
-adds.** The fix subagent names the executable behaviours its fix changed. **You** then mutate each
-one — revert it in a scratch tree, or flip the single value it turns on — confirm an existing test
-fails, and restore. An unclear case goes to the operator through the same handback used below.
+adds.** The fix subagent performs the proof and reports it, per the MUTATION PROOF paragraph its
+dispatch carries; the parent runs no build of its own here. A survivor the fix subagent cannot
+judge real or equivalent goes to the operator through the same handback the section already names.
 
-**Each mutation alters one mechanism.** Where a single revert would also change state a second check
-reads, split it into surgical mutations, one per mechanism.
-
-**`<agents repo>/scripts/mutate-and-verify.sh` mechanizes the mechanical steps** — backup, apply, run, report,
-restore — for a mutation expressed as a patch file against one or more test harnesses. Which
-mechanism to mutate, and whether a survivor is real or an equivalent mutant, remain **your** own
-judgment calls; the script has no opinion on either. Its per-harness report line already carries
-`<path>`, what changed, and the failing test, so a `fix-mutation:` line below can be drawn directly
-from that report rather than typed by hand.
-
-**A surviving mutation is repaired in this round.** Add the test that catches it before the round
-closes.
-
-**Record each one in this pass's log entry:**
+**Record each one in this pass's log entry, transcribed from the fix subagent's report:**
 
 ```text
 fix-mutation: <path> — <what was mutated> — <the test that failed>
@@ -694,7 +694,10 @@ hunk of the fix diff with a non-comment, non-whitespace change: each one is eith
 reported line, or is not an executable behaviour at all. A hunk that removes or weakens a test or an
 assertion states in the record what it used to cover and names what still covers that same behaviour
 now — checked by running the named covering test against the **pre-fix** code and confirming it
-fails.
+fails. **The same walk holds the fix subagent to its PLAN FIELDS obligation:** a hunk that adds a
+test case, adds a file, or changes what a task's `**Baseline:**` counts, whose task's `**Tests:**`,
+`**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
+the round; it goes to the handback.
 
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
 neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
@@ -740,12 +743,28 @@ against its defect identity. **Inline no source excerpt.**
 > the last bundle, and again in `flow.verify`. Pipe a test run's output through `tail` so a green
 > run costs lines of context, not a build log.
 
+**Every fix subagent's dispatch prompt also carries the MUTATION PROOF paragraph**:
+
+> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
+> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script's. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.
+
 **Every fix subagent's dispatch prompt also carries the REPORT FILE paragraph**:
 
 > **REPORT FILE:** write your report to
 > `<abs-worktree>/.superpowers/sdd/panel-fix-report-<round>.md` as your **last** act — after
 > the rebase and your final test run — naming each finding you addressed, the executable
-> behaviours your fix changed, and the task commit each fixup folded into. The dispatcher waits
+> behaviours your fix changed, the `fix-mutation:` and `fix-mutations-total:` lines this round's
+> contract requires, and the task commit each fixup folded into. The dispatcher waits
 > on that file's presence.
 
 Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
