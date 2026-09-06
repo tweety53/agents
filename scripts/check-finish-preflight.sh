@@ -15,6 +15,20 @@
 # is the exact confusion this script exists to remove. Exit 2 keeps the
 # meaning this repository's other guards give it.
 #
+# THE MAIN-CHECKOUT ASSERTION (KAN-462 §4, design.md:
+# main-checkout-is-asserted-not-moved). A would-be RUN2 verdict is REFUSEd
+# instead when the main checkout — resolved from <worktree> via `git
+# rev-parse --git-common-dir`, never taken as an argument — is not fit to
+# host the landing worktree that run 2's own prepare-archive-branch.sh derives
+# from it afterwards: `REFUSE: main checkout <path> is on <branch>, not
+# <base>` when its current branch differs from <base-ref> with any `origin/`
+# prefix stripped; `REFUSE: main checkout <path> has tracked changes` when
+# `status --porcelain --untracked-files=no` is non-empty; `REFUSE: stray
+# worktree(s): …` when `check-worktree-location.sh <main-checkout>` exits 1,
+# relaying its STRAY lines. This check runs last, immediately before the
+# RUN2 line it can still turn into a REFUSE — it never affects a RUN1 or an
+# earlier REFUSE, since only run 2 ever touches the main checkout at all.
+#
 # WHY SIGNAL ORDER IS THE WHOLE FIX. A branch with no commits of its own is an
 # ancestor of EVERY branch, so `merge-base --is-ancestor` answers "merged" on a
 # branch whose work is staged and never committed — the normal IN_PROGRESS
@@ -152,6 +166,70 @@ fi
 if [ "$DIRTY" != "0" ]; then
   echo "REFUSE: $EFFECTIVE_REF contains HEAD, but $WORKTREE has $DIRTY uncommitted entries — a merged change should have nothing left to commit"
   exit 0
+fi
+
+# (e) The main-checkout assertion — see "THE MAIN-CHECKOUT ASSERTION" in the
+#     header above (KAN-462 §4, design.md main-checkout-is-asserted-not-moved)
+#     for the REFUSE grammar this block emits.
+COMMON_DIR="$(git -C "$WORKTREE" rev-parse --git-common-dir 2>/dev/null)" || {
+  echo "check-finish-preflight: cannot resolve the main checkout from $WORKTREE" >&2
+  exit 2
+}
+case "$COMMON_DIR" in
+  /*) : ;;
+  *) COMMON_DIR="$WORKTREE/$COMMON_DIR" ;;
+esac
+MAIN_CHECKOUT="$(cd "$(dirname "$COMMON_DIR")" && pwd -P)" || {
+  echo "check-finish-preflight: cannot resolve the main checkout from $WORKTREE" >&2
+  exit 2
+}
+
+STRIPPED_BASE="${BASE_REF#origin/}"
+MC_BRANCH="$(git -C "$MAIN_CHECKOUT" branch --show-current 2>/dev/null)" || {
+  echo "check-finish-preflight: cannot read the current branch of the main checkout $MAIN_CHECKOUT" >&2
+  exit 2
+}
+if [ "$MC_BRANCH" != "$STRIPPED_BASE" ]; then
+  if [ -z "$MC_BRANCH" ]; then
+    MC_BRANCH="(detached HEAD)"
+  fi
+  echo "REFUSE: main checkout $MAIN_CHECKOUT is on $MC_BRANCH, not $STRIPPED_BASE"
+  exit 0
+fi
+
+MC_STATUS_OUT="$(git -C "$MAIN_CHECKOUT" status --porcelain --untracked-files=no 2>/dev/null)" || {
+  echo "check-finish-preflight: cannot read the main checkout status in $MAIN_CHECKOUT" >&2
+  exit 2
+}
+if [ -n "$MC_STATUS_OUT" ]; then
+  echo "REFUSE: main checkout $MAIN_CHECKOUT has tracked changes"
+  exit 0
+fi
+
+SCRIPT_DIR_LOCATION="$SCRIPT_DIR/check-worktree-location.sh"
+if [ ! -x "$SCRIPT_DIR_LOCATION" ]; then
+  echo "check-finish-preflight: $SCRIPT_DIR_LOCATION is missing or not executable — cannot determine anything" >&2
+  exit 2
+fi
+LOCATION_ERR="$(mktemp "${TMPDIR:-/tmp}/check-finish-preflight-location-err.XXXXXX")"
+set +e
+LOCATION_OUT="$("$SCRIPT_DIR_LOCATION" "$MAIN_CHECKOUT" 2>"$LOCATION_ERR")"
+LOCATION_RC=$?
+set -e
+LOCATION_ERR_TEXT="$(cat "$LOCATION_ERR")"
+rm -f "$LOCATION_ERR"
+if [ "$LOCATION_RC" -eq 1 ]; then
+  STRAY_LIST="$(printf '%s\n' "$LOCATION_OUT" | grep '^STRAY: ' | sed 's/^STRAY: //' | paste -sd ';' - | sed 's/;/; /g')"
+  echo "REFUSE: stray worktree(s): $STRAY_LIST"
+  exit 0
+fi
+if [ "$LOCATION_RC" -eq 2 ]; then
+  [ -n "$LOCATION_ERR_TEXT" ] && printf '%s\n' "$LOCATION_ERR_TEXT" >&2
+  exit 2
+fi
+if [ "$LOCATION_RC" -ne 0 ]; then
+  echo "check-finish-preflight: check-worktree-location.sh exited $LOCATION_RC against $MAIN_CHECKOUT — cannot determine anything" >&2
+  exit 2
 fi
 
 echo "RUN2: HEAD is an ancestor of $EFFECTIVE_REF, differs from the recorded merge base, and the worktree is clean"

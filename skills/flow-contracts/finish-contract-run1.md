@@ -246,8 +246,13 @@ call site and `/myflow-do`'s PR-exception path.
 | Route | Then |
 |-------|------|
 | **Open a pull request** | push; open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl` |
-| **Merge and push** | push; merge into the base branch; push that |
+| **Merge and push** | push; `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict stops the run, reports the worktree path and leaves it as `git merge` left it |
 | **Handle it manually** | push the branch only; say plainly what is left to do |
+
+`<archive-branch>` equal to `<base>` itself — the merge-and-push route's own use above — means
+"position `<landing-worktree>` on `<base>` itself", and `prepare-archive-branch.sh` accepts it; see
+that script's own header. The main checkout is never checked out, staged or committed by this
+route — the landing worktree carries the merge and the push in its place.
 
 Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/myflow-finish <name>` again.
 

@@ -9,34 +9,43 @@
 1. **Verify the merge.** Use a PR CLI when one is usable for the host; otherwise
    `git merge-base --is-ancestor`. That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge. **Not merged → this is not run 2.**
-2. **Position the main checkout on the archive branch, before anything else touches it.** Resolve
-   `<base>` with `resolve-base-branch.sh` against the apply worktree, exactly as Run 1 does
-   (`skills/flow-contracts/finish-contract-run1.md`),
-   then invoke `prepare-archive-branch.sh <main-checkout> <base> chore/archive-<name>`. The exit
-   contract: `0` positioned — the checkout is on `chore/archive-<name>`, cut from a fast-forwarded
-   `<base>`; `1` a named refusal — a dirty working tree, **on `<base>` or off it**, a detached
-   `HEAD`, an existing archive branch not descended from `origin/<base>`, or a `<base>` or
+2. **Position the landing worktree on the archive branch, before anything else touches it.** The
+   landing worktree — `<project>/.worktrees/_landing-<name>` — is a throwaway worktree run 2 (and
+   the merge-and-push route) uses in place of the main checkout, which is never checked out, staged
+   or committed by any `/flow` step. Resolve `<base>` with `resolve-base-branch.sh` against the
+   apply worktree, exactly as Run 1 does (`skills/flow-contracts/finish-contract-run1.md`),
+   then invoke `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base>
+   chore/archive-<name>`. The exit contract: `0` positioned — `<landing-worktree>` is on
+   `chore/archive-<name>`, cut from a fast-forwarded `<base>`; `1` a named refusal — the landing
+   path's parent is not a `.worktrees` directory, a dirty working tree, **on `<base>` or off it**, a
+   detached `HEAD`, an existing archive branch not descended from `origin/<base>`, or a `<base>` or
    `<archive-branch>` name that fails the guard's shape check; `2` an argument is missing,
-   `<main-checkout>` is missing, unreadable, or not a git worktree, `HEAD`'s own ref cannot be read,
-   or a checkout the guard performs fails; `3` `<base>` cannot be reconciled with `origin` — it
-   has diverged, `origin/<base>` does not resolve, or there is no `origin` remote at all.
-   Anything but exit `0` stops run 2 here, with nothing staged, committed, pushed or removed.
+   `<landing-worktree>` could not be created when absent, or — once positioned — is unreadable or
+   not a git worktree, `HEAD`'s own ref cannot be read, or a checkout the guard performs fails; `3`
+   `<base>` cannot be reconciled with `origin` — it has diverged, `origin/<base>` does not resolve,
+   or there is no `origin` remote at all. Anything but exit `0` stops run 2 here, with nothing
+   staged, committed, pushed or removed, and the main checkout untouched throughout.
 
    **When the script is absent** — a harness whose repository does not carry it — perform the same
-   positioning by hand, in this order, and say in the handoff that it was done manually. The guard is
-   never skipped for want of the script. The steps are stated in full rather than cited, for the
+   positioning by hand, in this order, against `<landing-worktree>`, creating it via `git -C
+   <main-checkout> worktree add --force <landing-worktree> <base>` when it does not already exist
+   (`--force` because the main checkout is ordinarily already on `<base>` at this point, per
+   `check-finish-preflight.sh`'s own main-checkout assertion (**Finish contract**,
+   `skills/flow-contracts/finish-contract-run1.md`), and git otherwise refuses a second worktree on
+   a branch already checked out), and say in the handoff that it was done manually. The guard is never
+   skipped for want of the script. The steps are stated in full rather than cited, for the
    reason the resolver's own fallback above gives: the guard being absent takes its header with it.
    Run the wrapped, credential-free fetch first, so an
    unreachable remote refuses quickly rather than hanging. Then read `HEAD`: **refuse a detached
-   `HEAD`.** Then read the working tree with `git -C <main-checkout> status --porcelain` — the same
-   test the preflight's signal 3 uses — and **refuse a dirty tree wherever it is found, on `<base>` as
-   well as off it**, naming both the branch found and `<base>`; uncommitted changes would otherwise
-   ride onto the archive branch unremarked. On a clean tree, check out `<base>` if the checkout is not
-   already on it, then fast-forward it to `origin/<base>`, **refusing a base that cannot fast-forward**
-   rather than merging or resetting it. Finally create `chore/archive-<name>` from that base and check
-   it out — or, when it already exists, **reuse it only if it is descended from `origin/<base>`** and
-   refuse it otherwise. Apply each refusal in that order and never accept a guess in place of any of
-   them.
+   `HEAD`.** Then read the working tree with `git -C <landing-worktree> status --porcelain` — the
+   same test the preflight's signal 3 uses — and **refuse a dirty tree wherever it is found, on
+   `<base>` as well as off it**, naming both the branch found and `<base>`; uncommitted changes
+   would otherwise ride onto the archive branch unremarked. On a clean tree, check out `<base>` if
+   the checkout is not already on it, then fast-forward it to `origin/<base>`, **refusing a base
+   that cannot fast-forward** rather than merging or resetting it. Finally create
+   `chore/archive-<name>` from that base and check it out — or, when it already exists, **reuse it
+   only if it is descended from `origin/<base>`** and refuse it otherwise. Apply each refusal in
+   that order and never accept a guess in place of any of them.
 3. **Archive the change** — `spectre archive <name>` moves it into
    `<project>/spectre/changes/archive/<name>/`. **The archived leaf carries no date prefix**, because
    `spectre archive` adds none: the date-ordered archive OpenSpec gave this pipeline is a real loss,
@@ -53,9 +62,10 @@
    branch was already merged, which step 1 proved. Run 2 never merges anything into the base branch,
    and never commits the archive on the base branch itself. Every commit run 2 makes after step 2 —
    this one and the self-review report at step 9 alike — asserts `chore/archive-<name>` rather than
-   assuming it: naming the directory with `git -C <main-checkout>` fixes the directory, not the
+   assuming it: naming the directory with `git -C <landing-worktree>` fixes the directory, not the
    branch. A finished change never leaves the archive move uncommitted in the working tree. The push
-   happens at step 10, after self-review; step 11, which restores the checkout, closes the run.
+   happens at step 10, after self-review; step 11, which removes the landing worktree, closes the
+   run.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below.
@@ -206,9 +216,10 @@
    filed this way carries its angle's label on top of the set **Labels on issues the pipeline
    creates** (`skills/flow-contracts/jira-integration.md`) already defines.
 
-   The report is committed onto `chore/archive-<name>` — asserting that branch rather than assuming
-   it, and not pushed here; step 10 carries the push — to
-   `<project>/docs/self-review/<name>-self-review.md`. It carries one section per angle,
+   The report is committed onto `chore/archive-<name>` in `<landing-worktree>` — asserting that
+   branch rather than assuming it, and not pushed here; step 10 carries the push — to
+   `<project>/docs/self-review/<name>-self-review.md`, physically under `<landing-worktree>`. It
+   carries one section per angle,
    all five present; each finding is one line naming its angle's label, the finding, and its
    disposition — the issue key when filed, an explicit declined marker when not — and an angle with
    no findings carries an explicit none-marker instead of finding lines. **This procedure is
@@ -228,8 +239,8 @@
 
     | Reached via | Then |
     |---|---|
-    | the merge-and-push continuation, same invocation as run 1 | push `chore/archive-<name>`; merge it into `<base>`; push `<base>` — the same three sub-steps Run 1's own merge-and-push route (`skills/flow-contracts/finish-contract-run1.md`) performs, applied to the archive branch instead |
-    | a standalone invocation | push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, else print the forge's create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route uses |
+    | the merge-and-push continuation, same invocation as run 1 | in `<landing-worktree>`: push `chore/archive-<name>`; merge it into `<base>`; push `<base>` — the same three sub-steps Run 1's own merge-and-push route (`skills/flow-contracts/finish-contract-run1.md`) performs, applied to the archive branch instead |
+    | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, else print the forge's create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route uses |
 
     This push carries both the archive commit and the self-review report from step 9 either way,
     so there is no window in which the archive lands while the report is still unwritten. Run 2
@@ -250,8 +261,16 @@
     the original route was, or whether the operator merged the PR through some mechanism this
     pipeline never chose — so it always takes the standalone row, which is the same behavior this
     step already had before this change.
-11. **Restore the main checkout to `<base>`.** Successful or not, run 2 leaves the main checkout on
-    `<base>`, never on the archive branch.
+11. **Remove the landing worktree.** Successful or not:
+
+    ```bash
+    git -C <main-checkout> worktree remove --force <landing-worktree>
+    git -C <main-checkout> worktree prune
+    ```
+
+    The main checkout is never checked out, staged or committed by any step above, so there is
+    nothing to restore it from — this step's only job is discarding the throwaway worktree those
+    steps used in its place.
 
 **The Jira `Done` transition fires before step 9, not after it.** Per **Jira integration**
 (`skills/flow-contracts/jira-integration.md`)'s own timing — the issue moves to `Done` after the
@@ -262,7 +281,11 @@ so self-review has nothing to delay: there is no Jira write left in run 2 for it
 
 Which worktrees those are, and the `git worktree list --porcelain` scan that finds them when
 the state file's map is absent or empty, are **Resolving a change's worktrees**
-(`skills/flow-contracts/finish-contract-run1.md`).
+(`skills/flow-contracts/finish-contract-run1.md`). **The landing worktree is never one of them.**
+This section resolves and removes the change's own **apply** worktree(s) — the ones
+`spectre/<name>` was ever checked out in — a disjoint set from the single throwaway
+`<project>/.worktrees/_landing-<name>` that steps 2–4, 9 and 10 above used in the main checkout's
+place; step 11, which this section's own call site (step 5) precedes, is what removes that one.
 
 For each worktree, run **every** check below before removing anything:
 

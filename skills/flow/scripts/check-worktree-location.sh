@@ -1,0 +1,1 @@
+../../../scripts/check-worktree-location.sh

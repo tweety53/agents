@@ -108,9 +108,9 @@ rule the open-questions count reads through are stated once under **Open questio
 
 Worktree:   <absolute worktree path>
 
-Run it:
-  <command>          # <app or check name>
-  <command>
+Running:
+  <url line>  # <from the start command's output>
+  <stop command>
 
 Review the diff, then run it:
   <the review command that matches the git state on the Staged line — see below>
@@ -160,11 +160,13 @@ fell back. A line printed only when something went wrong is indistinguishable fr
 printed, and the operator would read the silence as a clean run. **This line reports; it does not
 gate**: a journalled write leaves the state, the diff and the next command exactly as they were.
 
-**`Run it:` is on-disk, not `(run-only)`.** The commands it lists are resolved from the worktree
-and the project's own configuration — not remembered from the run that printed them — so
-`/flow-status <name>` regenerates the same lines `/myflow-do` printed rather than omitting the
-section. Both commands resolve those lines the same way — see **Resolve the run instructions**
-(`skills/flow/verify-and-handoff.md`).
+**`Running:` is on-disk, not `(run-only)`.** Its lines are resolved from the worktree and the
+project's own configuration — not remembered from the run that printed them — so
+`/flow-status <name>` regenerates the section by re-running the same two keys' resolution
+(`## stop`, when declared, then `## run`) rather than omitting it. `/flow-status` prints the
+resulting commands without re-probing whether the stack is still actually up — it states that the
+stack's liveness is not re-checked. Both commands resolve those lines the same way — see **Resolve
+the run instructions** (`skills/flow/verify-and-handoff.md`).
 
 **The `Staged` line's git state has a third option, and the review command follows it.**
 `/myflow-do` itself only ever emits the first two — it stages, or it commits and pushes to a PR

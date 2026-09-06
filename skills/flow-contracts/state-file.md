@@ -334,8 +334,8 @@ The **key set of `worktrees` is the authoritative recorded list of affected work
 what `/flow`'s archive phase cleans up, and what resolves an app's root when a handoff needs an absolute
 path. It is the record, not the iteration set: a step that needs "the worktrees" resolves that set
 first, per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), rather than
-looping over this map directly. The scalar `branch` names the shared branch only. Never infer a
-worktree path from a conventional layout; layout differs per repository.
+looping over this map directly. The scalar `branch` names the shared branch only. Every repository
+keeps its worktrees under `<project>/.worktrees/` — enforced by `check-worktree-location.sh`.
 
 The **order** those repositories land in is not recorded here at all: it lives in the canonical
 `link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
@@ -343,8 +343,8 @@ reads to sequence run 1's routes.
 
 ```json
 "worktrees": {
-  "/Users/tweety53/Projects/agents-worktrees/spectre-<name>": "5ee4c9a…",
-  "/Users/tweety53/Projects/other-worktrees/spectre-<name>": "b31f7c2…"
+  "/Users/tweety53/Projects/agents/.worktrees/<name>": "5ee4c9a…",
+  "/Users/tweety53/Projects/other/.worktrees/<name>": "b31f7c2…"
 }
 ```
 

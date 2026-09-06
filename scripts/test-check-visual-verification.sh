@@ -800,6 +800,58 @@ assert_out_contains "case 29" "\`verify\`"
 assert_out_contains "case 29" "\`capture\`"
 assert_out_contains "case 29" "\`fingerprint\`"
 
+# ===========================================================================
+# Case 30 (KAN-462 task 4): start row is accepted -- `start` joins the closed
+# `Command` vocabulary alongside `setup`, `verify`, `capture` and
+# `fingerprint`; declaring it is never reported as an unknown command and
+# never drops the row. Reverting this task's commit makes `start` fall
+# outside the vocabulary again, so this case fails on the dropped-row
+# violation -- the plan's own regression check for this task.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |
+| \`start\` | \`./gradlew devStart\` |"
+run_guard
+assert_rc "case 30" 0
+assert_out_contains "case 30" "VISUAL-OK"
+assert_out_not_contains "case 30" "vocabulary is closed"
+assert_out_not_contains "case 30" "start"
+
+# ===========================================================================
+# Case 31 (KAN-462 task 4): start row is optional -- every case above (and
+# case 30's own `verify`/`capture` pair) declares no `start` row and passes
+# or fails on other grounds alone, exactly as `setup` and `fingerprint`
+# already do; this case pins the absence-is-silent half explicitly for
+# `start` rather than leaving it to be inferred from cases written before
+# `start` existed.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 31" 0
+assert_out_contains "case 31" "VISUAL-OK"
+assert_out_not_contains "case 31" "start"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
