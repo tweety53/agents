@@ -266,6 +266,14 @@ column-0 checkbox line, `- [ ] <n>. <title>`, whose `<n>` is a flat integer; tha
 `  - [ ] **Step N: …**` lines indented two columns beneath it. The rule in full is the `Placement`
 paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`).
 
+> **Write each task's verify step as its own lint commands plus targeted tests.** A verify step
+> names the lint commands the task's own `**Files:**` actually need — never the project's whole
+> `## lint` list — and the build tool's own selector for each `**Tests:**` entry (`--tests
+> '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t '<name>'` for vitest), never the bare
+> module or repository suite: that run belongs to the last bundle's FULL SUITE paragraph
+> (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
+> lint alone and no test command.
+
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block and every numeric claim per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
