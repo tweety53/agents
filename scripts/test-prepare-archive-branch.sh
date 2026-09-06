@@ -246,11 +246,15 @@ WT="$PLAIN_DIR"
 run_guard "$PLAIN_DIR" main "$ARCHIVE"
 expect_refusal "not-a-worktree" 2 "not a git worktree"
 
-# 9. missing-checkout: a path that does not exist. Expect exit 2; nothing on
-#    stdout.
+# 9. missing-checkout: a path that does not exist, whose parent is not named
+#    `.worktrees`. KAN-462 task 3: an absent landing path is no longer an
+#    unconditional inability — the guard tries to create it, and refuses
+#    (exit 1, naming the path) before ever touching git, because this one's
+#    parent does not match the strict `<project>/.worktrees/_landing-<name>`
+#    shape. Expect exit 1; nothing on stdout.
 MISSING_DIR="${TMPDIR:-/tmp}/prepare-archive-branch-test-missing.$$"
 run_guard "$MISSING_DIR" main "$ARCHIVE"
-expect_refusal "missing-checkout" 2 "not a directory"
+expect_refusal "missing-checkout" 1 "not a .worktrees directory"
 
 # 10. base-diverged: local <base> carries a commit origin/<base> does not,
 #     and origin/<base> also advanced independently, so the fast-forward is
@@ -290,6 +294,70 @@ git -C "$NOORIGIN_WT" add file.txt
 git -C "$NOORIGIN_WT" commit -qm base
 run_guard "$NOORIGIN_WT" main "$ARCHIVE"
 expect_refusal "no-origin" 3 "origin"
+
+# --- KAN-462 task 3: the first argument is a throwaway landing worktree, ---
+# --- never the main checkout itself. ---
+
+# Declared test: `case: creates the landing worktree when the path is absent`
+# 12. creates-landing-worktree: the landing path is absent, and the main
+#     checkout (found by walking up two directories from it) sits on <base>,
+#     exactly as check-finish-preflight.sh's new main-checkout assertion
+#     leaves it. Expect exit 0; the landing worktree is created under
+#     <project>/.worktrees/ and positioned on <archive-branch>, cut from a
+#     fast-forwarded <base> — the main checkout is untouched throughout.
+new_checkout
+advance_origin
+ORIGIN_TIP="$(git -C "$SEED" rev-parse main)"
+MAIN_BEFORE_BRANCH="$(git -C "$WT" branch --show-current)"
+LANDING="$WT/.worktrees/_landing-fixture"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_positioned "creates-landing-worktree" "main" "$ARCHIVE"
+[ -d "$LANDING" ] \
+  && pass "creates-landing-worktree: the landing worktree now exists" \
+  || fail "creates-landing-worktree: expected $LANDING to exist"
+[ "$(git -C "$LANDING" branch --show-current)" = "$ARCHIVE" ] \
+  && pass "creates-landing-worktree: landing worktree HEAD is on $ARCHIVE" \
+  || fail "creates-landing-worktree: expected landing worktree on $ARCHIVE, got '$(git -C "$LANDING" branch --show-current)'"
+git -C "$LANDING" merge-base --is-ancestor "$ORIGIN_TIP" HEAD \
+  && pass "creates-landing-worktree: archive branch carries the fast-forwarded base" \
+  || fail "creates-landing-worktree: archive branch does not carry the fast-forwarded base"
+[ "$(git -C "$WT" branch --show-current)" = "$MAIN_BEFORE_BRANCH" ] \
+  && pass "creates-landing-worktree: main checkout branch unchanged" \
+  || fail "creates-landing-worktree: expected main checkout to stay on '$MAIN_BEFORE_BRANCH', got '$(git -C "$WT" branch --show-current)'"
+
+# Declared test: `case: refuses a dirty landing worktree`
+# 13. dirty-landing-worktree: the landing worktree already exists (from a
+#     prior invocation) and carries an uncommitted change. Expect exit 1;
+#     the main checkout is untouched; the existing worktree is left dirty,
+#     never reset out from under whatever left it that way.
+new_checkout
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+echo dirty >> "$LANDING/file.txt"
+MAIN_BEFORE_BRANCH="$(git -C "$WT" branch --show-current)"
+run_guard "$LANDING" main "$ARCHIVE"
+expect_refusal "dirty-landing-worktree" 1 "dirty"
+[ "$(git -C "$WT" branch --show-current)" = "$MAIN_BEFORE_BRANCH" ] \
+  && pass "dirty-landing-worktree: main checkout branch unchanged" \
+  || fail "dirty-landing-worktree: expected main checkout to stay on '$MAIN_BEFORE_BRANCH'"
+git -C "$WT" worktree remove --force "$LANDING" 2>/dev/null || true
+
+# Declared test: `case: main checkout is never checked out`
+# 14. main-checkout-never-checked-out: the regression case named in the
+#     plan's own baseline — reverting this task puts run 2 back in the main
+#     checkout, which this proves by asserting `branch --show-current` in
+#     the fixture's main checkout is read once, before the call, and found
+#     identical after it, for a call whose landing path had to be created.
+new_checkout
+BEFORE="$(git -C "$WT" branch --show-current)"
+LANDING="$WT/.worktrees/_landing-fixture"
+run_guard "$LANDING" main "$ARCHIVE"
+[ "$RC" -eq 0 ] && pass "main-checkout-never-checked-out: exit 0" \
+  || fail "main-checkout-never-checked-out: expected exit 0, got rc=$RC out=[$OUT] err=[$ERR]"
+AFTER="$(git -C "$WT" branch --show-current)"
+[ "$BEFORE" = "$AFTER" ] \
+  && pass "main-checkout-never-checked-out: branch --show-current in the main checkout is unchanged ($BEFORE)" \
+  || fail "main-checkout-never-checked-out: main checkout branch changed from '$BEFORE' to '$AFTER'"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

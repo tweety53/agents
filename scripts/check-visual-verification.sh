@@ -75,8 +75,8 @@
 # THE INPUT IS ATTACKER-INFLUENCED, the same fact check-workspace-isolation.sh
 # is written against: `.flow/project.md` is tracked and editable in any pull
 # request. NOTHING read here is executed — this guard never runs `setup`,
-# `verify`, `capture` or `fingerprint`, and never interpolates a cell into a
-# shell. All of
+# `verify`, `capture`, `fingerprint` or `start`, and never interpolates a
+# cell into a shell. All of
 # the table parsing happens inside one awk program whose only input is the
 # file's text, and every violation line the awk program prints, plus every
 # cell this guard interpolates into a message afterward, passes through
@@ -348,15 +348,17 @@ REPORT="$(awk -v cfg="$CFG" -v heading_re="$VV_HEADING" \
   }
 
   # One row of the commands table. The `Command` vocabulary is closed —
-  # `setup`, `verify`, `capture` and `fingerprint` — for the identical reason.
-  # `fingerprint` is optional and nothing below requires it (KAN-395): a
-  # project with no served bundle declares none, and its absence is silent
+  # `setup`, `verify`, `capture`, `fingerprint` and `start` — for the
+  # identical reason. `fingerprint` and `start` are both optional and nothing
+  # below requires either (KAN-395, KAN-462): a project with no served bundle
+  # declares no `fingerprint`, and a project whose `## run` already starts the
+  # stack this stage probes declares no `start`; both absences are silent
   # here exactly as `setup`'s is.
   function check_command_row(lineno, cells,   key, disp) {
     disp = trimcell(cells[1])
     key = foldcell(cells[1])
-    if (key != "setup" && key != "verify" && key != "capture" && key != "fingerprint") {
-      violation(lineno, "Command `" disp "` is not one of `setup`, `verify`, `capture` or `fingerprint` — the vocabulary is closed, so the row is dropped")
+    if (key != "setup" && key != "verify" && key != "capture" && key != "fingerprint" && key != "start") {
+      violation(lineno, "Command `" disp "` is not one of `setup`, `verify`, `capture`, `fingerprint` or `start` — the vocabulary is closed, so the row is dropped")
       return
     }
     if (key in cmd_seen) {

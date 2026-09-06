@@ -23,7 +23,7 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
 | Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
-| Worktree | `/myflow-do` | per the `worktrees` keys | run 2, after its existing checks |
+| Worktree | `/flow`'s `flow.create-artifacts` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
 | Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |

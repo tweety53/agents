@@ -46,29 +46,42 @@ run_guard() {
   set -e
 }
 
-# new_repo -> sets REPO, BASE_REF, RECORDED_BASE
-# A repository on `main` with one commit, plus a branch `openspec/demo`
-# checked out at that same commit. RECORDED_BASE is that commit.
+# new_repo -> sets REPO, MAIN_REPO, BASE_REF, RECORDED_BASE
+# A real main-checkout-plus-linked-worktree pair, matching production shape
+# now that check-finish-preflight.sh resolves <main-checkout> from <worktree>
+# via `git rev-parse --git-common-dir` (KAN-462 task 3, §12). MAIN_REPO stays
+# on `main`, clean, for the life of every case below — every case that
+# doesn't deliberately dirty or move it exercises the new main-checkout
+# assertion as a pass, not a skip. REPO is a linked worktree of MAIN_REPO,
+# checked out on `openspec/demo` at the same one commit. RECORDED_BASE is
+# that commit. REPO is positioned under MAIN_REPO/.worktrees/ so
+# check-worktree-location.sh — which the new assertion also runs — reports
+# it as in-tree rather than a stray, in every case that doesn't test the
+# stray path itself (case 3 of the new KAN-462 trio, below).
 new_repo() {
-  REPO="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test.XXXXXX")"
-  REPOS+=("$REPO")
-  git -C "$REPO" init -q -b main
-  git -C "$REPO" config user.email test@example.invalid
-  git -C "$REPO" config user.name "Test"
-  echo base > "$REPO/file.txt"
-  git -C "$REPO" add file.txt
-  git -C "$REPO" commit -qm "base"
-  RECORDED_BASE="$(git -C "$REPO" rev-parse HEAD)"
+  MAIN_REPO="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test-main.XXXXXX")"
+  REPOS+=("$MAIN_REPO")
+  git -C "$MAIN_REPO" init -q -b main
+  git -C "$MAIN_REPO" config user.email test@example.invalid
+  git -C "$MAIN_REPO" config user.name "Test"
+  echo base > "$MAIN_REPO/file.txt"
+  git -C "$MAIN_REPO" add file.txt
+  git -C "$MAIN_REPO" commit -qm "base"
+  RECORDED_BASE="$(git -C "$MAIN_REPO" rev-parse HEAD)"
   BASE_REF=main
-  git -C "$REPO" checkout -q -b openspec/demo
+  REPO="$MAIN_REPO/.worktrees/demo"
+  git -C "$MAIN_REPO" worktree add -q -b openspec/demo "$REPO" main
 }
 
-# merge_demo_into_main <repo> — land openspec/demo on main with a merge commit
-# and return to the branch, which is the shape run 2 is allowed to act on.
+# merge_demo_into_main — land openspec/demo on main with a merge commit,
+# run from MAIN_REPO (the only worktree allowed to hold `main`) rather than
+# from REPO, which stays on openspec/demo throughout: two worktrees of the
+# same repository can never both check out the same branch (KAN-462 task 3's
+# own prepare-archive-branch.sh header measures this directly), so the
+# retired form of this helper — checking `main` out a second time inside
+# REPO — would refuse with "'main' is already used by worktree".
 merge_demo_into_main() {
-  git -C "$1" checkout -q main
-  git -C "$1" merge -q --no-ff -m "merge" openspec/demo
-  git -C "$1" checkout -q openspec/demo
+  git -C "$MAIN_REPO" merge -q --no-ff -m "merge" openspec/demo
 }
 
 # 1. Zero-commit branch with staged work: RUN1, never RUN2.
@@ -118,7 +131,7 @@ new_repo
 echo work > "$REPO/new.txt"
 git -C "$REPO" add new.txt
 git -C "$REPO" commit -qm "work"
-merge_demo_into_main "$REPO"
+merge_demo_into_main
 run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
 case "$OUT" in
   RUN2*) pass "merged with clean tree -> RUN2" ;;
@@ -132,7 +145,7 @@ new_repo
 echo work > "$REPO/new.txt"
 git -C "$REPO" add new.txt
 git -C "$REPO" commit -qm "work"
-merge_demo_into_main "$REPO"
+merge_demo_into_main
 echo dirty > "$REPO/file.txt"
 run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
 case "$OUT" in
@@ -160,7 +173,7 @@ new_repo
 echo work > "$REPO/new.txt"
 git -C "$REPO" add new.txt
 git -C "$REPO" commit -qm "work"
-merge_demo_into_main "$REPO"
+merge_demo_into_main
 run_guard "$REPO" "$BASE_REF" -
 case "$OUT" in
   REFUSE*) pass "absent merge base -> REFUSE" ;;
@@ -188,7 +201,7 @@ SHORT="$(git -C "$REPO" rev-parse --short "$RECORDED_BASE")"
 echo work > "$REPO/new.txt"
 git -C "$REPO" add new.txt
 git -C "$REPO" commit -qm "work"
-merge_demo_into_main "$REPO"
+merge_demo_into_main
 run_guard "$REPO" "$BASE_REF" "$SHORT"
 case "$OUT" in
   RUN2*) pass "abbreviated merge base -> RUN2" ;;
@@ -246,7 +259,7 @@ new_repo
 echo work > "$REPO/new.txt"
 git -C "$REPO" add new.txt
 git -C "$REPO" commit -qm "work"
-merge_demo_into_main "$REPO"
+merge_demo_into_main
 shim_failing_git "finish-preflight-shim" "status" "simulated index.lock contention"
 set +e
 OUT="$(PATH="$SHIM_DIR:$PATH" "$GUARD" "$REPO" "$BASE_REF" "$RECORDED_BASE" 2>&1)"
@@ -351,27 +364,30 @@ ACTUAL_USAGE="$(cat "$MISSING_ARGS_ERR")"
 # none of it exercises this path; its expectations are left byte-identical
 # to prove that.
 
-# new_repo_with_origin -> sets REPO, ORIGIN, BASE_REF, RECORDED_BASE
-# A bare `origin`, a clone of it with one commit on `main` (RECORDED_BASE),
-# pushed back to origin, and a branch `openspec/demo` checked out at that
-# same commit — the same shape new_repo builds, plus a real remote.
+# new_repo_with_origin -> sets REPO, MAIN_REPO, ORIGIN, BASE_REF, RECORDED_BASE
+# A bare `origin`, a clone of it (MAIN_REPO) with one commit on `main`
+# (RECORDED_BASE), pushed back to origin, and REPO — a linked worktree of
+# MAIN_REPO — checked out on `openspec/demo` at that same commit. Same
+# reasoning as new_repo above: MAIN_REPO is the one worktree allowed to hold
+# `main`, and stays on it throughout.
 new_repo_with_origin() {
   ORIGIN="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test-origin.XXXXXX")"
   REPOS+=("$ORIGIN")
   git init -q --bare -b main "$ORIGIN"
 
-  REPO="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test.XXXXXX")"
-  REPOS+=("$REPO")
-  git clone -q "$ORIGIN" "$REPO" 2>/dev/null
-  git -C "$REPO" config user.email test@example.invalid
-  git -C "$REPO" config user.name "Test"
-  echo base > "$REPO/file.txt"
-  git -C "$REPO" add file.txt
-  git -C "$REPO" commit -qm "base"
-  git -C "$REPO" push -q origin main
-  RECORDED_BASE="$(git -C "$REPO" rev-parse HEAD)"
+  MAIN_REPO="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test-main.XXXXXX")"
+  REPOS+=("$MAIN_REPO")
+  git clone -q "$ORIGIN" "$MAIN_REPO" 2>/dev/null
+  git -C "$MAIN_REPO" config user.email test@example.invalid
+  git -C "$MAIN_REPO" config user.name "Test"
+  echo base > "$MAIN_REPO/file.txt"
+  git -C "$MAIN_REPO" add file.txt
+  git -C "$MAIN_REPO" commit -qm "base"
+  git -C "$MAIN_REPO" push -q origin main
+  RECORDED_BASE="$(git -C "$MAIN_REPO" rev-parse HEAD)"
   BASE_REF=main
-  git -C "$REPO" checkout -q -b openspec/demo
+  REPO="$MAIN_REPO/.worktrees/demo"
+  git -C "$MAIN_REPO" worktree add -q -b openspec/demo "$REPO" main
 }
 
 # merge_demo_into_origin_main <repo> — land openspec/demo on origin/main
@@ -509,6 +525,108 @@ grep -qF -- 'prefers refs/remotes/origin/<base-ref>' \
   "$SCRIPT_DIR/check-finish-preflight.sh" \
   && pass "usage message states the base-ref rule" \
   || fail "usage message no longer states the base-ref rule"
+
+# --- KAN-462 task 3: the main-checkout assertion (design.md §4, tasks.md ---
+# --- step 2 of task 3) — a would-be RUN2 verdict is REFUSEd instead when ---
+# --- the main checkout itself is unfit to host the landing worktree later. ---
+
+# Declared test: `preflight: REFUSE when the main checkout is off base`
+# 17. Off-base: the main checkout has moved to an unrelated branch. The
+#     worktree's own shape is otherwise the ordinary RUN2 one (merged, clean).
+new_repo
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+merge_demo_into_main
+git -C "$MAIN_REPO" checkout -q -b other
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  REFUSE*) pass "main checkout off base -> REFUSE" ;;
+  *) fail "main checkout off base: expected REFUSE, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"main checkout"*"other"*) pass "main checkout off base: REFUSE names the branch found" ;;
+  *) fail "main checkout off base: REFUSE does not name the branch found: $OUT" ;;
+esac
+[ "$RC" -eq 0 ] && pass "main checkout off base: exit 0 — the verdict carries the answer" \
+  || fail "main checkout off base: expected exit 0, got rc=$RC"
+
+# Declared test: `preflight: REFUSE when the main checkout has tracked changes`
+# 18. Tracked changes: the main checkout is on <base> but dirty.
+new_repo
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+merge_demo_into_main
+echo dirty >> "$MAIN_REPO/file.txt"
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  REFUSE*) pass "main checkout has tracked changes -> REFUSE" ;;
+  *) fail "main checkout tracked changes: expected REFUSE, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"tracked changes"*) pass "main checkout tracked changes: REFUSE names the reason" ;;
+  *) fail "main checkout tracked changes: REFUSE does not name the reason: $OUT" ;;
+esac
+
+# Declared test: `preflight: REFUSE on a stray worktree`
+# 19. Stray worktree: the main checkout is on <base>, clean, but a worktree
+#     — not REPO, whose own shape is otherwise the ordinary RUN2 one — lives
+#     outside <main-checkout>/.worktrees/, so check-worktree-location.sh
+#     reports it as a STRAY.
+new_repo
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+merge_demo_into_main
+STRAY_WT="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-test-stray.XXXXXX")"
+REPOS+=("$STRAY_WT")
+STRAY_WT="$(cd "$STRAY_WT" && pwd -P)"
+rm -rf "$STRAY_WT"
+git -C "$MAIN_REPO" worktree add -q --detach "$STRAY_WT" main
+run_guard "$REPO" "$BASE_REF" "$RECORDED_BASE"
+case "$OUT" in
+  REFUSE*) pass "stray worktree -> REFUSE" ;;
+  *) fail "stray worktree: expected REFUSE, got rc=$RC out=$OUT" ;;
+esac
+case "$OUT" in
+  *"stray worktree"*) pass "stray worktree: REFUSE names the reason" ;;
+  *) fail "stray worktree: REFUSE does not name the reason: $OUT" ;;
+esac
+case "$OUT" in
+  *"$STRAY_WT"*) pass "stray worktree: REFUSE names the offending path" ;;
+  *) fail "stray worktree: REFUSE does not name the offending path: $OUT" ;;
+esac
+
+# Declared test: `preflight: exit 2 when check-worktree-location.sh is missing or not executable`
+# 20. The main-checkout assertion's own dependency is unusable: this must not
+#     silently fall through to RUN2 as if the main checkout were clean — a
+#     missing/non-executable check-worktree-location.sh is "cannot determine
+#     anything", not an implicit pass (KAN-462 panel fix, F2).
+new_repo
+echo work > "$REPO/new.txt"
+git -C "$REPO" add new.txt
+git -C "$REPO" commit -qm "work"
+merge_demo_into_main
+NO_LOCATION_GUARD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/finish-preflight-no-location-guard.XXXXXX")"
+REPOS+=("$NO_LOCATION_GUARD_DIR")
+cp "$SCRIPT_DIR"/*.sh "$NO_LOCATION_GUARD_DIR/"
+cp -R "$SCRIPT_DIR/lib" "$NO_LOCATION_GUARD_DIR/lib"
+chmod -x "$NO_LOCATION_GUARD_DIR/check-worktree-location.sh"
+set +e
+OUT="$("$NO_LOCATION_GUARD_DIR/check-finish-preflight.sh" "$REPO" "$BASE_REF" "$RECORDED_BASE" 2>&1)"
+RC=$?
+set -e
+[ "$RC" -eq 2 ] && pass "check-worktree-location.sh not executable -> exit 2" \
+  || fail "check-worktree-location.sh not executable: expected exit 2, got rc=$RC out=$OUT"
+case "$OUT" in
+  RUN1*|RUN2*|REFUSE*) fail "check-worktree-location.sh not executable: emitted a verdict line: $OUT" ;;
+  *) pass "check-worktree-location.sh not executable: emits no verdict line" ;;
+esac
+case "$OUT" in
+  *"check-worktree-location.sh"*"missing or not executable"*) pass "check-worktree-location.sh not executable: names the failure" ;;
+  *) fail "check-worktree-location.sh not executable: no named message: $OUT" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

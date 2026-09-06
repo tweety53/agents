@@ -87,7 +87,7 @@ this note-found condition holds.
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
-- Save the design to `<project>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it
+- Save the design to `<project>/.worktrees/<name>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it
   when the brainstorming skill requires it.
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
@@ -169,7 +169,8 @@ see **Dispatch the planner** (`skills/flow/brainstorm.md`). Everywhere below tha
 
 ```bash
 flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-# … the parent resumes the planner via SendMessage; everything from here is the planner's own turn …
+# … the parent creates the change worktree (skills/flow/brainstorm.md), then resumes the planner via
+# SendMessage; everything from here is the planner's own turn, run in <worktree> …
 spectre new "<name>"
 ```
 
@@ -188,8 +189,7 @@ these three artifacts:
   (both below)
 - **tasks.md** — a checkbox scaffold; **writing-plans enriches it next**
 
-**A spec edit is planned here, never written here.** This phase runs before any branch or worktree
-exists, so it has nowhere on the change branch to write to. A capability whose requirements the
+**A spec edit is planned here, never written here.** A capability whose requirements the
 change alters gets a task in `tasks.md` naming `<project>/spectre/specs/<capability>.md` in that
 task's `**Files:**` field — the implementer writes and commits it on the change branch, in that
 task's own commit.

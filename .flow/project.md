@@ -155,6 +155,7 @@ scripts/check-installed-rules.sh
 scripts/check-normative-inventory.sh
 scripts/check-model-keys.sh
 scripts/check-model-resolution-shell.sh
+scripts/check-worktree-location.sh "$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10); exit}')"
 cd stats && gofmt -l .
 cd stats && go vet ./...
 cd stats/web && npx tsc -b

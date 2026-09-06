@@ -177,7 +177,7 @@ Steps 1, 2 and 10 are the conductor's. Steps 3–9 and 11 are run by one verifie
 surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 conductor applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
-`fingerprint` commands and `screenshots` root; the worktree-resolved URL of each app `ui paths`
+`fingerprint` and `start` commands and `screenshots` root; the worktree-resolved URL of each app `ui paths`
 matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–9
 and 11 below as written, committing and pushing nothing.
 
@@ -199,17 +199,17 @@ and 11 below as written, committing and pushing nothing.
 3. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
 4. **Probe before starting anything.** Probe the URL of each app `ui paths` matched, resolved for
    this worktree per **What the id derives** (`skills/flow-contracts/workspace-isolation.md`) —
-   never the project's declared default. If nothing answers, start the stack from `## run` and
-   record that this stage started it — needed at step 11.
+   never the project's declared default. If nothing answers, start the stack from `start` when
+   declared, else `## run`, and record that this stage started it — needed at step 11.
 5. **Fingerprint the served bundle, if `fingerprint` is declared.** A screenshot is evidence only
    of what the app was serving when it was taken, and a stack step 4 found already running may be
    serving a build older than the worktree — KAN-29's last fix round captured, and nearly accepted,
    the bug the fix had removed. Run `fingerprint`. Exit 0 → the served bundle is the worktree's
-   build; continue. Non-zero → stop the stack, start it from `## run`, record that this stage
-   started it (step 11 stops it), and run `fingerprint` once more. A second non-zero exit blocks,
-   carrying the command's output. No row declared → report `fingerprint: not declared` and
-   continue; the report makes the gap visible in every handoff, but this stage cannot prove what
-   it was never told how to check.
+   build; continue. Non-zero → stop the stack, start it from `start` when declared, else `## run`,
+   record that this stage started it (step 11 stops it), and run `fingerprint` once more. A second
+   non-zero exit blocks, carrying the command's output. No row declared → report
+   `fingerprint: not declared` and continue; the report makes the gap visible in every handoff, but
+   this stage cannot prove what it was never told how to check.
 6. **Run `verify`.** A non-zero exit blocks.
 7. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
@@ -329,7 +329,7 @@ flow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Resolve the run instructions for the handoff's `Run it:` section. It writes no file.
+Resolve the run instructions for the handoff's `Running:` section. It writes no file.
 
 - **Every app root is absolute**, resolved from `git worktree list` or the state file's `worktrees`
   keys. Never a relative sibling path, and never a main-checkout path while a worktree holds the
@@ -343,60 +343,78 @@ Resolve the run instructions for the handoff's `Run it:` section. It writes no f
 - Apps in scope come from `## apps` in `<project>/.flow/project.md`, or auto-detection.
 - **Where the project declares no runnable application**, resolve the `## lint` and `## test`
   commands instead.
-- **On a fix run, reload before this stage ends.** A fix run hands the operator a diff and the run
-  instructions this stage resolves; if the applications those instructions name are still serving
-  pre-fix code, the operator reviews one thing and runs another — measured, not hypothetical, in
-  this repository's own `<project>/stats/internal/web/embed.go`, whose `//go:embed all:dist` makes a running
-  daemon blind to an SPA source change until it is rebuilt. Before this stage ends, rebuild and
-  restart every application the run instructions above name — the ones just resolved, and no
-  others — from the project's `## run` commands.
+- **Before this stage ends, start the stack.** This runs on every run — first and fix alike, not
+  only a fix run. A fix run's motivation is the sharpest example: it hands the operator a diff and
+  the run instructions this stage resolves, and if the applications those instructions name are
+  still serving pre-fix code, the operator reviews one thing and runs another — measured, not
+  hypothetical, in this repository's own `<project>/stats/internal/web/embed.go`, whose `//go:embed
+  all:dist` makes a running daemon blind to an SPA source change until it is rebuilt. But the same
+  applies on a first run: a handoff is meant to hand off a running stack, not a command that starts
+  one, so before this stage ends, rebuild and restart every application the run instructions above
+  name — the ones just resolved, and no others — from the project's `## run` commands.
 
-  Resolve the reload from the two keys the project already declares, in order: its `## stop`, when
+  Resolve the start from the two keys the project already declares, in order: its `## stop`, when
   it declares a command, then its `## run`. **A `## stop` that deliberately declares no command
-  means there is nothing to stop, not that this rule is skipped** — the reload is then whatever
+  means there is nothing to stop, not that this rule is skipped** — the start is then whatever
   `## run` does to bring the application up fresh. No new project-configuration key is added for
   this, and none is needed.
 
   **Never the flow dev stack.** `flowd` on `127.0.0.1:4173`, its `flow-postgres` container and the
   `flow` database inside it are never stopped, restarted or dropped by any run —
   `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
-  own `## run` names that service, the prohibition wins over this reload rule, never the reverse.
+  own `## run` names that service, the prohibition wins over this start rule, never the reverse.
   This is separate from **Visual verification**'s own start/stop rule above (step 11): that stage
   stops only the stack it started for its own probe, and that rule is not restated here. This rule
-  reloads whatever the run instructions name, on every fix run, regardless of whether that stage ran
+  starts whatever the run instructions name, on every run, regardless of whether that stage ran
   or started anything.
 
-  **Where every application `## apps` names is one this prohibition covers, the reload is
+  **Where every application `## apps` names is one this prohibition covers, the start is
   nothing — stated, not silently skipped.** This repository is that case: its `## apps` names
   exactly one URL-bearing application, the myflow stats daemon on `127.0.0.1:4173`, and that is the
-  protected daemon itself. A fix run against this repository therefore reloads nothing before this
+  protected daemon itself. A run against this repository therefore starts nothing before this
   stage ends, and the handoff states which application was skipped and why:
 
   ```
-  Not reloaded: myflow stats daemon (http://127.0.0.1:4173) — protected, see
+  Not started: myflow stats daemon (http://127.0.0.1:4173) — protected, see
   <project>/CLAUDE.md's "Never stop the dev workspace's stats service or its storage".
   ```
 
   `flow.visual-verify`'s own `make ui-test-up`/`make ui-test-down` pair (steps 4–5 and step 11 above)
   is a different mechanism entirely — it starts and stops the disposable UI-test stack on
   `127.0.0.1:4174` for that stage's own probe, and `4174` is not an application `## apps` names at
-  all, so it is never this rule's reload target.
+  all, so it is never this rule's start target.
 
-  **A reload that fails blocks this stage**, naming the application and what the command printed —
+  **A start that fails blocks this stage**, naming the application and what the command printed —
   handing over run instructions that cannot be followed is the failure this rule exists to prevent.
-  Where the project declares no runnable application, there is nothing to reload and the rule is
+  Where the project declares no runnable application, there is nothing to start and the rule is
   satisfied by saying so, not by silently skipping it.
 
   Two worked examples, both real, and they resolve differently:
 
   ```bash verified:read from /Users/tweety53/Projects/gymie/.flow/project.md and this repository's own .flow/project.md
-  # gymie — `## stop` declares a command, so reload is stop-then-run:
+  # gymie — `## stop` declares a command, so the start is stop-then-run:
   ./gradlew devStop
   docker compose up -d && ./gradlew devStart -PfrontendRoot=<abs> -PadminFrontendRoot=<abs>
 
-  # this repository — `## apps` names only the protected daemon, so the reload is nothing at all;
+  # this repository — `## apps` names only the protected daemon, so the start is nothing at all;
   # see the paragraph above for the handoff line this produces instead of a command.
   ```
+
+- **The `Running:` block is the start command's own output.** Once the start above succeeds, its
+  `Running:` lines are every line of that command's output containing `http://` or `https://`,
+  verbatim, followed by the `## stop` command (or, where `## stop` declares none, the same `## run`
+  command that started it). `devStart`-style commands already announce every resolved URL on
+  success; that announcement — not the isolation table, which cannot know the pinned-port handoff
+  stack's URLs once a port has moved — is the source.
+
+- **A refused start is relayed, never resolved.** When the start command above exits non-zero
+  because a port it needs is already held, this stage does not retry, does not pick another port,
+  and does not stop the holder. It prints that command's output verbatim, then the holder's own
+  `devStop`-style stop command when the output names the holder's worktree (or, when it does not,
+  a note to run `check-worktree-processes.sh`-style diagnosis and stop the holder's stack by hand).
+  This run then ends at `IN_PROGRESS` with the diff still staged, and the handoff names `/flow
+  <name>` as the next command — the same change, re-run once the holder is stopped. It never stops
+  a stack this run did not start.
 
 ```bash
 flow stage end -command '/flow' -stage flow.run-instructions -outcome completed <name>
@@ -447,9 +465,9 @@ It exits 0 always — `unknown` included. Render exactly what it printed.
 
 Worktree:   <absolute worktree path>
 
-Run it:
-  <command>          # <app or check name>
-  <command>
+Running:
+  <url line>  # <from the start command's output>
+  <stop command>
 
 Review the diff, then run it:
   git -C <absolute worktree path> diff <merge base>..HEAD

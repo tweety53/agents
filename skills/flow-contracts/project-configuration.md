@@ -480,7 +480,7 @@ rows below is reported and its row dropped, never silently ignored.
 The commands table's header folds the same way, to `command|runs` — the same heading
 `## workspace isolation` above already establishes for a table of project-declared commands, reused
 here rather than invented a second time. **Its `Command` vocabulary is closed** too: a name outside
-the four rows below is reported and its row dropped.
+the five rows below is reported and its row dropped.
 
 | Command | Required | Meaning |
 |---------|----------|---------|
@@ -488,6 +488,7 @@ the four rows below is reported and its row dropped.
 | `verify` | yes | Runs the checked-in baseline suite. |
 | `capture` | yes | Runs the per-change spec and **creates** this change's baseline — it is expected to write PNGs that do not yet exist, and that is success, not failure. `verify` above is the regression gate, guarding an already-committed baseline; `capture` is not, and the project's own command must be the variant that succeeds on a first-run write rather than the one built to fail a comparison against nothing. |
 | `fingerprint` | no | Exits 0 when the app the stage's probe answered from is serving the worktree's own build, non-zero otherwise. What a bundle's identity is differs per stack, so the project owns the comparison; `flow.visual-verify` owns what a non-zero exit does (one restart from `## run`, then block). Absent means the stage reports `fingerprint: not declared` and proves nothing about the served bundle — a supported state for a project with no served bundle, not a misconfiguration. |
+| `start` | no | Starts the stack for this stage's own probe, from the worktree; absent means `## run`. This is where a project moves a port the operator's `## run` keeps fixed. |
 
 **No push is ever automatic.** `flow.visual-verify` commits the per-change spec and its PNGs to the
 `regression checkout` when one is declared and stops there; the handoff prints the push command for

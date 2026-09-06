@@ -28,8 +28,8 @@ discovery aid, never a second statement of what they say:
 A change is always in exactly one of three states, recorded in its state file.
 
 ```text
-/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff and run the apps
-/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff and run the apps
+/flow  (no state)          → STARTED → IN_PROGRESS   you: review the staged diff — the stack is running
+/flow  <fix instructions>  → IN_PROGRESS (unchanged)  you: review the staged diff — the stack is running
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
 ```
 
@@ -37,15 +37,15 @@ A change is always in exactly one of three states, recorded in its state file.
 vocabulary are the same words.
 
 **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
-staged diff is waiting for the human to review, alongside the run instructions the handoff
-printed. Nothing records that the review or the testing happened; the operator running the next
+staged diff is waiting for the human to review, alongside a stack the handoff already started.
+Nothing records that the review or the testing happened; the operator running the next
 command is what carries the change forward. This is why no `*-done` command exists — there would
 be nothing for one to write.
 
 | State | Means | Waiting on |
 |-------|-------|-----------|
 | `STARTED` | The proposal exists and is published | you — read the artifact |
-| `IN_PROGRESS` | The implementation is staged and the handoff printed the run instructions | you — review the diff, run the apps |
+| `IN_PROGRESS` | The implementation is staged and the stack is running | you — review the diff — the stack is running |
 | `FINISHED` | Archived, pushed, worktrees removed | — |
 
 **Reviewing and testing are one gate.** A creating or fix run of `/flow` produces both surfaces in
@@ -236,7 +236,8 @@ Next:
 - **Link, never paste.** Diffs and plans are given as absolute paths.
 - **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
-  holds the work. Resolve app roots from `git worktree list` or the state file's `worktrees` keys.
+  holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
+  app roots from `git worktree list` or the state file's `worktrees` keys.
 - **Implementation never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
   integrating**, and the list is fixed here rather than configured per project. `<project>/spectre/specs/`
   and a change directory's `link.md` are deliberately not on it — see **Git boundaries**

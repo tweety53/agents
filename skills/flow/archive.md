@@ -29,17 +29,21 @@ flow stage end   -command '/flow' -stage flow.verify-merge -outcome completed <n
 flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-2. **Position the main checkout on the archive branch**, before anything else touches it. Resolve
-   `<base>` with `resolve-base-branch.sh` against the apply worktree, then invoke
-   `prepare-archive-branch.sh <main-checkout> <base> chore/archive-<name>`. Exit `0` → the checkout
-   is on `chore/archive-<name>`, cut from a fast-forwarded `<base>`; continue to step 3. Anything
-   else stops run 2 here, with nothing staged, committed, pushed or removed. The four exit codes are
-   **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 2.
+2. **Position the landing worktree on the archive branch**, before anything else touches it.
+   Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, then invoke
+   `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> chore/archive-<name>`.
+   Exit `0` → `<landing-worktree>` is on `chore/archive-<name>`, cut from a fast-forwarded `<base>`;
+   continue to step 3. Anything else stops run 2 here, with nothing staged, committed, pushed or
+   removed. The four exit codes are **Run 2 — the branch is merged**
+   (`skills/flow-contracts/finish-contract-run2.md`), step 2. The main checkout itself is never
+   read, checked out, or written by this step — the guard creates `<landing-worktree>` under it when
+   absent and positions it when present, per its own header.
 
-   **When the guard is absent**, perform the same positioning by hand, in the same order.
+   **When the guard is absent**, perform the same positioning by hand, in the same order, against
+   `<landing-worktree>`.
 
 3. **Archive the change** — under the mark `flow.sync-archive`. Run `spectre archive "<name>"` in
-   the main checkout. It `git mv`s `<project>/spectre/changes/<name>/` into
+   `<landing-worktree>`. It `git mv`s `<project>/spectre/changes/<name>/` into
    `<project>/spectre/changes/archive/<name>/` and leaves the rename staged; it does not commit —
    step 4 does.
 
@@ -57,14 +61,14 @@ flow stage end   -command '/flow' -stage flow.sync-archive -outcome completed <n
 flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-4. **Commit the archive** on `chore/archive-<name>` in the main checkout — no push here; step 10
+4. **Commit the archive** on `chore/archive-<name>` in `<landing-worktree>` — no push here; step 10
    carries it.
 
    ```bash
-   [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <main-checkout> add -A \
-     && { git -C <main-checkout> diff --cached --quiet \
-          || git -C <main-checkout> commit -m "chore(spectre): archive <name>"; }
+   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <landing-worktree> add -A \
+     && { git -C <landing-worktree> diff --cached --quiet \
+          || git -C <landing-worktree> commit -m "chore(spectre): archive <name>"; }
    ```
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
@@ -136,8 +140,11 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    angles plus the rating, the per-angle filing ask, and the report path — is **Run 2 — the branch
    is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9, canonical for it. What is
    specific to *executing* it here: the script invocation `gather-self-review-context.sh
-   <archived-change-path> <name> <state-dir> <main-checkout>`, resolving `<archived-change-path>` as
-   `<project>/spectre/changes/archive/<name>/`, and passing `<main-checkout>` as the trust anchor.
+   <archived-change-path> <name> <state-dir> <landing-worktree>`, resolving `<archived-change-path>`
+   as `<project>/spectre/changes/archive/<name>/`, physically under `<landing-worktree>` rather than
+   the main checkout — where step 3 actually moved it, since run 2 no longer archives in the main
+   checkout — and passing `<landing-worktree>` as the trust anchor: the fourth argument must be the
+   repository root the archived path is physically under, and the main checkout no longer is one.
 
    Run `project-get.sh <main-checkout> "self review"` (exit 1: absent) and match the body against
    the two literals `run` / `skip` byte-for-byte after trimming leading/trailing whitespace; a
@@ -199,16 +206,17 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
 
    More than nine findings roll the overflow into one further call without the rating.
 
-   Write `<project>/docs/self-review/<name>-self-review.md` — one section per angle, all five
-   present; each finding one line naming its angle's label, the finding, and its disposition; an
-   angle with no findings carrying an explicit none-marker — plus the rating — and commit it on
-   `chore/archive-<name>` **in the main checkout**, not pushing here:
+   Write `<project>/docs/self-review/<name>-self-review.md`, physically under `<landing-worktree>`
+   — one section per angle, all five present; each finding one line naming its angle's label, the
+   finding, and its disposition;
+   an angle with no findings carrying an explicit none-marker — plus the rating — and commit it on
+   `chore/archive-<name>` **in `<landing-worktree>`**, not pushing here:
 
    ```bash
-   [ "$(git -C <main-checkout> branch --show-current)" = "chore/archive-<name>" ] \
-     && git -C <main-checkout> add -- docs/self-review/<name>-self-review.md \
-     && { git -C <main-checkout> diff --cached --quiet \
-          || git -C <main-checkout> commit -m "docs(self-review): <name> self-review report"; }
+   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <landing-worktree> add -- docs/self-review/<name>-self-review.md \
+     && { git -C <landing-worktree> diff --cached --quiet \
+          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review report"; }
    ```
 
    A branch mismatch or a commit that FAILS is reported and stops this commit. The change stays
@@ -224,8 +232,17 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
     self-review report always land together, and the failure-reporting rules — is **Run 2 — the
     branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 10, canonical for
     it.
-11. **Restore the main checkout to `<base>`.** Successful or not — never leave the checkout on the
-    archive branch. Runs inside step 10's mark.
+11. **Remove the landing worktree.** Successful or not — never leave it behind for a later run to
+    trip over:
+
+    ```bash
+    git -C <main-checkout> worktree remove --force <landing-worktree>
+    git -C <main-checkout> worktree prune
+    ```
+
+    Runs inside step 10's mark. The main checkout itself is never touched by this step or any step
+    above — this is the one action step 11 takes, in place of the retired "restore the main checkout
+    to `<base>`" (the main checkout never left it).
 
 ```bash
 flow stage end -command '/flow' -stage flow.push-archive -outcome completed <name>

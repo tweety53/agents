@@ -80,8 +80,9 @@ by reading, not by assuming:
   run: resume at **D** in `skills/flow/brainstorm-planner.md`; a plan meeting writing-plans quality (exact paths, verification <!-- refs-guard:allow -->
   commands, no placeholders) means planning is done: skip straight to
   `skills/flow/implement.md`.
-- The state file's `worktrees` map — non-empty means a worktree already exists: resume implementation
-  directly rather than re-running **A**–**D**.
+- **A `STARTED` change now always has a worktree once past `flow.create-artifacts`**, so the state
+  file's `worktrees` map no longer distinguishes a resume point; the `tasks.md` check above already
+  decides it.
 
 This is a pragmatic re-entrancy rule, not an exhaustively-enumerated state machine — a run resuming
 at `STARTED` reads what actually exists and continues from there, the same principle every other
@@ -175,10 +176,25 @@ flow stage end   -command '/flow' -stage flow.design-approval -outcome completed
 ```
 
 **The three returns.** After the `flow.design-approval` mark above closes, the parent marks
-`flow.create-artifacts` begin, resumes the planner via SendMessage, and marks it end when the
-planner's turn ends with `## Artifacts`. It then marks `flow.writing-plans` begin, resumes the
-planner again, and marks it end when the planner's turn ends with `## Plan`. Once `## Plan`
-returns:
+`flow.create-artifacts` begin and creates the change worktree before resuming the planner:
+
+1. `check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
+2. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
+   `<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
+3. `git worktree add <project>/.worktrees/<name> -b spectre/<name> <default-branch>` — the default
+   branch by name, never HEAD: the main checkout may be on any branch and is never moved.
+4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
+   root, in order, in the foreground — the printed body can carry fence markers and trailing prose
+   outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
+   the fenced command lines, not those. Exit 1: the project declares no `## worktree setup`; say so
+   and continue. Exit 2: stop the run, relaying the script's own line. **A command's non-zero exit
+   ends your turn with `## Question`** naming the command and its output — a worktree that cannot be
+   set up fails `flow.verify` later anyway, and the operator should see it here. The key is
+   canonical in **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+
+Only then does it resume the planner via SendMessage, and marks it end when the planner's turn ends
+with `## Artifacts`. It then marks `flow.writing-plans` begin, resumes the planner again, and marks
+it end when the planner's turn ends with `## Plan`. Once `## Plan` returns:
 
 ```bash
 flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \

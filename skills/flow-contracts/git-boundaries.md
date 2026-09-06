@@ -19,9 +19,9 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way — no push, merge, or PR |
 | `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
 | `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
-| `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — and removes worktrees and branches |
-| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report on `chore/archive-<name>` — a second, separate commit, and still no push |
-| `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, and opens its pull request — never pushes `<base>` |
+| `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
+| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
+| `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, from the landing worktree, and opens its pull request — never pushes `<base>` |
 | `/flow-status` | — | None — read-only |
 
 **The planning paths** are the two that

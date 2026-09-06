@@ -268,11 +268,13 @@ one.
   **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`). Do not restate that
   reasoning here, and do not present the test as conclusive.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
-- **The `Run it:` section is resolved, never copied from a stored run.** Follow **Resolve the
+- **The `Running:` section is resolved, never copied from a stored run.** Follow **Resolve the
   run instructions** (`skills/flow/verify-and-handoff.md`) — canonical for how those lines are produced —
   and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the record
   and `<project>/.flow/project.md` — never the project's declared base — not from any text
-  `/myflow-do` printed earlier. Do not restate the resolution *procedure* here — the steps that
+  `/myflow-do` printed earlier. This command prints the resolved commands without re-probing
+  whether the stack is still running — it states that the stack's liveness is not re-checked, it
+  does not attempt to confirm it. Do not restate the resolution *procedure* here — the steps that
   compute each app root, start command and URL; a second copy of those steps is the failure this
   repository's contracts are built to avoid, and naming the invariant above is not one.
 
