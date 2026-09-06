@@ -57,6 +57,13 @@
 # case per required phrase, each dropped in turn; case 26 is the label
 # absent entirely from review-panel.md.
 #
+# Cases 27-30 cover KAN-464's MUTATION PROOF paragraph, required once in
+# review-panel.md (the panel-fix subagent dispatch) and nowhere else: case
+# 1's review-panel.md fixture (the only fixture this guard asserts clean)
+# now also carries one correct MUTATION_BLOCK; case 27 is the label absent
+# entirely from review-panel.md; cases 28-30 are one case per required
+# phrase, each dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -213,6 +220,62 @@ TARGETED_BLOCK_NO_SUITE='> **TARGETED TESTS:** Run only the tests this task'"'"'
 > the last bundle, and again in `flow.verify`. Pipe a test run'"'"'s output through `tail` so a green
 > run costs lines of context, not a build log.'
 
+# The MUTATION PROOF paragraph, reproduced verbatim from
+# skills/flow/review-panel.md.
+MUTATION_BLOCK='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
+> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
+# Variants of MUTATION_BLOCK, each with exactly one required phrase dropped
+# while staying a plausible paragraph — cases 28-30.
+MUTATION_BLOCK_NO_MUTATION_PROVED='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before your
+> turn ends — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
+> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
+MUTATION_BLOCK_NO_CONFIRM_AND_RESTORE='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on, check that an existing test fails, then restore.
+> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
+MUTATION_BLOCK_NO_SURVIVING_MUTANT='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
+> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is an uncaught mutation: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -222,10 +285,10 @@ write_site() {
 # Case 1: both required sites correct — exit 0. review-panel.md now
 # carries both the REPRODUCE reviewer block and the VERBATIM REPORT block,
 # plus two FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix
-# dispatch) and one TARGETED TESTS block (panel-fix dispatch); implement.md
-# carries two FOREGROUND BUILDS blocks too (implementer dispatch, the
-# conductor's own §4 instruction) and one TARGETED TESTS block
-# (implementer dispatch).
+# dispatch), one TARGETED TESTS block (panel-fix dispatch) and one
+# MUTATION PROOF block (panel-fix dispatch); implement.md carries two
+# FOREGROUND BUILDS blocks too (implementer dispatch, the conductor's own
+# §4 instruction) and one TARGETED TESTS block (implementer dispatch).
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -236,7 +299,9 @@ $FOREGROUND_BLOCK
 
 $FOREGROUND_BLOCK
 
-$TARGETED_BLOCK"
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -861,6 +926,132 @@ run_guard
 case "$OUT" in
   *"review-panel.md"*"TARGETED TESTS"*) pass "case 26: names review-panel.md and the missing TARGETED TESTS block" ;;
   *) fail "case 26: expected review-panel.md and TARGETED TESTS named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 27: the MUTATION PROOF label is absent entirely from
+# review-panel.md — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 27: exits 1" || fail "case 27: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"MUTATION PROOF"*) pass "case 27: names review-panel.md and the missing MUTATION PROOF block" ;;
+  *) fail "case 27: expected review-panel.md and MUTATION PROOF named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 28: a MUTATION PROOF block is present but missing "mutation-proved
+# before you end your turn" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK_NO_MUTATION_PROVED"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 28: exits 1" || fail "case 28: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"mutation-proved before you end your turn"*) pass "case 28: names the missing phrase" ;;
+  *) fail "case 28: expected 'mutation-proved before you end your turn' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 29: a MUTATION PROOF block is present but missing "confirm an
+# existing test fails, and restore" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK_NO_CONFIRM_AND_RESTORE"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 29: exits 1" || fail "case 29: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"confirm an existing test fails, and restore"*) pass "case 29: names the missing phrase" ;;
+  *) fail "case 29: expected 'confirm an existing test fails, and restore' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 30: a MUTATION PROOF block is present but missing "a surviving
+# mutant" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK_NO_SURVIVING_MUTANT"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 30: exits 1" || fail "case 30: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"a surviving mutant"*) pass "case 30: names the missing phrase" ;;
+  *) fail "case 30: expected 'a surviving mutant' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then
