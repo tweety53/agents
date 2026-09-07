@@ -386,6 +386,73 @@ esac
 [ -e "$REPO/$NEWFILE" ] && pass "cannot restore: leftover untracked file still present" \
   || fail "cannot restore: leftover file unexpectedly absent"
 
+# MUTATION_MARK — the observable text the flip:2 patch writes into the
+# fixture guard ("  2) exit 1 ;;", the flipped arm). The stash harness
+# below greps for it so it acts on the mutated pass only.
+MUTATION_MARK='2) exit 1'
+
+# stash_harness <file> <touched> [stage] — writes a fixture harness into
+# the fixture repo: prints `ok: harness case 1`, and — but only when the
+# patch is in place (the mutated pass: MUTATION_MARK is present in the
+# touched guard) — stashes the applied mutation away (`git stash push
+# --include-untracked -m kan-448-residue`) and leaves the stash entry
+# behind: residue today's script restores right past unnoticed. With
+# [stage]="stage" it also overwrites the touched file with MUTATION_MARK
+# and stages it, so the EXIT trap's `git checkout --` restores from the
+# index, the touched file stays dirty (residual non-empty), and exit 3
+# keeps precedence over the drift's exit 2 — while the stash is still
+# named in the report.
+stash_harness() {
+  local file="$1" touched="$2" staged="${3:-}"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'set -e\n'
+    printf 'echo "ok: harness case 1"\n'
+    printf 'if grep -q "%s" "%s" 2>/dev/null; then\n' "$MUTATION_MARK" "$touched"
+    printf '  git stash push -q --include-untracked -m kan-448-residue\n'
+    if [ "$staged" = "stage" ]; then
+      printf '  printf %%s "%s" > "%s"\n' "$MUTATION_MARK" "$touched"
+      printf '  git add "%s"\n' "$touched"
+    fi
+    printf 'fi\n'
+  } >"$file"
+  chmod +x "$file"
+}
+
+# 11. post-restore stash residue — a fixture harness that, on the mutated
+#     pass only (the patch is applied then), stashes the applied mutation
+#     away and leaves the entry behind. Today's script restores the touched
+#     files and exits 0 — the residue goes unnoticed. The EXIT trap's drift
+#     check must exit 2 naming the stash.
+new_fixture_repo 4
+make_patch "$REPO" 4 "flip:2"
+STASH_HARNESS="$REPO/stash-harness.sh"
+stash_harness "$STASH_HARNESS" "$GUARD"
+run_mutate "$REPO" "$PATCH" "$STASH_HARNESS"
+if [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q 'new stash entry: .*kan-448-residue'; then
+  pass "post-restore stash residue exits 2 naming the stash"
+else
+  fail "post-restore stash residue exits 2 naming the stash (rc=$RC)"
+fi
+
+# 12. touched-file residual keeps exit 3 — the same stash, plus a staged
+#     mutation of the touched file: the trap's `git checkout --` restores
+#     the working tree from the index, so the touched file stays dirty,
+#     residual is non-empty, and exit 3 keeps precedence over the drift's
+#     exit 2 — while the stash is still named in the report.
+new_fixture_repo 4
+make_patch "$REPO" 4 "flip:2"
+STASH_HARNESS="$REPO/stash-harness.sh"
+stash_harness "$STASH_HARNESS" "$GUARD" stage
+run_mutate "$REPO" "$PATCH" "$STASH_HARNESS"
+if [ "$RC" -eq 3 ] \
+  && printf '%s' "$OUT" | grep -q 'could not fully restore' \
+  && printf '%s' "$OUT" | grep -q 'new stash entry: .*kan-448-residue'; then
+  pass "touched-file residual keeps exit 3 and the stash is still named"
+else
+  fail "touched-file residual keeps exit 3 and the stash is still named (rc=$RC)"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

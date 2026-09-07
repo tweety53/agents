@@ -170,11 +170,19 @@ worktree resumed above, plus any additional worktree this change affects.** Per
 **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`), non-empty by
 construction on every ordinary run.
 
-**After creating each worktree beyond the canonical one, run `spectre link <canonical-peer>:<name>`
-in it**, where `<canonical-peer>` is the canonical repository's own name in that worktree's
-`<project>/spectre/peers` file. Record what the command wrote — or that it refused — alongside that
-worktree's merge base in this run's working notes. A failure is reported and the run continues: the
-link is not a gate, and a change with one worktree runs nothing here.
+**After creating each additional worktree, run
+`spectre link --root <abs-worktree>/spectre <canonical-peer>:<name>` with the working directory at
+that repository's primary checkout.** The working directory is what resolves the peers file's
+relative entries — `ResolvePeer` stats a declared peer path against the process working
+directory, so from inside a worktree `../<peer>` resolves into `<project>/.worktrees/` and the
+link is always refused — and `--root <abs-worktree>/spectre` is what writes the satellite-side
+`link.md` into the worktree, where `check-unfinished-work.sh` reads it at integrate.
+`<canonical-peer>` is the canonical repository's own name in that worktree's
+`<project>/spectre/peers` file. Record what the command wrote alongside that worktree's merge
+base in this run's working notes. **A refusal is a hard failure of this stage**: report it and
+stop the run — a change whose cross-repo link cannot be established lands at integrate with a
+false OUTSTANDING verdict that forces hand verification. A change with one worktree runs
+nothing here.
 
 **Then run `flow workspace-id <name>` for this worktree's workspace id**, once per run, on a fix
 run exactly as on the first.
