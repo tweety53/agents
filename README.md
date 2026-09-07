@@ -410,10 +410,10 @@ It symlinks straight out of this checkout, so editing a file here takes effect
 immediately — no re-run needed except when a file is **added** or **removed**.
 
 **One exception, and it is the highest-stakes one:** what the managed blocks in
-`~/.claude/CLAUDE.md` and `~/.codex/AGENTS.md` carry is **rendered text, not a symlink**.
-Editing an always-on rule has no effect on either harness's injected prompt until you
-re-run `./setup.sh global`. The `~/.cursor/rules/` and `~/.claude/rules/` copies are live
-symlinks and need no re-run.
+`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` and `~/.zcode/AGENTS.md` carry is **rendered
+text, not a symlink**. Editing an always-on rule has no effect on any harness's injected
+prompt until you re-run `./setup.sh global`. The `~/.cursor/rules/`, `~/.claude/rules/`
+and `~/.zcode/rules/` copies are live symlinks and need no re-run.
 
 | Target | What lands there |
 |--------|------------------|
@@ -421,11 +421,17 @@ symlinks and need no re-run.
 | `~/.cursor/skills/` | every directory in `skills/`; Cursor resolves `/flow*` commands through these |
 | `~/.claude/commands/` | every file in `commands-claude/` — the `/flow*` Claude Code commands |
 | `~/.cursor/commands/` | every file in `commands/` — the `/flow*` Cursor commands |
+| `~/.zcode/skills/` | every directory in `skills/` — ZCode's user-scope skill location |
+| `~/.zcode/commands/` | every file in `commands-claude/` — ZCode reads the same command format Claude Code does |
 | `~/.cursor/rules/` | whichever rules declare `alwaysApply: true` in their frontmatter, and only those |
 | `~/.claude/rules/` | the same always-on rules, symlinked as `<name>.md` — their **full text**, which the managed block's `Full rule:` pointers name. Plus `agent-baseline.md`, the file a dispatched subagent is told to read |
+| `~/.zcode/rules/` | the same full-text links as `~/.claude/rules/`, plus a **generated** `agent-baseline.md`: same source, with its `~/.claude/` pointers rewritten to `~/.zcode/`, so a ZCode-dispatched subagent never depends on another harness's install |
 | `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
+| `~/.zcode/hooks/` | every file in `hooks/`, same deal — registration lives in `~/.zcode/cli/config.json` under `hooks.events`, behind `hooks.enabled: true`, and the installer prints that snippet rather than editing the JSON |
 | `~/.claude/CLAUDE.md` | a managed block, delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, containing each always-on rule's **core** and a pointer to its full text — Claude Code's global rule layer |
 | `~/.codex/AGENTS.md` | the **same** managed block, same delimiters, same rendered text — Codex's global rule layer. A global install writes this file even if you never ran a Codex-specific install |
+| `~/.zcode/AGENTS.md` | the same managed block with every `~/.claude/` pointer rewritten to its `~/.zcode/` counterpart — ZCode's global rule layer, self-contained |
+| `~/.zshrc` (and `~/.bashrc` when it exists) | a small managed block exporting `Z_COMPACT_WINDOW=500000` — the auto-compact window the `/usr/local/bin/zcode` wrapper (Claude Code over the z.ai key) runs with. The wrapper otherwise defaults to the full 1M context, which is how one long session re-bills its whole history on every request. An unmanaged `export Z_COMPACT_WINDOW=` line you wrote yourself wins and is left untouched |
 
 Both the `skills/` and `commands*/` install steps discover their targets by walking the tree —
 `skills/*/` and `commands*/*.md` — rather than from a fixed list, so a new skill or command
@@ -466,8 +472,8 @@ Two things are deliberate:
   present but not exactly one begin above one end, the installer stops and reports the
   offending line numbers rather than risk deleting content.
 
-Per-project installs (`cursor`, `claude-code`, `codex`, `all`) below remain available for
-projects that need a checked-in, project-local copy — and are the **only** way an opt-in
+Per-project installs (`cursor`, `claude-code`, `codex`, `zcode`, `all`) below remain available
+for projects that need a checked-in, project-local copy — and are the **only** way an opt-in
 rule reaches a project. Prefer `global` for everything else.
 
 ---
@@ -626,6 +632,68 @@ named in its `.flow/project.md` into the managed block in `AGENTS.md` and `CLAUD
 Run it **after** step 2.
 
 **Model note:** Codex has no per-skill/per-command model override mechanism — model is a session or profile-level setting (`~/.codex/config.toml`). Switch to a stronger model manually before invoking `flow` (the `/flow` equivalent) on a creating run; the rest of the pipeline is fine on your default.
+
+---
+
+### ZCode
+
+ZCode reads `AGENTS.md` from the project root and `~/.zcode/AGENTS.md` as its user default
+instructions, and discovers skills and `.md` slash commands from `~/.zcode/skills/` and
+`~/.zcode/commands/` at user scope (plus `.zcode/` variants at workspace scope). It reads
+neither `~/.claude/` nor `~/.cursor/` nor `~/.codex/` — every ZCode path below lives under
+`~/.zcode/`, so this harness's install cannot affect any other harness's setup, and no
+other harness's install is a dependency of it.
+
+**`setup.sh global` writes `~/.zcode/AGENTS.md`.** It inserts the same managed block the
+other harnesses get, with one deliberate difference: every `~/.claude/` pointer inside the
+block is rewritten to its `~/.zcode/` counterpart, because that is where the ZCode install
+put the full-text rule links, the generated `agent-baseline.md`, and the hook.
+
+**Step 1 — Install Superpowers for ZCode**
+
+ZCode has no Superpowers plugin channel; Superpowers is a plain set of skills, so copy
+them once:
+
+```bash
+cp -R /path/to/superpowers/skills/* ~/.zcode/skills/
+```
+
+(On a machine with Claude Code's plugin cache, the source is
+`~/.claude/plugins/cache/claude-plugins-official/superpowers/<version>/skills/`.)
+
+**Step 2 — Register the agent-baseline hook** (the installer prints this snippet and
+leaves the paste to you — the JSON config is yours):
+
+```jsonc
+// ~/.zcode/cli/config.json
+{
+  "hooks": {
+    "enabled": true,
+    "events": {
+      "PreToolUse": [
+        { "matcher": "Agent|Task", "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.zcode/hooks/enforce-agent-baseline.py\"" }
+        ] }
+      ]
+    }
+  }
+}
+```
+
+**Step 3 — Per-project install**, when a project wants its own checked-in copies (also the
+only path that renders the project's opt-in standards into its `AGENTS.md`):
+
+```bash
+cd /path/to/project
+./path/to/agents-data/setup.sh zcode
+```
+
+This links skills into `.zcode/skills/`, commands into `.zcode/commands/`, and copies
+`AGENTS.md` to the project root if it is not there already.
+
+**Model note:** like Codex, ZCode resolves the model at the session level; the `model:`
+frontmatter in the `/flow*` command files is ignored. Pick the session's model before a
+creating run.
 
 ---
 
