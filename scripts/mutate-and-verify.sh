@@ -22,10 +22,14 @@
 #      suspicious blast radius) is in the report body, never the exit code.
 #   2  refused before mutating anything — the patch does not apply cleanly,
 #      a file it touches already has uncommitted changes, or a named
-#      harness does not exist or is not executable.
+#      harness does not exist or is not executable — OR post-restore
+#      drift: the touched files restored clean but the tree no longer
+#      matches its pre-mutation snapshot (a new stash entry or an
+#      unexpected status line, each named in the report).
 #   3  could not fully restore — after `git checkout --` the touched files
 #      are still not clean; the residual `git status --porcelain` output is
-#      printed and the files may still be mutated.
+#      printed and the files may still be mutated. Takes precedence over
+#      exit 2 when both drift kinds fire.
 #   4  cannot answer — bad usage, not inside a git worktree, or a harness
 #      produced no readable `ok:`/`FAIL:` line at all on either run.
 set -euo pipefail
@@ -69,6 +73,12 @@ HARNESSES=()
 for h in "${HARNESS_ARGS[@]}"; do
   HARNESSES+=("$(to_abs "$h")")
 done
+
+# Source the post-mutation self-check library beside the other setup,
+# before the first `git` call — $0-relative resolution holds regardless of
+# the caller's cwd, because the kernel resolved $0 itself against that same
+# cwd.
+. "$(dirname "$0")/lib/post-mutation-check.sh"
 
 # Step 1: resolve the repo root; exit 4 if this is not a git worktree.
 REPO_ROOT="$(cd -- "$ORIG_PWD" && git rev-parse --show-toplevel 2>/dev/null)" \
@@ -116,17 +126,25 @@ DIRTY_STATUS="$(git status --porcelain -- "${TOUCHED[@]}")"
   refuse "a file the patch touches is not clean"
 }
 
+# Step 6b: snapshot the tree the mutation starts from — status and stash
+# list — so the EXIT trap can tell post-restore residue from the state
+# the run actually left.
+TREE_SNAPSHOT="$(snapshot_tree_state "$REPO_ROOT")"
+
 # Step 7: install the EXIT trap now, before anything mutates. On any exit,
 # if the patch was applied, best-effort restore the touched files and
 # re-verify they are clean; if not, force this script's own exit code to 3
 # — overriding whatever the main flow was already carrying — so a mutated
-# file is never left behind on any exit path, this one included.
+# file is never left behind on any exit path, this one included. The trap
+# then diffs the whole tree against the step 6b snapshot: any new stash
+# entry or unexpected status line is reported and forces exit 2, unless
+# exit 3's residual failure already took precedence.
 APPLIED=0
 on_exit() {
   local rc=$?
   if [ "$APPLIED" -eq 1 ]; then
     git checkout -- "${TOUCHED[@]}" 2>/dev/null || true
-    local residual
+    local residual drift
     residual="$(git status --porcelain -- "${TOUCHED[@]}" 2>/dev/null || true)"
     if [ -n "$residual" ]; then
       echo "mutate-and-verify: could not fully restore — residual status:" >&2
@@ -137,6 +155,12 @@ on_exit() {
       # clean — printing this before the restore ran would contradict a
       # residual-status failure reported moments later.
       echo "mutate-and-verify: ran clean — touched files restored"
+    fi
+    drift="$(check_tree_restored "$REPO_ROOT" "$TREE_SNAPSHOT" || true)"
+    if [ -n "$drift" ]; then
+      echo "mutate-and-verify: post-restore drift detected:" >&2
+      printf '%s\n' "$drift" >&2
+      if [ "$rc" -ne 3 ]; then rc=2; fi
     fi
   fi
   exit "$rc"

@@ -33,7 +33,14 @@
 #            These are exit 2 rather than exit 1 because a checkout or
 #            creation that fails after its preconditions were all checked is
 #            a state this script cannot account for, not a refusal it
-#            decided on.
+#            decided on. Exit 2 has one further meaning — post-run drift:
+#            the checkout and fast-forward succeeded, but the tree no longer
+#            matches the snapshot taken immediately before the first branch
+#            move — a new stash entry or an unexpected status line, i.e.
+#            residue the run left behind (KAN-423's incident). stderr then
+#            carries "post-run drift detected:" followed by every finding,
+#            one per line; a failed checkout prints its own named failure
+#            the same way. Either way stdout stays empty.
 #   Exit 3   <base> cannot be fast-forwarded to origin/<base> — the local
 #            branch has diverged — INCLUDING when <landing-worktree> has no
 #            'origin' remote at all, and when 'origin' exists but has no
@@ -126,6 +133,12 @@ if [ -z "$LANDING" ] || [ -z "$BASE" ] || [ -z "$ARCHIVE_BRANCH" ]; then
   exit 2
 fi
 
+# Source the post-mutation self-check library beside the argument
+# validation, before the first `git` call — $0-relative resolution holds
+# regardless of the caller's cwd, because the kernel resolved $0 itself
+# against that same cwd.
+. "$(dirname "$0")/lib/post-mutation-check.sh"
+
 # validate_branch_name <name> <label> — refuses (exit 1) a name whose first
 # character is not one of [A-Za-z0-9._], or that carries any character
 # outside [A-Za-z0-9._/-] — the same shape resolve-base-branch.sh enforces
@@ -214,6 +227,13 @@ else
     echo "prepare-archive-branch: $LANDING is on '$CUR' with uncommitted changes, not '$BASE' — refusing" >&2
     exit 1
   fi
+fi
+
+# Snapshot the tree the branch moves start from — status and stash list —
+# so the post-run check can tell residue from the state the run left.
+TREE_SNAPSHOT="$(snapshot_tree_state "$LANDING")"
+
+if [ "$CUR" != "$BASE" ]; then
   git -C "$LANDING" checkout -q "$BASE" >/dev/null 2>&1 || {
     echo "prepare-archive-branch: could not check out '$BASE' in $LANDING" >&2
     exit 2
@@ -244,6 +264,17 @@ else
     echo "prepare-archive-branch: could not create '$ARCHIVE_BRANCH' from '$BASE' in $LANDING" >&2
     exit 2
   }
+fi
+
+# Post-run self-check: the tree must still match the snapshot taken before
+# the first branch move — any new stash entry or unexpected status line is
+# residue this run left behind, named here rather than left for a conductor
+# to retry blind (KAN-423's incident).
+drift="$(check_tree_restored "$LANDING" "$TREE_SNAPSHOT" || true)"
+if [ -n "$drift" ]; then
+  echo "prepare-archive-branch: post-run drift detected:" >&2
+  printf '%s\n' "$drift" >&2
+  exit 2
 fi
 
 printf '%s -> %s\n' "$CUR" "$ARCHIVE_BRANCH"

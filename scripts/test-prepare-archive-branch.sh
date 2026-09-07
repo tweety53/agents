@@ -359,6 +359,52 @@ AFTER="$(git -C "$WT" branch --show-current)"
   && pass "main-checkout-never-checked-out: branch --show-current in the main checkout is unchanged ($BEFORE)" \
   || fail "main-checkout-never-checked-out: main checkout branch changed from '$BEFORE' to '$AFTER'"
 
+# Declared test: `stash appearing mid-run exits 2 naming the stash`
+# 15. stash-mid-run: a stash entry injected between the guard's own tree
+#     snapshot (the self-check library's first `stash list`) and its
+#     post-run recompute (the second) is residue the guard must name and
+#     fail on. A PATH-shim git forwards every invocation to the real git
+#     and, before forwarding its second `stash list` call, leaves one real
+#     stash entry in the landing worktree — what a killed concurrent
+#     mutation would leave behind. Expect exit 2; stderr names the entry;
+#     stdout stays empty.
+new_checkout
+LANDING="$WT/.worktrees/_landing-fixture"
+git -C "$WT" worktree add --force --quiet "$LANDING" main
+SHIM="$(mktemp -d "${TMPDIR:-/tmp}/prepare-archive-branch-shim.XXXXXX")"
+REPOS+=("$SHIM")
+REAL_GIT="$(command -v git)"
+cat > "$SHIM/git" <<'SHIMEOF'
+#!/usr/bin/env bash
+# Forwards every invocation to the real git. Counts `stash list` calls;
+# before forwarding the second (the post-run check's recompute; the first
+# is the snapshot's), plants one real stash entry in the landing worktree.
+is_stash_list=0
+prev=""
+for a in "$@"; do
+  [ "$prev" = "stash" ] && [ "$a" = "list" ] && is_stash_list=1
+  prev="$a"
+done
+if [ "$is_stash_list" -eq 1 ]; then
+  n="$(cat "$PAB_COUNT" 2>/dev/null || echo 0)"
+  n=$((n + 1))
+  printf '%s\n' "$n" > "$PAB_COUNT"
+  if [ "$n" = "2" ]; then
+    printf stray > "$PAB_LANDING/stray.txt"
+    "$PAB_REAL" -C "$PAB_LANDING" stash push -q --include-untracked -m kan-448-injected
+  fi
+fi
+exec "$PAB_REAL" "$@"
+SHIMEOF
+chmod +x "$SHIM/git"
+PAB_REAL="$REAL_GIT" PAB_COUNT="$SHIM/count" PAB_LANDING="$LANDING" \
+  PATH="$SHIM:$PATH" run_guard "$LANDING" main "$ARCHIVE"
+if [ "$RC" -eq 2 ] && printf '%s' "$ERR" | grep -q 'new stash entry: .*kan-448-injected'; then
+  pass "stash appearing mid-run exits 2 naming the stash"
+else
+  fail "stash appearing mid-run exits 2 naming the stash (rc=$RC)"
+fi
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
