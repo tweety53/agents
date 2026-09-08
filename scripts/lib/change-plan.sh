@@ -30,7 +30,18 @@
 #          a finding (design.md's `peer-absence-is-not-a-finding`) and,
 #          here, not a refusal either — it is simply unresolvable, and the
 #          caller decides what that means.
-#   3. Neither → unresolvable.
+#   3. Otherwise — no link.md at all, or a link.md with no `## Part of`
+#      section — and a canonical worktree argument was passed: the
+#      canonical worktree's own <spec-root>/changes/<name>/tasks.md, the
+#      SAME change name (KAN-439). A project whose convention keeps the
+#      change directory in the canonical repository only leaves every other
+#      worktree with no change directory at all, and a `## Part of` link
+#      can never be established in a repository with no spec tree for
+#      `spectre link` to write one into. A `## Part of` link that EXISTS
+#      and fails to resolve is never rescued by this branch — a link that
+#      names its plan and comes up empty keeps failing loudly, and the
+#      caller keeps its exit-2 triage for exactly that shape.
+#   4. Neither → unresolvable.
 #
 # WHY THIS DOES NOT FALL BACK TO changes/archive/ THE WAY spectre's own
 # `internal/check` does for the peer side of a link (task 2's
@@ -155,12 +166,30 @@ _change_plan_peer_root() {
   ( cd "$worktree/$resolved" 2>/dev/null && pwd ) || return 1
 }
 
+# _change_plan_same_name_canonical <canonical-worktree> <change-name> — the
+# treeless-satellite fallback behind resolution step 3 (KAN-439). Prints the
+# directory of the SAME-NAMED plan under the supplied canonical worktree and
+# returns 0, or returns 1 when no canonical worktree was supplied or it
+# carries no same-named tasks.md. The change name reaching this function has
+# already passed the allowlist above; the canonical worktree is
+# caller-supplied, consulted exactly as the `## Part of` branch above
+# consults it.
+_change_plan_same_name_canonical() {
+  local canonical_worktree="$1" name="$2"
+  [ -n "$canonical_worktree" ] || return 1
+  local canon_spec_root canon_dir
+  canon_spec_root="$(spec_root_leaf "$canonical_worktree")"
+  canon_dir="$canonical_worktree/$canon_spec_root/changes/$name"
+  [ -f "$canon_dir/tasks.md" ] || return 1
+  printf '%s\n' "$canon_dir"
+}
+
 # _change_plan_resolve_dir <worktree> <change-name> [canonical-worktree] —
 # the shared resolution behind both public functions below. Prints the
 # absolute path of the DIRECTORY that carries the resolved tasks.md (never
 # the tasks.md path itself) and returns 0, or returns 1 on any of the same
 # failure modes change_plan_path documents. Kept private and singular so the
-# six-branch resolution order lives in exactly one place: change_plan_path
+# resolution order lives in exactly one place: change_plan_path
 # and change_plan_dir would otherwise be two copies of the same walk, free
 # to drift the moment one of them gained a case the other did not.
 _change_plan_resolve_dir() {
@@ -181,10 +210,16 @@ _change_plan_resolve_dir() {
   fi
 
   local link="$dir/link.md"
-  [ -f "$link" ] || return 1
+  if [ ! -f "$link" ]; then
+    _change_plan_same_name_canonical "$canonical_worktree" "$name" && return 0
+    return 1
+  fi
 
   local ref
-  ref="$(_change_plan_link_part_of "$link")" || return 1
+  ref="$(_change_plan_link_part_of "$link")" || {
+    _change_plan_same_name_canonical "$canonical_worktree" "$name" && return 0
+    return 1
+  }
 
   local peer="${ref%%:*}" changeid="${ref#*:}"
   _change_plan_name_ok "$peer" || {
@@ -252,7 +287,10 @@ change_plan_ref() {
 #
 # Prints the absolute path of the change's tasks.md and returns 0.
 # Returns 1 when the change is a satellite and no canonical plan could be
-# reached — the caller decides whether that is a refusal or a verdict.
+# reached — the caller decides whether that is a refusal or a verdict. A
+# plan resolved through the same-name canonical fallback (step 3 in this
+# file's header, KAN-439) prints exactly like a local one; the caller cannot
+# and need not tell the shapes apart.
 change_plan_path() {
   local dir
   dir="$(_change_plan_resolve_dir "$@")" || return 1
@@ -263,9 +301,10 @@ change_plan_path() {
 #
 # Prints the absolute path of the DIRECTORY the resolved tasks.md lives in —
 # <root>/<spec-root>/changes/<id>, whether <root> is <worktree> itself (a
-# plain change), the supplied canonical worktree, or a peer tree reached
-# through <worktree>/<spec-root>/peers — and returns 0. Returns 1 under the
-# same conditions as change_plan_path.
+# plain change), the supplied canonical worktree (through the link's
+# `## Part of`, or through the same-name fallback of step 3), or a peer tree
+# reached through <worktree>/<spec-root>/peers — and returns 0. Returns 1
+# under the same conditions as change_plan_path.
 #
 # WHY A CALLER NEEDS THIS RATHER THAN `dirname` ON change_plan_path's OWN
 # ANSWER. check-unfinished-work.sh's fix-sub-change sweep (task 8) globs
