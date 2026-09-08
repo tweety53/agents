@@ -295,9 +295,22 @@ printed — `recorded: dispatch <seq>` — into each of that slot's `flow record
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
-defect, or the literal exemption form `none — <reason>`. A demonstrating command needing a pipe, a
-quote, a glob or any other shell metacharacter is written as a script rather than abandoned — the
-guards refuse a metacharacter in the recorded line, never one inside a script. The slot writes it
+defect, or the literal exemption form `none — <reason>`. The recorded value must be exactly one of
+two shapes, and `flow record finding` enforces both before the finding reaches the store — anything
+else it refuses there, bouncing the finding back to the raising slot:
+
+- a bare relative path — by convention the worktree-relative path of the slot's own reproducer
+  script, named in full in the next sentence — optionally followed by plain arguments,
+  carrying no shell metacharacter — pipe, semicolon, ampersand, dollar, backtick, angle brackets,
+  parentheses, braces, tilde, question mark, asterisk, square brackets, hash, backslash, or either
+  quote character — no leading `-` on
+  the path token, no `://`, no absolute path, and no `..` segment on any token; or
+- exactly `none — <reason>` (em dash, one space on each side, a non-space reason immediately
+  after).
+
+A demonstrating command needing a pipe, a quote, a glob or any other shell metacharacter is written
+as a script rather than abandoned — the guards refuse a metacharacter in the recorded line, never
+one inside a script. The slot writes it
 to `<abs-worktree>/.superpowers/sdd/reproducers/<round>-<id>-<n>.sh` — `<round>` this round's
 number, `<id>` the slot's own resolved reviewer id, `<n>` that slot's own 1-based finding index —
 gives it a shebang and `chmod +x`, and records that same path, the path relative to the worktree —
