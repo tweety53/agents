@@ -1400,6 +1400,129 @@ func TestResolveDefaultAddr(t *testing.T) {
 	}
 }
 
+// --- state set: the -file flag (kan-383) ---
+
+func TestStateSetFileFlagReadsRecordFromFile(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	path := filepath.Join(t.TempDir(), "record.json")
+	if err := os.WriteFile(path, []byte(`{"state":"IN_PROGRESS"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "-file", path, "kan-383"},
+		strings.NewReader(""), // stdin must be ignored when -file is given
+		&stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	body, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-383"))
+	if err != nil {
+		t.Fatalf("ReadStateFile: %v", err)
+	}
+	var rec map[string]json.RawMessage
+	if err := json.Unmarshal(body, &rec); err != nil {
+		t.Fatalf("fallback record is not JSON: %v", err)
+	}
+	if string(rec["state"]) != `"IN_PROGRESS"` {
+		t.Errorf("state = %s, want the file's own value", rec["state"])
+	}
+}
+
+func TestStateSetFileFlagMissingFileIsUsageError(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	path := filepath.Join(t.TempDir(), "absent.json")
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "-file", path, "kan-383"},
+		strings.NewReader(`{"state":"IN_PROGRESS"}`),
+		&stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (an unreadable -file is a usage error, not a store failure); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "read state from") {
+		t.Errorf("stderr must carry the read-error verb, not a format-error message: %s", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), path) {
+		t.Errorf("stderr must name the unreadable path, got:\n%s", stderr.String())
+	}
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	if _, err := fallback.ReadStateFile(fallback.StateFilePath(projectKey, "kan-383")); err == nil {
+		t.Error("an unreadable -file must never fall back — no state file may exist")
+	}
+}
+
+func TestStateSetFileFlagNonObjectFileIsUsageError(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	path := filepath.Join(t.TempDir(), "record.json")
+	if err := os.WriteFile(path, []byte(`[1,2,3]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "-file", path, "kan-383"},
+		strings.NewReader(""),
+		&stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), path) {
+		t.Errorf("stderr must name the offending file, got:\n%s", stderr.String())
+	}
+}
+
+func TestStateSetFileFlagOversizeFileIsUsageError(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+	path := filepath.Join(t.TempDir(), "record.json")
+	big := `{"pad":"` + strings.Repeat("a", maxStdinBytes) + `"}`
+	if err := os.WriteFile(path, []byte(big), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "-file", path, "kan-383"},
+		strings.NewReader(""),
+		&stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), path) {
+		t.Errorf("stderr must name the oversize file, got:\n%s", stderr.String())
+	}
+}
+
+func TestStateGetFileFlagIsUnknownFlag(t *testing.T) {
+	repo := gitRepo(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "get", "-file", "/tmp/unused.json", "-C", repo, "kan-383"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (-file is state set only); stderr:\n%s", code, stderr.String())
+	}
+}
+
 func TestResolveDefaultAddrFlagBeatsEnvironment(t *testing.T) {
 	repo := gitRepo(t)
 	isolatedStateRoot(t)
