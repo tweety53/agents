@@ -329,8 +329,9 @@ Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditio
 `check-baseline-fresh.sh <changeRoot>` — a shipped guard, run unconditionally; it skips when the
 plan carries no `**Baseline:**` field or the project declares no `## baseline results dirs` key,
 and refuses a `Baseline:` count whose declared source directory is absent or predates the
-worktree's newest commit — and the project's configured plan-provenance guard and its configured
-build-green guard, if the project declares them, and fix any hit.
+worktree's newest commit — and `check-plan-provenance.sh` — a shipped guard, run unconditionally
+in every project, per **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) — and the
+project's configured build-green guard, if the project declares one, and fix any hit.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
