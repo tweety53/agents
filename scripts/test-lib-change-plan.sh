@@ -409,6 +409,98 @@ assert_nonzero_rc "case 9: a ## Parts-only link.md is not a satellite and has no
 assert_eq "case 9: it prints nothing" "" "$OUT"
 
 # ---------------------------------------------------------------------------
+# Cases 10-12 (KAN-439): the treeless-satellite fallback. A cross-repo change
+# whose project keeps the change directory in the canonical repository only
+# leaves the satellite worktree with NO change directory at all — no
+# tasks.md, no link.md — and a ## Part of link can never be established there
+# (a repository with no spec tree has nothing for the link to be written
+# into). With a canonical worktree supplied, the plan resolves BY THE SAME
+# CHANGE NAME under it; the same-name branch fires only when there is no
+# usable ## Part of link, so a link that names its plan and comes up empty
+# keeps failing loudly (case 12).
+# ---------------------------------------------------------------------------
+# Case 10a: no link.md at all — the KAN-423 shape.
+TREELESS10="$WORK/case10-satellite"
+CANON10="$WORK/case10-canonical"
+make_tree "$TREELESS10"
+make_tree "$CANON10"
+mkdir -p "$TREELESS10/spectre/changes/sat-demo"
+mkdir -p "$CANON10/spectre/changes/sat-demo"
+printf -- '- [x] 1. done\n' > "$CANON10/spectre/changes/sat-demo/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$TREELESS10" "sat-demo" "$CANON10")"
+RC=$?
+set -e
+assert_zero_rc "case 10a: same-name canonical resolution resolves a treeless satellite" "$RC"
+assert_eq "case 10a: it prints the canonical worktree's same-named tasks.md path" \
+  "$CANON10/spectre/changes/sat-demo/tasks.md" "$OUT"
+
+set +e
+OUT="$(change_plan_dir "$TREELESS10" "sat-demo" "$CANON10")"
+RC=$?
+set -e
+assert_zero_rc "case 10a dir: the treeless satellite's directory resolves at exit 0" "$RC"
+assert_eq "case 10a dir: it prints the canonical worktree's same-named directory" \
+  "$CANON10/spectre/changes/sat-demo" "$OUT"
+
+# Case 10b: a link.md carrying no ## Part of (the ## Parts-only shape) takes
+# the same fallback — it is no more a satellite link than no link.md at all.
+mkdir -p "$TREELESS10/spectre/changes/parts-only"
+cat > "$TREELESS10/spectre/changes/parts-only/link.md" <<'EOF'
+## Parts
+
+`peerz:some-part`
+EOF
+mkdir -p "$CANON10/spectre/changes/parts-only"
+printf -- '- [x] 1. done\n' > "$CANON10/spectre/changes/parts-only/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$TREELESS10" "parts-only" "$CANON10")"
+RC=$?
+set -e
+assert_zero_rc "case 10b: a ## Parts-only link.md resolves through the same-name fallback too" "$RC"
+assert_eq "case 10b: it prints the canonical worktree's same-named tasks.md path" \
+  "$CANON10/spectre/changes/parts-only/tasks.md" "$OUT"
+
+# Case 11: without a canonical worktree argument the treeless shape stays
+# unresolvable — the ordinary missing-plan case the callers already verdict.
+set +e
+OUT="$(change_plan_path "$TREELESS10" "sat-demo" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 11: same-name resolution never fires without a canonical worktree" "$RC"
+assert_eq "case 11: it prints nothing to stdout" "" "$OUT"
+
+# Case 12: a ## Part of link that names its plan and does not find it there
+# is NEVER rescued by same-name resolution, even when the canonical worktree
+# carries a same-named plan — masking a broken link with a name match would
+# turn a structural fault into a silent verdict. CANON12 deliberately holds
+# sat-change/tasks.md (the same name) while the link names
+# `peerw:canon-change`, which CANON12 does not carry; a canonical worktree
+# that was supplied is never retried against peers, so the link's own
+# resolution fails and must stay failed.
+SAT12="$WORK/case12-satellite"
+CANON12="$WORK/case12-canonical"
+make_tree "$SAT12"
+make_tree "$CANON12"
+mkdir -p "$SAT12/spectre/changes/sat-change"
+cat > "$SAT12/spectre/changes/sat-change/link.md" <<'EOF'
+## Part of
+
+`peerw:canon-change`
+EOF
+mkdir -p "$CANON12/spectre/changes/sat-change"
+printf -- '- [x] 1. done\n' > "$CANON12/spectre/changes/sat-change/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$SAT12" "sat-change" "$CANON12" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 12: a failing Part of link is never rescued by same-name resolution" "$RC"
+assert_eq "case 12: it prints nothing to stdout" "" "$OUT"
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0
