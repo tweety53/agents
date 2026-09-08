@@ -416,15 +416,17 @@ fi
 RULE3_AWK='
 BEGIN {
   fence_len = 0; fence_lang = ""
-  # The six project-configured guards named in design.md, "Two families of
+  # The five project-configured guards named in design.md, "Two families of
   # guard, and only one of them ships": these are resolved through a
   # project'"'"'s own .flow/project.md, never invoked by a command directly,
   # so prose naming them keeps its repository-relative form legitimately —
   # rule 3 governs INVOKED guards only. Keyed by name so membership is a
   # single lookup rather than an alternation repeated at every call site.
+  # check-plan-provenance.sh left this family in kan-444: it ships with the
+  # flow skill now and the writing-plans stage invokes it unconditionally,
+  # so its prose form is rule 3'"'"'s to govern like any other shipped guard'"'"'s.
   EXEMPT["check-references.sh"] = 1
   EXEMPT["check-vocabulary.sh"] = 1
-  EXEMPT["check-plan-provenance.sh"] = 1
   EXEMPT["check-task-build-green.sh"] = 1
   EXEMPT["check-contract-budget.sh"] = 1
   EXEMPT["check-stage-mark-calls.sh"] = 1
