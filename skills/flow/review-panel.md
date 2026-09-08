@@ -98,8 +98,14 @@ unchanged by this step.
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context.md
+  <worktree>/.superpowers/sdd/dispatch-context.md "" <canonical-worktree>
 ```
+
+`<canonical-worktree>` is the member of the run's resolved worktree set whose own
+`<project>/<spec-root>/changes/<name>/tasks.md` exists — the same argument
+`check-unfinished-work.sh` takes, passed on every call and inert when that member is this
+worktree (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for what a
+satellite's bundle then carries).
 
 Report the script's stderr line (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as part
 of this stage's own reporting.

@@ -336,12 +336,23 @@ it, comma-separated:
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md <id>[,<id>…]
+  <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md <id>[,<id>…] <canonical-worktree>
 ```
 
 where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
 `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
-`skills/flow/`, always. A non-zero exit — including the guard being absent — is reported, and
+`skills/flow/`, always.
+
+`<canonical-worktree>` — the seventh argument, passed on every call — is
+the member of this run's resolved worktree set whose own
+`<project>/<spec-root>/changes/<name>/tasks.md` exists, the same argument
+`check-unfinished-work.sh` takes at the integrate gate; on a single-repo change that member is
+this worktree and the argument is inert, while on a satellite worktree's bundle it carries the
+canonical plan under labeled sections while keeping this worktree's own project commands,
+incidents and HEAD (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for
+the resolution).
+
+A non-zero exit — including the guard being absent — is reported, and
 dispatching proceeds with the prompt shape this stage used before this capability existed; the
 bundle never gates a run. Confirm the bundle was actually written (`test -f
 <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md`) and report plainly if it is not.

@@ -220,6 +220,34 @@ _change_plan_resolve_dir() {
   return 1
 }
 
+# change_plan_ref <worktree> <change-name>
+#
+# Prints the `<peer>:<change-id>` ref of the change's link.md and returns 0
+# when the change is a satellite by the definition every caller shares — no
+# local tasks.md, a link.md carrying `## Part of` — and returns 1 with no
+# output when the plan is local or the change carries no readable link.
+# The ref is deliberately NOT re-validated here: a caller uses it to LABEL
+# a resolution change_plan_dir has already succeeded at, and that call has
+# already applied the allowlist to both halves of this exact string.
+# gather-dispatch-context.sh (KAN-393) reads it for its
+# "(canonical <peer>:<change-id>)" section labels — the ref parsed here, in
+# the library that owns link.md's grammar, rather than re-parsed by every
+# caller that needs it.
+change_plan_ref() {
+  local worktree="$1" name="$2" spec_root link ref
+  _change_plan_name_ok "$name" || return 1
+  spec_root="$(spec_root_leaf "$worktree")"
+  if [ -f "$worktree/$spec_root/changes/$name/tasks.md" ]; then
+    return 1
+  fi
+  link="$worktree/$spec_root/changes/$name/link.md"
+  if [ ! -f "$link" ]; then
+    return 1
+  fi
+  ref="$(_change_plan_link_part_of "$link")" || return 1
+  printf '%s\n' "$ref"
+}
+
 # change_plan_path <worktree> <change-name> [canonical-worktree]
 #
 # Prints the absolute path of the change's tasks.md and returns 0.
