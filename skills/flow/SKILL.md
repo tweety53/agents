@@ -139,6 +139,18 @@ dispatch it changes; an override nobody wrote down is indistinguishable from a m
 is **never** written back to the settings store — `/flow-settings` is the only command that changes
 a global default, per that command's own guardrails.
 
+**Every model-bearing dispatch states its resolved value in the run's own output, immediately
+before the dispatch** — one line, `<role> model: <value> (<tier>)`. `<tier>` names the tier that
+produced the value: `session override`, `project key`, `store`, or `fallback`; `fixed literal`
+for `VERIFY_MODEL`, which is never resolved; `unknown (agent-defined)` for Bugbot and Security
+dispatched by their own `subagent_type`, matching the dispatch record's `-model` literal; and the
+model actually given for a substituted slot. A handshake-mismatch re-dispatch states again before
+each re-dispatch. The line is what makes the resolution an observable claim: a dispatcher holding
+a stale value prints the stale value, which an operator can challenge mid-run — the handshake
+cannot catch that class, because a dispatcher holding the wrong value expects the wrong line
+(KAN-381's near-miss). Each dispatch site states its own role token in place and cites this rule;
+the rule is not restated there.
+
 ## Reading the state
 
 ```bash

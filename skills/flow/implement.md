@@ -29,7 +29,9 @@ conductor. A fix run's stage order is therefore document-fix → load-context �
 sdd-tdd → …, so the appended plan is validated after the fix's edit.
 
 **Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`),
-and run the guard-presence check, before dispatching. Dispatch one subagent with the Agent tool's
+and run the guard-presence check, before dispatching. State `conductor model: <value> (<tier>)`
+— the resolved value, or this run's recorded session override, and the tier that produced it — in
+the run's own output immediately before the dispatch. Dispatch one subagent with the Agent tool's
 `model` parameter set to `DEFAULT_MODEL` — or the run's plain-language session override, recorded
 with the dispatch — and `subagent_type: general-purpose`. Its prompt carries, verbatim:
 
@@ -209,7 +211,9 @@ Record what changed **before** writing code, so the proposal never goes stale. `
 run's own ordinal — one more than the number of fix rounds already recorded in `proposal.md`/
 `tasks.md` or as `<name>-fix-N` sub-changes, the same `N` the "where should it go" prompt's
 sub-change option below names — so the first fix run's dispatch is `planner-fix-1`, the second
-`planner-fix-2`, and so on. Dispatch this fix's planner the same way **Dispatch the planner**
+`planner-fix-2`, and so on. State `planner model: <PLANNING_MODEL> (<tier>)` — the tier that produced the
+value, per **Model resolution** (`skills/flow/SKILL.md`) — in the run's own output immediately
+before the dispatch. Dispatch this fix's planner the same way **Dispatch the planner**
 (`skills/flow/brainstorm.md`) dispatches a creating run's — same handshake, same `opus` fallback
 **and the same key-suffix rule that section states: the opus re-dispatch records under
 `planner-fix-<n>-opus`, and a second mismatch's under `planner-fix-<n>-<model>`, never a repeat of

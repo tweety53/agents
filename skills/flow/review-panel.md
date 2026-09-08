@@ -255,6 +255,11 @@ combined file. Never merge two slots into one prompt, and never dispatch a slot 
 one slot reads every worktree's section, so a seam between two repositories is in one reviewer's
 view (design.md's `combined-diff-per-round`).
 
+State each dispatched slot's model in the run's own output immediately before its dispatch —
+`<slot> model: <value> (<tier>)`, tier per **Model resolution** (`skills/flow/SKILL.md`); a slot
+dispatched by its own `subagent_type` states `unknown (agent-defined)`, and a substituted slot
+states the model actually given.
+
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
 
@@ -775,7 +780,9 @@ against its defect identity. **Inline no source excerpt.**
 
 Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
+writing its fix. State `panel-fix model: <DEFAULT_MODEL> (<tier>)` — the tier that produced the
+value, per **Model resolution** (`skills/flow/SKILL.md`) — in the run's own output immediately
+before the dispatch. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
 old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
 per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. Record
