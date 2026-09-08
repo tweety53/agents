@@ -325,9 +325,12 @@ this repository's "missing rather than dropped" convention. `yes` scopes a mecha
 comparison (generated later in the pipeline, by a script this change adds elsewhere) to the union
 of every task's own `**Files:**` field across the plan.
 
-Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
-project's configured plan-provenance guard and its configured build-green guard, if the project
-declares them, and fix any hit.
+Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and
+`check-baseline-fresh.sh <changeRoot>` — a shipped guard, run unconditionally; it skips when the
+plan carries no `**Baseline:**` field or the project declares no `## baseline results dirs` key,
+and refuses a `Baseline:` count whose declared source directory is absent or predates the
+worktree's newest commit — and the project's configured plan-provenance guard and its configured
+build-green guard, if the project declares them, and fix any hit.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
