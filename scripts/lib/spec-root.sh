@@ -62,6 +62,14 @@
 # migration in progress is a legitimate state to be in for as long as it takes
 # to move the directories, and refusing to run every guard until it finishes
 # would make the migration harder rather than safer.
+#
+# THE WARNING FIRES ONCE PER PROJECT DIRECTORY PER TMP LIFETIME, NOT ONCE
+# PER CALL (KAN-440). Guards are separate processes, so the first dual-tree
+# call writes `${TMPDIR:-/tmp}/spec-root-dual-tree.<dir with / folded to ->`
+# and later calls in any process see the marker and stay silent; the
+# selection itself is unchanged on every call. The write is best-effort — a
+# failure to write it leaves the warning firing per call, never suppresses
+# it.
 spec_root_leaf() {
   local dir="$1"
   local has_spectre=0 has_openspec=0
@@ -70,7 +78,11 @@ spec_root_leaf() {
   [ -d "$dir/openspec/changes" ] && has_openspec=1
 
   if [ "$has_spectre" -eq 1 ] && [ "$has_openspec" -eq 1 ]; then
-    echo "spec-root: $dir carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved" >&2
+    local marker="${TMPDIR:-/tmp}/spec-root-dual-tree.$(printf '%s' "$dir" | tr '/' '-')"
+    if [ ! -e "$marker" ]; then
+      echo "spec-root: $dir carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved" >&2
+      { : > "$marker"; } 2>/dev/null || :
+    fi
     printf 'spectre\n'
     return 0
   fi
