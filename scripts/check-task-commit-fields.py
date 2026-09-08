@@ -237,17 +237,17 @@ from plan_grammar import (
     unclosed_fence,
 )
 
-# FIELD_RE recognises the fields this guard reads out of a task body. Two
-# names in it carry no value here: `Squash-with:` and `Build:` are matched
-# only so that such a line CLOSES a preceding field's continuation (see
-# parse_task_fields). What either of them SAYS is lib/plan_grammar.py's
-# `select_squash_with` / `select_build_tag`, so that no loop in this file
-# decides it (fix round 8, F19; fix round 9, F20). `Build:` matters here at
-# all because a `Build: red` task's commit is folded into its
+# FIELD_RE recognises the fields this guard reads out of a task body. Three
+# names in it carry no value here: `Squash-with:`, `Build:` and `After:` are
+# matched only so that such a line CLOSES a preceding field's continuation
+# (see parse_task_fields). What any of them SAYS is lib/plan_grammar.py's
+# `select_squash_with` / `select_build_tag` / `select_after`, so that no loop
+# in this file decides it (fix round 8, F19; fix round 9, F20). `Build:`
+# matters here at all because a `Build: red` task's commit is folded into its
 # `Squash-with:` partner's before review, so the fold has to be resolved
 # before any field can be checked (see resolve_folded_task).
 FIELD_RE = re.compile(
-    r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build)"
+    r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|Build|After)"
     r":\*\*\s*(.*)$"
 )
 BACKTICK_RE = re.compile(r"`([^`]+)`")

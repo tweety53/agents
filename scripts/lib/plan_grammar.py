@@ -56,7 +56,8 @@ What this module defines
 Every structural element BOTH guards read out of a `tasks.md`, pattern AND
 selection: which lines are a task, which task an id names, where a
 task's body starts and ends, which line is its `**Build:**` tag, which line
-is its `**Squash-with:**` field, and — `unclosed_fence`, fix round 11 —
+is its `**Squash-with:**` field, which line is its `**After:**` field, and
+— `unclosed_fence`, fix round 11 —
 whether the body opens a fence it never closes, which is the one condition
 under which every selection after that line correctly finds nothing. Sharing a pattern while each guard
 kept its own selection loop is what F19 was — and, for `**Build:**`, what
@@ -187,6 +188,18 @@ SQUASH_WITH_VALUE_RE: Pattern[str] = re.compile(
 # SQUASH_WITH_VALUE_RE's `partners` group and never to a raw field value.
 PARTNER_ID_RE: Pattern[str] = re.compile(DOTTED_ID)
 
+# AFTER_FIELD_RE — the field's PRESENCE on one physical line, same
+# presence/gate split as SQUASH_WITH_FIELD_RE.
+AFTER_FIELD_RE: Pattern[str] = re.compile(
+    r"^\*\*After:\*\*\s*(?P<value>.*)$"
+)
+
+# AFTER_VALUE_RE — the GATE. An `After:` value is `Task <ids>` or the
+# literal `none`, and nothing else.
+AFTER_VALUE_RE: Pattern[str] = re.compile(
+    r"^(?:Task\s+[\d.,\s]+|none)\s*$"
+)
+
 
 def partner_ids(value: str) -> Optional[List[str]]:
     """The partner ids a `Squash-with:` field's VALUE names.
@@ -204,6 +217,29 @@ def partner_ids(value: str) -> Optional[List[str]]:
     if match is None:
         return None
     return PARTNER_ID_RE.findall(match.group("partners"))
+
+
+def after_ids(value: str) -> Optional[List[str]]:
+    """The ids an `After:` field's VALUE names, `[]` for the literal
+    `none`.
+
+    `value` is what `AFTER_FIELD_RE` captured — the one physical line's
+    remainder, per this module's scoping rule.
+
+    Returns `None` when the value does not gate as `Task <ids>` or `none`;
+    the caller reports that in its own vocabulary and MUST NOT fall back to
+    extracting ids from the raw value. Returns `[]` when the value gates as
+    `none` — the task declares independence from every earlier task — and
+    the id list otherwise. The SERIAL DEFAULT (no field = every plan-order
+    earlier task) is a property of an ABSENT field and is applied where
+    after-sets are resolved (`scripts/plan-dispatch-bundles.py`), never
+    here: the grammar records only what the plan declares.
+    """
+    if AFTER_VALUE_RE.match(value) is None:
+        return None
+    if value.strip() == "none":
+        return []
+    return PARTNER_ID_RE.findall(value)
 
 
 class SquashWithField(NamedTuple):
@@ -261,6 +297,66 @@ def select_squash_with(body: Sequence[str]) -> Optional[SquashWithField]:
             return SquashWithField(offset=offset, value=value, partners=ids)
         if ungated is None:
             ungated = SquashWithField(offset=offset, value=value, partners=None)
+    return ungated
+
+
+class AfterField(NamedTuple):
+    """The one `**After:**` field a task body carries.
+
+    `offset` is the 0-based index, within the body sequence handed to
+    `select_after`, of the line the field was read from — a caller
+    holding an absolute file position adds its own body start to it.
+    `value` is that line's stripped remainder. `ids` is what
+    `after_ids` made of it: a possibly-empty list when the value gates
+    (`[]` for `none`), and `None` when it does not.
+    """
+
+    offset: int
+    value: str
+    ids: Optional[List[str]]
+
+
+def select_after(body: Sequence[str]) -> Optional[AfterField]:
+    """The `**After:**` field `body` carries, or None if it carries
+    none. `body` is a task's body lines, in order, fences included.
+
+    WHICH line is the field is defined here and nowhere else, with
+    `select_squash_with`'s exact discipline: the first non-fenced line
+    whose value GATES as `Task <ids>` or `none` is the field, so a
+    non-gating candidate ahead of it is skipped rather than claiming the
+    field and shadowing the real one.
+
+    When no candidate gates, the FIRST candidate is returned with
+    `ids=None`, because the callers report that condition differently and
+    both readings need the line: the malformed-value reporter needs to see
+    the offending value, a caller treating a non-gating value as no field
+    at all ignores anything with `ids=None`. What each caller makes of a
+    field it cannot gate is its own rule; WHICH line it is looking at is
+    not.
+
+    Line scoping is this module's docstring's rule: a value is one physical
+    line's remainder, never a continuation line. The SERIAL DEFAULT — an
+    absent field means every plan-order earlier task — is applied where
+    after-sets are resolved (`scripts/plan-dispatch-bundles.py`), never
+    here: the grammar records only what the plan declares.
+    """
+    ungated: Optional[AfterField] = None
+    in_fence = False
+    for offset, line in enumerate(body):
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        match = AFTER_FIELD_RE.match(line)
+        if match is None:
+            continue
+        value = match.group("value").strip()
+        ids = after_ids(value)
+        if ids is not None:
+            return AfterField(offset=offset, value=value, ids=ids)
+        if ungated is None:
+            ungated = AfterField(offset=offset, value=value, ids=None)
     return ungated
 
 

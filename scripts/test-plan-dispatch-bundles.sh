@@ -62,7 +62,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 1: disjoint tasks exit 0" || fail "case 1: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1\nbundle 2: 2\nbundle 3: 3'
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1\nbundle 3: 3\nafter 3: 1 2'
 [ "$OUT" = "$EXPECTED" ] && pass "case 1: three separate bundles" || fail "case 1: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -79,7 +79,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 2: shared path exits 0" || fail "case 2: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 1 2'
+EXPECTED=$'bundle 1: 1 2\nafter 1: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 2: one bundle for both tasks" || fail "case 2: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -100,7 +100,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 3: transitive chain exits 0" || fail "case 3: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 1 2 3'
+EXPECTED=$'bundle 1: 1 2 3\nafter 1: 1 2'
 [ "$OUT" = "$EXPECTED" ] && pass "case 3: transitive closure forms one bundle" || fail "case 3: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -125,7 +125,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 4: mixed checked/unchecked exits 0" || fail "case 4: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 2'
+EXPECTED=$'bundle 1: 2\nafter 1: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 4: checked task excluded entirely" || fail "case 4: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -164,7 +164,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 6: collateral glob exits 0" || fail "case 6: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1\nbundle 2: 2'
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 6: collateral does not join bundles" || fail "case 6: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -191,7 +191,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 8: multi-path bullet exits 0" || fail "case 8: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 1 2'
+EXPECTED=$'bundle 1: 1 2\nafter 1: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 8: second declared path in a multi-path bullet still joins the bundle" || fail "case 8: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -209,7 +209,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 9: two-digit ids exit 0" || fail "case 9: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 2\nbundle 2: 10'
+EXPECTED=$'bundle 1: 2\nafter 1: none\nbundle 2: 10\nafter 2: 2'
 [ "$OUT" = "$EXPECTED" ] && pass "case 9: 10 sorts after 2 numerically" || fail "case 9: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -242,7 +242,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 10: adjacent step checkbox after Files block exits 0" || fail "case 10: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1\nbundle 2: 2'
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 10: the step line is not swallowed as a declared path" || fail "case 10: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -306,7 +306,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 12: a level-3 heading opens no task" || fail "case 12: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 1'
+EXPECTED=$'bundle 1: 1\nafter 1: none'
 [ "$OUT" = "$EXPECTED" ] && pass "case 12: only the checkbox task bundles" || fail "case 12: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -328,7 +328,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 13: a dotted task line opens no task" || fail "case 13: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 1'
+EXPECTED=$'bundle 1: 1\nafter 1: none'
 [ "$OUT" = "$EXPECTED" ] && pass "case 13: only the flat-id task bundles" || fail "case 13: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -349,7 +349,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 14: an indented task-shaped line opens no task" || fail "case 14: rc=$RC out=$OUT"
-EXPECTED='bundle 1: 1'
+EXPECTED=$'bundle 1: 1\nafter 1: none'
 [ "$OUT" = "$EXPECTED" ] && pass "case 14: only the column-0 task bundles" || fail "case 14: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -378,7 +378,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 15: a Squash-with pair exits 0" || fail "case 15: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1 2\nbundle 2: 3'
+EXPECTED=$'bundle 1: 1 2\nafter 1: 1\nbundle 2: 3\nafter 2: 1 2'
 [ "$OUT" = "$EXPECTED" ] && pass "case 15: a red task bundles with the partner it names" || fail "case 15: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -405,7 +405,7 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 16: a red task naming a checked partner exits 0" || fail "case 16: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1\nbundle 2: 3'
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 3\nafter 2: 1 2'
 [ "$OUT" = "$EXPECTED" ] && pass "case 16: a checked partner joins nothing" || fail "case 16: expected [$EXPECTED], got [$OUT]"
 
 # ===========================================================================
@@ -428,8 +428,151 @@ new_fixture
 } > "$TASKS_MD"
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 17: an ungated Squash-with value exits 0, not a crash" || fail "case 17: rc=$RC out=$OUT"
-EXPECTED=$'bundle 1: 1\nbundle 2: 2'
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1'
 [ "$OUT" = "$EXPECTED" ] && pass "case 17: the malformed value bundles the task alone" || fail "case 17: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 18: a task declaring `**After:** Task 1` prints its resolved set.
+# Two disjoint tasks; task 1 carries no field (default-expands to nobody,
+# it is first) and task 2 declares Task 1. Each bundle line now carries an
+# `after <k>:` line beneath it.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**After:** Task 1\n\n'
+  printf '**Files:**\n- Create: `b.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 18: declared After exits 0" || fail "case 18: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1'
+[ "$OUT" = "$EXPECTED" ] && pass "case 18: the declared After set is printed" || fail "case 18: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 19: a task with NO **After:** field resolves to every plan-order
+# earlier id — the serial default. A three-task plan with no fields anywhere
+# prints `after` lines `none`, `1`, `1 2`.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:**\n- Create: `b.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 3. Third task\n\n'
+  printf '**Files:**\n- Create: `c.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 19: fieldless plan exits 0" || fail "case 19: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1\nbundle 3: 3\nafter 3: 1 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 19: the serial default expands to every earlier id" || fail "case 19: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 20: `**After:** none` resolves to an empty set, printed as
+# `after <k>: none`, and puts the task in the first wave's position — its
+# after line lists nobody even though earlier tasks exist.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 2. Independent task\n\n'
+  printf '**After:** none\n\n'
+  printf '**Files:**\n- Create: `b.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 3. Third task\n\n'
+  printf '**Files:**\n- Create: `c.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 20: After none exits 0" || fail "case 20: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: none\nbundle 3: 3\nafter 3: 1 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 20: none lists nobody despite earlier tasks" || fail "case 20: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 21: a `**Squash-with:**` red pair whose red task declares
+# `**After:** Task 1` and whose green partner declares nothing: the shared
+# bundle's after-set is the UNION — task 1 plus every partner-earlier id
+# (the partner's serial default reaches 1 and 2).
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 2. Red: the failing tests\n\n'
+  printf '**Build:** red\n\n'
+  printf '**After:** Task 1\n\n'
+  printf '**Squash-with:** Task 3\n\n'
+  printf '**Files:**\n- Create: `t_test.go`\n\n'
+  printf -- '  - [ ] **Step 1: write them**\n\n'
+  printf -- '- [ ] 3. Green: the implementation\n\n'
+  printf '**Build:** green\n\n'
+  printf '**Files:**\n- Modify: `impl.go`\n\n'
+  printf -- '  - [ ] **Step 1: make them pass**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 21: red pair with After exits 0" || fail "case 21: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2 3\nafter 2: 1 2'
+[ "$OUT" = "$EXPECTED" ] && pass "case 21: the pair's after-set is the union" || fail "case 21: expected [$EXPECTED], got [$OUT]"
+
+# ===========================================================================
+# Case 22: a resumed plan — task 1 checked `- [x]` — where task 2 declares
+# no field: task 1 is not bundled, and task 2's after-set still resolves to
+# `1`. Checked tasks are included in the serial default's earlier-id scan.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [x] 1. Done task\n\n'
+  printf '**Files:**\n- Create: `a.txt`\n\n'
+  printf -- '  - [x] **Step 1: done**\n\n'
+  printf -- '- [ ] 2. Open task\n\n'
+  printf '**Files:**\n- Create: `b.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 22: resumed plan exits 0" || fail "case 22: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 2\nafter 1: 1'
+[ "$OUT" = "$EXPECTED" ] && pass "case 22: the checked task still precedes the open one" || fail "case 22: expected [$EXPECTED], got [$OUT]"
+
+
+# ===========================================================================
+# Case 23: an after-set mixing one-digit and multi-digit ids is sorted
+# NUMERICALLY — pins the `sorted(acc, key=_id_key)` contract the docstring
+# declares, which every other after-bearing case exercises only on ids its
+# lexical order already agrees with. Task 1 declares After Task 10 and
+# bundles with task 3 (shared path), whose serial default contributes 1
+# and 2, so bundle 1's after-set is {1, 2, 10} — "1 2 10" numerically,
+# "1 10 2" lexically.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**After:** Task 10\n\n'
+  printf '**Files:**\n- Create: `shared.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:**\n- Create: `b.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 3. Third task\n\n'
+  printf '**Files:**\n- Create: `shared.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n\n'
+  printf -- '- [ ] 10. Tenth task\n\n'
+  printf '**Files:**\n- Create: `j.txt`\n\n'
+  printf -- '  - [ ] **Step 1: do it**\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 23: mixed-width after-set exits 0" || fail "case 23: rc=$RC out=$OUT"
+EXPECTED=$'bundle 1: 1 3\nafter 1: 1 2 10\nbundle 2: 2\nafter 2: 1\nbundle 3: 10\nafter 3: 1 2 3'
+[ "$OUT" = "$EXPECTED" ] && pass "case 23: the after line sorts numerically, not lexically" || fail "case 23: expected [$EXPECTED], got [$OUT]"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

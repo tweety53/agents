@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """check-plan-shape.py — check that a `tasks.md` is SHAPED so the guard
 that will later judge its commits (`check-task-commit-fields.py`) can
-actually read it. Six findings, F1-F6 (canonical definitions, decisions and
-rationale: `spectre/changes/kan-121-run-the-guards-own-parsers-over-tasks-
-md-at-plan/design.md` — do not restate them here; a second copy is a
-Single Source of Truth violation, the same class of drift
-check-plan-provenance.py's own docstring warns against).
+actually read it. Ten findings, F1-F10 (F1-F6's canonical definitions,
+decisions and rationale: `spectre/changes/kan-121-run-the-guards-own-
+parsers-over-tasks-md-at-plan/design.md` — do not restate them here, a
+second copy is a Single Source of Truth violation, the same class of drift
+check-plan-provenance.py's own docstring warns against; F7-F10's canonical
+definitions are the rows in the Findings list below).
 
 This guard IMPORTS the real parsers rather than reimplementing their
 grammar — the whole point of the change: `parse_task_fields` and
@@ -32,7 +33,7 @@ Exit codes:
   0  clean — every task in the file is shaped so the real parsers read it
      without ambiguity (including a file with zero findings; a file with
      zero TASKS is F5, not clean — see below).
-  1  one or more of F1-F6 found. Printed one per line as
+  1  one or more of F1-F10 found. Printed one per line as
      `file:line: message`, naming the task id (F5 excepted: a file with no
      tasks has no task id to name).
   2  invocation error — wrong argument count, or the file cannot be read.
@@ -86,6 +87,34 @@ field-shaped line inside a worked example is not a declaration.
       returns `[]` for a `none`-opening field (task 2's fix) as well as for
       case-labels-and-backticks-absent, and the two must not be reported
       twice under two different findings.
+  F7  A second GATING `**After:**` line in one task body — every
+      non-fenced line whose value gates as `Task <ids>` or `none` after
+      the first gating one, the F1 message discipline: name which
+      occurrence wins. `select_after` keeps the first gating line; a
+      non-gating line ahead of it is skipped by the selector and is
+      nobody's duplicate.
+  F8  A task whose first `**After:**` candidate does not gate — its value
+      is neither `Task <ids>` nor `none` (`lib/plan_grammar.py`'s
+      `select_after` returns it with `ids=None`), reported at that line
+      with the offending value. This is the shape
+      plan-dispatch-bundles.py reports as its exit-1 malformed-value
+      finding, read from the same selector.
+  F9  An id in any task's GATING `**After:**` set that names no task in
+      the plan — a dangling reference the resolver would silently treat
+      as already-landed.
+  F10 A cycle in the RESOLVED After graph. Every task's after-set is
+      resolved exactly as plan-dispatch-bundles.py resolves it — declared
+      ids; every plan-order earlier task id for a task carrying no field
+      (the serial default, checked tasks included); nothing for `none` —
+      and the edges are walked DFS from each task in plan order. The
+      FIRST back-edge is reported, as `task <a> -> task <b> -> task <a>`:
+      one report rejects the plan, and every further cycle in the same
+      graph names the same defect, so the search stops there. A
+      self-reference is the one-node cycle. A task whose fence never
+      closes is skipped for every one of F7-F10 (F3b's existing early
+      return covers its own body; its unresolved field reads as absent,
+      the serial default, exactly as plan-dispatch-bundles.py would read
+      it).
 
 A duplicate task id (two task lines sharing one id) is check-task-build-
 green.py's own violation, not this guard's: `collect_task_ids` de-
@@ -105,7 +134,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional, Set
 
 SCRIPT_DIR = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -153,7 +182,15 @@ if not _GRAMMAR_PATH.is_file():
     sys.exit(2)
 sys.path.insert(0, str(_LIB_DIR))
 
-from plan_grammar import FENCE_RE, iter_tasks, select_task, unclosed_fence  # noqa: E402
+from plan_grammar import (  # noqa: E402
+    AFTER_FIELD_RE,
+    FENCE_RE,
+    after_ids,
+    iter_tasks,
+    select_after,
+    select_task,
+    unclosed_fence,
+)
 
 # F1_FIELD_NAMES — the exact five field names design.md's F1 row names.
 # `Regression` and `Build` are deliberately excluded: `Build`'s own
@@ -282,6 +319,39 @@ def _check_f3a(path: str, task_id: str, body: List[str], body_start: int) -> Lis
     return violations
 
 
+def _check_f7(
+    path: str, task_id: str, body: List[str], body_start: int
+) -> List[str]:
+    """F7 — every non-fenced GATING `**After:**` line after the first
+    gating one. Same scanning discipline as _check_f1: the decisive
+    `if first_gating_line is not None:` line below carries the `# F7` tag
+    the harness's mutation case sed-targets, and nothing else does."""
+    violations: List[str] = []
+    first_gating_line: Optional[int] = None
+    in_fence = False
+    for offset, line in enumerate(body):
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        match = AFTER_FIELD_RE.match(line)
+        if match is None:
+            continue
+        if after_ids(match.group("value").strip()) is None:
+            continue
+        file_line = body_start + offset + 1
+        if first_gating_line is not None:  # F7
+            violations.append(
+                f"{path}:{file_line}: task {task_id} declares a second "
+                f"**After:** line (first at line {first_gating_line}); "
+                "select_after keeps the first"
+            )
+        else:
+            first_gating_line = file_line
+    return violations
+
+
 def _check_task(
     path: str,
     task_id: str,
@@ -302,6 +372,18 @@ def _check_task(
     violations: List[str] = []
     violations.extend(_check_f1(path, task_id, body, body_start))
     violations.extend(_check_f3a(path, task_id, body, body_start))
+    violations.extend(_check_f7(path, task_id, body, body_start))
+
+    # F8 — the body's first `**After:**` candidate not gating. Read from
+    # select_after itself (never a second loop deciding WHICH line the
+    # field is): a gating value returns ids and reports nothing here; a
+    # non-gating first candidate is the malformed value.
+    after_field = select_after(body)
+    if after_field is not None and after_field.ids is None:  # F8
+        violations.append(
+            f"{path}:{body_start + after_field.offset + 1}: task {task_id} "
+            f"has a malformed **After:** value: {after_field.value}"
+        )
 
     if not fields.files:  # F2
         violations.append(
@@ -366,7 +448,121 @@ def check_file(path: str) -> List[str]:
                 path, task_id, found.task_line, found.lines, found.body_start, lines
             )
         )
+
+    violations.extend(_check_after_references(path, lines))
     return violations
+
+
+def _check_after_references(path: str, lines: List[str]) -> List[str]:
+    """F9 and F10 — whole-plan checks over the `**After:**` fields.
+
+    F9: an id in any task's GATING `**After:**` set naming no task in the
+    plan. A non-gating value (`ids=None`) is F8's finding and names no
+    reference at all, so it dangles nowhere.
+
+    F10: the resolved After graph, each task's after-set resolved exactly
+    as plan-dispatch-bundles.py resolves it (declared ids; every
+    plan-order earlier task id for a task carrying no field — checked
+    tasks included; nothing for `none`), walked DFS from each task in plan
+    order. The FIRST back-edge is reported and the search stops: one
+    report rejects the plan, and every further cycle in the same graph
+    names the same defect. A task whose fence never closes is skipped for
+    both — its field is unread, and reads as absent, the serial default,
+    which is exactly how plan-dispatch-bundles.py resolves it.
+    """
+    violations: List[str] = []
+    all_ids = [task.id for task in iter_tasks(lines)]
+    id_set = set(all_ids)
+    task_lines: Dict[str, int] = {}
+    for task in iter_tasks(lines):
+        task_lines.setdefault(task.id, task.task_line)
+
+    declared: Dict[str, Optional[List[str]]] = {}
+    for task in iter_tasks(lines):
+        if task.id in declared:
+            continue
+        if unclosed_fence(task.lines) is not None:
+            continue  # F3b: the field is unread for this task
+        field = select_after(task.lines)
+        if field is None:
+            continue
+        declared[task.id] = field.ids
+
+    # F9 — dangling references, anchored at the field's own line.
+    for task_id in all_ids:
+        decl = declared.get(task_id)
+        if decl is None:
+            continue
+        for name in decl:
+            if name not in id_set:
+                violations.append(
+                    f"{path}:{_after_field_line(lines, task_id)}: task "
+                    f"{task_id}'s **After:** names task {name}, which "
+                    "this plan does not define"
+                )
+
+    # F10 — resolve the after-sets, then DFS.
+    edges: Dict[str, List[str]] = {}
+    for index, task_id in enumerate(all_ids):
+        decl = declared.get(task_id)
+        if decl is not None:
+            edges[task_id] = [name for name in decl if name in id_set]
+        else:
+            edges[task_id] = list(all_ids[:index])
+
+    visited: Set[str] = set()
+    reported = False
+    for start in all_ids:
+        if reported:
+            break
+        if start in visited:
+            continue
+        path_stack: List[str] = []
+        on_stack: Set[str] = set()
+
+        def dfs(node: str) -> None:
+            nonlocal reported
+            if reported:
+                return
+            visited.add(node)
+            on_stack.add(node)
+            path_stack.append(node)
+            for nxt in edges.get(node, []):
+                if reported:
+                    return
+                if nxt in on_stack:
+                    cycle = path_stack[path_stack.index(nxt):] + [nxt]
+                    anchor = task_lines.get(cycle[0], 1)
+                    violations.append(
+                        f"{path}:{anchor}: "
+                        + " -> ".join(f"task {name}" for name in cycle)
+                        + ": the resolved After graph has a cycle, so "
+                        "neither bundle can ever dispatch"
+                    )
+                    reported = True
+                    return
+                if nxt not in visited:
+                    dfs(nxt)
+            on_stack.discard(node)
+            path_stack.pop()
+
+        dfs(start)
+    return violations
+
+
+def _after_field_line(lines: List[str], task_id: str) -> int:
+    """The 1-based file line of task `task_id`'s `**After:**` field — its
+    first non-fenced field-shaped line, via select_after — or the task's
+    own line when the body carries none (unreachable for F9's callers,
+    which only anchor a field that resolved)."""
+    for task in iter_tasks(lines):
+        if task.id != task_id:
+            continue
+        field = select_after(task.lines)
+        if field is not None:
+            return task.body_start + field.offset + 1
+        return task.task_line
+    return 1
 
 
 def main(argv: List[str]) -> int:

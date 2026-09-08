@@ -300,6 +300,35 @@ commit per task, carrying that task's own `Task-Id:` trailer — a red task and 
 commit between them — and a `Build: red` task is bundled with, and commits with, the partner its
 `**Squash-with:**` field names.
 
+**Waves — concurrent dispatch of ready bundles.** A bundle is ready when every id in its
+`after <k>:` line has landed — committed and guard-passed, by direct commit or pick. A bundle
+alone in its wave dispatches into the canonical worktree and commits directly, exactly as today;
+two or more ready bundles launch in one message, each into its own throwaway worktree created by
+the sequence below, each copy then running the project's resolved `## worktree setup` command once
+before its implementer dispatches:
+
+```bash
+git -C <worktree> worktree add --detach <worktree>-wave-bundle-<k> HEAD
+git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-bundle-<k> apply --allow-empty
+git -C <worktree> status --porcelain -z | \
+  while IFS= read -r -d '' entry; do
+    st="${entry:0:2}"; f="${entry:3}"
+    [ "$st" = "??" ] || continue
+    mkdir -p "<worktree>-wave-bundle-<k>/$(dirname "$f")"
+    cp -a "<worktree>/$f" "<worktree>-wave-bundle-<k>/$f"
+  done
+```
+
+**As wave members return**, each is cherry-picked onto the change branch in plan order — a member
+is picked once every plan-earlier member of its wave is picked. The unchanged
+`check-task-commit-fields.sh` call (canonical worktree fifth argument, resolved `<name>` sixth)
+runs on each picked commit, and the dispatch `end` records the picked sha. A pick conflict or a
+guard failure hands the bundle back to its own implementer — its throwaway worktree rebased onto
+the advanced branch HEAD, re-commit, re-pick — while sibling members and already-ready later waves
+are unaffected. A copy is removed once its bundle is picked, or after handback resolves. A member
+reporting BLOCKED follows the existing BLOCKED handback. The one-implementer-per-worktree rule is
+untouched: each wave member has its own worktree.
+
 **Gather one bundle per dispatch bundle, immediately before that bundle's implementer goes out.**
 Take `<k>` and the ids from the `bundle <k>: <ids>` line `plan-dispatch-bundles.sh` printed for
 it, comma-separated:
@@ -396,7 +425,11 @@ printed — alone also carries:**
 > `## test` list once, in the foreground, in the order the context bundle carries it. A failure in
 > a file this task's `**Files:**` field names is yours: fix it and re-run. Any other failure is
 > not: record the command and its output verbatim in your REPORT FILE under a `## Full suite`
-> heading, unfixed, and still commit your own task.
+> heading, unfixed, and still commit your own task. When the plan-last bundle belongs to a shared
+> wave, its implementer does not carry FULL SUITE — the conductor instead runs the resolved
+> `## test` list once on the canonical worktree after that wave's final pick passes the guard, and
+> a failure is the same verbatim-output `## Question` handback as below. The existing
+> last-boundary sentence about a full-suite failure report keeps governing the singleton case.
 
 **The next implementer overlaps the guard.** The unit is the bundle `plan-dispatch-bundles.sh`
 emits. At each boundary, in this order:
