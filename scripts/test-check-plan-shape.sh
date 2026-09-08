@@ -522,6 +522,170 @@ new_fixture
 run_guard "$TASKS_MD"
 [ "$RC" -eq 0 ] && pass "case 19: a continuation-line none over an ordinary Files entry passes" || fail "case 19: rc=$RC out=$OUT"
 
+
+# ===========================================================================
+# Case 20 (F7): a task body carrying two GATING `**After:**` lines. The
+# second gating line is a finding at the second line, the F1 message
+# discipline: name which occurrence wins.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Duplicate After\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n'
+  printf '**After:** Task 1\n'
+  printf '**After:** Task 1\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 20 (F7): two gating After lines fail" || fail "case 20 (F7): rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 1 declares a second **After:** line (first at line "*")"*) pass "case 20 (F7): names the second line and the first's line" ;;
+  *) fail "case 20 (F7): expected the F7 duplicate message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 21 (F8): an `**After:**` value that is free text (`Task sometime`)
+# does not gate — one malformed-value finding at that line.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Malformed After\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n'
+  printf '**After:** Task sometime\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 21 (F8): a non-gating After value fails" || fail "case 21 (F8): rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 1 has a malformed **After:** value: Task sometime"*) pass "case 21 (F8): names the offending value" ;;
+  *) fail "case 21 (F8): expected the F8 malformed-value message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 22 (F9): `**After:** Task 9` in a two-task plan names an absent task.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `b.txt`\n'
+  printf '**Tests:** `test_b`\n'
+  printf '**Commit:** add b\n'
+  printf '**After:** Task 9\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 22 (F9): a dangling After id fails" || fail "case 22 (F9): rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 2's **After:** names task 9, which this plan does not define"*) pass "case 22 (F9): names the absent task" ;;
+  *) fail "case 22 (F9): expected the F9 dangling-id message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 23 (F10): a cycle in the RESOLVED After graph. Fixture A: task 2
+# declares `**After:** Task 5` and task 5 declares no field, so task 5's
+# serial default (every plan-order earlier id) closes the cycle 2 -> 5 -> 2
+# — one finding naming both tasks. Fixture B: a direct self-reference is
+# the one-node cycle — one finding.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `b.txt`\n'
+  printf '**Tests:** `test_b`\n'
+  printf '**Commit:** add b\n'
+  printf '**After:** Task 5\n\n'
+  printf -- '- [ ] 3. Third task\n\n'
+  printf '**Files:** `c.txt`\n'
+  printf '**Tests:** `test_c`\n'
+  printf '**Commit:** add c\n\n'
+  printf -- '- [ ] 4. Fourth task\n\n'
+  printf '**Files:** `d.txt`\n'
+  printf '**Tests:** `test_d`\n'
+  printf '**Commit:** add d\n\n'
+  printf -- '- [ ] 5. Fifth task\n\n'
+  printf '**Files:** `e.txt`\n'
+  printf '**Tests:** `test_e`\n'
+  printf '**Commit:** add e\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 23 (F10): the serial-default cycle fails" || fail "case 23 (F10): rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 2 -> task 5 -> task 2: the resolved After graph has a cycle"*) pass "case 23 (F10): names both tasks of the closed cycle" ;;
+  *) fail "case 23 (F10): expected the F10 cycle message, out=$OUT" ;;
+esac
+
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Self-referencing task\n\n'
+  printf '**Files:** `b.txt`\n'
+  printf '**Tests:** `test_b`\n'
+  printf '**Commit:** add b\n'
+  printf '**After:** Task 2\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 1 ] && pass "case 23 (F10): a self-reference fails" || fail "case 23 (F10) self-ref: rc=$RC out=$OUT"
+case "$OUT" in
+  *"task 2 -> task 2: the resolved After graph has a cycle"*) pass "case 23 (F10): the one-node cycle is reported" ;;
+  *) fail "case 23 (F10) self-ref: expected the F10 one-node cycle message, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 24: a clean plan using `Task <ids>` and `none` declarations exits 0.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. Independent task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n'
+  printf '**After:** none\n\n'
+  printf -- '- [ ] 2. Depends on task 1\n\n'
+  printf '**Files:** `b.txt`\n'
+  printf '**Tests:** `test_b`\n'
+  printf '**Commit:** add b\n'
+  printf '**After:** Task 1\n\n'
+  printf -- '- [ ] 3. Depends on tasks 1 and 2\n\n'
+  printf '**Files:** `c.txt`\n'
+  printf '**Tests:** `test_c`\n'
+  printf '**Commit:** add c\n'
+  printf '**After:** Task 1, 2\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 24: a clean After-using plan passes" || fail "case 24: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Case 25: a plan with NO `**After:**` fields at all stays clean and its
+# output is byte-identical to before the After findings existed — an empty
+# stdout on exit 0.
+# ===========================================================================
+new_fixture
+{
+  printf -- '- [ ] 1. First task\n\n'
+  printf '**Files:** `a.txt`\n'
+  printf '**Tests:** `test_a`\n'
+  printf '**Commit:** add a\n\n'
+  printf -- '- [ ] 2. Second task\n\n'
+  printf '**Files:** `b.txt`\n'
+  printf '**Tests:** `test_b`\n'
+  printf '**Commit:** add b\n'
+} > "$TASKS_MD"
+run_guard "$TASKS_MD"
+[ "$RC" -eq 0 ] && pass "case 25: a fieldless plan passes" || fail "case 25: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 25: output byte-identical to before this task" || fail "case 25: expected empty output, out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

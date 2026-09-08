@@ -24,11 +24,20 @@ no arguments, or one explicit path when called with one.
 Exit codes:
   0  bundles computed — printed one per line on stdout, ordered by each
      bundle's lowest task id, as `bundle <k>: <ids>` with the ids in plan
-     (document) order. A file with zero unchecked tasks prints nothing and
-     still exits 0.
+     (document) order, each immediately followed by `after <k>: <ids>` —
+     that bundle's resolved after-set, the union over its members of the
+     `**After:**` ids they declare, every plan-order earlier task id for a
+     member carrying no field (the serial default; checked tasks included),
+     and nothing for a member declaring `none` — printed space-separated
+     and sorted numerically, or as `after <k>: none` when the set is
+     empty. A file with zero unchecked tasks prints nothing and still
+     exits 0.
   1  one or more unchecked tasks carry no **Files:** field at all — printed
      one per line as `<path>:<task line>: task <id> has no **Files:**
-     field`, naming every such task rather than stopping at the first.
+     field` — or an `**After:**` value that does not gate as `Task <ids>`
+     or `none` — printed one per line as `<path>:<task line>: task <id>
+     has a malformed **After:** value: <value>` — naming every such task
+     rather than stopping at the first.
   2  invocation error — wrong argument count, the file cannot be read, or
      it cannot be decoded as text.
 
@@ -90,7 +99,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
-from plan_grammar import select_squash_with
+from plan_grammar import select_after, select_squash_with
 
 # TASK_ID / TASK_LINE_RE / FENCE_RE / BODY_BOUNDARY_RE mirror check-
 # task-build-green.py's own constants exactly, so the two guards never read
@@ -115,7 +124,7 @@ BODY_BOUNDARY_RE = re.compile(r"^#{2,3}(?:\s|$)")
 FILES_FIELD_RE = re.compile(r"^\*\*Files:\*\*")
 ANY_FIELD_RE = re.compile(
     r"^\*\*(Files|Tests|Regression|Baseline|Commit|Allowed-collateral|"
-    r"Build|Squash-with):\*\*"
+    r"Build|Squash-with|After):\*\*"
 )
 
 # BULLET_RE — a Files field entry line. A checkbox line starts with `- `
@@ -148,6 +157,14 @@ class Task:
     files_present: bool = False
     files: List[str] = field(default_factory=list)
     partners: List[str] = field(default_factory=list)
+    # `after_set` is the DECLARED ids when the task's `**After:**` value
+    # gates (`[]` for `none`), and None when the task carries no field at
+    # all — the serial default is applied where bundles are resolved, never
+    # at parse time. `after_malformed` holds the offending value when the
+    # field is present but does not gate, reported like a missing Files
+    # field.
+    after_set: Optional[List[str]] = None
+    after_malformed: Optional[str] = None
 
 
 def _extract_paths(entry_text: str) -> List[str]:
@@ -181,6 +198,12 @@ def parse_tasks(lines: List[str]) -> List[Task]:
         squash = select_squash_with(body_lines)
         if squash is not None and squash.partners is not None:
             current.partners = squash.partners
+        after = select_after(body_lines)
+        if after is not None:
+            if after.ids is not None:
+                current.after_set = after.ids
+            else:
+                current.after_malformed = after.value
         while offset < len(body_lines):
             body_line = body_lines[offset]
             if FENCE_RE.match(body_line):
@@ -262,19 +285,32 @@ class UnionFind:
             self._parent[rb] = ra
 
 
-def compute_bundles(tasks: List[Task]) -> Tuple[List[List[Task]], List[str]]:
-    """Return (bundles, missing_files_violations) for `tasks` (already
-    parsed, in document order). `bundles` is empty when
-    `missing_files_violations` is non-empty — the caller must not use one
-    without checking the other, matching exit 1 taking priority over exit
-    0's bundle output."""
+def compute_bundles(
+    tasks: List[Task],
+) -> Tuple[List[List[Task]], List[List[str]], List[str]]:
+    """Return (bundles, after_sets, violations) for `tasks` (already
+    parsed, in document order). `after_sets[i]` is the resolved after-set
+    of `bundles[i]` — the union over its members of the ids they declare
+    (`after_set`), every plan-order earlier task id for a member carrying
+    no field (the serial default; checked tasks included), and nothing for
+    a member declaring `none` — deduplicated and sorted numerically.
+    `bundles` is empty when `violations` is non-empty — the caller must
+    not use one without checking the other, matching exit 1 taking
+    priority over exit 0's bundle output."""
     unchecked = [t for t in tasks if t.unchecked]
 
     missing = [t for t in unchecked if not t.files_present]
-    if missing:
-        return [], [
+    malformed_after = [
+        t for t in unchecked if t.after_malformed is not None
+    ]
+    if missing or malformed_after:
+        return [], [], [
             f"{t.task_line}: task {t.id} has no **Files:** field"
             for t in missing
+        ] + [
+            f"{t.task_line}: task {t.id} has a malformed **After:**"
+            f" value: {t.after_malformed}"
+            for t in malformed_after
         ]
 
     uf = UnionFind([t.id for t in unchecked])
@@ -300,19 +336,36 @@ def compute_bundles(tasks: List[Task]) -> Tuple[List[List[Task]], List[str]]:
     ordered = sorted(
         groups.values(), key=lambda members: min(_id_key(t.id) for t in members)
     )
-    return ordered, []
+
+    # The serial default's "every plan-order earlier task id" scans ALL
+    # tasks in document order, a checked one included: a resumed plan's
+    # done tasks still precede the open ones.
+    plan_order_ids = [t.id for t in tasks]
+    order_index = {task_id: i for i, task_id in enumerate(plan_order_ids)}
+    after_sets: List[List[str]] = []
+    for members in ordered:
+        acc = set()
+        for member in members:
+            if member.after_set is not None:
+                acc.update(member.after_set)
+            else:
+                acc.update(plan_order_ids[: order_index[member.id]])
+        after_sets.append(sorted(acc, key=_id_key))
+    return ordered, after_sets, []
 
 
-def check_file(path: str) -> Tuple[List[List[Task]], List[str]]:
-    """Read `path` and return (bundles, violations) as compute_bundles
-    does, with `violations` already formatted with `path` as the file
-    portion of each `file:line: message` line."""
+def check_file(
+    path: str,
+) -> Tuple[List[List[Task]], List[List[str]], List[str]]:
+    """Read `path` and return (bundles, after_sets, violations) as
+    compute_bundles does, with `violations` already formatted with `path`
+    as the file portion of each `file:line: message` line."""
     with open(path, "r", encoding="utf-8") as handle:
         text = handle.read()
     tasks = parse_tasks(text.splitlines())
-    bundles, raw_violations = compute_bundles(tasks)
+    bundles, after_sets, raw_violations = compute_bundles(tasks)
     violations = [f"{path}:{v}" for v in raw_violations]
-    return bundles, violations
+    return bundles, after_sets, violations
 
 
 def main(argv: List[str]) -> int:
@@ -322,7 +375,7 @@ def main(argv: List[str]) -> int:
 
     path = argv[1]
     try:
-        bundles, violations = check_file(path)
+        bundles, after_sets, violations = check_file(path)
     except (OSError, UnicodeDecodeError) as exc:
         print(f"{path}: cannot read file: {exc}", file=sys.stderr)
         return 2
@@ -335,6 +388,8 @@ def main(argv: List[str]) -> int:
     for index, members in enumerate(bundles, start=1):
         ids = " ".join(t.id for t in members)
         print(f"bundle {index}: {ids}")
+        after = " ".join(after_sets[index - 1]) if after_sets[index - 1] else "none"
+        print(f"after {index}: {after}")
     return 0
 
 

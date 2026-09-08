@@ -2951,6 +2951,55 @@ run_guard "$REPO" 1 "$SHA"
 [ "$(git -C "$REPO" status --porcelain)" = "$STATUS_BEFORE" ] && pass "case 89: index and working tree untouched" || fail "case 89: status changed: before=[$STATUS_BEFORE] after=[$(git -C "$REPO" status --porcelain)]"
 [ -z "$(git -C "$REPO" stash list)" ] && case "$OUT" in *"skipped, not verified"*) false ;; *) true ;; esac && pass "case 89: no stash entry and no skipped-not-verified notice" || fail "case 89: stash=[$(git -C "$REPO" stash list)] out=$OUT"
 
+
+# ===========================================================================
+# Case 90: an `**After:**` line adjacent to a `**Files:** bullet run leaves
+# Files parsing intact — the After line is a field boundary, so the
+# declared Files set is unchanged and the commit check passes as if the
+# line were absent. Fixture A: the backticked bullet run directly followed
+# by `**After:** Task 2`. Fixture B: a single-line prose Files field (no
+# backticks, the convention's fallback) directly followed by the After
+# line — until FIELD_RE knows the field, the After line joins the Files
+# value and the prose fallback swallows it into one bogus declared path.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Task one
+
+**Files:**
+- Modify: `alpha.txt`
+**After:** Task 2
+
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 90: the After line after a bullet run leaves the Files set intact" || fail "case 90 (A): rc=$RC out=$OUT"
+
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Task one
+
+**Files:** alpha.txt
+**After:** Task 2
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 0 ] && pass "case 90: the After line after a prose Files field leaves the declared path intact" || fail "case 90 (B): rc=$RC out=$OUT"
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

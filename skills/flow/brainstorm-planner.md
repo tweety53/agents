@@ -300,6 +300,12 @@ with `**Build:**` per **The build-green tag**
 A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, naming the green task
 its commit folds into.
 
+An optional `**After:**` field — `Task <ids>` or `none` — declares the task's predecessors, and
+its absence means the task runs after every earlier task. The planner writes it on file-disjoint
+tasks with no caller/helper relationship, and writes it consistently across a `**Squash-with:**`
+pair (union semantics merge the pair into one bundle). A task the planner does not annotate stays
+fully serial, so opting in is per task.
+
 Add this header to `tasks.md`:
 
 ```markdown
