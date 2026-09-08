@@ -109,6 +109,10 @@ flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> 
 `skills/flow/implement.md` states for an implementer dispatch — cited, not restated. `-task` is
 omitted: this dispatch runs against no single task.
 
+State `planner model: <PLANNING_MODEL> (<tier>)` — the tier that produced the value, per
+**Model resolution** (`skills/flow/SKILL.md`) — in this run's own output immediately before the
+dispatch.
+
 Dispatch one subagent with the Agent tool's `model` parameter set to `PLANNING_MODEL`,
 `subagent_type: general-purpose`. Its prompt carries, verbatim:
 

@@ -430,6 +430,7 @@ BEGIN {
   EXEMPT["check-task-build-green.sh"] = 1
   EXEMPT["check-contract-budget.sh"] = 1
   EXEMPT["check-stage-mark-calls.sh"] = 1
+  EXEMPT["check-model-statements.sh"] = 1
 }
 {
   raw = $0
