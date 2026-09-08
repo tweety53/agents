@@ -89,11 +89,12 @@ const defaultTimeout = 2 * time.Second
 const maxStdinBytes = 1 << 20
 
 const stateUsage = `usage: flow state get     [-addr url] [-timeout dur] [-C dir] <name>
-       flow state set     [-addr url] [-timeout dur] [-C dir] <name>
+       flow state set     [-addr url] [-timeout dur] [-C dir] [-file path] <name>
        flow state list    [-addr url] [-timeout dur] [-C dir]
        flow state resolve [-addr url] [-timeout dur] [-C dir]
 
-state set reads the change's whole state as JSON from stdin.
+state set reads the change's whole state as JSON from the file named by
+-file when it is given, and from stdin otherwise.
 state list enumerates every change the store holds for the resolved
 project. On any store failure it falls back to what the local on-disk
 fallback directory holds -- necessarily partial, since that directory
@@ -255,13 +256,19 @@ func runStateGet(ctx context.Context, args []string, stdout, stderr io.Writer) i
 }
 
 // runStateSet implements `flow state set <name>`, reading the whole
-// record as JSON from stdin. A successful write to the store exits 0
+// record as JSON from the file named by -file when it is given, and
+// from stdin otherwise. A successful write to the store exits 0
 // silently. A monotonic refusal (the store was reached and correctly said
 // no) is reported and exits non-zero. Every other failure mode takes the
 // fallback: write the on-disk state file, append the journal entry, print
 // exactly one warning line, exit 0.
 func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow state set", flag.ContinueOnError)
+	// -file registers here, before parseStateFlags adds -addr/-timeout/-C
+	// and parses this same FlagSet, so the flag exists on state set only:
+	// state get's FlagSet never sees it, and `state get -file` stays a
+	// usage error.
+	file := fset.String("file", "", "read the record from this file instead of stdin")
 	f, err := parseStateFlags(fset, args, stderr)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -272,17 +279,37 @@ func runStateSet(ctx context.Context, args []string, stdin io.Reader, _, stderr 
 		return 2
 	}
 
-	body, err := io.ReadAll(io.LimitReader(stdin, maxStdinBytes+1))
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: read state from stdin: %v\n", err)
-		return 1
+	var body []byte
+	if *file != "" {
+		// A file the caller named but that cannot be read is a local input
+		// error in state-file.md's sense: reported, exit 2, never the
+		// fallback path, never the network.
+		body, err = os.ReadFile(*file)
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: read state from %s: %v\n", *file, err)
+			return 2
+		}
+	} else {
+		body, err = io.ReadAll(io.LimitReader(stdin, maxStdinBytes+1))
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: read state from stdin: %v\n", err)
+			return 1
+		}
 	}
 	if len(body) > maxStdinBytes {
-		fmt.Fprintf(stderr, "flow: state on stdin exceeds %d bytes\n", maxStdinBytes)
+		if *file != "" {
+			fmt.Fprintf(stderr, "flow: state in %s exceeds %d bytes\n", *file, maxStdinBytes)
+		} else {
+			fmt.Fprintf(stderr, "flow: state on stdin exceeds %d bytes\n", maxStdinBytes)
+		}
 		return 2
 	}
 	if !isJSONObject(body) {
-		fmt.Fprintln(stderr, "flow: state on stdin must be a JSON object")
+		if *file != "" {
+			fmt.Fprintf(stderr, "flow: state in %s must be a JSON object\n", *file)
+		} else {
+			fmt.Fprintln(stderr, "flow: state on stdin must be a JSON object")
+		}
 		return 2
 	}
 

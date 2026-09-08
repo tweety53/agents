@@ -5,8 +5,8 @@ writes the database directly, and no command reads a JSON file for the live valu
 `/flow*` command reaches the record through two CLI subcommands that speak HTTP to the daemon:
 
 ```bash
-flow state get [-C dir] <name>            # prints the record's JSON to stdout
-flow state set [-C dir] <name> <<<"$JSON" # reads the whole record as JSON from stdin
+flow state get [-C dir] <name>               # prints the record's JSON to stdout
+flow state set [-C dir] [-file path] <name>  # reads the whole record as JSON from path, or from stdin when -file is absent
 ```
 
 `-C dir` resolves the project key as if run from `dir` (default: the process's own working
@@ -84,10 +84,11 @@ and takes the fallback path above, exiting 0. A skill that sends a malformed pay
 never stopped by this layer; the payload is written to the fallback file and journal as sent, and
 what happens to it next is stated under **The journal is replayed, never merged** below.
 
-A CLI usage error — non-JSON stdin, JSON that is not an object, stdin over the CLI's own size
-cap, or a `worktrees` value that is neither `null` nor a sha (**The record** below) — is a local
-input error, not a store failure: it is reported to stderr and exits 2, never falls back, and never
-reaches the network.
+A CLI usage error — non-JSON stdin, a `-file` path that cannot be read, JSON
+that is not an object, a stdin or `-file` payload over the CLI's own size
+cap, or a `worktrees` value that is neither `null` nor a sha (**The record**
+below) — is a local input error, not a store failure: it is reported to
+stderr and exits 2, never falls back, and never reaches the network.
 
 ## The record
 
@@ -359,14 +360,23 @@ until a command writes one for it.
 ## Read it, write it
 
 ```bash
-flow state get "$NAME" -C "$DIR"                    # prints the record, or falls back — see above
-printf '%s' "$RECORD_JSON" | flow state set "$NAME" -C "$DIR"
+flow state get "$NAME" -C "$DIR"                       # prints the record, or falls back — see above
+flow state set -file "$RECORD_FILE" "$NAME" -C "$DIR"  # writes the whole record from the file
 ```
 
-`state set` reads the whole object from stdin — always write every field, never a partial merge, per
-**The record** and **Carry the record forward on every write** above. Never write the on-disk
-fallback file or journal directly; they belong to the CLI, are machine-local, and are **never
-committed, never staged, and never archived** — nothing here is part of the change.
+`state set` reads the whole object from the file `-file` names, or from stdin when the flag is
+absent — always write every field, never a partial merge, per **The record** and **Carry the
+record forward on every write** above. Never write the on-disk fallback file or journal directly;
+they belong to the CLI, are machine-local, and are **never committed, never staged, and never
+archived** — nothing here is part of the change.
+
+**The file form is the allowlist-friendly form.** Harness permission classifiers block compound
+piped and heredoc commands — exactly what the piped canonical form was. Writing the record to a
+scratch file first (`printf '%s' "$RECORD_JSON" > "$RECORD_FILE"` — an independent command,
+allowed on its own terms) and then running `flow state set -file "$RECORD_FILE" "$NAME" -C
+"$DIR"` makes the write itself one non-compound command that a `Bash(flow state set *)` allowlist
+rule covers cleanly (KAN-383). The piped form `printf '%s' "$RECORD_JSON" | flow state set "$NAME"
+-C "$DIR"` remains supported as the stdin alternative.
 
 ## Planning effort
 
