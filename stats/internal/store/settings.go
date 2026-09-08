@@ -51,11 +51,13 @@ var ErrInvalidReviewer = errors.New("store: invalid reviewer")
 const DefaultModel = "sonnet"
 
 // DefaultReviewers is the value GetSettings reports for Reviewers when
-// flow_settings holds no row yet: primary, principles and code-review-low,
-// the same three ids skills/flow/SKILL.md's resolver falls back to when the
-// store is unreachable (design.md's unreachable-falls-back-to-defaults
-// decision).
-var DefaultReviewers = []string{"primary", "principles", "code-review-low"}
+// flow_settings holds no row yet: primary, principles, code-review-low and
+// mutation, the same four ids skills/flow/SKILL.md's resolver falls back to
+// when the store is unreachable (design.md's unreachable-falls-back-to-
+// defaults decision). The roster is the operator-ratified default
+// (KAN-440): the live store row and this fallback must agree, so a
+// store-less run reviews with the same panel as a store-backed one.
+var DefaultReviewers = []string{"primary", "principles", "code-review-low", "mutation"}
 
 // Settings is the harness-wide record /flow-settings manages: which model
 // implements, fixes and reviews by default, which model self-review runs

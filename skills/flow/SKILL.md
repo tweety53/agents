@@ -93,7 +93,7 @@ the same failure, naming that this too is a fallback rather than a resolved valu
 |-------------|-----------------|
 | Reachable, list non-empty | exactly the list |
 | Reachable, list empty | `primary` alone |
-| Unreachable | `primary`, `principles`, `code-review-low` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
+| Unreachable | `primary`, `principles`, `code-review-low`, `mutation` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
 
 An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
 `settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the

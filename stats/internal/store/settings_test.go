@@ -191,3 +191,17 @@ func TestSettingsStore_RejectsUnknownReviewer(t *testing.T) {
 		t.Errorf("PutSettings error = %q, want it to name the rejected value %q", err.Error(), badReviewer)
 	}
 }
+
+// TestDefaultReviewersRoster pins the no-row fallback roster to the
+// operator-ratified default -- primary, principles, code-review-low and
+// mutation, in that order. This is the value GetSettings reports when
+// flow_settings holds no row and the list skills/flow/SKILL.md's
+// Model-resolution table names for the store-unreachable case, so a drift
+// here silently changes the panel every store-less run reviews with
+// (KAN-440).
+func TestDefaultReviewersRoster(t *testing.T) {
+	want := []string{"primary", "principles", "code-review-low", "mutation"}
+	if !reflect.DeepEqual(store.DefaultReviewers, want) {
+		t.Errorf("DefaultReviewers = %v, want %v", store.DefaultReviewers, want)
+	}
+}
