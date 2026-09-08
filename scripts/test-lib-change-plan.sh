@@ -370,6 +370,45 @@ assert_nonzero_rc "case 6c: a canonical change id outside the allowlist is rejec
 assert_eq "case 6c: it prints nothing to stdout" "" "$OUT"
 
 # ---------------------------------------------------------------------------
+# Cases 7-9 (KAN-393): change_plan_ref — the link's `<peer>:<change-id>`
+# for a satellite (no local tasks.md, a link.md carrying ## Part of), and
+# return 1 with no output for a local plan or a link.md that is not a
+# satellite's. gather-dispatch-context.sh reads it for its
+# "(canonical <peer>:<change-id>)" section labels. Asserted here, in the
+# library's own harness, because the ref is the library's contract, not
+# any caller's.
+# ---------------------------------------------------------------------------
+set +e
+OUT="$(change_plan_ref "$PLAIN" "plain-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 7: a local plan has no ref" "$RC"
+assert_eq "case 7: it prints nothing" "" "$OUT"
+
+set +e
+OUT="$(change_plan_ref "$SAT2" "sat-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_zero_rc "case 8: a satellite's ref resolves at exit 0" "$RC"
+assert_eq "case 8: it prints the link's <peer>:<change-id>" \
+  "peerx:canon-change" "$OUT"
+
+set +e
+OUT="$(change_plan_ref "$SAT3" "sat-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_zero_rc "case 8b: the peers-only satellite's ref resolves too" "$RC"
+assert_eq "case 8b: it prints that link's <peer>:<change-id>" \
+  "peery:canon-change" "$OUT"
+
+set +e
+OUT="$(change_plan_ref "$CANON5" "canon-only-satellite-dir" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 9: a ## Parts-only link.md is not a satellite and has no ref" "$RC"
+assert_eq "case 9: it prints nothing" "" "$OUT"
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0

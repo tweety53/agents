@@ -189,6 +189,47 @@ STUB
   chmod +x "$dest/flow"
 }
 
+# capture7 <task-ids> <canonical-worktree> -> RC, ERR, OUT — the seven-
+# argument invocation (kan-393). The optional sixth argument scopes the
+# bundle's ## tasks.md section; the optional seventh names the canonical
+# worktree a satellite's plan resolves through.
+capture7() {
+  set +e
+  ERR="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" "$1" "$2" 2>&1 1>/dev/null)"
+  RC=$?
+  set -e
+  if [ -f "$OUTPUT_PATH" ]; then
+    OUT="$(cat "$OUTPUT_PATH")
+$ERR"
+  else
+    OUT="$ERR"
+  fi
+}
+
+# new_satellite_pair -> REPO becomes a SATELLITE worktree (its change dir
+# carries ONLY link.md — KAN-363's pointer tree), CANON_REPO the canonical
+# one carrying the real plan under the same change id, and the satellite's
+# peers file declares the canonical at a path that does NOT resolve, so the
+# canonical-ARGUMENT branch is the one under test and never an accidental
+# peers hit. CANON_CHANGE_ROOT is the canonical change directory.
+# OUTPUT_PATH (new_repo's) already points inside the satellite — the
+# production shape: a satellite implementer's bundle.
+new_satellite_pair() {
+  new_repo
+  rm -f "$CHANGE_ROOT/proposal.md" "$CHANGE_ROOT/design.md" "$CHANGE_ROOT/tasks.md"
+  printf '## Part of\n\n`canon:demo`\n' > "$CHANGE_ROOT/link.md"
+  CANON_REPO="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-canon.XXXXXX")"
+  CANON_REPO="$(cd -P "$CANON_REPO" && pwd -P)"
+  TREES+=("$CANON_REPO")
+  CANON_CHANGE_ROOT="$CANON_REPO/spectre/changes/demo"
+  mkdir -p "$CANON_CHANGE_ROOT"
+  printf 'CANON-PROPOSAL-BODY\n' > "$CANON_CHANGE_ROOT/proposal.md"
+  printf 'CANON-DESIGN-BODY\n' > "$CANON_CHANGE_ROOT/design.md"
+  printf 'CANON-TASKS-BODY\n' > "$CANON_CHANGE_ROOT/tasks.md"
+  mkdir -p "$REPO/spectre"
+  printf 'canon ../canon-nowhere\n' > "$REPO/spectre/peers"
+}
+
 # ===========================================================================
 # CASE 1: all five sources present
 # ===========================================================================
@@ -1307,6 +1348,175 @@ case "$OUT" in
   *"skipped: $PRINCIPLES_49B (absent)"*) pass "principles-path shaped 'foo(bar)': absent suffix appended" ;;
   *) fail "principles-path shaped 'foo(bar)': absent suffix missing: $OUT" ;;
 esac
+
+# ===========================================================================
+# CASES 50-57 (kan-393): the plan lives in one tree. A satellite worktree's
+# bundle carries the canonical proposal/design/tasks (labeled), while
+# project commands, incidents and the head sha stay the satellite's own.
+# ===========================================================================
+
+# CASE 50: the canonical-ARGUMENT branch. A satellite bundle carries the
+# canonical plan under labeled sections, and the satellite's OWN project
+# commands and head sha — never the canonical repository's.
+new_satellite_pair
+mkdir -p "$REPO/.flow" "$CANON_REPO/.flow"
+printf '# sat project\n\n## lint\n\nSAT-LINT-MARKER\n' > "$REPO/.flow/project.md"
+printf '# canon project\n\n## lint\n\nCANON-LINT-MARKER\n' > "$CANON_REPO/.flow/project.md"
+SAT_SHA_50="$(git -C "$REPO" rev-parse --short HEAD)"
+capture7 "" "$CANON_REPO"
+if [ "$RC" -ne 0 ]; then
+  fail "satellite via argument: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## proposal.md (canonical canon:demo)'; then
+  fail "satellite via argument: proposal section unlabeled or missing: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## design.md (canonical canon:demo)'; then
+  fail "satellite via argument: design section unlabeled or missing: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## tasks.md (canonical canon:demo)'; then
+  fail "satellite via argument: tasks section unlabeled or missing: $OUT"
+elif ! printf '%s' "$OUT" | grep -q 'CANON-PROPOSAL-BODY' \
+  || ! printf '%s' "$OUT" | grep -q 'CANON-DESIGN-BODY' \
+  || ! printf '%s' "$OUT" | grep -q 'CANON-TASKS-BODY'; then
+  fail "satellite via argument: a canonical plan body is missing: $OUT"
+elif ! printf '%s' "$OUT" | grep -q 'SAT-LINT-MARKER'; then
+  fail "satellite via argument: the satellite's own project commands are missing: $OUT"
+elif printf '%s' "$OUT" | grep -q 'CANON-LINT-MARKER'; then
+  fail "satellite via argument: the CANONICAL project commands leaked in: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF "head: $SAT_SHA_50"; then
+  fail "satellite via argument: head sha is not the satellite's own: $OUT"
+else
+  pass "satellite via argument: canonical plan labeled in, satellite commands and head kept"
+fi
+
+# CASE 51: the canonical and scoped labels compose. The plan fixture lives
+# in the CANONICAL change dir here (a satellite has no tasks.md of its own).
+new_satellite_pair
+FENCE_51='```'
+printf '%s\n' \
+  '# demo plan' '' '> **Execution:** header line' '' \
+  '- [ ] 1. First' '**Files:** `a`' '  - [ ] **Step 1: one**' '' \
+  '- [ ] 2. Second' '**Files:** `b`' > "$CANON_CHANGE_ROOT/tasks.md"
+capture7 "1" "$CANON_REPO"
+if [ "$RC" -ne 0 ]; then
+  fail "satellite scoped: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## tasks.md (canonical canon:demo) (scoped to task(s) 1)'; then
+  fail "satellite scoped: the two labels do not compose: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^- \[ \] 1\. First$' \
+  || printf '%s' "$OUT" | grep -q 'Second'; then
+  fail "satellite scoped: scoping broke under the canonical label: $OUT"
+else
+  pass "satellite scoped: canonical and scoped labels compose"
+fi
+
+# CASE 52: the PEERS branch — no canonical-worktree argument, the peer path
+# declared in the satellite's peers file really resolves on disk (the
+# main-checkout shape, where ../peer exists).
+new_repo
+rm -f "$CHANGE_ROOT/proposal.md" "$CHANGE_ROOT/design.md" "$CHANGE_ROOT/tasks.md"
+printf '## Part of\n\n`peerc:demo`\n' > "$CHANGE_ROOT/link.md"
+mkdir -p "$REPO/spectre"
+printf 'peerc ../gather-canon-peer\n' > "$REPO/spectre/peers"
+CANON_PEER_52="$REPO/../gather-canon-peer"
+mkdir -p "$CANON_PEER_52/spectre/changes/demo"
+printf 'PEER-PROPOSAL-BODY\n' > "$CANON_PEER_52/spectre/changes/demo/proposal.md"
+printf 'PEER-DESIGN-BODY\n' > "$CANON_PEER_52/spectre/changes/demo/design.md"
+printf 'PEER-TASKS-BODY\n' > "$CANON_PEER_52/spectre/changes/demo/tasks.md"
+TREES+=("$CANON_PEER_52")
+capture7 "" ""
+if [ "$RC" -ne 0 ]; then
+  fail "satellite via peers: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## tasks.md (canonical peerc:demo)'; then
+  fail "satellite via peers: tasks section unlabeled or missing: $OUT"
+elif ! printf '%s' "$OUT" | grep -q 'PEER-TASKS-BODY'; then
+  fail "satellite via peers: the peer plan body is missing: $OUT"
+else
+  pass "satellite via peers: resolves and labels without the argument"
+fi
+
+# CASE 53: an UNRESOLVABLE satellite — the peer is declared but absent and
+# no argument is passed. The three plan leaves are skipped with the distinct
+# label, the run still exits 0, and the bundle is still written: the bundle
+# never gates a run, so this is the inverse of check-unfinished-work.sh's
+# refusal, deliberately.
+new_satellite_pair
+capture7 "" ""
+if [ "$RC" -ne 0 ]; then
+  fail "unresolvable satellite: exited $RC (expected 0): $OUT"
+elif ! printf '%s' "$OUT" | grep -qxF "skipped: proposal.md (satellite plan unresolved — link.md at $CHANGE_ROOT/link.md)" \
+  || ! printf '%s' "$OUT" | grep -qxF "skipped: design.md (satellite plan unresolved — link.md at $CHANGE_ROOT/link.md)" \
+  || ! printf '%s' "$OUT" | grep -qxF "skipped: tasks.md (satellite plan unresolved — link.md at $CHANGE_ROOT/link.md)"; then
+  fail "unresolvable satellite: the three distinct skip labels are missing: $OUT"
+elif printf '%s' "$OUT" | grep -q 'CANON-'; then
+  fail "unresolvable satellite: canonical content reached the bundle anyway: $OUT"
+else
+  pass "unresolvable satellite: three distinct skips, exit 0, bundle written"
+fi
+
+# CASE 54: task ids given while the satellite is unresolvable — still exit 2
+# naming the absence, exactly as when tasks.md was merely missing.
+new_satellite_pair
+capture7 "1" ""
+if [ "$RC" -ne 2 ]; then
+  fail "unresolvable satellite with ids: expected exit 2, got $RC: $OUT"
+elif ! printf '%s' "$ERR" | grep -q 'task ids given but tasks.md is absent or refused'; then
+  fail "unresolvable satellite with ids: stderr does not name the absence: $ERR"
+else
+  pass "unresolvable satellite with ids: exit 2 naming it"
+fi
+
+# CASE 55: a PLAIN change with the canonical-worktree argument passed anyway
+# (the uniform caller rule) is byte-identical in its labels — local wins
+# before the link is ever consulted, and no canonical suffix appears.
+new_repo
+capture7 "" "$REPO"
+if [ "$RC" -ne 0 ]; then
+  fail "plain change with argument: exited $RC: $OUT"
+elif printf '%s' "$OUT" | grep -q '(canonical'; then
+  fail "plain change with argument: a canonical suffix appeared on a local plan: $OUT"
+elif ! printf '%s' "$OUT" | grep -qxF '## proposal.md' \
+  || ! printf '%s' "$OUT" | grep -qxF '## design.md' \
+  || ! printf '%s' "$OUT" | grep -qxF '## tasks.md'; then
+  fail "plain change with argument: a section label changed shape: $OUT"
+else
+  pass "plain change with the argument: labels byte-identical, no suffix"
+fi
+
+# CASE 56: the boundary moved with the resolution. The CANONICAL change
+# dir's proposal.md is a symlink resolving outside the CANONICAL change
+# dir: refused per-source against the content directory, content omitted,
+# exit 0 — the same disposition, against the moved root.
+new_satellite_pair
+OUTSIDE_56="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-outside56.XXXXXX")"
+TREES+=("$OUTSIDE_56")
+printf 'TOP-SECRET-56\n' > "$OUTSIDE_56/secret.md"
+rm -f "$CANON_CHANGE_ROOT/proposal.md"
+ln -s "$OUTSIDE_56/secret.md" "$CANON_CHANGE_ROOT/proposal.md"
+capture7 "" "$CANON_REPO"
+if [ "$RC" -ne 0 ]; then
+  fail "satellite leaf escapes content dir: exited $RC (expected 0): $OUT"
+elif printf '%s' "$OUT" | grep -q 'TOP-SECRET-56'; then
+  fail "satellite leaf escapes content dir: target content leaked: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF 'refused: proposal.md (canonical canon:demo) (resolves outside the change directory)'; then
+  fail "satellite leaf escapes content dir: not reported refused: $OUT"
+else
+  pass "a satellite's canonical leaf symlink outside the content dir is refused, exit 0"
+fi
+
+# CASE 57: a link.md carrying ## Parts but no ## Part of is the canonical
+# side's own copy — NOT a satellite by the definition every guard shares —
+# so a missing tasks.md there is the ordinary absence, never the satellite
+# label.
+new_repo
+rm -f "$CHANGE_ROOT/tasks.md"
+printf '## Parts\n\n`peerz:some-part`\n' > "$CHANGE_ROOT/link.md"
+run_it
+if [ "$RC" -ne 0 ]; then
+  fail "## Parts-only link.md: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -qxF 'skipped: tasks.md (absent)'; then
+  fail "## Parts-only link.md: tasks.md not reported as the ordinary absence: $OUT"
+elif printf '%s' "$OUT" | grep -q 'satellite plan unresolved'; then
+  fail "## Parts-only link.md: wrongly treated as a satellite: $OUT"
+else
+  pass "a ## Parts-only link.md is not a satellite: ordinary absent-leaf handling"
+fi
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

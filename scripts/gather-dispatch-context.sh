@@ -6,7 +6,7 @@
 # proposal.md, design.md, tasks.md and the engineering principles on its
 # own.
 #
-# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids>]
+# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]
 #
 # <task-ids> is optional: a comma-separated list of integer task ids. When
 # given, the "## tasks.md" section carries only the plan's header (every
@@ -123,6 +123,57 @@
 # bundle, reported as "refused", but the run still exits 0 — never treated
 # as a missing source, so an attack is never indistinguishable from a
 # legitimate absence. See add_fixed_source() below.
+#
+# THE PLAN LIVES IN ONE TREE (KAN-393). proposal.md, design.md and tasks.md
+# are read from the CONTENT DIRECTORY, resolved once before any leaf is
+# read: the <change-root> itself whenever it carries a tasks.md — every
+# single-repo change, whose bundle is therefore byte-for-byte what this
+# script always wrote — and otherwise, when <change-root> carries a
+# satellite's link.md (## Part of) and no tasks.md, the canonical change
+# directory scripts/lib/change-plan.sh resolves through the optional
+# seventh argument <canonical-worktree>, or — only when that argument is
+# empty — through <worktree>/<spec-root>/peers, the same resolution order
+# check-unfinished-work.sh and check-task-commit-fields.sh have used since
+# KAN-363. The caller (skills/flow/implement.md's per-bundle gather,
+# skills/flow/review-panel.md's rebuild) passes the canonical worktree on
+# every call: the member of the run's resolved worktree set whose own
+# <project>/<spec-root>/changes/<name>/tasks.md exists, inert on a
+# single-repo change. Three consequences, each deliberate:
+#
+#   1. The boundary the three leaves are checked against is the CONTENT
+#      DIRECTORY, not the argument <change-root>: the canonical directory is
+#      the same change's tracked content, reached through a link whose peer
+#      name and change id change-plan.sh allowlist-checks character for
+#      character. The invocation-level containment rules above are
+#      unchanged — <change-root> must still sit inside <worktree>, exit 2.
+#   2. A satellite whose canonical plan cannot be reached is NOT a refusal:
+#      the three plan leaves are reported as skipped with the distinct
+#      label "(satellite plan unresolved — link.md at <path>)" and the run
+#      still exits 0. This is the deliberate inverse of
+#      check-unfinished-work.sh's exit-2 refusal for the same condition — a
+#      guard verdict must never silently clear, but this bundle has no
+#      verdict to give: it never gates a run (skills/flow/implement.md), so
+#      refusing here would abort a dispatching stage a bundle has no
+#      authority to stop. A change with no tasks.md and no link.md at all
+#      is not a satellite, and its absent leaves are still reported exactly
+#      as before.
+#   3. When the plan resolved remotely, the three plan sections' labels
+#      carry a "(canonical <peer>:<change-id>)" suffix — composed with the
+#      existing "(scoped to task(s) ...)" suffix where both apply — so a
+#      dispatch reading the bundle can see the plan came from another
+#      tree. Everything else stays worktree-local: "project commands" from
+#      <worktree>/.flow/project.md, the incidents section from
+#      `flow record incidents -C <worktree>`, and the header's head: sha
+#      from <worktree>'s own HEAD — a satellite implementer's bundle
+#      carries its own repository's commands, its own project's incident
+#      log, and the canonical plan.
+#
+# <canonical-worktree>, when given, is validated nowhere beyond what
+# change-plan.sh's own [ -f ] probes imply — the same trust level as
+# check-unfinished-work.sh's third argument: a caller-supplied worktree
+# path, not attacker-influenced change content, and every name concatenated
+# under it (the canonical change id) is allowlist-checked inside
+# change-plan.sh itself.
 set -euo pipefail
 
 # resolve_file <path> -> the path's resolved PHYSICAL location, following
@@ -143,6 +194,13 @@ source "$SCRIPT_DIR/lib/within-root.sh"
 source "$SCRIPT_DIR/lib/lexical-normalize.sh"
 source "$SCRIPT_DIR/lib/sha256-hex.sh"
 source "$SCRIPT_DIR/lib/project-section.sh"
+# change_plan_dir <worktree> <change-name> [canonical-worktree] -> the
+# canonical plan's directory, and change_plan_ref <worktree> <change-name>
+# -> the link's <peer>:<change-id> when the change is a satellite (KAN-393)
+# — the label's content, parsed in the library that owns link.md's grammar.
+# The same lib check-unfinished-work.sh and check-task-commit-fields.sh
+# source; sourcing it pulls in spec-root.sh in turn, by its own design.
+source "$SCRIPT_DIR/lib/change-plan.sh"
 
 WORKTREE="${1:-}"
 CHANGE_ROOT="${2:-}"
@@ -150,9 +208,10 @@ NAME="${3:-}"
 PRINCIPLES_PATH="${4:-}"
 OUTPUT_PATH="${5:-}"
 TASK_IDS="${6:-}"
+CANONICAL_WORKTREE="${7:-}"
 
 if [ -z "$WORKTREE" ] || [ -z "$CHANGE_ROOT" ] || [ -z "$NAME" ] || [ -z "$PRINCIPLES_PATH" ] || [ -z "$OUTPUT_PATH" ]; then
-  echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids>]" >&2
+  echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]" >&2
   exit 2
 fi
 
@@ -276,9 +335,38 @@ PRINCIPLES_REAL="$VALIDATE_REAL"
 # The bundle itself
 # ===========================================================================
 
-PROPOSAL_FILE="$CHANGE_ROOT_REAL/proposal.md"
-DESIGN_FILE="$CHANGE_ROOT_REAL/design.md"
-TASKS_FILE="$CHANGE_ROOT_REAL/tasks.md"
+# --- the content directory (KAN-393): where this change's plan leaves
+# actually live. The <change-root> itself whenever it carries a tasks.md —
+# the single-repo case, byte-for-byte unchanged — and otherwise, when it
+# carries a satellite's link.md, the canonical change directory
+# change_plan_dir resolves through the seventh argument or, only when that
+# argument is empty, through <worktree>/<spec-root>/peers. When even that
+# fails, the change IS a satellite (its link.md carries ## Part of — the
+# same definition check-unfinished-work.sh applies) and the three plan
+# leaves below are reported as skips with the distinct unresolved label;
+# a change with neither file is not a satellite, and its leaves keep the
+# ordinary absent-leaf handling. CANONICAL_REF is change_plan_ref's answer:
+# the <peer>:<change-id> ref of the link the successful resolution already
+# validated, feeding the section label.
+CONTENT_DIR_REAL="$CHANGE_ROOT_REAL"
+CANONICAL_SUFFIX=""
+CANONICAL_LINK=""
+if [ ! -f "$CHANGE_ROOT_REAL/tasks.md" ]; then
+  if PLAN_DIR="$(change_plan_dir "$WORKTREE_REAL" "$NAME" "$CANONICAL_WORKTREE" 2>/dev/null)" && [ -n "$PLAN_DIR" ]; then
+    CONTENT_DIR_REAL="$PLAN_DIR"
+    CANONICAL_REF="$(change_plan_ref "$WORKTREE_REAL" "$NAME" 2>/dev/null)" || CANONICAL_REF=""
+    if [ -n "$CANONICAL_REF" ]; then
+      CANONICAL_SUFFIX=" (canonical ${CANONICAL_REF})"
+    fi
+  elif [ -f "$CHANGE_ROOT_REAL/link.md" ] && grep -qxF '## Part of' "$CHANGE_ROOT_REAL/link.md" 2>/dev/null; then
+    CONTENT_DIR_REAL=""
+    CANONICAL_LINK="$CHANGE_ROOT_REAL/link.md"
+  fi
+fi
+
+PROPOSAL_FILE="$CONTENT_DIR_REAL/proposal.md"
+DESIGN_FILE="$CONTENT_DIR_REAL/design.md"
+TASKS_FILE="$CONTENT_DIR_REAL/tasks.md"
 
 FOUND_LABELS=()
 FOUND_PATHS=()
@@ -302,7 +390,7 @@ REFUSED_LABELS=()
 # still let the run exit 0 — only the printed diagnostic differs.
 REFUSED_REASONS=()
 
-# add_fixed_source <path> <label> — unlike <worktree>/<change-root>/
+# add_fixed_source <path> <label> <root> — unlike <worktree>/<change-root>/
 # <principles-path> above, these three content sources are never passed as
 # arguments, so validate_path()'s exit-2-on-mismatch contract does not apply
 # to them: a change legitimately carries no design.md, and "this leaf is a
@@ -310,19 +398,20 @@ REFUSED_REASONS=()
 # gather-self-review-context.sh's check_boundary() + is_refused() pair: `[ -f
 # "$path" ]` first (a missing target, including a dangling symlink, is a
 # plain absence — skipped, not refused); then resolve_file() (leaf and every
-# ancestor symlink) and a within_root() boundary check against
-# CHANGE_ROOT_REAL, the same containment root that script uses for its own
-# change-relative leaf (tasks.md). A leaf that resolves inside change-root —
-# including a symlink to another file inside it — is read normally. A leaf
-# that resolve_file() cannot even walk (REFUSED_REASONS' own "unresolvable"),
-# or that resolves OUTSIDE change-root ("outside"), is refused per-source:
-# omitted from the bundle, counted separately from "skipped", and the run
-# still exits 0 — the spec's "a missing bundle never stops a run"
-# requirement, and the same disposition gather-self-review-context.sh's
+# ancestor symlink) and a within_root() boundary check against the third
+# argument — the CONTENT DIRECTORY (KAN-393): the change-root itself for a
+# local plan, the canonical change directory for a satellite, so a leaf can
+# never resolve outside the change whose content it is. A leaf that resolves
+# inside that root — including a symlink to another file inside it — is read
+# normally. A leaf that resolve_file() cannot even walk (REFUSED_REASONS' own
+# "unresolvable"), or that resolves OUTSIDE it ("outside"), is refused
+# per-source: omitted from the bundle, counted separately from "skipped",
+# and the run still exits 0 — the spec's "a missing bundle never stops a
+# run" requirement, and the same disposition gather-self-review-context.sh's
 # header documents for exactly this shape of problem (a per-source
 # trust-boundary violation is not a malformed invocation).
 add_fixed_source() {
-  local path="$1" label="$2" resolved
+  local path="$1" label="$2" root="$3" resolved
   if [ ! -f "$path" ]; then
     SKIPPED_LABELS+=("$label (absent)")
     return 0
@@ -332,7 +421,7 @@ add_fixed_source() {
     REFUSED_REASONS+=("unresolvable")
     return 0
   }
-  if within_root "$resolved" "$CHANGE_ROOT_REAL"; then
+  if within_root "$resolved" "$root"; then
     FOUND_LABELS+=("$label")
     FOUND_PATHS+=("$resolved")
   else
@@ -376,19 +465,29 @@ scope_tasks() {
   ' "$1"
 }
 
-add_fixed_source "$PROPOSAL_FILE" "proposal.md"
-add_fixed_source "$DESIGN_FILE" "design.md"
-add_fixed_source "$TASKS_FILE" "tasks.md"
+if [ -n "$CONTENT_DIR_REAL" ]; then
+  add_fixed_source "$PROPOSAL_FILE" "proposal.md${CANONICAL_SUFFIX}" "$CONTENT_DIR_REAL"
+  add_fixed_source "$DESIGN_FILE" "design.md${CANONICAL_SUFFIX}" "$CONTENT_DIR_REAL"
+  add_fixed_source "$TASKS_FILE" "tasks.md${CANONICAL_SUFFIX}" "$CONTENT_DIR_REAL"
+else
+  # A satellite whose canonical plan could not be reached: the bundle is
+  # advisory and never gates a run, so this is a skip, not a refusal —
+  # with its own label, so "the plan is elsewhere and unreachable" never
+  # reads like a plain change's legitimately-absent design.md (KAN-393).
+  for label in proposal.md design.md tasks.md; do
+    SKIPPED_LABELS+=("$label (satellite plan unresolved — link.md at $CANONICAL_LINK)")
+  done
+fi
 
 TASKS_SCOPED_BODY=""
 if [ -n "$TASK_IDS" ]; then
   last=$(( ${#FOUND_LABELS[@]} - 1 ))
-  if [ "$last" -lt 0 ] || [ "${FOUND_LABELS[$last]}" != "tasks.md" ]; then
+  if [ "$last" -lt 0 ] || [ "${FOUND_LABELS[$last]}" != "tasks.md${CANONICAL_SUFFIX}" ]; then
     echo "gather-dispatch-context: task ids given but tasks.md is absent or refused" >&2
     exit 2
   fi
   TASKS_SCOPED_BODY="$(scope_tasks "${FOUND_PATHS[$last]}" "$TASK_IDS")" || exit 2
-  FOUND_LABELS[$last]="tasks.md (scoped to task(s) $TASK_IDS)"
+  FOUND_LABELS[$last]="tasks.md${CANONICAL_SUFFIX} (scoped to task(s) $TASK_IDS)"
   FOUND_PATHS[$last]="@scoped-tasks"
 fi
 
