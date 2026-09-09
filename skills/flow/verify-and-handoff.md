@@ -91,6 +91,13 @@ act before that is writing the same block to
 `skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its
 own system prompt>`.
 
+**The prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
 **Recording.** The conductor records each dispatch as a pair, `-role verifier`, `-task` omitted,
 `-model sonnet`, `-key verify` here and `visual-verify` in **Visual verification** below, suffixed
 `-<worktree basename>` when this run's resolved set holds more than one worktree — the pair's

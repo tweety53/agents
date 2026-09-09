@@ -316,6 +316,13 @@ for reading `final-review.diff` itself.
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
 
+**Every slot's dispatch prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
 **Every slot's dispatch prompt also carries the REPRODUCE, DON'T READ paragraph**:
 
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
@@ -739,6 +746,13 @@ against its defect identity. **Inline no source excerpt.**
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
+
+**Every fix subagent's dispatch prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
 **Every fix subagent's dispatch prompt also carries the TARGETED TESTS paragraph**:
 

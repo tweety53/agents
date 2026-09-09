@@ -64,6 +64,18 @@
 # entirely from review-panel.md; cases 28-30 are one case per required
 # phrase, each dropped in turn.
 #
+# Cases 31-34 cover KAN-473's TOOLS paragraph, required twice in each of
+# implement.md and review-panel.md and once in each of brainstorm.md and
+# verify-and-handoff.md: new_root now seeds every sandbox with a correct
+# TOOLS_BLOCK in brainstorm.md and verify-and-handoff.md by default (no
+# other case exercises either file), and case 1's review-panel.md and
+# implement.md fixtures (and every other case's, which still carry only
+# the paragraphs those cases' own SITE tables register) each gain two
+# TOOLS_BLOCK blocks. Case 31 is the label absent entirely from
+# brainstorm.md; cases 32-34 are one case per required phrase, each
+# dropped from one of implement.md's two TOOLS blocks in turn while the
+# other stays correct.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -100,11 +112,17 @@ trap cleanup EXIT
 
 # new_root -> sets ROOT to a fresh sandbox directory carrying
 # skills/flow/, matching the required-site table's scan-root-relative
-# paths.
+# paths. brainstorm.md and verify-and-handoff.md are required TOOLS sites
+# (min 1 block) that no case below otherwise exercises, so every root is
+# seeded with a correct TOOLS_BLOCK in each by default — a case testing
+# something else never has to think about these two files, and case 31
+# below is the one that overrides brainstorm.md's default.
 new_root() {
   ROOT="$(mktemp -d "${TMPDIR:-/tmp}/check-dispatch-paragraphs-test.XXXXXX")"
   DIRS+=("$ROOT")
   mkdir -p "$ROOT/skills/flow"
+  printf '%s\n' "$TOOLS_BLOCK" > "$ROOT/skills/flow/brainstorm.md"
+  printf '%s\n' "$TOOLS_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
 }
 
 # run_guard -> sets RC and OUT, running the real guard against $ROOT.
@@ -276,6 +294,33 @@ MUTATION_BLOCK_NO_SURVIVING_MUTANT='> **MUTATION PROOF:** every executable behav
 > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
 > than deciding it yourself.'
 
+# The TOOLS paragraph, reproduced verbatim from design.md, required at six
+# dispatch sites (KAN-473): implement.md and review-panel.md twice each,
+# brainstorm.md and verify-and-handoff.md once each.
+TOOLS_BLOCK='> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.'
+
+# Variants of TOOLS_BLOCK, each with exactly one required phrase dropped
+# while staying a plausible paragraph — cases 32-34.
+TOOLS_BLOCK_NO_FIRST_TURN='> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch before your first
+> tool call, before anything else. Never ToolSearch for a tool already listed, and never a
+> wildcard query: a schema loaded later changes your tool list and re-prices your whole context at
+> full input rate.'
+
+TOOLS_BLOCK_NO_WILDCARD='> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a broad query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.'
+
+TOOLS_BLOCK_NO_REPRICES='> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and costs your whole context again at full input
+> rate.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -285,10 +330,14 @@ write_site() {
 # Case 1: both required sites correct — exit 0. review-panel.md now
 # carries both the REPRODUCE reviewer block and the VERBATIM REPORT block,
 # plus two FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix
-# dispatch), one TARGETED TESTS block (panel-fix dispatch) and one
-# MUTATION PROOF block (panel-fix dispatch); implement.md carries two
-# FOREGROUND BUILDS blocks too (implementer dispatch, the conductor's own
-# §4 instruction) and one TARGETED TESTS block (implementer dispatch).
+# dispatch), one TARGETED TESTS block (panel-fix dispatch), one MUTATION
+# PROOF block (panel-fix dispatch) and two TOOLS blocks (panel slot,
+# panel-fix dispatch); implement.md carries two FOREGROUND BUILDS blocks
+# too (implementer dispatch, the conductor's own §4 instruction), one
+# TARGETED TESTS block (implementer dispatch) and two TOOLS blocks
+# (conductor dispatch, implementer dispatch). new_root already seeded
+# brainstorm.md and verify-and-handoff.md with their own required TOOLS
+# block.
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -301,7 +350,11 @@ $FOREGROUND_BLOCK
 
 $TARGETED_BLOCK
 
-$MUTATION_BLOCK"
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -310,7 +363,11 @@ $FOREGROUND_BLOCK
 
 $FOREGROUND_BLOCK
 
-$TARGETED_BLOCK"
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -1052,6 +1109,134 @@ run_guard
 case "$OUT" in
   *"a surviving mutant"*) pass "case 30: names the missing phrase" ;;
   *) fail "case 30: expected 'a surviving mutant' named in output, got: $OUT" ;;
+esac
+
+# review-panel.md and implement.md content matching case 1's fully-correct
+# fixtures, reused as the baseline for cases 31-34 below so only the one
+# TOOLS deficiency under test stands out.
+CLEAN_REVIEW_PANEL="$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK"
+
+CLEAN_IMPLEMENT="$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK"
+
+# ===========================================================================
+# Case 31: the TOOLS label is absent entirely from brainstorm.md (its
+# default seeded by new_root is overridden with prose and no block) —
+# exit 1, names brainstorm.md and the missing TOOLS block.
+# ===========================================================================
+new_root
+write_site "skills/flow/brainstorm.md" "No TOOLS paragraph here at all, just prose."
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 31: exits 1" || fail "case 31: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"brainstorm.md"*"TOOLS"*) pass "case 31: names brainstorm.md and TOOLS" ;;
+  *) fail "case 31: expected brainstorm.md and TOOLS named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 32: implement.md carries one correct TOOLS_BLOCK plus one variant
+# missing "in your first turn" — exit 1, names the dropped phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK_NO_FIRST_TURN"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 32: exits 1" || fail "case 32: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"in your first turn"*) pass "case 32: names the dropped phrase" ;;
+  *) fail "case 32: expected 'in your first turn' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 33: implement.md carries one correct TOOLS_BLOCK plus one variant
+# missing "never a wildcard query" — exit 1, names the dropped phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK_NO_WILDCARD"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 33: exits 1" || fail "case 33: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"never a wildcard query"*) pass "case 33: names the dropped phrase" ;;
+  *) fail "case 33: expected 'never a wildcard query' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 34: implement.md carries one correct TOOLS_BLOCK plus one variant
+# missing "re-prices your whole context" — exit 1, names the dropped
+# phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK_NO_REPRICES"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 34: exits 1" || fail "case 34: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"re-prices your whole context"*) pass "case 34: names the dropped phrase" ;;
+  *) fail "case 34: expected 're-prices your whole context' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

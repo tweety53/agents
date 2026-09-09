@@ -46,7 +46,8 @@ in that range itself with the token it was given.
 **The relay contract**, stated in the same prompt. The conductor has no channel to the operator and
 no task-list tool. It ends a turn only with one of three blocks, and never with a child subagent
 still in flight — it waits for every implementer, reviewer, slot and fix subagent it launched
-first:
+first. A turn that ends with a child running idles this role and the parent until the child
+finishes, and both re-price their whole context on resume.
 
 - `## Question` — the question plus named options; the parent asks it verbatim through
   **AskUserQuestion** and resumes the conductor via **SendMessage** with the answer. Every operator
@@ -57,6 +58,17 @@ first:
   updates the harness task list — the stage is the granularity on this branch, per **Progress
   visibility** (`skills/flow-contracts/pipeline.md`) — and resumes it with `continue`.
 - `## Handoff` carrying the `IN_PROGRESS` handoff block verbatim; the parent prints it unchanged.
+
+**The parent backstop.** A conductor return that names a child in flight — `awaiting`, `in flight`,
+a dispatch key with no `## Stage` end mark behind it — is not one of the three blocks above; the
+parent resumes it with `continue` in its very next action and never waits on a grandchild itself.
+
+The prompt also carries the TOOLS paragraph:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
 The first line of its first reply is `Model: <the model named in its own system prompt>`.
 
@@ -410,6 +422,11 @@ Every implementer dispatch **must** also carry:
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
 
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
 > **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
 > '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
@@ -499,13 +516,15 @@ read afterwards — and launches that do not depend on one another share one mes
 call. **A wait on a child is one foreground call, never a chain of idle calls:**
 
 ```bash
-for i in $(seq 1 110); do test -s <report> && break; sleep 5; done
+for i in $(seq 1 48); do test -s <report> && break; sleep 5; done
 test -s <report> && echo ready || echo still-running
 ```
 
 `<report>` is the file the child's REPORT FILE paragraph names — every child kind writes one as
 its last act, after its commit and its final test run, so the file's presence is the child's
-completion. The loop is bounded under the Bash tool's ten-minute cap; `still-running` re-issues
+completion. The loop is bounded at 240 s, under the prompt-cache TTL rather than the Bash tool's
+ten-minute cap: a wait longer than the TTL re-prices the whole context on return, while a bounded
+wait's `still-running` turn reads it at the cache rate and keeps it warm. `still-running` re-issues
 the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
 `skills/flow/review-panel.md`) is tracked across the calls. `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
