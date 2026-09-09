@@ -326,17 +326,21 @@ REPORT="$(awk -v cfg="$CFG" -v heading_re="$VV_HEADING" \
   }
 
   # One row of the settings table. The `Setting` vocabulary is closed —
-  # `ui paths`, `screenshots`, `regression checkout` and `regression repo` —
-  # matching this guard header above on why an unrecognised name is reported
-  # rather than silently skipped. `push to default branch` is deliberately
-  # not in this list: task 14 removed it from the contract, so a row naming
-  # it is now an unrecognised Setting like any other.
+  # `ui paths`, `screenshots`, `regression checkout`, `regression repo` and
+  # `mockups` — matching this guard header above on why an unrecognised name
+  # is reported rather than silently skipped. `push to default branch` is
+  # deliberately not in this list: task 14 removed it from the contract, so
+  # a row naming it is now an unrecognised Setting like any other. `mockups`
+  # is optional — no require_nonempty call below — and this guard validates
+  # neither that the directory it names exists nor any `<spec>.mockups`
+  # sidecar; that is compose-mockup-frames.sh's run-time question
+  # (design.md section 6).
   function check_setting_row(lineno, cells,   key, disp) {
     disp = trimcell(cells[1])
     key = foldcell(cells[1])
     if (key != "ui paths" && key != "screenshots" && key != "regression checkout" \
-        && key != "regression repo") {
-      violation(lineno, "Setting `" disp "` is not one of `ui paths`, `screenshots`, `regression checkout` or `regression repo` — the vocabulary is closed, so the row is dropped")
+        && key != "regression repo" && key != "mockups") {
+      violation(lineno, "Setting `" disp "` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo` or `mockups` — the vocabulary is closed, so the row is dropped")
       return
     }
     if (key in set_seen) {

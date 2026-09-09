@@ -852,6 +852,65 @@ assert_rc "case 31" 0
 assert_out_contains "case 31" "VISUAL-OK"
 assert_out_not_contains "case 31" "start"
 
+# ===========================================================================
+# Case 32 (KAN-449 task 3): `mockups` row is accepted -- `mockups` joins the
+# closed `Setting` vocabulary alongside `ui paths`, `screenshots`,
+# `regression checkout` and `regression repo`; declaring it beside the two
+# required settings is never reported as an unknown setting and never drops
+# the row, exactly as `start` joined the `Command` vocabulary in case 30.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual\` |
+| \`mockups\` | \`docs/design/screens\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 32" 0
+assert_out_contains "case 32" "VISUAL-OK"
+assert_out_not_contains "case 32" "vocabulary is closed"
+
+# ===========================================================================
+# Case 33 (KAN-449 task 3): the unrecognised-Setting message must name the
+# full five-word closed vocabulary -- `ui paths`, `screenshots`, `regression
+# checkout`, `regression repo` and `mockups` -- not just claim the vocabulary
+# is closed, the same pin case 29 applies to the `Command` list. Reuses case
+# 12's unknown-setting fixture (`push to default branch`).
+# ===========================================================================
+new_root
+CHECKOUT_DIR="$ROOT/checkout"
+DIRS+=("$CHECKOUT_DIR")
+make_git_checkout "$CHECKOUT_DIR" "git@github.com:tweety53/gymie-playwright.git"
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`.\` |
+| \`regression checkout\` | \`$CHECKOUT_DIR\` |
+| \`regression repo\` | \`git@github.com:tweety53/gymie-playwright.git\` |
+| \`push to default branch\` | \`allowed\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 33" 1
+assert_out_contains "case 33" "vocabulary is closed"
+assert_out_contains "case 33" "\`ui paths\`"
+assert_out_contains "case 33" "\`screenshots\`"
+assert_out_contains "case 33" "\`regression checkout\`"
+assert_out_contains "case 33" "\`regression repo\`"
+assert_out_contains "case 33" "\`mockups\`"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
