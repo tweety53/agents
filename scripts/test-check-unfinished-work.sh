@@ -307,9 +307,9 @@ assert_verdict "CLEAR:" "a finished change is CLEAR"
 
 # 1b. The other closed statuses are closed, not open.
 new_fixture
-set_findings fixed "withdrawn retracted, the guard already covers it" fixed
+set_findings fixed "withdrawn retracted, the guard already covers it" fixed "deferred cosmetic, not worth a fix round"
 run_guard "$WT" demo
-assert_verdict "CLEAR:" "fixed and withdrawn findings are closed, not open"
+assert_verdict "CLEAR:" "fixed, withdrawn and deferred findings are closed, not open"
 
 # 2. docs/manual-test/ is not a signal at all, even when a leftover guide is
 #    still sitting in the worktree at the moment the guard runs. The earlier
@@ -423,6 +423,12 @@ new_fixture
 set_findings "withdrawn the operator retracted it: the guard already covers this"
 run_guard "$WT" demo
 assert_verdict "CLEAR:" "a withdrawal with a reason is closed"
+
+# 4c'. A deferred finding, carrying its reason, is closed the same way.
+new_fixture
+set_findings "deferred cosmetic, not worth a fix round"
+run_guard "$WT" demo
+assert_verdict "CLEAR:" "a deferred finding is closed"
 
 # 4d. A store with no findings at all for this run is clean, whether that is
 #     because the run genuinely raised none or because the store has never

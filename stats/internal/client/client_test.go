@@ -830,6 +830,14 @@ func (stubStageStore) CacheEfficiency(context.Context, store.Period, *string, *s
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) Decisions(context.Context, store.Period, *string) ([]store.DecisionRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, errStageStoreNotImplemented
 }
@@ -910,6 +918,14 @@ func (stubStageStore) InsertSuiteRun(context.Context, string, records.SuiteRun) 
 }
 
 func (stubStageStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
+	return records.Decision{}, false, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errStageStoreNotImplemented
 }
 

@@ -100,9 +100,9 @@ rule the open-questions count reads through are stated once under **Open questio
 ## Implementation staged — review and test
 
 **Change:** <name>
-**Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired">
+**Panel:** (run-only) <the required slots, and the optional ones selected or "none — no triggers fired"> · <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>>
 **Staged:** <completed>/<total> tasks · <staged and uncommitted, committed and pushed to the PR branch, or committed and pushed with no PR — run 1 merged it or handed it over>
-**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted">
+**Records:** <all writes reached the store, "N write(s) journalled — the store was unreachable", or "unknown — the journal could not be counted"> · **Deferred:** <count of deferred Minors>
 **Guards:** (run-only) <all present, or how many were missing and checked by hand>
 **Jira description (pre-edit):** (run-only) <the text as it stood before the write, verbatim in a fenced block>
 
@@ -115,6 +115,9 @@ Running:
 Review the diff, then run it:
   <the review command that matches the git state on the Staged line — see below>
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
+
+### Deferred minors
+<one row per deferred Minor, `F<n> <location> — <note> — <reason>`, or `none` when there are none>
 
 <what the operator does next>
 
@@ -167,6 +170,13 @@ project's own configuration — not remembered from the run that printed them �
 resulting commands without re-probing whether the stack is still actually up — it states that the
 stack's liveness is not re-checked. Both commands resolve those lines the same way — see **Resolve
 the run instructions** (`skills/flow/verify-and-handoff.md`).
+
+**`Deferred` and `### Deferred minors` are on-disk, not `(run-only)`.** Both are filled from `flow
+record findings -change <name>` filtered on a status that starts with `deferred` — see **Write
+`IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`). `Deferred` is that count; the list below it
+is one row per such finding, `F<n> <location> — <note> — <reason>`, and reads `none` when the count
+is `0`. A deferred Minor is not an open finding — it does not block the handoff, and
+`/flow-status <name>` regenerates both by re-running the same query.
 
 **The `Staged` line's git state has a third option, and the review command follows it.**
 `/myflow-do` itself only ever emits the first two — it stages, or it commits and pushes to a PR
@@ -239,6 +249,23 @@ compare, never compare alone**: a recorded-but-unresolvable sha is `inconclusive
 equal to `HEAD`." See **Why "recorded but unresolvable" is the dangerous condition**
 (`skills/flow-contracts/handoff-blocks-rationale.md`) for why comparing it as a bare string is the
 mistake this guards against.
+
+## Context ceiling — clear and resume
+
+Printed only by an inline run (**Inline — the parent implements**, `skills/flow/implement.md`)
+when it stops at the context ceiling before a bundle or before the panel's pass 1 — never by
+`/flow-status`, since there is no run in progress at the moment of the stop to regenerate this
+from. The stop writes no state of its own; the next `/flow <name>` resumes under the existing
+re-entry rules, reading the decision already recorded for the change rather than re-rolling it.
+
+```text
+## Context ceiling — clear and resume
+
+Inline run stopped before `<next step>` with `<remaining>` tokens left. Paste:
+
+/clear
+/flow <name>
+```
 
 **`FINISHED`** has **no regenerated block**: the state is terminal and finished changes are omitted
 from the report, so there is nothing left waiting on the operator to hand off. `/myflow-finish`

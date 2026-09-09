@@ -363,6 +363,14 @@ func (fakeStore) CacheEfficiency(context.Context, store.Period, *string, *string
 	return nil, nil
 }
 
+func (fakeStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
+	return nil, nil
+}
+
+func (fakeStore) Decisions(context.Context, store.Period, *string) ([]store.DecisionRow, error) {
+	return nil, nil
+}
+
 func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, nil
 }
@@ -456,6 +464,14 @@ func (fakeStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (reco
 }
 
 func (fakeStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, nil
+}
+
+func (fakeStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
+	return records.Decision{}, false, nil
+}
+
+func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, nil
 }
 

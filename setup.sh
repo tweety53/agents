@@ -18,6 +18,7 @@ SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules"
 COMMANDS_CURSOR_SRC="$SCRIPT_DIR/commands"
 COMMANDS_CLAUDE_SRC="$SCRIPT_DIR/commands-claude"
+AGENTS_SRC="$SCRIPT_DIR/agents"
 HARNESS="${1:-}"
 PROJECT_DIR="${2:-.}"
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
@@ -225,6 +226,7 @@ install_claude_code() {
   info "Setting up for Claude Code in $PROJECT_DIR"
   install_skills "$PROJECT_DIR/.claude/skills"
   install_commands "$COMMANDS_CLAUDE_SRC" "$PROJECT_DIR/.claude/commands"
+  install_agents "$PROJECT_DIR/.claude/agents"
   if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]]; then
     cp "$SCRIPT_DIR/CLAUDE.md" "$PROJECT_DIR/CLAUDE.md"
     info "Copied CLAUDE.md to project root"
@@ -233,7 +235,7 @@ install_claude_code() {
   fi
   echo ""
   finish_banner "Claude Code" "$skipped_before"
-  echo "   Skills → .claude/skills/  Commands → .claude/commands/"
+  echo "   Skills → .claude/skills/  Commands → .claude/commands/  Agents → .claude/agents/"
   echo "   Next: in a Claude Code session, run /plugin install prime-radiant-inc/superpowers"
 }
 
@@ -548,6 +550,19 @@ install_commands() {
     [[ -f "$cmd_file" ]] || continue
     cmd_name=$(basename "$cmd_file")
     link_into "$cmd_file" "$target_dir/$cmd_name" "$cmd_name"
+  done
+}
+
+install_agents() {
+  local target_dir="$1" agent_file agent_name
+  [[ -d "$AGENTS_SRC" ]] || return 0
+  info "Installing agent definitions into $target_dir"
+  mkdir -p "$target_dir"
+  prune_stale_links "$target_dir"
+  for agent_file in "$AGENTS_SRC"/*.md; do
+    [[ -f "$agent_file" ]] || continue
+    agent_name=$(basename "$agent_file")
+    link_into "$agent_file" "$target_dir/$agent_name" "$agent_name"
   done
 }
 
@@ -1053,6 +1068,7 @@ install_global() {
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.claude/commands"
   install_commands "$COMMANDS_CURSOR_SRC" "$home_dir/.cursor/commands"
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.zcode/commands"
+  install_agents "$home_dir/.claude/agents"
   install_rules_cursor "$home_dir/.cursor/rules"
   # Claude Code's layer is two halves of one source: the core of each rule goes into the
   # managed block below, the full text is linked here, and the block's `Full rule:` pointer
@@ -1084,6 +1100,7 @@ install_global() {
   echo "              $home_dir/.zcode/commands/"
   echo "              No commands layer is installed for Codex — in a Codex session invoke a"
   echo "              skill by reading $home_dir/.codex/skills/<skill>/SKILL.md and following it."
+  echo "   Agents   → $home_dir/.claude/agents/"
   echo "   Rules    → $home_dir/.cursor/rules/, and the managed block in"
   echo "              $home_dir/.claude/CLAUDE.md, $home_dir/.codex/AGENTS.md and"
   echo "              $home_dir/.zcode/AGENTS.md"

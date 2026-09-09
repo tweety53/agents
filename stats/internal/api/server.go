@@ -317,6 +317,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("PATCH /api/v1/hazards/{project}/{name}", hz.retireHazard)
 	mux.HandleFunc("POST /api/v1/suites/{project}/runs", suh.recordSuiteRun)
 	mux.HandleFunc("GET /api/v1/suites/{project}/runs", suh.listSuiteRuns)
+	mux.HandleFunc("POST /api/v1/records/{project}/{change}/decisions", rh.recordDecision)
+	mux.HandleFunc("GET /api/v1/records/{project}/{change}/decisions", rh.listDecisions)
 	mux.HandleFunc("GET /api/v1/settings", seth.get)
 	mux.HandleFunc("PUT /api/v1/settings", seth.put)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
@@ -449,6 +451,10 @@ func writeErrorWithCode(w http.ResponseWriter, status int, code, msg string) {
 // refusal included, signals the store was reached and answered. That is
 // why 409 rather than, say, 503 was chosen for the refusal: it must never
 // share a status class with the failures the CLI's fallback exists for.
+// ErrDeferredNotMinor shares that same status and the same reasoning: a
+// `deferred <reason>` write against a Critical or Important finding is the
+// store having been reached and having correctly refused, never a reason to
+// journal a replay that would be refused identically every time.
 //
 // Every other typed error below gets its own deliberate status rather than
 // folding into a blanket 500, chosen by what kind of failure it actually
@@ -493,6 +499,8 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusUnprocessableEntity, err.Error()
 	case errors.Is(err, store.ErrFindingNotFound):
 		return http.StatusNotFound, err.Error()
+	case errors.Is(err, store.ErrDeferredNotMinor):
+		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrHazardDuplicate):
