@@ -54,6 +54,12 @@
 # `origin/main` looks up `origin/origin/main`, finds nothing, and passes
 # through unchanged); every verdict line names EFFECTIVE_REF rather than the
 # raw argument, so each names the ref the test actually ran against.
+#
+# HOW TO HAND-VERIFY A REFUSE VERDICT (KAN-446). Re-derive the refused signal
+# by hand: which of the branch states, the main checkout's branch, its
+# tracked changes, or stray worktrees fired. A main checkout mid-rebase or
+# carrying an unrelated staged file is a typical structural cause — fix the
+# cause, never the verdict.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -80,6 +80,17 @@
 # guard is never asked to judge a canonical change directory as if it were
 # one of its own parts.
 #
+# HOW TO HAND-VERIFY AN OUTSTANDING VERDICT (KAN-446). A verdict this guard
+# prints can be a structural false positive — the KAN-423 shape: a cross-repo
+# change whose plan resolves only in the canonical worktree, so the worktree
+# this verdict names holds neither signal. Verify from the primary records
+# before acting on the verdict: resolve the plan the way this guard does
+# (scripts/lib/change-plan.sh) and count column-0 `^- \[ \]` lines by hand;
+# run `flow record findings -change <name> -C <worktree>` and expect `[]`.
+# Both clean means the verdict was structural — record it (integrate.md's
+# false-positive course) rather than trusting it or silently overriding it.
+# Anything else means the verdict was right, and the courses it offers stand.
+#
 set -euo pipefail
 
 # NO ANSWER THIS GUARD GIVES MAY DEPEND ON THE CALLER'S LOCALE. Be precise about

@@ -92,6 +92,9 @@ On `OUTSTANDING` the operator is offered **exactly three** courses:
 | **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the planning commit's message and the handoff — and, where the operator called the verdict structural, records it as a guard false positive per **1. Check for unfinished work** (`skills/flow/integrate.md`) |
 | **File or join a Jira follow-up, then continue** | put the outstanding items on a follow-up issue — joining an open one where the operator confirms a candidate, otherwise filing a new one — then proceed |
 
+The breakdown is relayed with the guard's own hand-verification procedure, so the operator can
+verify before choosing, per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
+
 **Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**
 The gate only fires because something really is unfinished, and finishing it is the cheapest of the
 three to recover from — Continue is the only course that reaches an irreversible step, and it exists
@@ -131,7 +134,8 @@ the worktree. `<base-ref>` is composed as `origin/$BASE`, exactly as the preflig
 and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map for that
 worktree. The three verdicts — `CLEAR`, `MOVED` and `REFUSE` — and the exit contract are the
 script's own; see `<agents repo>/scripts/check-base-moved.sh`'s header rather than a copy of them
-here.
+here. A `MOVED` verdict that overlaps is prompted with the guard's hand-verification procedure
+relayed alongside it, per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
 
 Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
 read of the state file's `worktrees` map, for the same reason the preflight verdict and the

@@ -21,7 +21,9 @@ worktrees** (`skills/flow-contracts/finish-contract-run1.md`) — never a raw re
 
 - **`RUN1`** → this file (integrate)
 - **`RUN2`** from every worktree → `skills/flow/archive.md` <!-- refs-guard:allow -->
-- **`REFUSE`** → stop, report what the script reported, and ask the operator
+- **`REFUSE`** → stop, report what the script reported, relay the guard's hand-verification
+  procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
+  the operator
 - **A resolved set that comes back empty** → stop and ask, exactly as `REFUSE`
 - **No verdict line at all, and exit 2** → treat exactly as `REFUSE`
 
@@ -45,9 +47,10 @@ the link instead of reporting an absence.
 - **`CLEAR:` from every worktree** → continue to **2** with no extra prompt.
 - **A resolved set that comes back empty** → stop and ask the operator.
 - **`OUTSTANDING:`** → show the breakdown — and the guard's
-  `prior false positives for this guard on this project` stderr line when it printed — and offer
-  exactly three courses, shape per Operator prompts
-  (`skills/flow-contracts/operator-prompts.md`):
+  `prior false positives for this guard on this project` stderr line when it printed — relay the
+  guard's hand-verification procedure per **Hand-verifying a guard verdict**
+  (`skills/flow-contracts/pipeline.md`), and offer exactly three courses, shape per Operator
+  prompts (`skills/flow-contracts/operator-prompts.md`):
 
   > **This change carries unfinished work — how should integration proceed?**
   > - **Stop — I'll finish it first** *(recommended)*
@@ -88,7 +91,9 @@ flow stage begin -command '/flow' -stage flow.landing-question -harness <harness
 **Check whether the base branch has moved first.** Run `check-base-moved.sh` once per worktree in
 the resolved set, report every verdict, and ask only on overlap, per **Finish contract**
 (`skills/flow-contracts/finish-contract-run1.md`). On an overlap from any worktree, one aggregated
-prompt, shape per Operator prompts (`skills/flow-contracts/operator-prompts.md`):
+prompt — relay the guard's hand-verification procedure per **Hand-verifying a guard verdict**
+(`skills/flow-contracts/pipeline.md`) alongside the verdicts — shape per Operator prompts
+(`skills/flow-contracts/operator-prompts.md`):
 
 > **The base branch has moved and touches paths this change also touched — how should
 > integration proceed?**

@@ -112,7 +112,7 @@
    | Verdict | What run 2 does |
    |---------|-----------------|
    | `COMPLETE:` | report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 8 |
-   | `LEFTOVER:` | name what remains, **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
+   | `LEFTOVER:` | name what remains, relay the hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
 
    **A `SKIPPED:` clause on a `COMPLETE:` line is relayed, never dropped, and the two rows are
    symmetric for that reason.** The guard appends its notes to the verdict after ` — `, and a
