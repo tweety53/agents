@@ -348,8 +348,13 @@ it, comma-separated:
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md <id>[,<id>…] <canonical-worktree>
+  <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md <id>[,<id>…] <canonical-worktree> <shape>
 ```
+
+`<shape>` is this change's shape, computed once per run from the resolved worktree set — more than
+one repository → `cross-repo`, otherwise `single-repo` — and passed on every gather this run
+makes, this file's and `skills/flow/review-panel.md`'s alike. The bundle's `## hazards` section is
+filtered by it; a gather made without it carries only always-on hazards.
 
 where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
 `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
@@ -410,6 +415,11 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > actual diff and the actual code — the bundle is shared *input*, never a substitute for the source.
 > It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do
 > not need to open `<project>/.flow/project.md` yourself for them.
+
+> **PROJECT HAZARDS:** the bundle's `## hazards` section carries this project's recorded
+> warnings, filtered to this change's shape — each one names a way this project specifically
+> bites, recorded after it cost time. They are binding: read them before your first edit and
+> never argue one away without measuring.
 
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. When what you

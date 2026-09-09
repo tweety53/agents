@@ -40,6 +40,8 @@ commands:
   settings set         write the harness-wide settings record
   settings models      print the harness's fixed set of valid model identifiers
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
+  hazard add/remove    record, or retire, one per-project hazard (see: flow hazard)
+  hazards              print a project's hazards as a JSON array
   workspace-id <name>  print a change's workspace id, derived from its name
 `
 
@@ -66,6 +68,10 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		return runStage(ctx, args[1:], stdout, stderr)
 	case "record":
 		return runRecord(ctx, args[1:], stdout, stderr)
+	case "hazard":
+		return runHazard(ctx, args[1:], stdout, stderr)
+	case "hazards":
+		return runHazards(ctx, args[1:], stdout, stderr)
 	case "journal":
 		return runJournal(ctx, args[1:], stdout, stderr)
 	case "settings":

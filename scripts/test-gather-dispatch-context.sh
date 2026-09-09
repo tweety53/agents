@@ -33,6 +33,7 @@ pass() { printf 'ok: %s\n' "$1"; }
 # paths come from mktemp under TMPDIR, which may contain spaces, and
 # word-splitting a string would leak every sandbox whose path split.
 TREES=()
+TRASH=()
 cleanup() {
   [ "${#TREES[@]}" -eq 0 ] && return 0
   for tree in "${TREES[@]}"; do
@@ -187,6 +188,41 @@ echo "flow: unexpected invocation: \$*" >&2
 exit 1
 STUB
   chmod +x "$dest/flow"
+}
+
+# make_flow_hazard_stub_dir <dest-dir> <hazards-json> [<argv-file>] ->
+# make_flow_stub_dir's shape extended for kan-452: the stub also answers
+# `hazards -C <dir>` with <hazards-json> on stdout (so the ## incidents
+# section sees [] and skips while ## hazards renders), and, when
+# <argv-file> is given, records every argument it was invoked with -- one
+# per line -- so a case can assert the -shape value the script forwarded.
+make_flow_hazard_stub_dir() {
+  local dest="$1" json="$2" argvfile="${3:-}"
+  make_no_flow_dir "$dest"
+  {
+    printf '#!/usr/bin/env bash\n'
+    if [ -n "$argvfile" ]; then
+      printf 'printf '"'"'%%s\n'"'"' "$@" > "%s"\n' "$argvfile"
+    fi
+    printf 'if [ "$1" = "record" ] && [ "$2" = "incidents" ]; then\n'
+    printf "  echo '[]'\n  exit 0\nfi\n"
+    printf 'if [ "$1" = "hazards" ]; then\n'
+    printf "  cat <<'JSON'\n"
+    printf '%s\n' "$json"
+    printf 'JSON\n  exit 0\nfi\n'
+    printf 'echo "flow: unexpected invocation: $*" >&2\nexit 1\n'
+  } > "$dest/flow"
+  chmod +x "$dest/flow"
+}
+
+# capture8 <task-ids> <canonical-worktree> <shape> -> RC, ERR, OUT — the
+# eight-argument invocation (kan-452). Empty <shape> omits the argument
+# entirely, the fail-open call a shape-less caller makes.
+capture8() {
+  set +e
+  ERR="$("$SCRIPT" "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH" "$1" "$2" $3 2>&1 1>/dev/null)"
+  RC=$?
+  set -e
 }
 
 # capture7 <task-ids> <canonical-worktree> -> RC, ERR, OUT — the seven-
@@ -1292,6 +1328,109 @@ elif ! grep -qF 's2' "$OUTPUT_PATH"; then
   fail "incidents changed: new incident's symptom not in rebuilt bundle"
 else
   pass "a new incident changes the body hash, so the bundle is rebuilt"
+fi
+
+# ===========================================================================
+# CASES 84-88 (kan-452): the ## hazards section, sourced from
+# `flow hazards -C <worktree> -shape <shape>`. Each uses the restricted-PATH
+# pattern (make_flow_hazard_stub_dir / make_no_flow_dir), the incidents
+# cases' own mechanism.
+# ===========================================================================
+
+TWO_HAZARDS='[
+  {"id":2,"name":"commit-fields-guard-reverts-head-only","body":"Never stash, revert or reset inside a worktree a guard may read; inspect a timed-out guard call first","applies":"all","active":true,"createdAt":"2026-09-09T12:00:00Z"},
+  {"id":1,"name":"commit-fields-guard-single-repo","body":"pass the change own worktree, never a sibling","applies":"single-repo","active":true,"createdAt":"2026-09-09T11:00:00Z"}
+]'
+
+# CASE 84: a stub `flow` returning two hazards -> the bundle carries a
+# "## hazards" section with one "- **name (applies):** body" bullet per row,
+# and the census counts it as found.
+new_repo
+FLOW_DIR_84="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_84")
+make_flow_hazard_stub_dir "$FLOW_DIR_84" "$TWO_HAZARDS"
+PATH="$FLOW_DIR_84" capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+if [ "$RC" -ne 0 ]; then
+  fail "hazards with two rows: exited $RC: $OUT"
+elif ! printf '%s' "$OUT" | grep -q '^found: 5 source(s)'; then
+  fail "hazards with two rows: census does not count hazards as found: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF '## hazards'; then
+  fail "hazards with two rows: no ## hazards heading: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF -- '- **commit-fields-guard-reverts-head-only (all):** Never stash, revert or reset inside a worktree a guard may read; inspect a timed-out guard call first'; then
+  fail "hazards with two rows: expected all-shape bullet missing or malformed: $OUT"
+elif ! printf '%s' "$OUT" | grep -qF -- '- **commit-fields-guard-single-repo (single-repo):** pass the change own worktree, never a sibling'; then
+  fail "hazards with two rows: expected single-repo bullet missing: $OUT"
+else
+  pass "hazards with two rows: section present with one bullet per row, counted as found"
+fi
+
+# CASE 85: `flow hazards` returning [] -> "skipped: hazards (none)" and no
+# ## hazards section.
+new_repo
+FLOW_DIR_85="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_85")
+make_flow_hazard_stub_dir "$FLOW_DIR_85" '[]'
+PATH="$FLOW_DIR_85" capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+if [ "$RC" -ne 0 ]; then
+  fail "hazards empty: exited $RC: $OUT"
+elif ! printf '%s\n' "$OUT" | grep -qxF 'skipped: hazards (none)'; then
+  fail "hazards empty: no skipped-none line (exact): $OUT"
+elif printf '%s' "$OUT" | grep -qF '## hazards'; then
+  fail "hazards empty: ## hazards heading present despite empty array: $OUT"
+else
+  pass "hazards empty: skipped as (none), no section"
+fi
+
+# CASE 86: no `flow` on PATH -> "skipped: hazards (flow unavailable)", no
+# section, exit 0.
+new_repo
+NO_FLOW_DIR_86="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$NO_FLOW_DIR_86")
+make_no_flow_dir "$NO_FLOW_DIR_86"
+PATH="$NO_FLOW_DIR_86" capture "$REPO" "$CHANGE_ROOT" demo "$PRINCIPLES" "$OUTPUT_PATH"
+if [ "$RC" -ne 0 ]; then
+  fail "hazards no flow: exited $RC (expected 0): $OUT"
+elif ! printf '%s\n' "$OUT" | grep -qxF 'skipped: hazards (flow unavailable)'; then
+  fail "hazards no flow: no skipped-unavailable line (exact): $OUT"
+elif printf '%s' "$OUT" | grep -qF '## hazards'; then
+  fail "hazards no flow: ## hazards heading present with no flow on PATH: $OUT"
+else
+  pass "hazards no flow on PATH: skipped as (flow unavailable), exit 0"
+fi
+
+# CASE 87: an eighth argument of cross-repo is forwarded to `flow hazards`
+# as -shape cross-repo, asserted through the stub's argv record.
+new_repo
+FLOW_DIR_87="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_87")
+ARGV_87="$(mktemp "${TMPDIR:-/tmp}/gather-dispatch-test-argv.XXXXXX")"
+TRASH+=("$ARGV_87")
+make_flow_hazard_stub_dir "$FLOW_DIR_87" "$TWO_HAZARDS" "$ARGV_87"
+PATH="$FLOW_DIR_87" capture8 "" "" "cross-repo"
+if [ "$RC" -ne 0 ]; then
+  fail "shape forwarded: exited $RC: $OUT"
+elif ! grep -qx -- '-shape' "$ARGV_87" || ! grep -qx -- 'cross-repo' "$ARGV_87"; then
+  fail "shape forwarded: stub argv does not carry -shape cross-repo: $(cat "$ARGV_87" 2>/dev/null)"
+else
+  pass "eighth argument cross-repo forwarded to flow hazards as -shape cross-repo"
+fi
+
+# CASE 88: the eighth argument omitted or empty makes the stub receive
+# -shape all -- the fail-open rule: a caller that does not know the shape
+# gets the always-on rows, never a guess.
+new_repo
+FLOW_DIR_88="$(mktemp -d "${TMPDIR:-/tmp}/gather-dispatch-test-flow.XXXXXX")"
+TREES+=("$FLOW_DIR_88")
+ARGV_88="$(mktemp "${TMPDIR:-/tmp}/gather-dispatch-test-argv.XXXXXX")"
+TRASH+=("$ARGV_88")
+make_flow_hazard_stub_dir "$FLOW_DIR_88" "$TWO_HAZARDS" "$ARGV_88"
+PATH="$FLOW_DIR_88" capture8 "" "" ""
+if [ "$RC" -ne 0 ]; then
+  fail "shape fail-open: exited $RC: $OUT"
+elif ! grep -qx -- 'all' "$ARGV_88"; then
+  fail "shape fail-open: stub argv does not carry -shape all: $(cat "$ARGV_88" 2>/dev/null)"
+else
+  pass "shape omitted: stub still receives -shape all (fail-open)"
 fi
 
 # ===========================================================================

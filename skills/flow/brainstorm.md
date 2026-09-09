@@ -126,6 +126,11 @@ it has any — or, at the three returns below, with `## Design`, `## Artifacts` 
 nothing else. The first line of its first reply is `Model: <the model named in its own system
 prompt>`.
 
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
 **The handshake.** Compare that first line against `PLANNING_MODEL`. A match proceeds into the
 relay loop below. A mismatch:
 

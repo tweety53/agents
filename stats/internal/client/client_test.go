@@ -893,6 +893,18 @@ func (stubStageStore) ListIncidents(context.Context, string) ([]records.Incident
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
+	return records.Hazard{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) RetireHazard(context.Context, string, string) (records.Hazard, error) {
+	return records.Hazard{}, errStageStoreNotImplemented
+}
+
 var _ api.RecordStore = stubStageStore{}
 
 // ProjectKeysByDisplayName is here for the same reason

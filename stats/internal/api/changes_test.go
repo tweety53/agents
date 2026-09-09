@@ -79,6 +79,13 @@ type fakeStore struct {
 	recordIncidentErr error
 	listIncidentsErr  error
 
+	// --- hazard bookkeeping (KAN-452, internal/api/hazards_test.go's
+	// fakeStore methods operate on these) ---
+	hazards        []hazardRecord
+	nextHazardID   int64
+	addHazardErr   error
+	listHazardsErr error
+
 	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
 	// the args ListVerdicts was last called with, so a test can assert the
 	// handler forwarded the query it parsed rather than merely that some

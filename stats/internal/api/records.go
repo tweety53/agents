@@ -51,6 +51,13 @@ type RecordStore interface {
 	ListVerdicts(ctx context.Context, projectKey, guard string, falsePositiveOnly bool) ([]records.Verdict, error)
 	RecordIncident(ctx context.Context, projectKey string, in records.Incident) (records.Incident, error)
 	ListIncidents(ctx context.Context, projectKey string) ([]records.Incident, error)
+
+	// AddHazard, ListHazards and RetireHazard are KAN-452's hazard
+	// methods -- the proactive sibling of the guard-log pair above, and on
+	// RecordStore for the same reason.
+	AddHazard(ctx context.Context, projectKey string, h records.Hazard) (records.Hazard, error)
+	ListHazards(ctx context.Context, projectKey, shape string, includeInactive bool) ([]records.Hazard, error)
+	RetireHazard(ctx context.Context, projectKey, name string) (records.Hazard, error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the

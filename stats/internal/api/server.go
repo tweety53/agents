@@ -289,6 +289,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	sh := &stageHandler{store: ss, logger: logger}
 	sth := &statsHandler{store: sts, logger: logger}
 	rh := &recordHandler{store: rs, logger: logger}
+	hz := &hazardHandler{store: rs, logger: logger}
 	seth := &settingsHandler{store: sets, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
@@ -310,6 +311,9 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/verdicts/{project}", rh.listVerdicts)
 	mux.HandleFunc("POST /api/v1/incidents/{project}", rh.recordIncident)
 	mux.HandleFunc("GET /api/v1/incidents/{project}", rh.listIncidents)
+	mux.HandleFunc("POST /api/v1/hazards/{project}", hz.addHazard)
+	mux.HandleFunc("GET /api/v1/hazards/{project}", hz.listHazards)
+	mux.HandleFunc("PATCH /api/v1/hazards/{project}/{name}", hz.retireHazard)
 	mux.HandleFunc("GET /api/v1/settings", seth.get)
 	mux.HandleFunc("PUT /api/v1/settings", seth.put)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
@@ -488,6 +492,12 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound):
 		return http.StatusNotFound, err.Error()
+	case errors.Is(err, store.ErrHazardDuplicate):
+		return http.StatusConflict, err.Error()
+	case errors.Is(err, store.ErrHazardNotFound):
+		return http.StatusNotFound, err.Error()
+	case errors.Is(err, store.ErrInvalidHazardShape):
+		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrTooManyAttemptCollisions):
 		return http.StatusServiceUnavailable, err.Error()
 	case errors.Is(err, store.ErrTooManyDispatchSeqCollisions):
