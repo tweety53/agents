@@ -79,28 +79,6 @@ type fakeStore struct {
 	recordIncidentErr error
 	listIncidentsErr  error
 
-	// --- hazard bookkeeping (KAN-452, internal/api/hazards_test.go's
-	// fakeStore methods operate on these) ---
-	hazards        []hazardRecord
-	nextHazardID   int64
-	addHazardErr   error
-	listHazardsErr error
-
-	// --- suite-run bookkeeping (KAN-252, internal/api/suites_test.go's
-	// fakeStore methods operate on these) ---
-	suiteRuns         []suiteRunRecord
-	nextSuiteRunID    int64
-	insertSuiteRunErr error
-	listSuiteRunsErr  error
-
-	// --- decision bookkeeping (internal/api/records_test.go's fakeStore
-	// methods operate on these) ---
-	decisions      []decisionRecord
-	nextDecisionID int64
-
-	recordDecisionErr error
-	listDecisionsErr  error
-
 	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
 	// the args ListVerdicts was last called with, so a test can assert the
 	// handler forwarded the query it parsed rather than merely that some
@@ -126,10 +104,6 @@ type fakeStore struct {
 	trendOverTimeErr    error
 	cacheEfficiency     []store.CacheEfficiencyRow
 	cacheEfficiencyErr  error
-	reviewers           []store.ReviewerRow
-	reviewersErr        error
-	decisionRows        []store.DecisionRow
-	decisionRowsErr     error
 
 	// lastStatsProject records the project pointer passed to whichever
 	// aggregation method a stats test just called, so a test can assert

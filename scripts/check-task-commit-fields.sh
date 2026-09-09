@@ -40,14 +40,6 @@
 # or a resolution that fails, still ends in the same "no tasks.md found"
 # refusal as before.
 #
-# THE ABSENT-DIR SHAPE (KAN-260). A cross-repo worktree may carry no change
-# directory at all — the plan lives only in the canonical repo. With the
-# change name passed as the sixth argument, the named-change path hands the
-# question to change_plan_path, whose absent-dir branch resolves the
-# same-named plan from the SUPPLIED canonical worktree; with no canonical
-# worktree, or no name, the refusal stands, because nothing here names
-# where the plan lives.
-#
 # A LINK-ONLY DIRECTORY IS NEVER COUNTED TOWARD THE ROOT-CHANGE AMBIGUITY
 # TEST below either, for the same reason a `<name>-fix-N` sibling is not: a
 # satellite carries no `tasks.md`, so the `*/tasks.md` glob that test is
@@ -203,12 +195,7 @@ if [ -n "$CHANGE_NAME" ]; then
     done
     CHOSEN="$(highest_fix_sibling "$CHANGES_DIR" "$CHANGE_NAME" "${FIX_CANDIDATES[@]+"${FIX_CANDIDATES[@]}"}")"
     TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"
-  else
-    # One resolver for every shape without a local tasks.md: a satellite's
-    # link.md, and — KAN-260 — NO change directory here at all, where the
-    # plan lives only in the canonical worktree the caller supplied.
-    # change_plan_path owns both branches and their containment rules; every
-    # shape it cannot resolve still reaches the refusal below.
+  elif [ -f "$ROOT_DIR/link.md" ]; then
     TASKS_MD="$(change_plan_path "$WORKTREE" "$CHANGE_NAME" "$CANONICAL_WORKTREE" 2>/dev/null || true)"
   fi
 

@@ -48,15 +48,6 @@ type StatsStore interface {
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	TrendOverTime(ctx context.Context, period store.Period, project, model *string) ([]store.TrendPoint, error)
 	CacheEfficiency(ctx context.Context, period store.Period, project, model *string) ([]store.CacheEfficiencyRow, error)
-	// Reviewers backs the "reviewers" view (design.md's "Stats views ›
-	// reviewers", task 16): one row per review-panel slot's dispatch and
-	// finding record within period.
-	Reviewers(ctx context.Context, period store.Period, project, model *string) ([]store.ReviewerRow, error)
-	// Decisions backs the "decisions" view (design.md's "Stats views ›
-	// decisions", task 17): one row per recorded planner decision joined to
-	// its own run's totals. It takes no model filter -- a decision spans
-	// models (store.DecisionRow's own doc comment).
-	Decisions(ctx context.Context, period store.Period, project *string) ([]store.DecisionRow, error)
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
@@ -100,8 +91,6 @@ const (
 	viewStageLeaderboard viewName = "stage-leaderboard"
 	viewTrend            viewName = "trend"
 	viewCacheEfficiency  viewName = "cache-efficiency"
-	viewReviewers        viewName = "reviewers"
-	viewDecisions        viewName = "decisions"
 )
 
 // knownViews is every accepted {view} path value, used both to dispatch and
@@ -110,7 +99,7 @@ const (
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
 	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend,
-	viewCacheEfficiency, viewReviewers, viewDecisions,
+	viewCacheEfficiency,
 }
 
 func acceptedViewNames() string {
@@ -506,22 +495,6 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		}
 		return toCacheEfficiencyDTOs(eff), 0, ""
 
-	case viewReviewers:
-		reviewers, err := h.store.Reviewers(ctx, period, project, model)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "reviewers", err)
-			return nil, s, m
-		}
-		return toReviewerDTOs(reviewers), 0, ""
-
-	case viewDecisions:
-		decisions, err := h.store.Decisions(ctx, period, project)
-		if err != nil {
-			s, m := mapStoreError(h.logger, "decisions", err)
-			return nil, s, m
-		}
-		return toDecisionDTOs(decisions), 0, ""
-
 	default:
 		return nil, http.StatusBadRequest, fmt.Sprintf("unrecognised view %q; accepted: %s", name, acceptedViewNames())
 	}
@@ -721,93 +694,6 @@ func toCacheEfficiencyDTOs(rows []store.CacheEfficiencyRow) []cacheEfficiencyRow
 		out[i] = cacheEfficiencyRowDTO{
 			Command: r.Command, Stage: r.Stage,
 			CacheReadTotal: r.CacheReadTotal, CacheCreationTotal: r.CacheCreationTotal, Ratio: r.Ratio,
-		}
-	}
-	return out
-}
-
-type reviewerRowDTO struct {
-	Slot         string `json:"slot"`
-	Experimental bool   `json:"experimental"`
-	Description  string `json:"description"`
-
-	Dispatches int `json:"dispatches"`
-	Changes    int `json:"changes"`
-	Critical   int `json:"critical"`
-	Important  int `json:"important"`
-	Minor      int `json:"minor"`
-
-	FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-	DeferredShare       float64 `json:"deferredShare"`
-	WithdrawnShare      float64 `json:"withdrawnShare"`
-}
-
-func toReviewerDTOs(rows []store.ReviewerRow) []reviewerRowDTO {
-	out := make([]reviewerRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = reviewerRowDTO{
-			Slot: r.Slot, Experimental: r.Experimental, Description: r.Description,
-			Dispatches: r.Dispatches, Changes: r.Changes,
-			Critical: r.Critical, Important: r.Important, Minor: r.Minor,
-			FindingsPerDispatch: r.FindingsPerDispatch,
-			DeferredShare:       r.DeferredShare,
-			WithdrawnShare:      r.WithdrawnShare,
-		}
-	}
-	return out
-}
-
-type decisionRowDTO struct {
-	Project    string `json:"project"`
-	Change     string `json:"change"`
-	RecordedAt string `json:"recordedAt"`
-
-	Class      string `json:"class"`
-	Overridden bool   `json:"overridden"`
-	Execution  string `json:"execution"`
-
-	ImplementerModel  string `json:"implementerModel"`
-	ImplementerEffort string `json:"implementerEffort"`
-
-	RosterSize       int    `json:"rosterSize"`
-	Compact          bool   `json:"compact"`
-	ExperimentalSlot string `json:"experimentalSlot"`
-	Rerun            string `json:"rerun"`
-
-	Grouping          string `json:"grouping"`
-	Dispatches        string `json:"dispatches"`
-	ImplementerGroups string `json:"implementerGroups"`
-
-	WallClockSeconds float64 `json:"wallClockSeconds"`
-
-	InputTokens     int64   `json:"inputTokens"`
-	OutputTokens    int64   `json:"outputTokens"`
-	CacheReadTokens int64   `json:"cacheReadTokens"`
-	CostUsd         float64 `json:"costUsd"`
-
-	Critical  int `json:"critical"`
-	Important int `json:"important"`
-	Minor     int `json:"minor"`
-	FixRounds int `json:"fixRounds"`
-
-	Fallbacks int `json:"fallbacks"`
-	TimedOut  int `json:"timedOut"`
-}
-
-func toDecisionDTOs(rows []store.DecisionRow) []decisionRowDTO {
-	out := make([]decisionRowDTO, len(rows))
-	for i, r := range rows {
-		out[i] = decisionRowDTO{
-			Project: r.Project, Change: r.Change, RecordedAt: r.RecordedAt.UTC().Format(time.RFC3339Nano),
-			Class: r.Class, Overridden: r.Overridden, Execution: r.Execution,
-			ImplementerModel: r.ImplementerModel, ImplementerEffort: r.ImplementerEffort,
-			RosterSize: r.RosterSize, Compact: r.Compact, ExperimentalSlot: r.ExperimentalSlot, Rerun: r.Rerun,
-			Grouping: r.Grouping, Dispatches: r.Dispatches, ImplementerGroups: r.ImplementerGroups,
-			WallClockSeconds: r.WallClockSeconds,
-			InputTokens:      r.InputTokens, OutputTokens: r.OutputTokens, CacheReadTokens: r.CacheReadTokens,
-			CostUsd:  r.CostUsd,
-			Critical: r.Critical, Important: r.Important, Minor: r.Minor, FixRounds: r.FixRounds,
-			Fallbacks: r.Fallbacks, TimedOut: r.TimedOut,
 		}
 	}
 	return out

@@ -363,14 +363,6 @@ func (fakeStore) CacheEfficiency(context.Context, store.Period, *string, *string
 	return nil, nil
 }
 
-func (fakeStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
-	return nil, nil
-}
-
-func (fakeStore) Decisions(context.Context, store.Period, *string) ([]store.DecisionRow, error) {
-	return nil, nil
-}
-
 func (fakeStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, nil
 }
@@ -444,34 +436,6 @@ func (fakeStore) RecordIncident(context.Context, string, records.Incident) (reco
 }
 
 func (fakeStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
-	return nil, nil
-}
-
-func (fakeStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
-	return records.Hazard{}, nil
-}
-
-func (fakeStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
-	return nil, nil
-}
-
-func (fakeStore) RetireHazard(context.Context, string, string) (records.Hazard, error) {
-	return records.Hazard{}, nil
-}
-
-func (fakeStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
-	return records.SuiteRun{}, nil
-}
-
-func (fakeStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
-	return nil, nil
-}
-
-func (fakeStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
-	return records.Decision{}, false, nil
-}
-
-func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, nil
 }
 

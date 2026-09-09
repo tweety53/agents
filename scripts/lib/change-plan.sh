@@ -15,14 +15,7 @@
 # Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
 #
 #   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path.
-#   2. Otherwise, no change DIRECTORY for <name> exists here at all (the
-#      cross-repo shape where the plan lives only in the canonical repo) and
-#      a canonical worktree argument was passed → the same-named plan under
-#      the canonical worktree's own <spec-root>/changes/, if it exists. The
-#      gate is the absent DIRECTORY, not merely an absent tasks.md, so a
-#      satellite's link resolution below is never preempted
-#      (design.md's no-fallback-for-linked-satellites).
-#   3. Otherwise, <worktree>/<spec-root>/changes/<name>/link.md exists and
+#   2. Otherwise, <worktree>/<spec-root>/changes/<name>/link.md exists and
 #      carries `## Part of`:
 #        - a canonical worktree argument was passed → its own
 #          <spec-root>/changes/<canonical-id>/tasks.md, if that exists;
@@ -37,7 +30,7 @@
 #          a finding (design.md's `peer-absence-is-not-a-finding`) and,
 #          here, not a refusal either — it is simply unresolvable, and the
 #          caller decides what that means.
-#   4. None of the above → unresolvable.
+#   3. Neither → unresolvable.
 #
 # WHY THIS DOES NOT FALL BACK TO changes/archive/ THE WAY spectre's own
 # `internal/check` does for the peer side of a link (task 2's
@@ -185,25 +178,6 @@ _change_plan_resolve_dir() {
   if [ -f "$dir/tasks.md" ]; then
     printf '%s\n' "$dir"
     return 0
-  fi
-
-  # THE ABSENT-DIR BRANCH (KAN-260): this tree carries NO change directory
-  # at all for the named change — the cross-repo shape where the plan lives
-  # only in the canonical repo — so the same-named plan resolves directly
-  # from the SUPPLIED canonical worktree, with no link.md to read and no
-  # store to query. Gated on the DIRECTORY being absent, not merely
-  # tasks.md: a satellite (a dir carrying only link.md) keeps link
-  # resolution and its loud failures below, so the canonical worktree is
-  # never retried behind link.md's back (design.md's
-  # no-fallback-for-linked-satellites).
-  if [ ! -d "$dir" ] && [ -n "$canonical_worktree" ]; then
-    local absent_leaf absent_dir
-    absent_leaf="$(spec_root_leaf "$canonical_worktree")"
-    absent_dir="$canonical_worktree/$absent_leaf/changes/$name"
-    if [ -f "$absent_dir/tasks.md" ]; then
-      printf '%s\n' "$absent_dir"
-      return 0
-    fi
   fi
 
   local link="$dir/link.md"

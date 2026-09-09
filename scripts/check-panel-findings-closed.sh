@@ -75,10 +75,9 @@ fi
 rm -f "$FINDINGS_ERR"
 
 # An open finding is any finding whose status is neither `fixed` nor a
-# `withdrawn <reason>` or `deferred <reason>` value — `startswith("withdrawn")`
-# and `startswith("deferred")` each cover their whole family, reason text
-# included, without comparing the reason itself.
-if ! OPEN_REFS="$(printf '%s' "$FINDINGS_JSON" | jq -r '[.[] | select((.status != "fixed") and (.status | startswith("withdrawn") | not) and (.status | startswith("deferred") | not)) | .ref] | join(" ")')"; then
+# `withdrawn <reason>` value — `startswith("withdrawn")` covers the whole
+# family, reason text included, without comparing the reason itself.
+if ! OPEN_REFS="$(printf '%s' "$FINDINGS_JSON" | jq -r '[.[] | select((.status != "fixed") and (.status | startswith("withdrawn") | not)) | .ref] | join(" ")')"; then
   echo "check-panel-findings-closed: jq failed — cannot determine anything" >&2
   exit 2
 fi

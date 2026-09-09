@@ -2,7 +2,6 @@ package client_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -385,57 +384,5 @@ func TestListVerdictsAndIncidentsReadArrays(t *testing.T) {
 	}
 	if len(gotIncidents) != 0 {
 		t.Errorf("incidents = %+v, want an empty slice for an empty array", gotIncidents)
-	}
-}
-
-// TestClientRecordDecisionRoundTrip drives RecordDecision and ListDecisions
-// against one server that actually stores what it is posted -- a genuine
-// round trip, not a client reading back a canned response -- so a mismatch
-// between what the client sends and what it later expects to read fails
-// here rather than only in the daemon's own route test.
-func TestClientRecordDecisionRoundTrip(t *testing.T) {
-	var stored []records.Decision
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/records/proj/kan-1/decisions":
-			var in records.Decision
-			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-				t.Fatalf("decode POST decisions body: %v", err)
-			}
-			in.ID = int64(len(stored) + 1)
-			in.RecordedAt = time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
-			stored = append([]records.Decision{in}, stored...)
-			w.WriteHeader(http.StatusCreated)
-			body, _ := json.Marshal(in)
-			_, _ = w.Write(body)
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/records/proj/kan-1/decisions":
-			w.WriteHeader(http.StatusOK)
-			body, _ := json.Marshal(stored)
-			_, _ = w.Write(body)
-		default:
-			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
-		}
-	}))
-	defer srv.Close()
-
-	c := client.New(srv.URL, srv.Client())
-	in := records.Decision{SessionToken: "mf-decide-1", Decision: json.RawMessage(`{"class":"regular"}`)}
-	recorded, created, err := c.RecordDecision(context.Background(), "proj", "kan-1", in)
-	if err != nil {
-		t.Fatalf("RecordDecision: %v", err)
-	}
-	if !created {
-		t.Errorf("RecordDecision created = false, want true for a brand-new session token")
-	}
-	if recorded.SessionToken != "mf-decide-1" || string(recorded.Decision) != `{"class":"regular"}` {
-		t.Fatalf("RecordDecision returned %+v, want the daemon's own stored row", recorded)
-	}
-
-	got, err := c.ListDecisions(context.Background(), "proj", "kan-1")
-	if err != nil {
-		t.Fatalf("ListDecisions: %v", err)
-	}
-	if len(got) != 1 || got[0].SessionToken != "mf-decide-1" {
-		t.Fatalf("ListDecisions = %+v, want the one decision just recorded", got)
 	}
 }

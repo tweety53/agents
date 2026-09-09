@@ -35,15 +35,6 @@
 # into `sort`/`comm`/`wc` — the reasoning check-finish-preflight.sh's signal
 # (d) comment already records, cited rather than restated here. A failing
 # invocation is exit 2 with a named message, never a CLEAR.
-#
-# HOW TO HAND-VERIFY A MOVED VERDICT (KAN-446). Recount the commits yourself
-# with `git rev-list <recorded-merge-base>..<ref>`, `<ref>` being the one the
-# verdict line names (EFFECTIVE_REF — not always the bare argument), and
-# intersect the verdict's `overlaps:` paths with the change's own touched
-# paths — which include the index and the working tree, exactly as this guard
-# counts them. A stale recorded merge base — one recorded before a rebase
-# this pipeline performed — is the known structural cause of a movement that
-# is not real.
 set -euo pipefail
 export LC_ALL=C
 

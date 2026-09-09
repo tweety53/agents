@@ -47,38 +47,22 @@ import (
 // list lives here rather than behind a package of its own.
 var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier"}
 
-// recordEfforts is the closed set `-effort` accepts: the three efforts the
-// harness exposes, plus `default` -- the literal that means no effort was
-// set for this dispatch. Checked before the store is ever contacted, for
-// the same reason recordRoles is: an unrecognised effort is a caller
-// mistake, and letting it fall through to the never-block fallback would
-// journal a write a replay could only ever be refused for a second time.
-var recordEfforts = []string{"low", "medium", "high", "default"}
-
 // validateFindingStatus judges a finding's status the way validateRole
 // judges -role, before the store is ever contacted: "open" and "fixed" are
-// the two terminal words, and "withdrawn" and "deferred" are each legal
-// only carrying a reason -- a bare "withdrawn" or "deferred" (or one
-// trailing only whitespace) names nothing a reader could act on, so it is
-// refused here rather than stored. "deferred <reason>" is design.md's
-// `deferred <reason>` section: the CLI accepts the shape exactly as it
-// accepts "withdrawn <reason>", and it is the store's SetFindingStatus,
-// not this validator, that refuses it on any severity but Minor.
+// the two terminal words, and "withdrawn" is legal only carrying a reason
+// -- a bare "withdrawn" (or one trailing only whitespace) names nothing a
+// reader could act on, so it is refused here rather than stored.
 func validateFindingStatus(status string) error {
 	if status == "open" || status == "fixed" {
 		return nil
 	}
-	for _, prefix := range []string{"withdrawn", "deferred"} {
-		rest, ok := strings.CutPrefix(status, prefix)
-		if !ok {
-			continue
-		}
+	if rest, ok := strings.CutPrefix(status, "withdrawn"); ok {
 		first, _ := utf8.DecodeRuneInString(rest)
 		if unicode.IsSpace(first) && strings.TrimSpace(rest) != "" {
 			return nil
 		}
 	}
-	return fmt.Errorf("-status %q is not one of: open, fixed, withdrawn <reason>, deferred <reason>", status)
+	return fmt.Errorf("-status %q is not one of: open, fixed, withdrawn <reason>", status)
 }
 
 // validateFindingReproducer judges a finding's -reproducer before the store
@@ -132,10 +116,6 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -kind ledger|panel|all -repo dir
        flow record journal-count [-C dir] -change name
        flow record cost-status [-addr url] [-timeout dur] [-C dir] -change name
-       flow record decision  [-addr url] [-timeout dur] [-C dir]
-                             -change name -session-token token -file path
-       flow record decisions [-addr url] [-timeout dur] [-C dir]
-                             -change name
 
 A record write never blocks: on any store failure the intent is journalled,
 one warning line is printed, and the command exits 0. A caller must never
@@ -189,17 +169,6 @@ archived -- so incident offers -change only optionally. -minutes-lost must
 parse as a non-negative integer, checked before the store is ever
 contacted.
 
-decision and decisions carry one run's dynamic decision -- the whole
-` + "`## Decision`" + ` block a plan return appends -- so a resumed run can recover
-the roster and model a stopped run already chose instead of re-rolling.
-decision reads its whole body from -file (a path, or "-" to read it from
-stdin), validates -session-token and the body as JSON before the store is
-ever contacted, journals on store failure like every other write, and
-prints "recorded: decision <id>" on success -- one word, since a decision
-recorded twice under the same -session-token replaces the row rather than
-appending a second one. decisions prints a change's recorded decisions as a
-JSON array, newest first, findings' own read contract, verbatim.
-
 The only non-zero exits are caller mistakes -- a missing required flag, an
 unrecognised -role, a -session-token carrying a shell substitution, or a
 -minutes-lost that does not parse as a non-negative integer -- a write the
@@ -246,7 +215,7 @@ the shape no check at this layer can catch.
 // runRecord implements `flow record`. Every subcommand but `render` and
 // `journal-count` writes a record and shares the never-block fallback;
 // `render` alone reads one back and turns it into Markdown.
-func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+func runRecord(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, recordUsage)
 		return 2
@@ -275,10 +244,6 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordJournalCount(args[1:], stdout, stderr)
 	case "cost-status":
 		return runRecordCostStatus(ctx, args[1:], stdout, stderr)
-	case "decision":
-		return runRecordDecision(ctx, args[1:], stdin, stdout, stderr)
-	case "decisions":
-		return runRecordDecisions(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -419,9 +384,8 @@ func recordJournalPath(projectKey, name string) string {
 }
 
 // recordJournalBody is what gets journalled for a record write that could
-// not reach the store: the write's own kind ("dispatch", "finding",
-// "status" or "decision") alongside the exact wire request that would have
-// been sent, so
+// not reach the store: the write's own kind ("dispatch", "finding" or
+// "status") alongside the exact wire request that would have been sent, so
 // the reconciler has everything it needs to replay it without this file
 // needing a second encoding. It is the same shape stageMarkJournalBody
 // carries, for the same reason.
@@ -570,7 +534,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	role := fset.String("role", "", "one of: "+strings.Join(recordRoles, ", ")+" (required)")
 	slot := fset.String("slot", "", "the review-panel slot, where the role is a panel slot")
 	model := fset.String("model", "", "the model this dispatch ran on, as recorded intent -- the literal \"unknown (agent-defined)\" where it cannot be read, never a guess (required)")
-	effort := fset.String("effort", "default", "the effort this dispatch ran at -- one of: "+strings.Join(recordEfforts, ", ")+" -- recorded, never handshaken, since a model cannot report its own effort")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where it exposes one -- optional, since two of the three supported harnesses expose none")
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta -- optional, since an implementer and a slot reading the whole diff record none")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
@@ -591,10 +554,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 	}
 	if !slices.Contains(recordRoles, *role) {
 		fmt.Fprintf(stderr, "flow: -role %q is not one of: %s\n", *role, strings.Join(recordRoles, ", "))
-		return 2
-	}
-	if !slices.Contains(recordEfforts, *effort) {
-		fmt.Fprintf(stderr, "flow: -effort %q is not one of: %s\n", *effort, strings.Join(recordEfforts, ", "))
 		return 2
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
@@ -620,7 +579,6 @@ func runRecordDispatchBegin(ctx context.Context, args []string, stdout, stderr i
 		Role:         *role,
 		Slot:         *slot,
 		Model:        *model,
-		Effort:       *effort,
 		DiffBase:     *diffBase,
 		SessionToken: *sessionToken,
 		StartedAt:    started,
@@ -1464,117 +1422,6 @@ func runRecordIncidents(ctx context.Context, args []string, stdout, stderr io.Wr
 	body, err := json.Marshal(out)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: encode incidents: %v\n", err)
-		return 1
-	}
-	fmt.Fprintln(stdout, string(body))
-	return 0
-}
-
-// runRecordDecision implements `flow record decision`: one run's dynamic
-// decision, recorded once per -session-token so a resumed run can read it
-// back rather than re-rolling. -file names the whole JSON body -- a path,
-// or "-" to read it from stdin -- rather than a flag per field, because the
-// decision is a planner-authored block (design.md's `## Decision`), not a
-// handful of scalars a shell command line can carry cleanly.
-//
-// -session-token and the body are both validated before the store is ever
-// contacted, the identical caller-mistake contract every other required
-// flag on this command carries: an empty token is refused by
-// requireRecordFlags, a shell-substitution token by validateSessionToken,
-// and a body that is not valid JSON by json.Valid, all before callRecord
-// ever dials out.
-func runRecordDecision(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("flow record decision", flag.ContinueOnError)
-	fset.SetOutput(stderr)
-	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
-	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
-	file := fset.String("file", "", "path to the decision JSON body, or \"-\" to read it from stdin (required)")
-
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
-		return code
-	}
-	if !requireRecordFlags(stderr,
-		[2]string{"-session-token", *sessionToken},
-		[2]string{"-file", *file},
-	) {
-		return 2
-	}
-	if err := validateSessionToken(*sessionToken); err != nil {
-		fmt.Fprintf(stderr, "flow: %v\n", err)
-		return 2
-	}
-
-	var body []byte
-	var err error
-	if *file == "-" {
-		body, err = io.ReadAll(stdin)
-	} else {
-		body, err = os.ReadFile(*file)
-	}
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: read -file %q: %v\n", *file, err)
-		return 2
-	}
-	if !json.Valid(body) {
-		fmt.Fprintln(stderr, "flow: -file body must be valid JSON")
-		return 2
-	}
-
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
-		return 1
-	}
-
-	in := records.Decision{SessionToken: *sessionToken, Decision: json.RawMessage(body)}
-	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Decision, error) {
-		d, _, err := cl.RecordDecision(ctx, projectKey, f.change, in)
-		return d, err
-	})
-	if callErr == nil {
-		fmt.Fprintf(stdout, "recorded: decision %d\n", out.ID)
-	}
-	return classifyRecordWrite(callErr, projectKey, f.change, "decision", in, stderr)
-}
-
-// runRecordDecisions implements `flow record decisions`: a change's
-// recorded decisions, newest first, as a JSON array -- `findings`' own read
-// contract, verbatim (see runRecordFindings' doc comment for the whole of
-// it). This is what a resumed run reads to recover a stopped run's own
-// choice rather than re-rolling; ListDecisions returns an empty slice for a
-// change the store has never heard of, so no ErrNotFound special case is
-// needed the way runRecordFindings and runRecordRender need one -- there is
-// no row to be missing, only zero of them.
-func runRecordDecisions(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("flow record decisions", flag.ContinueOnError)
-	fset.SetOutput(stderr)
-	var f recordIdentityFlags
-	registerRecordIdentityFlags(fset, &f)
-
-	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
-		return code
-	}
-
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
-		return 1
-	}
-
-	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.Decision, error) {
-		return cl.ListDecisions(ctx, projectKey, f.change)
-	})
-	if callErr != nil {
-		fmt.Fprintf(stderr, "flow: decisions: %v\n", callErr)
-		return 1
-	}
-	if out == nil {
-		out = []records.Decision{}
-	}
-	body, err := json.Marshal(out)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: encode decisions: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))

@@ -21,14 +21,6 @@ import (
 // server is broken".
 var ErrFindingNotFound = errors.New("store: finding not found")
 
-// ErrDeferredNotMinor is returned by SetFindingStatus when a `deferred
-// <reason>` status is set against a finding whose severity is not Minor.
-// design.md's `deferred <reason>` section: a Critical or Important finding is
-// always fixed, never deferred, so the store -- not just the CLI's
-// validator, which cannot see a finding's severity -- refuses the write
-// here rather than storing a status the finding is not allowed to carry.
-var ErrDeferredNotMinor = errors.New("store: deferred status is Minor-only")
-
 // ErrDispatchNotFound is returned by MergeDispatchMetrics when no dispatch
 // exists under the given id, and by EndDispatch when the change holds no
 // dispatch under the given session token and key.
@@ -67,22 +59,6 @@ const dispatchesKeyConstraint = "dispatches_key_key"
 // row rather than being refused, and the record of a change's findings
 // never accumulates a second row for one ref.
 const findingsRefConstraint = "findings_ref_key"
-
-// decisionsSessionConstraint is the name given, explicitly, to the
-// UNIQUE (change_id, session_token) constraint in 0019_decisions.sql.
-// RecordDecision names it in its ON CONFLICT clause for the same reason
-// findingsRefConstraint is named rather than left as a column list: a
-// replayed write reaches the row a run already recorded instead of being
-// refused or silently matching some other unique index over the same
-// columns.
-const decisionsSessionConstraint = "decisions_session_key"
-
-// ErrInvalidDecision is returned by RecordDecision when the session token
-// is empty or the decision body is not valid JSON -- the store-level
-// counterpart to api.ErrInvalidRecord, declared here rather than reused
-// from internal/api because internal/store imports nothing above it in the
-// dependency graph.
-var ErrInvalidDecision = errors.New("store: invalid decision")
 
 // maxDispatchSeqRetries bounds how many times RecordDispatch retries after
 // losing a seq race before giving up with ErrTooManyDispatchSeqCollisions.
@@ -166,7 +142,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
 	          session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-	          diff_base, effort`
+	          diff_base`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -213,7 +189,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase, &d.Effort,
+		&diffBase,
 	); err != nil {
 		return records.Dispatch{}, err
 	}
@@ -247,27 +223,17 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 	if len(metrics) == 0 {
 		metrics = json.RawMessage(`{}`)
 	}
-	// effort has no nullIfEmpty treatment: the column is NOT NULL, and the
-	// vocabulary's own "default" word IS the absent case -- an absent
-	// effort is a known fact, never an unknown one (design.md's
-	// Enforcement), so a caller that recorded none is defaulted here
-	// rather than left to a SQL DEFAULT the explicit column list would
-	// never reach.
-	effort := in.Effort
-	if effort == "" {
-		effort = "default"
-	}
 
 	return scanDispatchRow(s.pool.QueryRow(ctx, `
 		INSERT INTO dispatches (
 			change_id, stage_run_id, seq, task_id, role, slot, model, commit_sha, outcome,
 			session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-			diff_base, effort
+			diff_base
 		)
 		SELECT
 			c.id, $3,
 			COALESCE((SELECT MAX(d.seq) FROM dispatches d WHERE d.change_id = c.id), 0) + 1,
-			$4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18
+			$4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17
 		FROM changes c
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
@@ -277,7 +243,7 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		projectKey, change, in.StageRunID, nullIfEmpty(in.TaskID), in.Role, nullIfEmpty(in.Slot),
 		in.Model, nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), nullIfEmpty(in.SessionToken),
 		in.StartedAt, in.EndedAt, metrics, nullIfEmpty(in.Notes), nullIfEmpty(in.AgentID),
-		nullIfEmpty(in.Key), nullIfEmpty(in.DiffBase), effort,
+		nullIfEmpty(in.Key), nullIfEmpty(in.DiffBase),
 	))
 }
 
@@ -430,129 +396,20 @@ func (s *Store) UpsertFinding(ctx context.Context, projectKey, change string, in
 // the change holds no finding under is ErrFindingNotFound, not a silent
 // no-op, so a caller's typo is reported rather than looking like a
 // successful update.
-//
-// A `deferred <reason>` status carries the extra `AND f.severity ILIKE 'Minor'`
-// clause design.md's `deferred <reason>` section requires, so the update
-// itself never lands a deferral against a Critical or Important finding.
-// Severity is free text a caller writes verbatim (this package's
-// Reviewers/Decisions queries already match it case-insensitively), so the
-// guard is case-insensitive too -- a lowercase "minor" is still Minor. Zero
-// rows affected is ambiguous for that status alone -- the ref may not
-// exist, or it may exist at the wrong severity -- so a second, read-only
-// SELECT distinguishes the two: a row found is ErrDeferredNotMinor, no row
-// is ErrFindingNotFound, the same sentinel every other status's zero-row
-// case already returns.
 func (s *Store) SetFindingStatus(ctx context.Context, projectKey, change, ref, status string) error {
-	deferred := strings.HasPrefix(status, "deferred")
-
-	query := `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE findings f
 		SET status = $4
 		FROM changes c
-		WHERE c.id = f.change_id AND c.project_key = $1 AND c.name = $2 AND f.ref = $3`
-	if deferred {
-		query += ` AND f.severity ILIKE 'Minor'`
-	}
-
-	tag, err := s.pool.Exec(ctx, query, projectKey, change, ref, status)
+		WHERE c.id = f.change_id AND c.project_key = $1 AND c.name = $2 AND f.ref = $3
+	`, projectKey, change, ref, status)
 	if err != nil {
 		return fmt.Errorf("store: set finding %s status for %s/%s: %w", ref, projectKey, change, err)
 	}
-	if tag.RowsAffected() > 0 {
-		return nil
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %s in %s/%s", ErrFindingNotFound, ref, projectKey, change)
 	}
-
-	if deferred {
-		var severity string
-		err := s.pool.QueryRow(ctx, `
-			SELECT f.severity
-			FROM findings f
-			JOIN changes c ON c.id = f.change_id
-			WHERE c.project_key = $1 AND c.name = $2 AND f.ref = $3
-		`, projectKey, change, ref).Scan(&severity)
-		switch {
-		case err == nil:
-			return fmt.Errorf("%w: %s in %s/%s has severity %s, not Minor", ErrDeferredNotMinor, ref, projectKey, change, severity)
-		case !errors.Is(err, pgx.ErrNoRows):
-			return fmt.Errorf("store: set finding %s status for %s/%s: %w", ref, projectKey, change, err)
-		}
-	}
-	return fmt.Errorf("%w: %s in %s/%s", ErrFindingNotFound, ref, projectKey, change)
-}
-
-// RecordDecision records one run's dynamic decision, or replaces the one
-// already recorded under the same session token for the same change --
-// exactly UpsertFinding's shape, moved from ref to session token as the key
-// design.md's decisions-jsonb-row decision names. The returned bool is
-// created, read from the returned row's xmax the same way UpsertFinding
-// reads it: a row this statement genuinely inserted carries xmax = 0, and a
-// row ON CONFLICT DO UPDATE reached instead carries the updating
-// transaction's id.
-//
-// An unknown (projectKey, change) pair is ErrChangeNotFound. An empty
-// SessionToken or a Decision that is not valid JSON is ErrInvalidDecision,
-// checked before the statement runs so the store never round-trips to
-// Postgres for a write jsonb would reject anyway.
-func (s *Store) RecordDecision(ctx context.Context, projectKey, change string, in records.Decision) (records.Decision, bool, error) {
-	if in.SessionToken == "" {
-		return records.Decision{}, false, fmt.Errorf("%w: sessionToken is required", ErrInvalidDecision)
-	}
-	if !json.Valid(in.Decision) {
-		return records.Decision{}, false, fmt.Errorf("%w: decision must be valid JSON", ErrInvalidDecision)
-	}
-
-	var (
-		out     records.Decision
-		created bool
-	)
-	err := s.pool.QueryRow(ctx, `
-		INSERT INTO decisions (change_id, session_token, decision)
-		SELECT c.id, $3, $4
-		FROM changes c
-		WHERE c.project_key = $1 AND c.name = $2
-		ON CONFLICT ON CONSTRAINT `+decisionsSessionConstraint+` DO UPDATE SET
-			decision    = EXCLUDED.decision,
-			recorded_at = now()
-		RETURNING id, session_token, recorded_at, decision, xmax = 0
-	`, projectKey, change, in.SessionToken, []byte(in.Decision)).
-		Scan(&out.ID, &out.SessionToken, &out.RecordedAt, &out.Decision, &created)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return records.Decision{}, false, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
-		}
-		return records.Decision{}, false, fmt.Errorf("store: record decision for %s/%s: %w", projectKey, change, err)
-	}
-	return out, created, nil
-}
-
-// ListDecisions reads a change's recorded decisions, newest first -- what
-// `flow record decisions -change <name>` reports, and what a resumed run
-// reads to recover the roster and model a stopped run already chose.
-func (s *Store) ListDecisions(ctx context.Context, projectKey, change string) ([]records.Decision, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT d.id, d.session_token, d.recorded_at, d.decision
-		FROM decisions d
-		JOIN changes c ON c.id = d.change_id
-		WHERE c.project_key = $1 AND c.name = $2
-		ORDER BY d.recorded_at DESC, d.id DESC
-	`, projectKey, change)
-	if err != nil {
-		return nil, fmt.Errorf("store: list decisions for %s/%s: %w", projectKey, change, err)
-	}
-	defer rows.Close()
-
-	var out []records.Decision
-	for rows.Next() {
-		var d records.Decision
-		if err := rows.Scan(&d.ID, &d.SessionToken, &d.RecordedAt, &d.Decision); err != nil {
-			return nil, fmt.Errorf("store: scan decision for %s/%s: %w", projectKey, change, err)
-		}
-		out = append(out, d)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: list decisions for %s/%s: %w", projectKey, change, err)
-	}
-	return out, nil
+	return nil
 }
 
 // MergeDispatchMetrics merges patch into a dispatch's metrics bag and never

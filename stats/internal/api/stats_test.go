@@ -52,14 +52,6 @@ func (f *fakeStore) CacheEfficiency(_ context.Context, _ store.Period, project, 
 	f.lastStatsProject = project
 	return f.cacheEfficiency, f.cacheEfficiencyErr
 }
-func (f *fakeStore) Reviewers(_ context.Context, _ store.Period, project, _ *string) ([]store.ReviewerRow, error) {
-	f.lastStatsProject = project
-	return f.reviewers, f.reviewersErr
-}
-func (f *fakeStore) Decisions(_ context.Context, _ store.Period, project *string) ([]store.DecisionRow, error) {
-	f.lastStatsProject = project
-	return f.decisionRows, f.decisionRowsErr
-}
 
 // CountRunsWithoutModel, ListModels and AllRecordedRunsUnmeasured have no
 // fakeStore field of their own: this type exists purely to keep satisfying
@@ -101,8 +93,6 @@ type statsFake struct {
 	stageLeaderboard []store.StageLeaderboardRow
 	trendOverTime    []store.TrendPoint
 	cacheEfficiency  []store.CacheEfficiencyRow
-	reviewers        []store.ReviewerRow
-	decisions        []store.DecisionRow
 	aggErr           error
 
 	countRunsWithoutModel    int
@@ -164,14 +154,6 @@ func (f *statsFake) TrendOverTime(_ context.Context, _ store.Period, p, m *strin
 func (f *statsFake) CacheEfficiency(_ context.Context, _ store.Period, p, m *string) ([]store.CacheEfficiencyRow, error) {
 	f.lastProject, f.lastModel = p, m
 	return f.cacheEfficiency, f.aggErr
-}
-func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) ([]store.ReviewerRow, error) {
-	f.lastProject, f.lastModel = p, m
-	return f.reviewers, f.aggErr
-}
-func (f *statsFake) Decisions(_ context.Context, _ store.Period, p *string) ([]store.DecisionRow, error) {
-	f.lastProject = p
-	return f.decisions, f.aggErr
 }
 func (f *statsFake) CountRunsWithoutModel(_ context.Context, _ store.Period, p *string) (int, error) {
 	f.lastProject = p
@@ -454,100 +436,6 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 			got.CacheCreationTotal == nil || *got.CacheCreationTotal != 3000 ||
 			got.Ratio == nil || *got.Ratio != 3.0 {
 			t.Errorf("got %+v, want CacheReadTotal=9000 CacheCreationTotal=3000 Ratio=3.0", got)
-		}
-	})
-
-	t.Run("reviewers", func(t *testing.T) {
-		sts := &statsFake{reviewers: []store.ReviewerRow{
-			{Slot: "exp-failure-modes", Experimental: true, Description: "What the diff does under error, timeout and partial write",
-				Dispatches: 4, Changes: 3, Critical: 1, Important: 2, Minor: 5,
-				FindingsPerDispatch: 2.0, DeferredShare: 0.25, WithdrawnShare: 0.125},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("reviewers"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			Slot                string  `json:"slot"`
-			Experimental        bool    `json:"experimental"`
-			Description         string  `json:"description"`
-			Dispatches          int     `json:"dispatches"`
-			Changes             int     `json:"changes"`
-			Critical            int     `json:"critical"`
-			Important           int     `json:"important"`
-			Minor               int     `json:"minor"`
-			FindingsPerDispatch float64 `json:"findingsPerDispatch"`
-			DeferredShare       float64 `json:"deferredShare"`
-			WithdrawnShare      float64 `json:"withdrawnShare"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.Slot != "exp-failure-modes" || !got.Experimental ||
-			got.Description != "What the diff does under error, timeout and partial write" ||
-			got.Dispatches != 4 || got.Changes != 3 || got.Critical != 1 || got.Important != 2 || got.Minor != 5 ||
-			got.FindingsPerDispatch != 2.0 || got.DeferredShare != 0.25 || got.WithdrawnShare != 0.125 {
-			t.Errorf("got %+v, want the seeded exp-failure-modes row unchanged", got)
-		}
-	})
-
-	t.Run("decisions", func(t *testing.T) {
-		sts := &statsFake{decisions: []store.DecisionRow{
-			{Project: "kan", Change: "kan-1", RecordedAt: time.Date(2026, 6, 10, 9, 10, 0, 0, time.UTC),
-				Class: "regular", Overridden: true, Execution: "inline",
-				ImplementerModel: "skipped — inline", ImplementerEffort: "",
-				RosterSize: 2, Compact: true, ExperimentalSlot: "exp-failure-modes", Rerun: "delta",
-				Grouping: "free", Dispatches: "primary+exp-failure-modes", ImplementerGroups: "",
-				WallClockSeconds: 600, InputTokens: 100, OutputTokens: 50, CacheReadTokens: 20, CostUsd: 1.25,
-				Critical: 1, Important: 1, Minor: 1, FixRounds: 2, Fallbacks: 1, TimedOut: 1},
-		}}
-		ts := newStatsTestServer(t, sts)
-		status, env, body := getStats(t, ts, periodPath("decisions"))
-		if status != http.StatusOK {
-			t.Fatalf("status %d, body %s", status, body)
-		}
-		var rows []struct {
-			Project           string  `json:"project"`
-			Change            string  `json:"change"`
-			Class             string  `json:"class"`
-			Overridden        bool    `json:"overridden"`
-			Execution         string  `json:"execution"`
-			ImplementerModel  string  `json:"implementerModel"`
-			RosterSize        int     `json:"rosterSize"`
-			Compact           bool    `json:"compact"`
-			ExperimentalSlot  string  `json:"experimentalSlot"`
-			Rerun             string  `json:"rerun"`
-			Grouping          string  `json:"grouping"`
-			Dispatches        string  `json:"dispatches"`
-			ImplementerGroups string  `json:"implementerGroups"`
-			WallClockSeconds  float64 `json:"wallClockSeconds"`
-			InputTokens       int64   `json:"inputTokens"`
-			OutputTokens      int64   `json:"outputTokens"`
-			CacheReadTokens   int64   `json:"cacheReadTokens"`
-			CostUsd           float64 `json:"costUsd"`
-			Critical          int     `json:"critical"`
-			Important         int     `json:"important"`
-			Minor             int     `json:"minor"`
-			FixRounds         int     `json:"fixRounds"`
-			Fallbacks         int     `json:"fallbacks"`
-			TimedOut          int     `json:"timedOut"`
-		}
-		mustDecodeRows(t, env, body, &rows)
-		if len(rows) != 1 {
-			t.Fatalf("rows = %d, want 1", len(rows))
-		}
-		got := rows[0]
-		if got.Project != "kan" || got.Change != "kan-1" || got.Class != "regular" || !got.Overridden ||
-			got.Execution != "inline" || got.ImplementerModel != "skipped — inline" || got.RosterSize != 2 ||
-			!got.Compact || got.ExperimentalSlot != "exp-failure-modes" || got.Rerun != "delta" ||
-			got.Grouping != "free" || got.Dispatches != "primary+exp-failure-modes" || got.ImplementerGroups != "" ||
-			got.WallClockSeconds != 600 || got.InputTokens != 100 || got.OutputTokens != 50 ||
-			got.CacheReadTokens != 20 || got.CostUsd != 1.25 || got.Critical != 1 || got.Important != 1 ||
-			got.Minor != 1 || got.FixRounds != 2 || got.Fallbacks != 1 || got.TimedOut != 1 {
-			t.Errorf("got %+v, want the seeded decision row unchanged", got)
 		}
 	})
 

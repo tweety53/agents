@@ -187,12 +187,6 @@
 # skills/flow-contracts/finish-contract-run2.md). Before this row the guard
 # reported COMPLETE with the parent archived and the child left behind, and
 # nothing anywhere said so.
-#
-# HOW TO HAND-VERIFY A LEFTOVER VERDICT (KAN-446). Check each row the
-# breakdown names against the filesystem yourself. A worktree kept
-# legitimately — the state file retains an entry whose removal failed, per
-# state-file.md's `worktrees` contract — is the known structural shape; any
-# other row still on the list is really there.
 set -euo pipefail
 
 REPO="${1:-}"

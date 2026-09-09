@@ -123,7 +123,6 @@ key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a 
 | `flow.design-approval` | Design approval | `/flow` |
 | `flow.create-artifacts` | Create the spectre artifacts | `/flow` |
 | `flow.writing-plans` | Writing-plans ▸ | `/flow` |
-| `flow.decide` | Decide — execution, models, panel | `/flow` |
 | `flow.load-context` | Load context and validate the plan | `/flow` |
 | `flow.isolate-workspace` | Isolate the workspace (first run only) | `/flow` |
 | `flow.document-fix` | Document the fix (re-runs only) | `/flow` |
@@ -236,13 +235,13 @@ fixed 3-slot panel, itself later superseded by a roster resolved from the settin
 for the panel's current shape. Four
 further slots stay conditional under every preset — Security, Adversarial and two extra principle
 slots — selected from what the diff touches. Each
-selected slot is dispatched general-purpose, briefed by its own prompt, in every affected worktree;
-slots may share a dispatch — see **Bundled dispatch** (`skills/flow/review-panel.md`).
+selected slot is a **separate** subagent with its own prompt, in every affected worktree; two slots are
+never merged into one.
 
-Every slot runs on the panel's model — Sonnet by default. Bugbot and Security Review are
-prompt-driven roles like every other slot and take the same model rule — no fixed agent
-definition, no override exception. There is no parent-model inheritance and no economy tier: the
-panel's cost does not depend on the model the operator happens to be running.
+Every slot runs on the panel's model — Sonnet by default — except the two dispatched by
+`subagent_type`. Bugbot and Security Review carry their own agent definitions and take no model
+override. There is no parent-model inheritance and no economy tier: the panel's cost does not
+depend on the model the operator happens to be running.
 
 No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
 critical one does. Re-runs are targeted by default and escalate to the full roster automatically,
@@ -356,17 +355,16 @@ settings store's `.reviewers` list — floored at `primary` alone when the store
 falling back to three defaults when the store is unreachable (design.md's `roster-from-settings`,
 superseding `review-panel-fixed-3`) — no preset, no diff-size or touched-area trigger. A per-run
 operator instruction can still add a slot the resolved list does not carry, for that run only,
-checked at the start of the panel stage and again at every fix round. Each dispatched slot is
-briefed by its own prompt, in every affected worktree; slots may share a dispatch — at most two
-dispatches per round, each carrying one to three roles (**Bundled dispatch**,
-`skills/flow/review-panel.md`). The id-to-slot mapping is canonical under **The roster**
-(`skills/flow/review-panel.md`).
+checked at the start of the panel stage and again at every fix round. Each dispatched slot is a
+**separate** subagent with its own prompt, in every affected worktree; two slots are never merged
+into one. The id-to-slot mapping is canonical under **The roster** (`skills/flow/review-panel.md`).
 
-Every slot runs on `DEFAULT_MODEL` — the settings-store default, this run's session-instruction
-override, or the decision's own model/effort for the slot on a dynamic roster. Bugbot and Security
-are prompt-driven roles like every other slot and take the same model rule — no fixed agent
-definition, no override exception. There is no parent-model inheritance and no economy tier: the
-panel's cost does not depend on the model the operator happens to be running.
+Every slot runs on `DEFAULT_MODEL` — the settings-store default, or this run's session-instruction
+override — except the two dispatched by `subagent_type`. Bugbot and Security Review carry their own
+agent definitions and take no model override, unless substituted per `unspawnable-id-substitutes`
+(**The roster**, `skills/flow/review-panel.md`), which does take one. There is no parent-model
+inheritance and no economy tier: the panel's cost does not depend on the model the operator happens
+to be running.
 
 No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
 critical one does. A fix round re-checks for an explicit Bugbot/Security instruction before it

@@ -63,7 +63,6 @@ var Table = []Stage{
 	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow}},
 	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow}},
 	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow}},
-	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow}},
 	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow}},
 	{Key: "flow.isolate-workspace", Name: "Isolate the workspace (first run only)", Commands: []Command{Flow}},
 	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow}},

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # check-model-resolution-shell.sh — proves skills/flow/SKILL.md's "Model
-# resolution" bash block actually resolves SELF_REVIEW_MODEL, PLANNING_MODEL
-# and the three toggles (EXECUTION_MODE_TOGGLE, IMPLEMENTER_MODEL_TOGGLE,
-# REVIEW_PANEL_TOGGLE) correctly, rather than trusting the prose by eye.
+# resolution" bash block actually resolves SELF_REVIEW_MODEL and
+# PLANNING_MODEL correctly, rather than trusting the prose by eye.
 #
 # WHY THIS EXISTS. That block is documentation — prose describing what a
 # `/flow` run executes, not itself a script this repository runs in CI — so
@@ -51,29 +50,19 @@ BLOCK="$(awk '
 [[ -n "$BLOCK" ]] || die "no \`\`\`bash block found under '## Model resolution' in $SKILL_MD"
 echo "$BLOCK" | grep -q 'SELF_REVIEW_MODEL' || die "extracted block does not mention SELF_REVIEW_MODEL — heading or fence shape changed"
 echo "$BLOCK" | grep -q 'PLANNING_MODEL' || die "extracted block does not mention PLANNING_MODEL — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'EXECUTION_MODE_TOGGLE' || die "extracted block does not mention EXECUTION_MODE_TOGGLE — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'IMPLEMENTER_MODEL_TOGGLE' || die "extracted block does not mention IMPLEMENTER_MODEL_TOGGLE — heading or fence shape changed"
-echo "$BLOCK" | grep -q 'REVIEW_PANEL_TOGGLE' || die "extracted block does not mention REVIEW_PANEL_TOGGLE — heading or fence shape changed"
 
 STUB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/check-model-resolution-shell.XXXXXX")" \
   || die "cannot create a temp dir for the flow stub"
 trap 'rm -rf "$STUB_DIR"' EXIT
 
-# run_case <settings-json> <expected self_review_model> <expected planning_model> <case name> \
-#          [project.md body] [expected execution mode toggle] [expected implementer model toggle] \
-#          [expected review panel toggle] [expected stderr substring]
+# run_case <settings-json> <expected self_review_model> <expected planning_model> <case name> [project.md body]
 # The fifth argument, when non-empty, is written verbatim to a fresh
 # MAIN_CHECKOUT fixture's .flow/project.md; when omitted or empty, the
 # fixture carries no .flow/project.md at all (project-get.sh's "no file"
-# exit 1), reproducing the pre-task-6 behaviour cases 1-3 still expect. The
-# three toggle arguments default to "default" — the no-key/absent-key
-# resolution every pre-task-6 case still exercises. The ninth argument, when
-# non-empty, must appear in the block's stderr.
+# exit 1), reproducing the pre-task-6 behaviour cases 1-3 still expect.
 FAILURES=0
 run_case() {
-  local json="$1" expect_srm="$2" expect_pm="$3" name="$4" project_body="${5:-}" \
-        expect_exec="${6:-default}" expect_impl="${7:-default}" expect_panel="${8:-default}" \
-        expect_stderr="${9:-}"
+  local json="$1" expect_srm="$2" expect_pm="$3" name="$4" project_body="${5:-}"
 
   cat >"$STUB_DIR/flow" <<EOF
 #!/usr/bin/env bash
@@ -93,12 +82,11 @@ EOF
     printf '%s\n' "$project_body" >"$checkout/.flow/project.md"
   fi
 
-  local out stderr_file stderr_out
+  local out stderr_file
   stderr_file="$(mktemp "${TMPDIR:-/tmp}/check-model-resolution-shell-stderr.XXXXXX")" \
     || die "cannot create a temp stderr file"
-  out="$(MAIN_CHECKOUT="$checkout" PATH="$STUB_DIR:$SCRIPT_DIR:$PATH" bash -c "$BLOCK"$'\n''printf "%s\t%s\t%s\t%s\t%s\n" "$SELF_REVIEW_MODEL" "$PLANNING_MODEL" "$EXECUTION_MODE_TOGGLE" "$IMPLEMENTER_MODEL_TOGGLE" "$REVIEW_PANEL_TOGGLE"' 2>"$stderr_file")"
+  out="$(MAIN_CHECKOUT="$checkout" PATH="$STUB_DIR:$SCRIPT_DIR:$PATH" bash -c "$BLOCK"$'\n''printf "%s\t%s\n" "$SELF_REVIEW_MODEL" "$PLANNING_MODEL"' 2>"$stderr_file")"
   local rc=$?
-  stderr_out="$(cat "$stderr_file")"
   rm -rf "$checkout" "$stderr_file"
   if [[ $rc -ne 0 ]]; then
     echo "check-model-resolution-shell: case '$name' — block exited non-zero: $out" >&2
@@ -106,8 +94,8 @@ EOF
     return
   fi
 
-  local got_srm got_pm got_exec got_impl got_panel
-  IFS=$'\t' read -r got_srm got_pm got_exec got_impl got_panel <<<"$out"
+  local got_srm="${out%%$'\t'*}"
+  local got_pm="${out#*$'\t'}"
 
   if [[ "$got_srm" != "$expect_srm" ]]; then
     echo "check-model-resolution-shell: case '$name' — SELF_REVIEW_MODEL resolved to '$got_srm', want '$expect_srm'" >&2
@@ -115,22 +103,6 @@ EOF
   fi
   if [[ "$got_pm" != "$expect_pm" ]]; then
     echo "check-model-resolution-shell: case '$name' — PLANNING_MODEL resolved to '$got_pm', want '$expect_pm'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ "$got_exec" != "$expect_exec" ]]; then
-    echo "check-model-resolution-shell: case '$name' — EXECUTION_MODE_TOGGLE resolved to '$got_exec', want '$expect_exec'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ "$got_impl" != "$expect_impl" ]]; then
-    echo "check-model-resolution-shell: case '$name' — IMPLEMENTER_MODEL_TOGGLE resolved to '$got_impl', want '$expect_impl'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ "$got_panel" != "$expect_panel" ]]; then
-    echo "check-model-resolution-shell: case '$name' — REVIEW_PANEL_TOGGLE resolved to '$got_panel', want '$expect_panel'" >&2
-    FAILURES=$((FAILURES + 1))
-  fi
-  if [[ -n "$expect_stderr" ]] && [[ "$stderr_out" != *"$expect_stderr"* ]]; then
-    echo "check-model-resolution-shell: case '$name' — stderr did not contain '$expect_stderr': got '$stderr_out'" >&2
     FAILURES=$((FAILURES + 1))
   fi
 }
@@ -170,26 +142,10 @@ run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":"","planning
   "sonnet" "haiku" "project key valid wins over fable fallback" \
   $'## self review model\n\n`sonnet`\n\n## planning model\n\n`haiku`\n'
 
-# Case 8: all three toggle keys declared `dynamic` — each resolves to
-# `dynamic`, independently of the model keys.
-run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":"opus","planningModel":"haiku"}' \
-  "opus" "haiku" "all three toggles dynamic" \
-  $'## execution mode\n\n`dynamic`\n\n## implementer model\n\n`dynamic`\n\n## review panel\n\n`dynamic`\n' \
-  "dynamic" "dynamic" "dynamic"
-
-# Case 9: `## review panel` holds a literal that is neither `default` nor
-# `dynamic` — reported and dropped, resolving as `default`, with the
-# warning on stderr.
-run_case '{"defaultModel":"sonnet","reviewers":[],"selfReviewModel":"opus","planningModel":"haiku"}' \
-  "opus" "haiku" "review panel toggle invalid falls back to default" \
-  $'## review panel\n\n`sometimes`\n' \
-  "default" "default" "default" \
-  "'## review panel' body 'sometimes' is not 'default' or 'dynamic' — dropped"
-
 if [[ "$FAILURES" -gt 0 ]]; then
   echo "check-model-resolution-shell: $FAILURES failure(s)" >&2
   exit 1
 fi
 
-echo "MODEL-RESOLUTION-SHELL-OK: 9 case(s) checked"
+echo "MODEL-RESOLUTION-SHELL-OK: 7 case(s) checked"
 exit 0

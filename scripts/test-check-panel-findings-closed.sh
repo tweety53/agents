@@ -215,15 +215,6 @@ wt="$(make_worktree_json "$(findings_json F1 'withdrawn — not a real defect')"
 expect_exit 'case 4: a withdrawn finding counts as closed, exits 0' 0 run_guard "$wt"
 
 # ===========================================================================
-# 4b. Deferred counts as closed -- exit 0.
-#
-#    PROVED BY MUTATION: removing the `startswith("deferred")` clause from
-#    the guard's jq predicate turns this case's exit 0 into exit 1.
-# ===========================================================================
-wt="$(make_worktree_json "$(findings_json F1 'deferred cosmetic, not worth a fix round')")"
-expect_exit 'case 4b: a deferred finding counts as closed, exits 0' 0 run_guard "$wt"
-
-# ===========================================================================
 # 5. No findings at all -- an empty JSON array -- exit 0.
 # ===========================================================================
 wt="$(make_worktree_json '[]')"

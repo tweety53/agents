@@ -584,9 +584,9 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
     await screen.findByRole("cell", { name: "5. The review panel" });
-    // The four surviving statistics views from design.md's `stats-ui-cut`
-    // plus the two this change adds, `reviewers` and `decisions`.
-    expect(VIEW_NAMES).toHaveLength(6);
+    // The interface still serves the same four surviving statistics views
+    // (design.md's `stats-ui-cut` removed the other four).
+    expect(VIEW_NAMES).toHaveLength(4);
     // Per-dispatch rows appear only under an expanded stage run.
     expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
   });

@@ -9,8 +9,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StatsResponse, ViewName } from "../api";
 import { App } from "../App";
 import { CacheEfficiency } from "./CacheEfficiency";
-import { Decisions } from "./Decisions";
-import { Reviewers } from "./Reviewers";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
@@ -62,92 +60,6 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
     { command: "/myflow-do", stage: "measured-zero", cacheReadTotal: 0, cacheCreationTotal: 1000, ratio: 0 },
     { command: "/myflow-do", stage: "never-measured", cacheReadTotal: null, cacheCreationTotal: null, ratio: null },
   ]),
-  reviewers: envelope("reviewers", [
-    {
-      slot: "primary",
-      experimental: false,
-      description: "",
-      dispatches: 2,
-      changes: 1,
-      critical: 1,
-      important: 1,
-      minor: 1,
-      findingsPerDispatch: 1.5,
-      deferredShare: 0.3333,
-      withdrawnShare: 0,
-    },
-    {
-      slot: "exp-failure-modes",
-      experimental: true,
-      description: "What the diff does under error, timeout and partial write",
-      dispatches: 1,
-      changes: 1,
-      critical: 1,
-      important: 0,
-      minor: 1,
-      findingsPerDispatch: 2.0,
-      deferredShare: 0,
-      withdrawnShare: 0.5,
-    },
-  ]),
-  decisions: envelope("decisions", [
-    {
-      project: "kan",
-      change: "kan-1",
-      recordedAt: "2026-06-10T09:10:00Z",
-      class: "regular",
-      overridden: true,
-      execution: "inline",
-      implementerModel: "skipped — inline",
-      implementerEffort: "",
-      rosterSize: 2,
-      compact: true,
-      experimentalSlot: "exp-failure-modes",
-      rerun: "delta",
-      grouping: "free",
-      dispatches: "primary+exp-failure-modes",
-      implementerGroups: "",
-      wallClockSeconds: 600,
-      inputTokens: 100,
-      outputTokens: 50,
-      cacheReadTokens: 20,
-      costUsd: 1.25,
-      critical: 1,
-      important: 1,
-      minor: 1,
-      fixRounds: 2,
-      fallbacks: 1,
-      timedOut: 1,
-    },
-    {
-      project: "kan",
-      change: "kan-2",
-      recordedAt: "2026-06-11T09:10:00Z",
-      class: "regular",
-      overridden: false,
-      execution: "sdd",
-      implementerModel: "opus",
-      implementerEffort: "high",
-      rosterSize: 5,
-      compact: false,
-      experimentalSlot: "",
-      rerun: "full",
-      grouping: "static",
-      dispatches: "primary+principles · code-review-low+mutation",
-      implementerGroups: "1+2 · 3",
-      wallClockSeconds: 1200,
-      inputTokens: 200,
-      outputTokens: 100,
-      cacheReadTokens: 40,
-      costUsd: 3.75,
-      critical: 0,
-      important: 2,
-      minor: 1,
-      fixRounds: 1,
-      fallbacks: 0,
-      timedOut: 0,
-    },
-  ]),
 };
 
 beforeEach(() => {
@@ -188,53 +100,6 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByTestId("time-series-point")).toBeInTheDocument();
     within(screen.getByRole("region", { name: "Days" })).getByText("1");
     within(screen.getByRole("region", { name: "Total cost" })).getByText("$5.25");
-  });
-
-  it("reviewers shows severity counts and badges an exp- slot with its description", async () => {
-    render(<Reviewers period={period} project={undefined} />);
-    expect(await screen.findByRole("cell", { name: /primary/ })).toBeInTheDocument();
-    // primary's own severity counts, one dispatch/change/finding count per
-    // column -- distinct values so a swap or a dropped field cannot hide.
-    const primaryRow = screen.getByRole("cell", { name: /primary/ }).closest("tr")!;
-    expect(within(primaryRow).getByText("2")).toBeInTheDocument(); // dispatches
-    expect(within(primaryRow).getByText("1.50")).toBeInTheDocument(); // findings/dispatch
-    expect(within(primaryRow).getByText("33%")).toBeInTheDocument(); // deferred share
-
-    const expRow = screen.getByRole("cell", { name: /exp-failure-modes/ }).closest("tr")!;
-    const badge = within(expRow).getByRole("img", { name: "experimental reviewer" });
-    expect(badge).toHaveAttribute("title", "What the diff does under error, timeout and partial write");
-    expect(within(expRow).getByText("50%")).toBeInTheDocument(); // withdrawn share
-
-    within(screen.getByRole("region", { name: "Slots" })).getByText("2");
-    within(screen.getByRole("region", { name: "Total dispatches" })).getByText("3");
-  });
-
-  // Also covers kan-472 task 23's grouping/dispatches/implementer-groups columns, asserted below.
-  it("decisions shows a run's class, execution and cost, and a class × execution summary", async () => {
-    render(<Decisions period={period} project={undefined} />);
-
-    const inlineRow = (await screen.findByRole("cell", { name: "kan-1" })).closest("tr")!;
-    expect(within(inlineRow).getByText("regular ↑")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("inline")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("$1.25")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("free")).toBeInTheDocument();
-    expect(within(inlineRow).getByText("primary+exp-failure-modes")).toBeInTheDocument();
-
-    const sddRow = screen.getByRole("cell", { name: "kan-2" }).closest("tr")!;
-    expect(within(sddRow).getByText("sdd")).toBeInTheDocument();
-    expect(within(sddRow).getByText("$3.75")).toBeInTheDocument();
-    expect(within(sddRow).getByText("static")).toBeInTheDocument();
-    expect(within(sddRow).getByText("primary+principles · code-review-low+mutation")).toBeInTheDocument();
-    expect(within(sddRow).getByText("1+2 · 3")).toBeInTheDocument();
-
-    // The class × execution summary groups the two runs into their own
-    // rows -- "regular / inline" and "regular / sdd" -- each with its own
-    // mean cost, distinct from the per-run table above.
-    const summaryRegion = screen.getByRole("region", { name: "By class and execution" });
-    expect(within(summaryRegion).getByText("regular / inline")).toBeInTheDocument();
-    expect(within(summaryRegion).getByText("regular / sdd")).toBeInTheDocument();
-
-    within(screen.getByRole("region", { name: "Runs" })).getByText("2");
   });
 
 });

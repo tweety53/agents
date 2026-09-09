@@ -35,16 +35,11 @@ commands:
   record render       render a change's run record from the store
   record journal-count  count a change's record writes still pending in the journal
   record cost-status  print how many of a change's dispatches carry no cost figure, and why
-  record decision     record one run's dynamic decision, or replace it
-  record decisions    print a change's recorded decisions as a JSON array
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
   settings models      print the harness's fixed set of valid model identifiers
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
-  hazard add/remove    record, or retire, one per-project hazard (see: flow hazard)
-  hazards              print a project's hazards as a JSON array
-  suite record/list    time a command and record its runtime; read recorded suite runtimes (see: flow suite)
   workspace-id <name>  print a change's workspace id, derived from its name
 `
 
@@ -70,13 +65,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	case "stage":
 		return runStage(ctx, args[1:], stdout, stderr)
 	case "record":
-		return runRecord(ctx, args[1:], stdin, stdout, stderr)
-	case "hazard":
-		return runHazard(ctx, args[1:], stdout, stderr)
-	case "hazards":
-		return runHazards(ctx, args[1:], stdout, stderr)
-	case "suite":
-		return runSuite(ctx, args[1:], stdout, stderr)
+		return runRecord(ctx, args[1:], stdout, stderr)
 	case "journal":
 		return runJournal(ctx, args[1:], stdout, stderr)
 	case "settings":

@@ -714,11 +714,8 @@ func (c *Client) RecordFinding(ctx context.Context, project, change string, in r
 // whole of what a fix round changes about a finding it has resolved. A ref
 // the change holds no finding under is ErrNotFound, never ErrUnavailable:
 // the daemon answered, and journalling a mistyped ref would queue a replay
-// that can never succeed. A `deferred <reason>` status against a finding
-// whose severity is not Minor answers 409 and is ErrRecordRejected by
-// classifyRecordResponse's own doc comment -- the store having been reached
-// and having refused, the same reason 404 is not journalled either. See
-// RecordDispatch's doc comment for how every other outcome is classified.
+// that can never succeed. See RecordDispatch's doc comment for how every
+// other outcome is classified.
 func (c *Client) SetFindingStatus(ctx context.Context, project, change, ref, status string) error {
 	body := findingStatusWireRequest{Status: status}
 	_, err := c.writeRecord(ctx, http.MethodPatch,
@@ -770,41 +767,6 @@ func (c *Client) GetCostStatus(ctx context.Context, project, change string) (rec
 	var out records.CostStatus
 	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
 		return records.CostStatus{}, err
-	}
-	return out, nil
-}
-
-// RecordDecision records one run's dynamic decision for project/change, or
-// replaces the one already recorded under the same session token, and
-// returns the row the daemon stored together with which of the two it did.
-// See RecordFinding's own doc comment for what the created result means and
-// why a client needs it, and RecordDispatch's for how every outcome other
-// than the daemon's two success codes is classified.
-func (c *Client) RecordDecision(ctx context.Context, project, change string, in records.Decision) (out records.Decision, created bool, err error) {
-	status, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/decisions", in,
-		map[int]bool{http.StatusCreated: true, http.StatusOK: true}, &out)
-	if err != nil {
-		return records.Decision{}, false, err
-	}
-	return out, status == http.StatusCreated, nil
-}
-
-// ListDecisions fetches project/change's recorded decisions, newest first
-// -- what a resumed run reads to recover a stopped run's own choice. See
-// GetRunRecord's own doc comment for how every outcome other than 200 is
-// classified.
-func (c *Client) ListDecisions(ctx context.Context, project, change string) ([]records.Decision, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.recordsURL(project, change)+"/decisions", nil)
-	if err != nil {
-		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
-	}
-	respBody, status, err := c.send(req)
-	if err != nil {
-		return nil, err
-	}
-	var out []records.Decision
-	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
-		return nil, err
 	}
 	return out, nil
 }
@@ -919,70 +881,6 @@ func (c *Client) ListIncidents(ctx context.Context, project string) ([]records.I
 	return out, nil
 }
 
-// --- hazards (KAN-452) ----------------------------------------------------
-
-// hazardsURL is the project-scoped hazards collection, the incidents pair's
-// URL shape with "hazards" in place of "incidents".
-func (c *Client) hazardsURL(project string) string {
-	return c.baseURL + "/api/v1/hazards/" + url.PathEscape(project)
-}
-
-// AddHazard records one proactive, per-project hazard. A 409 -- the
-// unique constraint refusing a re-add of a name the project already holds
-// -- comes back as ErrRecordRejected, which classifyRecordWrite reports and
-// never journals: a replay of it would be refused identically.
-func (c *Client) AddHazard(ctx context.Context, project string, h records.Hazard) (records.Hazard, error) {
-	var out records.Hazard
-	_, err := c.writeRecord(ctx, http.MethodPost, c.hazardsURL(project), h,
-		map[int]bool{http.StatusCreated: true}, &out)
-	if err != nil {
-		return records.Hazard{}, err
-	}
-	return out, nil
-}
-
-// ListHazards reads a project's hazards, newest first. shape, when
-// non-empty, filters to applies IN ('all', shape) exactly as the store
-// documents; includeInactive lifts the active filter for the -all view.
-func (c *Client) ListHazards(ctx context.Context, project, shape string, includeInactive bool) ([]records.Hazard, error) {
-	listURL := c.hazardsURL(project)
-	q := url.Values{}
-	if shape != "" {
-		q.Set("shape", shape)
-	}
-	if includeInactive {
-		q.Set("all", "true")
-	}
-	if len(q) > 0 {
-		listURL += "?" + q.Encode()
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, listURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
-	}
-	respBody, status, err := c.send(req)
-	if err != nil {
-		return nil, err
-	}
-	var out []records.Hazard
-	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// RetireHazard sets active=false on the named hazard and returns the row.
-// A 404 -- no such name -- is ErrNotFound, reported and never journalled.
-func (c *Client) RetireHazard(ctx context.Context, project, name string) (records.Hazard, error) {
-	var out records.Hazard
-	_, err := c.writeRecord(ctx, http.MethodPatch, c.hazardsURL(project)+"/"+url.PathEscape(name), nil,
-		map[int]bool{http.StatusOK: true}, &out)
-	if err != nil {
-		return records.Hazard{}, err
-	}
-	return out, nil
-}
-
 // findingStatusWireRequest is the body PATCH .../findings/{ref} carries:
 // the one column a fix round rewrites.
 type findingStatusWireRequest struct {
@@ -1014,15 +912,13 @@ func (c *Client) writeRecord(ctx context.Context, method, url string, body any, 
 // error is nil.
 //
 // 400 and 409 are both ErrRecordRejected, and 409 is listed explicitly
-// rather than left to the default. `PATCH .../findings/{ref}` answers 409
-// for a `deferred <reason>` status set against a finding whose severity is
-// not Minor (store.ErrDeferredNotMinor); the default is ErrUnavailable,
-// which the CLI journals for a later replay -- and a conflict is the store
-// having been reached and having refused, exactly the answer that must
-// never be queued for a replay that would be refused identically forever.
-// The stage path maps its own 409 to ErrRefused; the two vocabularies
-// differ, but neither may now resolve a conflict as a transport failure by
-// omission.
+// rather than left to the default. No record route answers 409 today, but
+// the default is ErrUnavailable, which the CLI journals for a later replay
+// -- and a conflict is the store having been reached and having refused,
+// exactly the answer that must never be queued for a replay that would be
+// refused identically forever. The stage path maps its own 409 to
+// ErrRefused; the two vocabularies differ, but neither may now resolve a
+// conflict as a transport failure by omission.
 func classifyRecordResponse(respBody []byte, status int, success map[int]bool, out any) (int, error) {
 	switch {
 	case success[status]:

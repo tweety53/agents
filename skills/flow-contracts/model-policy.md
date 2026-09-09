@@ -69,19 +69,18 @@ and is recorded with its dispatch exactly as above.
 
 **These fields record intent; the ledger records what happened.** A recorded value does **not**
 replace the per-dispatch ledger line, which remains the only evidence of the model a dispatch
-actually ran on. Every panel slot, Bugbot and Security included, is a prompt-driven role dispatched
-general-purpose (**The roster**, `skills/flow/review-panel.md`) and takes the recorded panel model
-the same way every other slot does — there is no exception left that leaves a slot's ledger entry
-unrecorded.
+actually ran on. Slots dispatched by `subagent_type` take no override from this mechanism either —
+no recorded panel model is passed to them, none is written for them in the ledger, and their entries
+still read `unknown (agent-defined)`.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
 See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why, and for the history
 behind this rule.
 
 Where the dispatcher **cannot know** the model, the ledger records `unknown (agent-defined)` and
-never a guess — a case that no longer arises for any panel slot: Bugbot and Security Review are
-dispatched general-purpose on an explicit model, exactly like every other slot in **The roster**
-(`skills/flow/review-panel.md`), so the dispatcher always knows their model at dispatch time.
+never a guess. Slots dispatched by `subagent_type` (Bugbot, Security Review) resolve their model
+from their own agent definition, which the dispatcher does not read; writing a plausible slug for
+them puts an unmeasured value into the audit trail.
 
 **This record outlives the change.** See **Model policy**
 (`skills/flow-contracts/model-policy-rationale.md`) for why, and

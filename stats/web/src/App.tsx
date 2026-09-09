@@ -16,9 +16,7 @@ import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
 import { CacheEfficiency } from "./views/CacheEfficiency";
-import { Decisions } from "./views/Decisions";
 import { RunDetail } from "./views/RunDetail";
-import { Reviewers } from "./views/Reviewers";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
 import { Trend } from "./views/Trend";
@@ -30,8 +28,6 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "stage-leaderboard": "Stage leaderboard",
   trend: "Trend over time",
   "cache-efficiency": "Cache efficiency",
-  reviewers: "Reviewers",
-  decisions: "Decisions",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -39,8 +35,6 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
   "cache-efficiency": CacheEfficiency,
-  reviewers: Reviewers,
-  decisions: Decisions,
 };
 
 function isViewName(v: string): v is ViewName {

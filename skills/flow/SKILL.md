@@ -46,7 +46,7 @@ The full key list, in the order each phase file marks them:
 
 | Phase file | Keys |
 |------------|------|
-| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
+| `skills/flow/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.design-approval`, `flow.create-artifacts`, `flow.writing-plans` |
 | `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
 | `skills/flow/review-panel.md` | `flow.review-panel` |
 | `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
@@ -76,19 +76,6 @@ if [ -n "$PROJECT_PM" ]; then
   else echo "⚠ flow: .flow/project.md '## planning model' body '$PROJECT_PM' is not a valid model — dropped" >&2; fi
 fi
 [ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
-resolve_toggle() {
-  local key="$1" val
-  val="$(project-get.sh "$MAIN_CHECKOUT" "$key" 2>/dev/null | tr -d '`' | xargs)"
-  if [ -n "$val" ] && [ "$val" != default ] && [ "$val" != dynamic ]; then
-    echo "⚠ flow: .flow/project.md '## $key' body '$val' is not 'default' or 'dynamic' — dropped" >&2
-    val=""
-  fi
-  [ -z "$val" ] && val=default
-  printf '%s' "$val"
-}
-EXECUTION_MODE_TOGGLE="$(resolve_toggle 'execution mode')"
-IMPLEMENTER_MODEL_TOGGLE="$(resolve_toggle 'implementer model')"
-REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')"
 VERIFY_MODEL=sonnet
 ```
 
@@ -138,17 +125,11 @@ it is the fixed literal `sonnet`, read from neither the settings store nor
 never falls back, because it is never resolved — the point is a predictable model for mechanical
 test and verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
-**`EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` resolve
-`<project>/.flow/project.md`'s `## execution mode`, `## implementer model` and `## review panel`
-keys** — each `default` or `dynamic`; `default` runs execution, the implementer and the panel
-exactly as this run would without the toggle, `dynamic` hands the corresponding decision to the
-plan's class (and, for the panel, its rolls) — see design.md's **Toggles** section for what each
-value means in full. A plain-language session instruction overrides a *result*, never a toggle.
-
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
-(`skills/flow/implement.md`), every panel slot, Bugbot and Security included (all seven are
-prompt-driven roles dispatched general-purpose, per **The roster**, `skills/flow/review-panel.md`),
-and the panel-fix subagent (`skills/flow/review-panel.md`).
+(`skills/flow/implement.md`), every panel slot that takes a model override, and the panel-fix
+subagent (`skills/flow/review-panel.md`). Slots dispatched by `subagent_type` (Bugbot,
+Security) take no override from this value; see **Review panel** (`skills/flow/review-panel.md`)
+for why.
 
 **A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — "use opus for
 the panel", "implement on haiku" — the same override mechanism
@@ -181,7 +162,7 @@ flow state get <name-or-best-guess> -C <repo-root>
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — the full list is the union carried by
 `skills/flow/scripts/`: `check-archive-scope.sh`, `check-base-moved.sh`, `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
-`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `plan-class.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`,
+`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`,
 `check-unfinished-work.sh`, `check-visual-trigger.sh`,
 `check-visual-verification.sh`, `check-workspace-isolation.sh`,
 `check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,
@@ -210,9 +191,8 @@ one per mark or per phase file.
 ## Guardrails
 
 - **Never** ask a planning-effort, model, or review-panel-roster question on a creating run —
-  `ask-options-removed`. The roster is resolved from the settings store, never asked, or from the
-  recorded decision when `## review panel` is `dynamic`; see **Model resolution** above and
-  **Review panel** (`skills/flow/review-panel.md`).
+  `ask-options-removed`. The roster is resolved from the settings store, never asked; see
+  **Model resolution** above and **Review panel** (`skills/flow/review-panel.md`).
 - **Never** publish a proposal artifact — `publish-proposal-removed`. `artifactUrl` is written
   `null` and stays `null` for the life of the change.
 - **Never** skip brainstorming's design gate, or leave `tasks.md` a thin scaffold — the removed
@@ -222,14 +202,10 @@ one per mark or per phase file.
   other trigger — only an explicit operator instruction adds one, for that run only, checked at the
   start of the panel stage and at every fix round. The one automatic change to the roster is a
   reduction — `check-panel-docs-only.sh`'s docs-only verdict dispatches `primary` alone — and it
-  only ever removes; a dynamic roster is the decision's roster, and the docs-only reduction still
-  only removes; see **The docs-only reduction** (`skills/flow/review-panel.md`).
-- **Never** run more than two implementer dispatches in flight at once, in any wave — a third or
-  later ready group queues in plan order and launches only as an in-flight one is picked; see the
-  Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
+  only ever removes; see **The docs-only reduction** (`skills/flow/review-panel.md`).
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
-  defines it. A deferred Minor is not open.
+  defines it.
 - **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or fixup
   commit. **Never** push, merge, or open a PR outside the integrate/archive branches' own routes.
 - **Never** advance the state past what the phase in force is entitled to write — a fix never moves
@@ -239,6 +215,4 @@ one per mark or per phase file.
   `IN_PROGRESS`; report anything else rather than ignoring it.
 - **Never** run `implement.md` sections 1, 2 or 4, <!-- refs-guard:allow -->
   `review-panel.md` or `verify-and-handoff.md` in the parent session — the conductor runs them; the
-  parent dispatches it, relays its questions and prints its handoff — unless the recorded
-  decision's `execution` is `inline`, per **Inline — the parent implements**
-  (`skills/flow/implement.md`).
+  parent dispatches it, relays its questions and prints its handoff.
