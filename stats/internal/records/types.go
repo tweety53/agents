@@ -81,17 +81,26 @@ import (
 // harness transcript afterwards, so no agent is ever asked to report its
 // own token consumption.
 type Dispatch struct {
-	ID           int64           `json:"id"`
-	AgentID      string          `json:"agentId,omitempty"`
-	Seq          int             `json:"seq"`
-	Key          string          `json:"key,omitempty"`
-	StageRunID   *int64          `json:"stageRunId,omitempty"`
-	TaskID       string          `json:"taskId,omitempty"`
-	Role         string          `json:"role"`
-	Slot         string          `json:"slot,omitempty"`
-	Model        string          `json:"model"`
-	CommitSHA    string          `json:"commitSha,omitempty"`
-	DiffBase     string          `json:"diffBase,omitempty"`
+	ID         int64  `json:"id"`
+	AgentID    string `json:"agentId,omitempty"`
+	Seq        int    `json:"seq"`
+	Key        string `json:"key,omitempty"`
+	StageRunID *int64 `json:"stageRunId,omitempty"`
+	TaskID     string `json:"taskId,omitempty"`
+	Role       string `json:"role"`
+	Slot       string `json:"slot,omitempty"`
+	Model      string `json:"model"`
+	CommitSHA  string `json:"commitSha,omitempty"`
+	DiffBase   string `json:"diffBase,omitempty"`
+	// CostUSD is the dispatch's derived cost, lifted from the stage-run
+	// metrics bag's dispatches.<agentId>.cost_usd bucket -- the figure
+	// store.Price wrote through the one pricing path every other cost
+	// figure uses. It is resolved on reads that join the stage run
+	// (RunRecord); a row returned by a write path carries nil. A POINTER,
+	// because absence is not zero: nil means no priced bucket was joinable
+	// -- no stage run, no agent id, or a bag without the key -- never
+	// "measured at zero".
+	CostUSD      *float64        `json:"costUsd,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`
 	StartedAt    time.Time       `json:"startedAt"`

@@ -2102,3 +2102,96 @@ func TestListIncidentsNewestFirst(t *testing.T) {
 		t.Errorf("ListIncidents = [%d, %d], want newest first [%d, %d]", list[0].ID, list[1].ID, newer.ID, older.ID)
 	}
 }
+
+// TestRunRecordJoinsDispatchCost asserts the kan-450 join: a dispatch row
+// whose stage run's metrics bag carries a priced
+// dispatches.<agentId>.cost_usd bucket (the shape store.Price writes,
+// pricing.go) reads back on RunRecord's row with CostUSD set. The dollars
+// live in the stage-run bag, never on the dispatch row, so only this join
+// can lift them -- and only through the real Postgres shapes both sides
+// write, per REPRODUCE DON'T READ: a hand-built Dispatch cannot prove the
+// SQL path resolves the nested key.
+func TestRunRecordJoinsDispatchCost(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-cost-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	sr, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	// The exact patch shape Price writes for a priced dispatch bucket.
+	if err := st.MergeMetrics(ctx, sr.ID, json.RawMessage(`{"dispatches":{"agent-1":{"cost_usd":1.25}}}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+
+	in := baseDispatch("implementer", "sonnet")
+	in.AgentID = "agent-1"
+	in.StageRunID = ptr(sr.ID)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Dispatches) != 1 {
+		t.Fatalf("RunRecord returned %d dispatches, want 1", len(run.Dispatches))
+	}
+	got := run.Dispatches[0]
+	if got.CostUSD == nil {
+		t.Fatalf("CostUSD = nil, want 1.25 joined from the stage-run bag")
+	}
+	if *got.CostUSD != 1.25 {
+		t.Errorf("CostUSD = %v, want 1.25", *got.CostUSD)
+	}
+}
+
+// TestRunRecordUnpricedDispatchCostStaysNil pins absence on the same join:
+// no stage run, a bag without the priced key, and a dispatch with no agent
+// id each leave CostUSD nil -- never zero, which would read as a measured
+// free dispatch rather than an unpriced one.
+func TestRunRecordUnpricedDispatchCostStaysNil(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-dispatch-cost-nil-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	sr, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd"))
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	// A bag with a dispatches object but no cost_usd under this agent.
+	if err := st.MergeMetrics(ctx, sr.ID, json.RawMessage(`{"dispatches":{"agent-2":{"model":"sonnet"}}}`)); err != nil {
+		t.Fatalf("MergeMetrics: %v", err)
+	}
+
+	seed := func(agentID string, stageRunID *int64) {
+		t.Helper()
+		in := baseDispatch("implementer", "sonnet")
+		in.AgentID = agentID
+		in.StageRunID = stageRunID
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("RecordDispatch(agent=%q): %v", agentID, err)
+		}
+	}
+	seed("agent-no-stage-run", nil) // no stage_run_id at all
+	seed("agent-2", ptr(sr.ID))     // stage run bag carries no cost_usd for it
+	seed("", ptr(sr.ID))            // empty agent id names no bucket
+
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Dispatches) != 3 {
+		t.Fatalf("RunRecord returned %d dispatches, want 3", len(run.Dispatches))
+	}
+	for _, d := range run.Dispatches {
+		if d.CostUSD != nil {
+			t.Errorf("dispatch agent=%q stage_run=%v CostUSD = %v, want nil",
+				d.AgentID, d.StageRunID, *d.CostUSD)
+		}
+	}
+}
