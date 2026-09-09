@@ -43,6 +43,18 @@
 # line, so the operator sees the whole picture in one prompt rather than being
 # sent back around the loop one signal at a time.
 #
+# THE STORE CALLS ANCHOR AT THE PLAN'S PROJECT (KAN-260). The change's
+# records — findings and verdicts alike — live under the project of the repo
+# that ran /flow, which is the repo where the plan lives, and the project key
+# derives from -C's git common dir. So the findings query and both verdict
+# calls pass -C anchored at STORE_ANCHOR: the resolved plan's directory when
+# the plan is not local to the judged worktree, the worktree itself when it
+# is or when nothing resolved. A satellite run anchored at its own worktree
+# would read the SECOND repo's project — an empty findings array read as
+# CLEAR on this very verdict line — and record the verdict where the
+# canonical project's tools never look. -worktree keeps naming the worktree
+# the guard was asked to judge, never the anchor.
+#
 # WHY THE CHECKLIST PATTERN IS ANCHORED TO COLUMN 0. `- [ ]` is matched only at
 # the very start of a line — no leading whitespace at all. A task line sits at
 # column 0 by this repository's task/step grammar (`build-green.md`); a step's
@@ -275,6 +287,22 @@ else
   SWEEP_ID="$NAME"
 fi
 
+# THE STORE ANCHOR (KAN-260). The change's records live under the project of
+# the repo that ran /flow — the repo where the plan lives — and the project
+# key derives from -C's git common dir (stats/internal/fallback/statefile.go's
+# ProjectKey), so a run in a second repo's worktree reading -C "$WORKTREE"
+# would query the SECOND repo's project: a false `[]` on this verdict line,
+# and a verdict recorded where the canonical project's tools never look.
+# Anchor every store call at the resolved plan's directory when the plan is
+# not local, and at this worktree when it is or when nothing resolved — the
+# no-plan fall-through cannot know another repo exists.
+STORE_ANCHOR="$WORKTREE"
+case "$PLAN_DIR" in
+  "$WORKTREE" | "$WORKTREE"/*) : ;;
+  "") : ;;
+  *) STORE_ANCHOR="$PLAN_DIR" ;;
+esac
+
 if [ -d "$SWEEP_CHANGES_DIR" ]; then
   while IFS= read -r -d '' plan; do
     [ "$plan" != "$PRIMARY_PLAN" ] || continue
@@ -325,7 +353,7 @@ fi
 # stack), which is exactly the shape that makes it worth fixing rather than
 # tolerating: it breaks only for the operator who followed the instructions.
 FINDINGS_ERR="$(mktemp)"
-if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>"$FINDINGS_ERR")"; then
+if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$STORE_ANCHOR" 2>"$FINDINGS_ERR")"; then
   echo "check-unfinished-work: cannot read findings for '$NAME' from the store — cannot determine anything: $(cat "$FINDINGS_ERR")" >&2
   rm -f "$FINDINGS_ERR"
   exit 2
@@ -359,9 +387,9 @@ fi
 VERDICT_LINE="CLEAR: $WORKTREE — every plan item is checked and no finding is open"
 [ -n "$REASONS" ] && VERDICT_LINE="OUTSTANDING: $WORKTREE — $REASONS"
 flow record verdict -change "$NAME" -guard check-unfinished-work -worktree "$WORKTREE" \
-  -verdict "$VERDICT_LINE" -C "$WORKTREE" >/dev/null 2>&1 || true
+  -verdict "$VERDICT_LINE" -C "$STORE_ANCHOR" >/dev/null 2>&1 || true
 if [ -n "$REASONS" ]; then
-  PRIOR="$(flow record verdicts -guard check-unfinished-work -false-positive -C "$WORKTREE" 2>/dev/null)" \
+  PRIOR="$(flow record verdicts -guard check-unfinished-work -false-positive -C "$STORE_ANCHOR" 2>/dev/null)" \
     && N="$(printf '%s' "$PRIOR" | jq 'length' 2>/dev/null)" && [ "${N:-0}" -gt 0 ] \
     && echo "check-unfinished-work: prior false positives for this guard on this project: $N — last: $(printf '%s' "$PRIOR" | jq -r '.[0] | "\(.falsePositiveReason) (\(.change), \(.flaggedAt[:10]))"')" >&2
 fi

@@ -881,6 +881,84 @@ else
   fail "case 25: expected CLEAR with no advisory line, got rc=$RC out=$OUT err=$ERR"
 fi
 
+# 26. KAN-260: THE STORE CALLS ANCHOR AT THE PLAN'S PROJECT. The change's
+#     records live under the project of the repo that ran /flow — where the
+#     plan lives — and the project key derives from -C's git common dir, so
+#     a run in a second repo's worktree reading -C "$WORKTREE" queries the
+#     SECOND repo's project: a false `[]` on this verdict line, and a
+#     verdict recorded where the canonical project's tools never look. The
+#     stub `flow` below RECORDS the arguments of every store call, so each
+#     case asserts the -C actually received.
+recording_stub() {
+  cat > "$1/bin/flow" <<'STUB'
+#!/usr/bin/env bash
+case "$2" in
+  findings) printf '%s\n' "$*" >> "$(dirname -- "$0")/findings.args"; cat "$(dirname -- "$0")/findings.json" ;;
+  verdict) printf '%s\n' "$*" >> "$(dirname -- "$0")/verdict.args" ;;
+  verdicts) printf '%s\n' "$*" >> "$(dirname -- "$0")/verdicts.args"; cat "$(dirname -- "$0")/verdicts.json" ;;
+esac
+exit 0
+STUB
+  chmod +x "$1/bin/flow"
+}
+
+# 26. The absent-dir cross-repo shape (no change directory at all here, the
+#     plan resolved from the canonical worktree by name): the findings query
+#     and the verdict write anchor at the CANONICAL plan's directory, while
+#     the verdict still names the judged worktree.
+XWT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$XWT")
+mkdir -p "$XWT/bin"
+XCANON="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$XCANON")
+mkdir -p "$XCANON/spectre/changes/demo"
+printf -- '- [x] 1. done\n' > "$XCANON/spectre/changes/demo/tasks.md"
+recording_stub "$XWT"
+printf '[]\n' > "$XWT/bin/findings.json"
+printf '[]\n' > "$XWT/bin/verdicts.json"
+run_guard "$XWT" demo "$XCANON"
+assert_verdict "CLEAR:" "case 26: an absent-dir cross-repo plan resolves and is CLEAR"
+grep -q -- "-C $XCANON/spectre/changes/demo\$" "$XWT/bin/findings.args" \
+  && pass "case 26: the findings query anchors at the canonical plan dir" \
+  || fail "case 26: findings query did not anchor at the plan dir: $(cat "$XWT/bin/findings.args" 2>/dev/null)"
+grep -q -- "-C $XCANON/spectre/changes/demo\$" "$XWT/bin/verdict.args" \
+  && pass "case 26: the verdict write anchors at the canonical plan dir" \
+  || fail "case 26: verdict write did not anchor at the plan dir: $(cat "$XWT/bin/verdict.args" 2>/dev/null)"
+grep -qF -- "-worktree $XWT" "$XWT/bin/verdict.args" \
+  && pass "case 26: the verdict still names the judged worktree" \
+  || fail "case 26: verdict does not name the judged worktree: $(cat "$XWT/bin/verdict.args" 2>/dev/null)"
+
+# 26b. A local plan keeps anchoring at the judged worktree — byte-identical
+#      store calls to the pre-change behaviour.
+new_fixture
+recording_stub "$WT"
+printf '[]\n' > "$WT/bin/findings.json"
+printf '[]\n' > "$WT/bin/verdicts.json"
+run_guard "$WT" demo
+assert_verdict "CLEAR:" "case 26b: a local plan is CLEAR"
+grep -q -- "-C $WT\$" "$WT/bin/findings.args" \
+  && pass "case 26b: the findings query anchors at the judged worktree" \
+  || fail "case 26b: findings query did not anchor at the worktree: $(cat "$WT/bin/findings.args" 2>/dev/null)"
+grep -q -- "-C $WT\$" "$WT/bin/verdict.args" \
+  && pass "case 26b: the verdict write anchors at the judged worktree" \
+  || fail "case 26b: verdict write did not anchor at the worktree: $(cat "$WT/bin/verdict.args" 2>/dev/null)"
+
+# 26c. The no-plan fall-through (nothing resolved) keeps anchoring at the
+#      judged worktree — the guard cannot know another repo exists.
+new_fixture
+rm -f "$WT/spectre/changes/demo/tasks.md"
+recording_stub "$WT"
+printf '[]\n' > "$WT/bin/findings.json"
+printf '[]\n' > "$WT/bin/verdicts.json"
+run_guard "$WT" demo
+assert_verdict "OUTSTANDING:" "case 26c: a missing plan is OUTSTANDING"
+grep -q -- "-C $WT\$" "$WT/bin/findings.args" \
+  && pass "case 26c: the fall-through findings query anchors at the judged worktree" \
+  || fail "case 26c: findings query did not anchor at the worktree: $(cat "$WT/bin/findings.args" 2>/dev/null)"
+grep -q -- "-C $WT\$" "$WT/bin/verdict.args" \
+  && pass "case 26c: the fall-through verdict write anchors at the judged worktree" \
+  || fail "case 26c: verdict write did not anchor at the worktree: $(cat "$WT/bin/verdict.args" 2>/dev/null)"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1
