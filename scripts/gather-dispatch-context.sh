@@ -6,7 +6,7 @@
 # proposal.md, design.md, tasks.md and the engineering principles on its
 # own.
 #
-# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]
+# Usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree> [<shape>]]]
 #
 # <task-ids> is optional: a comma-separated list of integer task ids. When
 # given, the "## tasks.md" section carries only the plan's header (every
@@ -168,6 +168,20 @@
 #      carries its own repository's commands, its own project's incident
 #      log, and the canonical plan.
 #
+# THE HAZARDS SECTION (KAN-452). After "## incidents" the bundle renders
+# "## hazards", sourced from `flow hazards -C <worktree> -shape <shape>`:
+# this project's proactive warnings -- incidents' proactive sibling, one
+# "- **name (applies):** body" bullet per row, part of the hashed BODY so a
+# newly recorded hazard forces a rebuild. <shape> is the change's shape the
+# CALLER computes (its resolved worktree set spans more than one repository
+# -> cross-repo, otherwise single-repo); the empty/omitted eighth argument
+# becomes the literal "all", so a caller that does not know the shape still
+# fails open to the always-on rows rather than over-injecting. Anything
+# outside the closed vocabulary is a malformed invocation (exit 2), the
+# same contract the task-ids argument carries. The section never gates a
+# run: flow absent or failing skips as "hazards (flow unavailable)", an
+# empty result as "hazards (none)".
+#
 # <canonical-worktree>, when given, is validated nowhere beyond what
 # change-plan.sh's own [ -f ] probes imply — the same trust level as
 # check-unfinished-work.sh's third argument: a caller-supplied worktree
@@ -209,6 +223,10 @@ PRINCIPLES_PATH="${4:-}"
 OUTPUT_PATH="${5:-}"
 TASK_IDS="${6:-}"
 CANONICAL_WORKTREE="${7:-}"
+# The change's shape, computed by the caller from its resolved worktree
+# set. Empty means the caller does not know it; the hazards section below
+# then filters to the always-on rows (the literal "all"), never to a guess.
+SHAPE="${8:-}"
 
 if [ -z "$WORKTREE" ] || [ -z "$CHANGE_ROOT" ] || [ -z "$NAME" ] || [ -z "$PRINCIPLES_PATH" ] || [ -z "$OUTPUT_PATH" ]; then
   echo "usage: gather-dispatch-context.sh <worktree> <change-root> <name> <principles-path> <output-path> [<task-ids> [<canonical-worktree>]]" >&2
@@ -219,6 +237,14 @@ if [ -n "$TASK_IDS" ] && ! printf '%s' "$TASK_IDS" | grep -qE '^[0-9]+(,[0-9]+)*
   echo "gather-dispatch-context: task ids '$TASK_IDS' must be a comma-separated list of integers" >&2
   exit 2
 fi
+
+case "$SHAPE" in
+  "" | all | cross-repo | single-repo) ;;
+  *)
+    echo "gather-dispatch-context: shape '$SHAPE' must be one of all, cross-repo, single-repo" >&2
+    exit 2
+    ;;
+esac
 
 case "$NAME" in
   [!A-Za-z0-9]* | *[!A-Za-z0-9._-]*)
@@ -581,6 +607,31 @@ else
 fi
 rm -f "$INCIDENTS_ERR_FILE"
 
+# --- hazards: this project's proactive warnings, from
+# `flow hazards -C "$WORKTREE_REAL" -shape <shape>` (KAN-452) — the
+# incidents section's three-outcome shape: `flow` absent or the call
+# failing skips as "hazards (flow unavailable)"; a `[]` result skips as
+# "hazards (none)"; anything else renders the "## hazards" section, one
+# bullet per row. The section is part of the hashed BODY below, so a newly
+# recorded hazard forces a rebuild. The empty SHAPE becomes the literal
+# "all" -- fail-open to the always-on rows, per the header's HAZARDS
+# paragraph.
+HAZ_SHAPE="${SHAPE:-all}"
+HAZARDS_BODY=""
+if HAZARDS_JSON="$(flow hazards -C "$WORKTREE_REAL" -shape "$HAZ_SHAPE" 2>/dev/null)" \
+  && HAZARDS_COUNT="$(printf '%s' "$HAZARDS_JSON" | jq 'length' 2>/dev/null)" \
+  && [ -n "$HAZARDS_COUNT" ]; then
+  if [ "$HAZARDS_COUNT" -gt 0 ]; then
+    HAZARDS_BODY="$(printf '%s' "$HAZARDS_JSON" | jq -r '.[] | "- **" + .name + " (" + .applies + "):** " + .body')"
+    FOUND_LABELS+=("hazards")
+    FOUND_PATHS+=("@hazards")
+  else
+    SKIPPED_LABELS+=("hazards (none)")
+  fi
+else
+  SKIPPED_LABELS+=("hazards (flow unavailable)")
+fi
+
 # render_body — everything printed after the header's `generated:`/`head:`
 # lines: the found/skipped/refused census and every "## <label>" section.
 # Captured once into BODY and hashed by sha256_hex below, so the header's
@@ -617,6 +668,7 @@ render_body() {
       case "${FOUND_PATHS[$i]}" in
         "@scoped-tasks") printf '%s\n' "$TASKS_SCOPED_BODY" ;;
         "@incidents") printf '%s\n' "$INCIDENTS_BODY" ;;
+        "@hazards") printf '%s\n' "$HAZARDS_BODY" ;;
         "") printf '%s' "$PROJECT_COMMANDS_BODY" ;;
         *) cat "${FOUND_PATHS[$i]}" ;;
       esac

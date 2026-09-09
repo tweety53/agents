@@ -339,7 +339,7 @@ func RenderLedger(r Run) string {
 		if strings.TrimSpace(d.Key) != "" {
 			fmt.Fprintf(&b, "- Key: %s\n", neutraliseMarkers(d.Key))
 		}
-		fmt.Fprintf(&b, "- Model: %s\n", orElse(d.Model, "not recorded"))
+		fmt.Fprintf(&b, "- Model: %s effort=%s\n", orElse(d.Model, "not recorded"), orElse(d.Effort, "default"))
 		fmt.Fprintf(&b, "- Commit: %s\n", orElse(d.CommitSHA, "no commit"))
 		// Conditional, in the shape the Slot and Notes lines use, rather
 		// than orElse-defaulted: every implementer dispatch and the primary

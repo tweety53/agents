@@ -169,6 +169,31 @@ func TestSettingsStore_RejectsUnknownPlanningModel(t *testing.T) {
 	}
 }
 
+// TestPutSettingsAcceptsSimpleReviewer asserts PutSettings accepts
+// "simple-reviewer" as a Reviewers entry -- small class's compact-roster
+// code-quality slot (design.md's simple-reviewer-new-slot decision), a
+// distinct persistent id from "code-review-low", not a rename of it.
+func TestPutSettingsAcceptsSimpleReviewer(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	want := store.Settings{
+		DefaultModel: "sonnet",
+		Reviewers:    []string{"primary", "simple-reviewer"},
+	}
+	if err := st.PutSettings(ctx, want); err != nil {
+		t.Fatalf("PutSettings: %v, want nil", err)
+	}
+
+	got, err := st.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("GetSettings = %+v, want %+v", got, want)
+	}
+}
+
 // TestSettingsStore_RejectsUnknownReviewer asserts PutSettings refuses a
 // reviewers entry off the fixed reviewer-slot vocabulary, wrapping
 // store.ErrInvalidReviewer and naming the specific bad value in the error.

@@ -18,6 +18,7 @@ SKILLS_SRC="$SCRIPT_DIR/skills"
 RULES_SRC="$SCRIPT_DIR/rules"
 COMMANDS_CURSOR_SRC="$SCRIPT_DIR/commands"
 COMMANDS_CLAUDE_SRC="$SCRIPT_DIR/commands-claude"
+AGENTS_SRC="$SCRIPT_DIR/agents"
 HARNESS="${1:-}"
 PROJECT_DIR="${2:-.}"
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
@@ -225,6 +226,7 @@ install_claude_code() {
   info "Setting up for Claude Code in $PROJECT_DIR"
   install_skills "$PROJECT_DIR/.claude/skills"
   install_commands "$COMMANDS_CLAUDE_SRC" "$PROJECT_DIR/.claude/commands"
+  install_agents "$PROJECT_DIR/.claude/agents"
   if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]]; then
     cp "$SCRIPT_DIR/CLAUDE.md" "$PROJECT_DIR/CLAUDE.md"
     info "Copied CLAUDE.md to project root"
@@ -233,7 +235,7 @@ install_claude_code() {
   fi
   echo ""
   finish_banner "Claude Code" "$skipped_before"
-  echo "   Skills → .claude/skills/  Commands → .claude/commands/"
+  echo "   Skills → .claude/skills/  Commands → .claude/commands/  Agents → .claude/agents/"
   echo "   Next: in a Claude Code session, run /plugin install prime-radiant-inc/superpowers"
 }
 
@@ -552,17 +554,15 @@ install_commands() {
 }
 
 install_agents() {
-  local claude_dir="$1" agents_src="$SCRIPT_DIR/agents"
-  local agents_dir="$claude_dir/agents"
-  local agent_file agent_name
-  [[ -d "$agents_src" ]] || return 0
-  info "Installing agent definitions into $agents_dir"
-  mkdir -p "$agents_dir"
-  prune_stale_links "$agents_dir"
-  for agent_file in "$agents_src"/*.md; do
+  local target_dir="$1" agent_file agent_name
+  [[ -d "$AGENTS_SRC" ]] || return 0
+  info "Installing agent definitions into $target_dir"
+  mkdir -p "$target_dir"
+  prune_stale_links "$target_dir"
+  for agent_file in "$AGENTS_SRC"/*.md; do
     [[ -f "$agent_file" ]] || continue
     agent_name=$(basename "$agent_file")
-    link_into "$agent_file" "$agents_dir/$agent_name" "$agent_name"
+    link_into "$agent_file" "$target_dir/$agent_name" "$agent_name"
   done
 }
 
@@ -1068,6 +1068,7 @@ install_global() {
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.claude/commands"
   install_commands "$COMMANDS_CURSOR_SRC" "$home_dir/.cursor/commands"
   install_commands "$COMMANDS_CLAUDE_SRC" "$home_dir/.zcode/commands"
+  install_agents "$home_dir/.claude/agents"
   install_rules_cursor "$home_dir/.cursor/rules"
   # Claude Code's layer is two halves of one source: the core of each rule goes into the
   # managed block below, the full text is linked here, and the block's `Full rule:` pointer
@@ -1079,7 +1080,6 @@ install_global() {
   install_rules_zcode "$home_dir/.zcode/rules"
   install_hooks "$home_dir/.claude"
   install_hooks_zcode "$home_dir/.zcode"
-  install_agents "$home_dir/.claude"
   install_zcode_env "$home_dir"
   for managed_file in "$home_dir/.claude/CLAUDE.md" "$home_dir/.codex/AGENTS.md"; do
     install_managed_block "$managed_file"
@@ -1100,6 +1100,7 @@ install_global() {
   echo "              $home_dir/.zcode/commands/"
   echo "              No commands layer is installed for Codex — in a Codex session invoke a"
   echo "              skill by reading $home_dir/.codex/skills/<skill>/SKILL.md and following it."
+  echo "   Agents   → $home_dir/.claude/agents/"
   echo "   Rules    → $home_dir/.cursor/rules/, and the managed block in"
   echo "              $home_dir/.claude/CLAUDE.md, $home_dir/.codex/AGENTS.md and"
   echo "              $home_dir/.zcode/AGENTS.md"
@@ -1109,8 +1110,6 @@ install_global() {
   echo "   Hooks    → $home_dir/.claude/hooks/ and $home_dir/.zcode/hooks/ — installed, but"
   echo "              registered only if the harness's config already names them (see any"
   echo "              warning above)."
-  echo "   Agents   → $home_dir/.claude/agents/ — the nine flow-<model>-<effort> definitions"
-  echo "              dynamic dispatches use to enforce the model and effort they were given."
   echo "   Shell env → Z_COMPACT_WINDOW=$ZCODE_COMPACT_WINDOW in a managed block in"
   echo "              $home_dir/.zshrc — the auto-compact window the /usr/local/bin/zcode"
   echo "              wrapper runs with."

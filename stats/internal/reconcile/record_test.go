@@ -68,7 +68,47 @@ func (nopRecordStore) ListIncidents(context.Context, string) ([]records.Incident
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
+	return records.Hazard{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) RetireHazard(context.Context, string, string) (records.Hazard, error) {
+	return records.Hazard{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
+	return records.SuiteRun{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
+	return records.Decision{}, false, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 var _ api.RecordStore = nopRecordStore{}
+
+// fakeRecordStore's own suite-run no-ops: replay never touches them -- a
+// journal entry records a dispatch, a finding, or a verdict, never a timed
+// suite run -- so they answer errRecordStoreNotExercised exactly like the
+// read methods above.
+func (f *fakeRecordStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
+	return records.SuiteRun{}, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
 
 // recordJournalPath mirrors cmd/flow/record.go's own recordJournalPath
 // (the state journal path with ".record" appended) -- reproduced here
@@ -191,9 +231,32 @@ func (f *fakeRecordStore) ListIncidents(context.Context, string) ([]records.Inci
 	return nil, errRecordStoreNotExercised
 }
 
+func (f *fakeRecordStore) AddHazard(_ context.Context, projectKey string, h records.Hazard) (records.Hazard, error) {
+	f.record(fmt.Sprintf("hazard %s/%s", projectKey, h.Name))
+	return h, nil
+}
+
+func (f *fakeRecordStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RetireHazard(_ context.Context, projectKey, name string) (records.Hazard, error) {
+	f.record(fmt.Sprintf("retire hazard %s/%s", projectKey, name))
+	return records.Hazard{}, nil
+}
+
 func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status string) error {
 	f.record(fmt.Sprintf("status %s/%s ref=%s status=%s", projectKey, change, ref, status))
 	return nil
+}
+
+func (f *fakeRecordStore) RecordDecision(_ context.Context, projectKey, change string, in records.Decision) (records.Decision, bool, error) {
+	f.record(fmt.Sprintf("decision %s/%s sessionToken=%s decision=%s", projectKey, change, in.SessionToken, in.Decision))
+	return in, true, nil
+}
+
+func (f *fakeRecordStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
+	return nil, errRecordStoreNotExercised
 }
 
 func (f *fakeRecordStore) appliedCalls() []string {
@@ -343,6 +406,39 @@ func TestReplayAppliesVerdictAndIncidentEntries(t *testing.T) {
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {
 		t.Fatalf("pending record entries after replay = %d, want 0 (every applied entry retired)", n)
+	}
+}
+
+// TestReplayDecisionKind is this task's own addition: `flow record
+// decision` falls back to the journal kind "decision", which must reach
+// the store through applyRecordEntry's own case arm and retire, exactly as
+// every other record kind does.
+func TestReplayDecisionKind(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-decision", "chg-record-decision"
+
+	appendRecordWrite(t, root, project, change, "decision", records.Decision{
+		SessionToken: "mf-decide-1",
+		Decision:     json.RawMessage(`{"class":"regular"}`),
+	})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Journals != 1 || result.Applied != 1 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:1 Refused:0}", result)
+	}
+
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		`decision proj-record-decision/chg-record-decision sessionToken=mf-decide-1 decision={"class":"regular"}`,
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
 	}
 }
 

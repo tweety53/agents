@@ -409,6 +409,77 @@ assert_nonzero_rc "case 9: a ## Parts-only link.md is not a satellite and has no
 assert_eq "case 9: it prints nothing" "" "$OUT"
 
 # ---------------------------------------------------------------------------
+# Cases 10-10c (KAN-260): the absent-dir branch. A worktree carrying NO
+# change directory at all for the named change — the hand-shipped cross-repo
+# shape, where the plan lives only in the canonical repo — resolves the
+# same-named plan directly from the SUPPLIED canonical worktree, with no
+# link.md to read and no store to query. Gated on the DIRECTORY being
+# absent, not merely tasks.md: case 10c proves a satellite (a dir carrying
+# only link.md) keeps link resolution and its loud failure, so the canonical
+# worktree is never retried behind link.md's back.
+# ---------------------------------------------------------------------------
+SAT10="$WORK/case10-no-dir"
+CANON10="$WORK/case10-canonical"
+make_tree "$SAT10"
+make_tree "$CANON10"
+mkdir -p "$CANON10/spectre/changes/x-repo-change"
+printf '# canonical\n\n- [ ] 1. do a thing\n' > "$CANON10/spectre/changes/x-repo-change/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$SAT10" "x-repo-change" "$CANON10")"
+RC=$?
+set -e
+assert_zero_rc "case 10: absent local dir resolves the canonical worktree's same-named plan" "$RC"
+assert_eq "case 10: it prints the canonical worktree's own tasks.md path" \
+  "$CANON10/spectre/changes/x-repo-change/tasks.md" "$OUT"
+
+set +e
+OUT="$(change_plan_dir "$SAT10" "x-repo-change" "$CANON10")"
+RC=$?
+set -e
+assert_zero_rc "case 10 dir: the absent-dir resolution prints the canonical change directory" "$RC"
+assert_eq "case 10 dir: it prints the canonical worktree's own change directory" \
+  "$CANON10/spectre/changes/x-repo-change" "$OUT"
+
+# Case 10b: the same absent-dir shape with NO canonical worktree argument —
+# nothing names where the plan lives, so this stays unresolvable exactly as
+# before the branch existed.
+SAT10B="$WORK/case10b-no-dir"
+make_tree "$SAT10B"
+
+set +e
+OUT="$(change_plan_path "$SAT10B" "x-repo-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 10b: absent local dir without a canonical worktree stays unresolvable" "$RC"
+assert_eq "case 10b: it prints nothing to stdout" "" "$OUT"
+
+# Case 10c: a SATELLITE — a change directory that exists, carrying only
+# link.md — never takes the absent-dir branch. The canonical worktree here
+# deliberately carries a plan under the SATELLITE'S OWN NAME, so a branch
+# that fired on link-resolution failure would wrongly resolve it and this
+# case would pass with exit 0; the loud non-zero is the contract.
+SAT10C="$WORK/case10c-satellite"
+CANON10C="$WORK/case10c-canonical"
+make_tree "$SAT10C"
+make_tree "$CANON10C"
+mkdir -p "$SAT10C/spectre/changes/sat-change"
+cat > "$SAT10C/spectre/changes/sat-change/link.md" <<'EOF'
+## Part of
+
+`peerx:canon-change`
+EOF
+mkdir -p "$CANON10C/spectre/changes/sat-change"
+printf '# decoy plan that must never be reached\n' > "$CANON10C/spectre/changes/sat-change/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$SAT10C" "sat-change" "$CANON10C" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 10c: satellite dir with link.md and no tasks.md never takes the absent-dir branch" "$RC"
+assert_eq "case 10c: it prints nothing to stdout" "" "$OUT"
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0

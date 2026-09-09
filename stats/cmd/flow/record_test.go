@@ -2284,6 +2284,21 @@ func TestValidateFindingStatusRejectsWithdrawnConcatenatedNoSpace(t *testing.T) 
 	}
 }
 
+// TestValidateFindingStatusDeferred pins design.md's `deferred <reason>`
+// section: the CLI accepts "deferred <reason>" -- the exact `withdrawn`
+// shape, checked before the store is ever contacted -- and refuses a bare
+// "deferred" the same way a bare "withdrawn" is refused.
+func TestValidateFindingStatusDeferred(t *testing.T) {
+	for _, status := range []string{"deferred", "deferred   ", "deferredfoo"} {
+		if err := validateFindingStatus(status); err == nil {
+			t.Errorf("validateFindingStatus(%q) = nil, want an error -- deferred requires a reason", status)
+		}
+	}
+	if err := validateFindingStatus("deferred cosmetic, not worth a fix round"); err != nil {
+		t.Errorf("validateFindingStatus with a reason = %v, want nil", err)
+	}
+}
+
 // TestValidateFindingReproducerRejectsWhitespaceOnly pins panel finding F2
 // (kan-271): strings.Fields(" ") returns an empty slice, so a whitespace-only
 // reproducer is treated as neither empty nor a bare "none" and wrongly
@@ -2323,6 +2338,173 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 	}
 }
 
+// TestRunRecordDecisionRefusesBadBody pins the caller-mistake path `flow
+// record decision` shares with every other write verb: a body that is not
+// valid JSON is refused before the store is ever contacted, exit 2, no
+// journal entry -- the validateFindingStatus posture the dispatch prompt
+// names.
+func TestRunRecordDecisionRefusesBadBody(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	file := filepath.Join(t.TempDir(), "decision.json")
+	if err := os.WriteFile(file, []byte("not json"), 0o644); err != nil {
+		t.Fatalf("write decision file: %v", err)
+	}
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "decision", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for a non-JSON body -- it must be refused first")
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-472"); exists {
+		t.Error("a caller mistake wrote a record journal")
+	}
+}
+
+// TestRunRecordDecisionJournalsWhenUnreachable pins the never-block
+// fallback every other write verb already carries: an unreachable store
+// journals the decision under kind "decision" and still exits 0.
+func TestRunRecordDecisionJournalsWhenUnreachable(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	file := filepath.Join(t.TempDir(), "decision.json")
+	body := `{"toggles":{"executionMode":"dynamic"},"class":"regular"}`
+	if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+		t.Fatalf("write decision file: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "decision", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+			"-change", "kan-472", "-session-token", "mf-abc123", "-file", file},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a dead store must never block); stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "store unreachable") {
+		t.Errorf("stderr = %q, want it to name the store as unreachable", stderr.String())
+	}
+
+	entries, exists := recordJournalEntries(t, repo, "kan-472")
+	if !exists || len(entries) != 1 {
+		t.Fatalf("record journal entries = %d (exists=%v), want exactly 1", len(entries), exists)
+	}
+	var got struct {
+		Kind    string `json:"kind"`
+		Request struct {
+			SessionToken string          `json:"sessionToken"`
+			Decision     json.RawMessage `json:"decision"`
+		} `json:"request"`
+	}
+	if err := json.Unmarshal(entries[0].Body, &got); err != nil {
+		t.Fatalf("decode journalled body: %v", err)
+	}
+	if got.Kind != "decision" {
+		t.Errorf("journalled kind = %q, want decision", got.Kind)
+	}
+	if got.Request.SessionToken != "mf-abc123" {
+		t.Errorf("journalled sessionToken = %q, want mf-abc123", got.Request.SessionToken)
+	}
+	if string(got.Request.Decision) != body {
+		t.Errorf("journalled decision = %s, want %s", got.Request.Decision, body)
+	}
+}
+
+// TestRunRecordDecisionsPrintsJSON pins `flow record decisions`' read
+// contract -- `incidents`'/`verdicts`' own, verbatim: the store's array,
+// printed as-is, and an empty array (never null) when the store holds none.
+func TestRunRecordDecisionsPrintsJSON(t *testing.T) {
+	t.Run("prints the array verbatim", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		body := `[{"id":2,"sessionToken":"mf-def","recordedAt":"2026-01-02T03:04:05Z","decision":{"class":"big"}},` +
+			`{"id":1,"sessionToken":"mf-abc","recordedAt":"2026-01-01T00:00:00Z","decision":{"class":"small"}}]`
+		var gotPath string
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "decisions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-472"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		if !strings.HasSuffix(gotPath, "/kan-472/decisions") {
+			t.Errorf("request path = %s, want it to end in /kan-472/decisions", gotPath)
+		}
+		got := strings.TrimRight(stdout.String(), "\n")
+		if got != body {
+			t.Errorf("stdout = %s, want the store's array verbatim: %s", got, body)
+		}
+	})
+
+	t.Run("no rows prints an empty array", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`[]`))
+		}))
+		defer srv.Close()
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "decisions", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+				"-change", "kan-472"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code != 0 {
+			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+		}
+		got := strings.TrimRight(stdout.String(), "\n")
+		if got != "[]" {
+			t.Errorf("stdout = %q, want exactly \"[]\"", got)
+		}
+	})
+
+	t.Run("store unreachable exits non-zero", func(t *testing.T) {
+		repo := gitRepo(t)
+		isolatedStateRoot(t)
+
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(),
+			[]string{"record", "decisions", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo,
+				"-change", "kan-472"},
+			strings.NewReader(""), &stdout, &stderr)
+
+		if code == 0 {
+			t.Fatalf("exit code = 0, want non-zero -- a read has nothing to journal; stdout:\n%s", stdout.String())
+		}
+	})
+}
+
 // TestRecordUsageNamesEveryRole pins the usage text's "-role is one of:"
 // line to recordRoles in both directions, so neither can drift out of sync
 // with the other: a role added to the slice cannot stay missing from the
@@ -2357,5 +2539,73 @@ func TestRecordUsageNamesEveryRole(t *testing.T) {
 		if !known[role] {
 			t.Errorf("recordUsage's -role line names %q, which is not in recordRoles", role)
 		}
+	}
+}
+
+// TestRunRecordDispatchBeginRejectsUnknownEffort pins that -effort is
+// checked against the four accepted words before the store is ever
+// contacted, exactly as -role is in
+// TestRecordRejectsUnknownRoleWithoutContactingStore: a caller mistake
+// taking the never-block fallback path would journal a write a replay
+// could only ever be refused for a second time.
+func TestRunRecordDispatchBeginRejectsUnknownEffort(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	contacted := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		contacted = true
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "implementer", "-model", "opus", "-effort", "extreme",
+			"-key", "k1", "-session-token", "mf-record-unknown-effort", "-started-at", "2026-01-02T03:04:05Z"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an unrecognised effort -- it must be refused first")
+	}
+	for _, effort := range []string{"low", "medium", "high", "default"} {
+		if !strings.Contains(stderr.String(), effort) {
+			t.Errorf("stderr does not name the accepted effort %q:\n%s", effort, stderr.String())
+		}
+	}
+	if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+		t.Error("an unrecognised effort wrote a record journal")
+	}
+}
+
+// TestRecordDispatchBeginDefaultsEffortToDefault pins that an omitted
+// -effort is sent as the literal "default" rather than left absent from
+// the wire body -- the store column is NOT NULL DEFAULT 'default' because
+// an absent effort is a known fact (the dispatcher set none), never an
+// unknown one, and the CLI is where that fact is established.
+func TestRecordDispatchBeginDefaultsEffortToDefault(t *testing.T) {
+	sent := dispatchBeginBody(t)
+
+	if sent["effort"] != "default" {
+		t.Errorf("effort = %v, want %q when -effort is omitted", sent["effort"], "default")
+	}
+}
+
+// TestRecordDispatchBeginAcceptsEffort pins -effort through to the request
+// body verbatim for each of the three accepted non-default words.
+func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
+	for _, effort := range []string{"low", "medium", "high"} {
+		t.Run(effort, func(t *testing.T) {
+			sent := dispatchBeginBody(t, "-effort", effort)
+
+			if sent["effort"] != effort {
+				t.Errorf("effort = %v, want %q", sent["effort"], effort)
+			}
+		})
 	}
 }

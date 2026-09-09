@@ -830,6 +830,14 @@ func (stubStageStore) CacheEfficiency(context.Context, store.Period, *string, *s
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) Reviewers(context.Context, store.Period, *string, *string) ([]store.ReviewerRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) Decisions(context.Context, store.Period, *string) ([]store.DecisionRow, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 func (stubStageStore) CountRunsWithoutModel(context.Context, store.Period, *string) (int, error) {
 	return 0, errStageStoreNotImplemented
 }
@@ -890,6 +898,34 @@ func (stubStageStore) RecordIncident(context.Context, string, records.Incident) 
 }
 
 func (stubStageStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
+	return records.Hazard{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) RetireHazard(context.Context, string, string) (records.Hazard, error) {
+	return records.Hazard{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
+	return records.SuiteRun{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errStageStoreNotImplemented
+}
+
+func (stubStageStore) RecordDecision(context.Context, string, string, records.Decision) (records.Decision, bool, error) {
+	return records.Decision{}, false, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errStageStoreNotImplemented
 }
 

@@ -91,6 +91,18 @@ act before that is writing the same block to
 `skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its
 own system prompt>`.
 
+**The prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**The prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
 **Recording.** The conductor records each dispatch as a pair, `-role verifier`, `-task` omitted,
 `-model sonnet`, `-key verify` here and `visual-verify` in **Visual verification** below, suffixed
 `-<worktree basename>` when this run's resolved set holds more than one worktree — the pair's
@@ -106,15 +118,12 @@ output, verbatim; the operator resolves it through a fix run. Never run the fail
 to check it, and never dispatch a third verifier. The ledger render and this stage's `end` mark
 follow whichever report was last.
 
-**Handshake.** Compare the `Model:` line against `sonnet`. A match proceeds. A mismatch records the
-model that answered and continues on the running agent — no re-dispatch:
-
-```bash verified:shape of the conductor handshake in skills/flow/implement.md
-flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
-  -outcome fallback -ended-at <ts>
-flow record dispatch begin -change <name> -role verifier -model <the model the handshake named> \
-  -key <key>-<that model, lowercased> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
-```
+**Handshake.** Compare the `Model:` line against `sonnet` (never `DEFAULT_MODEL` or a session
+override) and apply **The handshake** (`skills/flow/implement.md`, **Dispatch the conductor**),
+unchanged: a first mismatch closes `<key>` `-outcome fallback` and re-dispatches once under
+`<key>-retry`; a second mismatch closes `<key>-retry` `-outcome fallback` too and ends the turn
+with `## Question` naming `sonnet` and both models that answered, options **Continue on `<the
+model the second handshake named>`** or **Stop the run**.
 
 **A mark or a record never blocks — proceed regardless of whether it reached the store.** A
 verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted` and
@@ -451,14 +460,26 @@ flow record cost-status -change <name>
 
 It exits 0 always — `unknown` included. Render exactly what it printed.
 
+**Produce the handoff's `Deferred:` count and `### Deferred minors` list the same way**, one call
+per affected worktree:
+
+```bash
+flow record findings -change <name> -C <abs-worktree>
+```
+
+Filter the result on a `status` that starts with `deferred`. `Deferred:` is the count of matches;
+`### Deferred minors` lists one row per match, `F<n> <location> — <note> — <reason>` (the reason is
+the text following `deferred ` in that finding's status), and reads `none` when the count is `0`.
+
 ```
 ## Implementation staged — review and test | Implementation committed — review and test
 
 **Change:** <name>
-**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; substituted: <slot(s) dispatched as general-purpose in place of their own agent type, or "none">; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
+**Panel:** clean — roster: <the slot list this run dispatched>; reduced: <"docs-only — " followed by the resolved slot(s) not dispatched, or "no">; <default|dynamic — class, compact?, rerun policy, dispatches: <group> · <group>>; added this run: <slot(s) an explicit operator instruction added beyond the resolved list, or "none — resolved list ran alone">
 **Visual:** not configured | no UI paths touched | <view>: <absolute screenshot path>[, <view>: <absolute screenshot path> …][ — push with: git -C <regression checkout> push]
 **Staged:** N/N tasks staged and uncommitted | N/N tasks committed on branch | committed, plus one planning-artifacts commit, and pushed to the PR branch
 **Records:** all writes reached the store | N write(s) journalled — the store was unreachable | unknown — the journal could not be counted
+**Deferred:** <count of deferred Minors>
 **Costs:** <the line `flow record cost-status` printed>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira description (pre-edit):** <the text as it stood before the write, verbatim in a fenced block, inside <details> when long> | omitted — this run wrote no description
@@ -473,6 +494,9 @@ Review the diff, then run it:
   git -C <absolute worktree path> diff <merge base>..HEAD
   open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 
+### Deferred minors
+<one row per deferred Minor, `F<n> <location> — <note> — <reason>`, or `none` when there are none>
+
 Re-run this command to fix anything you find, or bare to move on to integrating it.
 
 Next:
@@ -486,9 +510,13 @@ the "staged and uncommitted" alternative is carried only for symmetry with the p
 resuming mid-panel might see, and should not occur in an ordinary run. **The `Panel:` line is
 `/flow`'s own** — it states what **Review panel** (`skills/flow/review-panel.md`) actually
 dispatched this run: the resolved roster or its docs-only reduction to `primary` (**The docs-only
-reduction**, `skills/flow/review-panel.md`), any slot substituted as a general-purpose agent per
-`unspawnable-id-substitutes`, and any slot an explicit operator instruction added beyond the
-resolved list.
+reduction**, `skills/flow/review-panel.md`), any slot an explicit operator instruction added
+beyond the resolved list; and, per **Bundled dispatch** and **The `## Decision` block**
+(`skills/flow/review-panel.md`, `skills/flow/brainstorm.md`), whether `REVIEW_PANEL_TOGGLE` was
+`default` or `dynamic`, the run's class, whether the roster was `compact` or `full`, its rerun
+policy (`delta` or `full`), and the dispatch groups as `+`-joined roles — the same fields and
+shape `skills/flow-contracts/handoff-blocks.md`'s `Panel:` line carries for `/flow-status`'s
+regenerated view of the same state.
 
 **The `Records` line is printed on every run of this branch, journalled or not.** **The `Costs:`
 line is printed the same way — always, `unknown` included.**

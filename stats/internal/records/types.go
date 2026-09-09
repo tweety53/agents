@@ -80,6 +80,11 @@ import (
 // slug. Metrics is derived instead: the harvester attributes it from the
 // harness transcript afterwards, so no agent is ever asked to report its
 // own token consumption.
+//
+// Effort is recorded intent too, but unlike Model it can never be
+// handshaken back from the dispatched role -- a model cannot report its
+// own effort -- so it carries only what the dispatcher itself set:
+// `low`, `medium`, `high`, or `default` where none was set.
 type Dispatch struct {
 	ID           int64           `json:"id"`
 	AgentID      string          `json:"agentId,omitempty"`
@@ -90,6 +95,7 @@ type Dispatch struct {
 	Role         string          `json:"role"`
 	Slot         string          `json:"slot,omitempty"`
 	Model        string          `json:"model"`
+	Effort       string          `json:"effort,omitempty"`
 	CommitSHA    string          `json:"commitSha,omitempty"`
 	DiffBase     string          `json:"diffBase,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
@@ -160,6 +166,17 @@ type Finding struct {
 	Reproducer  string `json:"reproducer,omitempty"`
 }
 
+// Decision is one run's dynamic decision: the whole `## Decision` block as
+// JSON. SessionToken is unique per change -- a run's decision is recorded
+// once and updated in place on replay, the same idempotency
+// RecordDispatch's Key gives a dispatch row.
+type Decision struct {
+	ID           int64           `json:"id"`
+	SessionToken string          `json:"sessionToken"`
+	RecordedAt   time.Time       `json:"recordedAt"`
+	Decision     json.RawMessage `json:"decision"`
+}
+
 // Verdict is one recorded outcome a guard reached against one worktree, at
 // one point in time -- the record `check-unfinished-work.sh` and any guard
 // like it leaves behind so that "this guard tripped here before" stops
@@ -218,6 +235,35 @@ type Incident struct {
 	Recovery    string    `json:"recovery"`
 	MinutesLost int       `json:"minutesLost"`
 	OccurredAt  time.Time `json:"occurredAt"`
+}
+
+// Hazard is a proactive, per-project warning a dispatch bundle carries
+// before it costs time -- incidents' proactive sibling (KAN-452). Applies
+// is a closed vocabulary matching how the pipeline classifies a change:
+// "all" injects into every bundle, "cross-repo"/"single-repo" only into
+// bundles whose caller passed that shape. Active is the retire flag: rows
+// are retired, never deleted, so the record of what warnings a project
+// carried survives.
+type Hazard struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Body      string    `json:"body"`
+	Applies   string    `json:"applies"`
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// SuiteRun is one timed suite execution on one machine, recorded by
+// `flow suite record`. ExitCode is the child's own exit status, so a
+// failed run's duration can be stored without ever presenting itself as a
+// runtime figure: the reader's summary counts passing runs only.
+type SuiteRun struct {
+	ID         int64     `json:"id"`
+	Suite      string    `json:"suite"`
+	Host       string    `json:"host"`
+	DurationMs int64     `json:"durationMs"`
+	ExitCode   int       `json:"exitCode"`
+	RanAt      time.Time `json:"ranAt"`
 }
 
 // Run is one change's whole derived record: its dispatches in seq order

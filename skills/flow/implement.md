@@ -38,7 +38,11 @@ with the dispatch — and `subagent_type: general-purpose`. Its prompt carries, 
 
 and states: the change name `<name>`; the project root; `<changeRoot>`; this run's literal session
 token; the harness; `DEFAULT_MODEL` and the resolved `REVIEWERS` list; the guard-presence result;
-the run kind (creating or fix) and, on a fix run, the operator's fix instructions; and the
+the run kind (creating or fix) and, on a fix run, the operator's fix instructions; the decision JSON
+path (`<abs-worktree>/.superpowers/sdd/decision.json`) — read for the three resolved toggles —
+`EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE`, `REVIEW_PANEL_TOGGLE` — per **The `##
+Decision` block** (`design.md`), and for the recorded `groups` field, which section **4** below
+dispatches by; and the
 instruction to read this file's sections **1**, **2** and **4**, `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` and follow them **as the conductor**, running every stage mark
 in that range itself with the token it was given.
@@ -46,7 +50,8 @@ in that range itself with the token it was given.
 **The relay contract**, stated in the same prompt. The conductor has no channel to the operator and
 no task-list tool. It ends a turn only with one of three blocks, and never with a child subagent
 still in flight — it waits for every implementer, reviewer, slot and fix subagent it launched
-first:
+first. A turn that ends with a child running idles this role and the parent until the child
+finishes, and both re-price their whole context on resume.
 
 - `## Question` — the question plus named options; the parent asks it verbatim through
   **AskUserQuestion** and resumes the conductor via **SendMessage** with the answer. Every operator
@@ -58,7 +63,21 @@ first:
   visibility** (`skills/flow-contracts/pipeline.md`) — and resumes it with `continue`.
 - `## Handoff` carrying the `IN_PROGRESS` handoff block verbatim; the parent prints it unchanged.
 
-The first line of its first reply is `Model: <the model named in its own system prompt>`.
+**The parent backstop.** A conductor return that names a child in flight — `awaiting`, `in flight`,
+a dispatch key with no `## Stage` end mark behind it — is not one of the three blocks above; the
+parent resumes it with `continue` in its very next action and never waits on a grandchild itself.
+
+The prompt also carries the TOOLS paragraph:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**The prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
 
 **Record the dispatch immediately after the launch returns its identifier**, before anything else:
 
@@ -67,21 +86,33 @@ flow record dispatch begin -change <name> -role conductor -model <DEFAULT_MODEL>
   -key conductor -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 ```
 
-**The handshake.** Compare the `Model:` line against `DEFAULT_MODEL` (or the override). A match
-proceeds. A mismatch records the model that answered and **continues on the running agent — no
-re-dispatch**: the planner's opus re-dispatch (**Dispatch the planner**,
-`skills/flow/brainstorm.md`) exists because fable may be unavailable, which `DEFAULT_MODEL` does
-not share, and a re-dispatch onto a costlier model would raise what this dispatch exists to cut:
+**The handshake — stated once here, cited everywhere else.** Every dispatched role in this
+pipeline — conductor, implementer, panel slot, panel-fix, verifier, planner — opens its first reply
+with the `Model:` line the MODEL HANDSHAKE paragraph demands, and every dispatch prompt in this
+pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
+requested (`DEFAULT_MODEL`, or the run's session override, for the conductor). A match proceeds. A
+**first** mismatch closes the open dispatch row `-outcome fallback` and re-dispatches once, on the
+same requested model and `subagent_type`, under `<key>-retry`:
 
 ```bash
 flow record dispatch end -change <name> -key conductor -session-token mf-<literal-token> \
   -outcome fallback -ended-at <ts>
-flow record dispatch begin -change <name> -role conductor -model <the model the handshake named> \
-  -key conductor-<that model, lowercased> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+flow record dispatch begin -change <name> -role conductor -model <the model originally requested> \
+  -key conductor-retry -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 ```
 
-**A mark or a record never blocks** — proceed on the handshake's outcome regardless of whether any
-`flow` call reached the store.
+A **second** mismatch closes the retry row `-outcome fallback` too and ends the turn with
+`## Question` naming the requested model and both models that actually answered, options
+**Continue on `<the model the second handshake named>`** — proceed on that running agent, no third
+dispatch — or **Stop the run**. **A mark or a record never blocks** — proceed on the handshake's
+outcome regardless of whether any `flow` call reached the store.
+
+This rule is cited, never restated, at every other dispatch site in this pipeline: the implementer
+dispatch below; `skills/flow/review-panel.md`'s panel slot and panel-fix subagent dispatch;
+`skills/flow/verify-and-handoff.md`'s verifier dispatch (compared against `sonnet`, never
+`DEFAULT_MODEL`); and `skills/flow/brainstorm.md`'s planner dispatch, which keeps its own
+`opus`-specific fallback target but follows this rule's `<key>-retry` shape and its second-mismatch
+question.
 
 **The return.** Once `## Handoff` arrives, print the block unchanged and close the record under
 whichever key is open:
@@ -99,9 +130,42 @@ resumes from whatever the conductor left (checkbox state, the state file's workt
 the store) through this file's own re-entry rules, and the operator should see the death rather
 than have it hidden by a second dispatch.
 
-**At depth, the Agent tool offers no `bugbot` or `security-review` type.** **An unspawnable id is
-substituted, not skipped** (`skills/flow/review-panel.md`) applies unchanged; under the conductor
-it is the norm, not the exception.
+**Bugbot and Security are prompt-driven roles, dispatched general-purpose like every other panel
+slot** (**The roster**, `skills/flow/review-panel.md`) — never a fixed `bugbot` or `security-review`
+Agent-tool type, so there is nothing for the conductor to substitute.
+
+## Inline — the parent implements
+
+Entered instead of **Dispatch the conductor** when the recorded decision's `execution` is
+`inline` (**The `## Decision` block**, `design.md`). The parent itself runs sections **1**, **2**
+and **4** below, then `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`, with
+these substitutions:
+
+- **No conductor, no implementer, no panel-fix dispatch.** The parent does each bundle's TDD work
+  in the canonical worktree, commits per task with the same `Task-Id:` trailer and declared
+  `**Commit:**` subject, runs `check-task-commit-fields.sh` and ticks the task exactly as
+  section **4** states. Waves are not parallel inline: bundles run in plan order, one at a time,
+  never launched into a throwaway worktree.
+- **Every dispatch-prompt paragraph that instructs an implementer or fixer** — FLOW —
+  COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND
+  BUILDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent
+  in the same words**, as if the parent had dispatched itself.
+- **Panel slots and the verifier dispatch exactly as in sdd mode** — a session reviewing its own
+  diff is not a review. Panel fixes are applied by the parent instead of a panel-fix subagent; the
+  parent still runs every reproducer and the fix-diff walk (`skills/flow/review-panel.md`) before
+  recording a finding `fixed`.
+- **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
+  <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
+  model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
+  inline work under the same roles a dispatched run would use.
+- **Context ceiling.** Checked before every bundle and before `skills/flow/review-panel.md` pass
+  1, read from the harness's remaining-budget figure — Claude Code's `<total_tokens>` reminder.
+  Stop when the remaining figure is under **250,000** before a bundle, or under **400,000**
+  before the panel; where the harness exposes no such figure, stop instead after the **6th**
+  bundle of one session. The stop closes whichever stage is open `-outcome stopped`, writes no
+  other state, and prints the `## Context ceiling — clear and resume` block
+  (`skills/flow-contracts/handoff-blocks.md`) verbatim — the next `/flow <name>` resumes under the
+  existing re-entry rules, reading the decision already recorded rather than re-rolling it.
 
 ## 1. Load context and validate the plan
 
@@ -287,7 +351,7 @@ read records the literal `unknown (agent-defined)` and never a guess.
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
 and exits 0 — never branch on this command's exit code as a signal about the record.
 
-Dispatch one implementer per bundle from:
+Run `plan-dispatch-bundles.sh <changeRoot>/tasks.md` for this plan's bundles:
 
 ```bash
 plan-dispatch-bundles.sh <changeRoot>/tasks.md
@@ -295,27 +359,36 @@ plan-dispatch-bundles.sh <changeRoot>/tasks.md
 
 Exit 0 proceeds. A non-zero exit is a plan defect: exit 1 names a task missing its `**Files:**`
 field, repaired by `superpowers:writing-plans` before any dispatch happens; exit 2 stops the run.
-Bundling does not change the commit-per-task model — an implementer handed a bundle still makes one
-commit per task, carrying that task's own `Task-Id:` trailer — a red task and its partner make one
-commit between them — and a `Build: red` task is bundled with, and commits with, the partner its
-`**Squash-with:**` field names.
 
-**Waves — concurrent dispatch of ready bundles.** A bundle is ready when every id in its
-`after <k>:` line has landed — committed and guard-passed, by direct commit or pick. A bundle
-alone in its wave dispatches into the canonical worktree and commits directly, exactly as today;
-two or more ready bundles launch in one message, each into its own throwaway worktree created by
-the sequence below, each copy then running the project's resolved `## worktree setup` command once
-before its implementer dispatches:
+**Dispatch one implementer per group, not per bundle.** The unit is the recorded decision's
+`groups` entry — an array of bundle ids from the same `plan-dispatch-bundles.sh` output above; a
+`null` `groups` field, which only inline execution ever records, never reaches this section, since
+inline runs bundles in plan order with no implementer dispatch at all. A group's implementer works
+its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer — a red
+task and its partner make one commit between them — and a `Build: red` task is bundled with, and
+commits with, the partner its `**Squash-with:**` field names.
+
+**Waves — concurrent dispatch of ready groups.** Inline (**Inline — the parent implements**
+above) runs bundles in plan order, never in waves. A group is ready when every id in the union of
+its bundles' `after <k>:` lines has landed — committed and guard-passed, by direct commit or pick.
+**At most two implementer dispatches are in flight per wave**, on both `## execution mode` values.
+A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
+worktree and commits directly, exactly as today; two ready groups launch together in one message,
+each into its own throwaway worktree created by the sequence below, each copy then running the
+project's resolved `## worktree setup` command once before its implementer dispatches. A third or
+later ready group queues in plan order and launches, into its own throwaway worktree by the same
+sequence, as soon as one of the two in-flight groups is picked — the cap bounds dispatches in
+flight, never how many groups may be ready at once:
 
 ```bash
-git -C <worktree> worktree add --detach <worktree>-wave-bundle-<k> HEAD
-git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-bundle-<k> apply --allow-empty
+git -C <worktree> worktree add --detach <worktree>-wave-group-<g> HEAD
+git -C <worktree> diff HEAD --binary | git -C <worktree>-wave-group-<g> apply --allow-empty
 git -C <worktree> status --porcelain -z | \
   while IFS= read -r -d '' entry; do
     st="${entry:0:2}"; f="${entry:3}"
     [ "$st" = "??" ] || continue
-    mkdir -p "<worktree>-wave-bundle-<k>/$(dirname "$f")"
-    cp -a "<worktree>/$f" "<worktree>-wave-bundle-<k>/$f"
+    mkdir -p "<worktree>-wave-group-<g>/$(dirname "$f")"
+    cp -a "<worktree>/$f" "<worktree>-wave-group-<g>/$f"
   done
 ```
 
@@ -323,21 +396,26 @@ git -C <worktree> status --porcelain -z | \
 is picked once every plan-earlier member of its wave is picked. The unchanged
 `check-task-commit-fields.sh` call (canonical worktree fifth argument, resolved `<name>` sixth)
 runs on each picked commit, and the dispatch `end` records the picked sha. A pick conflict or a
-guard failure hands the bundle back to its own implementer — its throwaway worktree rebased onto
-the advanced branch HEAD, re-commit, re-pick — while sibling members and already-ready later waves
-are unaffected. A copy is removed once its bundle is picked, or after handback resolves. A member
-reporting BLOCKED follows the existing BLOCKED handback. The one-implementer-per-worktree rule is
-untouched: each wave member has its own worktree.
+guard failure hands the group back to its own implementer — its throwaway worktree rebased onto
+the advanced branch HEAD, re-commit, re-pick — while sibling members, queued groups and
+already-ready later waves are unaffected. A copy is removed once its group is picked, or after
+handback resolves. A member reporting BLOCKED follows the existing BLOCKED handback. The
+one-implementer-per-worktree rule is untouched: each wave member has its own worktree.
 
-**Gather one bundle per dispatch bundle, immediately before that bundle's implementer goes out.**
-Take `<k>` and the ids from the `bundle <k>: <ids>` line `plan-dispatch-bundles.sh` printed for
-it, comma-separated:
+**Gather one context bundle per group, immediately before that group's implementer goes out.**
+Take `<g>` and the union of the ids from the `bundle <k>: <ids>` lines `plan-dispatch-bundles.sh`
+printed for every bundle in the group, comma-separated:
 
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md <id>[,<id>…] <canonical-worktree>
+  <worktree>/.superpowers/sdd/dispatch-context-group-<g>.md <id>[,<id>…] <canonical-worktree> <shape>
 ```
+
+`<shape>` is this change's shape, computed once per run from the resolved worktree set — more than
+one repository → `cross-repo`, otherwise `single-repo` — and passed on every gather this run
+makes, this file's and `skills/flow/review-panel.md`'s alike. The context bundle's `## hazards`
+section is filtered by it; a gather made without it carries only always-on hazards.
 
 where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this worktree, and
 `<principles-path>` is the **absolute** path of `engineering-principles.md` **beside this file** —
@@ -347,20 +425,20 @@ where `<changeRoot>` is `<project>/spectre/changes/<name>/` resolved inside this
 the member of this run's resolved worktree set whose own
 `<project>/<spec-root>/changes/<name>/tasks.md` exists, the same argument
 `check-unfinished-work.sh` takes at the integrate gate; on a single-repo change that member is
-this worktree and the argument is inert, while on a satellite worktree's bundle it carries the
+this worktree and the argument is inert, while on a satellite worktree's group it carries the
 canonical plan under labeled sections while keeping this worktree's own project commands,
 incidents and HEAD (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for
 the resolution).
 
 A non-zero exit — including the guard being absent — is reported, and
 dispatching proceeds with the prompt shape this stage used before this capability existed; the
-bundle never gates a run. Confirm the bundle was actually written (`test -f
-<worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md`) and report plainly if it is not.
+context bundle never gates a run. Confirm the bundle was actually written (`test -f
+<worktree>/.superpowers/sdd/dispatch-context-group-<g>.md`) and report plainly if it is not.
 **Never read the bundle back into this context** — `test -f` is the whole check; its content is the
 implementer's input, not the dispatcher's. Report the script's stderr line for this stage (`bundle
 unchanged — reusing …` or `bundle rebuilt — …`) as part of this stage's own reporting.
 
-The sixth argument scopes the bundle's `## tasks.md` section to the plan header and the named
+The sixth argument scopes the group's `## tasks.md` section to the plan header and the named
 tasks' blocks (per design.md's `scope-tasks-not-files`); a named id the plan does not carry is
 exit 2, a plan defect reported like a missing `**Files:**` field. The panel's and the fix
 subagent's bundles (`skills/flow/review-panel.md`) keep the five-argument call and the whole plan.
@@ -392,12 +470,17 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them.
 
-> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context-bundle-<k>.md` carries this
+> **CONTEXT BUNDLE:** `<abs-worktree>/.superpowers/sdd/dispatch-context-group-<g>.md` carries this
 > change's proposal, design, engineering principles, and — under `## tasks.md` — the plan header
-> plus your bundle's own task(s) only, gathered for you. You **must** still read the
+> plus your group's own task(s) only, gathered for you. You **must** still read the
 > actual diff and the actual code — the bundle is shared *input*, never a substitute for the source.
 > It also carries this project's `## lint`/`## test`/`## run` commands, already resolved — you do
 > not need to open `<project>/.flow/project.md` yourself for them.
+
+> **PROJECT HAZARDS:** the bundle's `## hazards` section carries this project's recorded
+> warnings, filtered to this change's shape — each one names a way this project specifically
+> bites, recorded after it cost time. They are binding: read them before your first edit and
+> never argue one away without measuring.
 
 > **PLAN PROVENANCE:** a fenced block tagged `unverified:` is a hypothesis, not code to transcribe.
 > Establish the real API before writing against it, and report what you found. When what you
@@ -406,9 +489,21 @@ own; `check-task-commit-fields.sh` resolves the pair from either id against that
 
 Every implementer dispatch **must** also carry:
 
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
+The conductor compares that line against `DEFAULT_MODEL` (or the run's session override) and
+applies **The handshake** stated above, unchanged: a first mismatch is a fallback plus one retry
+under `<key>-retry`; a second is a fallback plus `## Question`.
+
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
 > **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
@@ -429,25 +524,25 @@ Every implementer dispatch **must** also carry:
 > and anything the plan's `unverified:` tags asked you to establish. The dispatcher waits on that
 > file's presence; a resumed fix writes `implementer-report-<k>-fix-<n>.md` instead.
 
-**The last bundle's implementer dispatch — the last `bundle <k>` line `plan-dispatch-bundles.sh`
-printed — alone also carries:**
+**The plan-last group's implementer dispatch — the group holding the last `bundle <k>` line
+`plan-dispatch-bundles.sh` printed — alone also carries:**
 
-> **FULL SUITE:** Yours is the last bundle. After GREEN and before your commit, run the resolved
-> `## test` list once, in the foreground, in the order the context bundle carries it. A failure in
-> a file this task's `**Files:**` field names is yours: fix it and re-run. Any other failure is
-> not: record the command and its output verbatim in your REPORT FILE under a `## Full suite`
-> heading, unfixed, and still commit your own task. When the plan-last bundle belongs to a shared
-> wave, its implementer does not carry FULL SUITE — the conductor instead runs the resolved
+> **FULL SUITE:** Yours is the plan-last group. After GREEN and before your commit, run the
+> resolved `## test` list once, in the foreground, in the order the context bundle carries it. A
+> failure in a file this task's `**Files:**` field names is yours: fix it and re-run. Any other
+> failure is not: record the command and its output verbatim in your REPORT FILE under a `## Full
+> suite` heading, unfixed, and still commit your own task. When the plan-last group belongs to a
+> shared wave, its implementer does not carry FULL SUITE — the conductor instead runs the resolved
 > `## test` list once on the canonical worktree after that wave's final pick passes the guard, and
 > a failure is the same verbatim-output `## Question` handback as below. The existing
 > last-boundary sentence about a full-suite failure report keeps governing the singleton case.
 
-**The next implementer overlaps the guard.** The unit is the bundle `plan-dispatch-bundles.sh`
-emits. At each boundary, in this order:
+**The next implementer overlaps the guard.** The unit is the group — the decision's `groups`
+entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
 
-1. **Bundle N+1's implementer commits** and writes its report; the wait above ends.
+1. **Group N+1's implementer commits** and writes its report; the wait above ends.
 2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
-   is new, `flow tasks tick` for every task the guard passed, and bundle N+2's gather.** The
+   is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
    **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
    its sixth:
@@ -468,7 +563,7 @@ emits. At each boundary, in this order:
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
    recovery.)
-3. **One message launches bundle N+2's implementer. The next Bash call records its `begin`** —
+3. **One message launches group N+2's implementer. The next Bash call records its `begin`** —
    the very next action after the launch returns, which is what "recorded immediately after the
    launch returns" above requires.
 
@@ -482,7 +577,7 @@ panel (`skills/flow/review-panel.md`) is this branch's review. A step's checkbox
 and gates nothing. A red task's checkbox is ticked together with its partner's, on their one
 commit's guard pass.
 
-**The last bundle's guard pass is the stage's last boundary.** `final-review.diff` is written and
+**The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed and the last implementer's report carries no `## Full
 suite` failure; the review panel's pre-work may share the last implementer's wait, in its one
 call. A report that records a full-suite failure ends your turn with `## Question` — the failing
@@ -499,13 +594,15 @@ read afterwards — and launches that do not depend on one another share one mes
 call. **A wait on a child is one foreground call, never a chain of idle calls:**
 
 ```bash
-for i in $(seq 1 110); do test -s <report> && break; sleep 5; done
+for i in $(seq 1 48); do test -s <report> && break; sleep 5; done
 test -s <report> && echo ready || echo still-running
 ```
 
 `<report>` is the file the child's REPORT FILE paragraph names — every child kind writes one as
 its last act, after its commit and its final test run, so the file's presence is the child's
-completion. The loop is bounded under the Bash tool's ten-minute cap; `still-running` re-issues
+completion. The loop is bounded at 240 s, under the prompt-cache TTL rather than the Bash tool's
+ten-minute cap: a wait longer than the TTL re-prices the whole context on return, while a bounded
+wait's `still-running` turn reads it at the cache rate and keeps it warm. `still-running` re-issues
 the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
 `skills/flow/review-panel.md`) is tracked across the calls. `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate

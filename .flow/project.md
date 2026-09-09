@@ -88,14 +88,15 @@ cd stats/web && npm test
 through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
 no edit needed here.
 
-**Measured runtime: the guard-test harnesses now run in about 52 to 56s wall through the runner**,
-down from roughly 216 to 218s running the same 42 harnesses sequentially, one after another.
-<!-- measured: time scripts/run-guard-tests.sh, three clean runs of 52.5s/52.9s/52.0s wall @ branch spectre/kan-362-myflow-guard-test-suite-takes-119s-sequentially -->
-<!-- measured: for f in scripts/test-*.sh; do bash "$f"; done, two runs of 218.44s/216.10s wall @ branch spectre/kan-362-myflow-guard-test-suite-takes-119s-sequentially -->
-Both figures are for the 42 Bash/Python guard harnesses alone; the two `stats` commands above are
-untouched by this change and are not part of either figure. Plus those two commands, the whole
-`## test` list now comfortably fits inside this harness's 120000ms default tool timeout in one
-invocation — no more splitting the run across several calls, and no need to raise the timeout.
+**Measured runtime: recorded per run in the myflow store — query it with `flow suite list`.** The
+canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
+(`go test ./... -race -count=1`) and `stats-spa` (`stats/web` `npm test`); each row carries the
+machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
+runs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
+invocation is answered by those recorded figures, not by a number pasted here — which is the point:
+a written duration went stale twice before this paragraph stopped carrying one. Record a run with
+`flow suite record -suite <name> -- <command>`; a store that cannot be reached costs one warning
+line and never changes the suite's own exit code.
 
 One run through the runner, out of five taken while measuring this, reported
 `test-check-installed-citations.sh` as `FAIL` with no case-level failure in its replayed output. The
@@ -341,6 +342,11 @@ Jira tickets. This key ratifies that and ends the series; set `run` to bring it 
 ## self review model
 
 `fable`
+
+## toggles
+
+No `## execution mode`, `## implementer model` or `## review panel` toggle is declared for this
+repository in this change — all three resolve as `default`.
 
 ## workspace isolation
 
