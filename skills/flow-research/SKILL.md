@@ -123,7 +123,9 @@ Depending on what the user brings, you might:
   guessing
 - Suggest a spike or a targeted investigation instead of a fabricated answer
 
-Ask one question at a time. Don't funnel the user through a fixed line of questioning — surface the
+Ask every pending question whose wording does not depend on another pending answer in one
+**AskUserQuestion** call, up to four per call; a dependent question waits for the next turn. Don't
+funnel the user through a fixed line of questioning — surface the
 interesting directions and let them follow what resonates.
 
 ---
