@@ -182,13 +182,14 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-Steps 1, 2 and 10 are the conductor's. Steps 3–9 and 11 are run by one verifier per worktree
+Steps 1, 2 and 11 are the conductor's. Steps 3–10 and 12 are run by one verifier per worktree
 surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 conductor applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
-`fingerprint` and `start` commands and `screenshots` root; the worktree-resolved URL of each app `ui paths`
-matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–9
-and 11 below as written, committing and pushing nothing.
+`fingerprint` and `start` commands and `screenshots` root, and its resolved `mockups` root when
+declared; the worktree-resolved URL of each app `ui paths`
+matched; the project's `## run` commands; the views touched; `<changeRoot>`; and to run steps 3–10
+and 12 below as written, committing and pushing nothing.
 
 1. **Resolve the section** — read that worktree's own `<project>/.flow/project.md` directly, by
    its own shape and closed vocabulary. A project declaring no section → this worktree prints
@@ -241,9 +242,23 @@ and 11 below as written, committing and pushing nothing.
    that never rendered; exit 2 (cannot answer) blocks the same way. **Read every printed path** — no
    script can do that — and state, per view, what was seen. An unreadable PNG is reported and blocks
    too.
-9. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
-   path, resolved by the same recursive search step 8 used, and what was seen.
-10. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
+9. **Compose captured frames against their mockups, if `mockups` is declared.** With a
+   `<spec>.mockups` sidecar beside the capture spec, run
+
+   ```bash
+   resolve-visual-screenshots.sh <worktree> <spec's basename> | compose-mockup-frames.sh <spec>.mockups <worktree>/<mockups> <changeRoot>/visual-verification
+   ```
+
+   Exit 0 prints one composite path per line — **read every one** and state, per pair, whether
+   the capture matches the frame and where it departs. Exit 1 (a broken map — a screenshot no
+   capture matched, a frame file absent, a malformed line) or 2 (cannot answer, Pillow absent
+   included) blocks. No sidecar → report `mockups: no map for <spec's basename>` and continue.
+   Not declared → report `mockups: not declared` and continue. The sidecar's shape is canonical
+   in **visual verification** (`skills/flow-contracts/project-configuration.md`).
+10. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
+    path, resolved by the same recursive search step 8 used, and what was seen; and, per composed
+    pair, the composite's absolute path, the frame id, and what was seen.
+11. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
     them; with none declared, commit to the change's own branch instead. **Never push** — see
     `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another
     repository, so no guard here grants one. `regression repo` still records which repository the
@@ -254,7 +269,9 @@ and 11 below as written, committing and pushing nothing.
     ```bash
     git -C <regression checkout> push
     ```
-11. **Stop the stack only if step 4 or step 5 started it.** A stack the operator already had running is left
+
+    `<changeRoot>/visual-verification/` is committed with the change root.
+12. **Stop the stack only if step 4 or step 5 started it.** A stack the operator already had running is left
     alone.
 
 ```text verified:design.md section 3 of this change
@@ -269,6 +286,8 @@ and 11 below as written, committing and pushing nothing.
 - spec reach: exit <n>
 - spec: <absolute spec path>
 - <view>: <absolute PNG path> — <what was seen, including any defect>
+- mockups: <not declared | no map for <spec> | exit <n>>
+- <frame id>: <absolute composite path> — <match, or the departure seen>
 - visual-verification.md: written | not written — <reason>
 ```
 
@@ -279,7 +298,8 @@ is carried in the report; the `Visual:` handoff line is built from its view entr
 a genuine `capture` failure — **never a first-run snapshot write, which is `capture`'s own success
 path per step 7 above** — a stack that could not be started, **a `fingerprint` that still exits
 non-zero after step 5's restart**, a `check-spec-reach.sh` exit 1 or 2,
-an unreadable PNG, and **a defect the
+an unreadable PNG, **a `compose-mockup-frames.sh` exit 1 or 2, and a departure from the mockup the
+verifier reports in a composite**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** That last one is the whole
 point of this stage: three defects have shipped invisible to a diff, a five-pass review panel and
 both test suites, and obvious the moment the page was opened.
