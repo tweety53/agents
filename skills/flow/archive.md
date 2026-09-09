@@ -106,8 +106,10 @@ flow stage begin -command '/flow' -stage flow.verify-cleanup -harness <harness> 
 7. **Verify the cleanup.** Run `check-cleanup-complete.sh <repo> <name> <state-dir>` once per
    repository, after every removal above. `COMPLETE:` → report the cleanup as verified, **relay
    every clause the line carries after ` — ` word for word**, and go on to step 8 — a `SKIPPED:`
-   clause there is never a pass. `LEFTOVER:` → name what remains and **stop without writing
-   `FINISHED`**, leaving the change at `IN_PROGRESS`. **No verdict line at all, and a non-zero
+   clause there is never a pass. `LEFTOVER:` → name what remains, relay the guard's
+   hand-verification procedure per **Hand-verifying a guard verdict**
+   (`skills/flow-contracts/pipeline.md`), and **stop without writing `FINISHED`**, leaving the
+   change at `IN_PROGRESS`. **No verdict line at all, and a non-zero
    exit** → report it, leave the affected `worktrees` entries in the state file, and treat it as
    `LEFTOVER`.
 
