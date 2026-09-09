@@ -21,7 +21,7 @@ func TestRecordSessionTokenGiveUp(t *testing.T) {
 		token  = "mf-giveup-record"
 		reason = "session never bound"
 	)
-	gaveUpAt := time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC)
+	gaveUpAt := time.Now().Add(-time.Hour)
 
 	if err := st.RecordSessionTokenGiveUp(ctx, token, reason, gaveUpAt); err != nil {
 		t.Fatalf("RecordSessionTokenGiveUp: %v", err)
@@ -55,7 +55,7 @@ func TestPersistedGiveUpsAreListed(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 
-	first := time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC)
+	first := time.Now().Add(-2 * time.Hour)
 	second := first.Add(time.Hour)
 
 	if err := st.RecordSessionTokenGiveUp(ctx, "mf-giveup-a", "session never bound", first); err != nil {
@@ -95,7 +95,7 @@ func TestGiveUpIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	const token = "mf-giveup-retry"
-	first := time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC)
+	first := time.Now().Add(-2 * time.Hour)
 	second := first.Add(5 * time.Minute)
 
 	if err := st.RecordSessionTokenGiveUp(ctx, token, "session never bound", first); err != nil {
@@ -114,5 +114,51 @@ func TestGiveUpIsIdempotent(t *testing.T) {
 	}
 	if giveUps[0].Retries != 1 {
 		t.Errorf("Retries = %d, want 1 after the second recording", giveUps[0].Retries)
+	}
+}
+
+// TestPersistedGiveUpsExpiresPastHorizon pins kan-480: PersistedGiveUps is
+// the read the watcher makes at start, and every row it returns is re-seeded
+// into the retry scan that reads the whole transcript corpus per cycle. A
+// give-up whose gave_up_at sits past the 24-hour retry horizon can never
+// bind anything -- its stage windows closed long ago -- so it must be both
+// absent from the result and deleted from the table, while a give-up inside
+// the horizon survives with its retry count intact.
+func TestPersistedGiveUpsExpiresPastHorizon(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	expiredAt := time.Now().Add(-25 * time.Hour)
+	freshAt := time.Now().Add(-time.Hour)
+
+	if err := st.RecordSessionTokenGiveUp(ctx, "mf-giveup-expired", "session never bound", expiredAt); err != nil {
+		t.Fatalf("record expired: %v", err)
+	}
+	if err := st.RecordSessionTokenGiveUp(ctx, "mf-giveup-fresh", "session never bound", freshAt); err != nil {
+		t.Fatalf("record fresh: %v", err)
+	}
+
+	giveUps, err := st.PersistedGiveUps(ctx)
+	if err != nil {
+		t.Fatalf("PersistedGiveUps: %v", err)
+	}
+	if len(giveUps) != 1 {
+		t.Fatalf("PersistedGiveUps returned %d rows (%v), want only the fresh row", len(giveUps), giveUps)
+	}
+	if giveUps[0].Token != "mf-giveup-fresh" {
+		t.Errorf("surviving token = %q, want mf-giveup-fresh", giveUps[0].Token)
+	}
+	if giveUps[0].Retries != 0 {
+		t.Errorf("fresh retries = %d, want 0", giveUps[0].Retries)
+	}
+
+	after, err := st.PersistedGiveUps(ctx)
+	if err != nil {
+		t.Fatalf("second PersistedGiveUps: %v", err)
+	}
+	for _, g := range after {
+		if g.Token == "mf-giveup-expired" {
+			t.Errorf("expired give-up still in the table after the read: %+v", g)
+		}
 	}
 }
