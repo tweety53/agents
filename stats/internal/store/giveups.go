@@ -44,6 +44,16 @@ func (s *Store) RecordSessionTokenGiveUp(ctx context.Context, token, reason stri
 // keeps the table bounded instead of growing forever.
 const giveUpRetryHorizon = 24 * time.Hour
 
+// giveUpMaxRetries bounds how many full retry generations a give-up survives.
+// RecordSessionTokenGiveUp's upsert increments retries on every re-give-up
+// and refreshes gave_up_at with it, so a token that keeps failing stays
+// forever-fresh and would re-seed the whole-corpus retry scan on every daemon
+// start no matter how old its first failure was -- the age horizon alone
+// cannot stop that (kan-481). Three full bounded windows without a bind is
+// measured-hopeless, not bad luck: the rows cleared ahead of this change had
+// climbed to retries 10.
+const giveUpMaxRetries = 3
+
 // PersistedGiveUps returns every session token the watcher has given up on
 // within the retry horizon, in no particular order -- the read the watcher
 // makes at start to re-seed the tokens a restart's fresh in-memory pending
@@ -64,15 +74,16 @@ const giveUpRetryHorizon = 24 * time.Hour
 func (s *Store) PersistedGiveUps(ctx context.Context) ([]harvest.GiveUp, error) {
 	cutoff := time.Now().Add(-giveUpRetryHorizon)
 	if _, err := s.pool.Exec(ctx, `
-		DELETE FROM session_token_giveups WHERE gave_up_at < $1
-	`, cutoff); err != nil {
+		DELETE FROM session_token_giveups
+		WHERE gave_up_at < $1 OR retries >= $2
+	`, cutoff, giveUpMaxRetries); err != nil {
 		return nil, fmt.Errorf("store: expire persisted give-ups: %w", err)
 	}
 
 	rows, err := s.pool.Query(ctx, `
 		SELECT session_token, reason, retries FROM session_token_giveups
-		WHERE gave_up_at >= $1
-	`, cutoff)
+		WHERE gave_up_at >= $1 AND retries < $2
+	`, cutoff, giveUpMaxRetries)
 	if err != nil {
 		return nil, fmt.Errorf("store: list persisted give-ups: %w", err)
 	}

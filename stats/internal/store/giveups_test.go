@@ -162,3 +162,47 @@ func TestPersistedGiveUpsExpiresPastHorizon(t *testing.T) {
 		}
 	}
 }
+
+// TestPersistedGiveUpsDropsExhaustedRetries pins kan-481: a token that has
+// failed giveUpMaxRetries full retry generations is dead by construction --
+// retries climbs by one per re-give-up and never resets -- so it must be
+// dropped from the table and the result even while its gave_up_at is fresh.
+// This is the bound kan-480's age horizon cannot provide: every re-give-up
+// refreshes the timestamp, so a hopeless token could otherwise re-seed the
+// whole-corpus retry scan on every daemon start forever.
+func TestPersistedGiveUpsDropsExhaustedRetries(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	freshAt := time.Now().Add(-time.Minute)
+
+	for i := 0; i < 4; i++ { // first recording + three re-give-ups => retries 3
+		if err := st.RecordSessionTokenGiveUp(ctx, "mf-giveup-exhausted", "session never bound", freshAt); err != nil {
+			t.Fatalf("record exhausted (%d): %v", i, err)
+		}
+	}
+	if err := st.RecordSessionTokenGiveUp(ctx, "mf-giveup-control", "session never bound", freshAt); err != nil {
+		t.Fatalf("record control: %v", err)
+	}
+
+	giveUps, err := st.PersistedGiveUps(ctx)
+	if err != nil {
+		t.Fatalf("PersistedGiveUps: %v", err)
+	}
+	if len(giveUps) != 1 {
+		t.Fatalf("PersistedGiveUps returned %d rows (%v), want only the control", len(giveUps), giveUps)
+	}
+	if giveUps[0].Token != "mf-giveup-control" {
+		t.Errorf("surviving token = %q, want mf-giveup-control", giveUps[0].Token)
+	}
+
+	after, err := st.PersistedGiveUps(ctx)
+	if err != nil {
+		t.Fatalf("second PersistedGiveUps: %v", err)
+	}
+	for _, g := range after {
+		if g.Token == "mf-giveup-exhausted" {
+			t.Errorf("exhausted give-up still in the table after the read: %+v", g)
+		}
+	}
+}
