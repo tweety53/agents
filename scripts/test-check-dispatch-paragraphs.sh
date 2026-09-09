@@ -76,6 +76,12 @@
 # dropped from one of implement.md's two TOOLS blocks in turn while the
 # other stays correct.
 #
+# Cases 35-37 cover the three assert phrases KAN-257 added to the MUTATION
+# PROOF entry, one case per phrase, each dropped in turn from the
+# paragraph's assert sentences: every MUTATION_BLOCK-shaped fixture now
+# carries the extended paragraph, and each new case asserts the guard
+# names its dropped phrase.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -242,8 +248,11 @@ TARGETED_BLOCK_NO_SUITE='> **TARGETED TESTS:** Run only the tests this task'"'"'
 # skills/flow/review-panel.md.
 MUTATION_BLOCK='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
 > end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
-> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
-> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
+> buys a test. Then confirm an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
@@ -254,11 +263,18 @@ MUTATION_BLOCK='> **MUTATION PROOF:** every executable behaviour your fix change
 > than deciding it yourself.'
 
 # Variants of MUTATION_BLOCK, each with exactly one required phrase dropped
-# while staying a plausible paragraph — cases 28-30.
+# while staying a plausible paragraph — cases 28-30 (the original three
+# phrases) and cases 35-37 (the assert phrases KAN-257 added). Dropping a
+# phrase means the whole block stops carrying it; where a phrase's wording
+# occurs inside another phrase's sentence — "a surviving mutant" inside
+# "a refusal, not a surviving mutant" — both occurrences go.
 MUTATION_BLOCK_NO_MUTATION_PROVED='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before your
 > turn ends — not only the test cases this round adds. Mutate the mechanism: revert it in a
-> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
-> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
+> buys a test. Then confirm an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
@@ -270,8 +286,11 @@ MUTATION_BLOCK_NO_MUTATION_PROVED='> **MUTATION PROOF:** every executable behavi
 
 MUTATION_BLOCK_NO_CONFIRM_AND_RESTORE='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
 > end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
-> scratch tree, or flip the single value it turns on, check that an existing test fails, then restore.
-> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
+> buys a test. Then check that an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
@@ -283,12 +302,63 @@ MUTATION_BLOCK_NO_CONFIRM_AND_RESTORE='> **MUTATION PROOF:** every executable be
 
 MUTATION_BLOCK_NO_SURVIVING_MUTANT='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
 > end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
-> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
-> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal to redo with a working mechanism; it never buys a test. Then confirm
+> an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
 > mechanism. A mutation no test catches is an uncaught mutation: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
+MUTATION_BLOCK_NO_EDIT_LANDED='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on — but before the tests run, the edit is
+> asserted: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
+> buys a test. Then confirm an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
+MUTATION_BLOCK_NO_REFUSAL='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is an unapplied edit — redo it with a working mechanism; it never buys a test.
+> Then confirm an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
+> your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
+> `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
+> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
+> than deciding it yourself.'
+
+MUTATION_BLOCK_NO_NEVER_BUYS='> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
+> end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal, not a surviving mutant — redo it with a working mechanism before
+> moving on. Then confirm an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
+> mutate is your judgment, not the script'"'"'s. Each mutation alters one mechanism — where a single
+> revert would also change state a second check reads, split it into surgical mutations, one per
+> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
 > your turn ends. Record one `fix-mutation:` line per behaviour in your report, plus a
 > `fix-mutations-total:` count, in the shape the review-panel contract'"'"'s fenced block gives. Where
 > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
@@ -1109,6 +1179,102 @@ run_guard
 case "$OUT" in
   *"a surviving mutant"*) pass "case 30: names the missing phrase" ;;
   *) fail "case 30: expected 'a surviving mutant' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 35: a MUTATION PROOF block is present but missing "confirm the edit
+# landed" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK_NO_EDIT_LANDED"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 35: exits 1" || fail "case 35: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"confirm the edit landed"*) pass "case 35: names the missing phrase" ;;
+  *) fail "case 35: expected 'confirm the edit landed' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 36: a MUTATION PROOF block is present but missing "a refusal, not a
+# surviving mutant" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK_NO_REFUSAL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 36: exits 1" || fail "case 36: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"a refusal, not a surviving mutant"*) pass "case 36: names the missing phrase" ;;
+  *) fail "case 36: expected 'a refusal, not a surviving mutant' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 37: a MUTATION PROOF block is present but missing "never buys a
+# test" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK_NO_NEVER_BUYS"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 37: exits 1" || fail "case 37: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"never buys a test"*) pass "case 37: names the missing phrase" ;;
+  *) fail "case 37: expected 'never buys a test' named in output, got: $OUT" ;;
 esac
 
 # review-panel.md and implement.md content matching case 1's fully-correct

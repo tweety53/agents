@@ -76,7 +76,7 @@ flow stage begin -command '/flow' -stage flow.commit-archive -harness <harness> 
    step 4 of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) for
    why. A `SCOPE-VIOLATION` stops the commit exactly as a branch mismatch does. **When absent**, run
    `git -C <landing-worktree> diff --cached --name-only` by hand and refuse any path outside
-   `spectre/changes/`.
+   `<agents repo>/spectre/changes/`.
 
    A branch mismatch is reported, naming the branch found, and stops the commit, leaving the change
    at `IN_PROGRESS`. The subject is the fixed literal shown, per **Commit scopes name the module**

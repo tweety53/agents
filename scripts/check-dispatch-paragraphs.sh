@@ -34,6 +34,10 @@
 # implementer dispatch in implement.md, the panel slot dispatch and the
 # panel-fix subagent dispatch in review-panel.md, the planner dispatch in
 # brainstorm.md, and the verifier dispatch in verify-and-handoff.md.
+# KAN-257 extended the MUTATION PROOF entry from three shared phrases to
+# six, carrying the fix round's assert obligation: a mutation must confirm
+# its edit landed before the tests run, and an edit that never applied is
+# a refusal to redo — never a surviving mutant.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -91,12 +95,13 @@
 #   run the task's tests.
 #
 #   MUTATION PROOF shared phrases (no variants — every block carrying the
-#   label must carry all three): "mutation-proved before you end your
+#   label must carry the full set of six): "mutation-proved before you end your
 #   turn", "confirm an existing test fails, and restore", "a surviving
-#   mutant". Required once, at the panel-fix subagent dispatch in
-#   review-panel.md alone — the implementer dispatch and the panel slot
-#   dispatch are not sites: the fix round is the only one this obligation
-#   binds.
+#   mutant", "confirm the edit landed", "a refusal, not a surviving
+#   mutant", "never buys a test". Required once, at the panel-fix subagent
+#   dispatch in review-panel.md alone — the implementer dispatch and the
+#   panel slot dispatch are not sites: the fix round is the only one this
+#   obligation binds.
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
@@ -167,7 +172,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [verbatim]="the reviewer's own report${US}never a source of fact${US}the report wins"
   [foreground]="still executing in the background${US}Run it in the foreground${US}poll it to completion"
   [targeted]="the build tool's own selector${US}once for RED, once for GREEN${US}module or repository suite mid-task"
-  [mutation]="mutation-proved before you end your turn${US}confirm an existing test fails, and restore${US}a surviving mutant"
+  [mutation]="mutation-proved before you end your turn${US}confirm an existing test fails, and restore${US}a surviving mutant${US}confirm the edit landed${US}a refusal, not a surviving mutant${US}never buys a test"
   [tools]="in your first turn${US}never a wildcard query${US}re-prices your whole context"
 )
 

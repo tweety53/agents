@@ -393,7 +393,11 @@ findings are ordinary `F<n>` rows, exactly like every other slot's.
 Wherever the panel dispatches Bugbot or Mutation, the dispatch prompt carries a mutation-testing
 brief: for each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a
 boundary, remove a branch, move an interaction off its target, overlay an earlier commit's tree and
-run the tests — and establish whether an existing test fails. A mutation no test catches is a
+run the tests — and establish whether an existing test fails. A mutation only counts once its edit
+landed: every mutation must confirm its edit landed before the tests run — the target changed
+where the slot intended, not nowhere and not somewhere else. An edit that never applied must be
+redone with a working mechanism: it is a refusal, never a **surviving mutant**, and it never buys
+a test. A mutation no test catches is a
 **surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless the
 operator withdraws it with a reason.
 
@@ -769,8 +773,11 @@ against its defect identity. **Inline no source excerpt.**
 
 > **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
 > end your turn — not only the test cases this round adds. Mutate the mechanism: revert it in a
-> scratch tree, or flip the single value it turns on, confirm an existing test fails, and restore.
-> `<agents repo>/scripts/mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
+> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
+> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
+> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
+> buys a test. Then confirm an existing test fails, and restore.
+> `mutate-and-verify.sh` mechanizes backup, apply, run, report and restore
 > for a mutation expressed as a patch file against one or more test harnesses; which mechanism to
 > mutate is your judgment, not the script's. Each mutation alters one mechanism — where a single
 > revert would also change state a second check reads, split it into surgical mutations, one per
