@@ -67,7 +67,8 @@
    happens at step 10, after self-review; step 11, which removes the landing worktree, closes the
    run.
 
-   **The staging is `git add -A`, and this commit's diff is verified scoped to `spectre/changes/`
+   **The staging is `git add -A`, and this commit's diff is verified scoped to
+   `<agents repo>/spectre/changes/`
    before it is made** — `check-archive-scope.sh <landing-worktree> "spectre/changes/"`, run between
    the add and the commit. `add -A` stages the whole landing worktree, not only the archive move, so
    a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
