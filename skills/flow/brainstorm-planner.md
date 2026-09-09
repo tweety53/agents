@@ -97,6 +97,11 @@ the design.
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
   is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/flow` only.
+- Ask every pending question whose wording does not depend on another pending answer in the same
+  turn, each as its own `## Question` block, up to four blocks per turn; a question that only makes
+  sense once another is answered waits for the next turn; the convergence confirm and the
+  third-round offer may be the last block of such a turn. This is a scoped override of
+  `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
@@ -131,6 +136,12 @@ recommended choice. Print `⚠ another round — no explicit answer` when this d
 *Revise* is a round — it counts toward the third-round offer below exactly as *Another round*
 does — and differs only in what the planner's next turn opens with: the changed design section(s),
 re-presented before the next confirm, in place of new questions.
+
+**A batched confirm.** When the confirm rides along with a round's questions as the last block of
+the turn, **approve the design and move on** folds that turn's answers into the design and ends the
+stage; an answer to an accompanying question that names something new opens another round
+regardless of the confirm's choice. The silence default above and its `⚠ another round — no
+explicit answer` marker are unchanged.
 
 When no answer is possible at all — no channel to ask through — record the confirm itself under `##
 Open questions` and end the stage, printing `⚠ open question recorded — no answer was possible`.
