@@ -129,10 +129,13 @@ type EndStageMark struct {
 	Metrics    json.RawMessage
 }
 
-// claudeCodeHarness is the only harness value whose sessions write a
+// harvestedHarnesses is the set of harness values whose sessions write a
 // machine-readable transcript for internal/harvest to read -- design.md's
 // "Harvesting" section and its "Claude Code gets full telemetry; other
-// harnesses degrade honestly" decision.
+// harnesses degrade honestly" decision. claude-code's transcripts under
+// ~/.claude/projects and zcode's model-io rollouts under
+// ~/.zcode/cli/rollout are the two sources the harvester reads (kan-479);
+// every other harness degrades honestly.
 //
 // ApplyEndStageMark reads this against the stage run's own recorded
 // Harness -- the value BeginStage stored at `stage begin`, immutable
@@ -142,7 +145,10 @@ type EndStageMark struct {
 // job is honesty about whether a metric was measurable must not be
 // derived from a value the caller can simply omit or re-resolve
 // differently on every call.
-const claudeCodeHarness = "claude-code"
+var harvestedHarnesses = map[string]bool{
+	"claude-code": true,
+	"zcode":       true,
+}
 
 // stages.SyntheticChangeUpdatedBy marks a change row PutChange creates
 // only to give an otherwise-unknown mark somewhere to attach -- never a
@@ -492,7 +498,7 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 // The fix is to never ask the end mark at all: this reads openRun.Harness
 // below -- the value recorded once, at `stage begin`, and never
 // afterwards mutated -- and merges tokens_available: false only when that
-// recorded harness is not claudeCodeHarness. There is therefore no
+// recorded harness is not in harvestedHarnesses. There is therefore no
 // "contradicting harness" case for an end mark to resolve: the row's own
 // history is the only source consulted, and an end mark has no field left
 // that could disagree with it.
@@ -554,7 +560,7 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 	}
 
 	metrics := mark.Metrics
-	if openRun.Harness != claudeCodeHarness {
+	if !harvestedHarnesses[openRun.Harness] {
 		merged, err := withTokensUnavailable(metrics)
 		if err != nil {
 			return StageMarkResult{}, fmt.Errorf("api: mark tokens unavailable for stage run %d: %w", openRun.ID, err)

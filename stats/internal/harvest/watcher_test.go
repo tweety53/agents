@@ -254,7 +254,7 @@ func TestNewWatcherPanicsOnNilDeps(t *testing.T) {
 	var recovered any
 	func() {
 		defer func() { recovered = recover() }()
-		harvest.NewWatcher(t.TempDir(), sink, harvest.NewAttributor(nil), nil, nil)
+		harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(t.TempDir())}, sink, harvest.NewAttributor(nil), nil, nil)
 	}()
 
 	if recovered == nil {
@@ -280,7 +280,7 @@ func TestHarvestNeedsNoDatabase(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -308,7 +308,7 @@ func TestRunOnceCommitsPerModelBucketAlongsideTotal(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -336,7 +336,7 @@ func TestConsecutiveRunsOverUnchangedFileAddNothing(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce (first): %v", err)
@@ -383,7 +383,7 @@ func TestFreshWatcherOverAlreadyHarvestedTranscriptAddsNothing(t *testing.T) {
 	// about it survives into the second Watcher below except what it
 	// committed to the (shared) sink.
 	sink := newFakeHarvestSink()
-	firstWatcher := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
+	firstWatcher := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
 	if _, err := firstWatcher.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce (first watcher): %v", err)
 	}
@@ -396,7 +396,7 @@ func TestFreshWatcherOverAlreadyHarvestedTranscriptAddsNothing(t *testing.T) {
 	// no in-memory state of its own (this package no longer has any: no
 	// OffsetState, no local file) -- built against the same sink, the way
 	// a restarted flowd would reconnect to the same Postgres database.
-	freshWatcher := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
+	freshWatcher := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
 	touched, err := freshWatcher.RunOnce(context.Background())
 	if err != nil {
 		t.Fatalf("RunOnce (fresh watcher): %v", err)
@@ -426,7 +426,7 @@ func TestFailedCommitLeavesOffsetUnadvancedAndIsRetried(t *testing.T) {
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
 	sink.failNextCommits = 1
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -500,7 +500,7 @@ func TestOutageAcrossSeveralCyclesThenRecoveryMatchesCleanRun(t *testing.T) {
 	cleanPath := copyFixtureInto(t, cleanDir, "session.jsonl", mainThreadFixture)
 	appendFixture(t, cleanPath, sidechainFixture)
 	cleanSink := newFakeHarvestSink()
-	cleanWatcher := harvest.NewWatcher(cleanDir, cleanSink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
+	cleanWatcher := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(cleanDir)}, cleanSink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
 	if _, err := cleanWatcher.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce (clean): %v", err)
 	}
@@ -516,7 +516,7 @@ func TestOutageAcrossSeveralCyclesThenRecoveryMatchesCleanRun(t *testing.T) {
 	outageDir := t.TempDir()
 	outagePath := copyFixtureInto(t, outageDir, "session.jsonl", mainThreadFixture)
 	outageSink := newFakeHarvestSink()
-	outageWatcher := harvest.NewWatcher(outageDir, outageSink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
+	outageWatcher := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(outageDir)}, outageSink, harvest.NewAttributor(windows()), harvest.NoDeps{}, nil)
 
 	// First successful commit: the main-thread bytes, cleanly, before any
 	// outage begins.
@@ -613,7 +613,7 @@ func TestDiscoverTranscriptsFindsNestedSubagentFiles(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -649,7 +649,7 @@ func TestEncodePatchesCarriesDispatchDescriptors(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -703,7 +703,7 @@ func TestEncodePatchesPreservesGenuineSpawnDepthZero(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -759,7 +759,7 @@ func TestSpawnDepthStaysConstantAcrossOrdinaryReSends(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	// Cycle 1: sidecar already present, so descriptors -- including
 	// spawn_depth -- are sent alongside this batch's tokens.
@@ -818,7 +818,7 @@ func TestEncodePatchesOmitsAbsentDescriptors(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -857,7 +857,7 @@ func TestBackfillsDispatchMetaWhenSidecarArrivesLate(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	// Cycle 1: tokens are attributed and committed; no sidecar exists yet,
 	// so descriptors are absent -- exactly TestEncodePatchesOmitsAbsentDescriptors'
@@ -939,7 +939,7 @@ func TestBackfillDispatchMetaPricesStageRunAfterCommit(t *testing.T) {
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
 	pricer := &fakePricer{}
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
 
 	// Cycle 1: tokens committed for both files (the main-thread session
 	// and the subagent transcript, both attributed to stage run 1, each
@@ -1017,7 +1017,7 @@ func TestBackfillSurvivesAnInterveningBatchWithNoDispatchDescriptors(t *testing.
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	// Cycle 1: tokens are attributed and committed; no sidecar exists yet,
 	// so pendingDispatchMeta[subPath] records stage run 1's entry.
@@ -1208,7 +1208,7 @@ func TestRunOncePricesTouchedStageRunsAfterCommit(t *testing.T) {
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
 	pricer := &fakePricer{}
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -1254,7 +1254,7 @@ func TestLostRaceSkipsCountAndPricing(t *testing.T) {
 	sink := newFakeHarvestSink()
 	sink.forceLoseRace = true
 	pricer := &fakePricer{}
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -1282,7 +1282,7 @@ func TestRunOnceWithNoPricerConfiguredStillCommits(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: openWindowForMainSession(1)}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), harvest.NoDeps{}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -1316,7 +1316,7 @@ func TestPricingFailureIsNotFatal(t *testing.T) {
 	}}
 	sink := newFakeHarvestSink()
 	pricer := &fakePricer{failIDs: map[int64]bool{1: true}}
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), pricingDeps{p: pricer}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -1475,7 +1475,7 @@ func TestCrossedSessionTokensBindEachRunToItsOwnSession(t *testing.T) {
 	writeMark(sessionBetaPath, "session-beta", "mf-session-token-beta")
 
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(sessionStore), sessionBinderDeps{binder: sessionStore}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(sessionStore), sessionBinderDeps{binder: sessionStore}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce (cycle 1, binding): %v", err)
@@ -1665,7 +1665,7 @@ func TestSessionTokenResolvesOnALaterCycleWithinTheBound(t *testing.T) {
 	binder := &countingSessionTokenBinder{sessionToken: "mf-later-cycle", stageRunID: 42}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	for i := range 3 {
 		if _, err := w.RunOnce(context.Background()); err != nil {
@@ -1717,7 +1717,7 @@ func TestSessionTokenMatchedByTwoSessionsRecordsNoSessionAndStopsRetrying(t *tes
 	sink := newFakeHarvestSink()
 	var logBuf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -1754,7 +1754,7 @@ func TestSessionTokenStopsBeingScannedAfterBoundedGiveUp(t *testing.T) {
 	sink := newFakeHarvestSink()
 	var logBuf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logBuf, nil))
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
 
 	// 60 empty cycles: nothing to find, so the give-up bound is reached
 	// on the last of these.
@@ -1807,7 +1807,7 @@ func TestAlreadyBoundRunIsNeverReconsidered(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -1853,7 +1853,7 @@ func TestBindMarkAndFirstUsageInSameBatchAreBothAttributed(t *testing.T) {
 	}
 
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(sessionStore), sessionBinderDeps{binder: sessionStore}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(sessionStore), sessionBinderDeps{binder: sessionStore}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce (cycle 1): %v", err)
@@ -1916,7 +1916,7 @@ func TestSecondMarkOfAnAlreadyBoundTokenCommitsInTheSameCycle(t *testing.T) {
 	}
 
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(sessionStore), sessionBinderDeps{binder: sessionStore}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(sessionStore), sessionBinderDeps{binder: sessionStore}, nil)
 
 	touched, err := w.RunOnce(context.Background())
 	if err != nil {
@@ -1989,7 +1989,7 @@ func TestCommandMerelyMentioningTokenDoesNotBind(t *testing.T) {
 	binder := &togglableSessionTokenBinder{sessionToken: "mf-mention-only", stageRunID: 101, pending: true}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	path := filepath.Join(dir, "mentioner.jsonl")
 	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-mentioner","message":{"model":"claude-opus-5","content":[{"type":"tool_use","name":"Bash","input":{"command":"grep 'mf-mention-only' ~/.claude/projects/*/*.jsonl"}}]}}` + "\n"
@@ -2022,7 +2022,7 @@ func TestMentionAfterOwnMarkIsConsumedDoesNotMisattribute(t *testing.T) {
 	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: 202, pending: false}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	// Cycle 1: session A's real mark is written and read while the token
 	// is NOT YET pending (matchSessionTokens returns early on an empty
@@ -2076,7 +2076,7 @@ func runMarkCommand(t *testing.T, token string, stageRunID int64, sessionID, com
 	binder := &togglableSessionTokenBinder{sessionToken: token, stageRunID: stageRunID, pending: true}
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	path := filepath.Join(dir, "session.jsonl")
 	encoded, err := json.Marshal(command)
@@ -2282,7 +2282,7 @@ func TestGiveUpIsPersisted(t *testing.T) {
 		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 501}
 		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 		sink := newFakeHarvestSink()
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 		// 60 empty cycles: nothing to find, so the give-up bound
 		// (maxSessionTokenResolutionCycles, watcher.go) is reached on the
@@ -2335,7 +2335,7 @@ func TestGiveUpIsPersisted(t *testing.T) {
 
 		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 		sink := newFakeHarvestSink()
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 		if _, err := w.RunOnce(context.Background()); err != nil {
 			t.Fatalf("RunOnce: %v", err)
@@ -2378,7 +2378,7 @@ func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
 		binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: 801}
 		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 		sink := newFakeHarvestSink()
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 		for i := range 60 {
 			if _, err := w.RunOnce(context.Background()); err != nil {
@@ -2417,7 +2417,7 @@ func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
 
 		windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 		sink := newFakeHarvestSink()
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 		if _, err := w.RunOnce(context.Background()); err != nil {
 			t.Fatalf("RunOnce: %v", err)
@@ -2450,7 +2450,7 @@ func TestGiveUpStampsItsOwnDispatches(t *testing.T) {
 		sink := newFakeHarvestSink()
 		var logBuf bytes.Buffer
 		logger := slog.New(slog.NewTextHandler(&logBuf, nil))
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
 
 		for i := range 60 {
 			if _, err := w.RunOnce(context.Background()); err != nil {
@@ -2539,7 +2539,7 @@ func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
 		// harvest_offsets for path is already at EOF.
 		sink.offsets[path] = info.Size()
 
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 		if _, err := w.RunOnce(context.Background()); err != nil {
 			t.Fatalf("RunOnce: %v", err)
@@ -2604,7 +2604,7 @@ func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
 
 		var logBuf bytes.Buffer
 		logger := slog.New(slog.NewTextHandler(&logBuf, nil))
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, logger)
 
 		if _, err := w.RunOnce(context.Background()); err != nil {
 			t.Fatalf("RunOnce: %v", err)
@@ -2638,7 +2638,7 @@ func TestPersistedGiveUpBindsFromAFullyConsumedTranscript(t *testing.T) {
 		sink := newFakeHarvestSink()
 		sink.offsets[path] = info.Size() // already consumed, like the real mark's own transcript would be
 
-		w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+		w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 		if _, err := w.RunOnce(context.Background()); err != nil {
 			t.Fatalf("RunOnce: %v", err)
 		}
@@ -2675,7 +2675,7 @@ func TestPersistedGiveUpIsRetriedOnStart(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	if _, err := w.RunOnce(context.Background()); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -2715,7 +2715,7 @@ func TestRetryStillBounded(t *testing.T) {
 
 	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
 
 	// A fresh bounded window, exactly as long as the first attempt's own
 	// (task 6 step 3, tasks.md, "w.tokenCycles starts fresh") --
@@ -2787,7 +2787,7 @@ func TestAmbiguousDispatchIsStamped(t *testing.T) {
 
 	stageWindows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(stageWindows), sessionBinderAndDispatchDeps{
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(stageWindows), sessionBinderAndDispatchDeps{
 		sessionBinderDeps: sessionBinderDeps{binder: binder},
 		windows:           dispatchWindows,
 		sink:              dispatchSink,
@@ -2857,7 +2857,7 @@ func TestDispatchThatAttributedIsNeverStampedUnattributed(t *testing.T) {
 
 	stageWindows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
 	sink := newFakeHarvestSink()
-	w := harvest.NewWatcher(dir, sink, harvest.NewAttributor(stageWindows), sessionBinderAndDispatchDeps{
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(stageWindows), sessionBinderAndDispatchDeps{
 		sessionBinderDeps: sessionBinderDeps{binder: binder},
 		windows:           dispatchWindows,
 		sink:              dispatchSink,
@@ -2888,5 +2888,100 @@ func TestDispatchThatAttributedIsNeverStampedUnattributed(t *testing.T) {
 	}
 	if got2.candidates != 2 {
 		t.Fatalf("unattributed candidates = %d, want 2 -- the true size of the ambiguity, not the filtered id count", got2.candidates)
+	}
+}
+
+// TestRunOnceIteratesAllSources pins the kan-479 watcher-shape change: a
+// Watcher holds a list of transcript sources, and one RunOnce pass scans
+// every source's root -- a Claude-shape transcript under one root and a
+// zcode rollout file under another are both read and committed in the same
+// pass, each through its own source's parser.
+func TestRunOnceIteratesAllSources(t *testing.T) {
+	dirA := t.TempDir()
+	dirB := t.TempDir()
+
+	claudePath := filepath.Join(dirA, "session.jsonl")
+	claudeLine := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-a","message":{"model":"claude-opus-5","usage":{"input_tokens":3,"output_tokens":1}}}` + "\n"
+	if err := os.WriteFile(claudePath, []byte(claudeLine), 0o644); err != nil {
+		t.Fatalf("write %s: %v", claudePath, err)
+	}
+
+	rolloutPath := filepath.Join(dirB, "model-io-sess_b.jsonl")
+	rolloutLine := `{"type":"model_io","sessionId":"sess-b","completedAt":"2025-12-01T00:00:01Z","model":{"modelId":"GLM-5.3-Flash"},"response":{"usage":{"inputTokens":4,"outputTokens":2,"totalTokens":6,"cacheReadTokens":0,"cacheWriteTokens":0}}}` + "\n"
+	if err := os.WriteFile(rolloutPath, []byte(rolloutLine), 0o644); err != nil {
+		t.Fatalf("write %s: %v", rolloutPath, err)
+	}
+
+	sink := newFakeHarvestSink()
+	// A source-less attributor: both files carry usage that belongs to no
+	// window in this test -- the assertion is on discovery and commit, not
+	// attribution -- so the windows source answers empty for every session.
+	w := harvest.NewWatcher([]harvest.Source{
+		harvest.NewClaudeSource(dirA),
+		harvest.NewRolloutSource(dirB),
+	}, sink, harvest.NewAttributor(&fakeWindowSource{bySession: map[string][]harvest.Window{}}), harvest.NoDeps{}, nil)
+
+	touched, err := w.RunOnce(context.Background())
+	if err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if touched != 2 {
+		t.Fatalf("RunOnce touched %d files, want 2 (one per source)", touched)
+	}
+	for _, p := range []string{claudePath, rolloutPath} {
+		offset, found, err := sink.GetHarvestOffset(context.Background(), p)
+		if err != nil || !found || offset == 0 {
+			t.Errorf("harvest offset for %s = (%d, %v, %v), want a committed non-zero offset", p, offset, found, err)
+		}
+	}
+}
+
+// TestScanRetriedTokensReadsRolloutCommands extends the persisted-give-up
+// recovery scan (task 6.2's mechanism) to the rollout source: a token whose
+// only mark sits in a rollout file's request-history tool-call text, behind
+// an offset already at that file's EOF, binds on the retry scan -- and the
+// scan still attributes nothing and moves no offset (property 1).
+func TestScanRetriedTokensReadsRolloutCommands(t *testing.T) {
+	dir := t.TempDir()
+	const token = "mf-rollout-retry"
+	const stageRunID = int64(911)
+	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: stageRunID}
+	binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session never bound", Retries: 1}}
+
+	path := filepath.Join(dir, "model-io-sess_retry.jsonl")
+	line := `{"type":"model_io","sessionId":"sess-retry","completedAt":"2025-12-01T00:00:01Z","model":{"modelId":"GLM-5.3-Flash"},` +
+		`"request":{"messages":[{"role":"assistant","toolCalls":[{"id":"c1","name":"Bash","input":{"command":"flow stage begin -session-token ` + token + `"}}]}]},` +
+		`"response":{"usage":{"inputTokens":10,"outputTokens":2,"totalTokens":12,"cacheReadTokens":0,"cacheWriteTokens":0}}}` + "\n"
+	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		"sess-retry": {{
+			StageRunID: stageRunID,
+			SessionID:  "sess-retry",
+			StartedAt:  time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
+		}},
+	}}
+	sink := newFakeHarvestSink()
+	sink.offsets[path] = info.Size() // already fully harvested by a prior process
+
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewRolloutSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+	if binder.bindCalls != 1 {
+		t.Fatalf("bindCalls = %d, want 1: a persisted give-up whose mark sits in a rollout file must still bind", binder.bindCalls)
+	}
+	if binder.bound[stageRunID] != "sess-retry" {
+		t.Fatalf("bound session for stage run %d = %q, want sess-retry", stageRunID, binder.bound[stageRunID])
+	}
+	if sink.commitCount != 0 {
+		t.Fatalf("commitCount = %d, want 0: the retry scan must never re-attribute the file's usage", sink.commitCount)
 	}
 }

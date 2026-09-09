@@ -352,7 +352,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 
 	windows := e2eWindowSource{st}
 	attributor := harvest.NewAttributor(windows)
-	w := harvest.NewWatcher(dir, st, attributor, st, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, st, attributor, st, nil)
 
 	// Cycle 1: the batch containing the mark's own turn is read, the
 	// token is found and bound, and -- because it revealed a still-pending
@@ -468,7 +468,7 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 	dir := t.TempDir()
 	windows := e2eWindowSource{st}
 	attributor := harvest.NewAttributor(windows)
-	w := harvest.NewWatcher(dir, st, attributor, st, nil)
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, st, attributor, st, nil)
 
 	if _, err := w.RunOnce(ctx); err != nil {
 		t.Fatalf("RunOnce: %v", err)
@@ -484,4 +484,206 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 	if len(got.Metrics) != 0 && string(got.Metrics) != "{}" {
 		t.Fatalf("metrics = %s, want empty/{} -- recorded, not measured, never a guessed zero", got.Metrics)
 	}
+}
+
+// rolloutWireLine mirrors internal/harvest's unexported rollout decode shape
+// (rollout.go) field-for-field, the same way wireLine above mirrors the
+// Claude shape -- so a rollout line is marshalled from a Go value, never
+// hand-assembled. Key names checked against a real rollout file
+// (~/.zcode/cli/rollout/model-io-sess_fa015a84-16a9-4a47-8d9c-113ed8da1a2a.jsonl,
+// read-only, content not copied) on 2026-09-09.
+type rolloutWireLine struct {
+	Type        string               `json:"type"`
+	SessionID   string               `json:"sessionId"`
+	CompletedAt string               `json:"completedAt"`
+	Model       *rolloutWireModel    `json:"model,omitempty"`
+	Request     *rolloutWireRequest  `json:"request,omitempty"`
+	Response    *rolloutWireResponse `json:"response,omitempty"`
+}
+
+type rolloutWireModel struct {
+	ModelID string `json:"modelId"`
+}
+
+type rolloutWireRequest struct {
+	Messages []rolloutWireMessage `json:"messages"`
+}
+
+type rolloutWireMessage struct {
+	Role      string            `json:"role"`
+	ToolCalls []rolloutWireTool `json:"toolCalls,omitempty"`
+}
+
+type rolloutWireResponse struct {
+	Usage     *rolloutWireUsage `json:"usage,omitempty"`
+	ToolCalls []rolloutWireTool `json:"toolCalls,omitempty"`
+}
+
+type rolloutWireTool struct {
+	ID    string          `json:"id"`
+	Name  string          `json:"name"`
+	Input *rolloutWireCmd `json:"input,omitempty"`
+}
+
+type rolloutWireCmd struct {
+	Command string `json:"command"`
+}
+
+type rolloutWireUsage struct {
+	InputTokens      int64 `json:"inputTokens"`
+	OutputTokens     int64 `json:"outputTokens"`
+	TotalTokens      int64 `json:"totalTokens"`
+	CacheReadTokens  int64 `json:"cacheReadTokens"`
+	CacheWriteTokens int64 `json:"cacheWriteTokens"`
+}
+
+// TestWatcherHarvestsRolloutSource is the zcode counterpart of
+// TestMarkedStageBindsToRealSessionEndToEnd: mark a stage exactly as a
+// ZCode-driven run would (harness zcode, a session token, no -session),
+// write a rollout file whose request-history tool call carries that token
+// and whose responses carry usage, drive a real Watcher wired to a real
+// store, and assert the run binds, attributes, and records the cache write
+// under the unknown split -- the split ZCode's collapsed cacheWriteTokens
+// produces.
+func TestWatcherHarvestsRolloutSource(t *testing.T) {
+	st := newEndToEndStore(t)
+	ctx := context.Background()
+
+	projectKey := fmt.Sprintf("proj-e2e-zcode-%d", time.Now().UnixNano())
+	changeName := "kan-1"
+	if err := st.PutChange(ctx, store.Change{
+		ProjectKey:       projectKey,
+		MainCheckoutPath: "/Users/tweety53/Projects/" + projectKey,
+		Name:             changeName,
+		State:            store.StateInProgress,
+		UpdatedAt:        time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC),
+		UpdatedBy:        "flow",
+	}); err != nil {
+		t.Fatalf("PutChange: %v", err)
+	}
+
+	sessionToken := "mf-e2e-zcode-rollout"
+	const sessionID = "sess-e2e-zcode-rollout"
+	started := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+
+	run, err := st.BeginStage(ctx, store.BeginStageInput{
+		ProjectKey:   projectKey,
+		ChangeName:   changeName,
+		Harness:      "zcode",
+		SessionToken: &sessionToken,
+		Command:      "/flow",
+		Stage:        "do.tests",
+		StartedAt:    started,
+	})
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+
+	dir := t.TempDir()
+	rolloutPath := filepath.Join(dir, "model-io-sess_e2e-zcode-rollout.jsonl")
+
+	mark := rolloutWireLine{
+		Type: "model_io", SessionID: sessionID,
+		CompletedAt: started.Add(time.Second).Format(time.RFC3339),
+		Model:       &rolloutWireModel{ModelID: "GLM-5.3-Flash"},
+		Request: &rolloutWireRequest{Messages: []rolloutWireMessage{{
+			Role: "assistant",
+			ToolCalls: []rolloutWireTool{{
+				ID: "call_1", Name: "Bash",
+				Input: &rolloutWireCmd{Command: "flow stage begin -command /flow -stage do.tests -harness zcode -session-token " + sessionToken + " kan-1"},
+			}},
+		}}},
+		Response: &rolloutWireResponse{Usage: &rolloutWireUsage{
+			InputTokens: 5, OutputTokens: 1, TotalTokens: 6, CacheWriteTokens: 7,
+		}},
+	}
+	usage := rolloutWireLine{
+		Type: "model_io", SessionID: sessionID,
+		CompletedAt: started.Add(2 * time.Second).Format(time.RFC3339),
+		// Deliberately the other spelling the real rollouts carry: the
+		// two lines above and this one are the same model, and both
+		// must land in one canonical bucket (fix 1).
+		Model: &rolloutWireModel{ModelID: "glm-5.3-flash"},
+		Response: &rolloutWireResponse{Usage: &rolloutWireUsage{
+			InputTokens: 333, OutputTokens: 21, TotalTokens: 354, CacheReadTokens: 40,
+		}},
+	}
+	writeLines(t, rolloutPath, marshalRolloutLine(t, mark), marshalRolloutLine(t, usage))
+
+	attributor := harvest.NewAttributor(e2eWindowSource{st})
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewRolloutSource(dir)}, st, attributor, st, nil)
+
+	// Cycle 1: the mark's own turn is read, the token is found, and the
+	// batch is withheld pending the bind (RunOnce's withholding rule).
+	if _, err := w.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce (cycle 1, binding): %v", err)
+	}
+	bound, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun after cycle 1: %v", err)
+	}
+	if bound.SessionID == nil || *bound.SessionID != sessionID {
+		t.Fatalf("stage run session_id after cycle 1 = %v, want %q", bound.SessionID, sessionID)
+	}
+
+	// Cycle 2: the withheld batch attributes against the now-bound
+	// session's window and commits.
+	if _, err := w.RunOnce(ctx); err != nil {
+		t.Fatalf("RunOnce (cycle 2, attribution): %v", err)
+	}
+	final, err := st.GetStageRun(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("GetStageRun after cycle 2: %v", err)
+	}
+
+	var bag struct {
+		Tokens struct {
+			Main struct {
+				Input                float64 `json:"input"`
+				Output               float64 `json:"output"`
+				CacheCreation        float64 `json:"cache_creation"`
+				CacheCreationUnknown float64 `json:"cache_creation_unknown"`
+				CacheRead            float64 `json:"cache_read"`
+			} `json:"main"`
+		} `json:"tokens"`
+		Models map[string]struct {
+			Tokens struct {
+				Main struct {
+					Input float64 `json:"input"`
+				} `json:"main"`
+			} `json:"tokens"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(final.Metrics, &bag); err != nil {
+		t.Fatalf("unmarshal metrics %s: %v", final.Metrics, err)
+	}
+
+	if bag.Tokens.Main.Input != 338 {
+		t.Errorf("tokens.main.input = %v, want 338 (5 from the mark's own turn + 333)", bag.Tokens.Main.Input)
+	}
+	if bag.Tokens.Main.Output != 22 {
+		t.Errorf("tokens.main.output = %v, want 22", bag.Tokens.Main.Output)
+	}
+	if bag.Tokens.Main.CacheRead != 40 {
+		t.Errorf("tokens.main.cache_read = %v, want 40", bag.Tokens.Main.CacheRead)
+	}
+	if bag.Tokens.Main.CacheCreation != 7 || bag.Tokens.Main.CacheCreationUnknown != 7 {
+		t.Errorf("cache creation = (%v total, %v unknown-split), want (7, 7): ZCode's single cacheWriteTokens lands in the unknown split", bag.Tokens.Main.CacheCreation, bag.Tokens.Main.CacheCreationUnknown)
+	}
+	glm, ok := bag.Models["glm-5.3-flash"]
+	if !ok {
+		t.Fatalf("metrics models bag has no glm-5.3-flash bucket: %s", final.Metrics)
+	}
+	if glm.Tokens.Main.Input != 338 {
+		t.Errorf("models[glm-5.3-flash].tokens.main.input = %v, want 338 (both spellings canonicalized into one bucket)", glm.Tokens.Main.Input)
+	}
+}
+
+func marshalRolloutLine(t *testing.T, l rolloutWireLine) []byte {
+	t.Helper()
+	b, err := json.Marshal(l)
+	if err != nil {
+		t.Fatalf("marshal rollout line: %v", err)
+	}
+	return append(b, '\n')
 }
