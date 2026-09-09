@@ -66,6 +66,16 @@
    branch. A finished change never leaves the archive move uncommitted in the working tree. The push
    happens at step 10, after self-review; step 11, which removes the landing worktree, closes the
    run.
+
+   **The staging is `git add -A`, and this commit's diff is verified scoped to `spectre/changes/`
+   before it is made** — `check-archive-scope.sh <landing-worktree> "spectre/changes/"`, run between
+   the add and the commit. `add -A` stages the whole landing worktree, not only the archive move, so
+   a landing worktree step 2 failed to actually fast-forward — silently, or by a skipped guard run
+   by hand and gotten wrong — stages and commits whatever else that stale tree carried right
+   alongside it. A `SCOPE-VIOLATION` refuses the commit and leaves the change at `IN_PROGRESS`
+   rather than let a stray path land on `chore/archive-<name>` unremarked. This is not a hypothetical:
+   kan-474's own archive commit (`a574bf4`) reverted skill-file content another change had shipped
+   minutes earlier, exactly this way, before this guard existed.
 5. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's
    database and bucket** — the worktree half being **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below.
@@ -112,7 +122,7 @@
    | Verdict | What run 2 does |
    |---------|-----------------|
    | `COMPLETE:` | report the cleanup as verified, **relay every clause the line carries after ` — ` word for word**, and go on to step 8 |
-   | `LEFTOVER:` | name what remains, relay the hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
+   | `LEFTOVER:` | name what remains, **do not write `FINISHED`**, and stop at `IN_PROGRESS` |
 
    **A `SKIPPED:` clause on a `COMPLETE:` line is relayed, never dropped, and the two rows are
    symmetric for that reason.** The guard appends its notes to the verdict after ` — `, and a
