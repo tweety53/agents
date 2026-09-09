@@ -98,14 +98,16 @@ unchanged by this step.
 ```bash
 mkdir -p <worktree>/.superpowers/sdd
 gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
-  <worktree>/.superpowers/sdd/dispatch-context.md "" <canonical-worktree>
+  <worktree>/.superpowers/sdd/dispatch-context.md "" <canonical-worktree> <shape>
 ```
 
 `<canonical-worktree>` is the member of the run's resolved worktree set whose own
 `<project>/<spec-root>/changes/<name>/tasks.md` exists — the same argument
 `check-unfinished-work.sh` takes, passed on every call and inert when that member is this
 worktree (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for what a
-satellite's bundle then carries).
+satellite's bundle then carries). `<shape>` is the conductor's computed shape value — the same
+argument implement.md's per-bundle gathers take — so a reviewer's bundle is hazard-filtered by
+the change's shape exactly as an implementer's is.
 
 Report the script's stderr line (`bundle unchanged — reusing …` or `bundle rebuilt — …`) as part
 of this stage's own reporting.

@@ -220,6 +220,22 @@ type Incident struct {
 	OccurredAt  time.Time `json:"occurredAt"`
 }
 
+// Hazard is a proactive, per-project warning a dispatch bundle carries
+// before it costs time -- incidents' proactive sibling (KAN-452). Applies
+// is a closed vocabulary matching how the pipeline classifies a change:
+// "all" injects into every bundle, "cross-repo"/"single-repo" only into
+// bundles whose caller passed that shape. Active is the retire flag: rows
+// are retired, never deleted, so the record of what warnings a project
+// carried survives.
+type Hazard struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Body      string    `json:"body"`
+	Applies   string    `json:"applies"`
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 // Run is one change's whole derived record: its dispatches in seq order
 // and its findings in ref order.
 type Run struct {

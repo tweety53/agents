@@ -68,6 +68,18 @@ func (nopRecordStore) ListIncidents(context.Context, string) ([]records.Incident
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
+	return records.Hazard{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) RetireHazard(context.Context, string, string) (records.Hazard, error) {
+	return records.Hazard{}, errRecordStoreNotExercised
+}
+
 var _ api.RecordStore = nopRecordStore{}
 
 // recordJournalPath mirrors cmd/flow/record.go's own recordJournalPath
@@ -189,6 +201,20 @@ func (f *fakeRecordStore) RecordIncident(_ context.Context, projectKey string, i
 
 func (f *fakeRecordStore) ListIncidents(context.Context, string) ([]records.Incident, error) {
 	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) AddHazard(_ context.Context, projectKey string, h records.Hazard) (records.Hazard, error) {
+	f.record(fmt.Sprintf("hazard %s/%s", projectKey, h.Name))
+	return h, nil
+}
+
+func (f *fakeRecordStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RetireHazard(_ context.Context, projectKey, name string) (records.Hazard, error) {
+	f.record(fmt.Sprintf("retire hazard %s/%s", projectKey, name))
+	return records.Hazard{}, nil
 }
 
 func (f *fakeRecordStore) SetFindingStatus(_ context.Context, projectKey, change, ref, status string) error {

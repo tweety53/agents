@@ -439,6 +439,18 @@ func (fakeStore) ListIncidents(context.Context, string) ([]records.Incident, err
 	return nil, nil
 }
 
+func (fakeStore) AddHazard(context.Context, string, records.Hazard) (records.Hazard, error) {
+	return records.Hazard{}, nil
+}
+
+func (fakeStore) ListHazards(context.Context, string, string, bool) ([]records.Hazard, error) {
+	return nil, nil
+}
+
+func (fakeStore) RetireHazard(context.Context, string, string) (records.Hazard, error) {
+	return records.Hazard{}, nil
+}
+
 // GetSettings and PutSettings are here for the same reason
 // AllRecordedRunsUnmeasured's own doc comment gives: api.New gained a
 // fifth store parameter (task 2) for the settings routes, and every
