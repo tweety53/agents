@@ -155,6 +155,16 @@ func qualifiedDispatchColumns(alias string) string {
 	return strings.Join(cols, ", ")
 }
 
+// dispatchCostExpr lifts the priced figure store.Price wrote into the
+// stage-run bag's dispatches.<agentId>.cost_usd bucket onto a dispatch
+// row's read shape (kan-450). The dollars never live on the dispatch row;
+// this expression, over the LEFT JOIN in readDispatches, is the only place
+// they are resolved. NULL for a dispatch with no stage run, no agent id,
+// or a bag without the priced key -- absence, never zero. The write paths
+// return a plain NULL for it: their RETURNING clauses see no stage_runs
+// scope, and RunRecord is the read that resolves the figure.
+const dispatchCostExpr = `(stage_runs.metrics -> 'dispatches' -> dispatches.agent_id ->> 'cost_usd')::numeric`
+
 // dispatchRowScanner is the one method scanDispatchRow needs, satisfied by
 // both pgx.Row (a QueryRow result) and pgx.Rows (one row of a Query
 // result), so the insert path and the read path share one decode.
@@ -184,12 +194,13 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		notes        *string
 		dispatchKey  *string
 		diffBase     *string
+		costUSD      *float64
 		bag          []byte
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase,
+		&diffBase, &costUSD,
 	); err != nil {
 		return records.Dispatch{}, err
 	}
@@ -202,6 +213,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	d.Notes = derefOrEmpty(notes)
 	d.Key = derefOrEmpty(dispatchKey)
 	d.DiffBase = derefOrEmpty(diffBase)
+	d.CostUSD = costUSD
 	d.Metrics = bag
 	return d, nil
 }
@@ -238,7 +250,7 @@ func (s *Store) insertDispatch(ctx context.Context, projectKey, change string, i
 		WHERE c.project_key = $1 AND c.name = $2
 		ON CONFLICT ON CONSTRAINT `+dispatchesKeyConstraint+` DO UPDATE SET
 			dispatch_key = EXCLUDED.dispatch_key
-		RETURNING `+dispatchColumns+`
+		RETURNING `+dispatchColumns+`, NULL::numeric
 	`,
 		projectKey, change, in.StageRunID, nullIfEmpty(in.TaskID), in.Role, nullIfEmpty(in.Slot),
 		in.Model, nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), nullIfEmpty(in.SessionToken),
@@ -285,7 +297,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		FROM changes c
 		WHERE c.id = d.change_id AND c.project_key = $1 AND c.name = $2
 		  AND d.session_token = $3 AND d.dispatch_key = $4
-		RETURNING `+qualifiedDispatchColumns("d"),
+		RETURNING `+qualifiedDispatchColumns("d")+", NULL::numeric",
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 	))
@@ -674,10 +686,11 @@ func (s *Store) RunRecord(ctx context.Context, projectKey, change string) (recor
 
 func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Dispatch, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT `+dispatchColumns+`
+		SELECT `+qualifiedDispatchColumns("dispatches")+`, `+dispatchCostExpr+`
 		FROM dispatches
-		WHERE change_id = $1
-		ORDER BY seq
+		LEFT JOIN stage_runs ON stage_runs.id = dispatches.stage_run_id
+		WHERE dispatches.change_id = $1
+		ORDER BY dispatches.seq
 	`, changeID)
 	if err != nil {
 		return nil, fmt.Errorf("read dispatches: %w", err)
