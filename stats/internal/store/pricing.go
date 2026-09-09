@@ -122,13 +122,25 @@ func (t chargeableTokens) hasCharge() bool {
 // three cases, every one of them a place guessing would silently invent a
 // number rather than surface an absence:
 //
-//   - t carries CacheCreationUnknown: some of this bucket's cache-creation
-//     usage never recorded which of the two rates applied, and pricing
-//     the rest while dropping that portion would produce a total that
-//     reads as complete but understates the true cost by exactly the
-//     unpriced amount -- the same "partial sum looks like a correct one"
-//     failure Price's own top-level cost_usd rule already guards against,
-//     one level down.
+//   - t carries CacheCreationUnknown AND rate does not carry exactly one
+//     cache-write rate: some of this bucket's cache-creation usage never
+//     recorded which of the two rates applied, and pricing the rest while
+//     dropping that portion would produce a total that reads as complete
+//     but understates the true cost by exactly the unpriced amount -- the
+//     same "partial sum looks like a correct one" failure Price's own
+//     top-level cost_usd rule already guards against, one level down.
+//     Where the row's cache-write columns AGREE on one value -- a 1h rate
+//     equal to the 5m rate, or a nil 1h rate with the collapsed legacy
+//     column equal to the 5m rate (the row was published flat) -- the
+//     unknown split is priced at that one value, which is exact rather
+//     than a guess (kan-479): ZCode reports a single collapsed
+//     cacheWriteTokens with no 5m/1h split, and a model with one flat
+//     cache-write rate charges that same rate whichever TTL the provider
+//     picked internally. A row whose columns disagree (the seeded Claude
+//     rows, where 5m and 1h genuinely differ) or whose split was never
+//     filled in at all (a pre-0007 row carrying only the collapsed
+//     column, where the zero 5m rate is an unset, not a published free)
+//     still refuses.
 //   - t carries CacheCreation1h but rate has no CacheWrite1hPerMTok (a
 //     pre-0007 pricing row, or one nobody has published a 1-hour rate
 //     for yet): there is no rate to charge that portion at.
@@ -139,7 +151,11 @@ func (t chargeableTokens) hasCharge() bool {
 //     standard rate.
 func (t chargeableTokens) cost(rate PricingRate, fast bool) (cost float64, ok bool) {
 	if t.CacheCreationUnknown != nil {
-		return 0, false
+		oneRateInEffect := (rate.CacheWrite1hPerMTok != nil && *rate.CacheWrite1hPerMTok == rate.CacheWrite5mPerMTok) ||
+			(rate.CacheWrite1hPerMTok == nil && rate.CacheWritePerMTok == rate.CacheWrite5mPerMTok)
+		if !oneRateInEffect {
+			return 0, false
+		}
 	}
 
 	inputRate, outputRate := rate.InputPerMTok, rate.OutputPerMTok
@@ -164,6 +180,11 @@ func (t chargeableTokens) cost(rate PricingRate, fast bool) (cost float64, ok bo
 			return 0, false
 		}
 		cost += *t.CacheCreation1h / tokensPerMillion * *rate.CacheWrite1hPerMTok
+	}
+	if t.CacheCreationUnknown != nil {
+		// Reached only when the flat-rate rule above admitted this bucket:
+		// one cache-write rate in effect, so the 5m rate is that rate.
+		cost += *t.CacheCreationUnknown / tokensPerMillion * rate.CacheWrite5mPerMTok
 	}
 	if t.CacheRead != nil {
 		cost += *t.CacheRead / tokensPerMillion * rate.CacheReadPerMTok

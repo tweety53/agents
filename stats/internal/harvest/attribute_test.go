@@ -1595,3 +1595,64 @@ func TestDispatchNonOverlappingIntervalStillAttributes(t *testing.T) {
 		t.Errorf("dispatch 31 input = %v, want 9 -- one containing window with no agent id on either side must still attribute", got)
 	}
 }
+
+// TestAttributionCanonicalizesModelBucketKeys pins fix 1's rule: the
+// harness does not spell a model one way. Measured rollout files carry
+// both "GLM-5.3-Flash" and "glm-5.3-flash" as modelId within one
+// session, so verbatim bucket keys would split one model's usage across
+// two buckets -- and the lowercase share, matching no pricing row,
+// would withhold the run's top-level cost entirely. The models-bag key
+// is therefore canonicalized to lowercase where attribution mints it;
+// the record's own Model string is not the bucket key.
+func TestAttributionCanonicalizesModelBucketKeys(t *testing.T) {
+	const sess = "sess-canonical"
+	records := []harvest.Record{
+		{
+			Timestamp: mustParse(t, "2026-09-09T12:00:01Z"),
+			SessionID: sess,
+			Model:     "GLM-5.3-Flash",
+			Usage:     harvest.Usage{InputTokens: 10},
+		},
+		{
+			Timestamp: mustParse(t, "2026-09-09T12:00:02Z"),
+			SessionID: sess,
+			Model:     "glm-5.3-flash",
+			Usage:     harvest.Usage{InputTokens: 5, OutputTokens: 2},
+		},
+	}
+	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
+		sess: {{
+			StageRunID: 77,
+			SessionID:  sess,
+			StartedAt:  mustParse(t, "2026-09-09T12:00:00Z"),
+			EndedAt:    nil,
+		}},
+	}}
+	a := harvest.NewAttributor(windows)
+
+	deltas, err := a.Attribute(context.Background(), records)
+	if err != nil {
+		t.Fatalf("Attribute: %v", err)
+	}
+	d, ok := deltas[77]
+	if !ok {
+		t.Fatalf("no delta for stage run 77: %v", deltas)
+	}
+
+	if got := len(d.Models); got != 1 {
+		t.Fatalf("models bag carries %d buckets (%v), want exactly one canonical bucket", got, d.Models)
+	}
+	glm, ok := d.Models["glm-5.3-flash"]
+	if !ok {
+		t.Fatalf("no models bucket keyed glm-5.3-flash: %v", d.Models)
+	}
+	if glm.Main.Input != 15 {
+		t.Errorf("models[glm-5.3-flash].main.input = %v, want 15 (both spellings' usage in one bucket)", glm.Main.Input)
+	}
+	if glm.Main.Output != 2 {
+		t.Errorf("models[glm-5.3-flash].main.output = %v, want 2", glm.Main.Output)
+	}
+	if d.Total.Main.Input != 15 || d.Total.Main.Output != 2 {
+		t.Errorf("total main = input %v output %v, want input 15 output 2 (canonicalization must not drop usage)", d.Total.Main.Input, d.Total.Main.Output)
+	}
+}

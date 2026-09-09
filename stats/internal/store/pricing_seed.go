@@ -20,22 +20,42 @@ var pricingSeedEffectiveFrom = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 // exists for this component".
 func fastRate(v float64) *float64 { return &v }
 
-// SeedPricingRates is the published Anthropic rate table this task's own
-// plan-provenance tag cites: read from
+// SeedPricingRates is the published rate table this change's own
+// plan-provenance tags cite. The Claude rows were read from
 // https://platform.claude.com/docs/en/about-claude/pricing on 2026-08-14,
-// with the claude-fable-5-1 row read from the same page on 2026-09-02.
-// Prices are USD per million tokens (per_mtok).
+// with the claude-fable-5-1 row read from the same page on 2026-09-02. The
+// GLM-5.3-Flash row (kan-479, keyed to the canonical lowercase form of
+// the model id -- design decision model-id-canonical-lowercase) was read from
+// https://docs.z.ai/guides/overview/pricing on 2026-09-09: the launch-
+// discounted prices this machine's Z.ai coding plan actually charges
+// (input $0.15, cached-input read $0.03, output $0.50 at list, all at a
+// 50% launch discount at read time), with cache-write storage
+// limited-time free. Prices are USD per million tokens (per_mtok).
 //
 // These figures are not re-derived, adjusted, or supplemented from
-// memory -- they are exactly the table task 23's plan carries, and a
-// model or rate this table does not name (claude-sonnet-5,
+// memory -- and a model or rate this table does not name (claude-sonnet-5,
 // claude-haiku-4-5 and claude-fable-5-1 have no fast-mode rate at all,
-// per the source table's own "—" cells) is priced as unavailable by
+// per the source table's own "—" cells; glm-5.3-flash has no fast rate
+// either, and no separate 1-hour cache rate, which is what lets the
+// pricer price ZCode's unknown-split cache writes exactly --
+// chargeableTokens.cost's flat-rate rule) is priced as unavailable by
 // Store.Price rather than at an invented rate: see PricingRate's own doc
 // comment, and chargeableTokens.cost, for how a nil rate here is treated
 // at pricing time.
 func SeedPricingRates() []PricingRate {
 	return []PricingRate{
+		{
+			Model:               "glm-5.3-flash",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        0.075,
+			OutputPerMTok:       0.25,
+			CacheWritePerMTok:   0,
+			CacheWrite5mPerMTok: 0,
+			CacheReadPerMTok:    0.015,
+			// CacheWrite1hPerMTok nil: Z.ai publishes one cache-write rate
+			// (limited-time free), and no fast-mode rate is published for
+			// this model -- both left nil deliberately.
+		},
 		{
 			Model:               "claude-fable-5-1",
 			EffectiveFrom:       pricingSeedEffectiveFrom,

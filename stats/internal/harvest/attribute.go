@@ -454,7 +454,15 @@ func (a *Attributor) Attribute(ctx context.Context, records []Record) (map[int64
 				d.Speed = r.Usage.Speed
 			}
 			if r.Model != "" {
-				upsertBucket(&d.Models, r.Model, func(td TokenDelta) TokenDelta {
+				// The bucket key is canonical lowercase, never the
+				// harness's own spelling: measured rollout files carry
+				// both "GLM-5.3-Flash" and "glm-5.3-flash" as modelId
+				// within one session, and verbatim keys would split one
+				// model's usage across two buckets -- leaving the share
+				// under the non-seeded spelling with no pricing row,
+				// which withholds the run's top-level cost entirely
+				// (design decision model-id-canonical-lowercase).
+				upsertBucket(&d.Models, strings.ToLower(r.Model), func(td TokenDelta) TokenDelta {
 					td.bucket(r.IsSidechain).add(r.Usage)
 					return td
 				})

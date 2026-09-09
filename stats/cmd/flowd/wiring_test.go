@@ -196,7 +196,7 @@ func TestAcquireStartupRefusesNonLoopbackHostBeforeListening(t *testing.T) {
 // used `go test ./cmd/flowd/ -race -count=1 -run TestDaemonWiresTheRealStore -v`.
 func TestDaemonWiresTheRealStore(t *testing.T) {
 	var st *store.Store // never dereferenced: newTranscriptWatcher only stores it behind Deps and HarvestSink.
-	w := newTranscriptWatcher(t.TempDir(), st, harvest.NewAttributor(nil), nil)
+	w := newTranscriptWatcher(t.TempDir(), t.TempDir(), st, harvest.NewAttributor(nil), nil)
 
 	f := reflect.ValueOf(w).Elem().FieldByName("deps")
 	if !f.IsValid() {

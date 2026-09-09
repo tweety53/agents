@@ -279,7 +279,46 @@ const (
 	reasonDispatchAmbiguous = "matched more than one dispatch"
 )
 
-// Watcher periodically scans a transcripts root for *.jsonl files and
+// Source is one transcript source: a root to walk for *.jsonl files and the
+// pair of read functions that parse those files' own line shape. The Claude
+// transcript format and ZCode's rollout format share the offset, attribution
+// and commit machinery but not their line shapes, so the parser rides with
+// the root instead of being hardcoded in the read path -- one Watcher runs
+// both, and a third harness with a machine-readable transcript is one new
+// constructor, not a fork of this file.
+type Source struct {
+	Root string
+	// ReadNew reads path from offset to EOF, exactly ReadNewRecords'
+	// contract (transcript.go): records and commands from the complete
+	// portion only, the new offset covering no partial trailing line.
+	ReadNew func(path string, offset int64) ([]Record, []CommandRecord, int64, error)
+	// ReadAllCmds reads path whole for commands only, exactly
+	// ReadAllCommands' contract (transcript.go): no Records, no offset
+	// read or written -- the retried-give-up scan's shape.
+	ReadAllCmds func(path string) ([]CommandRecord, error)
+}
+
+// NewClaudeSource builds the source over a Claude Code transcripts root
+// (~/.claude/projects, or FLOW_TRANSCRIPTS_DIR's override).
+func NewClaudeSource(root string) Source {
+	return Source{Root: root, ReadNew: ReadNewRecords, ReadAllCmds: ReadAllCommands}
+}
+
+// NewRolloutSource builds the source over a ZCode rollout root
+// (~/.zcode/cli/rollout, or FLOW_ZCODE_ROLLOUTS_DIR's override).
+func NewRolloutSource(root string) Source {
+	return Source{Root: root, ReadNew: ReadRolloutNewRecords, ReadAllCmds: ReadRolloutAllCommands}
+}
+
+// transcriptSet is one source's discovered file list for a single RunOnce
+// pass -- the pairing kept so scanRetriedTokens can read each file through
+// the source whose parser produced it.
+type transcriptSet struct {
+	source Source
+	files  []string
+}
+
+// Watcher periodically scans its sources' roots for *.jsonl files and
 // harvests whatever bytes are new since each one's last committed offset,
 // attributing them via its Attributor and committing the result -- both
 // the token deltas and the advanced offset -- through its HarvestSink in
@@ -288,7 +327,7 @@ const (
 // Pricer, SessionTokenBinder, DispatchMetricsSink and
 // DispatchWindowSource).
 type Watcher struct {
-	root       string
+	sources    []Source
 	sink       HarvestSink
 	attributor *Attributor
 	logger     *slog.Logger
@@ -416,20 +455,21 @@ type Watcher struct {
 	gaveUpDispatchMeta map[string]bool
 }
 
-// NewWatcher builds a Watcher over root (scanned recursively for
-// *.jsonl files), sink (where offsets are read from and results are
-// committed to) and attributor (how records become deltas). deps is
+// NewWatcher builds a Watcher over sources (each root scanned recursively
+// for *.jsonl files, each file parsed by its own source's read functions),
+// sink (where offsets are read from and results are committed to) and
+// attributor (how records become deltas). deps is
 // every other dependency (KAN-173) -- required, not optional: NewWatcher
 // panics if it is nil rather than silently building a Watcher that prices
 // nothing, binds nothing and charges no dispatch, which is exactly the
 // defect KAN-16 and KAN-172 both were. A caller with nothing to wire
 // passes harvest.NoDeps{} to opt out explicitly. logger may be nil.
-func NewWatcher(root string, sink HarvestSink, attributor *Attributor, deps Deps, logger *slog.Logger) *Watcher {
+func NewWatcher(sources []Source, sink HarvestSink, attributor *Attributor, deps Deps, logger *slog.Logger) *Watcher {
 	if deps == nil {
 		panic("harvest.NewWatcher: deps is nil; pass harvest.NoDeps{} to opt out explicitly")
 	}
 	return &Watcher{
-		root:                root,
+		sources:             sources,
 		sink:                sink,
 		attributor:          attributor,
 		deps:                deps,
@@ -492,9 +532,13 @@ func NewWatcher(root string, sink HarvestSink, attributor *Attributor, deps Deps
 // RunOnce returns the number of files whose newly read records were
 // successfully committed by this call.
 func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
-	files, err := discoverTranscripts(w.root)
-	if err != nil {
-		return 0, err
+	var sets []transcriptSet
+	for _, source := range w.sources {
+		files, err := discoverTranscripts(source.Root)
+		if err != nil {
+			return 0, err
+		}
+		sets = append(sets, transcriptSet{source: source, files: files})
 	}
 
 	pendingSessionTokens := w.pendingSessionTokens(ctx)
@@ -507,165 +551,167 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 	matchedSessions := make(map[string]map[string]bool, len(pendingSessionTokens))
 
 	touchedFiles := 0
-	for _, path := range files {
-		if ctx.Err() != nil {
-			return touchedFiles, ctx.Err()
-		}
+	for _, set := range sets {
+		for _, path := range set.files {
+			if ctx.Err() != nil {
+				return touchedFiles, ctx.Err()
+			}
 
-		offset, found, err := w.sink.GetHarvestOffset(ctx, path)
-		if err != nil {
-			w.warn("harvest: get committed offset failed, will retry", "path", path, "error", err)
-			continue
-		}
+			offset, found, err := w.sink.GetHarvestOffset(ctx, path)
+			if err != nil {
+				w.warn("harvest: get committed offset failed, will retry", "path", path, "error", err)
+				continue
+			}
 
-		records, commands, newOffset, err := ReadNewRecords(path, offset)
-		if err != nil {
-			w.warn("harvest: read transcript failed, will retry", "path", path, "error", err)
-			continue
-		}
+			records, commands, newOffset, err := set.source.ReadNew(path, offset)
+			if err != nil {
+				w.warn("harvest: read transcript failed, will retry", "path", path, "error", err)
+				continue
+			}
 
-		matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
+			matchedHere := w.matchSessionTokens(pendingSessionTokens, commands, matchedSessions)
 
-		if newOffset == offset {
-			// Nothing new (or only a partial trailing line) since last
-			// time -- but a sidecar this path's earlier batch could not
-			// find may have landed since then (F4), so give it one
-			// chance before moving on rather than skipping this path
-			// outright.
-			w.maybeBackfillDispatchMeta(ctx, path)
-			continue
-		}
+			if newOffset == offset {
+				// Nothing new (or only a partial trailing line) since last
+				// time -- but a sidecar this path's earlier batch could not
+				// find may have landed since then (F4), so give it one
+				// chance before moving on rather than skipping this path
+				// outright.
+				w.maybeBackfillDispatchMeta(ctx, path)
+				continue
+			}
 
-		if matchedHere {
-			// This batch is the one that revealed a still-pending sessionToken
-			// -- withhold its commit rather than attribute and commit it
-			// now (see this method's own doc comment, "withholding a
-			// batch that revealed a sessionToken"). The offset does not
-			// advance, so the next cycle re-reads this exact same
-			// region once resolveSessionTokens (below, after every file this
-			// cycle has been read) has had a chance to bind it -- at
-			// which point WindowsForSession will actually have a window
-			// for it, and this same batch's usage attributes correctly
-			// instead of being computed against no window, committed as
-			// an empty delta, and never revisited.
-			continue
-		}
+			if matchedHere {
+				// This batch is the one that revealed a still-pending sessionToken
+				// -- withhold its commit rather than attribute and commit it
+				// now (see this method's own doc comment, "withholding a
+				// batch that revealed a sessionToken"). The offset does not
+				// advance, so the next cycle re-reads this exact same
+				// region once resolveSessionTokens (below, after every file this
+				// cycle has been read) has had a chance to bind it -- at
+				// which point WindowsForSession will actually have a window
+				// for it, and this same batch's usage attributes correctly
+				// instead of being computed against no window, committed as
+				// an empty delta, and never revisited.
+				continue
+			}
 
-		deltas, err := w.attributor.Attribute(ctx, records)
-		if err != nil {
-			w.warn("harvest: attribute failed, will retry", "path", path, "error", err)
-			continue
-		}
+			deltas, err := w.attributor.Attribute(ctx, records)
+			if err != nil {
+				w.warn("harvest: attribute failed, will retry", "path", path, "error", err)
+				continue
+			}
 
-		// ReadDispatchMeta reads path's own sidecar, once per file, right
-		// here -- this loop already holds path, which Attribute never
-		// sees (it works from records alone). A subagent transcript's
-		// every record shares this same file's own agentId (KAN-201's
-		// tasks.md, "Facts this plan rests on"), so the single meta value
-		// read here applies to every dispatch entry any of this batch's
-		// deltas carry. hasMeta is false, and meta is the zero value, for
-		// a main-session transcript or a subagent transcript with no
-		// sidecar -- encodePatches then omits the descriptors entirely
-		// rather than inventing them (DispatchBucket's own doc comment,
-		// attribute.go).
-		meta, hasMeta := ReadDispatchMeta(path)
+			// ReadDispatchMeta reads path's own sidecar, once per file, right
+			// here -- this loop already holds path, which Attribute never
+			// sees (it works from records alone). A subagent transcript's
+			// every record shares this same file's own agentId (KAN-201's
+			// tasks.md, "Facts this plan rests on"), so the single meta value
+			// read here applies to every dispatch entry any of this batch's
+			// deltas carry. hasMeta is false, and meta is the zero value, for
+			// a main-session transcript or a subagent transcript with no
+			// sidecar -- encodePatches then omits the descriptors entirely
+			// rather than inventing them (DispatchBucket's own doc comment,
+			// attribute.go).
+			meta, hasMeta := ReadDispatchMeta(path)
 
-		patches, err := encodePatches(deltas, meta, hasMeta)
-		if err != nil {
-			w.warn("harvest: encode failed, will retry", "path", path, "error", err)
-			continue
-		}
+			patches, err := encodePatches(deltas, meta, hasMeta)
+			if err != nil {
+				w.warn("harvest: encode failed, will retry", "path", path, "error", err)
+				continue
+			}
 
-		applied, err := w.sink.CommitHarvestBatch(ctx, path, offset, found, newOffset, patches)
-		if err != nil {
-			w.warn("harvest: commit failed, will retry", "path", path, "error", err)
-			continue
-		}
-		if !applied {
-			// Lost a race with a concurrent harvester for this file --
-			// benign, not a warning; the next cycle re-reads and retries.
-			continue
-		}
-		touchedFiles++
+			applied, err := w.sink.CommitHarvestBatch(ctx, path, offset, found, newOffset, patches)
+			if err != nil {
+				w.warn("harvest: commit failed, will retry", "path", path, "error", err)
+				continue
+			}
+			if !applied {
+				// Lost a race with a concurrent harvester for this file --
+				// benign, not a warning; the next cycle re-reads and retries.
+				continue
+			}
+			touchedFiles++
 
-		// The second, dispatch-grain attribution pass over the very same
-		// records, in the same batch -- deliberately here, after
-		// CommitHarvestBatch has reported the batch applied, never before
-		// it. A batch withheld, refused or lost to a concurrent harvester
-		// is one this cycle will read again from the same offset, and
-		// merging its dispatch deltas now would add them a second time
-		// when it does.
-		w.attributeDispatches(ctx, records, path)
+			// The second, dispatch-grain attribution pass over the very same
+			// records, in the same batch -- deliberately here, after
+			// CommitHarvestBatch has reported the batch applied, never before
+			// it. A batch withheld, refused or lost to a concurrent harvester
+			// is one this cycle will read again from the same offset, and
+			// merging its dispatch deltas now would add them a second time
+			// when it does.
+			w.attributeDispatches(ctx, records, path)
 
-		// Once this batch has actually committed, decide whether this
-		// path needs a future backfill visit (F4): hasMeta true means
-		// descriptors just landed for real, real content, so any
-		// earlier pending entry is now stale and cleared; hasMeta false
-		// means every dispatch this batch touched still has no
-		// descriptors, so each is (re-)recorded for
-		// maybeBackfillDispatchMeta to revisit once nothing new remains
-		// to read from this path.
-		if hasMeta {
-			// Clear only the pending entries this batch actually delivered
-			// descriptors for (F29, pass 7 of this change's own review
-			// panel), never the whole per-path map. deltas can legitimately
-			// be empty here -- a batch can have newOffset != offset while
-			// parsing zero assistant records (interleaved tool_use/
-			// tool_result lines do this routinely), and CommitHarvestBatch
-			// still applies such a batch (its own doc comment says deltas
-			// "may be empty"). Before this fix, an entry a strictly earlier
-			// batch left pending for this same path -- while hasMeta was
-			// false -- was wiped by any later batch that happened to find
-			// hasMeta true, even one that delivered no descriptors at all
-			// for that stageRunID, and maybeBackfillDispatchMeta never
-			// revisits an entry it no longer holds: those descriptors were
-			// lost permanently. A stageRunID only clears here when this
-			// batch's own deltas actually carried dispatch entries for it,
-			// which is exactly when encodePatches (above) just attached
-			// this batch's meta to every one of them.
-			if pending, ok := w.pendingDispatchMeta[path]; ok {
+			// Once this batch has actually committed, decide whether this
+			// path needs a future backfill visit (F4): hasMeta true means
+			// descriptors just landed for real, real content, so any
+			// earlier pending entry is now stale and cleared; hasMeta false
+			// means every dispatch this batch touched still has no
+			// descriptors, so each is (re-)recorded for
+			// maybeBackfillDispatchMeta to revisit once nothing new remains
+			// to read from this path.
+			if hasMeta {
+				// Clear only the pending entries this batch actually delivered
+				// descriptors for (F29, pass 7 of this change's own review
+				// panel), never the whole per-path map. deltas can legitimately
+				// be empty here -- a batch can have newOffset != offset while
+				// parsing zero assistant records (interleaved tool_use/
+				// tool_result lines do this routinely), and CommitHarvestBatch
+				// still applies such a batch (its own doc comment says deltas
+				// "may be empty"). Before this fix, an entry a strictly earlier
+				// batch left pending for this same path -- while hasMeta was
+				// false -- was wiped by any later batch that happened to find
+				// hasMeta true, even one that delivered no descriptors at all
+				// for that stageRunID, and maybeBackfillDispatchMeta never
+				// revisits an entry it no longer holds: those descriptors were
+				// lost permanently. A stageRunID only clears here when this
+				// batch's own deltas actually carried dispatch entries for it,
+				// which is exactly when encodePatches (above) just attached
+				// this batch's meta to every one of them.
+				if pending, ok := w.pendingDispatchMeta[path]; ok {
+					for stageRunID, delta := range deltas {
+						if len(delta.Dispatches) == 0 {
+							continue
+						}
+						delete(pending, stageRunID)
+					}
+					if len(pending) == 0 {
+						delete(w.pendingDispatchMeta, path)
+					}
+				}
+			} else if !w.gaveUpDispatchMeta[path] {
+				// Never re-add an entry for a path this Watcher has already
+				// given up backfilling (F31, pass 7 of this change's own
+				// review panel) -- mirrors pendingSessionTokens' own
+				// gaveUpTokens filter above: a give-up must actually stop this
+				// Watcher from looking, not just stop it from logging.
 				for stageRunID, delta := range deltas {
-					if len(delta.Dispatches) == 0 {
-						continue
+					for agentID := range delta.Dispatches {
+						if w.pendingDispatchMeta[path] == nil {
+							w.pendingDispatchMeta[path] = make(map[int64]string)
+						}
+						w.pendingDispatchMeta[path][stageRunID] = agentID
 					}
-					delete(pending, stageRunID)
-				}
-				if len(pending) == 0 {
-					delete(w.pendingDispatchMeta, path)
 				}
 			}
-		} else if !w.gaveUpDispatchMeta[path] {
-			// Never re-add an entry for a path this Watcher has already
-			// given up backfilling (F31, pass 7 of this change's own
-			// review panel) -- mirrors pendingSessionTokens' own
-			// gaveUpTokens filter above: a give-up must actually stop this
-			// Watcher from looking, not just stop it from logging.
-			for stageRunID, delta := range deltas {
-				for agentID := range delta.Dispatches {
-					if w.pendingDispatchMeta[path] == nil {
-						w.pendingDispatchMeta[path] = make(map[int64]string)
-					}
-					w.pendingDispatchMeta[path][stageRunID] = agentID
-				}
-			}
-		}
 
-		// Price every stage run this batch touched -- deliberately after
-		// CommitHarvestBatch has already reported applied, never inside
-		// it (Pricer's own doc comment explains why). A pricing failure
-		// (no rate for a model, no chargeable tokens yet, or a transient
-		// store error) is logged and skipped, never fatal to this pass
-		// and never a reason to retry the batch itself: the metrics are
-		// already durably committed either way, and the next harvest
-		// cycle -- or a future re-price -- gets another chance.
-		for stageRunID := range deltas {
-			if err := w.deps.Price(ctx, stageRunID); err != nil {
-				w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
+			// Price every stage run this batch touched -- deliberately after
+			// CommitHarvestBatch has already reported applied, never inside
+			// it (Pricer's own doc comment explains why). A pricing failure
+			// (no rate for a model, no chargeable tokens yet, or a transient
+			// store error) is logged and skipped, never fatal to this pass
+			// and never a reason to retry the batch itself: the metrics are
+			// already durably committed either way, and the next harvest
+			// cycle -- or a future re-price -- gets another chance.
+			for stageRunID := range deltas {
+				if err := w.deps.Price(ctx, stageRunID); err != nil {
+					w.warn("harvest: price stage run failed, will retry next cycle", "stage_run_id", stageRunID, "error", err)
+				}
 			}
 		}
 	}
 
-	w.scanRetriedTokens(files, pendingSessionTokens, matchedSessions)
+	w.scanRetriedTokens(sets, pendingSessionTokens, matchedSessions)
 	w.resolveSessionTokens(ctx, pendingSessionTokens, matchedSessions)
 
 	return touchedFiles, nil
@@ -727,7 +773,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 // already-read-past region F4's live reproduction did, so admitting
 // anything looser than a real mark invocation here would walk straight
 // back into that bug.
-func (w *Watcher) scanRetriedTokens(files []string, pending map[int64]string, matched map[string]map[string]bool) {
+func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]string, matched map[string]map[string]bool) {
 	if len(w.retriedTokens) == 0 {
 		return
 	}
@@ -745,13 +791,15 @@ func (w *Watcher) scanRetriedTokens(files []string, pending map[int64]string, ma
 		return
 	}
 
-	for _, path := range files {
-		commands, err := ReadAllCommands(path)
-		if err != nil {
-			w.warn("harvest: scan transcript for a retried session token failed, will retry", "path", path, "error", err)
-			continue
+	for _, set := range sets {
+		for _, path := range set.files {
+			commands, err := set.source.ReadAllCmds(path)
+			if err != nil {
+				w.warn("harvest: scan transcript for a retried session token failed, will retry", "path", path, "error", err)
+				continue
+			}
+			w.matchSessionTokens(toScan, commands, matched)
 		}
-		w.matchSessionTokens(toScan, commands, matched)
 	}
 }
 

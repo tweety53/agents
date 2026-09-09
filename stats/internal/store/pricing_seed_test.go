@@ -129,3 +129,44 @@ func TestSeedPricingRatesOmitFastForModelsWithNone(t *testing.T) {
 		}
 	}
 }
+
+// TestSeedPricingRatesCarriesGLMFlash pins the kan-479 seed row: the one
+// model this machine's ZCode rollouts record, at the discounted plan rates
+// published at docs.z.ai/guides/overview/pricing (read 2026-09-09) -- and
+// with a nil 1h cache-write rate, which is what makes the model's single
+// published cache rate priceable for ZCode's unknown-split cache writes.
+func TestSeedPricingRatesCarriesGLMFlash(t *testing.T) {
+	var found *store.PricingRate
+	for i, rate := range store.SeedPricingRates() {
+		if rate.Model == "glm-5.3-flash" {
+			found = &store.SeedPricingRates()[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("SeedPricingRates carries no glm-5.3-flash row")
+	}
+	want := map[string]float64{
+		"input": 0.075, "output": 0.25, "cache write": 0, "cache read": 0.015,
+	}
+	if found.InputPerMTok != want["input"] {
+		t.Errorf("InputPerMTok = %v, want %v", found.InputPerMTok, want["input"])
+	}
+	if found.OutputPerMTok != want["output"] {
+		t.Errorf("OutputPerMTok = %v, want %v", found.OutputPerMTok, want["output"])
+	}
+	if found.CacheWritePerMTok != want["cache write"] || found.CacheWrite5mPerMTok != want["cache write"] {
+		t.Errorf("cache write rates = (%v, %v), want (0, 0): cache storage is limited-time free",
+			found.CacheWritePerMTok, found.CacheWrite5mPerMTok)
+	}
+	if found.CacheReadPerMTok != want["cache read"] {
+		t.Errorf("CacheReadPerMTok = %v, want %v", found.CacheReadPerMTok, want["cache read"])
+	}
+	if found.CacheWrite1hPerMTok != nil {
+		t.Errorf("CacheWrite1hPerMTok = %v, want nil: Z.ai publishes one cache rate", *found.CacheWrite1hPerMTok)
+	}
+	if found.FastInputPerMTok != nil || found.FastOutputPerMTok != nil {
+		t.Errorf("fast rates = (%v, %v), want (nil, nil): no fast-mode rate is published for this model",
+			found.FastInputPerMTok, found.FastOutputPerMTok)
+	}
+}

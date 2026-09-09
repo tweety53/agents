@@ -177,7 +177,8 @@ own README-parsing test (`<agents repo>/stats/internal/stages/names_test.go`) ex
 **A `stage begin` mark MUST carry `-session-token` and `-harness`.** Generate the token once, near the start of
 the run, before the first `stage begin`, and reuse that exact value at every later mark site in the
 same run; do not invent a fresh one per mark. `-harness` names the harness actually running the mark
-— `claude-code`, `cursor` or `codex`. On Claude Code the mark also binds the stage run's session
+— `claude-code`, `cursor`, `codex` or `zcode` (`zcode` is the harness whose rollout transcripts
+the harvester reads as a second source, kan-479). On Claude Code the mark also binds the stage run's session
 directly from the `CLAUDE_CODE_SESSION_ID` the harness exports to every Bash call, so the token's
 transcript search is the fallback for a mark made without it — the literal-token rule stands because
 the token is still the join key between a change's dispatches and its stage runs.
