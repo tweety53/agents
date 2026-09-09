@@ -25,6 +25,18 @@ type RecordWriter interface {
 	EndDispatch(ctx context.Context, projectKey, change string, in records.DispatchEnd) (records.Dispatch, error)
 	UpsertFinding(ctx context.Context, projectKey, change string, in records.Finding) (records.Finding, bool, error)
 	SetFindingStatus(ctx context.Context, projectKey, change, ref, status string) error
+
+	// RecordDecision and ListDecisions carry one run's dynamic decision --
+	// the whole `## Decision` block a plan return appends -- the same way
+	// the four methods above carry a dispatch or a finding: RecordDecision
+	// sits here, rather than on RecordStore alone as the guard-log writes
+	// do, because a journalled "decision" entry replays through this
+	// interface exactly as a journalled dispatch or finding does.
+	// ListDecisions has no replay use of its own -- nothing decodes a list
+	// read from a journal entry -- but stays beside its write here rather
+	// than splitting the pair across two interfaces for no caller's benefit.
+	RecordDecision(ctx context.Context, projectKey, change string, in records.Decision) (records.Decision, bool, error)
+	ListDecisions(ctx context.Context, projectKey, change string) ([]records.Decision, error)
 }
 
 // RecordStore is the store dependency the run-record endpoints need,
@@ -138,6 +150,19 @@ func ApplyFindingRecord(ctx context.Context, rw RecordWriter, projectKey, change
 		return records.Finding{}, false, fmt.Errorf("%w: ref, slot, severity, note and status are all required", ErrInvalidRecord)
 	}
 	return rw.UpsertFinding(ctx, projectKey, change, in)
+}
+
+// ApplyDecisionRecord records one run's dynamic decision against rw,
+// refusing a record whose session token or decision body is empty before
+// the store is touched. It reports whether the write inserted a row,
+// exactly as ApplyFindingRecord does -- what the route turns into 201
+// versus 200. See ApplyDispatchRecord for why the checks live here rather
+// than in the handler.
+func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, change string, in records.Decision) (records.Decision, bool, error) {
+	if in.SessionToken == "" || len(in.Decision) == 0 {
+		return records.Decision{}, false, fmt.Errorf("%w: sessionToken and decision are both required", ErrInvalidRecord)
+	}
+	return rw.RecordDecision(ctx, projectKey, change, in)
 }
 
 // ApplyFindingStatus rewrites one finding's status against rw.
@@ -354,6 +379,54 @@ func (h *recordHandler) setFindingStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// recordDecision serves POST /api/v1/records/{project}/{change}/decisions:
+// one run's dynamic decision, the whole `## Decision` block a plan return
+// appends. It answers 201 when the write inserted and 200 when it
+// replaced a decision already recorded under the same session token --
+// the same split RecordFinding's route makes, since a resumed run
+// restating its own choice under the token it already holds is a replay,
+// never a second decision.
+func (h *recordHandler) recordDecision(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.Decision
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, created, err := ApplyDecisionRecord(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record decision for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	if created {
+		writeJSON(w, http.StatusCreated, out)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// listDecisions serves GET /api/v1/records/{project}/{change}/decisions:
+// a change's recorded decisions, newest first -- what a resumed run reads
+// to recover a stopped run's own choice.
+func (h *recordHandler) listDecisions(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	out, err := h.store.ListDecisions(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("list decisions for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // runRecord serves GET /api/v1/records/{project}/{change}: the change's

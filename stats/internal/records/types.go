@@ -80,6 +80,11 @@ import (
 // slug. Metrics is derived instead: the harvester attributes it from the
 // harness transcript afterwards, so no agent is ever asked to report its
 // own token consumption.
+//
+// Effort is recorded intent too, but unlike Model it can never be
+// handshaken back from the dispatched role -- a model cannot report its
+// own effort -- so it carries only what the dispatcher itself set:
+// `low`, `medium`, `high`, or `default` where none was set.
 type Dispatch struct {
 	ID           int64           `json:"id"`
 	AgentID      string          `json:"agentId,omitempty"`
@@ -90,6 +95,7 @@ type Dispatch struct {
 	Role         string          `json:"role"`
 	Slot         string          `json:"slot,omitempty"`
 	Model        string          `json:"model"`
+	Effort       string          `json:"effort,omitempty"`
 	CommitSHA    string          `json:"commitSha,omitempty"`
 	DiffBase     string          `json:"diffBase,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
@@ -158,6 +164,17 @@ type Finding struct {
 	Note        string `json:"note"`
 	Status      string `json:"status"`
 	Reproducer  string `json:"reproducer,omitempty"`
+}
+
+// Decision is one run's dynamic decision: the whole `## Decision` block as
+// JSON. SessionToken is unique per change -- a run's decision is recorded
+// once and updated in place on replay, the same idempotency
+// RecordDispatch's Key gives a dispatch row.
+type Decision struct {
+	ID           int64           `json:"id"`
+	SessionToken string          `json:"sessionToken"`
+	RecordedAt   time.Time       `json:"recordedAt"`
+	Decision     json.RawMessage `json:"decision"`
 }
 
 // Verdict is one recorded outcome a guard reached against one worktree, at

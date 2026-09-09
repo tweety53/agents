@@ -343,6 +343,11 @@ Jira tickets. This key ratifies that and ends the series; set `run` to bring it 
 
 `fable`
 
+## toggles
+
+No `## execution mode`, `## implementer model` or `## review panel` toggle is declared for this
+repository in this change — all three resolve as `default`.
+
 ## workspace isolation
 
 | Resource | Variable | Default | In a workspace |

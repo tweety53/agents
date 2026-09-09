@@ -76,11 +76,29 @@
 # dropped from one of implement.md's two TOOLS blocks in turn while the
 # other stays correct.
 #
-# Cases 35-37 cover the three assert phrases KAN-257 added to the MUTATION
+# Cases 42-44 cover the three assert phrases KAN-257 added to the MUTATION
 # PROOF entry, one case per phrase, each dropped in turn from the
 # paragraph's assert sentences: every MUTATION_BLOCK-shaped fixture now
 # carries the extended paragraph, and each new case asserts the guard
 # names its dropped phrase.
+#
+# Cases 35-41 cover KAN-472 task 10's MODEL HANDSHAKE paragraph, required
+# twice in each of implement.md and review-panel.md and once in each of
+# brainstorm.md and verify-and-handoff.md — the same six sites TOOLS
+# occupies: new_root now also seeds every sandbox with a correct
+# HANDSHAKE_BLOCK in brainstorm.md and verify-and-handoff.md by default, and
+# CLEAN_REVIEW_PANEL/CLEAN_IMPLEMENT (and case 1's own fixtures) each gain
+# two HANDSHAKE_BLOCK blocks. Case 35 is the label absent entirely from
+# implement.md; case 36 the label absent from review-panel.md; case 37 the
+# label absent from brainstorm.md (overriding new_root's default); case 38
+# the label absent from verify-and-handoff.md (same override); cases 39-41
+# are one case per required phrase, each dropped from one of implement.md's
+# two HANDSHAKE blocks in turn while the other stays correct.
+#
+# Case 45 covers KAN-472 task 20's INDEPENDENT PASSES paragraph, required
+# once at review-panel.md's bundle prompt and nowhere else: CLEAN_REVIEW_PANEL
+# (and case 1's own fixture) now also carry one correct INDEPENDENT_BLOCK.
+# Case 45 is the label absent entirely from review-panel.md.
 #
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
@@ -118,17 +136,18 @@ trap cleanup EXIT
 
 # new_root -> sets ROOT to a fresh sandbox directory carrying
 # skills/flow/, matching the required-site table's scan-root-relative
-# paths. brainstorm.md and verify-and-handoff.md are required TOOLS sites
-# (min 1 block) that no case below otherwise exercises, so every root is
-# seeded with a correct TOOLS_BLOCK in each by default — a case testing
-# something else never has to think about these two files, and case 31
-# below is the one that overrides brainstorm.md's default.
+# paths. brainstorm.md and verify-and-handoff.md are required TOOLS and
+# MODEL HANDSHAKE sites (min 1 block each) that no case below otherwise
+# exercises, so every root is seeded with a correct TOOLS_BLOCK and
+# HANDSHAKE_BLOCK in each by default — a case testing something else never
+# has to think about these two files, and case 31 (TOOLS) / case 37-38
+# (MODEL HANDSHAKE) below are the ones that override a default.
 new_root() {
   ROOT="$(mktemp -d "${TMPDIR:-/tmp}/check-dispatch-paragraphs-test.XXXXXX")"
   DIRS+=("$ROOT")
   mkdir -p "$ROOT/skills/flow"
-  printf '%s\n' "$TOOLS_BLOCK" > "$ROOT/skills/flow/brainstorm.md"
-  printf '%s\n' "$TOOLS_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
+  printf '%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" > "$ROOT/skills/flow/brainstorm.md"
+  printf '%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
 }
 
 # run_guard -> sets RC and OUT, running the real guard against $ROOT.
@@ -391,6 +410,31 @@ TOOLS_BLOCK_NO_REPRICES='> **TOOLS:** Every tool you need that is not already li
 > schema loaded later changes your tool list and costs your whole context again at full input
 > rate.'
 
+# The MODEL HANDSHAKE paragraph, reproduced verbatim from design.md, required
+# at the same six dispatch sites as TOOLS (KAN-472 task 10): implement.md and
+# review-panel.md twice each, brainstorm.md and verify-and-handoff.md once
+# each.
+HANDSHAKE_BLOCK='> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.'
+
+# Variants of HANDSHAKE_BLOCK, each with exactly one required phrase dropped
+# while staying a plausible paragraph — cases 39-41.
+HANDSHAKE_BLOCK_NO_FIRST_LINE='> **MODEL HANDSHAKE:** the very first line you send is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.'
+
+HANDSHAKE_BLOCK_NO_NOTHING_ELSE='> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and only that on the line. Answer it before any tool call.'
+
+HANDSHAKE_BLOCK_NO_BEFORE_TOOL_CALL='> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before making any tool call.'
+
+# The INDEPENDENT PASSES paragraph, reproduced verbatim from design.md,
+# required once at review-panel.md's bundle prompt (KAN-472 task 20).
+INDEPENDENT_BLOCK='> **INDEPENDENT PASSES:** each pass starts from `final-review.diff` and the code, never from an
+> earlier pass'"'"'s report or conclusions. Do not cite, defer to, or skip a defect because an earlier
+> pass raised it — if it sits in this pass'"'"'s angle, raise it again under this pass. Write each
+> pass'"'"'s report file before beginning the next pass.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -401,13 +445,15 @@ write_site() {
 # carries both the REPRODUCE reviewer block and the VERBATIM REPORT block,
 # plus two FOREGROUND BUILDS blocks (panel slot dispatch, panel-fix
 # dispatch), one TARGETED TESTS block (panel-fix dispatch), one MUTATION
-# PROOF block (panel-fix dispatch) and two TOOLS blocks (panel slot,
-# panel-fix dispatch); implement.md carries two FOREGROUND BUILDS blocks
+# PROOF block (panel-fix dispatch), two TOOLS blocks (panel slot,
+# panel-fix dispatch) and one INDEPENDENT PASSES block (the bundle prompt,
+# KAN-472 task 20); implement.md carries two FOREGROUND BUILDS blocks
 # too (implementer dispatch, the conductor's own §4 instruction), one
 # TARGETED TESTS block (implementer dispatch) and two TOOLS blocks
-# (conductor dispatch, implementer dispatch). new_root already seeded
-# brainstorm.md and verify-and-handoff.md with their own required TOOLS
-# block.
+# (conductor dispatch, implementer dispatch), plus two MODEL HANDSHAKE
+# blocks each (KAN-472 task 10). new_root already seeded brainstorm.md and
+# verify-and-handoff.md with their own required TOOLS and MODEL HANDSHAKE
+# blocks.
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -424,7 +470,13 @@ $MUTATION_BLOCK
 
 $TOOLS_BLOCK
 
-$TOOLS_BLOCK"
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -437,7 +489,11 @@ $TARGETED_BLOCK
 
 $TOOLS_BLOCK
 
-$TOOLS_BLOCK"
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -1182,7 +1238,7 @@ case "$OUT" in
 esac
 
 # ===========================================================================
-# Case 35: a MUTATION PROOF block is present but missing "confirm the edit
+# Case 42: a MUTATION PROOF block is present but missing "confirm the edit
 # landed" — exit 1, names the phrase.
 # ===========================================================================
 new_root
@@ -1207,14 +1263,14 @@ $FOREGROUND_BLOCK
 
 $TARGETED_BLOCK"
 run_guard
-[ "$RC" -eq 1 ] && pass "case 35: exits 1" || fail "case 35: expected exit 1, got rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 42: exits 1" || fail "case 42: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"confirm the edit landed"*) pass "case 35: names the missing phrase" ;;
-  *) fail "case 35: expected 'confirm the edit landed' named in output, got: $OUT" ;;
+  *"confirm the edit landed"*) pass "case 42: names the missing phrase" ;;
+  *) fail "case 42: expected 'confirm the edit landed' named in output, got: $OUT" ;;
 esac
 
 # ===========================================================================
-# Case 36: a MUTATION PROOF block is present but missing "a refusal, not a
+# Case 43: a MUTATION PROOF block is present but missing "a refusal, not a
 # surviving mutant" — exit 1, names the phrase.
 # ===========================================================================
 new_root
@@ -1239,14 +1295,14 @@ $FOREGROUND_BLOCK
 
 $TARGETED_BLOCK"
 run_guard
-[ "$RC" -eq 1 ] && pass "case 36: exits 1" || fail "case 36: expected exit 1, got rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 43: exits 1" || fail "case 43: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"a refusal, not a surviving mutant"*) pass "case 36: names the missing phrase" ;;
-  *) fail "case 36: expected 'a refusal, not a surviving mutant' named in output, got: $OUT" ;;
+  *"a refusal, not a surviving mutant"*) pass "case 43: names the missing phrase" ;;
+  *) fail "case 43: expected 'a refusal, not a surviving mutant' named in output, got: $OUT" ;;
 esac
 
 # ===========================================================================
-# Case 37: a MUTATION PROOF block is present but missing "never buys a
+# Case 44: a MUTATION PROOF block is present but missing "never buys a
 # test" — exit 1, names the phrase.
 # ===========================================================================
 new_root
@@ -1271,10 +1327,10 @@ $FOREGROUND_BLOCK
 
 $TARGETED_BLOCK"
 run_guard
-[ "$RC" -eq 1 ] && pass "case 37: exits 1" || fail "case 37: expected exit 1, got rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 44: exits 1" || fail "case 44: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"never buys a test"*) pass "case 37: names the missing phrase" ;;
-  *) fail "case 37: expected 'never buys a test' named in output, got: $OUT" ;;
+  *"never buys a test"*) pass "case 44: names the missing phrase" ;;
+  *) fail "case 44: expected 'never buys a test' named in output, got: $OUT" ;;
 esac
 
 # review-panel.md and implement.md content matching case 1's fully-correct
@@ -1294,7 +1350,13 @@ $MUTATION_BLOCK
 
 $TOOLS_BLOCK
 
-$TOOLS_BLOCK"
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK"
 
 CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
@@ -1308,7 +1370,11 @@ $TARGETED_BLOCK
 
 $TOOLS_BLOCK
 
-$TOOLS_BLOCK"
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK"
 
 # ===========================================================================
 # Case 31: the TOOLS label is absent entirely from brainstorm.md (its
@@ -1403,6 +1469,217 @@ run_guard
 case "$OUT" in
   *"re-prices your whole context"*) pass "case 34: names the dropped phrase" ;;
   *) fail "case 34: expected 're-prices your whole context' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 35: the MODEL HANDSHAKE label is absent entirely from implement.md —
+# exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 35: exits 1" || fail "case 35: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"MODEL HANDSHAKE"*) pass "case 35: names implement.md and the missing MODEL HANDSHAKE block" ;;
+  *) fail "case 35: expected implement.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 36: the MODEL HANDSHAKE label is absent entirely from
+# review-panel.md — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 36: exits 1" || fail "case 36: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"MODEL HANDSHAKE"*) pass "case 36: names review-panel.md and the missing MODEL HANDSHAKE block" ;;
+  *) fail "case 36: expected review-panel.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 37: the MODEL HANDSHAKE label is absent entirely from brainstorm.md
+# (its default seeded by new_root is overridden with prose and no block) —
+# exit 1, names brainstorm.md and the missing MODEL HANDSHAKE block.
+# ===========================================================================
+new_root
+write_site "skills/flow/brainstorm.md" "No MODEL HANDSHAKE paragraph here at all, just prose."
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 37: exits 1" || fail "case 37: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"brainstorm.md"*"MODEL HANDSHAKE"*) pass "case 37: names brainstorm.md and MODEL HANDSHAKE" ;;
+  *) fail "case 37: expected brainstorm.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 38: the MODEL HANDSHAKE label is absent entirely from
+# verify-and-handoff.md (its default seeded by new_root is overridden) —
+# exit 1, names verify-and-handoff.md and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/verify-and-handoff.md" "No MODEL HANDSHAKE paragraph here at all, just prose."
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 38: exits 1" || fail "case 38: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"verify-and-handoff.md"*"MODEL HANDSHAKE"*) pass "case 38: names verify-and-handoff.md and MODEL HANDSHAKE" ;;
+  *) fail "case 38: expected verify-and-handoff.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 39: implement.md carries one correct HANDSHAKE_BLOCK plus one variant
+# missing "the first line of your first reply" — exit 1, names the dropped
+# phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK_NO_FIRST_LINE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 39: exits 1" || fail "case 39: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"the first line of your first reply"*) pass "case 39: names the dropped phrase" ;;
+  *) fail "case 39: expected 'the first line of your first reply' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 40: implement.md carries one correct HANDSHAKE_BLOCK plus one variant
+# missing "and nothing else on that line" — exit 1, names the dropped
+# phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK_NO_NOTHING_ELSE"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 40: exits 1" || fail "case 40: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"and nothing else on that line"*) pass "case 40: names the dropped phrase" ;;
+  *) fail "case 40: expected 'and nothing else on that line' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 41: implement.md carries one correct HANDSHAKE_BLOCK plus one variant
+# missing "before any tool call" — exit 1, names the dropped phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK_NO_BEFORE_TOOL_CALL"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 41: exits 1" || fail "case 41: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"before any tool call"*) pass "case 41: names the dropped phrase" ;;
+  *) fail "case 41: expected 'before any tool call' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 45: the INDEPENDENT PASSES label is absent entirely from
+# review-panel.md (KAN-472 task 20) — exit 1, names the file and the
+# missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 45: exits 1" || fail "case 45: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"INDEPENDENT PASSES"*) pass "case 45: names review-panel.md and the missing INDEPENDENT PASSES block" ;;
+  *) fail "case 45: expected review-panel.md and INDEPENDENT PASSES named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

@@ -564,7 +564,6 @@ EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as 
 
 EXPECTED_ZERO_REVIEWER_PROMPTS=(
   "skills/flow/engineering-principles.md"
-  "skills/flow/security-reviewer-prompt.md"
   "skills/myflow-do/adversarial-reviewer-prompt.md"
   "skills/myflow-do/bug-hunter-reviewer-prompt.md"
   "skills/myflow-do/engineering-principles.md"

@@ -35,6 +35,8 @@ commands:
   record render       render a change's run record from the store
   record journal-count  count a change's record writes still pending in the journal
   record cost-status  print how many of a change's dispatches carry no cost figure, and why
+  record decision     record one run's dynamic decision, or replace it
+  record decisions    print a change's recorded decisions as a JSON array
   journal flush        replay every pending journal entry into the store
   settings get         print the harness-wide settings record
   settings set         write the harness-wide settings record
@@ -68,7 +70,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	case "stage":
 		return runStage(ctx, args[1:], stdout, stderr)
 	case "record":
-		return runRecord(ctx, args[1:], stdout, stderr)
+		return runRecord(ctx, args[1:], stdin, stdout, stderr)
 	case "hazard":
 		return runHazard(ctx, args[1:], stdout, stderr)
 	case "hazards":

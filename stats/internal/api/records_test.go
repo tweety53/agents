@@ -359,6 +359,61 @@ func (f *fakeStore) ListIncidents(_ context.Context, projectKey string) ([]recor
 	return out, nil
 }
 
+// --- decisions ---
+
+// decisionRecord is fakeStore's in-memory stand-in for a decisions row. See
+// dispatchRecord's doc comment for why the owning identity sits beside the
+// row rather than inside it.
+type decisionRecord struct {
+	decision   records.Decision
+	projectKey string
+	changeName string
+}
+
+// RecordDecision mirrors store.Store.RecordDecision: a write under a
+// session token this change already holds a decision for replaces it
+// (created=false); any other write inserts a new row (created=true). An
+// unknown (projectKey, change) pair is store.ErrChangeNotFound, the
+// condition the handler must answer 404 to.
+func (f *fakeStore) RecordDecision(_ context.Context, projectKey, change string, in records.Decision) (records.Decision, bool, error) {
+	f.recordCalls++
+	if f.recordDecisionErr != nil {
+		return records.Decision{}, false, f.recordDecisionErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.Decision{}, false, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+
+	for i := range f.decisions {
+		d := &f.decisions[i]
+		if d.projectKey == projectKey && d.changeName == change && d.decision.SessionToken == in.SessionToken {
+			d.decision.Decision = in.Decision
+			return d.decision, false, nil
+		}
+	}
+	f.nextDecisionID++
+	out := in
+	out.ID = f.nextDecisionID
+	f.decisions = append(f.decisions, decisionRecord{decision: out, projectKey: projectKey, changeName: change})
+	return out, true, nil
+}
+
+// ListDecisions mirrors store.Store.ListDecisions' ordering: newest first.
+func (f *fakeStore) ListDecisions(_ context.Context, projectKey, change string) ([]records.Decision, error) {
+	f.recordCalls++
+	if f.listDecisionsErr != nil {
+		return nil, f.listDecisionsErr
+	}
+	var out []records.Decision
+	for i := len(f.decisions) - 1; i >= 0; i-- {
+		d := f.decisions[i]
+		if d.projectKey == projectKey && d.changeName == change {
+			out = append(out, d.decision)
+		}
+	}
+	return out, nil
+}
+
 // --- test helpers ---
 
 // recordTestServer returns a server backed by a fake that already knows
@@ -411,6 +466,15 @@ func findingBody(ref string, round int, status string) map[string]any {
 		"severity": "major",
 		"note":     "the handler swallows the decode error",
 		"status":   status,
+	}
+}
+
+// decisionBody is the wire body a decision POST carries: a session token
+// and the whole `## Decision` block as opaque JSON.
+func decisionBody(sessionToken, decisionJSON string) map[string]any {
+	return map[string]any{
+		"sessionToken": sessionToken,
+		"decision":     json.RawMessage(decisionJSON),
 	}
 }
 
@@ -1123,5 +1187,99 @@ func TestListIncidentsRouteReturnsNewestFirst(t *testing.T) {
 	}
 	if got[0].Symptom != "second" || got[1].Symptom != "first" {
 		t.Errorf("incidents = %+v, want newest (\"second\") first", got)
+	}
+}
+
+// --- decisions ---
+
+// TestRecordDecisionRouteCreatesThenReplaces pins that the route follows
+// the same 201-then-200 shape RecordFinding's route does, except keyed by
+// session token rather than ref: a second decision recorded under the
+// same token replaces the first, since it is the same run restating its
+// choice, never a second run.
+func TestRecordDecisionRouteCreatesThenReplaces(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/decisions"
+
+	resp, body := postJSON(t, url, decisionBody("mf-decide-1", `{"class":"small"}`))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("first POST decisions = %d (%s), want 201", resp.StatusCode, body)
+	}
+
+	second, secondBody := postJSON(t, url, decisionBody("mf-decide-1", `{"class":"regular"}`))
+	if second.StatusCode != http.StatusOK {
+		t.Fatalf("second POST decisions for the same token = %d (%s), want 200", second.StatusCode, secondBody)
+	}
+
+	var got records.Decision
+	if err := json.Unmarshal(secondBody, &got); err != nil {
+		t.Fatalf("decode response body %s: %v", secondBody, err)
+	}
+	if string(got.Decision) != `{"class":"regular"}` {
+		t.Errorf("response decision = %s, want the second write's own value", got.Decision)
+	}
+	if len(fs.decisions) != 1 {
+		t.Errorf("store holds %d decisions, want exactly 1 -- the second write appended instead of replacing", len(fs.decisions))
+	}
+}
+
+// TestListDecisionsRouteNewestFirst pins that the route hands back exactly
+// the array the store returned, in the newest-first order ListDecisions
+// documents -- what a resumed run reads to recover a stopped run's own
+// choice.
+func TestListDecisionsRouteNewestFirst(t *testing.T) {
+	ts, _ := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/decisions"
+
+	first, firstBody := postJSON(t, url, decisionBody("mf-decide-1", `{"class":"small"}`))
+	if first.StatusCode != http.StatusCreated {
+		t.Fatalf("first POST decisions = %d (%s), want 201", first.StatusCode, firstBody)
+	}
+	second, secondBody := postJSON(t, url, decisionBody("mf-decide-2", `{"class":"big"}`))
+	if second.StatusCode != http.StatusCreated {
+		t.Fatalf("second POST decisions = %d (%s), want 201", second.StatusCode, secondBody)
+	}
+
+	status, body := doGet(t, ts, recordsPath("proj", "kan-1")+"/decisions")
+	if status != http.StatusOK {
+		t.Fatalf("GET decisions = %d (%s), want 200", status, body)
+	}
+	var got []records.Decision
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode response body %s: %v", body, err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("decisions = %d, want 2", len(got))
+	}
+	if got[0].SessionToken != "mf-decide-2" || got[1].SessionToken != "mf-decide-1" {
+		t.Errorf("decisions = %+v, want newest (mf-decide-2) first", got)
+	}
+}
+
+// TestRecordDecisionRejectsEmptyBody pins that an empty session token and
+// an empty decision body are both refused with 400 before the store is
+// touched -- the same "caller mistake, not a store failure" contract
+// ApplyFindingRecord's checks give its own route.
+func TestRecordDecisionRejectsEmptyBody(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/decisions"
+
+	missingDecision := decisionBody("mf-decide-1", `{"class":"small"}`)
+	delete(missingDecision, "decision")
+
+	for name, body := range map[string]map[string]any{
+		"empty sessionToken": decisionBody("", `{"class":"small"}`),
+		"empty decision":     missingDecision,
+	} {
+		t.Run(name, func(t *testing.T) {
+			before := fs.recordCalls
+			resp, respBody := postJSON(t, url, body)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("POST decisions with %s = %d (%s), want 400", name, resp.StatusCode, respBody)
+			}
+			if fs.recordCalls != before {
+				t.Errorf("the store was reached for a body with %s", name)
+			}
+		})
 	}
 }

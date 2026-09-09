@@ -173,8 +173,6 @@ declare_if_present "skills/myflow-do/security-reviewer-prompt.md" \
   "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
 declare_if_present "skills/flow/engineering-principles.md" \
   "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"
-declare_if_present "skills/flow/security-reviewer-prompt.md" \
-  "reviewer-prompt file, deliberately self-contained — mentions SKILL.md only in unbackticked prose, a shape this guard's classifier does not scan"
 declare_if_present "commands/flow-research.md" \
   "command-dispatch stub — delegates to the flow-research skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "commands-claude/flow-research.md" \
@@ -185,6 +183,24 @@ declare_if_present "commands-claude/flow-settings.md" \
   "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "skills/flow-contracts/plan-provenance.md" \
   "the guard-facing sections moved to plan-provenance-guard.md — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-sonnet-low.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-sonnet-medium.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-sonnet-high.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-opus-low.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-opus-medium.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-opus-high.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-haiku-low.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-haiku-medium.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
+declare_if_present "agents/flow-haiku-high.md" \
+  "generic dispatch-target agent definition — cites no .md/.mdc path at all"
 
 COVERAGE_VERDICT_FILE="$WORK/coverage_verdict"
 if ! coverage_verdict > "$COVERAGE_VERDICT_FILE"; then

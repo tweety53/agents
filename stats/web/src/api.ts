@@ -37,9 +37,16 @@ export const STAGE_RUN_QUERY_FIELDS: readonly string[] = queryFields.stageRunFie
 /** One of the four surviving statistics views' URL slugs (design.md's
  * `stats-ui-cut`: `CostPerChange`, `ModelComparison`, `PanelEconomics` and
  * `ReworkRate` were cut). */
-export type ViewName = "state-board" | "stage-leaderboard" | "trend" | "cache-efficiency";
+export type ViewName = "state-board" | "stage-leaderboard" | "trend" | "cache-efficiency" | "reviewers" | "decisions";
 
-export const VIEW_NAMES: readonly ViewName[] = ["state-board", "stage-leaderboard", "trend", "cache-efficiency"];
+export const VIEW_NAMES: readonly ViewName[] = [
+  "state-board",
+  "stage-leaderboard",
+  "trend",
+  "cache-efficiency",
+  "reviewers",
+  "decisions",
+];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
  * `ViewName` (its standalone dashboard was cut, design.md's `stats-ui-cut`),
@@ -271,6 +278,51 @@ export interface CacheEfficiencyRow {
   cacheReadTotal: number | null;
   cacheCreationTotal: number | null;
   ratio: number | null;
+}
+
+/** Mirrors reviewerRowDTO. */
+export interface ReviewerRow {
+  slot: string;
+  experimental: boolean;
+  description: string;
+  dispatches: number;
+  changes: number;
+  critical: number;
+  important: number;
+  minor: number;
+  findingsPerDispatch: number;
+  deferredShare: number;
+  withdrawnShare: number;
+}
+
+/** Mirrors decisionRowDTO. */
+export interface DecisionRow {
+  project: string;
+  change: string;
+  recordedAt: string;
+  class: string;
+  overridden: boolean;
+  execution: string;
+  implementerModel: string;
+  implementerEffort: string;
+  rosterSize: number;
+  compact: boolean;
+  experimentalSlot: string;
+  rerun: string;
+  grouping: string;
+  dispatches: string;
+  implementerGroups: string;
+  wallClockSeconds: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  costUsd: number;
+  critical: number;
+  important: number;
+  minor: number;
+  fixRounds: number;
+  fallbacks: number;
+  timedOut: number;
 }
 
 /**

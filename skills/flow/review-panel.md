@@ -1,12 +1,14 @@
 # Review panel
 
 Loaded by `skills/flow/SKILL.md` immediately after `skills/flow/implement.md`'s `flow.sdd-tdd`
-stage closes, on every implementation run — creating, resumed, or fix. Dispatches `REVIEWERS` —
-the roster `skills/flow/SKILL.md`'s **Model resolution** resolves from the settings store, which
-that file is canonical for. This file owns dispatch: mapping each resolved id to its slot and
-spawning it. Per design.md's `roster-from-settings`, which supersedes `review-panel-fixed-3`
-(design.md's `supersedes-review-panel-fixed-3`): there is no fixed roster table and no
-diff-size/touched-area trigger table.
+stage closes, on every implementation run — creating, resumed, or fix. Dispatches the resolved
+roster: `REVIEWERS` — `skills/flow/SKILL.md`'s **Model resolution** resolves from the settings
+store, which that file is canonical for — when `REVIEW_PANEL_TOGGLE` is `default`, or this run's
+decision's `panel.roster` (`<abs-worktree>/.superpowers/sdd/decision.json`, per design.md's **The
+`## Decision` block**) when it is `dynamic`. This file owns dispatch: mapping each resolved id to
+its slot and spawning it. Per design.md's `roster-from-settings`, which supersedes
+`review-panel-fixed-3` (design.md's `supersedes-review-panel-fixed-3`): there is no fixed roster
+table and no diff-size/touched-area trigger table.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
@@ -114,65 +116,83 @@ of this stage's own reporting.
 
 ## The roster
 
-Every resolved id maps to one slot, dispatched this run because `REVIEWERS` carries it:
+Every resolved id maps to one slot, dispatched this run because the resolved roster (`REVIEWERS`,
+or the decision's `panel.roster` on `dynamic` — see the opening paragraph above) carries it:
 
 | id | Slot | How to spawn | Model |
 |---|------|---------------|-------|
-| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; code quality is `code-review-low`'s and Bugbot's | `DEFAULT_MODEL` |
-| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL` |
-| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL` |
-| `bugbot` | **Bugbot** — defect hunt | `subagent_type: bugbot`, `Diff: uncommitted changes`, `Full Repository Path: <worktree>`, plus the mutation-testing brief below (own throwaway worktree — see **The throwaway worktree** below) | none — records `unknown (agent-defined)` |
-| `security` | **Security** | `subagent_type: security-review`, same shape as Bugbot | none — records `unknown (agent-defined)` |
-| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL` |
+| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `security` | **Security** | general-purpose + `security-reviewer-prompt.md` | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
-`principles-reviewer-prompt.md` and `engineering-principles.md` (Principles), and
+`principles-reviewer-prompt.md` and `engineering-principles.md` (Principles),
+`bugbot-reviewer-prompt.md` (Bugbot), `security-reviewer-prompt.md` (Security),
+`simple-reviewer-prompt.md` (Simple reviewer), and
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
 dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
 `ValidReviewers` in `<agents repo>/stats/internal/store/settings.go` is the id vocabulary this table exhausts —
-six entries, never a seventh. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
-for this run. There is no parent-model inheritance and no economy tier. Bugbot and Security are dispatched by
-`subagent_type` and carry their own agent definitions — pass them **no** model override, unless the
-harness running this stage does not offer that agent type — see below.
+seven entries, never an eighth. `DEFAULT_MODEL` is `skills/flow/SKILL.md`'s **Model resolution** value
+for this run. There is no parent-model inheritance and no economy tier. Every slot in this table,
+Bugbot and Security included, is dispatched general-purpose and carries the same model rule.
 
-### An unspawnable id is substituted, not skipped
+**Check for an operator-named id at two points**: at the start of this stage (has the operator, in
+this run's own argument or in the session before this stage, named an id the resolved list does not
+carry?), and again at the start of every fix round below — an operator may ask mid-run, after seeing
+pass 1's result, and that request adds the slot starting from the round it was made, never
+retroactively to a pass already closed. It is never written back to the settings store. Record which
+slots were added this way and why (the operator's own words), and record explicitly when none were:
+"no addition this round — the resolved list ran alone."
 
-Per design.md's `unspawnable-id-substitutes`: a resolved id whose own agent type this harness does
-not offer — Bugbot or Security, dispatched elsewhere by `subagent_type` — is dispatched instead as a
-**general-purpose** subagent carrying that slot's brief. The panel is never silently reduced by the
-harness it happens to run in.
+**On `REVIEW_PANEL_TOGGLE` `dynamic`**, each slot in the decision's `panel.roster` carries its own
+`model` and `effort`: the dispatch's `subagent_type` is `flow-<model>-<effort>` and both `model` and
+`-effort` are passed, per design.md's `agent-definitions-universal-handshake`. A compact roster (the
+decision's `panel.compact`) is recorded in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`
+as `compact — <rolled value>`; a full roster is recorded as `full`.
 
-**Check before dispatch, not after a failure.** On Claude Code, the Agent tool's own available agent
-types are enumerated in a system-reminder in the conversation before any dispatch; an id's agent type
-absent from that listing is unavailable in this harness. Where a harness exposes no such pre-dispatch
-listing, attempt the dispatch by `subagent_type` once and treat an immediate rejection naming the
-type as unknown or unsupported as the same signal — the same "stated against the mechanism" shape as
-**Progress visibility** (`skills/flow-contracts/pipeline.md`).
+### Experimental slot
 
-**The substitute MUST perform mutation testing**, not merely read for defects: for each finding it
-raises, it changes the code to prove the finding is real, confirms the change surfaces it, then
-reverts. This is the operator's own requirement and is what keeps a substituted slot worth
-dispatching — a general-purpose reviewer that only reads is not obviously equivalent to the real
-slot; forcing it to prove each finding by mutation is.
+When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` — at most one, per
+design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
+exactly like any other slot in **The roster** table above: general-purpose, as `subagent_type:
+flow-<model>-<effort>` per the roster entry's own `model`/`effort`, carrying the same REPORT FILE /
+REPRODUCER / CONTEXT BUNDLE / WORKTREES / TOOLS / FOREGROUND BUILDS / MODEL HANDSHAKE / REPRODUCE,
+DON'T READ paragraphs every slot's dispatch already carries above.
 
-**The substitution is recorded, never hidden.** `-slot` still names the slot it stood in for
-(`Bugbot` or `Security`); `-model` records the model actually given, never `unknown
-(agent-defined)` — that value is correct only for a slot spawned by its own `subagent_type` with its
-own agent definition, which a substitute is not. The panel record and the handoff additionally say
-in prose which slots were substituted and ran as general-purpose. **A dispatch recorded as Bugbot
-that was not Bugbot corrupts the one record that says what reviewed this branch** — the recording
-rule above exists to keep that record honest, not merely tidy. A substituted Bugbot's dispatch runs
-against the same throwaway worktree treatment as the real slot (**The throwaway worktree**),
-since it carries the same mutation-testing brief.
+Its prompt is not `principles-reviewer-prompt.md` or any other fixed template: it is the file the
+roster entry names in `prompt` — `skills/flow/experimental/<name>.md` inside the agents repo, never
+a path inside the project worktree — read by **absolute** path and substituted into the dispatch
+prompt the same way `[PRINCIPLES_PATH]` is resolved for Principles. Confirm the file exists before
+dispatching; an absent file at dispatch time (the roster was decided against a prompt that has since
+moved) is reported and this slot dropped from this run, never dispatched against nothing.
 
-Check for one at two points: at the start of this stage (has the operator, in this run's own argument or
-in the session before this stage, named an id the resolved list does not carry?), and again at the
-start of every fix round below — an operator may ask mid-run, after seeing pass 1's result, and that
-request adds the slot starting from the round it was made, never retroactively to a pass already
-closed. It is never written back to the settings store. Record which slots were added this way and
-why (the operator's own words), and record explicitly when none were: "no addition this round — the
-resolved list ran alone."
+Its `-slot` on the dispatch record, and every `flow record finding -slot` this slot raises, is the
+full `exp-<name>` id verbatim — never shortened to `experimental` or to `<name>` alone. Its report
+file is `<abs-worktree>/.superpowers/sdd/panel-report-<round>-exp-<name>.md`, the same
+`panel-report-<round>-<id>` shape every slot's REPORT FILE paragraph already names with `<id>`
+substituted. The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
+prefix survives into the archive per design.md's `exp-slot-prefix`.
+
+It is a diff-reading slot like Primary, Principles, Code review (low) and Mutation: **Panel
+re-runs** below governs it unchanged — it re-runs only when it raised a finding in the previous
+round or the previous round raised a new Critical, reading its own delta, and its clean result goes
+stale under the same rules as any other slot's. **The docs-only reduction** above still narrows a
+docs-only branch to `primary` alone: the experimental slot is never part of that reduced roster, and
+is dispatched again only if a later round's docs-only guard reclassifies the branch off the
+reduction.
+
+It runs at most once per change, whether or not the roster is `compact` — the experimental roll and
+the compact roll are independent per design.md's **The rolls** — and never at all when
+`REVIEW_PANEL_TOGGLE` is `default`, or when the decision recorded `experimental: none available`.
+
+Per **Bundled dispatch** above, it joins whichever group has room, last among the reading passes;
+when neither group has room for a third role it is skipped and recorded `experimental: skipped —
+bundle cap` (design.md's `exp-skipped-over-cap`) rather than displacing a persistent role.
 
 **Before writing `final-review.diff`**, run
 
@@ -220,7 +240,9 @@ named at this stage's start. Every other resolved slot is recorded in
 reduction`. `primary` is the reduced roster even when the resolved list does not carry it — the
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
 On a docs-only branch the implementer's self-review and the vocabulary and reference guards cover
-the prose; there is no code seam between commits for a second slot to find (KAN-312).
+the prose; there is no code seam between commits for a second slot to find (KAN-312). This reduction
+applies to a dynamic roster unchanged: it still narrows to `primary` alone, on `primary`'s own
+decided model and effort — one dispatch, never bundled.
 
 **Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
 printed is recorded beside the verdict. An empty touched-path set is exit 1 too. One worktree at
@@ -237,6 +259,9 @@ size, touched area, or any other automatic trigger: beyond the reduced or resolv
 anything reaches the panel only through an explicit per-run operator instruction, for that run
 only.
 
+An inline run checks the context ceiling (**Inline — the parent implements**,
+`skills/flow/implement.md`) before this pass 1 dispatch begins.
+
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
 worktree in the change's resolved set (**Resolving a change's worktrees**,
 `skills/flow-contracts/worktree-resolution.md`), in resolved order — each worktree's section
@@ -251,38 +276,88 @@ printf '# worktree: %s — merge base %s\n' "<worktree>" "<merge-base>" \
 git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-review.diff
 ```
 
-A single-worktree change writes the same shape with one header. Then dispatch **separate** review
-subagents — **one per included slot per round**, in the canonical worktree, each reading the whole
-combined file. Never merge two slots into one prompt, and never dispatch a slot once per worktree:
-one slot reads every worktree's section, so a seam between two repositories is in one reviewer's
-view (design.md's `combined-diff-per-round`).
+A single-worktree change writes the same shape with one header. Then dispatch the round's
+`panel.dispatches` — **at most two per round, each one to three roles** — in the canonical
+worktree, each reading the whole combined file; a role is never dispatched once per worktree: one
+pass reads every worktree's section, so a seam between two repositories is in one pass's view
+(design.md's `combined-diff-per-round`). **Bundled dispatch** below states how the roster is
+grouped into those dispatches.
+
+### Bundled dispatch
+
+**At most two review dispatches per round, each carrying one to three roles**, on both
+`REVIEW_PANEL_TOGGLE` values and in both execution modes (design.md's
+`two-dispatch-cap-everywhere`). A dispatch carrying one role covers that role alone; a roster the
+two dispatches cannot hold shrinks to what they hold.
+
+**Grouping.** On `dynamic`, the decision's `panel.grouping` is `static` — the class's row in
+design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
+planner's own grouping within the ≤2 × ≤3 cap, recorded as `panel.grouping_reason`. On `default`,
+the settings-store roster is grouped deterministically by the same static logic, no roll and no
+planner: reading roles (`primary`, `principles`, `security`, `code-review-low`) fill the first
+dispatch in that order up to three, the rest and the mutating roles (`bugbot`, `mutation`) the
+second, up to three; a list the two cannot hold is truncated in store order, and the truncation is
+recorded in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`.
+
+**One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
+`-slot` the bundle's roles `+`-joined in roster order (`primary+principles+security`) and
+`-model`/`-effort` the **highest** among its roles; the per-role intended values stay in the
+decision's `panel.roster`. Every finding still records its own single role in `-slot`, with the
+bundle's `-dispatch-seq`. A one-role dispatch is unchanged from today.
+
+**The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
+BUILDS, REPRODUCE DON'T READ, CITATION CHECK, MODEL HANDSHAKE, the reproducer rule — once, then one
+**PASS `<id>`** section per role in roster order, each carrying exactly the brief that role's solo
+dispatch carries above and its own REPORT FILE line naming `panel-report-<round>-<id>.md`. Mutating
+roles (`mutation`, `bugbot`) are always the last passes of a bundle and still work in their
+throwaway copies (**The throwaway worktree** below); the reading passes before them read the shared
+`<worktree>`. The return message carries one findings summary per role under a heading naming the
+role; the parent records each finding under that role.
+
+Every bundle prompt also carries this paragraph verbatim:
+
+> **INDEPENDENT PASSES:** each pass starts from `final-review.diff` and the code, never from an
+> earlier pass's report or conclusions. Do not cite, defer to, or skip a defect because an earlier
+> pass raised it — if it sits in this pass's angle, raise it again under this pass. Write each
+> pass's report file before beginning the next pass.
+
+**No de-duplication across roles**: the same defect raised by two passes is two `F<n>` rows.
+
+**Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
+group whose other members are clean dispatches with its re-running members only.
+
+`<abs-worktree>/.superpowers/sdd/final-review-panel.md` and the `IN_PROGRESS` handoff's `Panel:`
+line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
+**The docs-only reduction** below still narrows to `primary` alone, one dispatch.
 
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
 
 ```bash
-flow record dispatch begin -change <name> -role reviewer -slot <slot> -model <m> \
-  -agent-id <id> -diff-base <sha> -key panel-<round>-<slot> \
+flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
+  -agent-id <id> -diff-base <sha> -key panel-<round>-<that slot> \
   -session-token mf-<literal-token> -started-at <ts>
-flow record dispatch end -change <name> -key panel-<round>-<slot> \
+flow record dispatch end -change <name> -key panel-<round>-<that slot> \
   -session-token mf-<literal-token> -outcome completed -ended-at <ts> -agent-id <id>
 ```
 
-Every slot of a round launches in one message; every `begin` is recorded in the next Bash call,
-one call for all; the round's wait is one call whose condition is `test -s` on every launched
-slot's report file; every `end` is recorded in one call once they all exist (**Turn
-discipline**, `skills/flow/implement.md`). A slot whose report never appears within its ceiling
-takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
+Every dispatch of a round launches in one message; every `begin` is recorded in the next Bash
+call, one call for all; the round's wait is one call whose condition is `test -s` on every
+launched pass's report file; every `end` is recorded in one call once they all exist (**Turn
+discipline**, `skills/flow/implement.md`). A dispatch whose report never appears within its
+ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
 
-`-slot` names the slot from **The roster** table above. `-role` is
-`reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a slot dispatched against a delta and on no other; it takes one
-sha, so it carries the **canonical worktree's** held last-reviewed sha for that slot, and the
+`-slot` names the dispatch's roles from **The roster** table above, `+`-joined in roster order on
+a bundle (**Bundled dispatch** above). `-role` is
+`reviewer` for every one; `-task` is omitted. `-diff-base <sha>` is passed on a dispatch whose
+roles are all reading against a delta and on no other; it takes one
+sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
 panel record names every worktree's sha beside the delta path (design.md's
-`diff-base-canonical-sha`). `-model` is `DEFAULT_MODEL`
-(or this run's override) for every slot except Bugbot and Security dispatched by their own
-`subagent_type`, which record `unknown (agent-defined)` — narrowed by **An unspawnable id is
-substituted, not skipped**, above: a *substituted* Bugbot or Security slot records the model
-actually given, like every other slot.
+`diff-base-canonical-sha`). `-model` is `DEFAULT_MODEL` (or this run's override) on
+`REVIEW_PANEL_TOGGLE` `default` and the decision's model on `dynamic`, for a one-role dispatch, or
+the **highest** among the bundle's roles on a bundled one — no
+exception. `-effort` likewise: `default` on `REVIEW_PANEL_TOGGLE` `default`, and the decision's own
+effort for the slot (or the bundle's highest) on `dynamic`.
 
 **On Claude Code, `-agent-id` is the identifier an asynchronous agent launch returns in the parent's
 own tool result, at launch.** Never invent one.
@@ -324,6 +399,16 @@ for reading `final-review.diff` itself.
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**Every slot carries the MODEL HANDSHAKE paragraph** — no exception:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
+The dispatcher compares that line against the model this slot was given and applies **The
+handshake** (`skills/flow/implement.md`, **Dispatch the conductor**), unchanged: a first mismatch
+is a fallback plus one retry under `panel-<round>-<slot>-retry`; a second is a fallback plus
+`## Question`.
 
 **Every slot's dispatch prompt also carries the REPRODUCE, DON'T READ paragraph**:
 
@@ -406,9 +491,9 @@ operator withdraws it with a reason.
 Bugbot and Mutation both mutate code in place to run their brief; every other slot only reads the
 diff. Dispatching either into the same worktree a reading slot concurrently reads is the KAN-366
 collision — a mutation applied for one slot's test is visible to whatever a concurrently dispatched
-reading slot reads from `<worktree>` at that moment. Bugbot's and Mutation's dispatch — pass 1, and
-every fix-round re-run, a substituted general-purpose slot included (**An unspawnable id is
-substituted, not skipped**) — therefore both run there, against a throwaway worktree, never the
+reading slot reads from `<worktree>` at that moment. Bugbot's and Mutation's dispatch — pass 1 and
+every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own copy is
+`bugbot-reviewer-prompt.md`'s) — therefore both run there, against a throwaway worktree, never the
 shared `<worktree>` the other slots read:
 
 Run the sequence below once per worktree in the resolved set per slot, producing one
@@ -478,9 +563,8 @@ its prompt carries — `<round>` the same value that round's findings carry on `
 `1..n` fix rounds), `<id>` the resolved reviewer id, never the slot display name. As each slot's
 `flow record dispatch end` is recorded, confirm the file exists and is non-empty (`test -s`); when
 it is not, write it yourself carrying the single line `no verbatim report captured — <reason>`.
-Every dispatched slot ends up with one, a slot that raised nothing and a substituted slot
-included. **Never re-emit a slot's report from this context** — record its `F<n>` rows and cite the
-file.
+Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
+slot's report from this context** — record its `F<n>` rows and cite the file.
 
 **Every finding is a row in the store. The panel record is rendered from those rows.** Every
 finding a round raised is recorded in one Bash call, one `flow record finding` per finding:
@@ -577,11 +661,17 @@ presence or the rebase's own exit code.
 **Which slots re-run, and on what, follows from the severities the round raised — never from a
 mode table, a trigger list, or a round count.**
 
-**A Minor finding blocks and is fixed, and triggers no re-run.** Every finding the round raised goes
-to the fix subagent below; each is closed by the verification that follows it — the reproducer
-re-run exits 0 *and* the fix diff touches a path the finding named. When every finding the round
-raised was Minor, no slot re-runs: proceed to `check-panel-findings-closed.sh` and the stage close.
-A finding that fails verification takes the handback below, and that loop re-runs no slot either.
+**Every Critical and Important goes to the fix; a Minor is fixed or deferred, and triggers no re-run
+either way.** Every Critical and Important the round raised goes to the fix subagent below, closed by
+the verification that follows it — the reproducer re-run exits 0 *and* the fix diff touches a path
+the finding named. For each Minor, the dispatcher decides before the fix goes out: **fix** it when
+the change is confined to the lines the finding names and needs no new test, or when judgment says
+the defect is worth a fix; otherwise `flow record status -change <name> -ref F<n> -status
+'deferred <reason>'`. The rough 10% target for deferred Minors is guidance, never computed — no
+counter, no draw, 0% is acceptable. When every finding the round raised was Minor, no slot re-runs:
+proceed to
+`check-panel-findings-closed.sh` and the stage close. A fixed finding that fails verification takes
+the handback below, and that loop re-runs no slot either.
 
 **When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
@@ -605,6 +695,13 @@ no-held-sha rule in the next round. Then:
   nothing new since its last read`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round.
+
+**Rerun policy `full`** — the decision's `panel.rerun` on a `big` class — keeps every rule above for
+every fix round and adds one final pass after the last fix round closes clean: every slot in the
+roster re-reads the whole `final-review.diff` (Bugbot and Mutation in their pass-1 shape). A finding
+from that final pass opens an ordinary fix round under the rules above; the final pass then repeats
+once that round closes clean. **Rerun policy `delta`** — `small` and `regular`, and every run on
+`REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass.
 
 **The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
 worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots
@@ -662,9 +759,8 @@ operator; **3** is a timeout or a detached survivor — recorded **unverifiable*
 operator, with a surviving pid named when the script names one; **4** stops this finding's dispatch
 decision entirely — a finding recorded `none — <reason>` is dispatched without a run.
 
-Where a slot **dispatched by `subagent_type`** supplies nothing for a finding, record `none — not
-supplied by <slot>` and dispatch the finding unverified. A **general-purpose** slot that supplies
-nothing has not supplied a legal exemption: record that omission as its own open finding.
+A slot that supplies nothing for a finding has not supplied a legal exemption: record that omission
+as its own open finding.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
 constraints and require it now to exit **0**. **The flip alone does not close a finding — the fix's
@@ -760,6 +856,16 @@ against its defect identity. **Inline no source excerpt.**
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
+**Every fix subagent's dispatch prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
+Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies
+**The handshake** (`skills/flow/implement.md`, **Dispatch the conductor**), unchanged: a first
+mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a fallback plus
+`## Question`.
+
 **Every fix subagent's dispatch prompt also carries the TARGETED TESTS paragraph**:
 
 > **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
@@ -796,7 +902,10 @@ against its defect identity. **Inline no source excerpt.**
 > contract requires, and the task commit each fixup folded into. The dispatcher waits
 > on that file's presence.
 
-Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
+Give the surviving findings to **one** fix subagent as the combined list. Inline
+(`skills/flow/implement.md`'s **Inline — the parent implements**), the parent applies the fix
+itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
+panel-fix -agent-id inline`. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
 writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
@@ -818,8 +927,8 @@ flow record dispatch end -change <name> -key panel-fix-<round> \
 
 `-commit` is the task commit the fixup was folded into.
 
-A minor finding blocks the handoff exactly as a critical one does, and triggers no re-run — see
-above. When fix rounds do not converge,
+A Minor either fixed or deferred blocks nothing; a Minor left `open` blocks exactly as a Critical
+does, and triggers no re-run — see above. When fix rounds do not converge,
 the run hands back to the operator, one finding at a time:
 
 > **`<location>` — <the finding, in one line>. The fix round did not resolve it.**

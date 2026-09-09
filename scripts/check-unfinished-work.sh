@@ -332,9 +332,10 @@ fi
 # no document to parse: a finding is a JSON object in the store, decoded by
 # `jq`, with no cells to split and no table boundary to track. Task 2's
 # write-time validation also guarantees every stored status is exactly
-# `open`, `fixed`, or `withdrawn <reason>` — so a malformed or unrecognised
-# status, and a withdrawal with no reason, cannot reach this guard at all;
-# there is no branch here to detect either shape any more.
+# `open`, `fixed`, `withdrawn <reason>`, or `deferred <reason>` — so a
+# malformed or unrecognised status, and a withdrawal or deferral with no
+# reason, cannot reach this guard at all; there is no branch here to detect
+# either shape any more.
 #
 # THE STORE IS QUERIED ONCE, and a non-zero exit from `flow record findings`
 # is this guard's own exit 2 — "cannot determine anything" — never exit 1's
@@ -361,9 +362,10 @@ fi
 rm -f "$FINDINGS_ERR"
 
 # An open finding is any finding whose status is neither `fixed` nor a
-# `withdrawn <reason>` value — `startswith("withdrawn")` covers the whole
-# family, reason text included, without comparing the reason itself.
-if ! OPEN_COUNT="$(printf '%s' "$FINDINGS_JSON" | jq '[.[] | select((.status != "fixed") and (.status | startswith("withdrawn") | not))] | length')"; then
+# `withdrawn <reason>` or `deferred <reason>` value — `startswith("withdrawn")`
+# and `startswith("deferred")` each cover their whole family, reason text
+# included, without comparing the reason itself.
+if ! OPEN_COUNT="$(printf '%s' "$FINDINGS_JSON" | jq '[.[] | select((.status != "fixed") and (.status | startswith("withdrawn") | not) and (.status | startswith("deferred") | not))] | length')"; then
   echo "check-unfinished-work: jq failed — cannot determine anything" >&2
   exit 2
 fi

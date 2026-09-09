@@ -116,7 +116,11 @@ Dispatch one subagent with the Agent tool's `model` parameter set to `PLANNING_M
 > Include this instruction verbatim in any prompt you write for another agent.
 
 and states: the change name `<name>`; the linked Jira key and issue text, when one exists; the
-project root; `<changeRoot>`; and the instruction to read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and <!-- refs-guard:allow -->
+project root; `<changeRoot>`; the three resolved toggles — `EXECUTION_MODE_TOGGLE`,
+`IMPLEMENTER_MODEL_TOGGLE`, `REVIEW_PANEL_TOGGLE` — per **Model resolution** (`skills/flow/SKILL.md`);
+the resolved worktree count (the size of the resolved worktree set at dispatch time, per
+**Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`); and the
+instruction to read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and <!-- refs-guard:allow -->
 **D** and follow them **as the planner** — every "you" in those sections addresses the dispatched
 subagent from here on, never the parent.
 
@@ -126,13 +130,22 @@ it has any — or, at the three returns below, with `## Design`, `## Artifacts` 
 nothing else. The first line of its first reply is `Model: <the model named in its own system
 prompt>`.
 
+**The prompt also carries the TOOLS paragraph**:
+
 > **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
+**The prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
 **The handshake.** Compare that first line against `PLANNING_MODEL`. A match proceeds into the
-relay loop below. A mismatch:
+relay loop below. A mismatch follows **The handshake**'s `<key>-retry` key shape
+(`skills/flow/implement.md`, **Dispatch the conductor**), keeping its own `opus` fallback target
+in place of a same-model retry:
 
 ```bash
 flow record dispatch end -change <name> -key planner -session-token mf-<literal-token> \
@@ -201,7 +214,25 @@ flow stage end   -command '/flow' -stage flow.design-approval -outcome completed
 
 Only then does it resume the planner via SendMessage, and marks it end when the planner's turn ends
 with `## Artifacts`. It then marks `flow.writing-plans` begin, resumes the planner again, and marks
-it end when the planner's turn ends with `## Plan`. Once `## Plan` returns:
+it end when the planner's turn ends with `## Plan`. Once `## Plan` returns, before the `dispatch
+end` below: print the planner's `## Decision` block verbatim — the shape **The `## Decision` block**
+(`design.md`) shows — then run the record sequence that section states:
+
+```bash
+flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
+flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
+flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
+```
+
+`<abs-worktree>/.superpowers/sdd/decision.json` is the file the planner wrote beside the block, per
+the same design.md section. **A `## Plan` carrying no `## Decision` block is a planner defect, not
+a stop**: report it in this run's own output, continue the run on `default` for all three settings
+(`execution: sdd`, `implementer: "default"`, `panel: "default"`), and still run the `flow stage
+begin flow.decide` / `flow record decision` / `flow stage end` sequence above — the recorded JSON
+carries the three toggles as read, every decided field at its default, and `"planner": "no block"`
+so the row is distinguishable from an ordinary default. Write that JSON to the same
+`<abs-worktree>/.superpowers/sdd/decision.json` path before recording it, since the planner never
+did.
 
 ```bash
 flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
@@ -211,3 +242,13 @@ flow record dispatch end -change <name> -key <the key currently open> -session-t
 closes the dispatch record under whichever key the handshake left open — `planner` on a clean
 handshake, `planner-opus` after one mismatch, `planner-<model>` after a second — and the parent
 continues into `skills/flow/implement.md` exactly as today.
+
+## Resume and fix runs
+
+**Resume and fix runs** (`design.md`) is canonical for both cases: a run resumed at `STARTED` reads
+`flow record decisions -change <name>` and follows the newest row rather than re-rolling, or
+re-dispatches the planner's Decide step alone when none exists yet; a fix run's `flow.document-fix`
+(`skills/flow/implement.md`) hands the appended plan through the same Decide step, re-grouping the
+review panel on the same name-derived `bundle_roll`, and recording a second row whose rolls — being
+name-derived — stay identical to the first, so only `class`, `groups` (the appended plan's bundles)
+and a free grouping's shape can change.
