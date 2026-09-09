@@ -31,10 +31,27 @@ func (s *Store) RecordSessionTokenGiveUp(ctx context.Context, token, reason stri
 	return nil
 }
 
-// PersistedGiveUps returns every session token the watcher has ever given
-// up on, in no particular order -- the read the watcher makes at start to
-// re-seed the tokens a restart's fresh in-memory pending set would
-// otherwise never search again (0013_session_token_giveups.sql).
+// giveUpRetryHorizon bounds how long a session-token give-up stays worth
+// retrying. The watcher loads PersistedGiveUps at start and re-reads the
+// whole transcript corpus per harvest cycle while any of them are loaded, so
+// a dead give-up is not just useless but expensive: a give-up's only purpose
+// is re-finding a session mark whose usage can still attribute inside a
+// stage run's [started_at, ended_at) window, and those windows close within
+// minutes-to-hours -- measured here, one full retry pass over the corpus
+// ran 15+ minutes at ~95% CPU for 54 give-ups aged 1-18 days whose tokens
+// all named long-archived changes (kan-480). 24h is generous by an order of
+// magnitude: past it, the row is deleted rather than returned, which also
+// keeps the table bounded instead of growing forever.
+const giveUpRetryHorizon = 24 * time.Hour
+
+// PersistedGiveUps returns every session token the watcher has given up on
+// within the retry horizon, in no particular order -- the read the watcher
+// makes at start to re-seed the tokens a restart's fresh in-memory pending
+// set would otherwise never search again (0013_session_token_giveups.sql).
+// Rows older than giveUpRetryHorizon are deleted by the same call: their
+// stage windows are long closed, so no retry could ever attribute their
+// usage, and keeping them would make every restart re-read the whole
+// transcript corpus for nothing.
 //
 // It returns harvest.GiveUp directly, with no store-local type and no
 // adapter, exactly as DispatchWindowsForSession (records.go) already
@@ -45,9 +62,17 @@ func (s *Store) RecordSessionTokenGiveUp(ctx context.Context, token, reason stri
 // reverse, which is what keeps internal/harvest's TestHarvestNeedsNoDatabase
 // true even as that interface grows.
 func (s *Store) PersistedGiveUps(ctx context.Context) ([]harvest.GiveUp, error) {
+	cutoff := time.Now().Add(-giveUpRetryHorizon)
+	if _, err := s.pool.Exec(ctx, `
+		DELETE FROM session_token_giveups WHERE gave_up_at < $1
+	`, cutoff); err != nil {
+		return nil, fmt.Errorf("store: expire persisted give-ups: %w", err)
+	}
+
 	rows, err := s.pool.Query(ctx, `
 		SELECT session_token, reason, retries FROM session_token_giveups
-	`)
+		WHERE gave_up_at >= $1
+	`, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("store: list persisted give-ups: %w", err)
 	}
