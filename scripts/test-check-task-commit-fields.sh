@@ -3000,6 +3000,63 @@ SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 90: the After line after a prose Files field leaves the declared path intact" || fail "case 90 (B): rc=$RC out=$OUT"
 
+# ===========================================================================
+# Case 91 (KAN-260): the second repository's worktree carries NO change
+# directory at all — not even a link.md — so the glob and the satellite
+# scan both find nothing and the named-change path must not refuse without
+# a verdict. With the change name passed as the sixth argument and the
+# canonical worktree as the fifth, the plan resolves from the canonical
+# worktree's same-named change, and the commit made in THIS repo is checked
+# against it.
+# ===========================================================================
+XREPO_B="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-xrepo.XXXXXX")"
+git -C "$XREPO_B" init -q
+git -C "$XREPO_B" config user.email "test@example.com"
+git -C "$XREPO_B" config user.name "Test"
+printf 'root\n' > "$XREPO_B/root.txt"
+git -C "$XREPO_B" add root.txt
+git -C "$XREPO_B" commit -q -m "root"
+printf 'def test_alpha(): pass\n' > "$XREPO_B/alpha.txt"
+git -C "$XREPO_B" add alpha.txt
+git -C "$XREPO_B" commit -q -m "add alpha for real"
+SHA_B="$(git -C "$XREPO_B" rev-parse HEAD)"
+PARENT_B="$(git -C "$XREPO_B" rev-parse HEAD~1)"
+
+XREPO_A="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-xcanon.XXXXXX")"
+mkdir -p "$XREPO_A/spectre/changes/x-repo-change"
+printf '%s' '- [ ] 1. Plan lives in the canonical repo only
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha for real
+**Build:** green
+' > "$XREPO_A/spectre/changes/x-repo-change/tasks.md"
+
+run_guard "$XREPO_B" 1 "$SHA_B" "$PARENT_B" "$XREPO_A" "x-repo-change"
+[ "$RC" -eq 0 ] && pass "case 91: named change with no local dir resolves through the canonical worktree" \
+  || fail "case 91: rc=$RC out=$OUT"
+
+# Case 91b: the same absent-dir shape with NO canonical worktree argument —
+# the refusal is the honest answer, nothing names where the plan lives.
+run_guard "$XREPO_B" 1 "$SHA_B" "$PARENT_B" "" "x-repo-change"
+[ "$RC" -eq 2 ] && pass "case 91b: named change with no local dir and no canonical worktree still refuses" \
+  || fail "case 91b: rc=$RC out=$OUT"
+case "$OUT" in
+  *"no tasks.md found for change 'x-repo-change'"*) pass "case 91b: it names the missing plan" ;;
+  *) fail "case 91b: expected the no-tasks.md refusal, out=$OUT" ;;
+esac
+
+# Case 91c: no change-name argument either — the glob path finds no
+# tasks.md and no satellite, and still refuses; nothing here can guess a
+# change to resolve against.
+run_guard "$XREPO_B" 1 "$SHA_B" "$PARENT_B"
+[ "$RC" -eq 2 ] && pass "case 91c: no change-name argument and no local dir still refuses through the glob path" \
+  || fail "case 91c: rc=$RC out=$OUT"
+case "$OUT" in
+  *"no tasks.md found under"*) pass "case 91c: it names the glob-path refusal" ;;
+  *) fail "case 91c: expected the no-tasks.md-under refusal, out=$OUT" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1
