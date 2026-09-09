@@ -58,6 +58,13 @@ type RecordStore interface {
 	AddHazard(ctx context.Context, projectKey string, h records.Hazard) (records.Hazard, error)
 	ListHazards(ctx context.Context, projectKey, shape string, includeInactive bool) ([]records.Hazard, error)
 	RetireHazard(ctx context.Context, projectKey, name string) (records.Hazard, error)
+
+	// InsertSuiteRun and ListSuiteRuns are KAN-252's suite-runtime
+	// methods -- per-run, per-machine figures project.md cites instead of
+	// pasting measured durations into prose -- and on RecordStore for the
+	// reason the hazard methods state above.
+	InsertSuiteRun(ctx context.Context, projectKey string, run records.SuiteRun) (records.SuiteRun, error)
+	ListSuiteRuns(ctx context.Context, projectKey, suite string, limit int) ([]records.SuiteRun, error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the

@@ -905,6 +905,14 @@ func (stubStageStore) RetireHazard(context.Context, string, string) (records.Haz
 	return records.Hazard{}, errStageStoreNotImplemented
 }
 
+func (stubStageStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
+	return records.SuiteRun{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 var _ api.RecordStore = stubStageStore{}
 
 // ProjectKeysByDisplayName is here for the same reason

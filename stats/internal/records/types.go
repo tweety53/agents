@@ -236,6 +236,19 @@ type Hazard struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// SuiteRun is one timed suite execution on one machine, recorded by
+// `flow suite record`. ExitCode is the child's own exit status, so a
+// failed run's duration can be stored without ever presenting itself as a
+// runtime figure: the reader's summary counts passing runs only.
+type SuiteRun struct {
+	ID         int64     `json:"id"`
+	Suite      string    `json:"suite"`
+	Host       string    `json:"host"`
+	DurationMs int64     `json:"durationMs"`
+	ExitCode   int       `json:"exitCode"`
+	RanAt      time.Time `json:"ranAt"`
+}
+
 // Run is one change's whole derived record: its dispatches in seq order
 // and its findings in ref order.
 type Run struct {
