@@ -437,24 +437,6 @@ scripts/check-references.sh
 run_guard "$REPO"
 assert_silent "a project-configured guard keeps its repository-relative path without tripping rule 3 (F3)"
 
-# 4c-2. kan-444 — check-plan-provenance.sh left the project-configured family:
-#       it ships with the flow skill now and the writing-plans stage invokes it,
-#       so rule 3 governs its prose form like any other shipped guard's. The
-#       exemption map must not cover it: restoring
-#       EXEMPT["check-plan-provenance.sh"] turns this case red.
-new_repo
-add_real_guard "check-plan-provenance.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-plan-provenance.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
-
-```bash
-scripts/check-plan-provenance.sh
-```
-'
-run_guard "$REPO"
-assert_invalid "a repository-relative invocation of the shipped provenance guard is a rule 3 violation (kan-444)"
-assert_reports "rule 3" "rule 3: names the rule"
-
 # 4d. F8 — the fence-language test is anchored to a full word. A
 #     ```shellsession fence must not be scanned as though it were bash/sh/zsh
 #     — before the fix, "shellsession" matched the unanchored `^sh` prefix by

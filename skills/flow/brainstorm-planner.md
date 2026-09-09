@@ -97,11 +97,6 @@ the design.
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
   is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/flow` only.
-- Ask every pending question whose wording does not depend on another pending answer in the same
-  turn, each as its own `## Question` block, up to four blocks per turn; a question that only makes
-  sense once another is answered waits for the next turn; the convergence confirm and the
-  third-round offer may be the last block of such a turn. This is a scoped override of
-  `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
 conflicting design.
@@ -136,12 +131,6 @@ recommended choice. Print `⚠ another round — no explicit answer` when this d
 *Revise* is a round — it counts toward the third-round offer below exactly as *Another round*
 does — and differs only in what the planner's next turn opens with: the changed design section(s),
 re-presented before the next confirm, in place of new questions.
-
-**A batched confirm.** When the confirm rides along with a round's questions as the last block of
-the turn, **approve the design and move on** folds that turn's answers into the design and ends the
-stage; an answer to an accompanying question that names something new opens another round
-regardless of the confirm's choice. The silence default above and its `⚠ another round — no
-explicit answer` marker are unchanged.
 
 When no answer is possible at all — no channel to ask through — record the confirm itself under `##
 Open questions` and end the stage, printing `⚠ open question recorded — no answer was possible`.
@@ -336,13 +325,9 @@ this repository's "missing rather than dropped" convention. `yes` scopes a mecha
 comparison (generated later in the pipeline, by a script this change adds elsewhere) to the union
 of every task's own `**Files:**` field across the plan.
 
-Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and
-`check-baseline-fresh.sh <changeRoot>` — a shipped guard, run unconditionally; it skips when the
-plan carries no `**Baseline:**` field or the project declares no `## baseline results dirs` key,
-and refuses a `Baseline:` count whose declared source directory is absent or predates the
-worktree's newest commit — and `check-plan-provenance.sh` — a shipped guard, run unconditionally
-in every project, per **Plan provenance** (`skills/flow-contracts/plan-provenance.md`) — and the
-project's configured build-green guard, if the project declares one, and fix any hit.
+Before continuing, run `check-plan-shape.sh` — a shipped guard, run unconditionally — and the
+project's configured plan-provenance guard and its configured build-green guard, if the project
+declares them, and fix any hit.
 
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>

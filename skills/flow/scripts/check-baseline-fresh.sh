@@ -1,1 +1,0 @@
-../../../scripts/check-baseline-fresh.sh

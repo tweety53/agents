@@ -93,7 +93,7 @@ the same failure, naming that this too is a fallback rather than a resolved valu
 |-------------|-----------------|
 | Reachable, list non-empty | exactly the list |
 | Reachable, list empty | `primary` alone |
-| Unreachable | `primary`, `principles`, `code-review-low`, `mutation` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
+| Unreachable | `primary`, `principles`, `code-review-low` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value — the same pattern as `DEFAULT_MODEL`'s |
 
 An empty list can never reach this table from `/flow-settings`: `<agents repo>/stats/cmd/flow/settings.go`'s
 `settings set` refuses an empty `-reviewers` as a caller mistake before any write reaches the
@@ -139,18 +139,6 @@ dispatch it changes; an override nobody wrote down is indistinguishable from a m
 is **never** written back to the settings store — `/flow-settings` is the only command that changes
 a global default, per that command's own guardrails.
 
-**Every model-bearing dispatch states its resolved value in the run's own output, immediately
-before the dispatch** — one line, `<role> model: <value> (<tier>)`. `<tier>` names the tier that
-produced the value: `session override`, `project key`, `store`, or `fallback`; `fixed literal`
-for `VERIFY_MODEL`, which is never resolved; `unknown (agent-defined)` for Bugbot and Security
-dispatched by their own `subagent_type`, matching the dispatch record's `-model` literal; and the
-model actually given for a substituted slot. A handshake-mismatch re-dispatch states again before
-each re-dispatch. The line is what makes the resolution an observable claim: a dispatcher holding
-a stale value prints the stale value, which an operator can challenge mid-run — the handshake
-cannot catch that class, because a dispatcher holding the wrong value expects the wrong line
-(KAN-381's near-miss). Each dispatch site states its own role token in place and cites this rule;
-the rule is not restated there.
-
 ## Reading the state
 
 ```bash
@@ -173,8 +161,8 @@ flow state get <name-or-best-guess> -C <repo-root>
 
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow` can invoke — the full list is the union carried by
-`skills/flow/scripts/`: `check-base-moved.sh`, `check-baseline-fresh.sh`, `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
-`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `check-plan-provenance.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`,
+`skills/flow/scripts/`: `check-base-moved.sh`, `check-cleanup-complete.sh`, `check-finish-preflight.sh`,
+`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`, `check-panel-findings-closed.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`,
 `check-unfinished-work.sh`, `check-visual-trigger.sh`,
 `check-visual-verification.sh`, `check-workspace-isolation.sh`,
 `check-worktree-processes.sh`, `commit-split.sh`, `gather-dispatch-context.sh`, `gather-self-review-context.sh`,

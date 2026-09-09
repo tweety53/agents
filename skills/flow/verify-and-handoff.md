@@ -78,8 +78,7 @@ verifier is re-dispatched with it, per **The verifier dispatch** below.
 `flow.verify` and `flow.visual-verify` both dispatch this subagent, one verifier per worktree per
 stage: `subagent_type: general-purpose`, the Agent tool's `model` parameter set to `VERIFY_MODEL`
 (**Model resolution**, `skills/flow/SKILL.md`) — the literal `sonnet`, never `DEFAULT_MODEL` and
-never a session override. State `verify model: sonnet (fixed literal)` in the run's own output
-immediately before each stage's dispatch. Its prompt carries, verbatim:
+never a session override. Its prompt carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.

@@ -355,52 +355,12 @@ func RenderLedger(r Run) string {
 			started = d.StartedAt.UTC().Format(time.RFC3339)
 		}
 		fmt.Fprintf(&b, "- Started: %s\n", started)
-		// Ended and Duration render beside Started so a ledger reader sees
-		// how long the dispatch ran without querying the store (kan-450). A
-		// nil EndedAt is a still-open dispatch -- ordinary, so it renders
-		// "not recorded" in the same voice orElse uses. A duration needs
-		// both instants; one missing is an absence, never zero, so the line
-		// is omitted rather than rendered 0s.
-		ended := "not recorded"
-		if d.EndedAt != nil {
-			ended = d.EndedAt.UTC().Format(time.RFC3339)
-		}
-		fmt.Fprintf(&b, "- Ended: %s\n", ended)
-		if d.EndedAt != nil && !d.StartedAt.IsZero() {
-			fmt.Fprintf(&b, "- Duration: %s\n", d.EndedAt.Sub(d.StartedAt).Round(time.Second))
-		}
 		fmt.Fprintf(&b, "- Tokens: %s\n", tokenLine(d.Metrics))
 		if strings.TrimSpace(d.Notes) != "" {
 			fmt.Fprintf(&b, "- Notes: %s\n", neutraliseMarkers(d.Notes))
 		}
 		b.WriteString("\n")
 	}
-
-	// The cost-per-change figure (kan-450), computed from these very rows:
-	// per (role, task) totals, a Total row carrying the change's own
-	// figure, and the absence counts that keep an unmeasured or unpriced
-	// dispatch from reading as a measured zero. The zero-dispatch ledger
-	// never reaches this point -- the early return above already answered.
-	cost := CostByRoleTask(r)
-	b.WriteString("## Cost by role and task\n\n")
-	b.WriteString("| Role | Task | Dispatches | Input | Output | Cache read | Cache creation | Cost USD |\n")
-	b.WriteString("|---|---|---|---|---|---|---|---|\n")
-	var tIn, tOut, tRead, tCreation int64
-	var tCost float64
-	for _, g := range cost.Groups {
-		fmt.Fprintf(&b, "| %s | %s | %d | %d | %d | %d | %d | %.2f |\n",
-			tableCell(orElse(g.Role, "role not recorded")), tableCell(orElse(g.Task, "no task")),
-			g.Dispatches, g.Input, g.Output, g.CacheRead, g.CacheCreation, g.CostUSD)
-		tIn += g.Input
-		tOut += g.Output
-		tRead += g.CacheRead
-		tCreation += g.CacheCreation
-		tCost += g.CostUSD
-	}
-	fmt.Fprintf(&b, "| Total | | %d | %d | %d | %d | %d | %.2f |\n",
-		len(r.Dispatches), tIn, tOut, tRead, tCreation, tCost)
-	fmt.Fprintf(&b, "\nUnmeasured dispatches: %d\nUnpriced dispatches: %d\n",
-		cost.Unmeasured, cost.Unpriced)
 
 	return b.String()
 }

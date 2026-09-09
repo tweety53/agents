@@ -149,7 +149,6 @@ scripts/check-markdown-integrity.py
 scripts/check-stage-mark-calls.sh
 scripts/check-guard-symlinks.sh
 scripts/check-dispatch-paragraphs.sh
-scripts/check-model-statements.sh
 scripts/check-self-review-report.sh
 scripts/check-installed-citations.sh
 scripts/check-installed-rules.sh
@@ -162,16 +161,15 @@ cd stats && go vet ./...
 cd stats/web && npx tsc -b
 ```
 
-**`check-plan-shape.sh` and `check-plan-provenance.sh` sit beside `check-task-build-green.sh` in
-this list but are not project-configured in the same way.** `check-task-build-green.sh` is
-project-configured — resolved through a project's own `.flow/project.md` and run only where a
-project declares it — while `check-plan-shape.sh` and `check-plan-provenance.sh` are **shipped**,
-symlinked into `skills/flow/scripts/` and cited by basename per **Guard resolution**
-(`skills/flow-contracts/pipeline.md`): the guard the first protects
-(`check-task-commit-fields.sh`) is itself shipped and runs in every project `/flow` touches, and
-kan-444 shipped the second so every project's writing-plans stage rejects a plan whose fenced
-blocks lack provenance tags. All three answer a bare-tree question — no arguments scans every
-non-archived `<spec-root>/changes/*/tasks.md` — which is why they belong in this list.
+**`check-plan-shape.sh` sits beside `check-plan-provenance.sh` and `check-task-build-green.sh` in
+this list but is not one of them.** Those two are project-configured — resolved through a project's
+own `.flow/project.md` and run only where a project declares them — while `check-plan-shape.sh` is
+**shipped**, symlinked into `skills/flow/scripts/` and cited by basename per **Guard resolution**
+(`skills/flow-contracts/pipeline.md`), because the guard it protects
+(`check-task-commit-fields.sh`) is itself shipped and runs in every project `/flow` touches. It
+answers a bare-tree question exactly like `check-plan-provenance.sh` and `check-task-build-green.sh`
+do — no arguments scans every non-archived `<spec-root>/changes/*/tasks.md` — which is why it
+belongs in this list at all, for the same reason those two do.
 
 **There is no auto-fix command for the guard scripts** (`scripts/check-*`) — every one of them
 reports `file:line` and is fixed by editing the offending line, never by weakening the guard or

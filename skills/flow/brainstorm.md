@@ -109,10 +109,6 @@ flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> 
 `skills/flow/implement.md` states for an implementer dispatch — cited, not restated. `-task` is
 omitted: this dispatch runs against no single task.
 
-State `planner model: <PLANNING_MODEL> (<tier>)` — the tier that produced the value, per
-**Model resolution** (`skills/flow/SKILL.md`) — in this run's own output immediately before the
-dispatch.
-
 Dispatch one subagent with the Agent tool's `model` parameter set to `PLANNING_MODEL`,
 `subagent_type: general-purpose`. Its prompt carries, verbatim:
 
@@ -125,10 +121,9 @@ project root; `<changeRoot>`; and the instruction to read `skills/flow/brainstor
 subagent from here on, never the parent.
 
 **The relay contract**, stated in the same prompt: the planner has no channel to the operator. It
-ends every turn with one to four `## Question` blocks — each the question, plus named options when
-it has any — or, at the three returns below, with `## Design`, `## Artifacts` or `## Plan` and
-nothing else. The first line of its first reply is `Model: <the model named in its own system
-prompt>`.
+ends every turn with exactly one `## Question` block — the question, plus named options when it has
+any — or, at the three returns below, with `## Design`, `## Artifacts` or `## Plan` and nothing
+else. The first line of its first reply is `Model: <the model named in its own system prompt>`.
 
 **The handshake.** Compare that first line against `PLANNING_MODEL`. A match proceeds into the
 relay loop below. A mismatch:
@@ -158,14 +153,13 @@ report the model in this run's own output. The persisted rows then read `fable`�
 proved otherwise. **A mark or a record never blocks** — proceed on the handshake's outcome
 regardless of whether any `flow` call above reached the store.
 
-**The relay.** The parent puts every `## Question` block of the planner's turn into a single
-**AskUserQuestion** call — one question per block, in block order, each block's named options as
-that question's options — and resumes the planner via **SendMessage** with every answer, labelled
-by block order. Section B's merged convergence-and-approval confirm and its third-round offer are
-relayed the same way — the planner poses each exactly as B states it, the parent asks it exactly as
-received, and the planner's next turn opens with the operator's answer.
+**The relay.** The parent asks each `## Question` block verbatim through **AskUserQuestion** and
+resumes the planner with the operator's answer via **SendMessage**. Section B's merged
+convergence-and-approval confirm and its third-round offer are relayed the same
+way — the planner poses each exactly as B states it, the parent asks it exactly as received, and
+the planner's next turn opens with the operator's answer.
 
-**Prose preceding the turn's `## Question` blocks is relayed too, not dropped.** When the planner's turn
+**Prose preceding a `## Question` block is relayed too, not dropped.** When the planner's turn
 carries a summary before the question — most concretely the convergence confirm's "state what you
 believe settled" paragraph — the parent shows that prose to the operator (as ordinary text, before
 the **AskUserQuestion** call), not only the bare question and options. The operator approving or

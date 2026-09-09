@@ -255,11 +255,6 @@ combined file. Never merge two slots into one prompt, and never dispatch a slot 
 one slot reads every worktree's section, so a seam between two repositories is in one reviewer's
 view (design.md's `combined-diff-per-round`).
 
-State each dispatched slot's model in the run's own output immediately before its dispatch —
-`<slot> model: <value> (<tier>)`, tier per **Model resolution** (`skills/flow/SKILL.md`); a slot
-dispatched by its own `subagent_type` states `unknown (agent-defined)`, and a substituted slot
-states the model actually given.
-
 **Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
 records for an implementer:
 
@@ -295,22 +290,9 @@ printed — `recorded: dispatch <seq>` — into each of that slot's `flow record
 `-dispatch-seq <seq>`.
 
 **Every slot must supply, per finding, a reproducer**: a runnable command that demonstrates the
-defect, or the literal exemption form `none — <reason>`. The recorded value must be exactly one of
-two shapes, and `flow record finding` enforces both before the finding reaches the store — anything
-else it refuses there, bouncing the finding back to the raising slot:
-
-- a bare relative path — by convention the worktree-relative path of the slot's own reproducer
-  script, named in full in the next sentence — optionally followed by plain arguments,
-  carrying no shell metacharacter — pipe, semicolon, ampersand, dollar, backtick, angle brackets,
-  parentheses, braces, tilde, question mark, asterisk, square brackets, hash, backslash, or either
-  quote character — no leading `-` on
-  the path token, no `://`, no absolute path, and no `..` segment on any token; or
-- exactly `none — <reason>` (em dash, one space on each side, a non-space reason immediately
-  after).
-
-A demonstrating command needing a pipe, a quote, a glob or any other shell metacharacter is written
-as a script rather than abandoned — the guards refuse a metacharacter in the recorded line, never
-one inside a script. The slot writes it
+defect, or the literal exemption form `none — <reason>`. A demonstrating command needing a pipe, a
+quote, a glob or any other shell metacharacter is written as a script rather than abandoned — the
+guards refuse a metacharacter in the recorded line, never one inside a script. The slot writes it
 to `<abs-worktree>/.superpowers/sdd/reproducers/<round>-<id>-<n>.sh` — `<round>` this round's
 number, `<id>` the slot's own resolved reviewer id, `<n>` that slot's own 1-based finding index —
 gives it a shebang and `chmod +x`, and records that same path, the path relative to the worktree —
@@ -793,9 +775,7 @@ against its defect identity. **Inline no source excerpt.**
 
 Give the surviving findings to **one** fix subagent as the combined list. Where a finding is
 confirmed as a real defect, the fix subagent invokes **superpowers:systematic-debugging** before
-writing its fix. State `panel-fix model: <DEFAULT_MODEL> (<tier>)` — the tier that produced the
-value, per **Model resolution** (`skills/flow/SKILL.md`) — in the run's own output immediately
-before the dispatch. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
+writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
 old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
 per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. Record

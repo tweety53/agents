@@ -80,19 +80,6 @@
 # guard is never asked to judge a canonical change directory as if it were
 # one of its own parts.
 #
-# A SATELLITE WITH NO CHANGE DIRECTORY AT ALL RESOLVES BY THE SAME NAME
-# (KAN-439). Everything above presupposes a change directory to carry a
-# `link.md`, and a project whose convention keeps the change directory in
-# the canonical repository only — measured on gymie, whose frontend
-# repository has no spec tree at all — leaves every other worktree without
-# one: no tasks.md, no link.md, and nothing for `spectre link` to write a
-# link into. For that shape scripts/lib/change-plan.sh resolves the plan BY
-# THE SAME CHANGE NAME under the supplied canonical worktree — the third
-# argument run 1 passes on every call
-# (skills/flow-contracts/finish-contract-run1.md). A `## Part of` link that
-# EXISTS and fails to resolve is never rescued by that branch: a link that
-# names its plan and comes up empty keeps the exit-2 refusal below.
-#
 set -euo pipefail
 
 # NO ANSWER THIS GUARD GIVES MAY DEPEND ON THE CALLER'S LOCALE. Be precise about
@@ -245,21 +232,16 @@ count_unticked() {
 # is, in fact, local.
 #
 # change_plan_dir returns 1 in two shapes this guard must tell apart: a
-# plain change with no `tasks.md` and no usable link — no `link.md` at all,
-# a `link.md` that names no `## Part of`, or one of those whose same-name
-# canonical resolution (KAN-439) also found nothing, because no canonical
-# worktree was supplied or it carries no same-named plan either — the
-# ordinary missing-plan case below, sweeping its own changes/ exactly as it
-# always has — versus a genuine satellite (a `link.md` that DOES carry
+# plain change with no `tasks.md` and no `link.md` at all (or a `link.md`
+# that names no `## Part of`, which is not a satellite by this guard's
+# definition either) — the ordinary missing-plan case below, unchanged from
+# before this task — versus a genuine satellite (a `link.md` that DOES carry
 # `## Part of`) whose canonical plan could not be reached through either the
 # supplied canonical worktree or `peers`. Only the second shape refuses
-# outright; the first still falls through to "no plan at" so a change with
-# no link at all behaves exactly as it did before this task, sweeping its
-# own changes/ exactly as it always has. A same-name resolved plan needs no
-# separate branch here at all: change_plan_dir answers its directory, and
-# the sweep and the count below treat it exactly like a local one.
+# outright; the first still falls through to "no plan at" so a change with no
+# link at all behaves exactly as it did before this task, sweeping its own
+# changes/ exactly as it always has.
 PLAN_OPEN=0
-PLAN_DIR=""
 if PLAN_DIR="$(change_plan_dir "$WORKTREE" "$NAME" "$CANONICAL_WORKTREE" 2>/dev/null)"; then
   PRIMARY_PLAN="$PLAN_DIR/tasks.md"
   N="$(count_unticked "$PRIMARY_PLAN")" || unreadable "$PRIMARY_PLAN"
@@ -331,27 +313,8 @@ fi
 # second daemon (`export FLOW_ADDR=http://127.0.0.1:4174`, per the ui-test
 # stack), which is exactly the shape that makes it worth fixing rather than
 # tolerating: it breaks only for the operator who followed the instructions.
-# THE READ IS AIMED AT THE PROJECT THE PLAN LIVES IN. When the plan resolved
-# under the supplied canonical worktree — the same-name fallback of
-# KAN-439, or a `## Part of` link resolved there — the change's findings are
-# rows under the CANONICAL repository's project key, and querying with
-# `-C "$WORKTREE"` asks the satellite's own project key about a change it
-# has never heard of: the answer is a permissive `[]`, and a CLEAR's "no
-# finding is open" half would rest on a query that cannot see the change.
-# When the plan resolved canonically, signal two reads with
-# `-C "$CANONICAL_WORKTREE"` — the same store the canonical worktree's own
-# call reads. The closing `flow record verdict` write below stays
-# `-C "$WORKTREE"`: it is advisory and worktree-attributed, and a verdict
-# row under the satellite's key is exactly where this worktree's verdict
-# belongs.
-FINDINGS_C="$WORKTREE"
-if [ -n "$CANONICAL_WORKTREE" ] && [ -n "$PLAN_DIR" ]; then
-  case "$PLAN_DIR" in
-    "$CANONICAL_WORKTREE"/*/changes/*) FINDINGS_C="$CANONICAL_WORKTREE" ;;
-  esac
-fi
 FINDINGS_ERR="$(mktemp)"
-if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$FINDINGS_C" 2>"$FINDINGS_ERR")"; then
+if ! FINDINGS_JSON="$(flow record findings -change "$NAME" -C "$WORKTREE" 2>"$FINDINGS_ERR")"; then
   echo "check-unfinished-work: cannot read findings for '$NAME' from the store — cannot determine anything: $(cat "$FINDINGS_ERR")" >&2
   rm -f "$FINDINGS_ERR"
   exit 2

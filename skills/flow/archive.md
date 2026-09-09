@@ -163,10 +163,7 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    **Yes** would.
 
    **On anything but No, the combined reasoning pass runs as a subagent, on `SELF_REVIEW_MODEL`**
-   (**Model resolution**, `skills/flow/SKILL.md`) — not inline in this session. State
-   `self-review model: <value> (<tier>)` — the resolved value and the tier that produced it — in
-   this session's own output immediately before the dispatch and again before the mismatch
-   re-dispatch. Hand the subagent
+   (**Model resolution**, `skills/flow/SKILL.md`) — not inline in this session. Hand the subagent
    the script's output and the five-angle table below; it returns the five angles' findings (each
    angle's findings, or an explicit none-marker) as its report body and nothing else — it does not
    write the report file and does not run the filing-and-rating prompt.

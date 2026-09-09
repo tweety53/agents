@@ -25,9 +25,8 @@ get there is scripted. You're a thinking partner helping the user explore.
 ## The research subagent
 
 The parent session does not do the thinking itself. It resolves `PLANNING_MODEL` per
-**Model resolution** (`skills/flow/SKILL.md`), states `research model: <value> (<tier>)` — the
-resolved value and the tier that produced it — in the session's own output, then dispatches one
-general-purpose research subagent with the Agent tool's `model` parameter set to it — this skill as the subagent's
+**Model resolution** (`skills/flow/SKILL.md`), then dispatches one general-purpose research
+subagent with the Agent tool's `model` parameter set to it — this skill as the subagent's
 instructions, the topic the operator brought, the project root, and the instruction to read this
 skill and follow it **as the researcher** from here on: every "you" below addresses the dispatched
 subagent, never the parent session that dispatched it. Its prompt carries, verbatim:
@@ -124,9 +123,7 @@ Depending on what the user brings, you might:
   guessing
 - Suggest a spike or a targeted investigation instead of a fabricated answer
 
-Ask every pending question whose wording does not depend on another pending answer in one
-**AskUserQuestion** call, up to four per call; a dependent question waits for the next turn. Don't
-funnel the user through a fixed line of questioning — surface the
+Ask one question at a time. Don't funnel the user through a fixed line of questioning — surface the
 interesting directions and let them follow what resonates.
 
 ---

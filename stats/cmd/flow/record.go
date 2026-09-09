@@ -65,61 +65,23 @@ func validateFindingStatus(status string) error {
 	return fmt.Errorf("-status %q is not one of: open, fixed, withdrawn <reason>", status)
 }
 
-// reproducerMetachars is the shell-metacharacter set a runnable reproducer
-// must never carry. scripts/reproducer-metachars.sh is the single bash
-// source of truth for the set -- its header records two drifts between its
-// two bash consumers before this mirror existed -- so a character added
-// there is added here in the same change;
-// TestReproducerMetacharSetSyncsWithBashSource fails the build when the two
-// drift.
-const reproducerMetachars = "|;&$`<>(){}~*?[]#\\'\""
-
 // validateFindingReproducer judges a finding's -reproducer before the store
 // is contacted. Empty is always an error -- a finding with no reproducer at
-// all is a finding nobody can act on. Where the first word is exactly "none"
-// the only legal form is "none — <reason>" with a non-space first character
-// of the reason: a bare "none" claims irreproducibility without saying why.
-// Any other non-empty value is a runnable command, and it must carry the
-// shape check-panel-reproducers.sh already enforces at read time: a bare
-// relative path optionally followed by plain arguments -- no shell
-// metacharacter anywhere in the text, no leading "-" on the path token, no
-// URL, no absolute token, no ".." path segment. Refusing here is what
-// bounces a malformed reproducer back to the raising slot instead of
-// landing it in the store for the read-time guard to reject after the fact.
+// all is a finding nobody can act on. Where the first word is exactly
+// "none" the only legal form is "none — <reason>": a bare "none" claims
+// irreproducibility without saying why, which is the one shape this change's
+// `reproducer-safety-in-shell` decision still refuses here rather than
+// leaving to the guard. Any other non-empty value is a command, and this
+// validator has nothing further to say about its shape -- metacharacters,
+// absolute paths and ".." segments stay a guard-side check.
 func validateFindingReproducer(reproducer string) error {
 	if strings.TrimSpace(reproducer) == "" {
 		return fmt.Errorf("-reproducer is required")
 	}
 	if fields := strings.Fields(reproducer); len(fields) > 0 && fields[0] == "none" {
-		rest, ok := strings.CutPrefix(reproducer, "none — ")
-		if !ok || rest == "" {
+		if rest, ok := strings.CutPrefix(reproducer, "none — "); !ok || strings.TrimSpace(rest) == "" {
 			return fmt.Errorf("-reproducer %q must be a command, or \"none — <reason>\"", reproducer)
 		}
-		if r, _ := utf8.DecodeRuneInString(rest); unicode.IsSpace(r) {
-			return fmt.Errorf("-reproducer %q must be a command, or \"none — <reason>\"", reproducer)
-		}
-		return nil
-	}
-	pathToken := reproducer
-	if i := strings.IndexAny(reproducer, " \t"); i >= 0 {
-		pathToken = reproducer[:i]
-	}
-	if strings.HasPrefix(pathToken, "-") {
-		return fmt.Errorf("-reproducer %q begins with a leading '-' on its path token -- a runnable reproducer names a path, never an option", reproducer)
-	}
-	if strings.Contains(reproducer, "://") {
-		return fmt.Errorf("-reproducer %q names a URL -- a runnable reproducer is a bare path inside the worktree, never a network location", reproducer)
-	}
-	for _, tok := range strings.Fields(reproducer) {
-		if strings.HasPrefix(tok, "/") {
-			return fmt.Errorf("-reproducer %q carries an absolute token (%q) -- a runnable reproducer names a path relative to the worktree, on the path token or any argument", reproducer, tok)
-		}
-		if tok == ".." || strings.HasPrefix(tok, "../") || strings.HasSuffix(tok, "/..") || strings.Contains(tok, "/../") {
-			return fmt.Errorf("-reproducer %q carries a '..' path segment (%q) -- a runnable reproducer must stay inside the worktree, on the path token or any argument", reproducer, tok)
-		}
-	}
-	if strings.ContainsAny(reproducer, reproducerMetachars) {
-		return fmt.Errorf("-reproducer %q carries a shell metacharacter -- a runnable reproducer is a bare path optionally followed by plain arguments, never a shell command line", reproducer)
 	}
 	return nil
 }

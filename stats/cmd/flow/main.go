@@ -23,7 +23,7 @@ const usage = `usage: flow <command> [arguments]
 
 commands:
   state get <name>    print the change's current state
-  state set <name>    write the change's whole state, from -file or stdin
+  state set <name>    write the change's whole state, reading it from stdin
   state list          enumerate every change the store holds for this project
   state resolve       print the change-name candidate set: source, complete, candidates, unreadable
   stage begin <name>  record the start of one documented pipeline stage
