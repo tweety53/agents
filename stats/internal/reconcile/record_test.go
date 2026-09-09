@@ -80,7 +80,27 @@ func (nopRecordStore) RetireHazard(context.Context, string, string) (records.Haz
 	return records.Hazard{}, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
+	return records.SuiteRun{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
+
 var _ api.RecordStore = nopRecordStore{}
+
+// fakeRecordStore's own suite-run no-ops: replay never touches them -- a
+// journal entry records a dispatch, a finding, or a verdict, never a timed
+// suite run -- so they answer errRecordStoreNotExercised exactly like the
+// read methods above.
+func (f *fakeRecordStore) InsertSuiteRun(context.Context, string, records.SuiteRun) (records.SuiteRun, error) {
+	return records.SuiteRun{}, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) ListSuiteRuns(context.Context, string, string, int) ([]records.SuiteRun, error) {
+	return nil, errRecordStoreNotExercised
+}
 
 // recordJournalPath mirrors cmd/flow/record.go's own recordJournalPath
 // (the state journal path with ".record" appended) -- reproduced here

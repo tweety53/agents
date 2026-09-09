@@ -290,6 +290,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	sth := &statsHandler{store: sts, logger: logger}
 	rh := &recordHandler{store: rs, logger: logger}
 	hz := &hazardHandler{store: rs, logger: logger}
+	suh := &suiteHandler{store: rs, logger: logger}
 	seth := &settingsHandler{store: sets, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
@@ -314,6 +315,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/hazards/{project}", hz.addHazard)
 	mux.HandleFunc("GET /api/v1/hazards/{project}", hz.listHazards)
 	mux.HandleFunc("PATCH /api/v1/hazards/{project}/{name}", hz.retireHazard)
+	mux.HandleFunc("POST /api/v1/suites/{project}/runs", suh.recordSuiteRun)
+	mux.HandleFunc("GET /api/v1/suites/{project}/runs", suh.listSuiteRuns)
 	mux.HandleFunc("GET /api/v1/settings", seth.get)
 	mux.HandleFunc("PUT /api/v1/settings", seth.put)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {

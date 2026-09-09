@@ -86,6 +86,13 @@ type fakeStore struct {
 	addHazardErr   error
 	listHazardsErr error
 
+	// --- suite-run bookkeeping (KAN-252, internal/api/suites_test.go's
+	// fakeStore methods operate on these) ---
+	suiteRuns         []suiteRunRecord
+	nextSuiteRunID    int64
+	insertSuiteRunErr error
+	listSuiteRunsErr  error
+
 	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
 	// the args ListVerdicts was last called with, so a test can assert the
 	// handler forwarded the query it parsed rather than merely that some
