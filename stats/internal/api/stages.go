@@ -593,6 +593,13 @@ func withTokensUnavailable(metrics json.RawMessage) (json.RawMessage, error) {
 		if err := json.Unmarshal(metrics, &patch); err != nil {
 			return nil, fmt.Errorf("decode metrics patch: %w", err)
 		}
+		// json.Unmarshal into a map pointer sets the map itself to nil when
+		// the source is the JSON literal `null` (len(metrics) > 0 but the
+		// value is still "no object") -- reinitialize rather than assign
+		// into a nil map below.
+		if patch == nil {
+			patch = map[string]json.RawMessage{}
+		}
 	}
 	patch["tokens_available"] = json.RawMessage("false")
 	out, err := json.Marshal(patch)

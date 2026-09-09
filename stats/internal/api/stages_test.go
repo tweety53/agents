@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -821,5 +823,54 @@ func TestUnavailableIsNeverWrittenAsZero(t *testing.T) {
 	}
 	if _, present := metrics["tokens"]; present {
 		t.Errorf("metrics carried a \"tokens\" key for an unavailable harness: %v", metrics["tokens"])
+	}
+}
+
+// TestApplyEndStageMarkSurvivesLiteralNullMetrics is the regression test
+// for a startup panic reconciling an on-disk journal entry whose recorded
+// metrics were the literal JSON `null`: json.Unmarshal into a map
+// pointer sets the map itself to nil for that input, so the unguarded
+// `patch["tokens_available"] = ...` assignment that followed panicked
+// with "assignment to entry in nil map" the moment flowd's journal
+// replay (internal/reconcile) reached such an entry -- reproduced here
+// against ApplyEndStageMark directly, the same call reconcile makes, for
+// every metrics shape that must not panic.
+func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
+	for _, metrics := range [][]byte{nil, []byte("null"), []byte("{}")} {
+		fs := newFakeStore()
+		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+		ctx := context.Background()
+
+		logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+		if _, err := api.ApplyBeginStageMark(ctx, fs, logger, api.BeginStageMark{
+			ProjectKey:   "proj",
+			ChangeName:   "chg",
+			Harness:      "cursor",
+			SessionToken: "mf-session-token-null-metrics",
+			Command:      "/flow",
+			Stage:        "flow.sdd-tdd",
+			StartedAt:    time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
+		}); err != nil {
+			t.Fatalf("ApplyBeginStageMark: %v", err)
+		}
+
+		if _, err := api.ApplyEndStageMark(ctx, fs, api.EndStageMark{
+			ProjectKey: "proj",
+			ChangeName: "chg",
+			Command:    "/flow",
+			Stage:      "flow.sdd-tdd",
+			EndedAt:    time.Date(2026, 8, 13, 10, 5, 0, 0, time.UTC),
+			Outcome:    "completed",
+			Metrics:    json.RawMessage(metrics),
+		}); err != nil {
+			t.Fatalf("ApplyEndStageMark(metrics=%s): %v", metrics, err)
+		}
+
+		if len(fs.stageRuns) != 1 {
+			t.Fatalf("metrics=%s: len(stageRuns) = %d, want 1", metrics, len(fs.stageRuns))
+		}
+		if !bytes.Contains(fs.stageRuns[0].run.Metrics, []byte(`"tokens_available":false`)) {
+			t.Errorf("metrics=%s: stored metrics = %s, want it to carry \"tokens_available\":false", metrics, fs.stageRuns[0].run.Metrics)
+		}
 	}
 }
