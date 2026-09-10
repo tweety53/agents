@@ -100,6 +100,21 @@
 # (and case 1's own fixture) now also carry one correct INDEPENDENT_BLOCK.
 # Case 45 is the label absent entirely from review-panel.md.
 #
+# Cases 46-51 cover KAN-484's NO DELEGATION paragraph, required once each in
+# implement.md (the implementer dispatch) and verify-and-handoff.md (the
+# verifier dispatch), twice in review-panel.md (the panel slot and
+# panel-fix subagent dispatches): new_root now also seeds every sandbox's
+# verify-and-handoff.md with a correct DELEGATION_BLOCK by default, and
+# CLEAN_IMPLEMENT gains one copy, CLEAN_REVIEW_PANEL two, alongside case 1's
+# own fixtures. Case 46 is the label absent entirely from implement.md;
+# cases 47-49 are one case per required phrase, each dropped from one of
+# review-panel.md's two blocks while the other stays correct; case 50 is
+# the label absent from verify-and-handoff.md (overriding new_root's
+# default); case 51 is review-panel.md with exactly one correct block and
+# the second required occurrence entirely missing, pinning the min-blocks
+# threshold from the start rather than after a review finds the gap, as
+# cases 20-21 had to for FOREGROUND BUILDS.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -147,7 +162,7 @@ new_root() {
   DIRS+=("$ROOT")
   mkdir -p "$ROOT/skills/flow"
   printf '%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" > "$ROOT/skills/flow/brainstorm.md"
-  printf '%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
+  printf '%s\n\n%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" "$DELEGATION_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
 }
 
 # run_guard -> sets RC and OUT, running the real guard against $ROOT.
@@ -435,6 +450,35 @@ INDEPENDENT_BLOCK='> **INDEPENDENT PASSES:** each pass starts from `final-review
 > pass raised it — if it sits in this pass'"'"'s angle, raise it again under this pass. Write each
 > pass'"'"'s report file before beginning the next pass.'
 
+# The NO DELEGATION paragraph, reproduced verbatim from design.md, required
+# once each in implement.md and verify-and-handoff.md, twice in
+# review-panel.md (KAN-484).
+DELEGATION_BLOCK='> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor'"'"'s closed list (**Dispatch sites — the
+> conductor'"'"'s closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.'
+
+# Variants of DELEGATION_BLOCK, each with exactly one required phrase
+# dropped while staying a plausible paragraph — cases 47-49.
+DELEGATION_BLOCK_NO_NEVER_CALL_AGENT='> **NO DELEGATION:** Do this work yourself. Do not use the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor'"'"'s closed list (**Dispatch sites — the
+> conductor'"'"'s closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.'
+
+DELEGATION_BLOCK_NO_NEVER_SPAWN='> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and start no subagent,
+> background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor'"'"'s closed list (**Dispatch sites — the
+> conductor'"'"'s closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.'
+
+DELEGATION_BLOCK_NO_LEAF='> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the last agent in this chain, and any child
+> you start is unrecorded and outside the conductor'"'"'s closed list (**Dispatch sites — the
+> conductor'"'"'s closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -451,9 +495,12 @@ write_site() {
 # too (implementer dispatch, the conductor's own §4 instruction), one
 # TARGETED TESTS block (implementer dispatch) and two TOOLS blocks
 # (conductor dispatch, implementer dispatch), plus two MODEL HANDSHAKE
-# blocks each (KAN-472 task 10). new_root already seeded brainstorm.md and
-# verify-and-handoff.md with their own required TOOLS and MODEL HANDSHAKE
-# blocks.
+# blocks each (KAN-472 task 10) and one NO DELEGATION block (implementer
+# dispatch); review-panel.md carries two NO DELEGATION blocks (panel slot,
+# panel-fix dispatch), same as its two TOOLS blocks (KAN-484). new_root
+# already seeded brainstorm.md and verify-and-handoff.md with their own
+# required TOOLS and MODEL HANDSHAKE blocks — verify-and-handoff.md is also
+# seeded with its own required NO DELEGATION block.
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -476,7 +523,11 @@ $HANDSHAKE_BLOCK
 
 $HANDSHAKE_BLOCK
 
-$INDEPENDENT_BLOCK"
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
@@ -493,7 +544,9 @@ $TOOLS_BLOCK
 
 $HANDSHAKE_BLOCK
 
-$HANDSHAKE_BLOCK"
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK"
 run_guard
 [ "$RC" -eq 0 ] && pass "case 1: both sites correct exits 0" \
   || fail "case 1: expected exit 0, got rc=$RC out=$OUT"
@@ -1356,7 +1409,11 @@ $HANDSHAKE_BLOCK
 
 $HANDSHAKE_BLOCK
 
-$INDEPENDENT_BLOCK"
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
 
 CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
@@ -1374,7 +1431,9 @@ $TOOLS_BLOCK
 
 $HANDSHAKE_BLOCK
 
-$HANDSHAKE_BLOCK"
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK"
 
 # ===========================================================================
 # Case 31: the TOOLS label is absent entirely from brainstorm.md (its
@@ -1680,6 +1739,214 @@ run_guard
 case "$OUT" in
   *"review-panel.md"*"INDEPENDENT PASSES"*) pass "case 45: names review-panel.md and the missing INDEPENDENT PASSES block" ;;
   *) fail "case 45: expected review-panel.md and INDEPENDENT PASSES named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 46: the NO DELEGATION label is absent entirely from implement.md
+# (KAN-484) — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 46: exits 1" || fail "case 46: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"implement.md"*"NO DELEGATION"*) pass "case 46: names implement.md and the missing NO DELEGATION block" ;;
+  *) fail "case 46: expected implement.md and NO DELEGATION named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 47: review-panel.md carries one correct NO DELEGATION block plus one
+# variant missing "Never call the `Agent` tool" (KAN-484) — exit 1, names
+# the dropped phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK_NO_NEVER_CALL_AGENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 47: exits 1" || fail "case 47: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*'missing the required phrase: "Never call the `Agent` tool"'*) \
+    pass "case 47: names the dropped phrase" ;;
+  *) fail "case 47: expected the dropped phrase named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 48: review-panel.md carries one correct NO DELEGATION block plus one
+# variant missing "never spawn a subagent" (KAN-484) — exit 1, names the
+# dropped phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK_NO_NEVER_SPAWN"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 48: exits 1" || fail "case 48: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*'missing the required phrase: "never spawn a subagent"'*) \
+    pass "case 48: names the dropped phrase" ;;
+  *) fail "case 48: expected the dropped phrase named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 49: review-panel.md carries one correct NO DELEGATION block plus one
+# variant missing "the leaf of this run" (KAN-484) — exit 1, names the
+# dropped phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK_NO_LEAF"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 49: exits 1" || fail "case 49: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*'missing the required phrase: "the leaf of this run"'*) \
+    pass "case 49: names the dropped phrase" ;;
+  *) fail "case 49: expected the dropped phrase named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 50: the NO DELEGATION label is absent entirely from
+# verify-and-handoff.md (its default seeded by new_root is overridden with
+# only TOOLS and MODEL HANDSHAKE, KAN-484) — exit 1, names the file and the
+# missing block. The other two sites stay clean.
+# ===========================================================================
+new_root
+write_site "skills/flow/verify-and-handoff.md" "$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK"
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 50: exits 1" || fail "case 50: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"verify-and-handoff.md"*"NO DELEGATION"*) pass "case 50: names verify-and-handoff.md and the missing NO DELEGATION block" ;;
+  *) fail "case 50: expected verify-and-handoff.md and NO DELEGATION named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 51: review-panel.md carries exactly ONE correct NO DELEGATION block;
+# the second required occurrence is entirely missing (KAN-484) — exit 1,
+# names review-panel.md and the min-blocks violation at its own threshold
+# (2).
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 51: exits 1" || fail "case 51: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*'requires at least 2 block(s) carrying the label "**NO DELEGATION:**", found 1'*) \
+    pass "case 51: names the min-blocks violation at its own threshold" ;;
+  *) fail "case 51: expected the NO DELEGATION min-blocks violation message, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then

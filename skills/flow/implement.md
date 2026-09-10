@@ -139,6 +139,10 @@ other name — the KAN-449 run's six unrecorded subagents (four rogue panel-fix 
 **The self-check.** Before any Agent-tool call, the conductor names which row above the call is. A
 call that names no row is not made.
 
+**These four rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
+DELEGATION paragraph (section **4** below, `skills/flow/review-panel.md`,
+`skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so nothing exists below these rows.
+
 `Inline — the parent implements` above takes this same table minus the implementer and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle and verifier rows.
 
@@ -535,6 +539,12 @@ under `<key>-retry`; a second is a fallback plus `## Question`.
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
+> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
 
 > **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
 > tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
