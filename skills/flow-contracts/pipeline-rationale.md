@@ -117,31 +117,6 @@ the mark exactly the block it is required not to be.
   itself, so no project can differ. `/myflow-finish` run 1 stages them and commits them separately
   from the implementation, so nothing is lost.
 
-### The tab commands, printed at the start of a run
-
-They sit at the **start** of the run rather than in the block because labelling a tab is
-useful before a long run rather than after it; the rules govern what a command prints when it
-*ends*, and these lines are not part of a handoff. The colour is one fixed value for every command
-and every change — `cyan`, chosen over `red`, `yellow` and `orange` because those already read as
-error and warning states in this pipeline's output — and it signifies only that a pipeline command
-owns the tab. `/flow-status` prints neither line: a read-only report does not
-own the tab.
-
-**Both of those facts are Claude Code's, and the rule is stated against the mechanism rather than
-against them** — for the reason **Progress visibility** (`pipeline.md`) gives, which answers
-the identical question for the task list. What every harness can do is
-**print two lines of text**, which is why printing is the rule and the measurement is only the
-reason invoking is not. So:
-
-Both commands are real, and both routes to calling them are closed. That was established by measurement,
-and it is recorded here so the next reader neither repeats the investigation nor treats the printing
-as an oversight to correct:
-
-- the harness's `SlashCommand` tool exposes only commands of `type: "prompt"`, while `/rename` and
-  `/color` are `type: "local"` or `"local-jsx"` — so the tool route is closed; and
-- no writable `/dev/tty` is available to a command — so writing the terminal escape sequence
-  directly is closed too.
-
 ## Artifact brevity
 
 Stated here rather than in each artifact-writing skill because this file is the one every

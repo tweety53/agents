@@ -14,15 +14,6 @@ duplicates that file's own content.
 
 **Announce at start:** "Using flow for change `<name>`."
 
-Immediately after that line, print these two commands for the operator to paste, per **Handoff
-output** (`skills/flow-contracts/pipeline.md`) — that section fixes the colour and records why
-they are printed rather than invoked:
-
-```text
-/rename <change-name>
-/color cyan
-```
-
 **Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
 handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
