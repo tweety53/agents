@@ -2,8 +2,11 @@ package harvest_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -1654,5 +1657,79 @@ func TestAttributionCanonicalizesModelBucketKeys(t *testing.T) {
 	}
 	if d.Total.Main.Input != 15 || d.Total.Main.Output != 2 {
 		t.Errorf("total main = input %v output %v, want input 15 output 2 (canonicalization must not drop usage)", d.Total.Main.Input, d.Total.Main.Output)
+	}
+}
+
+// fakeAgentWindowSource answers DispatchWindowsForAgent from a fixed map,
+// the agent-keyed counterpart of fakeDispatchWindowSource above.
+type fakeAgentWindowSource struct {
+	byAgent map[string][]harvest.DispatchWindow
+}
+
+func (f *fakeAgentWindowSource) DispatchWindowsForAgent(_ context.Context, agentID string) ([]harvest.DispatchWindow, error) {
+	return f.byAgent[agentID], nil
+}
+
+// agentFileDeps satisfies harvest.Deps for the agent-file routing test:
+// agent-keyed windows from src, merges into sink, everything else
+// harvest.NoDeps' no-op (KAN-173's embed-and-override pattern).
+type agentFileDeps struct {
+	harvest.NoDeps
+	src  harvest.AgentWindowSource
+	sink harvest.DispatchMetricsSink
+}
+
+func (d agentFileDeps) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]harvest.DispatchWindow, error) {
+	return d.src.DispatchWindowsForAgent(ctx, agentID)
+}
+
+func (d agentFileDeps) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch json.RawMessage) error {
+	return d.sink.MergeDispatchMetrics(ctx, dispatchID, patch)
+}
+
+// TestAttributeDispatchesRoutesAgentFileBatchesDirectly is kan-357's
+// routing test: a batch read from a per-agent transcript
+// (.../subagents/agent-<id>.jsonl) must credit the dispatch rows its
+// file's agentId resolves to, directly, and never enter the window
+// inference — the inference is what stamps a resumed agent's rows
+// unattributed (the measured kan-377 failure). The deps here carry no
+// session-keyed dispatch windows at all, so a batch that took the
+// inference path could not merge anything: a merge on row 7 is proof the
+// agent-file route ran.
+func TestAttributeDispatchesRoutesAgentFileBatchesDirectly(t *testing.T) {
+	dir := t.TempDir()
+
+	agentWindows := &fakeAgentWindowSource{byAgent: map[string][]harvest.DispatchWindow{
+		"agent-one": {harvest.DispatchWindow{
+			DispatchID: 7,
+			AgentID:    "agent-one",
+			StartedAt:  mustParse(t, "2026-01-01T00:00:00Z"),
+		}},
+	}}
+	dispatchSink := &fakeDispatchMetricsSink{}
+
+	// The transcript sits at <session>/subagents/agent-agent-one.jsonl —
+	// the path shape discoverTranscripts already walks and the routing
+	// under test keys on. The sessionId inside is the parent's, as a real
+	// agent file's lines carry it.
+	sub := filepath.Join(dir, "sess-x", "subagents")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir subagents: %v", err)
+	}
+	line := fmt.Sprintf(`{"type":"assistant","timestamp":"2026-01-01T00:05:00Z","sessionId":"sess-parent","isSidechain":true,"agentId":"agent-one","message":{"model":"claude-opus-5","usage":{"input_tokens":9,"output_tokens":2}}}` + "\n")
+	if err := os.WriteFile(filepath.Join(sub, "agent-agent-one.jsonl"), []byte(line), 0o644); err != nil {
+		t.Fatalf("write agent transcript: %v", err)
+	}
+
+	stageWindows := &fakeWindowSource{bySession: map[string][]harvest.Window{}}
+	sink := newFakeHarvestSink()
+	w := harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(dir)}, sink, harvest.NewAttributor(stageWindows), agentFileDeps{src: agentWindows, sink: dispatchSink}, nil)
+
+	if _, err := w.RunOnce(context.Background()); err != nil {
+		t.Fatalf("RunOnce: %v", err)
+	}
+
+	if len(dispatchSink.merged) != 1 || dispatchSink.merged[7] != 1 {
+		t.Fatalf("merged = %v, want exactly one merge on row 7 — the file's own agentId resolution", dispatchSink.merged)
 	}
 }

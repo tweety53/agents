@@ -811,6 +811,18 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 // branch on the way WithDispatchAttribution's absence used to skip this
 // entirely.
 //
+// A batch read from a per-agent transcript (path under a subagents/
+// directory, IsAgentTranscriptPath) never reaches the inference pass at
+// all: that file IS one agent's usage, so attributeAgentFile credits the
+// dispatch rows the file's own agentId resolves to, directly
+// (attributeAgentFileRecords). Routing by source is what kan-357 exists
+// to do -- the inference pass is what stamped every resumed agent's rows
+// unattributed, because its identity pass matches several rows carrying
+// the same agentId and its interval pass refuses to guess between them.
+// Only batches from top-level session transcripts -- embedded sidechains,
+// the shape Cursor and Codex and pre-agent-file Claude transcripts
+// produce -- still go through DispatchAttributor.
+//
 // Every failure is logged and stepped over, never returned: the first
 // pass has already committed this batch atomically by the time this runs,
 // and there is nothing left for a failure here to protect. Its cost is
@@ -837,6 +849,11 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 // is always written -- the "nowhere to write it" case this comment used
 // to describe no longer exists.
 func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
+	if IsAgentTranscriptPath(path) {
+		w.attributeAgentFile(ctx, records, path)
+		return
+	}
+
 	deltas, ambiguous, err := w.dispatchAttributor.Attribute(ctx, records)
 	if err != nil {
 		w.warn("harvest: attribute dispatch windows failed, this batch's dispatch figures are lost", "path", path, "error", err)
@@ -909,6 +926,43 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 // offset to move -- this call has no new bytes to account for, only
 // descriptors for tokens a past batch already committed.
 //
+// attributeAgentFile credits one agent-file batch's records to the
+// dispatch rows its file's own agentId resolves to -- kan-357's direct
+// path, routed here by attributeDispatches for every batch
+// IsAgentTranscriptPath names. The windows come from deps'
+// DispatchWindowsForAgent, ordered by (started_at, id), and the per-row
+// sums merge through MergeDispatchMetrics exactly as the inference
+// path's do: additive batch deltas, keyed by the dispatch row's own id.
+//
+// A file whose agentId matches no dispatch row credits nothing and says
+// nothing -- an agent the dispatch protocol never recorded (a fork's
+// subagents, today) has no row to touch, and the stage grain already
+// counts its tokens. The failure posture is attributeDispatches' own:
+// log, step over, never return -- the stage pass has already committed
+// this batch by the time anything here can fail.
+func (w *Watcher) attributeAgentFile(ctx context.Context, records []Record, path string) {
+	agentID, ok := AgentIDFromTranscriptPath(path)
+	if !ok {
+		return
+	}
+	windows, err := w.deps.DispatchWindowsForAgent(ctx, agentID)
+	if err != nil {
+		w.warn("harvest: dispatch windows for agent failed, this batch's dispatch figures are lost", "path", path, "agent_id", agentID, "error", err)
+		return
+	}
+
+	for dispatchID, tokens := range attributeAgentFileRecords(windows, records) {
+		patch, err := json.Marshal(MetricsPatch{Tokens: tokens})
+		if err != nil {
+			w.warn("harvest: encode dispatch metrics failed", "path", path, "dispatch_id", dispatchID, "error", err)
+			continue
+		}
+		if err := w.deps.MergeDispatchMetrics(ctx, dispatchID, patch); err != nil {
+			w.warn("harvest: merge dispatch metrics failed, this batch's figures for it are lost", "path", path, "dispatch_id", dispatchID, "error", err)
+		}
+	}
+}
+
 // Still no sidecar (hasMeta false), a failure encoding or committing the
 // patch, or losing the concurrency race all leave path's entry in
 // w.pendingDispatchMeta untouched, so a later cycle gets another chance

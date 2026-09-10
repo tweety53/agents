@@ -22,6 +22,22 @@ type Deps interface {
 	SessionTokenBinder
 	DispatchMetricsSink
 	DispatchWindowSource
+	AgentWindowSource
+}
+
+// AgentWindowSource answers which dispatch rows carry an agentId -- the
+// agent-file attribution pass's source (attributeAgentFileRecords). One
+// resumed agent shares its agentId across several dispatch rows, and the
+// split that separates their usage reads the rows back ordered by
+// (started_at, id); the store query carrying that contract is
+// store.Store.DispatchWindowsForAgent (internal/store/records.go).
+//
+// Returned directly as harvest.DispatchWindow for the same reason
+// DispatchWindowSource's answer is: *store.Store then satisfies this
+// interface with no adapter, and internal/harvest keeps importing nothing
+// from internal/store.
+type AgentWindowSource interface {
+	DispatchWindowsForAgent(ctx context.Context, agentID string) ([]DispatchWindow, error)
 }
 
 // NoDeps satisfies Deps with a no-op for every method: zero values,
@@ -75,5 +91,10 @@ func (NoDeps) MergeDispatchMetrics(ctx context.Context, dispatchID int64, patch 
 
 // DispatchWindowsForSession always reports no dispatch windows.
 func (NoDeps) DispatchWindowsForSession(ctx context.Context, sessionID string) ([]DispatchWindow, error) {
+	return nil, nil
+}
+
+// DispatchWindowsForAgent always reports no dispatch windows.
+func (NoDeps) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]DispatchWindow, error) {
 	return nil, nil
 }

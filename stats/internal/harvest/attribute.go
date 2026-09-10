@@ -894,3 +894,52 @@ func bestDispatchWindow(windows []DispatchWindow, agentID string, ts time.Time) 
 		return DispatchWindow{}, false, byInterval
 	}
 }
+
+// attributeAgentFileRecords sums one agent-file batch's sidechain records
+// onto the dispatch windows its file's agentId resolves to, returning one
+// TokenDelta per touched window keyed by the dispatch row's id -- the
+// same shape DispatchAttributor.Attribute returns, so the watcher merges
+// it through MergeDispatchMetrics unchanged.
+//
+// This is kan-357's "record each dispatch's own usage at the source": an
+// agent transcript (subagents/agent-<id>.jsonl) IS one agent's usage, so
+// the only question left is which of that agent's own dispatch rows a
+// record belongs to -- a question that exists only because one resumed
+// agent shares its agentId across several rows, and one that no
+// cross-agent inference can ever answer wrong here. Windows must be
+// ordered by (started_at, id) -- AgentWindowSource's own contract. A
+// record joins the latest window whose StartedAt is at or before the
+// record's timestamp; before the first window's start it floors to the
+// first row, so a hand-typed start that postdates the agent's first real
+// output still credits the agent's own row rather than dropping the spend
+// (design.md, resumed-split-by-started-at). Non-sidechain records
+// contribute nothing, matching DispatchAttributor's own filter: an agent
+// file's spend is sidechain spend, and the Sidechain bucket alone is what
+// a dispatch's metrics bag carries.
+//
+// With no windows there is nothing to credit and the result is empty --
+// an agent the dispatch protocol never recorded is the same silence
+// Attribute applies to a record matching no window.
+func attributeAgentFileRecords(windows []DispatchWindow, records []Record) map[int64]TokenDelta {
+	deltas := make(map[int64]TokenDelta)
+	if len(windows) == 0 || len(records) == 0 {
+		return deltas
+	}
+
+	for _, r := range records {
+		if !r.IsSidechain {
+			continue
+		}
+		row := windows[0]
+		for _, w := range windows {
+			if !w.StartedAt.After(r.Timestamp) {
+				row = w
+			}
+		}
+		d := deltas[row.DispatchID]
+		d.Sidechain.add(r.Usage)
+		deltas[row.DispatchID] = d
+	}
+
+	return deltas
+}
