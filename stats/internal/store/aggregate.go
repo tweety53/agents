@@ -752,7 +752,7 @@ func (s *Store) Decisions(ctx context.Context, period Period, project *string) (
 		)
 		SELECT
 			sd.project_key, sd.change_name, sd.recorded_at,
-			sd.decision->>'class',
+			COALESCE(sd.decision->>'class', ''),
 			(sd.decision->>'override') IS NOT NULL,
 			sd.decision->>'execution',
 			CASE WHEN jsonb_typeof(sd.decision->'implementer') = 'string'
