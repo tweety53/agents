@@ -902,7 +902,19 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > contract requires, and the task commit each fixup folded into. The dispatcher waits
 > on that file's presence.
 
-Give the surviving findings to **one** fix subagent as the combined list. Inline
+Give the surviving findings to **one** fix subagent as the combined list — the whole fix-dispatch
+contract, stated in full because a conductor once read the single sentence and dispatched four
+background fix subagents, one per reviewer (KAN-482): exactly **one** panel-fix dispatch per fix
+round, carrying the combined list of every surviving open finding. Never one dispatch per
+reviewer, per slot, or per finding — that split fragments one diff into competing fixups against
+the same worktree. The dispatch is awaited in the foreground before the round's reproducer re-runs
+begin, and no fix subagent is left in flight when the turn ends. Every panel-fix `-key` is exactly
+`panel-fix-<round>`; the handshake retry's `panel-fix-<round>-retry` is the only second key a
+round may carry, and any other key shape is a violation whatever the dispatch count. Before
+recording the `dispatch begin`, confirm this round has no panel-fix begin already recorded — a
+second begin under a fresh key is over-dispatching even when every key is well-formed.
+`check-panel-fix-single-dispatch.sh` holds every run's panel close to exactly this shape
+(**Before closing the stage**, below). Inline
 (`skills/flow/implement.md`'s **Inline — the parent implements**), the parent applies the fix
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
 panel-fix -agent-id inline`. Where a finding is
@@ -946,6 +958,24 @@ check-panel-findings-closed.sh <worktree> <change>
 
 Exit 0 proceeds to the stage close below. Exit 1 means a finding still reads `open` in the store —
 return to the handback loop above for it. Exit 2 stops the run.
+
+Beside it, run
+
+```bash
+check-panel-fix-single-dispatch.sh <worktree> <change> <session-token>
+```
+
+— the token this run stamped on its own dispatches. Exit 0 proceeds to the stage close below.
+Exit 1 names every round whose panel-fix dispatch count or key shape breaks the fix-dispatch
+contract above, and is a handback `## Question`:
+
+> **The fix round(s) recorded more than one panel-fix dispatch or a key outside the canonical
+> shape:** <the guard's violation lines>
+> - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
+>   the findings may already be verified closed, and the round's work is real
+> - **Stop the run**
+
+Exit 2 stops the run — a close the guard cannot answer for is not a clean close.
 
 ```bash
 flow stage end -command '/flow' -stage flow.review-panel -outcome completed <name>

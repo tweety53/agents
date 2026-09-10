@@ -51,7 +51,12 @@ in that range itself with the token it was given.
 no task-list tool. It ends a turn only with one of three blocks, and never with a child subagent
 still in flight — it waits for every implementer, reviewer, slot and fix subagent it launched
 first. A turn that ends with a child running idles this role and the parent until the child
-finishes, and both re-price their whole context on resume.
+finishes, and both re-price their whole context on resume. The prompt also carries the
+fix-dispatch constraint the panel stage binds the conductor to: the review panel's fix step is
+**one** panel-fix dispatch per round, carrying the combined list of every surviving finding —
+never one dispatch per reviewer, slot or finding, the drift KAN-482 recorded — awaited in the
+foreground like every other child, on the canonical `panel-fix-<round>` key
+(`check-panel-fix-single-dispatch.sh` holds every run's panel close to that shape).
 
 - `## Question` — the question plus named options; the parent asks it verbatim through
   **AskUserQuestion** and resumes the conductor via **SendMessage** with the answer. Every operator
