@@ -345,8 +345,21 @@ Jira tickets. This key ratifies that and ends the series; set `run` to bring it 
 
 ## toggles
 
-No `## execution mode`, `## implementer model` or `## review panel` toggle is declared for this
-repository in this change — all three resolve as `default`.
+All three toggles below are declared `dynamic` for this repository: execution mode, implementer
+model and the review panel roster are each handed to the plan's class (and, for the panel, its
+rolls) rather than running as this run would without the toggle.
+
+## execution mode
+
+`dynamic`
+
+## implementer model
+
+`dynamic`
+
+## review panel
+
+`dynamic`
 
 ## workspace isolation
 
