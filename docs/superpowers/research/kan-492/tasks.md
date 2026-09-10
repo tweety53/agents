@@ -5,7 +5,7 @@
 > **Relocation:** yes — the three panel dispatch paragraphs and the `final-review.diff` step move
 > out of `skills/flow/review-panel.md` into a new `skills/flow/panel-dispatch.md`
 
-Nine tasks, dependency order. `docs/superpowers/research/flow-fast-speedup.md` (section 2,
+Nine tasks, dependency order. `docs/superpowers/research/kan-492.md` (section 2,
 **Decisions**, and section 3, **Implementation touchpoints**) is canonical for every decision a
 task implements until `/flow` folds it into this change's `design.md`; a task names the decision
 it implements and what the edit must say, never a second copy of it. Task 2 is the one edit to a
@@ -44,24 +44,24 @@ placeholders are unchanged, and `check-stage-mark-calls.sh` still reads each cal
 
 - [ ] 1. Delete the adopted staging note and its plan directory
 
-`docs/superpowers/research/flow-fast-speedup.md` seeded this change's brainstorm; its plan and
-decision (`docs/superpowers/research/flow-fast-speedup/`) are now this change's own `tasks.md` and
+`docs/superpowers/research/kan-492.md` seeded this change's brainstorm; its plan and
+decision (`docs/superpowers/research/kan-492/`) are now this change's own `tasks.md` and
 decision record — delete all of it.
 
-  - [ ] **Step 1: Delete** `docs/superpowers/research/flow-fast-speedup.md` and the directory
-    `docs/superpowers/research/flow-fast-speedup/`.
+  - [ ] **Step 1: Delete** `docs/superpowers/research/kan-492.md` and the directory
+    `docs/superpowers/research/kan-492/`.
   - [ ] **Step 2: Verify** — `scripts/check-vocabulary.sh` and `scripts/check-references.sh` from the
     worktree root; both exit 0.
 
-**Files:** `docs/superpowers/research/flow-fast-speedup.md`,
-`docs/superpowers/research/flow-fast-speedup/tasks.md`,
-`docs/superpowers/research/flow-fast-speedup/decision.json`
+**Files:** `docs/superpowers/research/kan-492.md`,
+`docs/superpowers/research/kan-492/tasks.md`,
+`docs/superpowers/research/kan-492/decision.json`
 **Tests:** none — deletion of an adopted staging note; the verify step's guard scripts are the check
 **Regression:** reverting this commit leaves a stale note and plan in the research tree after their
 content has landed in this change's own artifacts, which the "delete once adopted" rule
 (`skills/flow/brainstorm-planner.md` section B) exists to prevent.
 **Baseline:** before=0 after=0 — no test file changes
-**Commit:** `docs(flow-research): delete the adopted flow-fast-speedup staging note`
+**Commit:** `docs(flow-research): delete the adopted kan-492 staging note`
 **Build:** green
 
 - [ ] 2. `skills/flow/panel-dispatch.md` — the shared dispatch file
