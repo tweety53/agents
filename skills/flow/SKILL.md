@@ -77,13 +77,20 @@ if [ -n "$PROJECT_PM" ]; then
 fi
 [ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
 resolve_toggle() {
-  local key="$1" val
+  local key="$1" val root rval
   val="$(project-get.sh "$MAIN_CHECKOUT" "$key" 2>/dev/null | tr -d '`' | xargs)"
   if [ -n "$val" ] && [ "$val" != default ] && [ "$val" != dynamic ]; then
     echo "⚠ flow: .flow/project.md '## $key' body '$val' is not 'default' or 'dynamic' — dropped" >&2
     val=""
   fi
   [ -z "$val" ] && val=default
+  if [ "$val" = default ] && [ -n "${STATE_WORKTREE_ROOTS:-}" ]; then
+    for root in $STATE_WORKTREE_ROOTS; do
+      [ "$root" = "$MAIN_CHECKOUT" ] && continue
+      rval="$(project-get.sh "$root" "$key" 2>/dev/null | tr -d '`' | xargs)"
+      if [ "$rval" = dynamic ]; then val=dynamic; break; fi
+    done
+  fi
   printf '%s' "$val"
 }
 EXECUTION_MODE_TOGGLE="$(resolve_toggle 'execution mode')"
@@ -91,6 +98,23 @@ IMPLEMENTER_MODEL_TOGGLE="$(resolve_toggle 'implementer model')"
 REVIEW_PANEL_TOGGLE="$(resolve_toggle 'review panel')"
 VERIFY_MODEL=sonnet
 ```
+
+**`STATE_WORKTREE_ROOTS` is the cross-repo fix (KAN-486).** Set it — space-separated absolute
+paths, or unset/empty when there is none — from the state record's `worktrees` map keys, once
+this run has read that record (**Reading the state**, below): non-empty on a resumed `STARTED`
+run, a fix run, or a bare `IN_PROGRESS` run, since each already has a prior run's completed
+`worktrees` map to read; empty on a **creating** run, whose worktree set does not exist until
+`flow.isolate-workspace` creates it, well after this block runs — nothing beyond `MAIN_CHECKOUT`
+is knowable that early, which is a timing fact, not a bug to chase further. When set, a toggle
+that reads `default` from `MAIN_CHECKOUT` is re-checked against every other root in the set, and
+**any** of them declaring `dynamic` wins — a satellite repo's own opt-in is honored even though
+the shell started in a different repo of the same change. This is deliberately narrower than
+"every repository this project could ever touch": it widens resolution only to repositories
+**this specific change already knows it spans** (the state record's own `worktrees`), never to
+every peer `<project>/spectre/peers` declares — that file lists every repository a project
+*could* cross into (`agents` among them, for a project like `gymie` that opts into shared
+standards), most of which a given change never touches, so unioning over it would flip
+`dynamic` on for changes that have nothing to do with those repositories.
 
 A non-zero exit from `flow settings get` means the settings store could not be reached — there is
 no per-change fallback file for this record. Report the CLI's stderr and fall back to the literal
@@ -144,6 +168,11 @@ keys** — each `default` or `dynamic`; `default` runs execution, the implemente
 exactly as this run would without the toggle, `dynamic` hands the corresponding decision to the
 plan's class (and, for the panel, its rolls) — see design.md's **Toggles** section for what each
 value means in full. A plain-language session instruction overrides a *result*, never a toggle.
+**On a change already known to span more than one repository** (a resumed, fix, or bare
+`IN_PROGRESS` run — see `STATE_WORKTREE_ROOTS` above), a key resolves `dynamic` if **any** of
+those repositories declares it, never `MAIN_CHECKOUT` alone: a cross-repo change started from the
+"wrong" repo of the pair no longer silently drops the other repo's opt-in (KAN-486; KAN-30's fix
+round 3 hit exactly this before the fix).
 
 **`DEFAULT_MODEL` is the model for all three roles this run dispatches on** — the implementer
 (`skills/flow/implement.md`), every panel slot, Bugbot and Security included (all seven are
