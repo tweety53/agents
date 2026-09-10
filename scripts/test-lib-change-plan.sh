@@ -70,6 +70,18 @@ assert_nonzero_rc() {
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+# The store step (KAN-267) must never reach the real flow CLI from this
+# harness: a store answer is an external dependency no unit case may have.
+# This default stub fails like an unreachable store, so every pre-existing
+# case sees the store step as inert exactly as before it existed; the store
+# cases below prepend their own answering stub ahead of it, per invocation.
+DEFAULT_BIN="$WORK/default-bin"
+mkdir -p "$DEFAULT_BIN"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$DEFAULT_BIN/flow"
+chmod +x "$DEFAULT_BIN/flow"
+PATH="$DEFAULT_BIN:$PATH"
+export PATH
+
 # make_change_dir <worktree> <name> — a bare spectre/changes/<name>/ dir.
 make_tree() {
   mkdir -p "$1/spectre/changes"
@@ -660,6 +672,183 @@ set -e
 assert_zero_rc "case 11d: the separate-git-dir primary itself resolves the real peer" "$RC"
 assert_eq "case 11d: it prints the real peer tree" \
   "$PEER11D/spectre/changes/canon-change/tasks.md" "$OUT"
+
+# ---------------------------------------------------------------------------
+# Cases 11-15 (KAN-267): the store step — the last resort that resolves a
+# plan through the state record's worktrees map when nothing file-based
+# resolved. The stub below answers `flow state find` from FLOW_FIND_FIXTURE,
+# logs every invocation into FLOW_FIND_CALLS, and — with
+# FLOW_FIND_UNAVAILABLE=1 — reproduces an unreachable store on stderr, so
+# the availability case is pinned against real noise too.
+# ---------------------------------------------------------------------------
+STORE_BIN="$WORK/store-bin"
+mkdir -p "$STORE_BIN"
+cat > "$STORE_BIN/flow" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FLOW_FIND_CALLS:?}"
+if [ "${FLOW_FIND_UNAVAILABLE:-}" = "1" ]; then
+  echo "flow: store unreachable" >&2
+  exit 1
+fi
+if [ "${FLOW_FIND_FIXTURE:-}" != "" ] && [ -f "$FLOW_FIND_FIXTURE" ]; then
+  cat "$FLOW_FIND_FIXTURE"
+  exit 0
+fi
+exit 1
+STUB
+chmod +x "$STORE_BIN/flow"
+
+# Case 11: store-resolves-absent-dir — no change directory in the handed
+# worktree at all, no canonical argument, and a store record whose
+# worktrees map names the tree that carries the plan. The record lists BOTH
+# trees, as a real two-repo record would; only the one holding tasks.md
+# resolves.
+CASE11="$WORK/case11-no-dir"
+CANON11="$WORK/case11-canonical"
+make_tree "$CASE11"
+make_tree "$CANON11"
+mkdir -p "$CANON11/spectre/changes/x-repo-plan"
+printf '# via the store\n\n- [ ] 1. do a thing\n' > "$CANON11/spectre/changes/x-repo-plan/tasks.md"
+export FLOW_FIND_CALLS="$WORK/case11.calls"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[{\"projectKey\":\"proj-a\",\"name\":\"x-repo-plan\",\"state\":\"IN_PROGRESS\",\"worktrees\":{\"$CASE11\":null,\"$CANON11\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"updatedAt\":\"2026-09-10T10:00:00Z\",\"updatedBy\":\"/flow-fast\"}]}" > "$WORK/case11.json"
+export FLOW_FIND_FIXTURE="$WORK/case11.json"
+
+set +e
+OUT="$(PATH="$STORE_BIN:$PATH" change_plan_dir "$CASE11" "x-repo-plan")"
+RC=$?
+set -e
+assert_zero_rc "store-resolves-absent-dir: the record's worktrees map resolves the plan's directory" "$RC"
+assert_eq "store-resolves-absent-dir: it prints the canonical tree's own change directory" \
+  "$CANON11/spectre/changes/x-repo-plan" "$OUT"
+if [ -f "$FLOW_FIND_CALLS" ] && grep -q "state find x-repo-plan" "$FLOW_FIND_CALLS"; then
+  pass "store-resolves-absent-dir: the store was asked for the change's own name"
+else
+  fail "store-resolves-absent-dir: no store lookup for the plain name was made"
+fi
+
+# Case 12: store-resolves-satellite-without-peers — a satellite whose link
+# names a peer that spectre/peers does not declare, so the peers branch
+# cannot reach; the store record under the canonical id's name does.
+CASE12="$WORK/case12-satellite"
+CANON12="$WORK/case12-canonical"
+make_tree "$CASE12"
+make_tree "$CANON12"
+mkdir -p "$CASE12/spectre/changes/sat-change"
+cat > "$CASE12/spectre/changes/sat-change/link.md" <<'EOF'
+## Part of
+
+`storepeer:canon-plan`
+EOF
+mkdir -p "$CANON12/spectre/changes/canon-plan"
+printf '# canonical via the store\n\n- [x] 1. done\n' > "$CANON12/spectre/changes/canon-plan/tasks.md"
+export FLOW_FIND_CALLS="$WORK/case12.calls"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[{\"projectKey\":\"proj-a\",\"name\":\"canon-plan\",\"worktrees\":{\"$CANON12\":\"cccccccccccccccccccccccccccccccccccccccc\"}}]}" > "$WORK/case12.json"
+export FLOW_FIND_FIXTURE="$WORK/case12.json"
+
+set +e
+OUT="$(PATH="$STORE_BIN:$PATH" change_plan_path "$CASE12" "sat-change")"
+RC=$?
+set -e
+assert_zero_rc "store-resolves-satellite-without-peers: the record under the link's canonical id resolves" "$RC"
+assert_eq "store-resolves-satellite-without-peers: it prints the canonical tree's tasks.md" \
+  "$CANON12/spectre/changes/canon-plan/tasks.md" "$OUT"
+if [ -f "$FLOW_FIND_CALLS" ] && grep -q "state find canon-plan" "$FLOW_FIND_CALLS"; then
+  pass "store-resolves-satellite-without-peers: the store was asked under the link's canonical id"
+else
+  fail "store-resolves-satellite-without-peers: no store lookup for the canonical id was made"
+fi
+
+# Case 13: store-ambiguity-refuses — two projects each hold a record for
+# the name and both maps resolve. A guard that guessed between them would
+# produce exactly the silent clearance the library refuses to produce, so
+# this is a loud refusal naming every project and path, with no stdout.
+CASE13="$WORK/case13-no-dir"
+make_tree "$CASE13"
+TREE13A="$WORK/case13-tree-a"
+TREE13B="$WORK/case13-tree-b"
+make_tree "$TREE13A"
+make_tree "$TREE13B"
+mkdir -p "$TREE13A/spectre/changes/ambig-plan" "$TREE13B/spectre/changes/ambig-plan"
+printf '# ambiguous a\n' > "$TREE13A/spectre/changes/ambig-plan/tasks.md"
+printf '# ambiguous b\n' > "$TREE13B/spectre/changes/ambig-plan/tasks.md"
+export FLOW_FIND_CALLS="$WORK/case13.calls"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[" \
+  "{\"projectKey\":\"proj-a\",\"name\":\"ambig-plan\",\"worktrees\":{\"$TREE13A\":\"dddddddddddddddddddddddddddddddddddddddd\"}}," \
+  "{\"projectKey\":\"proj-b\",\"name\":\"ambig-plan\",\"worktrees\":{\"$TREE13B\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}}]}" > "$WORK/case13.json"
+export FLOW_FIND_FIXTURE="$WORK/case13.json"
+ERR13="$WORK/case13.stderr"
+
+set +e
+OUT="$(PATH="$STORE_BIN:$PATH" change_plan_dir "$CASE13" "ambig-plan" 2>"$ERR13")"
+RC=$?
+set -e
+assert_nonzero_rc "store-ambiguity-refuses: two resolving projects refuse" "$RC"
+assert_eq "store-ambiguity-refuses: it prints nothing to stdout" "" "$OUT"
+if grep -q "proj-a" "$ERR13" && grep -q "proj-b" "$ERR13" \
+  && grep -q "$TREE13A" "$ERR13" && grep -q "$TREE13B" "$ERR13"; then
+  pass "store-ambiguity-refuses: the refusal names every project and path"
+else
+  fail "store-ambiguity-refuses: the refusal does not name both matches: $(cat "$ERR13")"
+fi
+
+# Case 14: store-skipped-when-canonical-arg — a caller that supplied a
+# canonical worktree already resolved the set itself, and a wrong answer
+# from it is a fact worth failing loudly on, not a cue to consult the
+# store behind its back. The fixture WOULD answer here, and peers WOULD
+# resolve; the contract is that neither happens.
+CASE14="$WORK/case14-satellite"
+CANON14="$WORK/case14-canonical-empty"
+PEER14="$WORK/case14-peer"
+make_tree "$CASE14"
+make_tree "$CANON14"
+make_tree "$PEER14"
+mkdir -p "$CASE14/spectre/changes/sat-change"
+cat > "$CASE14/spectre/changes/sat-change/link.md" <<'EOF'
+## Part of
+
+`skippeer:canon-change`
+EOF
+printf 'skippeer ../case14-peer\n' > "$CASE14/spectre/peers"
+mkdir -p "$PEER14/spectre/changes/canon-change"
+printf '# peers would resolve this\n' > "$PEER14/spectre/changes/canon-change/tasks.md"
+export FLOW_FIND_CALLS="$WORK/case14.calls"
+: > "$FLOW_FIND_CALLS"
+export FLOW_FIND_FIXTURE="$WORK/case14.json"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[{\"projectKey\":\"proj-a\",\"name\":\"canon-change\",\"worktrees\":{\"$PEER14\":\"ffffffffffffffffffffffffffffffffffffffff\"}}]}" > "$FLOW_FIND_FIXTURE"
+
+set +e
+OUT="$(PATH="$STORE_BIN:$PATH" change_plan_path "$CASE14" "sat-change" "$CANON14" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "store-skipped-when-canonical-arg: a supplied canonical worktree never falls back to the store" "$RC"
+assert_eq "store-skipped-when-canonical-arg: it prints nothing to stdout" "" "$OUT"
+if [ -s "$FLOW_FIND_CALLS" ]; then
+  fail "store-skipped-when-canonical-arg: the store was consulted behind a supplied canonical worktree: $(cat "$FLOW_FIND_CALLS")"
+else
+  pass "store-skipped-when-canonical-arg: the store was never consulted"
+fi
+
+# Case 15: store-unavailable-stays-unresolvable — an unreachable store is
+# the step being simply unresolvable: no verdict flips, no new stderr noise
+# of its own, and the caller keeps exactly its pre-change refusal.
+CASE15="$WORK/case15-no-dir"
+make_tree "$CASE15"
+export FLOW_FIND_CALLS="$WORK/case15.calls"
+export FLOW_FIND_UNAVAILABLE=1
+unset FLOW_FIND_FIXTURE
+ERR15="$WORK/case15.stderr"
+
+set +e
+OUT="$(PATH="$STORE_BIN:$PATH" change_plan_path "$CASE15" "lonely-plan" 2>"$ERR15")"
+RC=$?
+set -e
+assert_nonzero_rc "store-unavailable-stays-unresolvable: an unreachable store cannot resolve" "$RC"
+assert_eq "store-unavailable-stays-unresolvable: it prints nothing to stdout" "" "$OUT"
+if [ -s "$ERR15" ]; then
+  fail "store-unavailable-stays-unresolvable: the step added stderr noise of its own: $(cat "$ERR15")"
+else
+  pass "store-unavailable-stays-unresolvable: no stderr noise beyond the caller's own failure modes"
+fi
 
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then

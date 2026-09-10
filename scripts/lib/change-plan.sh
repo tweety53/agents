@@ -42,7 +42,16 @@
 #          a finding (design.md's `peer-absence-is-not-a-finding`) and,
 #          here, not a refusal either — it is simply unresolvable, and the
 #          caller decides what that means.
-#   4. None of the above → unresolvable.
+#   4. None of the above, and no canonical worktree argument was passed →
+#      the store step (KAN-267): `flow state find` for the change's own
+#      name, or for the link's canonical id when the change is a
+#      satellite, and walk each matching record's `worktrees` map — the
+#      one place that names every tree a cross-repo change affects, which
+#      is what lets a guard resolve the plan from the satellite side with
+#      no caller-supplied argument at all. See _change_plan_store_dir's
+#      own header for the refusal and never-blocks rules.
+#
+#   5. None of the above → unresolvable.
 #
 # WHY THIS DOES NOT FALL BACK TO changes/archive/ THE WAY spectre's own
 # `internal/check` does for the peer side of a link (task 2's
@@ -230,6 +239,90 @@ _change_plan_peer_root() {
   ( cd "$base/$resolved" 2>/dev/null && pwd ) || return 1
 }
 
+# _change_plan_store_dir <worktree> <search-key> — the last-resort branch
+# (KAN-267, resolution order step 4): when nothing file-based resolved and
+# no canonical worktree was supplied, the state record is the one place
+# that still knows where the plan lives — its `worktrees` map names every
+# tree the change affects, absolute paths included. Queries `flow state
+# find <search-key>` (the one lookup that crosses the project boundary;
+# records are keyed by project and name together, so the answer is an
+# array, never one row) and, for each matching record, tests
+# <tree>/<spec-root>/changes/<search-key>/tasks.md for every path in that
+# map.
+#
+# NEVER BLOCKS, NEVER NOISES. `flow` absent, the store unreachable, a
+# malformed answer, or jq missing all leave this function silently
+# unresolvable (return 1, nothing on stderr): the caller keeps exactly its
+# pre-change refusal, and a guard verdict is never blocked — or silently
+# cleared — by the store's availability.
+#
+# AMBIGUITY REFUSES. More than one (project, tree) pair resolving a plan
+# is a loud refusal on stderr naming every project and path, and return 1
+# with nothing on stdout — a guard asked to choose between two projects'
+# plans must refuse, not guess. Every resolving pair counts, even where
+# two records name the same tree: a store answering the same plan for two
+# projects is itself an inconsistency worth failing on.
+#
+# THE WORKTREES PATHS ARE TRUSTED THE WAY THE CANONICAL-WORKTREE ARGUMENT
+# IS: caller/store-supplied worktree paths, not attacker-influenced change
+# content — the same trust level check-unfinished-work.sh's header records
+# for its own third argument. The search key itself is already
+# allowlist-checked by every caller of this function (the change name at
+# the top of _change_plan_resolve_dir, the canonical change id before the
+# peers branch), so no name concatenated below can escape the tree.
+#
+# Bash 3.2: indexed arrays only. STDOUT carries the resolved directory and
+# nothing else; every diagnostic goes to stderr.
+_change_plan_store_dir() {
+  local worktree="$1" key="$2"
+
+  command -v flow >/dev/null 2>&1 || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+
+  local find_json find_err
+  find_err="$(mktemp "${TMPDIR:-/tmp}/change-plan-find.XXXXXX")" || return 1
+  if ! find_json="$(flow state find "$key" 2>"$find_err")"; then
+    rm -f "$find_err"
+    return 1
+  fi
+  rm -f "$find_err"
+
+  local count
+  count="$(printf '%s' "$find_json" | jq '(.records // []) | length' 2>/dev/null)" \
+    || return 1
+  case "$count" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+
+  local matches=() projects=() i proj tree spec_root dir
+  for ((i = 0; i < count; i++)); do
+    proj="$(printf '%s' "$find_json" | jq -r ".records[$i].projectKey // \"\"" 2>/dev/null)" || continue
+    [ -n "$proj" ] || continue
+    while IFS= read -r tree; do
+      [ -n "$tree" ] || continue
+      spec_root="$(spec_root_leaf "$tree" 2>/dev/null)" || continue
+      dir="$tree/$spec_root/changes/$key"
+      if [ -f "$dir/tasks.md" ]; then
+        matches+=("$dir")
+        projects+=("$proj")
+      fi
+    done < <(printf '%s' "$find_json" | jq -r ".records[$i].worktrees // {} | keys[]" 2>/dev/null)
+  done
+
+  if [ "${#matches[@]}" -gt 1 ]; then
+    local j
+    for j in "${!matches[@]}"; do
+      echo "change-plan: ambiguous state-record resolution for '$key': project ${projects[$j]} resolves to ${matches[$j]}" >&2
+    done
+    return 1
+  fi
+  if [ "${#matches[@]}" -eq 1 ]; then
+    printf '%s\n' "${matches[0]}"
+    return 0
+  fi
+  return 1
+}
+
 # _change_plan_resolve_dir <worktree> <change-name> [canonical-worktree] —
 # the shared resolution behind both public functions below. Prints the
 # absolute path of the DIRECTORY that carries the resolved tasks.md (never
@@ -281,10 +374,16 @@ _change_plan_resolve_dir() {
   fi
 
   local link="$dir/link.md"
-  [ -f "$link" ] || return 1
+  if [ ! -f "$link" ]; then
+    _change_plan_store_dir "$worktree" "$name" && return 0
+    return 1
+  fi
 
   local ref
-  ref="$(_change_plan_link_part_of "$link")" || return 1
+  ref="$(_change_plan_link_part_of "$link")" || {
+    _change_plan_store_dir "$worktree" "$name" && return 0
+    return 1
+  }
 
   local peer="${ref%%:*}" changeid="${ref#*:}"
   _change_plan_name_ok "$peer" || {
@@ -308,7 +407,10 @@ _change_plan_resolve_dir() {
   fi
 
   local peer_root
-  peer_root="$(_change_plan_peer_root "$worktree" "$spec_root" "$peer")" || return 1
+  peer_root="$(_change_plan_peer_root "$worktree" "$spec_root" "$peer")" || {
+    _change_plan_store_dir "$worktree" "$changeid" && return 0
+    return 1
+  }
 
   local peer_spec_root peer_dir
   peer_spec_root="$(spec_root_leaf "$peer_root")"
@@ -317,6 +419,7 @@ _change_plan_resolve_dir() {
     printf '%s\n' "$peer_dir"
     return 0
   fi
+  _change_plan_store_dir "$worktree" "$changeid" && return 0
   return 1
 }
 
