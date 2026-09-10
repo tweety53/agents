@@ -7,8 +7,8 @@ order design.md's `workspace-export-lint-merge` and `run-instructions-reorder` d
 order, with the middle two merged into one `flow.verify` stage and `run-instructions` moved to
 immediately before the state write. `flow.visual-verify` sits between `flow.verify` and
 `flow.stage-diff` — a later insertion, not part of either decision above. `flow.verify` runs its
-commands inline, in the conductor's own Bash calls; `flow.visual-verify` alone dispatches a
-`verifier` subagent (**The verifier dispatch**, below); the conductor keeps every mark and every
+commands inline, in the parent's own Bash calls; `flow.visual-verify` alone dispatches a
+`verifier` subagent (**The verifier dispatch**, below); the parent keeps every mark and every
 block decision.
 
 ## Verify
@@ -67,10 +67,10 @@ the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
-**After the panel closes, the conductor edits no source.** Any source change from here on makes
+**After the panel closes, the parent edits no source.** Any source change from here on makes
 every slot's result stale (**Panel re-runs**, `skills/flow/review-panel.md`), and the only path
 that changes source is a fix run the operator starts. `## lint`, `## test` and
-`check-spec-reach.sh <worktree>` **are the conductor's own Bash calls, run inline per worktree,
+`check-spec-reach.sh <worktree>` **are the parent's own Bash calls, run inline per worktree,
 never through a subagent** — its work in this stage is `prepare-workspace.sh`, those commands, the
 visual-verify dispatch below and the ledger render. A failing check is never "just re-run to see":
 the run below gives it exactly one inline re-run, per **Inline verify — a failing command** below.
@@ -78,13 +78,17 @@ the run below gives it exactly one inline re-run, per **Inline verify — a fail
 ### Inline verify
 
 Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
-(auto-detect on exit 1). **The conductor itself runs them, per worktree — never a subagent.**
+(auto-detect on exit 1). **The parent itself runs them, per worktree — never a subagent.**
 Export the `KEY=value` lines `prepare-workspace.sh` printed for that worktree, then run the lint
 commands, then the test commands, in the order printed, then `check-spec-reach.sh <worktree>` —
 one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
 case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
 every command in order and do not stop at the first failure. **Nothing runs them later** —
-`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
+`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff. Per
+**Read discipline**'s test/lint-through-`tail` rule (`skills/flow/implement.md`), pipe each
+command's own run through `tail` before reading it; the `## Report` block below still carries the
+full truncated-tail text for the operator, which is a different concern from what the parent reads
+mid-run.
 
 ```text verified:design.md section 2 of this change
 ## Report
@@ -92,7 +96,7 @@ every command in order and do not stop at the first failure. **Nothing runs them
   <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
 ```
 
-The conductor writes this `## Report` itself and shows it as this stage's output.
+The parent writes this `## Report` itself and shows it as this stage's output.
 `prepare-workspace.sh`, both `project-get.sh` calls and this stage's `begin` mark are one Bash
 call; the lint and test run, this run's `flow record dispatch begin`, and the ledger render below
 are one more.
@@ -103,8 +107,8 @@ command ends the turn with `## Question` naming the command and its output, verb
 resolves it through a fix run. Never treat a passing re-run as license to skip the rest of the
 list — every remaining command in the order above still runs.
 
-**Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <conductor
-model> -effort <conductor effort> -agent-id inline`, suffixed `-<worktree basename>` when this
+**Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <parent
+model> -effort <parent effort> -agent-id inline`, suffixed `-<worktree basename>` when this
 run's resolved set holds more than one worktree — the same convention **Inline — the parent
 implements** (`skills/flow/implement.md`) uses for implementer and panel-fix rows. `begin` is
 recorded before the first command in the list; `end` after the `## Report` is written, carrying
@@ -113,8 +117,8 @@ recorded before the first command in the list; `end` after the `## Report` is wr
 ### The verifier dispatch
 
 `flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
-verifier row (**Dispatch sites — the conductor's closed list**, `skills/flow/implement.md`); the
-conductor dispatches nothing else in this file. `subagent_type: general-purpose`, the Agent tool's
+verifier row (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`); the
+parent dispatches nothing else in this file. `subagent_type: general-purpose`, the Agent tool's
 `model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
 literal `sonnet`, never `DEFAULT_MODEL` and never a session override. Its prompt carries, verbatim:
 
@@ -125,7 +129,7 @@ literal `sonnet`, never `DEFAULT_MODEL` and never a session override. Its prompt
 runs every command in the foreground. Its turn ends with a single `## Report` block, and its last
 act before that is writing the same block to
 `<abs-worktree>/.superpowers/sdd/verify-report-<key>.md` — `<key>` this dispatch's own key from
-**Recording** below — which is what the conductor waits on (**Turn discipline**,
+**Recording** below — which is what the parent waits on (**Turn discipline**,
 `skills/flow/implement.md`). The first line of its first reply is `Model: <the model named in its
 own system prompt>`.
 
@@ -140,8 +144,8 @@ own system prompt>`.
 
 > **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
 > subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
-> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
+> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
 **The prompt also carries the MODEL HANDSHAKE paragraph**:
@@ -149,7 +153,7 @@ own system prompt>`.
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
-**Recording.** The conductor records each dispatch, `-role verifier`, `-task` omitted, `-model
+**Recording.** The parent records each dispatch, `-role verifier`, `-task` omitted, `-model
 sonnet`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
 more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
 here, not restated.
@@ -164,7 +168,7 @@ through a fix run. Never run the failing command yourself to check it, and never
 verifier. The ledger render and this stage's `end` mark follow whichever report was last.
 
 **Handshake.** Compare the `Model:` line against `sonnet` (never `DEFAULT_MODEL` or a session
-override) and apply **The handshake** (`skills/flow/implement.md`, **Dispatch the conductor**),
+override) and apply **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**),
 unchanged: a first mismatch closes `<key>` `-outcome fallback` and re-dispatches once under
 `<key>-retry`; a second mismatch closes `<key>-retry` `-outcome fallback` too and ends the turn
 with `## Question` naming `sonnet` and both models that answered, options **Continue on `<the
@@ -207,10 +211,10 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-Steps 1, 2 and 11 are the conductor's — those steps, `prepare-workspace.sh` and the ledger render
-are the conductor's own Bash calls, never a subagent's. Steps 3–10 and 12 are run by one verifier per worktree
+Steps 1, 2 and 11 are the parent's — those steps, `prepare-workspace.sh` and the ledger render
+are the parent's own Bash calls, never a subagent's. Steps 3–10 and 12 are run by one verifier per worktree
 surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
-conductor applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
+parent applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
 `fingerprint` and `start` commands and `screenshots` root, and its resolved `mockups` root when
 declared; the worktree-resolved URL of each app `ui paths`
@@ -288,7 +292,7 @@ and 12 below as written, committing and pushing nothing.
     them; with none declared, commit to the change's own branch instead. **Resolve the
     `regression checkout` root the same way every other declared app root in this file is
     resolved** — from `git worktree list` in that repository, or the state file's `worktrees`
-    map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`)
+    map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`) <!-- refs-guard:allow -->
     — never the main checkout while a worktree for it holds the change's work. A `regression
     checkout` not also declared in `## apps` has no worktree to resolve and this step commits to
     the main checkout directly, exactly as before. **Never push** — see `no-automatic-push`
@@ -352,8 +356,7 @@ Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..H
 commit per completed task, with every fix-round and red-task-partner fixup already folded in via
 `git rebase --autosquash` — no stray `fixup!` commit should remain unsquashed, unless a PR already
 exists (below). From here to the handoff, each stage's `begin` mark rides its first command and
-its `end` mark its last (**Turn discipline**,
-`skills/flow/implement.md`); the `## Stage` returns are unchanged.
+its `end` mark its last (**Turn discipline**, `skills/flow/implement.md`) <!-- refs-guard:allow -->.
 
 In **every** affected worktree:
 
@@ -585,9 +588,9 @@ The pre-edit description line is present only on a fix run that synced the descr
 Documenting a fix** (`skills/flow/implement.md`), and reproduces that text without summarising or
 reflowing it.
 
-**This block is returned, not printed, by the conductor** — its turn ends with `## Handoff` and the
-block verbatim beneath it, and the parent prints it unchanged (**Dispatch the conductor**,
-`skills/flow/implement.md`).
+**The parent prints this block directly, as this stage's own output** — no return, no relay: the
+running session assembles it here and shows it to the operator in the same turn (**The parent
+orchestrates directly**, `skills/flow/implement.md`).
 
 ## Guardrails
 

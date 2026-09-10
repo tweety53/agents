@@ -49,7 +49,6 @@ type settingsHandler struct {
 type settingsDTO struct {
 	DefaultModel    string   `json:"defaultModel"`
 	SelfReviewModel string   `json:"selfReviewModel"`
-	PlanningModel   string   `json:"planningModel"`
 	Reviewers       []string `json:"reviewers"`
 }
 
@@ -57,7 +56,6 @@ func toSettingsDTO(s store.Settings) settingsDTO {
 	return settingsDTO{
 		DefaultModel:    s.DefaultModel,
 		SelfReviewModel: s.SelfReviewModel,
-		PlanningModel:   s.PlanningModel,
 		Reviewers:       s.Reviewers,
 	}
 }
@@ -88,7 +86,6 @@ func (h *settingsHandler) put(w http.ResponseWriter, r *http.Request) {
 	s := store.Settings{
 		DefaultModel:    dto.DefaultModel,
 		SelfReviewModel: dto.SelfReviewModel,
-		PlanningModel:   dto.PlanningModel,
 		Reviewers:       dto.Reviewers,
 	}
 	if err := h.store.PutSettings(r.Context(), s); err != nil {

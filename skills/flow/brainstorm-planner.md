@@ -1,60 +1,42 @@
-# Brainstorm and plan — the planner's sections
+# Brainstorm and plan — sections B, C, D
 
-Sections **B**, **C** and **D** of the brainstorming phase, read by the planner subagent that
-**Dispatch the planner** (`skills/flow/brainstorm.md`) sends out; every "you" below addresses that
-planner. The parent never reads this file.
+Sections **B**, **C** and **D** of the brainstorming phase, run by whichever session is executing
+`/flow`'s brainstorming stage (or, for the seed-lookup and checklist mechanics **B** defines,
+`/flow-plan` — see **One shared mechanism, not two copies** under **B** below) — no dispatched
+subagent, no relay. Every "you" below addresses that session directly.
 
 ## B. Basic Workflow #1 — Brainstorming
 
-**This section's stage marks are run by the parent, not the planner.** The `flow.brainstorm` begin
-mark now lives in **Dispatch the planner** (`skills/flow/brainstorm.md`), and the `flow.brainstorm` end /
-`flow.design-approval` begin/end marks under **Convergence** below stay exactly where they are,
-run by the parent around the relayed HARD GATE approval. Everywhere else in this section — and in
-**C** and **D** below — that addresses "you" means the dispatched planner: the seeded-note
-discovery and its deletion, the checklist, and the convergence loop are the planner's own work,
-relayed back through the returns **Dispatch the planner** (`skills/flow/brainstorm.md`) describes.
+**This section's stage marks are run inline, by this same session.** The `flow.brainstorm` begin
+mark lives in **Run brainstorming and planning directly** (`skills/flow/brainstorm.md`), and the
+`flow.brainstorm` end / `flow.design-approval` begin/end marks under **Convergence** below stay
+exactly where they are, run around the merged HARD GATE approval. Everywhere else in this
+section — and in **C** and **D** below — "you" means this same running session: the seeded-note
+discovery and its deletion, the checklist, and the convergence loop are all done directly, with no
+return or relay step in between.
 
 ### Seed from a staged research note, if one exists
 
-**Before starting the interactive checklist**, look in `<project>/docs/superpowers/research/` for a note using
-this exact-filename rule, in order — **no fuzzy or substring matching beyond the wildcard fallback
-named below**.
+**Before starting the interactive checklist**, check for a note using this exact-filename rule —
+one `test -f`, never a glob, never inference:
 
-- **The change carries a linked Jira issue:** check `<jira-key-lowercased>.md` first — this is the
-  exact shape `skills/flow-research/SKILL.md`'s "Staging a Note" produces, since its `<topic-slug>`
-  "reuse[s] the change's eventual id (e.g. a Jira key like `kan-410`) when one is already known," and
-  that skill writes or updates that single file rather than ever creating a second one for the same
-  topic-slug — so the mechanized path alone never produces two files this exact check could confuse.
-  If that exact file is absent, fall back to `<jira-key-lowercased>-*.md` — a wider glob kept for
-  notes written before that convention existed (this change's own fixture,
-  `<project>/docs/superpowers/research/kan-326-myflow-rework.md`, is one: hand-written pre-mechanization, so it
-  carries a descriptive suffix the mechanized writer no longer adds). **Do not** also check
-  `<name>.md` here: a Jira-linked change's resolved `<name>` is always `<key>-<slug>`
-  (**Change naming**, `skills/flow-contracts/jira-integration.md`), which a research note's own
-  topic-slug — the key alone, or a topic-derived slug chosen before any change existed — will not
-  equal.
-- **No linked issue:** check `<name>.md`, where `<name>` is the change's own resolved (slug-only)
-  name. This is the "slug derived from the topic itself" case `skills/flow-research/SKILL.md`
-  describes — an exact match only when the change's later slug happens to reuse the research
-  session's own topic wording.
+- **The change carries a linked Jira issue:** check `<project>/docs/superpowers/research/<jira-key-lowercased>.md`.
+  This is the exact, mandatory shape `skills/flow-plan/SKILL.md`'s "Staging a Note" writes — see
+  **The strict research-artifact path** there for why it is the only destination a keyed session
+  ever writes.
+- **No linked issue:** check `<project>/docs/superpowers/research/<name>.md`, where `<name>` is the
+  change's own resolved (slug-only) name. This is the "slug derived from the topic itself" case
+  `skills/flow-plan/SKILL.md` describes — an exact match only when the change's later slug happens
+  to reuse the research session's own topic wording.
 
-The exact-filename check is unambiguous by construction. The `-*.md` fallback is a genuine wildcard,
-and nothing about it (hand-written notes predate the mechanized writer and are named freely) rules
-out two matches — this change's own worktree could, in principle, hold both `kan-326-foo.md` and
-`kan-326-bar.md`. **If the glob matches more than one file, do not silently pick one.** List every
-match and ask the operator which to seed from (or neither):
+The exact-filename check is unambiguous by construction: there is exactly one path to test per
+case, never a wildcard and never more than one candidate to disambiguate between. A topic captured
+under different wording than the change later resolves to will not be found by this rule at all —
+that is an accepted limit of a deterministic, exact-filename check, not a defect to patch with
+fuzzy heuristics: guessing which note "probably" matches risks seeding from the wrong topic
+silently.
 
-> **Found more than one staged research note for this change: `<path-1>`, `<path-2>`, …. Which one
-> should seed this round?**
-> - **One of the listed paths** — seed from that note, per **If found** below
-> - **None of them** — proceed with no seed
-
-If the glob matches exactly one file, seed from it without asking. A topic captured under different
-wording than the change later resolves to will not be found by this rule at all — that is an
-accepted limit of a deterministic, exact-filename check, not a defect to patch with fuzzy
-heuristics: guessing which note "probably" matches risks seeding from the wrong topic silently.
-
-**If found**, parse it against **The Fixed Section Structure** (`skills/flow-research/SKILL.md`)
+**If found**, parse it against **The Fixed Section Structure** (`skills/flow-plan/SKILL.md`)
 rather than reading it as loose prose — extract, by name: the `Source:` line, each `##`-level
 topic/thread section, and the step-by-step breakdown section's `###` items. **A note missing any of
 these three required elements is reported by name** (e.g. "the note has no step-by-step breakdown
@@ -82,13 +64,26 @@ is the canonical location from that point on.
 path (e.g. `<project>/docs/superpowers/research/kan-326.md`) — **C** deletes exactly that file and only when
 this note-found condition holds.
 
+### One shared mechanism, not two copies
+
+`/flow-plan`'s own investigate-then-ask session (`skills/flow-plan/SKILL.md`) reads its
+seed-lookup rule from this section rather than restating it in its own words — the same
+exact-filename check above, keyed the same way off a linked Jira issue or a bare session's own
+slug. `/flow-plan` never runs `spectre new` and creates no worktree, so it applies this section's
+lookup and checklist mechanics without **C**'s artifact-creation or **D**'s writing-plans steps,
+which are `/flow`'s alone. Keeping the lookup rule in one place is what keeps `/flow`'s inline
+brainstorm checklist and `/flow-plan`'s inline research checklist from drifting apart as either one
+changes.
+
 ### The checklist
 
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
-- Save the design to `<project>/.worktrees/<name>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` and stage it
-  when the brainstorming skill requires it.
+- Save the design to `<project>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md`, in the main
+  checkout — no worktree exists yet at this point (**Worktree creation moves to the end of
+  planning**, `design.md`) — and stage it there when the brainstorming skill requires it; never
+  commit it on the main checkout's own branch.
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
   asked.
@@ -97,10 +92,10 @@ the design.
   right?" question — present the section(s) and proceed directly, section to section and then into
   artifact creation, unless the operator raises an objection during or after that presentation. This
   is a scoped override of `superpowers:brainstorming`'s hard design-approval gate, `/flow` only.
-- Ask every pending question whose wording does not depend on another pending answer in the same
-  turn, each as its own `## Question` block, up to four blocks per turn; a question that only makes
-  sense once another is answered waits for the next turn; the convergence confirm and the
-  third-round offer may be the last block of such a turn. This is a scoped override of
+- Ask every pending question whose wording does not depend on another pending answer in one
+  **AskUserQuestion** call, up to four questions per call; a question that only makes sense once
+  another is answered waits for the next call; the convergence confirm and the third-round offer
+  may be the last question in such a call. This is a scoped override of
   `superpowers:brainstorming`'s "Only one question per message", `/flow` only.
 
 The approved design is the source for the change's `design.md`; adapt its format, never duplicate a
@@ -134,7 +129,7 @@ present is not "approve the design and move on," and defaults to another round r
 recommended choice. Print `⚠ another round — no explicit answer` when this default fires.
 
 *Revise* is a round — it counts toward the third-round offer below exactly as *Another round*
-does — and differs only in what the planner's next turn opens with: the changed design section(s),
+does — and differs only in what happens next: the changed design section(s),
 re-presented before the next confirm, in place of new questions.
 
 **A batched confirm.** When the confirm rides along with a round's questions as the last block of
@@ -162,30 +157,31 @@ Rounds one and two open without asking. **There is no hard cap.** No round count
 see **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
 
 The explicit **approve the design and move on** answer is at once the convergence exit that closes
-the checklist and the design approval the HARD GATE requires; the parent still marks
-`flow.brainstorm` end, then `flow.design-approval` begin and end, around that one relayed answer:
+the checklist and the design approval the HARD GATE requires; mark `flow.brainstorm` end, then
+`flow.design-approval` begin and end, around that one answer:
 
 ```bash
 flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-# … the operator's approve-and-move-on answer, relayed — this is the HARD GATE above …
+# … the operator's approve-and-move-on answer — this is the HARD GATE above …
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
 ## C. Create the change and its artifacts
 
-**This section's stage marks are run by the parent**, around the planner's `## Artifacts` return —
-see **Dispatch the planner** (`skills/flow/brainstorm.md`). Everywhere below that addresses "you" means the planner:
-`spectre new`, the three artifacts, and the staging-note deletion are its own work.
+**This section's stage marks are run inline, by this same session** — see **Run brainstorming
+and planning directly** (`skills/flow/brainstorm.md`). Everywhere below, "you" means this same
+session: `spectre new`, the three artifacts, and the staging-note deletion are its own work.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-# … the parent creates the change worktree (skills/flow/brainstorm.md), then resumes the planner via
-# SendMessage; everything from here is the planner's own turn, run in <worktree> …
+# … no worktree exists yet — this and the rest of C, plus all of D, run directly against the
+# main checkout's own spectre tree (skills/flow/brainstorm.md's "Worktree creation moves to the
+# end of planning") …
 spectre new "<name>"
 ```
 
-`spectre new` scaffolds `<project>/spectre/changes/<name>/`, and refuses three ways: exit `2` and
+`spectre new` scaffolds `<project>/spectre/changes/<name>/` **in the main checkout**, and refuses three ways: exit `2` and
 *no tree found* when the project holds no `<project>/spectre/` tree at all; exit `2` and `invalid
 change id` when `<name>` is not a single flat directory name; and exit `1` and `<path> already
 exists` when the change is already there — **the ordinary case when resuming at `STARTED`** per
@@ -259,10 +255,9 @@ flow stage end -command '/flow' -stage flow.create-artifacts -outcome completed 
 
 ## D. Basic Workflow #3 — Writing plans
 
-**This section's stage marks are run by the parent**, around the planner's `## Plan` return — see
-**Dispatch the planner** (`skills/flow/brainstorm.md`). Everywhere below that addresses "you" means the planner: the
-writing-plans enrichment and the guards at the end of this section are its own work, and their
-output is what the `## Plan` return carries.
+**This section's stage marks are run inline, by this same session** — see **Run brainstorming
+and planning directly** (`skills/flow/brainstorm.md`). Everywhere below, "you" means this same
+session: the writing-plans enrichment and the guards at the end of this section are its own work.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
@@ -322,10 +317,10 @@ A task tagged `Build: red` additionally carries `**Squash-with:** Task <N>`, nam
 its commit folds into.
 
 An optional `**After:**` field — `Task <ids>` or `none` — declares the task's predecessors, and
-its absence means the task runs after every earlier task. The planner writes it on file-disjoint
-tasks with no caller/helper relationship, and writes it consistently across a `**Squash-with:**`
-pair (union semantics merge the pair into one bundle). A task the planner does not annotate stays
-fully serial, so opting in is per task.
+its absence means the task runs after every earlier task. Write it on file-disjoint tasks with no
+caller/helper relationship, and write it consistently across a `**Squash-with:**` pair (union
+semantics merge the pair into one bundle). A task left unannotated stays fully serial, so opting in
+is per task.
 
 Add this header to `tasks.md`:
 
@@ -359,9 +354,9 @@ one-line reason recorded as `override`; the raised value is `class`. Leave `over
 `class = class_mechanical` otherwise. `red` and `unverified` are recorded from the same output and
 move no class.
 
-Read `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` from the
-parent's dispatch prompt — the parent resolves and passes them, per **Dispatch the planner**
-(`skills/flow/brainstorm.md`). Decide, in this order, each step only when its own toggle is
+Read `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` from this
+run's own earlier resolution (**Model resolution**, `skills/flow/SKILL.md`) — already in scope,
+since nothing dispatched this section. Decide, in this order, each step only when its own toggle is
 `dynamic` and (for steps 2-3) step 1 held; otherwise the step takes the stated default and is
 recorded as such:
 
@@ -411,7 +406,13 @@ records `experimental: none available` and adds nothing — never a division by 
 are **Panel re-runs**' own rerun policies (`skills/flow/review-panel.md`); the docs-only reduction
 there still applies and still only removes.
 
-Write `<abs-worktree>/.superpowers/sdd/decision.json`: `toggles`, `class`, `classMechanical`,
+Write the decision JSON: on a first creating run, to
+`<project>/spectre/changes/<name>/.superpowers-sdd-decision.json` in the main checkout, since no
+worktree exists yet (**Worktree creation moves to the end of planning**, `design.md`) —
+`skills/flow/brainstorm.md` moves it into `<abs-worktree>/.superpowers/sdd/decision.json` once the
+worktree is created. On a resumed `STARTED` run or a fix run, the worktree already exists (**Resume
+and fix runs** below), so write directly to its usual `<abs-worktree>/.superpowers/sdd/decision.json`
+path. Either way the JSON carries: `toggles`, `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
 (`compact`, `experimental`, `bundle`), `execution`, `implementer` (an object or one of the two
 recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
@@ -422,8 +423,8 @@ skipped for the cap is recorded as the string `"experimental": "skipped — bund
 `roster`), `groups` (arrays of bundle ids, plus a sibling `groups_reason`, or `null` when
 `execution` is inline), `parent` (the parent's own model/effort, `unknown` where the harness does
 not state one), `overrides` (session-instruction overrides to a *result*, never a toggle; empty
-unless one was given). Append this exact shape as the last section of the `## Plan` return, filling
-every cell from what was just decided:
+unless one was given). Print this exact shape as the run's own output once the Decide step
+completes, filling every cell from what was just decided:
 
 ```markdown
 ## Decision
@@ -445,10 +446,25 @@ free grouping, the line right after it is `grouping: free — <grouping_reason>`
 grouping). The implementer-groups row is `skipped — inline` on an inline run, else the groups as
 bundle ids (`plan-dispatch-bundles.sh`'s ids) followed by `— <groups_reason>`.
 
+**On a no-seed run** (`skills/flow/SKILL.md`'s startup-visibility print skipped the seeded-path <!-- refs-guard:allow -->
+block, since no research seed was found at kickoff), prepend these three lines directly above the
+`## Decision` table — the one place these choices appear for a no-seed run, never printed twice:
+
+```text
+planning:  inline, this session (<DEFAULT_MODEL>)
+toggles:   execution mode <default|dynamic> · implementer model <default|dynamic> · review panel <default|dynamic>
+models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
+```
+
+**On a seeded run**, these three lines already printed at kickoff (**Model resolution**,
+`skills/flow/SKILL.md`) — do not print them again here; only the `## Decision` table itself prints,
+completing that earlier block's `decision:` line.
+
 ```bash
 flow stage end -command '/flow' -stage flow.writing-plans -outcome completed <name>
 ```
 
-What happens once `## Plan` returns is the parent's job, not the planner's — see **Dispatch the
-planner** (`skills/flow/brainstorm.md`). There is no human gate between brainstorming converging and implementation
-starting.
+What happens once this section's plan enrichment completes is stated in **Run brainstorming and
+planning directly** (`skills/flow/brainstorm.md`) — continuing directly into
+`skills/flow/implement.md`. There is no human gate between brainstorming converging and
+implementation starting.

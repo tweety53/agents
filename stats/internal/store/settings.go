@@ -13,9 +13,9 @@ import (
 // flow_settings.default_model value may take (design.md's
 // model-default-sonnet decision: implementer, fixer and reviewer all
 // default to one of these, uniformly). "fable" is the literal
-// skills/flow/SKILL.md's planning-model resolver falls back to -- it must
-// be a legal value for every model field, not just planning_model, or the
-// store would refuse the very default this field introduces.
+// skills/flow/SKILL.md's self-review-model resolver falls back to -- it
+// must be a legal value for every model field, or the store would refuse
+// the very default that fallback introduces.
 var ValidModels = map[string]bool{
 	"sonnet": true,
 	"opus":   true,
@@ -63,10 +63,10 @@ var DefaultReviewers = []string{"primary", "principles", "code-review-low"}
 
 // Settings is the harness-wide record /flow-settings manages: which model
 // implements, fixes and reviews by default, which model self-review runs
-// on, which model planning runs on, and which reviewer slots the panel
-// dispatches by default. flow_settings (0015_flow_settings.sql,
+// on, and which reviewer slots the panel dispatches by default.
+// flow_settings (0015_flow_settings.sql,
 // 0016_flow_settings_self_review_model.sql,
-// 0017_flow_settings_planning_model.sql) holds exactly one row of this
+// 0021_flow_settings_drop_planning_model.sql) holds exactly one row of this
 // shape.
 type Settings struct {
 	DefaultModel string
@@ -75,20 +75,13 @@ type Settings struct {
 	// here -- it means the literal "fable", skills/flow/SKILL.md's own
 	// fallback, not "unset".
 	SelfReviewModel string
-	// PlanningModel is the model /flow's planning stages run on. Empty is
-	// a valid value here too, and means the same thing: the literal
-	// "fable", skills/flow/SKILL.md's own fallback. Resolving that
-	// fallback is the skill's job, not GetSettings'; the wire shape stays
-	// a record of intent.
-	PlanningModel string
-	Reviewers     []string
+	Reviewers       []string
 }
 
 // ValidateSettings reports whether s.DefaultModel, s.SelfReviewModel (when
-// non-empty), s.PlanningModel (when non-empty) and every entry of
-// s.Reviewers fall within the harness's fixed enums, returning
-// ErrInvalidModel or ErrInvalidReviewer -- wrapped with the specific bad
-// value -- for the first violation found. internal/api's own
+// non-empty) and every entry of s.Reviewers fall within the harness's fixed
+// enums, returning ErrInvalidModel or ErrInvalidReviewer -- wrapped with the
+// specific bad value -- for the first violation found. internal/api's own
 // ValidateSettings re-exports this rather than redefining the enums a
 // second time, so the store and the HTTP layer (task 2) can never
 // silently diverge on what counts as a valid value.
@@ -98,9 +91,6 @@ func ValidateSettings(s Settings) error {
 	}
 	if s.SelfReviewModel != "" && !ValidModels[s.SelfReviewModel] {
 		return fmt.Errorf("%w: %q", ErrInvalidModel, s.SelfReviewModel)
-	}
-	if s.PlanningModel != "" && !ValidModels[s.PlanningModel] {
-		return fmt.Errorf("%w: %q", ErrInvalidModel, s.PlanningModel)
 	}
 	for _, r := range s.Reviewers {
 		if !ValidReviewers[r] {
@@ -125,15 +115,14 @@ func (s *Store) PutSettings(ctx context.Context, settings Settings) error {
 	}
 
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO flow_settings (id, default_model, self_review_model, planning_model, reviewers)
-		VALUES (TRUE, $1, $2, $3, $4)
+		INSERT INTO flow_settings (id, default_model, self_review_model, reviewers)
+		VALUES (TRUE, $1, $2, $3)
 		ON CONFLICT (id) DO UPDATE SET
 			default_model      = EXCLUDED.default_model,
 			self_review_model  = EXCLUDED.self_review_model,
-			planning_model     = EXCLUDED.planning_model,
 			reviewers          = EXCLUDED.reviewers,
 			updated_at         = now()
-	`, settings.DefaultModel, settings.SelfReviewModel, settings.PlanningModel, json.RawMessage(reviewers))
+	`, settings.DefaultModel, settings.SelfReviewModel, json.RawMessage(reviewers))
 	if err != nil {
 		return fmt.Errorf("store: put settings: %w", err)
 	}
@@ -146,11 +135,11 @@ func (s *Store) PutSettings(ctx context.Context, settings Settings) error {
 // defined default rather than an error (this package's own DefaultModel
 // and DefaultReviewers doc comments).
 func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
-	var defaultModel, selfReviewModel, planningModel string
+	var defaultModel, selfReviewModel string
 	var reviewers []byte
 	err := s.pool.QueryRow(ctx, `
-		SELECT default_model, self_review_model, planning_model, reviewers FROM flow_settings WHERE id = TRUE
-	`).Scan(&defaultModel, &selfReviewModel, &planningModel, &reviewers)
+		SELECT default_model, self_review_model, reviewers FROM flow_settings WHERE id = TRUE
+	`).Scan(&defaultModel, &selfReviewModel, &reviewers)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Settings{
@@ -161,7 +150,7 @@ func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 		return Settings{}, fmt.Errorf("store: get settings: %w", err)
 	}
 
-	out := Settings{DefaultModel: defaultModel, SelfReviewModel: selfReviewModel, PlanningModel: planningModel}
+	out := Settings{DefaultModel: defaultModel, SelfReviewModel: selfReviewModel}
 	if err := json.Unmarshal(reviewers, &out.Reviewers); err != nil {
 		return Settings{}, fmt.Errorf("store: get settings: decode reviewers: %w", err)
 	}

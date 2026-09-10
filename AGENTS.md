@@ -101,7 +101,7 @@ conventions and the patterns already present in the surrounding code.
 These skills live in `skills/` next to this file (or in `<project>/.codex/skills/` if installed there).
 To invoke a skill: **read its `SKILL.md` file** then follow the instructions within.
 
-Every skill below but `flow-research` and `flow-contracts` requires the `spectre` CLI to be
+Every skill below but `flow-plan` and `flow-contracts` requires the `spectre` CLI to be
 installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
 
 ### Skill index
@@ -110,7 +110,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 |-----------------|---------|---------|
 | `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the review panel resolved from the settings store, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
-| `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
+| `skills/flow-plan/` | `/flow-plan` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |
 | `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration, Jira, plan-provenance and build-green contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract-run1.md`/`finish-contract-run2.md` for `/flow`'s two-run integrate/archive procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 

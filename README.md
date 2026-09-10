@@ -37,13 +37,13 @@ agents-data/
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
-├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-research, /flow-settings)
+├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-plan, /flow-settings)
 ├── commands-claude/                   ← Claude Code slash commands (the same four)
 ├── skills/                            ← spectre / /flow skills
 │   ├── README.md                      ← flow command map
 │   ├── flow/                          ← /flow — brainstorm, implement behind the review panel, integrate and archive, one command
 │   ├── flow-status/                   ← read-only state report for open changes
-│   ├── flow-research/                 ← /flow-research — thinking-partner mode, stages research notes, touches no state
+│   ├── flow-plan/                 ← /flow-plan — thinking-partner mode, stages research notes, touches no state
 │   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
 │   └── flow-contracts/                ← on-demand contracts; pipeline.md is canonical for the state machine
 ├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
@@ -55,7 +55,7 @@ its own frontmatter. The tree above is an illustrative
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
 **Skills** (loaded on demand): `/flow` — the single-command pipeline — plus the read-only
-`/flow-status`, `/flow-research` for thinking-partner mode, and `/flow-settings` for global
+`/flow-status`, `/flow-plan` for thinking-partner mode, and `/flow-settings` for global
 model/reviewer defaults.
 
 **flow pipeline — three states.**
@@ -162,7 +162,7 @@ archive — so its row states the gate for each.
 |---------|---------------|
 | `/flow` | creating run or fix: you review the staged diff **and** run the apps; integrate with open PR or manual: you wait for the branch to merge (or finish your manual steps); integrate with merge-and-push, chained into archive: nothing — the state is terminal |
 | `/flow-status` | — |
-| `/flow-research` | — |
+| `/flow-plan` | — |
 
 `/flow`'s run-2 sequence ends with `flow.push-archive`. The row before it, `flow.self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
@@ -323,8 +323,8 @@ design, which is a hard gate: nothing is created under `spectre/changes/` until 
 lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
 change's `design.md` artifact — adapted, never duplicated into a conflicting second design. Before
 the checklist opens, the stage checks `docs/superpowers/research/` for a staged note matching this
-topic (per `/flow-research`'s staging behaviour below) and, if found, seeds the round from it
-without ever skipping straight to artifact-writing (design.md's `flow-research-staging`).
+topic (per `/flow-plan`'s staging behaviour below) and, if found, seeds the round from it
+without ever skipping straight to artifact-writing (design.md's `flow-plan-staging`).
 
 The stage iterates rather than passing once, the same way `/myflow-start`'s does — see
 **Convergence** (`skills/flow/brainstorm-planner.md`) for the threshold, the two prompts, and the bounded
@@ -437,7 +437,7 @@ and `~/.zcode/rules/` copies are live symlinks and need no re-run.
 
 Both the `skills/` and `commands*/` install steps discover their targets by walking the tree —
 `skills/*/` and `commands*/*.md` — rather than from a fixed list, so a new skill or command
-directory (like `flow/`, `flow-status/`, `flow-research/`, `flow-settings/`) is installed the next
+directory (like `flow/`, `flow-status/`, `flow-plan/`, `flow-settings/`) is installed the next
 time you run `./setup.sh global` with no change to `setup.sh` itself.
 
 ### Core and full text are one source
@@ -582,7 +582,7 @@ not by the slash-command alias. The `commands-claude/*.md` files are thin wrappe
 command name to the underlying skill.
 
 **Verify**: In a new Claude Code session, ask: *"What project skills do you have?"*
-The agent should be able to list and describe the `flow`/`flow-status`/`flow-research`/
+The agent should be able to list and describe the `flow`/`flow-status`/`flow-plan`/
 `flow-settings` skills, and typing `/flow` should resolve without an "Unknown command" error.
 
 ---
@@ -747,7 +747,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 | `/flow <name>` | `flow` | Single-command pipeline. No state: creates the change, writes `STARTED`, and — same invocation — runs brainstorming (unchanged, fully interactive) then implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. Asks no planning-effort, model, or review-panel-roster question and publishes no proposal artifact. `IN_PROGRESS` with an argument: fix run, state unchanged. `IN_PROGRESS` bare: asks how to land the branch — open PR (default), merge and push, or manual — then, on merge-and-push, continues in the same invocation through archive to `FINISHED`; open PR and manual stop and hand off. Runs no tests, linters or coverage check outside implementation's own verify stage. |
 | *(gate)* | You | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
-| `/flow-research` | `flow-research` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/superpowers/research/` for `/flow`'s brainstorming to seed from |
+| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/superpowers/research/` for `/flow`'s brainstorming to seed from |
 | `/flow-settings` | `flow-settings` | Reads/writes the global model and reviewer defaults every `/flow` run reads from |
 
 Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
@@ -759,9 +759,9 @@ The branch's merge status alone decides which run `/flow`'s integrate/archive ph
 PR you merged on the forge and a merge it performed itself are indistinguishable to it — which is
 correct.
 
-Every skill above but `flow-research` requires the `spectre` CLI
+Every skill above but `flow-plan` requires the `spectre` CLI
 (`go install github.com/tweety53/spectre/cmd/spectre@latest`, with `$(go env GOPATH)/bin` on your
-`PATH`). `flow-research` needs none — reading a spectre tree is reading markdown.
+`PATH`). `flow-plan` needs none — reading a spectre tree is reading markdown.
 
 ---
 

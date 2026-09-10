@@ -69,7 +69,7 @@ See **Convergence** (`skills/flow/brainstorm-planner.md`).
 ## Command surface
 
 One command, `/flow`, drives the whole pipeline, plus two read-only commands (`/flow-status`,
-`/flow-research`) and one standalone, non-pipeline command (`/flow-settings`). **No command accepts
+`/flow-plan`) and one standalone, non-pipeline command (`/flow-settings`). **No command accepts
 a flag.** The only argument is the optional change name — see **Change name resolution**.
 
 An argument that is not a known change name is **reported**, not silently ignored — a silently
@@ -140,13 +140,13 @@ time, at that stage's own granularity — brainstorming checklist items and arti
 creating/resuming branch, stages on the implementation branch, a finish run's steps on the
 integrate/archive branch.
 
-**On the implementation branch the granularity is the stage.** The stages from
-`flow.load-context` to `flow.write-in-progress` run inside a conductor subagent
-(**Dispatch the conductor**, `skills/flow/implement.md`) that has no task-list tool; the parent
-updates the list at each `## Stage` return it relays — one entry per stage, not per `tasks.md`
-item. The per-task granularity named above is what a harness with the conductor in the parent
-session would show; this is the accepted visibility trade of design.md's `conductor-stage-returns`
-in the change that introduced it.
+**On the implementation branch the granularity is per task.** The stages from
+`flow.load-context` to `flow.write-in-progress` (**The parent orchestrates directly**,
+`skills/flow/implement.md`) run in the parent session itself, which holds its own task-list tool
+throughout the run — no resumed subagent sits between the parent and the list, so nothing forces
+the coarser stage-level granularity an earlier design (`conductor-stage-returns`, since superseded)
+accepted as a trade-off. One entry per `tasks.md` item, updated as each task's guard passes and its
+checkbox ticks.
 
 `/flow-status` is read-only and **registers nothing**. Registering steps for a
 report would put entries on the operator's task list for work nobody is doing.

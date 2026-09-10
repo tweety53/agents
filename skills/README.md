@@ -45,7 +45,7 @@ still apply.
 | `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the review panel resolved from the settings store, ending at `IN_PROGRESS`. An argument at `IN_PROGRESS` is a fix run; state unchanged. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through archive to `FINISHED`. Publishes no proposal artifact. |
 | *(gate)* | you | Creating run or fix: review the staged diff **and** run the apps. Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
-| `/flow-research` | `flow-research` | Thinking-partner mode — no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
+| `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `/flow-settings` | `flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
@@ -58,11 +58,11 @@ repeated here.
 skills/
 ├── flow/               ← /flow (brainstorm, implement behind the review panel, integrate and archive)
 ├── flow-status/         ← /flow-status (read-only)
-├── flow-research/       ← /flow-research
+├── flow-plan/       ← /flow-plan
 ├── flow-settings/       ← /flow-settings
 └── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine
 ```
 
-Every skill above but `flow-research` and `flow-contracts` requires the `spectre` CLI
+Every skill above but `flow-plan` and `flow-contracts` requires the `spectre` CLI
 (`go install github.com/tweety53/spectre/cmd/spectre@latest`); those two need none — reading a
 spectre tree, or a contract file, is reading markdown.
