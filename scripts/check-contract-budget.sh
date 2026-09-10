@@ -188,7 +188,7 @@ skills/flow-fast/brainstorm.md 9626
 skills/flow-fast/finish.md 8186
 skills/flow-fast/implement.md 5073
 skills/flow-fast/review.md 5584
-skills/flow-plan/SKILL.md 13047
+skills/flow-plan/SKILL.md 18400
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
 skills/flow/SKILL.md 20520
