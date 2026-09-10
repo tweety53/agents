@@ -671,15 +671,17 @@ presence or the rebase's own exit code.
 **Which slots re-run, and on what, follows from the severities the round raised — never from a
 mode table, a trigger list, or a round count.**
 
-**Every Critical and Important goes to the fix; a Minor is fixed or deferred, and triggers no re-run
-either way.** Every Critical and Important the round raised goes to the fix subagent below, closed by
-the verification that follows it — the reproducer re-run exits 0 *and* the fix diff touches a path
-the finding named. For each Minor, the dispatcher decides before the fix goes out: **fix** it when
-the change is confined to the lines the finding names and needs no new test, or when judgment says
-the defect is worth a fix; otherwise `flow record status -change <name> -ref F<n> -status
-'deferred <reason>'`. The rough 10% target for deferred Minors is guidance, never computed — no
-counter, no draw, 0% is acceptable. When every finding the round raised was Minor, no slot re-runs:
-proceed to
+**Every Critical and Important goes to the fix; a Minor is deferred by default and triggers no
+re-run either way.** Every Critical and Important the round raised goes to the fix subagent below,
+closed by the verification that follows it — the reproducer re-run exits 0 *and* the fix diff
+touches a path the finding named. For each Minor, the dispatcher decides before the fix goes out:
+`flow record status -change <name> -ref F<n> -status 'deferred <reason>'` is the default; **fix**
+it inline only when it is trivially easy — confined to the lines the finding names, needs no new
+test, and needs no judgment call. The rough 90%+ target for deferred Minors is guidance, never
+computed — no counter, no draw, fixing every Minor is not the goal. A Minor fixed inline under this
+bar needs no dedicated re-review or re-verification pass of its own — the triviality that qualified
+it for the inline fix is also why it needs none; the existing guard/test run covering the touched
+lines is sufficient. When every finding the round raised was Minor, no slot re-runs: proceed to
 `check-panel-findings-closed.sh` and the stage close. A fixed finding that fails verification takes
 the handback below, and that loop re-runs no slot either.
 
