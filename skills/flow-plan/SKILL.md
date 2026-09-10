@@ -166,8 +166,10 @@ If a note already exists at the resolved destination, update it rather than crea
 for the same topic.
 
 A staging note **seeds** a future `/flow` (or `/myflow-start`) brainstorming session on this topic —
-it does not skip it. `/flow-plan` never runs `spectre new` and never creates a change itself;
-turning a staging note into a change is always `/flow`'s call.
+it does not skip it; the plan and decision written beside it (**The plan and the decision**, below)
+are what `/flow`'s writing-plans and Decide steps take in place of their own. `/flow-plan` never
+runs `spectre new` and never creates a change itself; turning a staging note into a change is
+always `/flow`'s call.
 
 ---
 
@@ -242,6 +244,35 @@ Rules for filling it in:
 - If the topic is small enough that a full breakdown would only have one item, still include the
   section with that one item — the section's presence is what's fixed, not a minimum item count.
 
+## The plan and the decision
+
+A captured **staging note** — never a `design.md` addition, since an existing change already has
+both — also produces, when the session finishes, two files beside it. `<stem>` is the note's own
+filename without `.md`, so the pair is found from the note's path by one exact test each.
+
+1. **`<project>/docs/superpowers/research/<stem>/tasks.md` — the plan.** Exactly the shape
+   **D. Basic Workflow #3 — Writing plans** (`skills/flow/brainstorm-planner.md`) defines: task
+   and step lines, the field family, the two header lines, the provenance and build-green tags —
+   cited, never restated. One task per breakdown item is the natural starting grain. Run
+   `check-plan-shape.sh <that path>` and fix any hit before finishing.
+2. **`<project>/docs/superpowers/research/<stem>/decision.json` — the dynamic decision.** Reached
+   exactly as **Decide** (`skills/flow/brainstorm-planner.md`) reaches it and written in the JSON
+   shape that section defines: `plan-class.sh <project>/docs/superpowers/research/<stem>/tasks.md <repos>`, `<repos>` being the number
+   of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps` table;
+   `1` when every path is in this one); the three toggles resolved per **Model resolution**
+   (`skills/flow/SKILL.md`) against the main checkout alone, since no worktree exists;
+   `DEFAULT_MODEL` from `flow settings get`; the same tree and rolls. The rolls seed from `<stem>`
+   rather than from a change name, deliberately: the recorded decision is what `/flow` records, so
+   it is stable by being written down, not by being re-rolled.
+3. **A `## Decision` section in the note**, last, carrying the printed table **Decide**'s own
+   output shape defines, so a reader sees the decision without opening the JSON.
+
+`/flow`'s seed step takes both files in place of its own writing-plans and Decide work and deletes
+them with the note once adopted (**Seed from a staged research note, if one exists**,
+`skills/flow/brainstorm-planner.md`). `/flow-fast` takes the plan and ignores the decision — its
+own is fixed. Nothing here marks a stage, records to the store, or creates a change: the pair is a
+research artifact until `/flow` adopts it.
+
 ---
 
 ## Guardrails
@@ -256,3 +287,5 @@ Rules for filling it in:
 - **Don't force structure on the conversation** — let the shape of the discussion emerge; the fixed
   structure applies to what gets *captured*, never to how the discussion itself unfolds
 - **Don't skip the step-by-step breakdown** — it's the default capture shape, not an opt-in
+- **Don't leave a staging note without its plan and decision** — the pair beside it is what makes
+  the note ready for `/flow`, not an extra

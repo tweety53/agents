@@ -64,14 +64,22 @@ is the canonical location from that point on.
 path (e.g. `<project>/docs/superpowers/research/kan-326.md`) — **C** deletes exactly that file and only when
 this note-found condition holds.
 
+**A seeded plan and decision ride with the note.** `/flow-plan` writes `<project>/docs/superpowers/research/<stem>/tasks.md`
+and `<project>/docs/superpowers/research/<stem>/decision.json` beside a note, `<stem>` being the note's filename without
+`.md` (**The plan and the decision**, `skills/flow-plan/SKILL.md`). When a note was found, test for
+each with one `test -f` on that exact path and carry the paths forward: **D** copies the plan in
+place of writing-plans, **Decide** records the decision in place of the roll, and **C** deletes the
+directory with the note. Either file may be absent — a note captured before this rule — and then
+that one step runs as if nothing had been seeded.
+
 ### One shared mechanism, not two copies
 
 `/flow-plan`'s own investigate-then-ask session (`skills/flow-plan/SKILL.md`) reads its
 seed-lookup rule from this section rather than restating it in its own words — the same
 exact-filename check above, keyed the same way off a linked Jira issue or a bare session's own
 slug. `/flow-plan` never runs `spectre new` and creates no worktree, so it applies this section's
-lookup and checklist mechanics without **C**'s artifact-creation or **D**'s writing-plans steps,
-which are `/flow`'s alone. Keeping the lookup rule in one place is what keeps `/flow`'s inline
+lookup and checklist mechanics without **C**'s artifact-creation step, writing its plan and decision beside the note (**The plan and the decision**, `skills/flow-plan/SKILL.md`) for **D** and **Decide** to take,
+which stay `/flow`'s alone. Keeping the lookup rule in one place is what keeps `/flow`'s inline
 brainstorm checklist and `/flow-plan`'s inline research checklist from drifting apart as either one
 changes.
 
@@ -203,8 +211,9 @@ task's own commit.
 
 **Delete the adopted staging note, if one was seeded.** If **B** found and seeded a staging note,
 delete that same path (`<project>/docs/superpowers/research/<jira-key-lowercased>.md` or `<name>.md`, per which
-branch of **B**'s discovery rule matched) now, alongside creating the three artifacts above, and stage
-the deletion in the same commit. Skip this step outright when **B** found no note to seed from.
+branch of **B**'s discovery rule matched) now — and its `<project>/docs/superpowers/research/<stem>/` directory beside it when one
+exists — alongside creating the three artifacts above, and stage the deletion in the same commit.
+Skip this step outright when **B** found no note to seed from.
 
 ### Decisions
 
@@ -262,6 +271,11 @@ session: the writing-plans enrichment and the guards at the end of this section 
 ```bash
 flow stage begin -command '/flow' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
 ```
+
+**A seeded plan replaces the invocation below.** When **B** carried `<project>/docs/superpowers/research/<stem>/tasks.md`, copy it to
+`<changeRoot>/tasks.md`, fold in whatever the checklist round changed — never adopt it blind — and
+skip **superpowers:writing-plans**; the guards at the end of this section still run on the copy.
+Otherwise:
 
 Invoke **superpowers:writing-plans** to enrich `<changeRoot>/tasks.md` to plan quality: exact
 paths, verification commands, bite-sized steps, no placeholders. Run its self-review (spec
@@ -346,6 +360,12 @@ project's configured plan-provenance guard and its configured build-green guard,
 declares them, and fix any hit.
 
 ### Decide
+
+**A seeded decision replaces the roll.** When **B** carried `<project>/docs/superpowers/research/<stem>/decision.json`, copy it
+unchanged to the decision path named below, print its `## Decision` table with the line
+`seeded from <path>` directly above it, and skip `plan-class.sh` and steps 1–4: its rolls were
+seeded from `<stem>` rather than `<name>`, and the written decision is the one this run records.
+Otherwise:
 
 Run `plan-class.sh <changeRoot>/tasks.md <repos>` — `<repos>` is the size of the resolved worktree
 set. Its three lines carry `class_mechanical` and the `compact`/`experimental` rolls. **You may

@@ -46,7 +46,9 @@ rather than assuming. State the resumption point plainly: "resuming `<name>` at 
 Seed from a staged research note first, exactly as `skills/flow/brainstorm-planner.md`
 section B's "Seed from a staged research note, if one exists" describes — the same exact-filename
 rule, the same multiple-match ask, the same "present the parsed structure" step. Carry a seeded
-note's path forward to **C** for deletion.
+note's path forward to **C** for deletion. A seeded `<project>/docs/superpowers/research/<stem>/tasks.md` beside the note is taken in
+**D** in place of writing-plans; a seeded `<project>/docs/superpowers/research/<stem>/decision.json` is ignored — `/flow-fast`'s
+decision is fixed — and both go with the note in **C**.
 
 Run `superpowers:brainstorming`'s checklist (items 1–8) **inline, in this session** — no planner
 subagent. **At every options round, auto-pick the recommended option** rather than asking the
@@ -102,7 +104,8 @@ never restated. A capability whose requirements this change alters still gets a 
 otherwise check spec reach (`check-spec-reach.sh`) is not run, per `skills/flow-fast/SKILL.md`'s
 **Guard set**, but the edit itself is not skipped.
 
-**Delete the adopted staging note**, if one was seeded in **B**, in this same commit.
+**Delete the adopted staging note**, and its `<project>/docs/superpowers/research/<stem>/` directory when one exists, if one was
+seeded in **B**, in this same commit.
 
 ```bash
 flow stage end -command '/flow-fast' -stage flow.create-artifacts -outcome completed <name>
@@ -110,7 +113,9 @@ flow stage end -command '/flow-fast' -stage flow.create-artifacts -outcome compl
 
 ## D. Writing plans
 
-Mark `flow.writing-plans`. Invoke **superpowers:writing-plans** to enrich `tasks.md` to plan
+Mark `flow.writing-plans`. When **B** carried a seeded `<project>/docs/superpowers/research/<stem>/tasks.md`, copy it to `tasks.md`,
+fold in whatever **B** changed, and skip the invocation; otherwise invoke
+**superpowers:writing-plans** to enrich `tasks.md` to plan
 quality exactly as `skills/flow/brainstorm-planner.md` section D describes — the task shape
 (`- [ ] <n>. <title>` with `  - [ ] **Step N: …**` children), the per-task verify-step rule
 (targeted lint plus the build tool's own test selector, never the project's whole `## lint` /
