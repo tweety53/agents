@@ -285,6 +285,16 @@ paragraph under **The build-green tag** (`skills/flow-contracts/build-green.md`)
 > (`skills/flow/implement.md`) and to `flow.verify`. A task whose `**Tests:**` is `none` names
 > lint alone and no test command.
 
+> **Write a feature's UI tests as their own follow-on task.** When a feature's tests live in a
+> UI-test source set of their own — Compose Multiplatform's `desktopTest`, and the like — the plan
+> carries two tasks: the feature task, whose `**Files:**` names the source files and the unit-test
+> (`commonTest`) files, then one follow-on task per feature task whose `**Files:**` names only that
+> feature's UI-test file(s), all of them. The two are file-disjoint, so `plan-dispatch-bundles.sh`
+> keeps them separate bundles and the UI-test iteration starts in a fresh implementer at a small
+> context instead of the one that just wrote the feature. No `**After:**` field is needed — the
+> serial default already runs the follow-on after its feature task — and the last bundle's FULL
+> SUITE run still covers the pair.
+
 **Load `skills/flow-contracts/plan-provenance.md`.** While enriching `tasks.md`, tag every fenced
 block and every numeric claim per **Plan provenance**
 (`skills/flow-contracts/plan-provenance.md`): code that cannot be verified is tagged `unverified:`
