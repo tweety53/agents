@@ -2338,6 +2338,139 @@ func TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray(t *testi
 	}
 }
 
+// --- dispatches (read verb) ---
+
+// TestRunRecordDispatchesPrintsDispatchesAsJSONArray pins the success
+// shape: the change's dispatch rows come back as a JSON array on stdout in
+// the order the store sent them (seq order, pinned store-side), decodable
+// into objects carrying key/role/sessionToken -- what
+// check-panel-fix-single-dispatch.sh filters and counts on.
+func TestRunRecordDispatchesPrintsDispatchesAsJSONArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	body := `{"change":"demo","findings":[],"dispatches":[
+	  {"id":1,"seq":1,"key":"panel-fix-1","role":"panel-fix","model":"sonnet","sessionToken":"mf-tok","startedAt":"2026-09-10T09:00:00Z"},
+	  {"id":2,"seq":2,"key":"panel-fix-1-retry","role":"panel-fix","model":"sonnet","sessionToken":"mf-tok","startedAt":"2026-09-10T09:05:00Z"}
+	]}`
+	srv := httptest.NewServer(renderDaemon(t, body))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+
+	var got []struct {
+		Seq          int    `json:"seq"`
+		Key          string `json:"key"`
+		Role         string `json:"role"`
+		SessionToken string `json:"sessionToken"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("decode stdout as JSON array: %v\nstdout:\n%s", err, stdout.String())
+	}
+	if len(got) != 2 {
+		t.Fatalf("dispatches = %d, want 2:\n%s", len(got), stdout.String())
+	}
+	if got[0].Seq != 1 || got[0].Key != "panel-fix-1" || got[0].Role != "panel-fix" || got[0].SessionToken != "mf-tok" {
+		t.Errorf("got[0] = %+v, want seq 1/panel-fix-1/panel-fix/mf-tok", got[0])
+	}
+	if got[1].Seq != 2 || got[1].Key != "panel-fix-1-retry" {
+		t.Errorf("got[1] = %+v, want seq 2/panel-fix-1-retry", got[1])
+	}
+}
+
+// TestRunRecordDispatchesEmptyChangePrintsEmptyArray pins the no-rows
+// outcome -- the store answering 404/ErrNotFound, exactly as the findings
+// verb treats it -- as an empty JSON array and exit 0: a change the store
+// has never heard of has no dispatches, which is a fact, not an error.
+func TestRunRecordDispatchesEmptyChangePrintsEmptyArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("dispatches sent a %s request; a read only reads", r.Method)
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if got := strings.TrimRight(stdout.String(), "\n"); got != "[]" {
+		t.Fatalf("stdout = %q, want exactly []", got)
+	}
+}
+
+// TestRunRecordDispatchesUnreachableStoreFails pins the findings verb's
+// read contract for its sibling: a failed read never journals and never
+// reports success for a question it could not answer -- non-zero exit, and
+// no JSON array on stdout for a caller to misread as "no dispatches."
+func TestRunRecordDispatchesUnreachableStoreFails(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatches", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code == 0 {
+		t.Fatalf("exit code = 0, want non-zero; stdout:\n%s stderr:\n%s", stdout.String(), stderr.String())
+	}
+	if strings.Contains(stdout.String(), "[") {
+		t.Errorf("stdout = %q, want no JSON array when the store is unreachable", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "flow: dispatches:") {
+		t.Errorf("stderr = %q, want it to name the failing verb", stderr.String())
+	}
+}
+
+// TestRunRecordDispatchesNullDispatchesPrintsEmptyArray pins the nil-guard
+// on an EXISTING change whose dispatches field arrives null -- the shape
+// TestRecordFindingsWithZeroFindingsOnExistingChangePrintsEmptyArray pins
+// for the findings verb, and the mutant kan-482 pass 1 flagged (M3): the
+// same "[]"-not-"null" rule, because the fix-single-dispatch guard's jq
+// pipeline starts with .[] and crashes on a top-level null under set -euo
+// pipefail.
+func TestRunRecordDispatchesNullDispatchesPrintsEmptyArray(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	body := `{"change":"demo","findings":[{"ref":"F1","round":0,"slot":"Bugbot","severity":"Minor","location":"a.go:1","note":"n1","status":"fixed","reproducer":"none — prose only"}],"dispatches":null}`
+	srv := httptest.NewServer(renderDaemon(t, body))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatches", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "demo"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	got := strings.TrimRight(stdout.String(), "\n")
+	if got != "[]" {
+		t.Errorf("stdout = %q, want exactly \"[]\" for an existing change with null dispatches", got)
+	}
+}
+
 // TestRunRecordDecisionRefusesBadBody pins the caller-mistake path `flow
 // record decision` shares with every other write verb: a body that is not
 // valid JSON is refused before the store is ever contacted, exit 2, no

@@ -118,6 +118,8 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -ref F<n> -status status
        flow record findings [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record dispatches [-addr url] [-timeout dur] [-C dir]
+                             -change name
        flow record verdict  [-addr url] [-timeout dur] [-C dir]
                              -change name -guard guard -worktree path -verdict line
        flow record verdict false-positive [-addr url] [-timeout dur] [-C dir]
@@ -167,6 +169,14 @@ is nothing to replay, so a store findings could not reach is reported to
 stderr and exits non-zero rather than printing a JSON array a caller could
 mistake for "no findings."
 
+dispatches prints one change's dispatch rows as a JSON array on stdout --
+seq order, every role and session token -- for a guard to filter and count
+itself instead of deriving the same facts from prose. A change the store
+has never heard of prints exactly "[]" and exits 0, and a store it cannot
+reach is reported to stderr and exits non-zero, never a silent empty
+array: check-panel-fix-single-dispatch.sh counts rows from this verb, and
+an outage that read as zero rows would pass every round it was blind to.
+
 verdict, verdict false-positive and verdicts are a guard's own record of
 what it found: verdict writes the guard's whole verdict line, verbatim, on
 one change; verdict false-positive is an operator's judgment that the most
@@ -203,8 +213,8 @@ JSON array, newest first, findings' own read contract, verbatim.
 The only non-zero exits are caller mistakes -- a missing required flag, an
 unrecognised -role, a -session-token carrying a shell substitution, or a
 -minutes-lost that does not parse as a non-negative integer -- a write the
-store was reached for and refused, and a read (findings, verdicts,
-incidents) the store could not answer.
+store was reached for and refused, and a read (findings, dispatches,
+verdicts, incidents) the store could not answer.
 
 A dispatch is recorded in TWO calls. "begin" writes the row as the
 dispatch starts; "end" closes it as the dispatch finishes. Both are
@@ -259,6 +269,8 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordFinding(ctx, args[1:], stdout, stderr)
 	case "findings":
 		return runRecordFindings(ctx, args[1:], stdout, stderr)
+	case "dispatches":
+		return runRecordDispatches(ctx, args[1:], stdout, stderr)
 	case "verdict":
 		return runRecordVerdict(ctx, args[1:], stdout, stderr)
 	case "verdicts":
@@ -1224,6 +1236,60 @@ func runRecordFindings(ctx context.Context, args []string, stdout, stderr io.Wri
 	body, err := json.Marshal(run.Findings)
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: encode findings: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, string(body))
+	return 0
+}
+
+// runRecordDispatches implements `flow record dispatches`: the findings
+// verb's read contract over dispatch rows, so
+// check-panel-fix-single-dispatch.sh can count one run's panel-fix
+// dispatches per round instead of trusting prose. Like `findings`, it
+// marshals Run.Dispatches ALONE -- a guard consuming this verb needs
+// key/role/sessionToken, not findings it has no use for -- and it shares
+// the same journalling asymmetry: a read has nothing to replay, so a store
+// the call could not reach is reported to stderr and exits non-zero,
+// never rendered as an empty array a caller could mistake for "no
+// dispatches."
+func runRecordDispatches(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record dispatches", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	run, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	switch {
+	case callErr == nil:
+	case errors.Is(callErr, client.ErrNotFound):
+		// The store was reached and has never heard of this change --
+		// "no rows" is a fact, not a failure, and prints as an empty
+		// array below exactly as the findings verb treats it.
+		run = records.Run{Change: f.change, Dispatches: []records.Dispatch{}}
+	default:
+		fmt.Fprintf(stderr, "flow: dispatches: %v\n", callErr)
+		return 1
+	}
+
+	if run.Dispatches == nil {
+		run.Dispatches = []records.Dispatch{}
+	}
+
+	body, err := json.Marshal(run.Dispatches)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: encode dispatches: %v\n", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, string(body))
