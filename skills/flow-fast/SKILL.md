@@ -1,6 +1,6 @@
 ---
 name: flow-fast
-description: Reduced-ceremony /flow variant — inline brainstorm with auto-pick and no design gate, inline TDD implementation with targeted-only tests/lint, a fixed primary+simple-reviewer panel, seven guards, and the same finish contracts minus self-review and verify-cleanup. Same state record and flow.* stage keys as /flow, so a change can move between the two commands. Use for /flow-fast.
+description: Reduced-ceremony /flow variant — direct-write brainstorm with no design gate, inline TDD implementation with targeted-only tests/lint, a fixed primary+simple-reviewer panel, seven guards, and a one-run merge-and-push finish. Same state record and flow.* stage keys as /flow, so a change can move between the two commands. Use for /flow-fast.
 allowed-tools: Bash(spectre:*), Bash(flow:*)
 license: MIT
 ---
@@ -45,8 +45,7 @@ prefix, since a change moving between the two commands must read one consistent 
 | `skills/flow-fast/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
 | `skills/flow-fast/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
 | `skills/flow-fast/review.md` | `flow.review-panel`, `flow.verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
-| `skills/flow-fast/finish.md` (run 1) | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
-| `skills/flow-fast/finish.md` (run 2) | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
+| `skills/flow-fast/finish.md` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes`, `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
 
 `flow.design-approval` is never marked — `/flow-fast` runs no design-approval gate at all
 (`skills/flow-fast/brainstorm.md`).
@@ -103,13 +102,14 @@ five outcomes (no state, `STARTED`, `IN_PROGRESS` with an argument, `IN_PROGRESS
 
 **Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 confirm every guard `/flow-fast` can invoke — exactly `check-unfinished-work.sh`,
-`check-base-moved.sh`, `check-finish-preflight.sh`, `check-cleanup-complete.sh`,
+`check-base-moved.sh`, `check-finish-preflight.sh`, `check-archive-scope.sh`,
 `check-workspace-isolation.sh`, `check-worktree-processes.sh` and
 `check-panel-findings-closed.sh` (**Guard set** below) — is present in `<skill-dir>/scripts/`,
 resolved against `skills/flow-fast/`'s own directory per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`): `skills/flow-fast/scripts/` carries its own symlink to each
-of those guards (plus `prepare-workspace.sh`, `project-get.sh` and the shared `lib` sibling
-directory), pointing at the same underlying files `skills/flow/scripts/`'s own symlinks point at —
+of those guards (plus `prepare-workspace.sh`, `project-get.sh`, `prepare-archive-branch.sh`,
+`resolve-base-branch.sh` and the shared `lib` sibling directory), pointing at the same underlying
+files `skills/flow/scripts/`'s own symlinks point at —
 never a second copy. A complete set prints nothing; any absence prints that section's block once,
 naming `skills/flow-fast/scripts/` as the directory searched.
 
@@ -127,9 +127,11 @@ makes**, and reuse that exact value at every later `stage begin` this run makes.
 
 `/flow-fast` presence-checks and runs exactly seven guards, all resolved against
 `skills/flow/scripts/`: `check-unfinished-work.sh`, `check-base-moved.sh`,
-`check-finish-preflight.sh`, `check-cleanup-complete.sh`, `check-workspace-isolation.sh` (run
+`check-finish-preflight.sh`, `check-archive-scope.sh`, `check-workspace-isolation.sh` (run
 internally by `prepare-workspace.sh`, never invoked directly), `check-worktree-processes.sh` and
-`check-panel-findings-closed.sh`. Every other guard `skills/flow/scripts/` carries —
+`check-panel-findings-closed.sh`. `check-cleanup-complete.sh` is **not** in this set — no
+verify-cleanup pass runs for `/flow-fast`, whose one-run finish has nothing for it to verify.
+Every other guard `skills/flow/scripts/` carries —
 `check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`,
 `check-panel-fix-single-dispatch.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`,
 `plan-class.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`, `check-visual-trigger.sh`,
@@ -153,10 +155,12 @@ never hand-run: no phase file below cites any of them.
 - **Never** run a full `## test` / `## lint` pass automatically — only the operator's own
   instruction text triggers one, never a stage boundary or the handoff.
 - **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or
-  fixup commit. **Never** push, merge, or open a PR outside the integrate/archive branches' own
-  routes.
+  fixup commit — only in the planning-artifacts commit `skills/flow-fast/finish.md` makes.
+- **Merge-and-push is the only landing route.** Never ask the landing question, never read
+  `<project>/.flow/project.md`'s `## default landing route`, never push the change branch itself,
+  and never open a pull request — a change that needs one is a `/flow` run.
 - **Never** advance the state past what the phase in force is entitled to write — a fix never
-  moves the state; brainstorm/implement/review only ever write `IN_PROGRESS`; only run 2 of
-  `skills/flow-fast/finish.md` writes `FINISHED`.
+  moves the state; brainstorm/implement/review only ever write `IN_PROGRESS`; only
+  `skills/flow-fast/finish.md` completing writes `FINISHED`.
 - **No flags.** The only argument is the optional change name/description, or fix instructions at
   `IN_PROGRESS`; report anything else rather than ignoring it.

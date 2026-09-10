@@ -20,13 +20,13 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Panel slot verbatim reports | `/flow`'s review panel | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
 | SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
-| Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
+| Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change. `/flow-fast` creates none of this row — no `flow record render` call and no `<project>/docs/superpowers/` commit; the store is the terminal record for it |
 | Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Proposal artifact source | `/myflow-start` | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
 | Worktree | `/flow`'s `flow.create-artifacts` | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
-| Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
-| Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |
+| Remote branch | finish run 1 | `origin` | run 2, without a further prompt. `/flow-fast` creates none of this row — merge-and-push never pushes the change branch itself |
+| Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it. `/flow-fast` creates none of this row — its `spectre archive` commit lands directly on `<base>` in the landing worktree, never a `chore/archive-<name>` branch |
 | Change directory | `/myflow-start` | `<project>/spectre/changes/<name>/` | moved to the archive, never deleted |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
 | Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |

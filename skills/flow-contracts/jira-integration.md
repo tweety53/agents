@@ -75,6 +75,12 @@ before — no prefix, no placeholder.
 | `/myflow-start` | start of the run, immediately after the key resolves | **In Progress** |
 | `/myflow-finish` | run 1, after the chosen route completes — every route | **In Review** |
 | `/myflow-finish` | after the archive move and state write | **Done** |
+| `/flow-fast` | kickoff, immediately after the key resolves | **In Progress** |
+| `/flow-fast` | after the one push its one-run finish makes | **Done** |
+
+`/flow-fast` transitions straight from **In Progress** to **Done** — no **In Review** hop, since
+its one-run merge-and-push finish has no separate run 1 to mark that position with. The
+forward-only and never-blocking rules above apply to it exactly as they apply to `/flow`.
 
 No other command transitions the issue. In particular `/myflow-do` touches Jira's **status** not at all.
 `/myflow-do` is not a no-op against Jira, though: it still writes the issue **description** when a
