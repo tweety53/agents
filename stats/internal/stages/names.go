@@ -38,7 +38,8 @@ import (
 type Command string
 
 const (
-	Flow Command = "/flow"
+	Flow     Command = "/flow"
+	FlowFast Command = "/flow-fast"
 )
 
 // Stage is one documented pipeline stage: a stable key, a human-readable
@@ -58,36 +59,36 @@ type Stage struct {
 var Table = []Stage{
 	// /flow -- mints its own flow.* namespace rather than reusing start./do./finish.,
 	// per design.md's flow-rename-content-split (see README.md's Level 1 table for why).
-	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{Flow}},
-	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow}},
+	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.design-approval", Name: "Design approval", Commands: []Command{Flow}},
-	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow}},
-	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow}},
-	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow}},
-	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow}},
-	{Key: "flow.isolate-workspace", Name: "Isolate the workspace (first run only)", Commands: []Command{Flow}},
-	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow}},
-	{Key: "flow.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{Flow}},
-	{Key: "flow.review-panel", Name: "The review panel ▸", Commands: []Command{Flow}},
-	{Key: "flow.verify", Name: "Verify: workspace isolation, lint and test", Commands: []Command{Flow}},
+	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.decide", Name: "Decide — execution, models, panel", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.isolate-workspace", Name: "Isolate the workspace (first run only)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.review-panel", Name: "The review panel ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.verify", Name: "Verify: workspace isolation, lint and test", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.visual-verify", Name: "Visual verification", Commands: []Command{Flow}},
-	{Key: "flow.stage-diff", Name: "Stage, excluding the planning paths", Commands: []Command{Flow}},
-	{Key: "flow.run-instructions", Name: "Resolve the run instructions", Commands: []Command{Flow}},
-	{Key: "flow.write-in-progress", Name: "Write `IN_PROGRESS`", Commands: []Command{Flow}},
-	{Key: "flow.preflight", Name: "Preflight verdict (decides run 1 vs run 2) ▸", Commands: []Command{Flow}},
-	{Key: "flow.unfinished-work-gate", Name: "Unfinished-work gate (run 1) ▸", Commands: []Command{Flow}},
-	{Key: "flow.landing-question", Name: "The landing question (run 1)", Commands: []Command{Flow}},
-	{Key: "flow.preserve-sessions", Name: "Preserve the session records (run 1)", Commands: []Command{Flow}},
-	{Key: "flow.commit-two", Name: "Two commits, implementation first (run 1)", Commands: []Command{Flow}},
-	{Key: "flow.landing-routes", Name: "The landing routes, including moving the issue to In Review (run 1) ▸", Commands: []Command{Flow}},
-	{Key: "flow.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{Flow}},
-	{Key: "flow.sync-archive", Name: "Position the checkout and archive (run 2)", Commands: []Command{Flow}},
-	{Key: "flow.commit-archive", Name: "Commit the archive (run 2)", Commands: []Command{Flow}},
-	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow}},
+	{Key: "flow.stage-diff", Name: "Stage, excluding the planning paths", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.run-instructions", Name: "Resolve the run instructions", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.write-in-progress", Name: "Write `IN_PROGRESS`", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.preflight", Name: "Preflight verdict (decides run 1 vs run 2) ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.unfinished-work-gate", Name: "Unfinished-work gate (run 1) ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.landing-question", Name: "The landing question (run 1)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.preserve-sessions", Name: "Preserve the session records (run 1)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.commit-two", Name: "Two commits, implementation first (run 1)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.landing-routes", Name: "The landing routes, including moving the issue to In Review (run 1) ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.sync-archive", Name: "Position the checkout and archive (run 2)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.commit-archive", Name: "Commit the archive (run 2)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{Flow}},
-	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.self-review", Name: "Self-review (run 2)", Commands: []Command{Flow}},
-	{Key: "flow.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{Flow}},
+	{Key: "flow.push-archive", Name: "Push the archive branch and open its PR (run 2)", Commands: []Command{Flow, FlowFast}},
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that
