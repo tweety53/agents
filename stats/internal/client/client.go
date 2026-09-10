@@ -328,6 +328,56 @@ func (c *Client) ListStateBoard(ctx context.Context, project string) ([]StateBoa
 	return wire.Rows, nil
 }
 
+// StateChange is one record of the find route's answer: the fields the
+// state-record plan resolution reads, keyed by project and name together
+// (skills/flow-contracts/state-file.md). Worktrees stays raw -- the CLI
+// re-emits it verbatim and the bash lib parses it with jq.
+type StateChange struct {
+	ProjectKey string          `json:"projectKey"`
+	Name       string          `json:"name"`
+	State      string          `json:"state"`
+	Worktrees  json.RawMessage `json:"worktrees"`
+	UpdatedAt  string          `json:"updatedAt"`
+	UpdatedBy  string          `json:"updatedBy"`
+}
+
+type stateFindWireResponse struct {
+	Source   string        `json:"source"`
+	Complete bool          `json:"complete"`
+	Records  []StateChange `json:"records"`
+}
+
+// FindState fetches every project's record named name, via GET
+// /api/v1/changes/find?name=<name> -- the one endpoint that crosses the
+// project boundary. On any outcome other than the store answering 200 with
+// a well-formed body carrying the daemon header, it returns an error
+// wrapping ErrUnavailable, exactly as ListStateBoard does. An unknown name
+// is an empty slice, never an error.
+func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/api/v1/changes/find?name="+url.QueryEscape(name), nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+
+	body, status, fromDaemon, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !fromDaemon {
+		return nil, fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+
+	var wire stateFindWireResponse
+	if err := json.Unmarshal(body, &wire); err != nil {
+		return nil, fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
+	}
+	return wire.Records, nil
+}
+
 // stagesBeginURL and stagesEndURL are flowd's stage-mark endpoints --
 // POST /api/v1/stages/begin and POST /api/v1/stages/end, per design.md's
 // "API" section. Unlike the change endpoints, a mark's identity (project,

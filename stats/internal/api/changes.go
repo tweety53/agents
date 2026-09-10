@@ -341,6 +341,45 @@ func (h *changeHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, listChangesResponse{Total: total, Changes: dtos})
 }
 
+// stateFindResponse is the one JSON object the find route prints: the same
+// source/complete pair the CLI's state-list output carries, with full
+// change DTOs as records -- worktrees included, the field the guards'
+// state-record plan resolution (scripts/lib/change-plan.sh) reads.
+type stateFindResponse struct {
+	Source   string      `json:"source"`
+	Complete bool        `json:"complete"`
+	Records  []changeDTO `json:"records"`
+}
+
+// find serves GET /api/v1/changes/find?name=<name> -- the one route that
+// crosses the project boundary. Records are keyed by project and name
+// together (skills/flow-contracts/state-file.md), so the answer is every
+// project's record for that name, never one, and a caller that cannot
+// tolerate ambiguity refuses on a multi-record answer rather than picking.
+// An unknown name is an empty records array at 200 -- never a 404, which
+// here would mean "no such route" rather than "no such record". A request
+// carrying no name at all is a 400.
+func (h *changeHandler) find(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "missing name parameter")
+		return
+	}
+
+	changes, err := h.store.FindChangesByName(r.Context(), name)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, "find changes by name", err)
+		writeError(w, status, msg)
+		return
+	}
+
+	dtos := make([]changeDTO, len(changes))
+	for i, c := range changes {
+		dtos[i] = toDTO(c)
+	}
+	writeJSON(w, http.StatusOK, stateFindResponse{Source: "store", Complete: true, Records: dtos})
+}
+
 // reservedQueryParams are the query parameters list interprets itself.
 // Every other parameter present is treated as an equality filter on that
 // field name -- resolved, or rejected, by store.QueryChanges' own

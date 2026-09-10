@@ -1445,3 +1445,150 @@ func readAll(r *http.Request) ([]byte, error) {
 	defer func() { _ = r.Body.Close() }()
 	return io.ReadAll(r.Body)
 }
+
+// --- state find: the cross-project record lookup ---
+
+type stateFindOutputForTest struct {
+	Source   string `json:"source"`
+	Complete bool   `json:"complete"`
+	Records  []struct {
+		ProjectKey string          `json:"projectKey"`
+		Name       string          `json:"name"`
+		State      string          `json:"state"`
+		Worktrees  json.RawMessage `json:"worktrees"`
+		UpdatedAt  string          `json:"updatedAt"`
+		UpdatedBy  string          `json:"updatedBy"`
+		Unreadable bool            `json:"unreadable"`
+	} `json:"records"`
+}
+
+func decodeStateFindOutput(t *testing.T, raw []byte) stateFindOutputForTest {
+	t.Helper()
+	var out stateFindOutputForTest
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode state find output: %v (%s)", err, raw)
+	}
+	return out
+}
+
+func TestStateFindPrintsRecords(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"source":"store","complete":true,"records":[
+			{"projectKey":"proj-a","name":"kan-1","state":"STARTED","worktrees":{"/wt/a":"abc"},"updatedAt":"2026-09-10T10:00:00Z","updatedBy":"/flow"},
+			{"projectKey":"proj-b","name":"kan-1","state":"IN_PROGRESS","updatedAt":"2026-09-10T11:00:00Z","updatedBy":"/flow"}
+		]}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "find", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-1"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty when the store answers cleanly", stderr.String())
+	}
+	out := decodeStateFindOutput(t, stdout.Bytes())
+	if out.Source != "store" || !out.Complete {
+		t.Errorf("source/complete = %q/%v, want store/true", out.Source, out.Complete)
+	}
+	if len(out.Records) != 2 {
+		t.Fatalf("records = %+v, want 2", out.Records)
+	}
+	if out.Records[0].ProjectKey != "proj-a" || out.Records[1].ProjectKey != "proj-b" {
+		t.Errorf("records carry wrong projects: %+v", out.Records)
+	}
+	if string(out.Records[0].Worktrees) == "" {
+		t.Errorf("records[0].Worktrees empty — the field the state-record resolution reads")
+	}
+}
+
+func TestStateFindFallsBackToDiskAcrossProjects(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	projectKey, _, err := fallback.ProjectKey(repo)
+	if err != nil {
+		t.Fatalf("ProjectKey: %v", err)
+	}
+	seeded := []byte(`{"state":"IN_PROGRESS","worktrees":{},"updatedAt":"2026-09-10T09:00:00Z","updatedBy":"/flow"}`)
+	for _, pk := range []string{projectKey, "other-project-12345678"} {
+		if err := fallback.WriteStateFile(fallback.StateFilePath(pk, "kan-9"), seeded); err != nil {
+			t.Fatalf("seed state file for %s: %v", pk, err)
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "find", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-9"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (a dead port must never block); stderr:\n%s", code, stderr.String())
+	}
+	out := decodeStateFindOutput(t, stdout.Bytes())
+	if out.Source != "fallback" || out.Complete {
+		t.Fatalf("source/complete = %q/%v, want fallback/false", out.Source, out.Complete)
+	}
+	if len(out.Records) != 2 {
+		t.Fatalf("records = %+v, want one per project directory holding the name", out.Records)
+	}
+	seen := map[string]bool{}
+	for _, r := range out.Records {
+		seen[r.ProjectKey] = true
+		if r.Name != "kan-9" || r.State != "IN_PROGRESS" {
+			t.Errorf("record = %+v", r)
+		}
+	}
+	if !seen[projectKey] || !seen["other-project-12345678"] {
+		t.Errorf("fallback scan missed a project: seen=%v", seen)
+	}
+}
+
+func TestStateFindUnknownIsEmpty(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"source":"store","complete":true,"records":[]}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "find", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "absent"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	out := decodeStateFindOutput(t, stdout.Bytes())
+	if len(out.Records) != 0 {
+		t.Fatalf("records = %+v, want empty", out.Records)
+	}
+}
+
+func TestStateFindRequiresName(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "find", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 for a missing change name", code)
+	}
+	if !strings.Contains(stderr.String(), "usage:") {
+		t.Errorf("stderr = %q, want a usage line", stderr.String())
+	}
+}

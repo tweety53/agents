@@ -771,3 +771,46 @@ func TestPutChangeBackfillsPlanSessionsByJiraIssue(t *testing.T) {
 		t.Error("late plan session ChangeID = 0, want the existing change's id")
 	}
 }
+
+func TestFindChangesByNameReturnsAllProjects(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	a := baseChange("proj-a", "shared-name")
+	b := baseChange("proj-b", "shared-name")
+	other := baseChange("proj-a", "other-name")
+	for _, c := range []store.Change{a, b, other} {
+		if err := st.PutChange(ctx, c); err != nil {
+			t.Fatalf("PutChange(%s/%s): %v", c.ProjectKey, c.Name, err)
+		}
+	}
+
+	got, err := st.FindChangesByName(ctx, "shared-name")
+	if err != nil {
+		t.Fatalf("FindChangesByName: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("FindChangesByName(shared-name) returned %d changes, want 2", len(got))
+	}
+	seen := map[string]bool{}
+	for _, c := range got {
+		if c.Name != "shared-name" {
+			t.Errorf("FindChangesByName returned change named %q", c.Name)
+		}
+		seen[c.ProjectKey] = true
+	}
+	if !seen["proj-a"] || !seen["proj-b"] {
+		t.Errorf("FindChangesByName missing a project: seen=%v", seen)
+	}
+}
+
+func TestFindChangesByNameUnknownIsEmpty(t *testing.T) {
+	st := newTestStore(t)
+	got, err := st.FindChangesByName(context.Background(), "no-such-change")
+	if err != nil {
+		t.Fatalf("FindChangesByName: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("FindChangesByName(unknown) returned %d changes, want 0", len(got))
+	}
+}

@@ -98,6 +98,11 @@ type ChangeStore interface {
 	GetChange(ctx context.Context, projectKey, name string) (store.Change, error)
 	PutChange(ctx context.Context, c store.Change) error
 	QueryChanges(ctx context.Context, q store.Query) ([]store.Change, int, error)
+	// FindChangesByName backs GET /api/v1/changes/find -- the one
+	// cross-project lookup. Records are keyed by project and name together
+	// (skills/flow-contracts/state-file.md), so the answer is every
+	// matching project's row, never one.
+	FindChangesByName(ctx context.Context, name string) ([]store.Change, error)
 	// projectResolver backs resolveProjectParam (stats.go), which
 	// parseChangeQuery (changes.go) uses to resolve the changes list's own
 	// "project" filter -- the same rule every stats view applies to its
@@ -294,6 +299,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	seth := &settingsHandler{store: sets, logger: logger}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/changes", h.list)
+	mux.HandleFunc("GET /api/v1/changes/find", h.find)
 	mux.HandleFunc("GET /api/v1/changes/{project}/{name}", h.get)
 	mux.HandleFunc("PUT /api/v1/changes/{project}/{name}", h.put)
 	mux.HandleFunc("POST /api/v1/stages/begin", sh.begin)

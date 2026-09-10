@@ -326,6 +326,26 @@ func (s *Store) ListChanges(ctx context.Context, projectKey string) ([]Change, e
 	return changes, nil
 }
 
+// FindChangesByName returns every project's record named name. Records are
+// keyed by project and name together (state-file.md), so one name may
+// legitimately match more than one project's row and the answer is every
+// matching row, never one -- a caller that cannot tolerate ambiguity
+// refuses on a multi-record answer rather than picking one. Like
+// ListChanges it is a thin wrapper around QueryChanges (a name filter with
+// no project predicate, a project sort for deterministic output, NoLimit)
+// rather than a second SQL path.
+func (s *Store) FindChangesByName(ctx context.Context, name string) ([]Change, error) {
+	changes, _, err := s.QueryChanges(ctx, Query{
+		Filters: []Filter{{Field: "name", Op: OpEq, Value: name}},
+		Sort:    []SortKey{{Field: "project"}},
+		Limit:   NoLimit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("store: find changes named %s: %w", name, err)
+	}
+	return changes, nil
+}
+
 // ProjectKeySuffixPattern is the regular expression, in POSIX/RE2 syntax
 // (valid both as a Go regexp and as a PostgreSQL regexp_replace pattern),
 // that matches the trailing "-" plus exactly eight lowercase hexadecimal

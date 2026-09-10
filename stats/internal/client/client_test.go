@@ -763,6 +763,13 @@ func (s *inMemoryChangeStore) QueryChanges(_ context.Context, _ store.Query) ([]
 	return all, len(all), nil
 }
 
+// FindChangesByName is here purely to keep satisfying api.ChangeStore --
+// this file's tests reach the find route through the client, never by
+// seeding the store and calling the handler.
+func (s *inMemoryChangeStore) FindChangesByName(_ context.Context, _ string) ([]store.Change, error) {
+	return nil, nil
+}
+
 // ProjectKeysByDisplayName is here purely to keep satisfying
 // api.ChangeStore -- see stubStageStore.ProjectKeysByDisplayName's own
 // doc comment for why: this file's tests never send a display-name
@@ -1182,5 +1189,51 @@ func TestClientSetFindingStatusSendsCategory(t *testing.T) {
 	}
 	if _, ok := bodies[1]["category"]; ok {
 		t.Errorf("second body carries a category key (%s), want it omitted", bodies[1])
+	}
+}
+
+// TestFindStateDecodesRecords asserts FindState decodes the find route's
+// envelope into per-project records -- the cross-project shape the
+// state-record plan resolution (change-plan.sh) reads -- and that a
+// look-alike server missing the daemon header reads as ErrUnavailable,
+// exactly as ListStateBoard requires.
+func TestFindStateDecodesRecords(t *testing.T) {
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/changes/find" || r.URL.Query().Get("name") != "kan-1" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"source":"store","complete":true,"records":[
+			{"projectKey":"proj-a","name":"kan-1","state":"STARTED","worktrees":{"/wt/a":"abc"},"updatedAt":"2026-09-10T10:00:00Z","updatedBy":"/flow"},
+			{"projectKey":"proj-b","name":"kan-1","state":"IN_PROGRESS","updatedAt":"2026-09-10T11:00:00Z","updatedBy":"/flow"}
+		]}`))
+	}))
+	defer srv.Close()
+
+	c := client.New(srv.URL, srv.Client())
+	got, err := c.FindState(context.Background(), "kan-1")
+	if err != nil {
+		t.Fatalf("FindState: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("records = %+v, want 2", got)
+	}
+	if got[0].ProjectKey != "proj-a" || got[0].Name != "kan-1" || got[0].State != "STARTED" {
+		t.Errorf("records[0] = %+v", got[0])
+	}
+	if string(got[0].Worktrees) == "" {
+		t.Error("records[0].Worktrees empty — the field the state-record resolution reads")
+	}
+	if got[1].ProjectKey != "proj-b" || got[1].State != "IN_PROGRESS" {
+		t.Errorf("records[1] = %+v", got[1])
+	}
+
+	lookalike := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"source":"store","complete":true,"records":[]}`))
+	}))
+	defer lookalike.Close()
+	c2 := client.New(lookalike.URL, lookalike.Client())
+	if _, err := c2.FindState(context.Background(), "kan-1"); !errors.Is(err, client.ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable for a response missing the daemon header", err)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -218,6 +219,20 @@ func (f *fakeStore) QueryChanges(_ context.Context, q store.Query) ([]store.Chan
 		all = append(all, c)
 	}
 	return all, len(all), nil
+}
+
+// FindChangesByName mirrors the real store's cross-project lookup over the
+// fake's in-memory map, project-key ordered so the route's answer is
+// deterministic for the tests that assert on it.
+func (f *fakeStore) FindChangesByName(_ context.Context, name string) ([]store.Change, error) {
+	var out []store.Change
+	for _, c := range f.changes {
+		if c.Name == name {
+			out = append(out, c)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ProjectKey < out[j].ProjectKey })
+	return out, nil
 }
 
 var _ api.ChangeStore = (*fakeStore)(nil)
@@ -1020,5 +1035,96 @@ func TestPutChangeMalformedWorktreesIsRejected(t *testing.T) {
 	}
 	if _, ok := fs.changes[changeKey("proj", "kan-16")]; ok {
 		t.Error("a malformed worktrees value must not reach the store")
+	}
+}
+
+// stateFindWireResponse mirrors the find route's JSON envelope.
+type stateFindWireResponse struct {
+	Source   string             `json:"source"`
+	Complete bool               `json:"complete"`
+	Records  []changeDTOForFind `json:"records"`
+}
+
+type changeDTOForFind struct {
+	ProjectKey string          `json:"projectKey"`
+	Name       string          `json:"name"`
+	State      string          `json:"state"`
+	Worktrees  json.RawMessage `json:"worktrees"`
+	UpdatedAt  string          `json:"updatedAt"`
+	UpdatedBy  string          `json:"updatedBy"`
+}
+
+// TestStateFindRouteReturnsMatchingRecords asserts GET /api/v1/changes/find
+// answers with every project's record for the named change -- records are
+// keyed by project and name together, so one name legitimately matches
+// more than one project's row, and the route is the only one that may
+// cross the project boundary.
+func TestStateFindRouteReturnsMatchingRecords(t *testing.T) {
+	fs := newFakeStore()
+	fs.changes[changeKey("proj-a", "shared")] = store.Change{
+		ProjectKey: "proj-a", Name: "shared", State: store.StateStarted,
+		Worktrees: json.RawMessage(`{}`), UpdatedAt: time.Now(), UpdatedBy: "tester",
+	}
+	fs.changes[changeKey("proj-b", "shared")] = store.Change{
+		ProjectKey: "proj-b", Name: "shared", State: store.StateInProgress,
+		Worktrees: json.RawMessage(`{}`), UpdatedAt: time.Now(), UpdatedBy: "tester",
+	}
+	fs.changes[changeKey("proj-a", "other")] = store.Change{
+		ProjectKey: "proj-a", Name: "other", State: store.StateStarted,
+		Worktrees: json.RawMessage(`{}`), UpdatedAt: time.Now(), UpdatedBy: "tester",
+	}
+	ts := newTestServer(t, fs)
+
+	status, body := doGet(t, ts, "/api/v1/changes/find?name=shared")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", status, body)
+	}
+	var out stateFindWireResponse
+	if err := json.Unmarshal([]byte(body), &out); err != nil {
+		t.Fatalf("decode response: %v (%s)", err, body)
+	}
+	if out.Source != "store" || !out.Complete {
+		t.Fatalf("source/complete = %q/%v, want store/true", out.Source, out.Complete)
+	}
+	if len(out.Records) != 2 {
+		t.Fatalf("records = %+v, want exactly the two shared-named rows", out.Records)
+	}
+	seen := map[string]bool{}
+	for _, r := range out.Records {
+		if r.Name != "shared" {
+			t.Errorf("record named %q in a name=shared answer", r.Name)
+		}
+		if r.Worktrees == nil {
+			t.Error("record carries no worktrees -- the field the state-record resolution reads")
+		}
+		seen[r.ProjectKey] = true
+	}
+	if !seen["proj-a"] || !seen["proj-b"] {
+		t.Errorf("records missing a project: seen=%v", seen)
+	}
+}
+
+// TestStateFindRouteUnknownIsEmpty asserts an unknown name answers 200 with
+// an empty records array -- never a 404 and never an error -- and that a
+// request with no name parameter at all is a 400.
+func TestStateFindRouteUnknownIsEmpty(t *testing.T) {
+	fs := newFakeStore()
+	ts := newTestServer(t, fs)
+
+	status, body := doGet(t, ts, "/api/v1/changes/find?name=absent")
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", status, body)
+	}
+	var out stateFindWireResponse
+	if err := json.Unmarshal([]byte(body), &out); err != nil {
+		t.Fatalf("decode response: %v (%s)", err, body)
+	}
+	if len(out.Records) != 0 {
+		t.Fatalf("records = %+v, want empty", out.Records)
+	}
+
+	status, _ = doGet(t, ts, "/api/v1/changes/find")
+	if status != http.StatusBadRequest {
+		t.Fatalf("missing name: status = %d, want 400", status)
 	}
 }

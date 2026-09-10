@@ -91,9 +91,19 @@ const maxStdinBytes = 1 << 20
 const stateUsage = `usage: flow state get     [-addr url] [-timeout dur] [-C dir] <name>
        flow state set     [-addr url] [-timeout dur] [-C dir] <name>
        flow state list    [-addr url] [-timeout dur] [-C dir]
+       flow state find    [-addr url] [-timeout dur] [-C dir] <name>
        flow state resolve [-addr url] [-timeout dur] [-C dir]
 
 state set reads the change's whole state as JSON from stdin.
+state find prints every project's record for one change name -- records
+are keyed by project and name together, so the answer is an array of
+matching records, never one. On any store failure it falls back to
+scanning the local on-disk fallback directory across every project --
+necessarily partial, since that directory only ever holds records a
+failed write left behind -- prints one warning line, and still exits 0.
+It carries the same "source"/"complete" fields as state list, with
+"records" naming each matching record's projectKey, name, state,
+worktrees, updatedAt and updatedBy.
 state list enumerates every change the store holds for the resolved
 project. On any store failure it falls back to what the local on-disk
 fallback directory holds -- necessarily partial, since that directory
@@ -124,6 +134,8 @@ func runState(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		return runStateSet(ctx, args[1:], stdin, stdout, stderr)
 	case "list":
 		return runStateList(ctx, args[1:], stdout, stderr)
+	case "find":
+		return runStateFind(ctx, args[1:], stdout, stderr)
 	case "resolve":
 		return runStateResolve(ctx, args[1:], stdout, stderr)
 	default:
@@ -457,6 +469,199 @@ func writeStateListOutput(stdout, stderr io.Writer, out stateListOutput) int {
 	_, _ = stdout.Write(encoded)
 	fmt.Fprintln(stdout)
 	return 0
+}
+
+// --- state find ---
+
+// stateFindRecord is one record of `state find`'s output: the fields the
+// state-record plan resolution (scripts/lib/change-plan.sh) reads --
+// projectKey and worktrees above all -- plus Unreadable for a fallback
+// file that exists but cannot be read or parsed. An unreadable record is
+// named, never silently dropped, exactly as state list's own fallback
+// records are.
+type stateFindRecord struct {
+	ProjectKey string          `json:"projectKey"`
+	Name       string          `json:"name"`
+	State      string          `json:"state,omitempty"`
+	Worktrees  json.RawMessage `json:"worktrees,omitempty"`
+	UpdatedAt  string          `json:"updatedAt,omitempty"`
+	UpdatedBy  string          `json:"updatedBy,omitempty"`
+	Unreadable bool            `json:"unreadable,omitempty"`
+}
+
+// stateFindOutput is the one JSON object `state find` prints to stdout.
+// Source and Complete mean exactly what state list's own pair mean:
+// Complete is true only for Source == "store".
+type stateFindOutput struct {
+	Source   string            `json:"source"`
+	Complete bool              `json:"complete"`
+	Records  []stateFindRecord `json:"records"`
+}
+
+// parseStateFindFlags mirrors parseStateListFlags but requires exactly one
+// positional argument, the change name.
+func parseStateFindFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (stateListFlags, string, error) {
+	fset.SetOutput(stderr)
+	f := stateListFlags{}
+	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
+	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
+	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
+	if err := fset.Parse(args); err != nil {
+		return stateListFlags{}, "", err
+	}
+	noteAddrEnvUsage(fset, stderr)
+	if fset.NArg() != 1 {
+		return stateListFlags{}, "", fmt.Errorf("state find takes exactly one argument, the change name")
+	}
+	if f.dir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return stateListFlags{}, "", fmt.Errorf("resolve working directory: %w", err)
+		}
+		f.dir = wd
+	}
+	return f, fset.Arg(0), nil
+}
+
+// runStateFind implements `flow state find <name>`: every project's record
+// for one change name, the cross-project lookup the guards' last-resort
+// plan resolution reads. Records are keyed by project and name together,
+// so the answer is an array, never one row. On success it prints source
+// "store", complete true. On any store failure it prints one warning line,
+// then whatever the on-disk fallback directory holds for that name across
+// every project, source "fallback", complete false, and still exits 0 --
+// exactly as state list's own fallback does.
+func runStateFind(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow state find", flag.ContinueOnError)
+	f, name, err := parseStateFindFlags(fset, args, stderr)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "flow: %v\n", err)
+		fmt.Fprint(stderr, stateUsage)
+		return 2
+	}
+
+	records, findErr := findState(ctx, f.addr, f.timeout, name)
+	if findErr == nil {
+		return writeStateFindOutput(stdout, stderr, stateFindOutput{
+			Source:   "store",
+			Complete: true,
+			Records:  toStateFindRecords(records),
+		})
+	}
+
+	// Every outcome other than a clean store answer -- ErrUnavailable, or
+	// a panic recovered inside findState -- takes the fallback: the local
+	// directory across every project, reported as exactly what it is,
+	// never dressed up as a complete answer.
+	fmt.Fprintln(stderr, "⚠ flow: store unreachable — scanning local fallback files across projects (partial: only failed writes are recorded there)")
+	fallbackRecords, fbErr := fallbackStateFindRecords(name)
+	if fbErr != nil {
+		fmt.Fprintf(stderr, "flow: state find: read local fallback directory: %v\n", fbErr)
+	}
+	return writeStateFindOutput(stdout, stderr, stateFindOutput{
+		Source:   "fallback",
+		Complete: false,
+		Records:  fallbackRecords,
+	})
+}
+
+// toStateFindRecords unpacks the client's decoded records into the
+// command's own output shape -- a one-to-one field copy, kept as its own
+// small function so runStateFind's success branch reads as one line (the
+// same shape toStateListRecords gives runStateList).
+func toStateFindRecords(rows []client.StateChange) []stateFindRecord {
+	records := make([]stateFindRecord, len(rows))
+	for i, r := range rows {
+		records[i] = stateFindRecord{
+			ProjectKey: r.ProjectKey,
+			Name:       r.Name,
+			State:      r.State,
+			Worktrees:  r.Worktrees,
+			UpdatedAt:  r.UpdatedAt,
+			UpdatedBy:  r.UpdatedBy,
+		}
+	}
+	return records
+}
+
+// writeStateFindOutput encodes out as one line of JSON to stdout, mirroring
+// writeStateListOutput.
+func writeStateFindOutput(stdout, stderr io.Writer, out stateFindOutput) int {
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: state find: encode output: %v\n", err)
+		return 1
+	}
+	_, _ = stdout.Write(encoded)
+	fmt.Fprintln(stdout)
+	return 0
+}
+
+// findState calls the store's GET /api/v1/changes/find endpoint under
+// addr/timeout, recovering from any panic in the client path and reporting
+// it as client.ErrUnavailable -- the same guarantee listStateBoard provides.
+func findState(ctx context.Context, addr string, timeout time.Duration, name string) (records []client.StateChange, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			records, err = nil, fmt.Errorf("%w: recovered panic: %v", client.ErrUnavailable, r)
+		}
+	}()
+
+	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	cl := client.New(addr, &http.Client{Timeout: timeout})
+	return cl.FindState(reqCtx, name)
+}
+
+// fallbackStateFindRecords scans every project directory under the state
+// root (fallback.StateRoot) for <name>.json and returns whatever it can
+// parse from each. A file that cannot be read or does not parse is still
+// reported -- Unreadable: true -- never silently dropped. The scan is
+// necessarily partial: the fallback directory holds only the records a
+// failed write left behind, which is why the output it feeds is never
+// marked complete.
+func fallbackStateFindRecords(name string) ([]stateFindRecord, error) {
+	entries, err := os.ReadDir(fallback.StateRoot())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []stateFindRecord{}, nil
+		}
+		return nil, err
+	}
+	records := []stateFindRecord{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		projectKey := entry.Name()
+		body, readErr := fallback.ReadStateFile(fallback.StateFilePath(projectKey, name))
+		if readErr != nil {
+			continue
+		}
+		var parsed struct {
+			State     string          `json:"state"`
+			Worktrees json.RawMessage `json:"worktrees"`
+			UpdatedAt string          `json:"updatedAt"`
+			UpdatedBy string          `json:"updatedBy"`
+		}
+		if jsonErr := json.Unmarshal(body, &parsed); jsonErr != nil {
+			records = append(records, stateFindRecord{ProjectKey: projectKey, Name: name, Unreadable: true})
+			continue
+		}
+		records = append(records, stateFindRecord{
+			ProjectKey: projectKey,
+			Name:       name,
+			State:      parsed.State,
+			Worktrees:  parsed.Worktrees,
+			UpdatedAt:  parsed.UpdatedAt,
+			UpdatedBy:  parsed.UpdatedBy,
+		})
+	}
+	return records, nil
 }
 
 // stateResolveOutput is the one JSON object `state resolve` prints to
