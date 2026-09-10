@@ -268,12 +268,14 @@ EXPECTED_ZERO_FILES=(
   "skills/flow-research/SKILL.md"
   "skills/flow-settings/SKILL.md"
   "skills/flow/SKILL.md"
+  "skills/flow-fast/SKILL.md"
 )
 EXPECTED_ZERO_REASONS=(
   "the contracts index — shared prose loaded by several command skills; it is never itself run as a command, so it marks no stage and dispatches no subagent of its own"
   "a thinking-partner research mode with no implementation or verification stage to mark; it dispatches a research subagent on PLANNING_MODEL (its own 'The research subagent' section) but writes no dispatch record, since research has no change to record one against"
   "a standalone settings command with no per-change state, no implementation or verification stage to mark, and no subagent to dispatch — the same reason check-guard-symlinks.sh declares it expected-zero"
   "a legitimate zero-mark router file — it resolves state and dispatches into the topic file (brainstorm.md, implement.md, review-panel.md, verify-and-handoff.md, integrate.md, archive.md) that owns the phase in force; every flow.* mark lives in one of those phase files, which this guard's corpus now scans directly, never in this router itself"
+  "the same legitimate zero-mark router shape as skills/flow/SKILL.md — it resolves state and dispatches into brainstorm.md/implement.md/review.md/finish.md, which carry every flow.* mark; this router marks none of its own"
 )
 
 # declare_expected_zeros — called ONLY for the guard's own default, full-
@@ -317,13 +319,16 @@ for target in "${TARGETS[@]}"; do
     # checked call. KAN-374 widens this from SKILL.md/pipeline.md alone to
     # also the six skills/flow/ phase files, where every flow.* mark and
     # flow record dispatch call actually lives — see the corpus comment
-    # above EXPECTED_ZERO_FILES.
+    # above EXPECTED_ZERO_FILES. KAN-490 widens it again to skills/flow-fast/'s
+    # own two differently-named phase files (review.md, finish.md — its
+    # brainstorm.md and implement.md already matched the existing names).
     FILES=()
     while IFS= read -r -d '' f; do
       FILES+=("$f")
     done < <(find "$target" -type f \( -name 'SKILL.md' -o -name 'pipeline.md' \
       -o -name 'brainstorm.md' -o -name 'implement.md' -o -name 'review-panel.md' \
-      -o -name 'verify-and-handoff.md' -o -name 'integrate.md' -o -name 'archive.md' \) -print0)
+      -o -name 'verify-and-handoff.md' -o -name 'integrate.md' -o -name 'archive.md' \
+      -o -name 'review.md' -o -name 'finish.md' \) -print0)
     if [[ ${#FILES[@]} -eq 0 ]]; then
       # KAN-197 F7: a directory target that enumerates to ZERO candidate
       # files produced no file for the loop below to iterate, so

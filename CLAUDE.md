@@ -80,6 +80,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
 | `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the review panel resolved from the settings store, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
+| `skills/flow-fast/` | `/flow-fast` | Reduced-ceremony `/flow` variant: inline brainstorm with auto-pick and no design gate, inline TDD implementation with targeted-only tests/lint, a fixed primary+simple-reviewer panel, seven guards, and the same finish contracts minus self-review and verify-cleanup. Same state record and `flow.*` stage keys as `/flow` |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-research/` | `/flow-research` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |

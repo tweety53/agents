@@ -165,11 +165,16 @@
    **When the script is absent** — a repository that does not carry it — check the same registry rows
    by hand, in the same order, and say in the handoff that the verification was done manually. The
    check is never skipped for want of the script, and "not verified" is never reported as verified.
+
+   **A `/flow-fast` run skips this step entirely** — cleanup itself (step 5) still runs; only its
+   separate verification pass does not, per that command's own reduced guard set.
 8. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
-9. **Run self-review** — after `FINISHED` is written; a skip, a failure, or a decline never moves
+9. **Run self-review** — after `FINISHED` is written. **A `/flow-fast` run skips this step
+   entirely** — no self-review subagent is dispatched, per that command's own design. Otherwise: a
+   skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. A project's
    `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
    decides without asking when present and valid; the per-run prompt is the absent case. It gathers its

@@ -150,6 +150,7 @@ README.md 59181
 commands-claude/flow-research.md 1174
 commands-claude/flow-settings.md 993
 commands-claude/flow-status.md 1632
+commands-claude/flow-fast.md 3612
 commands-claude/flow.md 3188
 commands-claude/myflow-do.md 2240
 commands-claude/myflow-fast.md 2536
@@ -160,6 +161,7 @@ commands-claude/myflow-status.md 1637
 commands/flow-research.md 1227
 commands/flow-settings.md 1188
 commands/flow-status.md 1970
+commands/flow-fast.md 4054
 commands/flow.md 3874
 commands/myflow-do.md 2738
 commands/myflow-fast.md 3040
@@ -181,6 +183,11 @@ rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
 rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
+skills/flow-fast/SKILL.md 13631
+skills/flow-fast/brainstorm.md 9626
+skills/flow-fast/finish.md 8186
+skills/flow-fast/implement.md 5073
+skills/flow-fast/review.md 5584
 skills/flow-research/SKILL.md 13047
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118

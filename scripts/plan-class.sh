@@ -10,7 +10,9 @@
 #
 # Exit 0 on a printed answer, exit 2 on a missing <tasks.md> or a
 # non-integer <repos>. Rules from design.md's "Inputs and the class" and
-# "The rolls" (kan-472-flow-dynamic-review-panel-roster-repo-scoped):
+# "The rolls" (kan-472-flow-dynamic-review-panel-roster-repo-scoped); the
+# small/big thresholds were raised by kan-490-flow-fast-a-reduced-ceremony-flow-variant-drop
+# so more changes classify small/regular and roll compact:
 #
 #   tasks     = count of column-0 `- [ ] <n>.` / `- [x] <n>.` lines
 #   files     = size of the union of every task's `**Files:**` backticked
@@ -23,9 +25,9 @@
 #   red       = any task tagged `**Build:** red`
 #   unverified= any `unverified:` provenance tag anywhere in the plan
 #
-#   small:   tasks<=5 and files<=12 and repos=1 and not migration and not spec
-#   big:     tasks>=15 or files>=40 or (repos>1 and tasks>=8)
-#            or (migration and tasks>=8)
+#   small:   tasks<=10 and files<=25 and repos=1 and not migration and not spec
+#   big:     tasks>=30 or files>=80 or (repos>1 and tasks>=15)
+#            or (migration and tasks>=15)
 #   regular: everything else
 #
 # The planner may raise this class one step with a recorded override — that
@@ -99,12 +101,12 @@ if grep -q 'unverified:' "$TASKS_FILE"; then
 fi
 
 CLASS=regular
-if [ "$TASKS_COUNT" -le 5 ] && [ "$FILES_COUNT" -le 12 ] && [ "$REPOS" -eq 1 ] \
+if [ "$TASKS_COUNT" -le 10 ] && [ "$FILES_COUNT" -le 25 ] && [ "$REPOS" -eq 1 ] \
   && [ "$MIGRATION" = no ] && [ "$SPEC" = no ]; then
   CLASS=small
-elif [ "$TASKS_COUNT" -ge 15 ] || [ "$FILES_COUNT" -ge 40 ] \
-  || { [ "$REPOS" -gt 1 ] && [ "$TASKS_COUNT" -ge 8 ]; } \
-  || { [ "$MIGRATION" = yes ] && [ "$TASKS_COUNT" -ge 8 ]; }; then
+elif [ "$TASKS_COUNT" -ge 30 ] || [ "$FILES_COUNT" -ge 80 ] \
+  || { [ "$REPOS" -gt 1 ] && [ "$TASKS_COUNT" -ge 15 ]; } \
+  || { [ "$MIGRATION" = yes ] && [ "$TASKS_COUNT" -ge 15 ]; }; then
   CLASS=big
 fi
 

@@ -258,38 +258,6 @@ The block a state hands off is defined in **The block each state renders**
 (`skills/flow-contracts/handoff-blocks.md`). `/flow-status` loads it; `/flow`
 carries only the block it prints.
 
-### The tab commands, printed at the start of a run
-
-`/flow` prints, immediately after its announcement
-line and before any work, two commands for the operator to paste:
-
-```text
-/rename <change-name>
-/color cyan
-```
-
-**They sit at the start of the run, not in the handoff block, and the colour is one fixed value —
-`cyan` — for every command and change, signifying only that a pipeline command owns the tab.**
-`/flow-status` prints neither line: a read-only report does not own the tab. See **The tab
-commands, printed at the start of a run** (`skills/flow-contracts/pipeline-rationale.md`) for why
-cyan was chosen and why the lines are printed at the start rather than the end.
-
-**They are printed rather than invoked because neither is reachable from inside a run.** See **The
-tab commands, printed at the start of a run**
-(`skills/flow-contracts/pipeline-rationale.md`) for the measurement behind it.
-
-- **Where a harness offers a reachable way to set the tab's name and colour from inside a run**, the
-  command may use it, and then prints nothing — the lines exist to be pasted, and there is nothing
-  to paste once the thing is done.
-- **Where it does not** — Claude Code today, for the two reasons measured, and any harness
-  with no tab concept at all — the command prints the two lines. In a harness with no such commands
-  they are inert text the operator ignores, which costs two lines and leaves nothing broken.
-
-The rule is satisfied by whichever mechanism the harness provides, and no harness has to gain a tab
-API to satisfy it. What is **not** optional is that the naming happens at the start of the run: a
-command that silently skips it because its harness offers no tool has dropped the requirement, not
-adapted it.
-
 ## Artifact brevity
 
 **Every artifact a `/flow` run writes is written brief** — bullets over prose, no preamble, no

@@ -397,8 +397,8 @@ recorded as such:
 | big | sdd | opus/high | primary: opus/high; simple-reviewer: sonnet/high; principles: opus/medium; mutation: sonnet/high; bugbot; security | primary: opus/high; simple-reviewer: sonnet/high; principles: opus/medium | full | `primary+simple-reviewer+principles` · `mutation+bugbot+security` |
 
 `bugbot` and `security` are prompt-driven roles like every other slot: on big they take the class's
-`simple-reviewer` model/effort, recorded like any other slot's. Compact when `compact_roll < 70`
-(small) or `< 30` (regular, big);
+`simple-reviewer` model/effort, recorded like any other slot's. Compact when `compact_roll < 90`
+(small) or `< 60` (regular, big);
 experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever
 roster on sonnet/medium (small, regular) or sonnet/high (big).
 
