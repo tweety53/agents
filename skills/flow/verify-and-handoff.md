@@ -6,9 +6,10 @@ order design.md's `workspace-export-lint-merge` and `run-instructions-reorder` d
 `do.run-instructions → do.workspace-export → do.lint-and-test → do.stage-diff → do.write-in-progress`
 order, with the middle two merged into one `flow.verify` stage and `run-instructions` moved to
 immediately before the state write. `flow.visual-verify` sits between `flow.verify` and
-`flow.stage-diff` — a later insertion, not part of either decision above. Both `flow.verify` and
-`flow.visual-verify` run their commands through a `verifier` subagent (**The verifier dispatch**,
-below); the conductor keeps every mark and every block decision.
+`flow.stage-diff` — a later insertion, not part of either decision above. `flow.verify` runs its
+commands inline, in the conductor's own Bash calls; `flow.visual-verify` alone dispatches a
+`verifier` subagent (**The verifier dispatch**, below); the conductor keeps every mark and every
+block decision.
 
 ## Verify
 
@@ -66,19 +67,56 @@ the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts none of them — it
 exports, lints, tests, and hands off.
 
-**After the panel closes, the conductor edits no source and runs none of the `## lint` or `## test`
-commands itself.** Its work in this stage is `prepare-workspace.sh`, the verifier dispatch(es) below
-and the ledger render — nothing else. Any source change from here on makes every slot's result stale
-(**Panel re-runs**, `skills/flow/review-panel.md`), and the only path that changes source is a fix
-run the operator starts. A failing check is never "just re-run to see" by the conductor: the
-verifier is re-dispatched with it, per **The verifier dispatch** below.
+**After the panel closes, the conductor edits no source.** Any source change from here on makes
+every slot's result stale (**Panel re-runs**, `skills/flow/review-panel.md`), and the only path
+that changes source is a fix run the operator starts. `## lint`, `## test` and
+`check-spec-reach.sh <worktree>` **are the conductor's own Bash calls, run inline per worktree,
+never through a subagent** — its work in this stage is `prepare-workspace.sh`, those commands, the
+visual-verify dispatch below and the ledger render. A failing check is never "just re-run to see":
+the run below gives it exactly one inline re-run, per **Inline verify — a failing command** below.
+
+### Inline verify
+
+Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
+(auto-detect on exit 1). **The conductor itself runs them, per worktree — never a subagent.**
+Export the `KEY=value` lines `prepare-workspace.sh` printed for that worktree, then run the lint
+commands, then the test commands, in the order printed, then `check-spec-reach.sh <worktree>` —
+one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
+case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
+every command in order and do not stop at the first failure. **Nothing runs them later** —
+`/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
+
+```text verified:design.md section 2 of this change
+## Report
+- `<command>` — exit <n>
+  <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
+```
+
+The conductor writes this `## Report` itself and shows it as this stage's output.
+`prepare-workspace.sh`, both `project-get.sh` calls and this stage's `begin` mark are one Bash
+call; the lint and test run, this run's `flow record dispatch begin`, and the ledger render below
+are one more.
+
+**Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
+inline re-run of that command — the environmental-flake case. A second non-zero exit from the same
+command ends the turn with `## Question` naming the command and its output, verbatim; the operator
+resolves it through a fix run. Never treat a passing re-run as license to skip the rest of the
+list — every remaining command in the order above still runs.
+
+**Recording.** One `dispatches` row per worktree, `-role verifier -key verify -model <conductor
+model> -effort <conductor effort> -agent-id inline`, suffixed `-<worktree basename>` when this
+run's resolved set holds more than one worktree — the same convention **Inline — the parent
+implements** (`skills/flow/implement.md`) uses for implementer and panel-fix rows. `begin` is
+recorded before the first command in the list; `end` after the `## Report` is written, carrying
+`-outcome completed` (or `-outcome stopped` on the `## Question` handback above).
 
 ### The verifier dispatch
 
-`flow.verify` and `flow.visual-verify` both dispatch this subagent, one verifier per worktree per
-stage: `subagent_type: general-purpose`, the Agent tool's `model` parameter set to `VERIFY_MODEL`
-(**Model resolution**, `skills/flow/SKILL.md`) — the literal `sonnet`, never `DEFAULT_MODEL` and
-never a session override. Its prompt carries, verbatim:
+`flow.visual-verify` dispatches this subagent, one verifier per worktree — the closed list's one
+verifier row (**Dispatch sites — the conductor's closed list**, `skills/flow/implement.md`); the
+conductor dispatches nothing else in this file. `subagent_type: general-purpose`, the Agent tool's
+`model` parameter set to `VERIFY_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) — the
+literal `sonnet`, never `DEFAULT_MODEL` and never a session override. Its prompt carries, verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
@@ -103,20 +141,19 @@ own system prompt>`.
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
-**Recording.** The conductor records each dispatch as a pair, `-role verifier`, `-task` omitted,
-`-model sonnet`, `-key verify` here and `visual-verify` in **Visual verification** below, suffixed
-`-<worktree basename>` when this run's resolved set holds more than one worktree — the pair's
-semantics are section 4 of `skills/flow/implement.md`, cited here, not restated.
+**Recording.** The conductor records each dispatch, `-role verifier`, `-task` omitted, `-model
+sonnet`, `-key visual-verify`, suffixed `-<worktree basename>` when this run's resolved set holds
+more than one worktree — the pair's semantics are section 4 of `skills/flow/implement.md`, cited
+here, not restated.
 
 **A `## Report` carrying any non-zero exit is re-dispatched once.** The second dispatch is recorded
-under `-key verify-2` here and `visual-verify-2` in **Visual verification** below — the same
-`-<worktree basename>` suffix rule — with a prompt identical to the first plus the first `## Report`
-verbatim under a `## Previous attempt` heading, so the verifier can tell an environmental failure
-(a build the worktree lacked, a flaky harness) from a defect in the branch. **The second report is
-final.** Another non-zero exit ends your turn with `## Question` naming the failing command and its
-output, verbatim; the operator resolves it through a fix run. Never run the failing command yourself
-to check it, and never dispatch a third verifier. The ledger render and this stage's `end` mark
-follow whichever report was last.
+under `-key visual-verify-2` — the same `-<worktree basename>` suffix rule — with a prompt
+identical to the first plus the first `## Report` verbatim under a `## Previous attempt` heading,
+so the verifier can tell an environmental failure (a build the worktree lacked, a flaky harness)
+from a defect in the branch. **The second report is final.** Another non-zero exit ends your turn
+with `## Question` naming the failing command and its output, verbatim; the operator resolves it
+through a fix run. Never run the failing command yourself to check it, and never dispatch a third
+verifier. The ledger render and this stage's `end` mark follow whichever report was last.
 
 **Handshake.** Compare the `Model:` line against `sonnet` (never `DEFAULT_MODEL` or a session
 override) and apply **The handshake** (`skills/flow/implement.md`, **Dispatch the conductor**),
@@ -128,26 +165,6 @@ model the second handshake named>`** or **Stop the run**.
 **A mark or a record never blocks — proceed regardless of whether it reached the store.** A
 verifier that ends without a `## Report`, or whose agent dies, is closed `-outcome aborted` and
 blocks this handoff exactly as a failed command would, naming the death.
-
-Resolve the commands `project-get.sh <worktree> lint` and `project-get.sh <worktree> test` print
-(auto-detect on exit 1) the same way as before, and dispatch one verifier per worktree whose prompt
-states: the absolute worktree path; the `KEY=value` lines `prepare-workspace.sh` printed for that
-worktree, to export before every command; the lint commands, then the test commands, in the order
-printed, then `check-spec-reach.sh <worktree>` — one more command in the same list, whose exit 0
-line `Spec reach: not configured` is the ordinary case for a project with no `regression checkout`
-(its header is canonical for its exit codes); and the report shape below. The verifier runs every command in order and does not stop at
-the first failure. **Nothing runs them later** — `/flow`'s integrate phase has no verification
-gate — so a non-zero exit blocks this handoff.
-
-```text verified:design.md section 2 of this change
-## Report
-- `<command>` — exit <n>
-  <the command's output, verbatim, or its last 40 lines when longer, stated as truncated>
-```
-
-The conductor shows the report as this stage's output. `prepare-workspace.sh`, both
-`project-get.sh` calls and this stage's `begin` mark are one Bash call; the wait, the verifier's
-`record dispatch end` and the ledger render below are one more.
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
@@ -182,7 +199,8 @@ Reads the `## visual verification` section, canonical in
 this pipeline restates it. Resolve once per worktree in this run's resolved set, the same set
 **Verify** above resolved:
 
-Steps 1, 2 and 11 are the conductor's. Steps 3–10 and 12 are run by one verifier per worktree
+Steps 1, 2 and 11 are the conductor's — those steps, `prepare-workspace.sh` and the ledger render
+are the conductor's own Bash calls, never a subagent's. Steps 3–10 and 12 are run by one verifier per worktree
 surviving steps 1–2, dispatched per **The verifier dispatch** above with `-key visual-verify`; the
 conductor applies **Blocking** to its report. Its prompt states: the absolute worktree path; the
 `KEY=value` lines **Verify** exported for it; this section's resolved `setup`, `verify`, `capture`,
@@ -566,5 +584,4 @@ block verbatim beneath it, and the parent prints it unchanged (**Dispatch the co
 - **Never** hand off with an open finding of any severity, or a stale clean result — stale as
   **Panel re-runs** (`skills/flow/review-panel.md`) defines it.
 - **Never** mark a task's checkbox before that task's review passes.
-- **Never** edit source, and **never** run a `## lint` or `## test` command yourself, after the
-  panel closes — the verifier runs them, and a fix run changes source.
+- **Never** edit source after the panel closes — a fix run is the only path that changes source.

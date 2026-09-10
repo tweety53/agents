@@ -192,7 +192,7 @@ skills/flow/brainstorm-planner.md 31664
 skills/flow/bugbot-reviewer-prompt.md 7374
 skills/flow/engineering-principles.md 10732
 skills/flow/experimental/failure-modes.md 8931
-skills/flow/implement.md 41777
+skills/flow/implement.md 52398
 skills/flow/integrate.md 18602
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 73554
