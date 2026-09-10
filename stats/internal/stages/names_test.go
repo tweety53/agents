@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -315,4 +316,105 @@ func TestNameLooksUpDocumentedKey(t *testing.T) {
 	if _, ok := stages.Name("flow.a-key-nobody-documented"); ok {
 		t.Error("Name: ok = true for an undocumented key, want false")
 	}
+}
+
+// skillPath locates flow-fast's SKILL.md relative to this package, at the
+// same depth as readmePath above.
+const skillPath = "../../../skills/flow-fast/SKILL.md"
+
+// stageKeysHeading locates the section the drift guard extracts from.
+const stageKeysHeading = "## Stage keys"
+
+// extractFlowFastSkillKeys reads flow-fast's own Stage keys table and
+// returns every backticked flow.* key it names -- the authoritative
+// statement of which keys /flow-fast marks, so the vocabulary can be
+// pinned to the skill rather than to a hand-copied list. The kan-357 run
+// shipped the flow-fast skill with no vocabulary extension at all, and
+// nothing failed until a live run's first mark was rejected; this
+// extraction is what makes that class of drift a test failure instead.
+func extractFlowFastSkillKeys(t *testing.T) map[string]bool {
+	t.Helper()
+
+	data, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", skillPath, err)
+	}
+	text := string(data)
+	headingIdx := strings.Index(text, stageKeysHeading)
+	if headingIdx == -1 {
+		t.Fatalf("%s no longer contains the heading %q", skillPath, stageKeysHeading)
+	}
+
+	keys := map[string]bool{}
+	for _, line := range strings.Split(text[headingIdx:], "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "|") {
+			if len(keys) > 0 {
+				break // the table has ended
+			}
+			continue
+		}
+		cells := strings.Split(line, "|")
+		if len(cells) < 3 {
+			continue
+		}
+		if strings.TrimSpace(cells[1]) == "Phase file" {
+			continue // the header row
+		}
+		for _, tok := range strings.Split(cells[2], ",") {
+			tok = strings.Trim(strings.TrimSpace(tok), "`")
+			if strings.HasPrefix(tok, "flow.") {
+				keys[tok] = true
+			}
+		}
+	}
+	if len(keys) == 0 {
+		t.Fatalf("%s: extraction matched no stage keys -- the table's shape changed in a way this parser no longer understands", skillPath)
+	}
+	return keys
+}
+
+// TestStageKeysMatchFlowFastSkillTable pins the /flow-fast vocabulary to
+// flow-fast's own Stage keys table: every key the skill names carries
+// /flow-fast in stages.Table, and no other key does. Compared as sets --
+// the skill groups its keys by phase file, the vocabulary by README row,
+// so order is not a fact either side states.
+func TestStageKeysMatchFlowFastSkillTable(t *testing.T) {
+	want := extractFlowFastSkillKeys(t)
+
+	got := map[string]bool{}
+	for _, s := range stages.Table {
+		for _, c := range s.Commands {
+			if c == stages.FlowFast {
+				got[s.Key] = true
+			}
+		}
+	}
+
+	missing := map[string]bool{}
+	for key := range want {
+		if !got[key] {
+			missing[key] = true
+		}
+	}
+	extra := map[string]bool{}
+	for key := range got {
+		if !want[key] {
+			extra[key] = true
+		}
+	}
+	if len(missing) > 0 || len(extra) > 0 {
+		t.Errorf("/flow-fast vocabulary disagrees with %s\n  missing from vocabulary: %v\n  in vocabulary but not the skill: %v", skillPath, sortedKeys(missing), sortedKeys(extra))
+	}
+}
+
+// sortedKeys renders a key set sorted, for a deterministic failure
+// message.
+func sortedKeys(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

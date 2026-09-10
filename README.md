@@ -104,8 +104,9 @@ human-readable **name** that may be reworded without splitting recorded history,
 that runs it. A name marked ▸ hides substructure and is expanded at level 2 below.
 
 A key is namespaced by the command that *defines* the stage, never by the command that merely runs
-it — a distinction the previous, four-command surface needed and `/flow`, the single command left,
-does not: every row below is both defined and run by `/flow`. See design.md under kan-172 for the
+it — a distinction the previous, four-command surface needed and the two commands left do not:
+every row below is defined by `/flow`, and `/flow-fast` — the one other command that runs rows —
+runs a subset of them, its own **Stage keys** table (`skills/flow-fast/SKILL.md`) naming which. See design.md under kan-172 for the
 rejected alternatives to that older namespacing. `/flow-status` marks no stages at all and
 contributes no rows.
 
@@ -118,36 +119,36 @@ key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a 
 
 | Key | Name | Commands |
 |-----|------|----------|
-| `flow.kickoff` | Kickoff — write `STARTED` | `/flow` |
-| `flow.brainstorm` | Brainstorm ▸ | `/flow` |
+| `flow.kickoff` | Kickoff — write `STARTED` | `/flow`, `/flow-fast` |
+| `flow.brainstorm` | Brainstorm ▸ | `/flow`, `/flow-fast` |
 | `flow.design-approval` | Design approval | `/flow` |
-| `flow.create-artifacts` | Create the spectre artifacts | `/flow` |
-| `flow.writing-plans` | Writing-plans ▸ | `/flow` |
-| `flow.decide` | Decide — execution, models, panel | `/flow` |
-| `flow.load-context` | Load context and validate the plan | `/flow` |
-| `flow.isolate-workspace` | Isolate the workspace (first run only) | `/flow` |
-| `flow.document-fix` | Document the fix (re-runs only) | `/flow` |
-| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow` |
-| `flow.review-panel` | The review panel ▸ | `/flow` |
-| `flow.verify` | Verify: workspace isolation, lint and test | `/flow` |
+| `flow.create-artifacts` | Create the spectre artifacts | `/flow`, `/flow-fast` |
+| `flow.writing-plans` | Writing-plans ▸ | `/flow`, `/flow-fast` |
+| `flow.decide` | Decide — execution, models, panel | `/flow`, `/flow-fast` |
+| `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast` |
+| `flow.isolate-workspace` | Isolate the workspace (first run only) | `/flow`, `/flow-fast` |
+| `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
+| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast` |
+| `flow.review-panel` | The review panel ▸ | `/flow`, `/flow-fast` |
+| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast` |
 | `flow.visual-verify` | Visual verification | `/flow` |
-| `flow.stage-diff` | Stage, excluding the planning paths | `/flow` |
-| `flow.run-instructions` | Resolve the run instructions | `/flow` |
-| `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow` |
-| `flow.preflight` | Preflight verdict (decides run 1 vs run 2) ▸ | `/flow` |
-| `flow.unfinished-work-gate` | Unfinished-work gate (run 1) ▸ | `/flow` |
-| `flow.landing-question` | The landing question (run 1) | `/flow` |
-| `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow` |
-| `flow.commit-two` | Two commits, implementation first (run 1) | `/flow` |
-| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow` |
-| `flow.verify-merge` | Verify the merge (run 2) | `/flow` |
-| `flow.sync-archive` | Position the checkout and archive (run 2) | `/flow` |
-| `flow.commit-archive` | Commit the archive (run 2) | `/flow` |
-| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow` |
+| `flow.stage-diff` | Stage, excluding the planning paths | `/flow`, `/flow-fast` |
+| `flow.run-instructions` | Resolve the run instructions | `/flow`, `/flow-fast` |
+| `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow`, `/flow-fast` |
+| `flow.preflight` | Preflight verdict (decides run 1 vs run 2) ▸ | `/flow`, `/flow-fast` |
+| `flow.unfinished-work-gate` | Unfinished-work gate (run 1) ▸ | `/flow`, `/flow-fast` |
+| `flow.landing-question` | The landing question (run 1) | `/flow`, `/flow-fast` |
+| `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow`, `/flow-fast` |
+| `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
+| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast` |
+| `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
+| `flow.sync-archive` | Position the checkout and archive (run 2) | `/flow`, `/flow-fast` |
+| `flow.commit-archive` | Commit the archive (run 2) | `/flow`, `/flow-fast` |
+| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast` |
 | `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
-| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow` |
+| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast` |
 | `flow.self-review` | Self-review (run 2) | `/flow` |
-| `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow` |
+| `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow`, `/flow-fast` |
 
 `/flow` has no `start.ask-options`/`start.publish-proposal` equivalent (design.md's
 `ask-options-removed`, `publish-proposal-removed`) and no `finish.write-in-progress` (run 1)
