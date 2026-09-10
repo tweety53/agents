@@ -131,12 +131,12 @@ this a fallback exactly as `DEFAULT_MODEL`'s own `sonnet` literal is. A plain-la
 instruction overrides `PLANNING_MODEL` for that run only, recorded with the dispatch it changes and
 never written back to the settings store or the project key.
 
-**`VERIFY_MODEL` governs the two verifier dispatches** — `flow.verify`'s and
-`flow.visual-verify`'s (**Verify** and **Visual verification**, `skills/flow/verify-and-handoff.md`);
-it is the fixed literal `sonnet`, read from neither the settings store nor
-`<project>/.flow/project.md`; a plain-language session instruction does not override it; and it
-never falls back, because it is never resolved — the point is a predictable model for mechanical
-test and verification runs regardless of what `DEFAULT_MODEL` resolved to.
+**`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
+verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the conductor
+and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `sonnet`, read from neither the
+settings store nor `<project>/.flow/project.md`; a plain-language session instruction does not
+override it; and it never falls back, because it is never resolved — the point is a predictable
+model for mechanical verification runs regardless of what `DEFAULT_MODEL` resolved to.
 
 **`EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and `REVIEW_PANEL_TOGGLE` resolve
 `<project>/.flow/project.md`'s `## execution mode`, `## implementer model` and `## review panel`

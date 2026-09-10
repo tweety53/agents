@@ -496,7 +496,8 @@ every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own c
 `bugbot-reviewer-prompt.md`'s) — therefore both run there, against a throwaway worktree, never the
 shared `<worktree>` the other slots read:
 
-Run the sequence below once per worktree in the resolved set per slot, producing one
+**The conductor creates and removes every throwaway copy itself, in its own Bash calls — never a
+subagent.** Run the sequence below once per worktree in the resolved set per slot, producing one
 `<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot` or `mutation`),
 so a roster carrying both produces two copies per repository per round.
 
@@ -566,7 +567,8 @@ it is not, write it yourself carrying the single line `no verbatim report captur
 Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
 slot's report from this context** — record its `F<n>` rows and cite the file.
 
-**Every finding is a row in the store. The panel record is rendered from those rows.** Every
+**Every finding is a row in the store. The panel record is rendered from those rows.** The conductor
+records every finding itself, never a subagent. Every
 finding a round raised is recorded in one Bash call, one `flow record finding` per finding:
 
 ```bash
@@ -734,7 +736,7 @@ finding's own recorded location, taken verbatim from the findings table. *Theme*
 one-sentence Note column, reduced to its own defect noun phrase — the shortest phrase naming what is
 wrong, severity words and slot names stripped out.
 
-**Before dispatching the fix subagent**, run
+**Before dispatching the fix subagent**, the conductor runs this itself, never a subagent:
 
 ```bash
 check-panel-reproducers.sh <worktree> <change>
@@ -745,9 +747,10 @@ dispatch; a **rejected reproducer shape** (a shell metacharacter, an absolute pa
 a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **unverifiable** and put to
 the operator, never silently rewritten. Exit 2 stops the run.
 
-**For each open finding whose record carries a runnable `finding-reproducer:` command**, run —
-every finding's run and every throwaway worktree removal in one Bash call, each run followed by
-`; echo "F<n>: exit $?"` so every exit code stays readable:
+**For each open finding whose record carries a runnable `finding-reproducer:` command**, the
+conductor runs it itself, never a subagent — every finding's run and every throwaway worktree
+removal in one Bash call, each run followed by `; echo "F<n>: exit $?"` so every exit code stays
+readable:
 
 ```bash
 run-reproducer.sh <worktree> "<the finding's finding-reproducer: text>"
@@ -763,7 +766,9 @@ A slot that supplies nothing for a finding has not supplied a legal exemption: r
 as its own open finding.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
-constraints and require it now to exit **0**. **The flip alone does not close a finding — the fix's
+constraints and require it now to exit **0**. **The conductor runs these re-runs itself, in its own
+Bash calls — never a "verify fixes" reader or any other subagent** (**Dispatch sites — the
+conductor's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
 change.** A fix that does not is not a fix: the finding stays open and goes to the operator through
 the handback below.
@@ -775,7 +780,7 @@ flow record status -change <name> -ref F<n> -status fixed
 ```
 
 **The parent records it, never the fix subagent** — the parent is what ran the reproducer and
-walked the diff. **Record every verdict this turn reached in one call,
+walked the diff, itself, never through a subagent. **Record every verdict this turn reached in one call,
 never deferred to the round's end** — the reproducer re-runs and the fix diff are read in one
 call, each finding judged, then every `status fixed` recorded together, so an aborted round
 still leaves every already-verified finding closed. **A finding failing
@@ -804,7 +809,9 @@ fix-mutations-total: <n>
 `findings-total:`, or `finding-reproducer:` outside its own marker use.** Write around it: paraphrase
 the label, or break it with a non-word character.
 
-**The parent checks the reported list against the fix diff before the round can close.** Walk every
+**The parent checks the reported list against the fix diff before the round can close, reading the
+`fix-mutation:` lines and walking the diff itself — never a "mutation re-verify" subagent or any
+other delegate.** Walk every
 hunk of the fix diff with a non-comment, non-whitespace change: each one is either covered by a
 reported line, or is not an executable behaviour at all. A hunk that removes or weakens a test or an
 assertion states in the record what it used to cover and names what still covers that same behaviour
@@ -950,7 +957,7 @@ the run hands back to the operator, one finding at a time:
 
 Only that answer records `withdrawn`, and only with the reason the operator gives.
 
-**Before closing the stage**, run
+**Before closing the stage**, the conductor runs both close guards itself, never a subagent:
 
 ```bash
 check-panel-findings-closed.sh <worktree> <change>

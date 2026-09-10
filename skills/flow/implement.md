@@ -51,12 +51,9 @@ in that range itself with the token it was given.
 no task-list tool. It ends a turn only with one of three blocks, and never with a child subagent
 still in flight — it waits for every implementer, reviewer, slot and fix subagent it launched
 first. A turn that ends with a child running idles this role and the parent until the child
-finishes, and both re-price their whole context on resume. The prompt also carries the
-fix-dispatch constraint the panel stage binds the conductor to: the review panel's fix step is
-**one** panel-fix dispatch per round, carrying the combined list of every surviving finding —
-never one dispatch per reviewer, slot or finding, the drift KAN-482 recorded — awaited in the
-foreground like every other child, on the canonical `panel-fix-<round>` key
-(`check-panel-fix-single-dispatch.sh` holds every run's panel close to that shape).
+finishes, and both re-price their whole context on resume. The prompt also cites **Dispatch
+sites — the conductor's closed list** below as the whole of what the conductor may dispatch,
+the panel-fix row's one-per-round rule included.
 
 - `## Question` — the question plus named options; the parent asks it verbatim through
   **AskUserQuestion** and resumes the conductor via **SendMessage** with the answer. Every operator
@@ -119,6 +116,32 @@ dispatch below; `skills/flow/review-panel.md`'s panel slot and panel-fix subagen
 `opus`-specific fallback target but follows this rule's `<key>-retry` shape and its second-mismatch
 question.
 
+### Dispatch sites — the conductor's closed list
+
+These four rows are **every** Agent-tool dispatch the conductor may make, across sections **1**,
+**2** and **4** below, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`:
+
+| Site | Role | Key shape | Owning section |
+|---|---|---|---|
+| implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
+| panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| panel-fix, exactly one per round | `panel-fix` | `panel-fix-<round>` (`-retry` once) | `skills/flow/review-panel.md`, the fix step |
+| verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/verify-and-handoff.md`, **Visual verification** |
+
+**Everything else in those five sections is the conductor's own Bash and Read work, never
+delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
+`prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,
+worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
+"re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
+other name — the KAN-449 run's six unrecorded subagents (four rogue panel-fix dispatches, a
+"verify fixes" reader and a "mutation re-verify" agent) are exactly the shape this forbids.
+
+**The self-check.** Before any Agent-tool call, the conductor names which row above the call is. A
+call that names no row is not made.
+
+`Inline — the parent implements` above takes this same table minus the implementer and panel-fix
+rows — the parent's only permitted dispatches inline are the panel-bundle and verifier rows.
+
 **The return.** Once `## Handoff` arrives, print the block unchanged and close the record under
 whichever key is open:
 
@@ -155,10 +178,13 @@ these substitutions:
   COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND
   BUILDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent
   in the same words**, as if the parent had dispatched itself.
-- **Panel slots and the verifier dispatch exactly as in sdd mode** — a session reviewing its own
-  diff is not a review. Panel fixes are applied by the parent instead of a panel-fix subagent; the
-  parent still runs every reproducer and the fix-diff walk (`skills/flow/review-panel.md`) before
-  recording a finding `fixed`.
+- **Panel slots and the visual-verify verifier dispatch exactly as in sdd mode** — a session
+  reviewing its own diff is not a review. Panel fixes are applied by the parent instead of a
+  panel-fix subagent; the parent still runs every reproducer and the fix-diff walk
+  (`skills/flow/review-panel.md`) before recording a finding `fixed`. The parent's own permitted
+  dispatches inline are the closed list's panel-bundle and verifier rows alone
+  (**Dispatch sites — the conductor's closed list** above); `flow.verify` runs inline for the
+  parent exactly as for a dispatched conductor.
 - **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
   model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
@@ -537,17 +563,19 @@ under `<key>-retry`; a second is a fallback plus `## Question`.
 > failure in a file this task's `**Files:**` field names is yours: fix it and re-run. Any other
 > failure is not: record the command and its output verbatim in your REPORT FILE under a `## Full
 > suite` heading, unfixed, and still commit your own task. When the plan-last group belongs to a
-> shared wave, its implementer does not carry FULL SUITE — the conductor instead runs the resolved
-> `## test` list once on the canonical worktree after that wave's final pick passes the guard, and
-> a failure is the same verbatim-output `## Question` handback as below. The existing
-> last-boundary sentence about a full-suite failure report keeps governing the singleton case.
+> shared wave, its implementer does not carry FULL SUITE — **the conductor itself**, never a
+> subagent, instead runs the resolved `## test` list once on the canonical worktree after that
+> wave's final pick passes the guard, and a failure is the same verbatim-output `## Question`
+> handback as below. The existing last-boundary sentence about a full-suite failure report keeps
+> governing the singleton case.
 
 **The next implementer overlaps the guard.** The unit is the group — the decision's `groups`
 entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, in this order:
 
 1. **Group N+1's implementer commits** and writes its report; the wait above ends.
 2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
-   is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The
+   is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The guard,
+   the tick and the gather are the conductor's own Bash calls, never a subagent's. The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
    **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
    its sixth:
