@@ -14,6 +14,21 @@ duplicates that file's own content.
 
 **Announce at start:** "Using flow for change `<name>`."
 
+**Then print the research-seed result**, the second line every run shows once the change name is
+known (which it already is by this point, per **Change name resolution**,
+`skills/flow-contracts/pipeline.md`) — the outcome of `brainstorm-planner.md`'s **Seed from a
+staged research note** check, per its exact-filename rule:
+
+```text
+research seed: found docs/superpowers/research/<key>.md — seeding brainstorm
+             | none — planning inline in this session
+```
+
+This line alone needs only the resolved name/Jira key, not model resolution — print it here,
+before `Model resolution` runs. The rest of the seeded-path block (below) needs
+`DEFAULT_MODEL`/`REVIEWERS`/the three toggles, so it prints once those resolve, before section
+**B**'s checklist starts.
+
 **Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
 handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
@@ -60,13 +75,6 @@ if [ -n "$PROJECT_SRM" ]; then
   else echo "⚠ flow: .flow/project.md '## self review model' body '$PROJECT_SRM' is not a valid model — dropped" >&2; fi
 fi
 [ -z "$SELF_REVIEW_MODEL" ] && SELF_REVIEW_MODEL=fable
-PLANNING_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.planningModel // empty')"
-PROJECT_PM="$(project-get.sh "$MAIN_CHECKOUT" 'planning model' 2>/dev/null | tr -d '`' | xargs)"
-if [ -n "$PROJECT_PM" ]; then
-  if flow settings models | grep -qx -- "$PROJECT_PM"; then PLANNING_MODEL="$PROJECT_PM"
-  else echo "⚠ flow: .flow/project.md '## planning model' body '$PROJECT_PM' is not a valid model — dropped" >&2; fi
-fi
-[ -z "$PLANNING_MODEL" ] && PLANNING_MODEL=fable
 resolve_toggle() {
   local key="$1" val root rval
   val="$(project-get.sh "$MAIN_CHECKOUT" "$key" 2>/dev/null | tr -d '`' | xargs)"
@@ -136,18 +144,8 @@ back to the literal `fable`, naming this a fallback exactly as `DEFAULT_MODEL`'s
 is. A plain-language session instruction overrides `SELF_REVIEW_MODEL` for that run only, recorded
 with the dispatch it changes and never written back.
 
-**`PLANNING_MODEL` resolves independently of `DEFAULT_MODEL` and governs three roles**: the
-planner dispatch (`skills/flow/brainstorm.md`), `flow.document-fix`'s planner dispatch
-(`skills/flow/implement.md`), and `/flow-research`'s research subagent
-(`skills/flow-research/SKILL.md`). `<project>/.flow/project.md`'s `## planning model` key, when
-present and a valid `ValidModels` member, wins over the store's `planningModel` field; when both
-are empty, or the store is unreachable, `PLANNING_MODEL` falls back to the literal `fable`, naming
-this a fallback exactly as `DEFAULT_MODEL`'s own `sonnet` literal is. A plain-language session
-instruction overrides `PLANNING_MODEL` for that run only, recorded with the dispatch it changes and
-never written back to the settings store or the project key.
-
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
-verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the conductor
+verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
 and dispatches no verifier. `VERIFY_MODEL` is the fixed literal `sonnet`, read from neither the
 settings store nor `<project>/.flow/project.md`; a plain-language session instruction does not
 override it; and it never falls back, because it is never resolved — the point is a predictable
@@ -178,6 +176,24 @@ dispatch it changes; an override nobody wrote down is indistinguishable from a m
 is **never** written back to the settings store — `/flow-settings` is the only command that changes
 a global default, per that command's own guardrails.
 
+**On a seeded creating run** (the research-seed line above found a note), print the rest of the
+startup block now, before section **B**'s checklist starts and before any stage past kickoff runs:
+
+```text
+planning:  inline, this session (<DEFAULT_MODEL>)
+toggles:   execution mode <default|dynamic> · implementer model <default|dynamic> · review panel <default|dynamic>
+models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
+decision:  <class / execution / implementer / panel / groups from the recorded decision>
+           | not yet decided — the ## Decision block follows writing-plans
+```
+
+`decision:` reads `flow record decisions -change <name>`'s newest row on a resumed `STARTED` run or
+a fix run; on a seeded creating run the Decide step has not run yet, so the line says so and the
+existing post-writing-plans `## Decision` print (**D**, `skills/flow/brainstorm-planner.md`) <!-- refs-guard:allow -->
+completes it once recorded. **On the no-seed path**, print nothing here — the same
+`planning:`/`toggles:`/`models:` lines join that same post-writing-plans `## Decision` print
+instead, neither moved nor duplicated.
+
 ## Reading the state
 
 ```bash
@@ -186,11 +202,12 @@ flow state get <name-or-best-guess> -C <repo-root>
 
 - **Exit 1**, or exit 0 with `"synthetic": true` — **no state**: a creating run. See
   **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`); once `## Plan`
-  returns, **Dispatch the conductor** (`skills/flow/implement.md`).
+  returns, continue directly into **The parent orchestrates directly**
+  (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
   **Resuming at `STARTED`** (`skills/flow/brainstorm.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run. See
-  **3. Documenting a fix, before implementing it** and then **Dispatch the conductor**
+  **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
   (`skills/flow/implement.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate run. See
   **Deciding which run this is** (`skills/flow/integrate.md`).
@@ -257,8 +274,8 @@ one per mark or per phase file.
   writes `FINISHED`.
 - **No flags.** The only argument is the optional change name/description, or fix instructions at
   `IN_PROGRESS`; report anything else rather than ignoring it.
-- **Never** run `implement.md` sections 1, 2 or 4, <!-- refs-guard:allow -->
-  `review-panel.md` or `verify-and-handoff.md` in the parent session — the conductor runs them; the
-  parent dispatches it, relays its questions and prints its handoff — unless the recorded
-  decision's `execution` is `inline`, per **Inline — the parent implements**
+- **Never** dispatch a conductor subagent for implementation. `implement.md` sections 1, 2 and 4, <!-- refs-guard:allow -->
+  `review-panel.md` and `verify-and-handoff.md` run in the parent session directly — the parent
+  orchestrates every guard, gather, dispatch, mark and report itself and prints its own handoff,
+  per **The parent orchestrates directly** and **Inline — the parent implements**
   (`skills/flow/implement.md`).

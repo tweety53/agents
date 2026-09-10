@@ -64,17 +64,16 @@
 # entirely from review-panel.md; cases 28-30 are one case per required
 # phrase, each dropped in turn.
 #
-# Cases 31-34 cover KAN-473's TOOLS paragraph, required twice in each of
-# implement.md and review-panel.md and once in each of brainstorm.md and
-# verify-and-handoff.md: new_root now seeds every sandbox with a correct
-# TOOLS_BLOCK in brainstorm.md and verify-and-handoff.md by default (no
-# other case exercises either file), and case 1's review-panel.md and
-# implement.md fixtures (and every other case's, which still carry only
-# the paragraphs those cases' own SITE tables register) each gain two
-# TOOLS_BLOCK blocks. Case 31 is the label absent entirely from
-# brainstorm.md; cases 32-34 are one case per required phrase, each
-# dropped from one of implement.md's two TOOLS blocks in turn while the
-# other stays correct.
+# Cases 31-34 cover KAN-473's TOOLS paragraph, required once in
+# implement.md, twice in review-panel.md, and once in verify-and-handoff.md
+# (kan-488 dropped implement.md's second copy and brainstorm.md's copy
+# entirely, along with the conductor and planner dispatches that carried
+# them): new_root seeds every sandbox with a correct TOOLS_BLOCK in
+# verify-and-handoff.md by default (no other case exercises that file),
+# and case 1's review-panel.md fixture carries two TOOLS_BLOCK blocks,
+# implement.md's own fixture at least one. Case 31 is the label absent
+# entirely from implement.md; cases 32-34 are one case per required
+# phrase, each dropped from implement.md's TOOLS block.
 #
 # Cases 42-44 cover the three assert phrases KAN-257 added to the MUTATION
 # PROOF entry, one case per phrase, each dropped in turn from the
@@ -83,17 +82,18 @@
 # names its dropped phrase.
 #
 # Cases 35-41 cover KAN-472 task 10's MODEL HANDSHAKE paragraph, required
-# twice in each of implement.md and review-panel.md and once in each of
-# brainstorm.md and verify-and-handoff.md — the same six sites TOOLS
-# occupies: new_root now also seeds every sandbox with a correct
-# HANDSHAKE_BLOCK in brainstorm.md and verify-and-handoff.md by default, and
-# CLEAN_REVIEW_PANEL/CLEAN_IMPLEMENT (and case 1's own fixtures) each gain
-# two HANDSHAKE_BLOCK blocks. Case 35 is the label absent entirely from
-# implement.md; case 36 the label absent from review-panel.md; case 37 the
-# label absent from brainstorm.md (overriding new_root's default); case 38
-# the label absent from verify-and-handoff.md (same override); cases 39-41
-# are one case per required phrase, each dropped from one of implement.md's
-# two HANDSHAKE blocks in turn while the other stays correct.
+# once in implement.md, twice in review-panel.md, and once in
+# verify-and-handoff.md — the same four sites TOOLS occupies (kan-488
+# dropped implement.md's second copy and brainstorm.md's copy entirely,
+# along with the conductor and planner dispatches that carried them):
+# new_root also seeds every sandbox with a correct HANDSHAKE_BLOCK in
+# verify-and-handoff.md by default, and CLEAN_REVIEW_PANEL (and case 1's
+# own review-panel.md fixture) gain two HANDSHAKE_BLOCK blocks.
+# Case 35 is the label absent entirely from implement.md; case 36 the
+# label absent from review-panel.md; case 38 the label absent from
+# verify-and-handoff.md (overriding new_root's default); cases 39-41 are
+# one case per required phrase, each dropped from implement.md's
+# HANDSHAKE block.
 #
 # Case 45 covers KAN-472 task 20's INDEPENDENT PASSES paragraph, required
 # once at review-panel.md's bundle prompt and nowhere else: CLEAN_REVIEW_PANEL
@@ -151,17 +151,18 @@ trap cleanup EXIT
 
 # new_root -> sets ROOT to a fresh sandbox directory carrying
 # skills/flow/, matching the required-site table's scan-root-relative
-# paths. brainstorm.md and verify-and-handoff.md are required TOOLS and
-# MODEL HANDSHAKE sites (min 1 block each) that no case below otherwise
-# exercises, so every root is seeded with a correct TOOLS_BLOCK and
-# HANDSHAKE_BLOCK in each by default — a case testing something else never
-# has to think about these two files, and case 31 (TOOLS) / case 37-38
-# (MODEL HANDSHAKE) below are the ones that override a default.
+# paths. verify-and-handoff.md is a required TOOLS, MODEL HANDSHAKE and NO
+# DELEGATION site (min 1 block each) that no case below otherwise
+# exercises, so every root is seeded with a correct TOOLS_BLOCK,
+# HANDSHAKE_BLOCK and DELEGATION_BLOCK in it by default — a case testing
+# something else never has to think about this file, and case 38 below is
+# the one that overrides the default. brainstorm.md is no longer a
+# dispatch site at all (kan-488 removed the planner dispatch it once
+# carried) and is seeded with nothing.
 new_root() {
   ROOT="$(mktemp -d "${TMPDIR:-/tmp}/check-dispatch-paragraphs-test.XXXXXX")"
   DIRS+=("$ROOT")
   mkdir -p "$ROOT/skills/flow"
-  printf '%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" > "$ROOT/skills/flow/brainstorm.md"
   printf '%s\n\n%s\n\n%s\n' "$TOOLS_BLOCK" "$HANDSHAKE_BLOCK" "$DELEGATION_BLOCK" > "$ROOT/skills/flow/verify-and-handoff.md"
 }
 
@@ -492,15 +493,17 @@ write_site() {
 # PROOF block (panel-fix dispatch), two TOOLS blocks (panel slot,
 # panel-fix dispatch) and one INDEPENDENT PASSES block (the bundle prompt,
 # KAN-472 task 20); implement.md carries two FOREGROUND BUILDS blocks
-# too (implementer dispatch, the conductor's own §4 instruction), one
-# TARGETED TESTS block (implementer dispatch) and two TOOLS blocks
-# (conductor dispatch, implementer dispatch), plus two MODEL HANDSHAKE
-# blocks each (KAN-472 task 10) and one NO DELEGATION block (implementer
-# dispatch); review-panel.md carries two NO DELEGATION blocks (panel slot,
-# panel-fix dispatch), same as its two TOOLS blocks (KAN-484). new_root
-# already seeded brainstorm.md and verify-and-handoff.md with their own
-# required TOOLS and MODEL HANDSHAKE blocks — verify-and-handoff.md is also
-# seeded with its own required NO DELEGATION block.
+# too (the implementer dispatch, plus the parent's own §4 restatement),
+# one TARGETED TESTS block (implementer dispatch) and two TOOLS blocks
+# (only one is required now that the conductor dispatch is gone, kan-488 —
+# the extra block is harmless, since the guard checks "at least" the
+# minimum), plus two MODEL HANDSHAKE blocks (same reasoning) and one NO
+# DELEGATION block (implementer dispatch); review-panel.md carries two NO
+# DELEGATION blocks (panel slot, panel-fix dispatch), same as its two
+# TOOLS blocks (KAN-484). new_root already seeded verify-and-handoff.md
+# with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
+# brainstorm.md is no longer a dispatch site (kan-488) and is seeded with
+# nothing.
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -1387,8 +1390,8 @@ case "$OUT" in
 esac
 
 # review-panel.md and implement.md content matching case 1's fully-correct
-# fixtures, reused as the baseline for cases 31-34 below so only the one
-# TOOLS deficiency under test stands out.
+# fixtures, reused as the baseline for case 31's review-panel.md fixture
+# and cases 35+ below so only the one deficiency under test stands out.
 CLEAN_REVIEW_PANEL="$REVIEWER_BLOCK
 
 $VERBATIM_BLOCK
@@ -1436,19 +1439,34 @@ $HANDSHAKE_BLOCK
 $DELEGATION_BLOCK"
 
 # ===========================================================================
-# Case 31: the TOOLS label is absent entirely from brainstorm.md (its
-# default seeded by new_root is overridden with prose and no block) —
-# exit 1, names brainstorm.md and the missing TOOLS block.
+# Case 31: the TOOLS label is absent entirely from implement.md — exit 1,
+# names implement.md and the missing TOOLS block. implement.md dropped to
+# a single required TOOLS block (kan-488 removed the conductor's own copy),
+# so this is now the direct "label entirely absent" case for it, mirroring
+# case 35's own MODEL HANDSHAKE-absent-from-implement.md shape.
 # ===========================================================================
 new_root
-write_site "skills/flow/brainstorm.md" "No TOOLS paragraph here at all, just prose."
 write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
-write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+No TOOLS paragraph here at all, just prose.
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK"
 run_guard
 [ "$RC" -eq 1 ] && pass "case 31: exits 1" || fail "case 31: expected exit 1, got rc=$RC out=$OUT"
 case "$OUT" in
-  *"brainstorm.md"*"TOOLS"*) pass "case 31: names brainstorm.md and TOOLS" ;;
-  *) fail "case 31: expected brainstorm.md and TOOLS named in output, got: $OUT" ;;
+  *"implement.md"*"TOOLS"*) pass "case 31: names implement.md and TOOLS" ;;
+  *) fail "case 31: expected implement.md and TOOLS named in output, got: $OUT" ;;
 esac
 
 # ===========================================================================
@@ -1584,23 +1602,12 @@ case "$OUT" in
   *) fail "case 36: expected review-panel.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
 esac
 
-# ===========================================================================
-# Case 37: the MODEL HANDSHAKE label is absent entirely from brainstorm.md
-# (its default seeded by new_root is overridden with prose and no block) —
-# exit 1, names brainstorm.md and the missing MODEL HANDSHAKE block.
-# ===========================================================================
-new_root
-write_site "skills/flow/brainstorm.md" "No MODEL HANDSHAKE paragraph here at all, just prose."
-write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
-write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
-run_guard
-[ "$RC" -eq 1 ] && pass "case 37: exits 1" || fail "case 37: expected exit 1, got rc=$RC out=$OUT"
-case "$OUT" in
-  *"brainstorm.md"*"MODEL HANDSHAKE"*) pass "case 37: names brainstorm.md and MODEL HANDSHAKE" ;;
-  *) fail "case 37: expected brainstorm.md and MODEL HANDSHAKE named in output, got: $OUT" ;;
-esac
-
-# ===========================================================================
+# Case 37 was the MODEL HANDSHAKE label absent from brainstorm.md — removed
+# (kan-488): brainstorm.md is no longer a dispatch site, and cases 35, 36
+# and 38 already cover "absent entirely" for implement.md, review-panel.md
+# and verify-and-handoff.md respectively, so MODEL HANDSHAKE's every
+# remaining site still has its own "label entirely absent" case.
+#
 # Case 38: the MODEL HANDSHAKE label is absent entirely from
 # verify-and-handoff.md (its default seeded by new_root is overridden) —
 # exit 1, names verify-and-handoff.md and the missing block.
@@ -1948,6 +1955,38 @@ case "$OUT" in
     pass "case 51: names the min-blocks violation at its own threshold" ;;
   *) fail "case 51: expected the NO DELEGATION min-blocks violation message, got: $OUT" ;;
 esac
+
+# ===========================================================================
+# Case 52: implement.md carries exactly one correct TOOLS block and exactly
+# one correct MODEL HANDSHAKE block — exit 0. Pins the kan-488 min-blocks
+# drop (implement.md's TOOLS/MODEL HANDSHAKE entries went from 2 to 1 once
+# the conductor's own copy of each was deleted): CLEAN_IMPLEMENT and every
+# other implement.md fixture in this suite still carry two of each block,
+# which satisfies "at least 1" without ever exercising the boundary — a
+# SITE_MIN_BLOCKS regression back to 2 for either entry would still pass
+# every one of those, since 2 >= 2. Only a fixture supplying exactly one of
+# each discriminates min=1 from min=2.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 0 ] && pass "case 52: exactly one TOOLS and one MODEL HANDSHAKE block in implement.md exits 0" \
+  || fail "case 52: expected exit 0, got rc=$RC out=$OUT"
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

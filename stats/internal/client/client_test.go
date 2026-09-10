@@ -1027,13 +1027,12 @@ func TestSettingsRoundTripsSelfReviewModel(t *testing.T) {
 	}
 }
 
-// TestSettingsRoundTripsPlanningModel asserts client.PutSettings then
-// client.GetSettings round-trips PlanningModel through the fake transport,
-// mirroring TestSettingsRoundTripsSelfReviewModel above for the new field
-// -- including the literal "planningModel" wire-key check that catches a
-// wrong json tag the way that test's own comment measures.
-func TestSettingsRoundTripsPlanningModel(t *testing.T) {
-	var stored client.Settings
+// TestSettingsPutBodyCarriesNoPlanningModelKey asserts client.PutSettings'
+// wire payload carries no "planningModel" key at all -- planning runs
+// inline now (kan-488), so nothing resolves or dispatches on a
+// PlanningModel field, and a wire payload still carrying the key would
+// mean the client type was not actually updated to match.
+func TestSettingsPutBodyCarriesNoPlanningModelKey(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.Method {
@@ -1046,14 +1045,13 @@ func TestSettingsRoundTripsPlanningModel(t *testing.T) {
 			if err := json.Unmarshal(body, &wire); err != nil {
 				t.Fatalf("decode PUT body as a map: %v", err)
 			}
-			if _, ok := wire["planningModel"]; !ok {
-				t.Fatalf("PUT body carries no %q key: %s", "planningModel", body)
+			if _, ok := wire["planningModel"]; ok {
+				t.Fatalf("PUT body carries a %q key it should not: %s", "planningModel", body)
 			}
+			var stored client.Settings
 			if err := json.Unmarshal(body, &stored); err != nil {
 				t.Fatalf("decode PUT body: %v", err)
 			}
-			_ = json.NewEncoder(w).Encode(stored)
-		case http.MethodGet:
 			_ = json.NewEncoder(w).Encode(stored)
 		default:
 			t.Fatalf("unexpected method: %s", r.Method)
@@ -1062,26 +1060,9 @@ func TestSettingsRoundTripsPlanningModel(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, srv.Client())
-
-	for _, want := range []client.Settings{
-		{DefaultModel: "sonnet", PlanningModel: "fable", Reviewers: []string{"primary"}},
-		{DefaultModel: "sonnet", PlanningModel: "", Reviewers: []string{"primary"}},
-	} {
-		put, err := c.PutSettings(context.Background(), want)
-		if err != nil {
-			t.Fatalf("PutSettings(%+v): %v", want, err)
-		}
-		if put.PlanningModel != want.PlanningModel {
-			t.Errorf("PutSettings echo planningModel = %q, want %q", put.PlanningModel, want.PlanningModel)
-		}
-
-		got, err := c.GetSettings(context.Background())
-		if err != nil {
-			t.Fatalf("GetSettings: %v", err)
-		}
-		if got.PlanningModel != want.PlanningModel {
-			t.Errorf("GetSettings planningModel = %q, want %q", got.PlanningModel, want.PlanningModel)
-		}
+	want := client.Settings{DefaultModel: "sonnet", Reviewers: []string{"primary"}}
+	if _, err := c.PutSettings(context.Background(), want); err != nil {
+		t.Fatalf("PutSettings(%+v): %v", want, err)
 	}
 }
 

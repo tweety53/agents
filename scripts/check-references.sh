@@ -522,14 +522,14 @@ EOF
 #   same bold span as its citing verb (the command-dispatch-stub shape), or
 #   with no bold nearby at all.
 EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
-  "commands-claude/flow-research.md"
+  "commands-claude/flow-plan.md"
   "commands-claude/flow-settings.md"
   "commands-claude/flow-status.md"
   "commands-claude/flow.md"
   "commands-claude/myflow-do.md"
   "commands-claude/myflow-fast.md"
   "commands-claude/myflow-start.md"
-  "commands/flow-research.md"
+  "commands/flow-plan.md"
   "commands/flow-settings.md"
   "commands/flow-status.md"
   "commands/myflow-do.md"

@@ -167,7 +167,6 @@ func (c *Client) settingsURL() string { return c.baseURL + "/api/v1/settings" }
 type Settings struct {
 	DefaultModel    string   `json:"defaultModel"`
 	SelfReviewModel string   `json:"selfReviewModel"`
-	PlanningModel   string   `json:"planningModel"`
 	Reviewers       []string `json:"reviewers"`
 }
 

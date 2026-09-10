@@ -1,6 +1,6 @@
 ---
-name: flow-research
-description: Research mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements before or during a change. Touches no pipeline state. Use for /flow-research.
+name: flow-plan
+description: Research mode - a thinking partner for exploring ideas, investigating problems, and clarifying requirements before or during a change. Touches no pipeline state. Use for /flow-plan.
 ---
 
 Enter research mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
@@ -22,26 +22,22 @@ get there is scripted. You're a thinking partner helping the user explore.
 
 ---
 
-## The research subagent
+## The session does the thinking itself
 
-The parent session does not do the thinking itself. It resolves `PLANNING_MODEL` per
-**Model resolution** (`skills/flow/SKILL.md`), then dispatches one general-purpose research
-subagent with the Agent tool's `model` parameter set to it — this skill as the subagent's
-instructions, the topic the operator brought, the project root, and the instruction to read this
-skill and follow it **as the researcher** from here on: every "you" below addresses the dispatched
-subagent, never the parent session that dispatched it. Its prompt carries, verbatim:
+`/flow-plan` runs entirely in the current session, on its own model, with any argument shape —
+a Jira key, an existing change's name, a bare topic, or nothing at all. No subagent is dispatched:
+the session itself reads the tree, runs the investigate-then-ask rounds and the convergence check
+below, and writes the staging note or offers the `design.md` capture directly. Every "you"
+elsewhere in this skill addresses the running session.
 
-> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
-> Include this instruction verbatim in any prompt you write for another agent.
-
-**The relay contract and the `Model:` handshake, including the `opus` fallback, are the planner's
-own, unchanged** — see **Dispatch the planner** (`skills/flow/brainstorm.md`) for the mechanics
-rather than restating them here. The subagent reads the tree and writes the staging note, or offers
-the `design.md` capture, through that same relay; the guardrails below bind it exactly as they bind
-the session.
+**Seed-lookup mechanics are shared, not restated.** When the topic already resolves to an existing
+change (a key or name naming one under `<project>/spectre/changes/`), the exact-filename seed
+check this skill's own captures feed into is `brainstorm-planner.md`'s **Seed from a staged
+research note** (`skills/flow/brainstorm-planner.md`) — see that section's own **One shared
+mechanism, not two copies** subsection for what stays shared between the two skills.
 
 **No `flow record dispatch` call** — that record closes against a change's dispatch history, and
-`/flow-research` has no change to record against.
+`/flow-plan` has no change to record against, dispatching nothing either.
 
 ---
 
@@ -63,14 +59,14 @@ If the user names a change, read its folder for context before discussing it. If
 — a fresh tree, or a topic with no change — that's fine; think from the code and the conversation.
 
 Also check `<project>/docs/superpowers/research/` for an existing staging note on the same topic (see
-**Staging a Note** below) — a prior `/flow-research` session may already have investigated part of
+**Staging a Note** below) — a prior `/flow-plan` session may already have investigated part of
 this ground.
 
 ---
 
 ## Go Deeper: Investigation and Question Depth
 
-`/flow-research` does noticeably more legwork than a single-pass answer before treating a topic as
+`/flow-plan` does noticeably more legwork than a single-pass answer before treating a topic as
 understood — both halves, always:
 
 - **Investigation depth:** don't stop at the first plausible answer. Broaden the search, read
@@ -149,20 +145,28 @@ Two capture destinations, depending on what exists:
 Creating a change is `/myflow-start`'s (or `/flow`'s) job, not this mode's — if the thinking is ready
 to become a change, say so and point at that command rather than making one yourself.
 
-### Staging a Note
+### Staging a Note — the strict research-artifact path
 
 When there's no existing change to write into, offer to capture the session as a staging note rather
 than only letting it evaporate into the conversation:
 
-- "Want this captured? I'd write it to `<project>/docs/superpowers/research/<topic-slug>.md`."
+- "Want this captured? I'd write it to `<project>/docs/superpowers/research/<destination>.md`."
 
-If the user agrees, write (or update, if a note for this topic already exists) a file at
-`<project>/docs/superpowers/research/<topic-slug>.md`, where `<topic-slug>` is a short kebab-case slug for the
-topic — reuse the change's eventual id (e.g. a Jira key like `kan-410`) when one is already known,
-otherwise a slug derived from the topic itself.
+The destination is **mandatory and deterministic**, never a free choice:
+
+- **A Jira key is known** (resolved from the conversation, or named by the operator) — write to
+  `<project>/docs/superpowers/research/<jira-key-lowercased>.md`, exactly. Never a descriptive
+  suffix (`<key>-<slug>.md`) — a later `/flow <key>` finds the seed with one `test -f` on this
+  exact path (**Seed from a staged research note, if one exists**, `skills/flow/brainstorm-planner.md`), and a
+  suffixed filename would not be found by it.
+- **No key** — write to `<project>/docs/superpowers/research/<topic-slug>.md`, where
+  `<topic-slug>` is a short kebab-case slug derived from the topic itself.
+
+If a note already exists at the resolved destination, update it rather than creating a second file
+for the same topic.
 
 A staging note **seeds** a future `/flow` (or `/myflow-start`) brainstorming session on this topic —
-it does not skip it. `/flow-research` never runs `spectre new` and never creates a change itself;
+it does not skip it. `/flow-plan` never runs `spectre new` and never creates a change itself;
 turning a staging note into a change is always `/flow`'s call.
 
 ---
@@ -222,7 +226,7 @@ Source: <Jira key, ticket URL, or "none">
 ## The Step-by-Step Breakdown
 
 The breakdown section is a `name`/`what`/`why`/`uses` structural analysis of the topic under
-discussion, and it is the **default** output of every `/flow-research` session — produce it whether
+discussion, and it is the **default** output of every `/flow-plan` session — produce it whether
 or not the user explicitly asked for it, whenever a session reaches a captured note. This overrides
 any instinct to treat it as an extra the user has to request.
 

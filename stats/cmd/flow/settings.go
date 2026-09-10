@@ -17,7 +17,7 @@ import (
 )
 
 const settingsUsage = `usage: flow settings get    [-addr url] [-timeout dur]
-       flow settings set    [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name] [-planning-model name]
+       flow settings set    [-addr url] [-timeout dur] -model name -reviewers a,b,c [-self-review-model name]
        flow settings models
 
 settings get prints the harness-wide settings record (default model and
@@ -116,7 +116,6 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	model := fset.String("model", "", "the default model, e.g. sonnet (required)")
 	reviewers := fset.String("reviewers", "", "comma-separated reviewer slots, from primary,principles,code-review-low,bugbot,security,mutation (required)")
 	selfReviewModel := fset.String("self-review-model", "", "self-review's model, e.g. opus; empty resolves to the store's default")
-	planningModel := fset.String("planning-model", "", "planning's model, e.g. fable; empty resolves to the store's default")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -140,7 +139,6 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 	in := client.Settings{
 		DefaultModel:    *model,
 		SelfReviewModel: *selfReviewModel,
-		PlanningModel:   *planningModel,
 		Reviewers:       strings.Split(*reviewers, ","),
 	}
 	s, err := putSettings(ctx, f.addr, f.timeout, in)
@@ -158,10 +156,10 @@ func runSettingsSet(ctx context.Context, args []string, stdout, stderr io.Writer
 
 // runSettingsModels implements `flow settings models`: the fixed
 // vocabulary skills/flow/SKILL.md's model-resolution block validates a
-// project's `## self review model`/`## planning model` bodies against, so
-// a project value the store would refuse is reported and dropped before
-// it ever reaches a dispatch. No flags, no store call -- store.ValidModels
-// is a compiled-in constant, not something a running store could change.
+// project's `## self review model` body against, so a project value the
+// store would refuse is reported and dropped before it ever reaches a
+// dispatch. No flags, no store call -- store.ValidModels is a compiled-in
+// constant, not something a running store could change.
 func runSettingsModels(stdout io.Writer) int {
 	names := make([]string, 0, len(store.ValidModels))
 	for name := range store.ValidModels {

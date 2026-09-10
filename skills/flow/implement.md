@@ -16,109 +16,33 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 **Never** invoke `finishing-a-development-branch`. Integration is `skills/flow/integrate.md`'s job.
 
-## Dispatch the conductor
+## The parent orchestrates directly
 
 Sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and
-`skills/flow/verify-and-handoff.md` are the **conductor's** work, not the parent's — one conductor
-subagent runs `flow.load-context` through `flow.write-in-progress`, resumed between its returns so
-its context carries from the plan to the handoff. Every "you" in those files addresses it. The
-parent's own work on this branch is what this section states, plus — on a fix run — section **3**
-below, which runs **before** the dispatch: the parent resolves the worktree from the state file's
-`worktrees` map, runs section 3's planner dispatch and Jira sync, and only then dispatches the
-conductor. A fix run's stage order is therefore document-fix → load-context → isolate (resume) →
-sdd-tdd → …, so the appended plan is validated after the fix's edit.
+`skills/flow/verify-and-handoff.md` are **the parent's own work** — no resumed subagent runs
+`flow.load-context` through `flow.write-in-progress` on its behalf; the running session does it
+itself, in its own Bash and Read calls, `flow record`/`flow stage` marks, worktree add/remove,
+report reads and diff walks. Every "you" in those files addresses the parent. On a fix run,
+section **3** below runs first: the parent resolves the worktree from the state file's `worktrees`
+map, runs section 3's inline plan-append and Jira sync, then continues into load-context/isolate/
+sdd-tdd on the same session, with no dispatch in between. A fix run's stage order is therefore
+document-fix → load-context → isolate (resume) → sdd-tdd → …, so the appended plan is validated
+after the fix's edit.
 
-**Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`),
-and run the guard-presence check, before dispatching. Dispatch one subagent with the Agent tool's
-`model` parameter set to `DEFAULT_MODEL` — or the run's plain-language session override, recorded
-with the dispatch — and `subagent_type: general-purpose`. Its prompt carries, verbatim:
-
-> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
-> Include this instruction verbatim in any prompt you write for another agent.
-
-and states: the change name `<name>`; the project root; `<changeRoot>`; this run's literal session
-token; the harness; `DEFAULT_MODEL` and the resolved `REVIEWERS` list; the guard-presence result;
-the run kind (creating or fix) and, on a fix run, the operator's fix instructions; the decision JSON
-path (`<abs-worktree>/.superpowers/sdd/decision.json`) — read for the three resolved toggles —
+**Resolve `DEFAULT_MODEL` and `REVIEWERS`** per **Model resolution** (`skills/flow/SKILL.md`), and
+run the guard-presence check, before this run's first dispatch. Read the decision JSON
+(`<abs-worktree>/.superpowers/sdd/decision.json`) for the three resolved toggles —
 `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE`, `REVIEW_PANEL_TOGGLE` — per **The `##
 Decision` block** (`design.md`), and for the recorded `groups` field, which section **4** below
-dispatches by; and the
-instruction to read this file's sections **1**, **2** and **4**, `skills/flow/review-panel.md` and
-`skills/flow/verify-and-handoff.md` and follow them **as the conductor**, running every stage mark
-in that range itself with the token it was given.
+dispatches by.
 
-**The relay contract**, stated in the same prompt. The conductor has no channel to the operator and
-no task-list tool. It ends a turn only with one of three blocks, and never with a child subagent
-still in flight — it waits for every implementer, reviewer, slot and fix subagent it launched
-first. A turn that ends with a child running idles this role and the parent until the child
-finishes, and both re-price their whole context on resume. The prompt also cites **Dispatch
-sites — the conductor's closed list** below as the whole of what the conductor may dispatch,
-the panel-fix row's one-per-round rule included.
+**Never end a turn with a child in flight** — wait for every implementer, reviewer, slot or fix
+subagent launched before reporting a stage boundary or asking the operator anything. **Turn
+discipline**, below, states the one-foreground-wait-call shape this applies through.
 
-- `## Question` — the question plus named options; the parent asks it verbatim through
-  **AskUserQuestion** and resumes the conductor via **SendMessage** with the answer. Every operator
-  prompt inside the covered stages goes this way: the over-cap choice, a second wall-clock breach,
-  the non-converging-finding handback, BLOCKED, an empty resolved-worktree set, a plan-quality
-  repair that needs the operator.
-- `## Stage flow.<key>` plus one line of outcome, at every `flow stage end` it runs; the parent
-  updates the harness task list — the stage is the granularity on this branch, per **Progress
-  visibility** (`skills/flow-contracts/pipeline.md`) — and resumes it with `continue`.
-- `## Handoff` carrying the `IN_PROGRESS` handoff block verbatim; the parent prints it unchanged.
+### Dispatch sites — the parent's closed list
 
-**The parent backstop.** A conductor return that names a child in flight — `awaiting`, `in flight`,
-a dispatch key with no `## Stage` end mark behind it — is not one of the three blocks above; the
-parent resumes it with `continue` in its very next action and never waits on a grandchild itself.
-
-The prompt also carries the TOOLS paragraph:
-
-> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
-> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
-> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
-> schema loaded later changes your tool list and re-prices your whole context at full input rate.
-
-**The prompt also carries the MODEL HANDSHAKE paragraph**:
-
-> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
-> system prompt>` and nothing else on that line. Answer it before any tool call.
-
-**Record the dispatch immediately after the launch returns its identifier**, before anything else:
-
-```bash
-flow record dispatch begin -change <name> -role conductor -model <DEFAULT_MODEL> \
-  -key conductor -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
-```
-
-**The handshake — stated once here, cited everywhere else.** Every dispatched role in this
-pipeline — conductor, implementer, panel slot, panel-fix, verifier, planner — opens its first reply
-with the `Model:` line the MODEL HANDSHAKE paragraph demands, and every dispatch prompt in this
-pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
-requested (`DEFAULT_MODEL`, or the run's session override, for the conductor). A match proceeds. A
-**first** mismatch closes the open dispatch row `-outcome fallback` and re-dispatches once, on the
-same requested model and `subagent_type`, under `<key>-retry`:
-
-```bash
-flow record dispatch end -change <name> -key conductor -session-token mf-<literal-token> \
-  -outcome fallback -ended-at <ts>
-flow record dispatch begin -change <name> -role conductor -model <the model originally requested> \
-  -key conductor-retry -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
-```
-
-A **second** mismatch closes the retry row `-outcome fallback` too and ends the turn with
-`## Question` naming the requested model and both models that actually answered, options
-**Continue on `<the model the second handshake named>`** — proceed on that running agent, no third
-dispatch — or **Stop the run**. **A mark or a record never blocks** — proceed on the handshake's
-outcome regardless of whether any `flow` call reached the store.
-
-This rule is cited, never restated, at every other dispatch site in this pipeline: the implementer
-dispatch below; `skills/flow/review-panel.md`'s panel slot and panel-fix subagent dispatch;
-`skills/flow/verify-and-handoff.md`'s verifier dispatch (compared against `sonnet`, never
-`DEFAULT_MODEL`); and `skills/flow/brainstorm.md`'s planner dispatch, which keeps its own
-`opus`-specific fallback target but follows this rule's `<key>-retry` shape and its second-mismatch
-question.
-
-### Dispatch sites — the conductor's closed list
-
-These four rows are **every** Agent-tool dispatch the conductor may make, across sections **1**,
+These four rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
 **2** and **4** below, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`:
 
 | Site | Role | Key shape | Owning section |
@@ -128,7 +52,7 @@ These four rows are **every** Agent-tool dispatch the conductor may make, across
 | panel-fix, exactly one per round | `panel-fix` | `panel-fix-<round>` (`-retry` once) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/verify-and-handoff.md`, **Visual verification** |
 
-**Everything else in those five sections is the conductor's own Bash and Read work, never
+**Everything else in those five sections is the parent's own Bash and Read work, never
 delegated** — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`,
 `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
@@ -136,48 +60,71 @@ worktree add and remove, every report read and every diff walk. Not to a "verify
 other name — the KAN-449 run's six unrecorded subagents (four rogue panel-fix dispatches, a
 "verify fixes" reader and a "mutation re-verify" agent) are exactly the shape this forbids.
 
-**The self-check.** Before any Agent-tool call, the conductor names which row above the call is. A
+**The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
 
 **These four rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
 DELEGATION paragraph (section **4** below, `skills/flow/review-panel.md`,
 `skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so nothing exists below these rows.
 
-`Inline — the parent implements` above takes this same table minus the implementer and panel-fix
+**Inline — the parent implements** below takes this same table minus the implementer and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle and verifier rows.
 
-**The return.** Once `## Handoff` arrives, print the block unchanged and close the record under
-whichever key is open:
+**The handshake — stated once here, cited everywhere else.** Every dispatched role in this
+pipeline — implementer, panel slot, panel-fix, verifier — opens its first reply with the `Model:`
+line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
+this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
+requested (`DEFAULT_MODEL`, or the run's session override). A match proceeds. A **first** mismatch
+closes the open dispatch row `-outcome fallback` and re-dispatches once, on the same requested
+model and `subagent_type`, under `<key>-retry`:
+
+```bash
+flow record dispatch end -change <name> -key <key> -session-token mf-<literal-token> \
+  -outcome fallback -ended-at <ts>
+flow record dispatch begin -change <name> -role <role> -model <the model originally requested> \
+  -key <key>-retry -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+```
+
+A **second** mismatch closes the retry row `-outcome fallback` too and the parent asks the
+operator directly through **AskUserQuestion**, naming the requested model and both models that
+actually answered, options **Continue on `<the model the second handshake named>`** — proceed on
+that running agent, no third dispatch — or **Stop the run**. **A mark or a record never blocks** —
+proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
+
+This rule is cited, never restated, at every dispatch site in this pipeline: the implementer
+dispatch below; `skills/flow/review-panel.md`'s panel slot and panel-fix subagent dispatch;
+`skills/flow/verify-and-handoff.md`'s verifier dispatch (compared against `sonnet`, never
+`DEFAULT_MODEL`).
+
+**The return.** Once a dispatch's report file appears, read its verdict, print the change's own
+handoff or continue to the next stage, and close the record under whichever key is open:
 
 ```bash
 flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
   -outcome completed -ended-at <ts>
 ```
 
-The run is at `IN_PROGRESS`; nothing further runs in this invocation.
-
-**A conductor that ends without one of the three blocks, or whose agent dies, is closed with
-`-outcome aborted`, reported, and not retried**: print `/flow <name>` for the operator — a re-run
-resumes from whatever the conductor left (checkbox state, the state file's worktrees, findings in
-the store) through this file's own re-entry rules, and the operator should see the death rather
-than have it hidden by a second dispatch.
+**A dispatch whose agent dies is closed with `-outcome aborted`, reported, and not retried**: print
+`/flow <name>` for the operator — a re-run resumes from whatever was left (checkbox state, the
+state file's worktrees, findings in the store) through this file's own re-entry rules, and the
+operator should see the death rather than have it hidden by a second dispatch.
 
 **Bugbot and Security are prompt-driven roles, dispatched general-purpose like every other panel
 slot** (**The roster**, `skills/flow/review-panel.md`) — never a fixed `bugbot` or `security-review`
-Agent-tool type, so there is nothing for the conductor to substitute.
+Agent-tool type, so there is nothing for the parent to substitute.
 
 ## Inline — the parent implements
 
-Entered instead of **Dispatch the conductor** when the recorded decision's `execution` is
-`inline` (**The `## Decision` block**, `design.md`). The parent itself runs sections **1**, **2**
+Entered instead of dispatching an implementer per group when the recorded decision's `execution`
+is `inline` (**The `## Decision` block**, `design.md`). The parent itself runs sections **1**, **2**
 and **4** below, then `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`, with
 these substitutions:
 
-- **No conductor, no implementer, no panel-fix dispatch.** The parent does each bundle's TDD work
-  in the canonical worktree, commits per task with the same `Task-Id:` trailer and declared
-  `**Commit:**` subject, runs `check-task-commit-fields.sh` and ticks the task exactly as
-  section **4** states. Waves are not parallel inline: bundles run in plan order, one at a time,
-  never launched into a throwaway worktree.
+- **No implementer, no panel-fix dispatch.** The parent does each bundle's TDD work in the
+  canonical worktree, commits per task with the same `Task-Id:` trailer and declared `**Commit:**`
+  subject, runs `check-task-commit-fields.sh` and ticks the task exactly as section **4** states.
+  Waves are not parallel inline: bundles run in plan order, one at a time, never launched into a
+  throwaway worktree.
 - **Every dispatch-prompt paragraph that instructs an implementer or fixer** — FLOW —
   COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND
   BUILDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent
@@ -187,20 +134,12 @@ these substitutions:
   panel-fix subagent; the parent still runs every reproducer and the fix-diff walk
   (`skills/flow/review-panel.md`) before recording a finding `fixed`. The parent's own permitted
   dispatches inline are the closed list's panel-bundle and verifier rows alone
-  (**Dispatch sites — the conductor's closed list** above); `flow.verify` runs inline for the
-  parent exactly as for a dispatched conductor.
+  (**Dispatch sites — the parent's closed list** above); `flow.verify` runs inline for the parent
+  exactly as under `sdd` execution.
 - **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
   model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
   inline work under the same roles a dispatched run would use.
-- **Context ceiling.** Checked before every bundle and before `skills/flow/review-panel.md` pass
-  1, read from the harness's remaining-budget figure — Claude Code's `<total_tokens>` reminder.
-  Stop when the remaining figure is under **250,000** before a bundle, or under **400,000**
-  before the panel; where the harness exposes no such figure, stop instead after the **6th**
-  bundle of one session. The stop closes whichever stage is open `-outcome stopped`, writes no
-  other state, and prints the `## Context ceiling — clear and resume` block
-  (`skills/flow-contracts/handoff-blocks.md`) verbatim — the next `/flow <name>` resumes under the
-  existing re-entry rules, reading the decision already recorded rather than re-rolling it.
 
 ## 1. Load context and validate the plan
 
@@ -292,8 +231,8 @@ flow stage end -command '/flow' -stage flow.isolate-workspace -outcome completed
 
 ## 3. Documenting a fix, before implementing it
 
-**Parent work, run before the conductor is dispatched** — see **Dispatch the conductor** above.
-Everything below is the parent's own; the conductor never sees this section.
+**Parent work, run before the plan is executed** — see **The parent orchestrates directly**
+above. Everything below is the parent's own.
 
 **Fix runs only** — a first run creates the worktree instead, per **2** above, and marks nothing
 here:
@@ -527,7 +466,7 @@ Every implementer dispatch **must** also carry:
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
-The conductor compares that line against `DEFAULT_MODEL` (or the run's session override) and
+The parent compares that line against `DEFAULT_MODEL` (or the run's session override) and
 applies **The handshake** stated above, unchanged: a first mismatch is a fallback plus one retry
 under `<key>-retry`; a second is a fallback plus `## Question`.
 
@@ -542,8 +481,8 @@ under `<key>-retry`; a second is a fallback plus `## Question`.
 
 > **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
 > subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
-> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
+> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
 > **TARGETED TESTS:** Run only the tests this task's `**Tests:**` field names, through the build
@@ -573,7 +512,7 @@ under `<key>-retry`; a second is a fallback plus `## Question`.
 > failure in a file this task's `**Files:**` field names is yours: fix it and re-run. Any other
 > failure is not: record the command and its output verbatim in your REPORT FILE under a `## Full
 > suite` heading, unfixed, and still commit your own task. When the plan-last group belongs to a
-> shared wave, its implementer does not carry FULL SUITE — **the conductor itself**, never a
+> shared wave, its implementer does not carry FULL SUITE — **the parent itself**, never a
 > subagent, instead runs the resolved `## test` list once on the canonical worktree after that
 > wave's final pick passes the guard, and a failure is the same verbatim-output `## Question`
 > handback as below. The existing last-boundary sentence about a full-suite failure report keeps
@@ -585,7 +524,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 1. **Group N+1's implementer commits** and writes its report; the wait above ends.
 2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
    is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The guard,
-   the tick and the gather are the conductor's own Bash calls, never a subagent's. The
+   the tick and the gather are the parent's own Bash calls, never a subagent's. The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
    **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
    its sixth:
@@ -602,7 +541,7 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A
    reverting, rebasing or merging state on the `# branch` lines, a change the run did not
-   make, or a stash entry the conductor did not push means the tree is not the one the run
+   make, or a stash entry the parent did not push means the tree is not the one the run
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
    recovery.)
@@ -650,6 +589,30 @@ the wait, and a ceiling (**No forking, and a wall-clock ceiling on every slot**,
 `skills/flow/review-panel.md`) is tracked across the calls. `skills/flow/review-panel.md` and
 `skills/flow/verify-and-handoff.md` state their own batches under this paragraph and restate
 none of it.
+
+**Read discipline.** The parent now does the reading a resumed conductor once did on a 5-minute
+TTL; on the 1-hour TTL a large context costs 0.1x per call and no rewrite, but only if it stays
+small enough that a warm call is still cheap. These five rules are the run's own size control,
+stated once here and cited — never restated — from `skills/flow/review-panel.md` and
+`skills/flow/verify-and-handoff.md` wherever they read a report or a diff:
+
+- **Never `cat` a report.** An implementer, panel-fix, panel or verifier report is read for its
+  verdict section only — `sed -n '/^## Verdict/,/^## /p' <report>` or the equivalent for that
+  report's own shape — never the whole file. The report file's existence (`test -s`) is the wait
+  condition above; its body is read once, narrowly.
+- **Never read `final-review.diff`, a dispatch-context bundle, or a panel-fix diff whole.** A slot
+  reads the diff it was dispatched against; the parent walks a fix's hunks through `git diff
+  --stat` and the specific hunks a finding names, never the whole diff. "Never read the bundle
+  back" (**4**, above) extends to every generated file the parent produces for a child.
+- **Test/lint output through `tail`.** A targeted test or lint run's output is piped through
+  `tail` (`| tail -20`, the failing block reproduced from the log file on a failure) — already the
+  rule for implementers (TARGETED TESTS); it binds the parent's own `## lint`/`## test` runs in
+  `flow.verify` and the full-suite run after a shared wave the same way.
+- **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
+  are each read in full once, at the start of the stage that needs them; a later need is served by
+  `grep -n` for the heading plus `sed -n` for that section, never a second full read.
+- **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.load-context`;
+  `tasks.md` re-read only through `spectre list --json` and `flow tasks tick` output afterward.
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to

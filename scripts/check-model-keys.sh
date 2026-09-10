@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# check-model-keys.sh — validate `.flow/project.md`'s `## planning model` and
-# `## self review model` keys against the store's own `ValidModels` set.
+# check-model-keys.sh — validate `.flow/project.md`'s `## self review model`
+# key against the store's own `ValidModels` set.
 #
 # Usage: check-model-keys.sh [<project root> ...]
 #
@@ -112,7 +112,7 @@ check_project() {
   [[ -f "$pf" ]] || die "not a regular file: $pf"
   [[ -r "$pf" ]] || die "cannot read: $pf"
 
-  for key in "planning model" "self review model"; do
+  for key in "self review model"; do
     body="$(extract_section_body "$pf" "$key")"
     [[ -n "$body" ]] || continue
     # A multi-line body already fails: the contract is a single-line literal.

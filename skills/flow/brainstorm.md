@@ -74,129 +74,82 @@ reaching `IN_PROGRESS` — an interrupted session, a context limit, an earlier s
 (the name and the `STARTED` write both already exist) and determine where the run actually left off
 by reading, not by assuming:
 
-- `spectre list --json`'s entry for this change's `done`/`total` — `total == 0` means no plan exists
-  yet: resume at **B** in `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
+- **Does a worktree already exist for this change** — `git worktree list` naming
+  `<project>/.worktrees/<name>`, or the state file's `worktrees` map non-empty. **Worktree creation
+  moves to the end of planning** (`design.md`), so a `STARTED` change interrupted anywhere in **B**,
+  **C** or **D** has **no** worktree yet — resolve `<changeRoot>` against the main checkout's own
+  `<project>/spectre/changes/<name>/` in that case, never a worktree path.
+- `spectre list --json`'s entry for this change's `done`/`total`, read against whichever
+  `<changeRoot>` the check above resolved — `total == 0` means no plan exists yet: resume at **B**
+  in `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
 - The change root's own `tasks.md` — a scaffold with no enriched steps means writing-plans has not
-  run: resume at **D** in `skills/flow/brainstorm-planner.md`; a plan meeting writing-plans quality (exact paths, verification <!-- refs-guard:allow -->
-  commands, no placeholders) means planning is done: skip straight to
-  `skills/flow/implement.md`.
-- **A `STARTED` change now always has a worktree once past `flow.create-artifacts`**, so the state
-  file's `worktrees` map no longer distinguishes a resume point; the `tasks.md` check above already
-  decides it.
+  run: resume at **D** in `skills/flow/brainstorm-planner.md`, still in the main checkout (no <!-- refs-guard:allow -->
+  worktree exists yet). A plan meeting writing-plans quality (exact paths, verification commands, no
+  placeholders) with **no worktree yet** means **D** finished but the worktree step after it did
+  not: resume at **The worktree is created at the end of planning, not here** above — create the
+  worktree, move the planning output into it, print the `## Decision` block and record it, then
+  continue. A plan meeting writing-plans quality **with a worktree already present** means planning
+  is fully done: skip straight to `skills/flow/implement.md`.
 
 This is a pragmatic re-entrancy rule, not an exhaustively-enumerated state machine — a run resuming
 at `STARTED` reads what actually exists and continues from there, the same principle every other
 `/flow` re-entry point already applies. State the resumption point plainly before continuing:
 "resuming `<name>` at `<point>`."
 
-## Dispatch the planner
+## Run brainstorming and planning directly
 
-Sections **B**, **C** and **D** of `skills/flow/brainstorm-planner.md` are the planner's work, not the parent's — one planner <!-- refs-guard:allow -->
-subagent runs all three, resumed between rounds so its context carries from the first question to
-the finished plan.
-
-**Resolve `PLANNING_MODEL`** per **Model resolution** (`skills/flow/SKILL.md`) before dispatching —
-this is the first of its three governed call sites. Mark the stage and record the dispatch before
-the subagent goes out:
+Sections **B**, **C** and **D** of `skills/flow/brainstorm-planner.md` are the running session's own <!-- refs-guard:allow -->
+work — no dispatched subagent runs them; the session that is already running `/flow` does the
+checklist, the convergence loop, artifact creation, writing-plans and the Decide step itself, on
+its own model, with no relay and no return in between. Every "you" in `brainstorm-planner.md`
+addresses that session.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
-flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> \
-  -key planner -session-token mf-<literal-token> -started-at <ts>
 ```
 
-`-role`, `-key`, `-session-token` and `-started-at` carry the same semantics that section 4 of
-`skills/flow/implement.md` states for an implementer dispatch — cited, not restated. `-task` is
-omitted: this dispatch runs against no single task.
+Read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and **D** and follow them <!-- refs-guard:allow -->
+directly — the resolved `EXECUTION_MODE_TOGGLE`, `IMPLEMENTER_MODEL_TOGGLE` and
+`REVIEW_PANEL_TOGGLE` (**Model resolution**, `skills/flow/SKILL.md`) and the resolved worktree
+count (per **Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`) are
+already in scope from this run's own earlier resolution — nothing further needs passing to a
+dispatch that does not happen.
 
-Dispatch one subagent with the Agent tool's `model` parameter set to `PLANNING_MODEL`,
-`subagent_type: general-purpose`. Its prompt carries, verbatim:
+**Questions are the session's own direct `AskUserQuestion` calls**, batched exactly as
+`brainstorm-planner.md`'s checklist section already states: every pending question whose wording
+does not depend on another pending answer in one call, up to four per call, a dependent question
+waiting for the next turn. Section B's merged convergence-and-approval confirm and its third-round
+offer are asked the same way — directly, with named options, exactly as B states them.
 
-> Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
-> Include this instruction verbatim in any prompt you write for another agent.
+**Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
+before a question — most concretely the convergence confirm's "state what you believe settled"
+paragraph — show that prose to the operator as ordinary text before the **AskUserQuestion** call,
+not only the bare question and options. The operator approving or answering the question is
+approving against the summary they were actually shown.
 
-and states: the change name `<name>`; the linked Jira key and issue text, when one exists; the
-project root; `<changeRoot>`; the three resolved toggles — `EXECUTION_MODE_TOGGLE`,
-`IMPLEMENTER_MODEL_TOGGLE`, `REVIEW_PANEL_TOGGLE` — per **Model resolution** (`skills/flow/SKILL.md`);
-the resolved worktree count (the size of the resolved worktree set at dispatch time, per
-**Resolving a change's worktrees**, `skills/flow-contracts/worktree-resolution.md`); and the
-instruction to read `skills/flow/brainstorm-planner.md`'s sections **B**, **C** and <!-- refs-guard:allow -->
-**D** and follow them **as the planner** — every "you" in those sections addresses the dispatched
-subagent from here on, never the parent.
-
-**The relay contract**, stated in the same prompt: the planner has no channel to the operator. It
-ends every turn with one to four `## Question` blocks — each the question, plus named options when
-it has any — or, at the three returns below, with `## Design`, `## Artifacts` or `## Plan` and
-nothing else. The first line of its first reply is `Model: <the model named in its own system
-prompt>`.
-
-**The prompt also carries the TOOLS paragraph**:
-
-> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
-> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
-> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
-> schema loaded later changes your tool list and re-prices your whole context at full input rate.
-
-**The prompt also carries the MODEL HANDSHAKE paragraph**:
-
-> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
-> system prompt>` and nothing else on that line. Answer it before any tool call.
-
-**The handshake.** Compare that first line against `PLANNING_MODEL`. A match proceeds into the
-relay loop below. A mismatch follows **The handshake**'s `<key>-retry` key shape
-(`skills/flow/implement.md`, **Dispatch the conductor**), keeping its own `opus` fallback target
-in place of a same-model retry:
-
-```bash
-flow record dispatch end -change <name> -key planner -session-token mf-<literal-token> \
-  -outcome fallback -ended-at <ts>
-flow record dispatch begin -change <name> -role planner -model opus \
-  -key planner-opus -session-token mf-<literal-token> -started-at <ts>
-```
-
-and re-dispatch once, on `model: opus`. **The re-dispatch records under its own key, `planner-opus`,
-never a repeat of `planner`**: the store treats a second `begin` under the same `(session_token,
-key)` as an idempotent replay of the first (`stats/internal/store/records.go`'s `insertDispatch`),
-which would silently discard the `fallback` outcome just recorded. A **second** mismatch is not
-retried again — continue on whatever model answered, the running planner, no third dispatch — and:
-
-```bash
-flow record dispatch end -change <name> -key planner-opus -session-token mf-<literal-token> \
-  -outcome fallback -ended-at <ts>
-flow record dispatch begin -change <name> -role planner -model <the model the handshake line named> \
-  -key planner-<that model, lowercased> -session-token mf-<literal-token> -started-at <ts>
-```
-
-report the model in this run's own output. The persisted rows then read `fable`→fallback,
-`opus`→fallback, `<actual>`→completed — never a record claiming opus ran when the handshake just
-proved otherwise. **A mark or a record never blocks** — proceed on the handshake's outcome
-regardless of whether any `flow` call above reached the store.
-
-**The relay.** The parent puts every `## Question` block of the planner's turn into a single
-**AskUserQuestion** call — one question per block, in block order, each block's named options as
-that question's options — and resumes the planner via **SendMessage** with every answer, labelled
-by block order. Section B's merged convergence-and-approval confirm and its third-round offer are
-relayed the same way — the planner poses each exactly as B states it, the parent asks it exactly as
-received, and the planner's next turn opens with the operator's answer.
-
-**Prose preceding the turn's `## Question` blocks is relayed too, not dropped.** When the planner's turn
-carries a summary before the question — most concretely the convergence confirm's "state what you
-believe settled" paragraph — the parent shows that prose to the operator (as ordinary text, before
-the **AskUserQuestion** call), not only the bare question and options. The operator approving or
-answering the question is approving against the summary they were actually shown.
-
-The parent marks `flow.brainstorm` end and `flow.design-approval` begin/end around the merged
+Mark `flow.brainstorm` end and `flow.design-approval` begin/end around the merged
 convergence-and-approval confirm, exactly as today:
 
 ```bash
 flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
 flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
-# … the operator's approve-and-move-on answer, relayed through the planner's merged confirm — the HARD GATE …
+# … the operator's approve-and-move-on answer — the HARD GATE …
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
-**The three returns.** After the `flow.design-approval` mark above closes, the parent marks
-`flow.create-artifacts` begin and creates the change worktree before resuming the planner:
+**The worktree is created at the end of planning, not here.** After the `flow.design-approval` mark
+above closes, mark `flow.create-artifacts` begin and continue directly into **C** — `spectre new`
+and the three artifacts — **against the main checkout's own** `<project>/spectre/changes/<name>/`,
+uncommitted and never staged there, per the existing git-boundaries rule. No worktree exists yet;
+**C** and **D** both run in the main checkout. Mark `flow.create-artifacts` end once **C**'s
+artifacts are written, then mark `flow.writing-plans` begin and run **D** — writing-plans
+enrichment and the Decide step — also in the main checkout. **D**'s Decide step writes its
+decision JSON to `<project>/spectre/changes/<name>/.superpowers-sdd-decision.json` in the main
+checkout instead of the usual `<abs-worktree>/.superpowers/sdd/decision.json` path, since no
+worktree exists yet to hold it. Mark `flow.writing-plans` end once **D**'s plan enrichment and
+Decide step complete.
+
+**Only once `flow.writing-plans` ends does the worktree get created:**
 
 1. `check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
 2. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
@@ -208,15 +161,22 @@ flow stage end   -command '/flow' -stage flow.design-approval -outcome completed
    outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
    the fenced command lines, not those. Exit 1: the project declares no `## worktree setup`; say so
    and continue. Exit 2: stop the run, relaying the script's own line. **A command's non-zero exit
-   ends your turn with `## Question`** naming the command and its output — a worktree that cannot be
-   set up fails `flow.verify` later anyway, and the operator should see it here. The key is
-   canonical in **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+   ends your turn** naming the command and its output — a worktree that cannot be set up fails
+   `flow.verify` later anyway, and the operator should see it here. The key is canonical in
+   **Project configuration** (`skills/flow-contracts/project-configuration.md`).
 
-Only then does it resume the planner via SendMessage, and marks it end when the planner's turn ends
-with `## Artifacts`. It then marks `flow.writing-plans` begin, resumes the planner again, and marks
-it end when the planner's turn ends with `## Plan`. Once `## Plan` returns, before the `dispatch
-end` below: print the planner's `## Decision` block verbatim — the shape **The `## Decision` block**
-(`design.md`) shows — then run the record sequence that section states:
+**Then move the planning output into the new worktree**, leaving nothing behind in the main
+checkout:
+
+```bash
+mkdir -p <worktree>/.superpowers/sdd
+mv <project>/spectre/changes/<name> <worktree>/spectre/changes/<name>
+mv <project>/spectre/changes/<name>/.superpowers-sdd-decision.json <worktree>/.superpowers/sdd/decision.json
+```
+
+Once the Decide step finishes, print the `## Decision`
+block verbatim — the shape **The `## Decision` block** (`design.md`) shows — then run the record
+sequence that section states:
 
 ```bash
 flow stage begin -command '/flow' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
@@ -224,30 +184,15 @@ flow record decision -change <name> -session-token mf-<literal-token> -file <abs
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
 
-`<abs-worktree>/.superpowers/sdd/decision.json` is the file the planner wrote beside the block, per
-the same design.md section. **A `## Plan` carrying no `## Decision` block is a planner defect, not
-a stop**: report it in this run's own output, continue the run on `default` for all three settings
-(`execution: sdd`, `implementer: "default"`, `panel: "default"`), and still run the `flow stage
-begin flow.decide` / `flow record decision` / `flow stage end` sequence above — the recorded JSON
-carries the three toggles as read, every decided field at its default, and `"planner": "no block"`
-so the row is distinguishable from an ordinary default. Write that JSON to the same
-`<abs-worktree>/.superpowers/sdd/decision.json` path before recording it, since the planner never
-did.
-
-```bash
-flow record dispatch end -change <name> -key <the key currently open> -session-token mf-<literal-token> \
-  -outcome completed -ended-at <ts> -agent-id <id>
-```
-
-closes the dispatch record under whichever key the handshake left open — `planner` on a clean
-handshake, `planner-opus` after one mismatch, `planner-<model>` after a second — and the parent
-continues into `skills/flow/implement.md` exactly as today.
+`<abs-worktree>/.superpowers/sdd/decision.json` is the file the move above just placed there.
+Continue into `skills/flow/implement.md` directly — no dispatch record to close, since nothing was
+dispatched.
 
 ## Resume and fix runs
 
 **Resume and fix runs** (`design.md`) is canonical for both cases: a run resumed at `STARTED` reads
 `flow record decisions -change <name>` and follows the newest row rather than re-rolling, or
-re-dispatches the planner's Decide step alone when none exists yet; a fix run's `flow.document-fix`
+re-runs the Decide step alone when none exists yet; a fix run's `flow.document-fix`
 (`skills/flow/implement.md`) hands the appended plan through the same Decide step, re-grouping the
 review panel on the same name-derived `bundle_roll`, and recording a second row whose rolls — being
 name-derived — stay identical to the first, so only `class`, `groups` (the appended plan's bundles)

@@ -82,13 +82,11 @@
 #   **TARGETED TESTS:**                skills/flow/implement.md     1   (none)
 #   **TARGETED TESTS:**                skills/flow/review-panel.md  1   (none)
 #   **MUTATION PROOF:**                skills/flow/review-panel.md  1   (none)
-#   **TOOLS:**                         skills/flow/implement.md     2   (none)
+#   **TOOLS:**                         skills/flow/implement.md     1   (none)
 #   **TOOLS:**                         skills/flow/review-panel.md  2   (none)
-#   **TOOLS:**                         skills/flow/brainstorm.md    1   (none)
 #   **TOOLS:**                         skills/flow/verify-and-handoff.md 1 (none)
-#   **MODEL HANDSHAKE:**               skills/flow/implement.md     2   (none)
+#   **MODEL HANDSHAKE:**               skills/flow/implement.md     1   (none)
 #   **MODEL HANDSHAKE:**               skills/flow/review-panel.md  2   (none)
-#   **MODEL HANDSHAKE:**               skills/flow/brainstorm.md    1   (none)
 #   **MODEL HANDSHAKE:**               skills/flow/verify-and-handoff.md 1 (none)
 #   **INDEPENDENT PASSES:**            skills/flow/review-panel.md  1   (none)
 #   **NO DELEGATION:**                 skills/flow/implement.md     1   (none)
@@ -107,17 +105,15 @@
 #   FOREGROUND BUILDS shared phrases (no variants — every block carrying the
 #   label must carry all three): "still executing in the background", "Run
 #   it in the foreground", "poll it to completion". Required twice in each
-#   of implement.md (implementer dispatch, the conductor's own §4
-#   instruction) and review-panel.md (panel slot dispatch, panel-fix
-#   subagent dispatch).
+#   of implement.md (implementer dispatch, the parent's own §4 restatement)
+#   and review-panel.md (panel slot dispatch, panel-fix subagent dispatch).
 #
 #   TARGETED TESTS shared phrases (no variants — every block carrying the
 #   label must carry all three): "the build tool's own selector", "once for
 #   RED, once for GREEN", "module or repository suite mid-task". Required
 #   once in each of implement.md (implementer dispatch) and
 #   review-panel.md (panel-fix subagent dispatch) — the panel slot dispatch
-#   and the conductor's own §4 restatement are not sites: reviewers do not
-#   run the task's tests.
+#   is not a site: reviewers do not run the task's tests.
 #
 #   MUTATION PROOF shared phrases (no variants — every block carrying the
 #   label must carry the full set of six): "mutation-proved before you end your
@@ -130,20 +126,20 @@
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
-#   query", "re-prices your whole context". Required twice in each of
-#   implement.md (conductor dispatch, implementer dispatch) and
+#   query", "re-prices your whole context". Required once in implement.md
+#   (implementer dispatch — the conductor's own copy, and the planner's in
+#   brainstorm.md, were removed with those roles, kan-488), twice in
 #   review-panel.md (panel slot dispatch, panel-fix subagent dispatch),
-#   and once in each of brainstorm.md (planner dispatch) and
-#   verify-and-handoff.md (verifier dispatch).
+#   and once in verify-and-handoff.md (verifier dispatch).
 #
 #   MODEL HANDSHAKE shared phrases (no variants — every block carrying the
 #   label must carry all three): "the first line of your first reply",
-#   "and nothing else on that line", "before any tool call". Required twice
-#   in each of implement.md (conductor dispatch, implementer dispatch) and
-#   review-panel.md (panel slot dispatch, panel-fix subagent dispatch), and
-#   once in each of brainstorm.md (planner dispatch) and
-#   verify-and-handoff.md (verifier dispatch) — the same six sites TOOLS
-#   occupies.
+#   "and nothing else on that line", "before any tool call". Required once
+#   in implement.md (implementer dispatch — the conductor's own copy, and
+#   the planner's in brainstorm.md, were removed with those roles,
+#   kan-488), twice in review-panel.md (panel slot dispatch, panel-fix
+#   subagent dispatch), and once in verify-and-handoff.md (verifier
+#   dispatch) — the same four sites TOOLS occupies.
 #
 #   INDEPENDENT PASSES shared phrases (no variants — every block carrying the
 #   label must carry all three): "starts from `final-review.diff`", "raise it
@@ -157,9 +153,9 @@
 #   a subagent", "the leaf of this run". Required once in implement.md
 #   (implementer dispatch), twice in review-panel.md (panel slot dispatch,
 #   panel-fix subagent dispatch), once in verify-and-handoff.md (verifier
-#   dispatch) — the conductor dispatch and the planner dispatch are not
-#   sites: the conductor is bound by its closed list and the planner is the
-#   parent's child.
+#   dispatch) — there is no conductor or planner dispatch left to be a site
+#   (kan-488): the parent orchestrates directly and runs brainstorming
+#   inline.
 #
 # A BLOCK is a line carrying a label, plus every immediately-following line
 # that continues the same markdown blockquote (a line beginning with `>`) —
@@ -256,10 +252,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation tools tools tools tools handshake handshake handshake handshake independent delegation delegation delegation)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/brainstorm.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/brainstorm.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
-SITE_MIN_BLOCKS=(1 2 1 2 2 1 1 1 2 2 1 1 2 2 1 1 1 1 2 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation tools tools tools handshake handshake handshake independent delegation delegation delegation)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
+SITE_MIN_BLOCKS=(1 2 1 2 2 1 1 1 1 2 1 1 2 1 1 1 2 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {

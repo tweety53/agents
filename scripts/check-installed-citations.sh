@@ -173,10 +173,10 @@ declare_if_present "skills/myflow-do/security-reviewer-prompt.md" \
   "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
 declare_if_present "skills/flow/engineering-principles.md" \
   "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"
-declare_if_present "commands/flow-research.md" \
-  "command-dispatch stub — delegates to the flow-research skill by name, not by path; cites no .md/.mdc path at all"
-declare_if_present "commands-claude/flow-research.md" \
-  "command-dispatch stub — delegates to the flow-research skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "commands/flow-plan.md" \
+  "command-dispatch stub — delegates to the flow-plan skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "commands-claude/flow-plan.md" \
+  "command-dispatch stub — delegates to the flow-plan skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "commands/flow-settings.md" \
   "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "commands-claude/flow-settings.md" \

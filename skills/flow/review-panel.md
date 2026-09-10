@@ -107,7 +107,7 @@ gather-dispatch-context.sh <worktree> <changeRoot> <name> <principles-path> \
 `<project>/<spec-root>/changes/<name>/tasks.md` exists — the same argument
 `check-unfinished-work.sh` takes, passed on every call and inert when that member is this
 worktree (`<agents repo>/scripts/gather-dispatch-context.sh`'s header is canonical for what a
-satellite's bundle then carries). `<shape>` is the conductor's computed shape value — the same
+satellite's bundle then carries). `<shape>` is the parent's computed shape value — the same
 argument implement.md's per-bundle gathers take — so a reviewer's bundle is hazard-filtered by
 the change's shape exactly as an implementer's is.
 
@@ -404,8 +404,8 @@ for reading `final-review.diff` itself.
 
 > **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
 > subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
-> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
+> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
 **Every slot carries the MODEL HANDSHAKE paragraph** — no exception:
@@ -414,7 +414,7 @@ for reading `final-review.diff` itself.
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 The dispatcher compares that line against the model this slot was given and applies **The
-handshake** (`skills/flow/implement.md`, **Dispatch the conductor**), unchanged: a first mismatch
+handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first mismatch
 is a fallback plus one retry under `panel-<round>-<slot>-retry`; a second is a fallback plus
 `## Question`.
 
@@ -504,7 +504,7 @@ every fix-round re-run, both carrying the mutation-testing brief (Bugbot's own c
 `bugbot-reviewer-prompt.md`'s) — therefore both run there, against a throwaway worktree, never the
 shared `<worktree>` the other slots read:
 
-**The conductor creates and removes every throwaway copy itself, in its own Bash calls — never a
+**The parent creates and removes every throwaway copy itself, in its own Bash calls — never a
 subagent.** Run the sequence below once per worktree in the resolved set per slot, producing one
 `<worktree>-<slot>-<round>` per repository per slot — `<slot>` is the id (`bugbot` or `mutation`),
 so a roster carrying both produces two copies per repository per round.
@@ -573,9 +573,10 @@ its prompt carries — `<round>` the same value that round's findings carry on `
 `flow record dispatch end` is recorded, confirm the file exists and is non-empty (`test -s`); when
 it is not, write it yourself carrying the single line `no verbatim report captured — <reason>`.
 Every dispatched slot ends up with one, a slot that raised nothing included. **Never re-emit a
-slot's report from this context** — record its `F<n>` rows and cite the file.
+slot's report from this context** — record its `F<n>` rows and cite the file, per **Read
+discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 
-**Every finding is a row in the store. The panel record is rendered from those rows.** The conductor
+**Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself, never a subagent. Every
 finding a round raised is recorded in one Bash call, one `flow record finding` per finding:
 
@@ -746,7 +747,7 @@ finding's own recorded location, taken verbatim from the findings table. *Theme*
 one-sentence Note column, reduced to its own defect noun phrase — the shortest phrase naming what is
 wrong, severity words and slot names stripped out.
 
-**Before dispatching the fix subagent**, the conductor runs this itself, never a subagent:
+**Before dispatching the fix subagent**, the parent runs this itself, never a subagent:
 
 ```bash
 check-panel-reproducers.sh <worktree> <change>
@@ -758,7 +759,7 @@ a leading `-`, a URL, a NUL byte) is a **refusal** — the line is recorded **un
 the operator, never silently rewritten. Exit 2 stops the run.
 
 **For each open finding whose record carries a runnable `finding-reproducer:` command**, the
-conductor runs it itself, never a subagent — every finding's run and every throwaway worktree
+parent runs it itself, never a subagent — every finding's run and every throwaway worktree
 removal in one Bash call, each run followed by `; echo "F<n>: exit $?"` so every exit code stays
 readable:
 
@@ -776,9 +777,9 @@ A slot that supplies nothing for a finding has not supplied a legal exemption: r
 as its own open finding.
 
 **Once the fix subagent reports, re-run every dispatched finding's reproducer** under the same
-constraints and require it now to exit **0**. **The conductor runs these re-runs itself, in its own
+constraints and require it now to exit **0**. **The parent runs these re-runs itself, in its own
 Bash calls — never a "verify fixes" reader or any other subagent** (**Dispatch sites — the
-conductor's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
+parent's closed list**, `skills/flow/implement.md`). **The flip alone does not close a finding — the fix's
 diff must also touch at least one path the finding named, with a non-comment, non-whitespace
 change.** A fix that does not is not a fix: the finding stays open and goes to the operator through
 the handback below.
@@ -794,7 +795,9 @@ walked the diff, itself, never through a subagent. **Record every verdict this t
 never deferred to the round's end** — the reproducer re-runs and the fix diff are read in one
 call, each finding judged, then every `status fixed` recorded together, so an aborted round
 still leaves every already-verified finding closed. **A finding failing
-either condition is left untouched** on `open`, for the handback below.
+either condition is left untouched** on `open`, for the handback below. This walk follows
+**Read discipline** (`skills/flow/implement.md`): the specific hunks a finding names, never the <!-- refs-guard:allow -->
+whole fix diff.
 
 ### The fix round mutation-proves what it changed
 
@@ -877,8 +880,8 @@ against its defect identity. **Inline no source excerpt.**
 
 > **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
 > subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
-> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
+> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
 **Every fix subagent's dispatch prompt also carries the MODEL HANDSHAKE paragraph**:
@@ -887,7 +890,7 @@ against its defect identity. **Inline no source excerpt.**
 > system prompt>` and nothing else on that line. Answer it before any tool call.
 
 Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies
-**The handshake** (`skills/flow/implement.md`, **Dispatch the conductor**), unchanged: a first
+**The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first
 mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a fallback plus
 `## Question`.
 
@@ -928,7 +931,7 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > on that file's presence.
 
 Give the surviving findings to **one** fix subagent as the combined list — the whole fix-dispatch
-contract, stated in full because a conductor once read the single sentence and dispatched four
+contract, stated in full because a parent once read the single sentence and dispatched four
 background fix subagents, one per reviewer (KAN-482): exactly **one** panel-fix dispatch per fix
 round, carrying the combined list of every surviving open finding. Never one dispatch per
 reviewer, per slot, or per finding — that split fragments one diff into competing fixups against
@@ -975,7 +978,7 @@ the run hands back to the operator, one finding at a time:
 
 Only that answer records `withdrawn`, and only with the reason the operator gives.
 
-**Before closing the stage**, the conductor runs both close guards itself, never a subagent:
+**Before closing the stage**, the parent runs both close guards itself, never a subagent:
 
 ```bash
 check-panel-findings-closed.sh <worktree> <change>

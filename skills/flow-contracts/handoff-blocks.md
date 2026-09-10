@@ -250,23 +250,6 @@ equal to `HEAD`." See **Why "recorded but unresolvable" is the dangerous conditi
 (`skills/flow-contracts/handoff-blocks-rationale.md`) for why comparing it as a bare string is the
 mistake this guards against.
 
-## Context ceiling — clear and resume
-
-Printed only by an inline run (**Inline — the parent implements**, `skills/flow/implement.md`)
-when it stops at the context ceiling before a bundle or before the panel's pass 1 — never by
-`/flow-status`, since there is no run in progress at the moment of the stop to regenerate this
-from. The stop writes no state of its own; the next `/flow <name>` resumes under the existing
-re-entry rules, reading the decision already recorded for the change rather than re-rolling it.
-
-```text
-## Context ceiling — clear and resume
-
-Inline run stopped before `<next step>` with `<remaining>` tokens left. Paste:
-
-/clear
-/flow <name>
-```
-
 **`FINISHED`** has **no regenerated block**: the state is terminal and finished changes are omitted
 from the report, so there is nothing left waiting on the operator to hand off. `/myflow-finish`
 run 2 does print a terminal block — what it synced, archived, removed and verified — and every field

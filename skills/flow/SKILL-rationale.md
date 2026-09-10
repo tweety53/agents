@@ -56,12 +56,12 @@ records.
 
 ## brainstorm-planner.md — Seed from a staged research note
 
-> This implements design.md's `flow-research-staging`, the *discovery* half of open
-> question `research-staging-mechanism` (the *write* half is `skills/flow-research/SKILL.md`'s own
+> This implements design.md's `flow-plan-staging`, the *discovery* half of open
+> question `research-staging-mechanism` (the *write* half is `skills/flow-plan/SKILL.md`'s own
 > job):
 
 > This is
-> `flow-research-staging`'s explicit choice: seed, never skip.
+> `flow-plan-staging`'s explicit choice: seed, never skip.
 
 > This resolves the remaining half of `research-staging-mechanism`
 > left open by design.md: a staging note that outlives its adoption is a second, driftable copy of
