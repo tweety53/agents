@@ -185,9 +185,9 @@ rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
 skills/flow-fast/SKILL.md 13631
 skills/flow-fast/brainstorm.md 9626
-skills/flow-fast/finish.md 8186
+skills/flow-fast/finish.md 10000
 skills/flow-fast/implement.md 5073
-skills/flow-fast/review.md 5584
+skills/flow-fast/review.md 6200
 skills/flow-plan/SKILL.md 18400
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
@@ -201,6 +201,7 @@ skills/flow/engineering-principles.md 10732
 skills/flow/experimental/failure-modes.md 8931
 skills/flow/implement.md 50307
 skills/flow/integrate.md 18602
+skills/flow/panel-dispatch.md 2700
 skills/flow/principles-reviewer-prompt.md 13103
 skills/flow/review-panel.md 73554
 skills/flow/security-reviewer-prompt.md 5730

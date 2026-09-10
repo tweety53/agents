@@ -165,16 +165,11 @@
    **When the script is absent** — a repository that does not carry it — check the same registry rows
    by hand, in the same order, and say in the handoff that the verification was done manually. The
    check is never skipped for want of the script, and "not verified" is never reported as verified.
-
-   **A `/flow-fast` run skips this step entirely** — cleanup itself (step 5) still runs; only its
-   separate verification pass does not, per that command's own reduced guard set.
 8. **Write `FINISHED`**, clearing from `worktrees` **only the entries whose removal actually
    succeeded** — see **Worktree cleanup**
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
-9. **Run self-review** — after `FINISHED` is written. **A `/flow-fast` run skips this step
-   entirely** — no self-review subagent is dispatched, per that command's own design. Otherwise: a
-   skip, a failure, or a decline never moves
+9. **Run self-review** — after `FINISHED` is written. A skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. A project's
    `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
    decides without asking when present and valid; the per-run prompt is the absent case. It gathers its
@@ -384,13 +379,10 @@ ask for explicit confirmation before removing that worktree. Do not try to class
 build output: no allowlist of names can be trusted, because the operator decides what they ignore.
 Empty list → proceed without asking.
 
-**`/myflow-fast` overrides the ask, and only the ask.** Its own **Guardrails**
-(`skills/myflow-fast/SKILL.md`) state that override and why it is safe there: that command reports
-what `--force` will destroy and proceeds, having already preserved and committed the records worth
-keeping before it reaches cleanup. The override is named here too, so two files cannot silently
-disagree about a step that destroys files. It reaches nothing else — checks 1, 2, 3, 5 and 6 stay
-gates under every command, and an irreplaceable **unpreserved** entry still stops the run and asks,
-under `/myflow-fast` as much as here.
+**`/flow-fast` skips checks 1–4 outright**, per its own **Cleanup — stop and process scan only**
+(`skills/flow-fast/finish.md`)
+— it never reaches this disclosure at all, having already preserved and committed the records worth
+keeping before it reaches cleanup. Checks 5 and 6 stay gates under every command.
 
 Then, and only then:
 
