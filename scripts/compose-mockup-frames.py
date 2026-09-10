@@ -55,17 +55,28 @@ def png_stem(name):
     return name[: -len(".png")]
 
 
+# Node's process.platform values (https://nodejs.org/api/process.html#processplatform) —
+# the exhaustive set Playwright's own snapshot suffix is drawn from. Matching against this
+# closed vocabulary, rather than "any continuation", is what keeps one screenshot name from
+# being mistaken for another's platform-suffixed capture merely because it is a string prefix
+# of it (`add-participant-finished-excluded.png` vs.
+# `add-participant-finished-excluded-added-darwin.png` — a real collision, not hypothetical).
+PLATFORM_SUFFIXES = ("aix", "android", "darwin", "freebsd", "linux", "openbsd", "sunos", "win32")
+
+
 def match_capture(name, stdin_paths):
-    """Return the stdin path(s) whose basename is `name` or
-    `<stem>-<anything>.png` where `<stem>` is `name` without `.png`
-    (Playwright's `-<platform>` suffix)."""
+    """Return the stdin path(s) whose basename is `name` or `<stem>-<platform>.png` where
+    `<stem>` is `name` without `.png` and `<platform>` is exactly one Node `process.platform`
+    value (Playwright's own snapshot suffix). Deliberately not `<stem>-<anything>.png`: that
+    loosely matches a longer, unrelated screenshot name's own capture whenever it happens to
+    start with this name's stem followed by a dash."""
     stem = png_stem(name)
     matches = []
     for path in stdin_paths:
         base = os.path.basename(path)
         if base == name:
             matches.append(path)
-        elif base.startswith(stem + "-") and base.endswith(".png"):
+        elif base.endswith(".png") and png_stem(base) in (f"{stem}-{p}" for p in PLATFORM_SUFFIXES):
             matches.append(path)
     return matches
 

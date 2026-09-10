@@ -285,12 +285,20 @@ and 12 below as written, committing and pushing nothing.
     path, resolved by the same recursive search step 8 used, and what was seen; and, per composed
     pair, the composite's absolute path, the frame id, and what was seen.
 11. **Commit the spec and its PNGs, and stop there.** A declared `regression checkout` receives
-    them; with none declared, commit to the change's own branch instead. **Never push** — see
-    `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another
-    repository, so no guard here grants one. `regression repo` still records which repository the
+    them; with none declared, commit to the change's own branch instead. **Resolve the
+    `regression checkout` root the same way every other declared app root in this file is
+    resolved** — from `git worktree list` in that repository, or the state file's `worktrees`
+    map, per **Roots in `## apps` are main checkouts** (`skills/flow-contracts/project-configuration.md`)
+    — never the main checkout while a worktree for it holds the change's work. A `regression
+    checkout` not also declared in `## apps` has no worktree to resolve and this step commits to
+    the main checkout directly, exactly as before. **Never push** — see `no-automatic-push`
+    (design.md): a file inside a repository cannot authorise a push to another repository, so no
+    guard here grants one, worktree or not. `regression repo` still records which repository the
     checkout is expected to be, and `check-visual-verification.sh` still reports a mismatch against
     its real `origin`, but that is an identity assertion, not an authorisation. When a commit landed
-    in a `regression checkout`, print the push command for the operator to run by hand:
+    in a `regression checkout`, print the push command for the operator to run by hand, naming
+    whichever branch actually received the commit — the change's own `spectre/<name>` when a
+    worktree resolved, the main checkout's current branch otherwise:
 
     ```bash
     git -C <regression checkout> push

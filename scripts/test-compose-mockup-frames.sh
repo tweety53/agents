@@ -303,5 +303,47 @@ BOTTOM_PIXEL="$(python3 -c "from PIL import Image; print(Image.open('$OUT/align-
 [ "$TOP_PIXEL" = "(0, 255, 0)" ] && pass "case 17: mockup pixel at top edge is the mockup's color" || fail "case 17: top=$TOP_PIXEL"
 [ "$BOTTOM_PIXEL" = "(40, 40, 40)" ] && pass "case 17: pixel below the top-aligned mockup is the background" || fail "case 17: bottom=$BOTTOM_PIXEL"
 
+# ===========================================================================
+# Case 18: a screenshot name that is a string-prefix of ANOTHER screenshot's
+# own platform-suffixed capture must not match that other capture — the
+# kan-486 proof-run collision: `add-participant-finished-excluded.png`'s
+# stem is a dash-prefix of `add-participant-finished-excluded-added-darwin.png`,
+# a real capture for a *different* screenshot
+# (`add-participant-finished-excluded-added.png`). Before the fix this
+# resolved as an ambiguous multi-match (or worse, a silent wrong pairing)
+# even though every capture and every map line is individually correct.
+# ===========================================================================
+new_root
+make_png "$CAPS/add-participant-finished-excluded-darwin.png" 50 50 255 0 0
+make_png "$CAPS/add-participant-finished-excluded-added-darwin.png" 50 50 0 0 255
+make_png "$ROOT/H2.png" 50 50
+printf 'add-participant-finished-excluded.png H2\n' > "$MAP"
+run_guard "$CAPS/add-participant-finished-excluded-darwin.png" "$CAPS/add-participant-finished-excluded-added-darwin.png"
+if [ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/add-participant-finished-excluded.png" ]; then
+  pass "case 18: a shorter name is not confused with a longer name's own platform-suffixed capture"
+else
+  fail "case 18: rc=$RC out=$OUT_TEXT err=$ERR"
+fi
+COMP_PIXEL="$(python3 -c "from PIL import Image; print(Image.open('$OUT/add-participant-finished-excluded.png').getpixel((5, 5)))")"
+[ "$COMP_PIXEL" = "(255, 0, 0)" ] && pass "case 18: the composed capture is the exact-stem one, not the longer-named one" || fail "case 18: pixel=$COMP_PIXEL"
+
+# ===========================================================================
+# Case 19: an actual platform suffix outside the closed vocabulary (a typo,
+# or a future Node platform not yet in the list) does not match — this is
+# the deliberate flip side of case 18: loosening the check back to "any
+# continuation" is exactly the regression case 18 guards against, so this
+# case fails loudly if a future edit widens it that way.
+# ===========================================================================
+new_root
+make_png "$CAPS/a-bogusplatform.png" 50 50
+make_png "$ROOT/A.png" 50 50
+printf 'a.png A\n' > "$MAP"
+run_guard "$CAPS/a-bogusplatform.png"
+[ "$RC" -eq 1 ] && pass "case 19: a suffix outside the closed platform vocabulary does not match" || fail "case 19: rc=$RC out=$OUT_TEXT err=$ERR"
+case "$ERR" in
+  *"no captured PNG matches"*) pass "case 19: stderr carries 'no captured PNG matches'" ;;
+  *) fail "case 19: err=$ERR" ;;
+esac
+
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]
