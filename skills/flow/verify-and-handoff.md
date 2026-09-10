@@ -136,6 +136,14 @@ own system prompt>`.
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
+**The prompt also carries the NO DELEGATION paragraph**:
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
+> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
+
 **The prompt also carries the MODEL HANDSHAKE paragraph**:
 
 > **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own

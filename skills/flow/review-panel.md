@@ -161,8 +161,8 @@ When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` �
 design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
 exactly like any other slot in **The roster** table above: general-purpose, as `subagent_type:
 flow-<model>-<effort>` per the roster entry's own `model`/`effort`, carrying the same REPORT FILE /
-REPRODUCER / CONTEXT BUNDLE / WORKTREES / TOOLS / FOREGROUND BUILDS / MODEL HANDSHAKE / REPRODUCE,
-DON'T READ paragraphs every slot's dispatch already carries above.
+REPRODUCER / CONTEXT BUNDLE / WORKTREES / TOOLS / NO DELEGATION / FOREGROUND BUILDS / MODEL
+HANDSHAKE / REPRODUCE, DON'T READ paragraphs every slot's dispatch already carries above.
 
 Its prompt is not `principles-reviewer-prompt.md` or any other fixed template: it is the file the
 roster entry names in `prompt` — `skills/flow/experimental/<name>.md` inside the agents repo, never
@@ -399,6 +399,14 @@ for reading `final-review.diff` itself.
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**Every slot's dispatch prompt also carries the NO DELEGATION paragraph**:
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
+> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
 
 **Every slot carries the MODEL HANDSHAKE paragraph** — no exception:
 
@@ -862,6 +870,14 @@ against its defect identity. **Inline no source excerpt.**
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
 > schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+**Every fix subagent's dispatch prompt also carries the NO DELEGATION paragraph**:
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the conductor's closed list (**Dispatch sites — the
+> conductor's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
 
 **Every fix subagent's dispatch prompt also carries the MODEL HANDSHAKE paragraph**:
 
