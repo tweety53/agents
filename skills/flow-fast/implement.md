@@ -78,9 +78,9 @@ field):
    (`skills/flow-fast/SKILL.md`'s **Guard set**) but the field shape is kept so a later `/flow`
    resume or a manual audit still reads it correctly.
 
-The task loop reads only `**Files:**`, `**Tests:**` and `**Commit:**` — the minimal plan
-`skills/flow-fast/brainstorm.md` writes carries no other field, so there is no `**Build:** red` /
-`**Squash-with:**` pairing to fold on this command.
+A task tagged `**Build:** red` is committed on its own, then folded into its `**Squash-with:**`
+target's commit per that task's own instruction — the same red/green mechanics
+`skills/flow-contracts/build-green.md` defines, cited rather than restated.
 
 **No SDD ceremony runs here.** No spec-delta guard, no plan-provenance guard invocation mid-task.
 A task whose `**Files:**` names a `<project>/spectre/specs/<capability>.md` path still writes and commits

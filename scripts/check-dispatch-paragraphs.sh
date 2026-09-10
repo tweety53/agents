@@ -83,12 +83,12 @@
 #   **TARGETED TESTS:**                skills/flow/review-panel.md  1   (none)
 #   **MUTATION PROOF:**                skills/flow/review-panel.md  1   (none)
 #   **TOOLS:**                         skills/flow/implement.md     1   (none)
-#   **TOOLS:**                         skills/flow/panel-dispatch.md 1  (none)
+#   **TOOLS:**                         skills/flow/review-panel.md  2   (none)
 #   **TOOLS:**                         skills/flow/verify-and-handoff.md 1 (none)
 #   **MODEL HANDSHAKE:**               skills/flow/implement.md     1   (none)
-#   **MODEL HANDSHAKE:**               skills/flow/panel-dispatch.md 1  (none)
+#   **MODEL HANDSHAKE:**               skills/flow/review-panel.md  2   (none)
 #   **MODEL HANDSHAKE:**               skills/flow/verify-and-handoff.md 1 (none)
-#   **INDEPENDENT PASSES:**            skills/flow/panel-dispatch.md 1  (none)
+#   **INDEPENDENT PASSES:**            skills/flow/review-panel.md  1   (none)
 #   **NO DELEGATION:**                 skills/flow/implement.md     1   (none)
 #   **NO DELEGATION:**                 skills/flow/review-panel.md  2   (none)
 #   **NO DELEGATION:**                 skills/flow/verify-and-handoff.md 1 (none)
@@ -253,8 +253,8 @@ declare -A VARIANT_PHRASE=(
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
 SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation tools tools tools handshake handshake handshake independent delegation delegation delegation)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/panel-dispatch.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/panel-dispatch.md" "skills/flow/verify-and-handoff.md" "skills/flow/panel-dispatch.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
-SITE_MIN_BLOCKS=(1 2 1 2 2 1 1 1 1 1 1 1 1 1 1 1 2 1)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
+SITE_MIN_BLOCKS=(1 2 1 2 2 1 1 1 1 2 1 1 2 1 1 1 2 1)
 SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.

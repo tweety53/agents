@@ -262,8 +262,21 @@ only.
 An inline run checks the context ceiling (**Inline — the parent implements**,
 `skills/flow/implement.md`) before this pass 1 dispatch begins.
 
-Write `final-review.diff` per **Writing `final-review.diff`** (`skills/flow/panel-dispatch.md`).
-Then dispatch the round's
+Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) once per round from **every**
+worktree in the change's resolved set (**Resolving a change's worktrees**,
+`skills/flow-contracts/worktree-resolution.md`), in resolved order — each worktree's section
+opened by a header naming it and its own working-notes merge base, then that worktree's
+`git diff <merge-base>` (staged and unstaged):
+
+```sh
+: > <abs-worktree>/.superpowers/sdd/final-review.diff
+# for each <worktree> in the resolved set, in order:
+printf '# worktree: %s — merge base %s\n' "<worktree>" "<merge-base>" \
+  >> <abs-worktree>/.superpowers/sdd/final-review.diff
+git -C <worktree> diff <merge-base> >> <abs-worktree>/.superpowers/sdd/final-review.diff
+```
+
+A single-worktree change writes the same shape with one header. Then dispatch the round's
 `panel.dispatches` — **at most two per round, each one to three roles** — in the canonical
 worktree, each reading the whole combined file; a role is never dispatched once per worktree: one
 pass reads every worktree's section, so a seam between two repositories is in one pass's view
@@ -276,14 +289,6 @@ grouped into those dispatches.
 `REVIEW_PANEL_TOGGLE` values and in both execution modes (design.md's
 `two-dispatch-cap-everywhere`). A dispatch carrying one role covers that role alone; a roster the
 two dispatches cannot hold shrinks to what they hold.
-
-**A bundle carrying more than one role is still one dispatch — one subagent call, never one per
-role.** The agent runs each role as its own `## PASS <role>` section inside that one turn, in
-roster order, each writing its own report file — see **The bundle prompt** below. The dispatch
-record is the tell: one `-slot` joining the bundle's roles with `+` (`primary+principles`) and one
-`-model`/`-effort` — the **highest** among them — for the whole bundle, never a separate record per
-role. A `+`-joined `-slot` with a single model/effort in the decision's `panel.roster` means write
-one prompt with multiple `PASS` sections and send it as one dispatch, not several parallel ones.
 
 **Grouping.** On `dynamic`, the decision's `panel.grouping` is `static` — the class's row in
 design.md's **Bundled dispatch › Grouping** table, unchanged, no override — or `free` — the
@@ -309,8 +314,12 @@ throwaway copies (**The throwaway worktree** below); the reading passes before t
 `<worktree>`. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
 
-Every bundle prompt also carries the INDEPENDENT PASSES paragraph verbatim
-(**Dispatch paragraphs**, `skills/flow/panel-dispatch.md`).
+Every bundle prompt also carries this paragraph verbatim:
+
+> **INDEPENDENT PASSES:** each pass starts from `final-review.diff` and the code, never from an
+> earlier pass's report or conclusions. Do not cite, defer to, or skip a defect because an earlier
+> pass raised it — if it sits in this pass's angle, raise it again under this pass. Write each
+> pass's report file before beginning the next pass.
 
 **No de-duplication across roles**: the same defect raised by two passes is two `F<n>` rows.
 
@@ -384,8 +393,12 @@ for reading `final-review.diff` itself.
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
 
-**Every slot's dispatch prompt also carries the TOOLS paragraph** (**Dispatch paragraphs**,
-`skills/flow/panel-dispatch.md`).
+**Every slot's dispatch prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
 **Every slot's dispatch prompt also carries the NO DELEGATION paragraph**:
 
@@ -395,8 +408,10 @@ for reading `final-review.diff` itself.
 > parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
-**Every slot carries the MODEL HANDSHAKE paragraph** — no exception (**Dispatch paragraphs**,
-`skills/flow/panel-dispatch.md`).
+**Every slot carries the MODEL HANDSHAKE paragraph** — no exception:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
 
 The dispatcher compares that line against the model this slot was given and applies **The
 handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first mismatch
@@ -854,8 +869,12 @@ against its defect identity. **Inline no source excerpt.**
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop.
 
-**Every fix subagent's dispatch prompt also carries the TOOLS paragraph** (**Dispatch
-paragraphs**, `skills/flow/panel-dispatch.md`).
+**Every fix subagent's dispatch prompt also carries the TOOLS paragraph**:
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
 
 **Every fix subagent's dispatch prompt also carries the NO DELEGATION paragraph**:
 
@@ -865,8 +884,10 @@ paragraphs**, `skills/flow/panel-dispatch.md`).
 > parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
 
-**Every fix subagent's dispatch prompt also carries the MODEL HANDSHAKE paragraph** (**Dispatch
-paragraphs**, `skills/flow/panel-dispatch.md`).
+**Every fix subagent's dispatch prompt also carries the MODEL HANDSHAKE paragraph**:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
 
 Dispatched on `DEFAULT_MODEL` (below); the dispatcher compares that line against it and applies
 **The handshake** (`skills/flow/implement.md`, **The parent orchestrates directly**), unchanged: a first

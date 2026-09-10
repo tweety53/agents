@@ -1,4 +1,4 @@
-# Brainstorm and plan — inline, direct write, no design gate
+# Brainstorm and plan — inline, auto-pick, no design gate
 
 Loaded by `skills/flow-fast/SKILL.md` on a creating run (no state) or a resuming run (`STARTED`).
 Everything below runs in the parent session — **there is no planner subagent dispatch.**
@@ -41,7 +41,7 @@ Exactly `skills/flow/brainstorm.md`'s own **Resuming at `STARTED`** rule: read `
 --json`'s `done`/`total` and `tasks.md`'s own content to find where the run actually left off,
 rather than assuming. State the resumption point plainly: "resuming `<name>` at `<point>`."
 
-## B. Brainstorm — direct write, no design gate
+## B. Brainstorm — inline, auto-pick, no design gate
 
 Seed from a staged research note first, exactly as `skills/flow/brainstorm-planner.md`
 section B's "Seed from a staged research note, if one exists" describes — the same exact-filename
@@ -50,23 +50,31 @@ note's path forward to **C** for deletion. A seeded `<project>/docs/superpowers/
 **D** in place of writing-plans; a seeded `<project>/docs/superpowers/research/<stem>/decision.json` is ignored — `/flow-fast`'s
 decision is fixed — and both go with the note in **C**.
 
-**No `superpowers:brainstorming`, no `superpowers:writing-plans`, no design-approval gate, no
-`<project>/docs/superpowers/specs/` file.** Read the project context directly, then ask **one batched
-`AskUserQuestion`** — up to four questions in one call — but only for true blockers:
+Run `superpowers:brainstorming`'s checklist (items 1–8) **inline, in this session** — no planner
+subagent. **At every options round, auto-pick the recommended option** rather than asking the
+operator. Ask the operator only when:
 
-- no option is recommended (a genuine open-ended choice with no default), or
+- no option in the round is recommended (a genuine open-ended choice with no default), or
 - the request cannot proceed at all without an answer (a missing target, an ambiguous scope that
   would ship something wrong if guessed).
 
-A run with no blocker asks nothing at all. Once any blocker questions are answered (or none exist),
-proceed directly into **C** — the `IN_PROGRESS` staged-diff review is the only human gate this
-command has.
+When asking is unavoidable, ask exactly as `superpowers:brainstorming` would — one question,
+options named, a recommended default marked when one exists.
+
+**There is no design-approval gate.** `/flow`'s merged convergence-and-approval confirm
+(`skills/flow/brainstorm-planner.md`'s **Convergence**) is never run. Once the checklist's own
+questions are exhausted (auto-picked or, rarely, asked), proceed directly into **C** — the
+`IN_PROGRESS` staged-diff review is the only human gate this command has.
+
+Save the design to `<project>/.worktrees/<name>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md`
+if `superpowers:brainstorming` produces one, exactly as `/flow`'s own planner does; its content is
+folded into `design.md` in **C** below and the loose file is not committed separately.
 
 Mark `flow.brainstorm` around this section:
 
 ```bash
 flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token ff-<literal-token> <name>
-# … read context, ask the batched blocker question if one exists …
+# … the checklist, run inline, auto-picking …
 flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed <name>
 ```
 
@@ -87,17 +95,12 @@ command and its output, same as `/flow`'s own rule.
 spectre new "<name>"
 ```
 
-Write the three artifacts directly, in the minimal shape:
-
-- **`proposal.md`** — `## Why` / `## What changes`, unchanged from `/flow`'s own shape.
-- **`design.md`** — `## Context` and `## Decisions` as short prose bullets. No `ID:`/`Status:`
-  entries, no supersede rules, no `## Open questions` section.
-- **`tasks.md`** — `- [ ] <n>. <title>` plus, per task, `**Files:**`, `**Tests:**` and
-  `**Commit:**` only. No `**Regression:**`, `**Baseline:**`, `**Squash-with:**`, `**After:**`, no
-  `**Execution:**`/`**Relocation:**` headers, no plan-provenance tag, no build-green tag.
-
-A capability whose requirements this change alters still gets a task naming its
-`<project>/spectre/specs/<capability>.md` edit in that task's own `**Files:**` field — the guard that would
+Write `proposal.md` (`## Why` / `## What changes`), `design.md` (`## Context` / `## Decisions` /
+`## Open questions`) and `tasks.md` (checkbox scaffold) in exactly the shape
+`skills/flow/brainstorm-planner.md` section C defines — the `## Decisions` / `## Open
+questions` entry shape, the `ID:`/`Status:` fields, the immutability and supersede rules — cited,
+never restated. A capability whose requirements this change alters still gets a task naming its
+`<project>/spectre/specs/<capability>.md` edit in that task's own `**Files:**` field; the guard that would
 otherwise check spec reach (`check-spec-reach.sh`) is not run, per `skills/flow-fast/SKILL.md`'s
 **Guard set**, but the edit itself is not skipped.
 
@@ -110,12 +113,19 @@ flow stage end -command '/flow-fast' -stage flow.create-artifacts -outcome compl
 
 ## D. Writing plans
 
-Mark `flow.writing-plans`. When **B** carried a seeded `<project>/docs/superpowers/research/<stem>/tasks.md`, copy it to
-`tasks.md`, fold in whatever **B** changed, and skip the invocation; otherwise write `tasks.md`'s
-tasks directly, in the minimal shape **C** defines — no `superpowers:writing-plans`, no
-`check-plan-shape.sh` (`/flow-fast` never runs it — this section states it once so no later prose
-contradicts `SKILL.md`'s own guard set), no plan-provenance or build-green tag, no
-`**Execution:**`/`**Relocation:**` headers.
+Mark `flow.writing-plans`. When **B** carried a seeded `<project>/docs/superpowers/research/<stem>/tasks.md`, copy it to `tasks.md`,
+fold in whatever **B** changed, and skip the invocation; otherwise invoke
+**superpowers:writing-plans** to enrich `tasks.md` to plan
+quality exactly as `skills/flow/brainstorm-planner.md` section D describes — the task shape
+(`- [ ] <n>. <title>` with `  - [ ] **Step N: …**` children), the per-task verify-step rule
+(targeted lint plus the build tool's own test selector, never the project's whole `## lint` /
+`## test` list), the UI-test follow-on-task rule, plan-provenance tagging
+(`skills/flow-contracts/plan-provenance.md`), the build-green tag and the mechanically-checkable
+field family (`**Files:**`, `**Tests:**`, `**Regression:**`, `**Baseline:**`, `**Commit:**`, the
+`**Squash-with:**` pairing for `Build: red`, the optional `**After:**`) and the two required header
+lines (`**Execution:**`, `**Relocation:**`) — cited in full, never restated. Run
+`check-plan-shape.sh` unconditionally and the project's configured plan-provenance/build-green
+guards where declared; fix any hit.
 
 **No `## execution mode` / `## implementer model` / `## review panel` roll runs here.** Write
 `<abs-worktree>/.superpowers/sdd/decision.json` directly, with the fixed decision

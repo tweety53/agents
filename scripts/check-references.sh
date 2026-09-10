@@ -581,11 +581,6 @@ EXPECTED_ZERO_RATIONALE_DOCS=(
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"
 
-EXPECTED_ZERO_SHARED_MECHANICS=(
-  "skills/flow/panel-dispatch.md"
-)
-EXPECTED_ZERO_SHARED_MECHANICS_REASON="shared dispatch-mechanics file cited by review-panel.md and flow-fast/review.md — it holds the moved paragraphs and command block verbatim and cites no other path itself"
-
 # declare_category <reason> <file...> — declares every <file> with <reason>,
 # but ONLY when <file> exists under the CURRENT REPO_ROOT (KAN-197 F3
 # compatibility: REPO_ROOT is this guard's own real location by default, or a
@@ -616,7 +611,6 @@ declare_expected_zeros() {
   declare_category "$EXPECTED_ZERO_CONTRACT_DOCS_REASON" "${EXPECTED_ZERO_CONTRACT_DOCS[@]:-}"
   declare_category "$EXPECTED_ZERO_REVIEWER_PROMPTS_REASON" "${EXPECTED_ZERO_REVIEWER_PROMPTS[@]:-}"
   declare_category "$EXPECTED_ZERO_RATIONALE_DOCS_REASON" "${EXPECTED_ZERO_RATIONALE_DOCS[@]:-}"
-  declare_category "$EXPECTED_ZERO_SHARED_MECHANICS_REASON" "${EXPECTED_ZERO_SHARED_MECHANICS[@]:-}"
 }
 
 main() {

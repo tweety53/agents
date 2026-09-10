@@ -231,7 +231,7 @@ cp "<state-dir>/<name>-proposal-artifact.html" \
   a second dated file, so a re-run overwrites in place — the rule `records.Destination` applies to
   the rendered records, applied here to the copy.
 - **A change with no artifact at that source is skipped and said so, never failed.** Every
-  `/flow-fast` run is such a change: it publishes no proposal artifact, so there is nothing to
+  `/myflow-fast` run is such a change: it publishes no proposal artifact, so there is nothing to
   copy and nothing wrong.
 
 This copy is what makes the `Proposal artifact source` row in **Temporary artifacts registry**

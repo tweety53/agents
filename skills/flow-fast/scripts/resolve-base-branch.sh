@@ -1,1 +1,0 @@
-../../../scripts/resolve-base-branch.sh
