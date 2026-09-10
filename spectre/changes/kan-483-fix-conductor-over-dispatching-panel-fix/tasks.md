@@ -1,0 +1,63 @@
+# kan-483-fix-conductor-over-dispatching-panel-fix
+
+> **Execution:** `/flow` implements this plan. Mark a task's own checkbox when
+> `check-task-commit-fields.sh` passes on that task's commit.
+> **Relocation:** no
+
+**Goal:** the conductor makes exactly the Agent-tool dispatches the contract names and no others — one panel-fix per round, no subagent for reproducer re-runs, mutation-proof reads, lint or test — stated as a closed dispatch-site table with a pre-dispatch self-check and as a direct prohibition at every conductor-scoped step.
+**Architecture:** prose only, across the three files the conductor reads plus `skills/flow/SKILL.md`; no script, store or spec changes. Section numbers below are `design.md`'s.
+**Spec:** this change's own `design.md` (the repo carries no `spectre/specs/` entries; the skill markdown is the contract surface).
+
+Baseline for every `Baseline:` below is the guard-harness count, `ls scripts/test-*.sh | wc -l`,
+the suite `scripts/run-guard-tests.sh` discovers: 59 harnesses before task 1, and no task adds
+one.
+<!-- measured: ls scripts/test-*.sh | wc -l @ branch spectre/kan-483-fix-conductor-over-dispatching-panel-fix, 2026-09-10 -->
+
+**Normative-inventory discipline, every task:** before the task's first edit run
+`scripts/check-normative-inventory.sh > .superpowers/sdd/normative-before-<task>.txt` (the
+`.superpowers/` tree is git-ignored); after its last edit run it again to
+`normative-after-<task>.txt` and check `diff normative-before-<task>.txt normative-after-<task>.txt | grep '^<'`
+prints nothing — added lines are this change's own new sentences, a removed line is a cut or
+reworded existing requirement and is restored before the commit.
+
+- [x] 1. State the conductor's closed dispatch-site list and self-check
+**Build:** green
+**Files:** `skills/flow/implement.md`, `scripts/check-contract-budget.sh`
+**Tests:** none — prose only; the verification is the guard set in the verify step
+**Regression:** reverting leaves the conductor's prompt with KAN-482's single panel-fix sentence as its only dispatch constraint — nothing names the four permitted sites or forbids a "verify fixes" or "mutation re-verify" subagent, the exact KAN-449 drift item 1b of the issue reports — and drops the budget raise, so any later growth of `implement.md` trips `check-contract-budget.sh`
+**Baseline:** before=59 after=59
+<!-- predicted: no harness is added by this task; confirmed by ls scripts/test-*.sh | wc -l at the verify step -->
+
+  - [x] **Step 1: the subsection** — in `skills/flow/implement.md`, after **The handshake** paragraphs and before **The return.** (line 117 at `4d957c9`), add `### Dispatch sites — the conductor's closed list` carrying design.md section 1: the four-row table (implementer per group / `implementer` / `task-<n>-implementer` / section **4**; panel bundle, at most two per round / `reviewer` / `panel-<round>-<slot+slot>` / **Bundled dispatch**, `skills/flow/review-panel.md`; panel-fix, exactly one per round / `panel-fix` / `panel-fix-<round>`, `-retry` once / the fix step, `skills/flow/review-panel.md`; verifier, one per worktree / `verifier` / `visual-verify` / **Visual verification**, `skills/flow/verify-and-handoff.md`); then the prohibition, in the one-fix-subagent rule's directness: every other step in sections **1**, **2** and **4**, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md` — every `check-*.sh`, `run-reproducer.sh`, `gather-dispatch-context.sh`, `prepare-workspace.sh`, `## lint` and `## test`, every `flow record` and `flow stage` call, worktree add and remove, every report read and diff walk — is the conductor's own Bash and Read work, never delegated: not to a "verify" reader, a "re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any other name; then the self-check: before any Agent-tool call the conductor names the row the call is, and a call with no row is not made. Mention the KAN-449 run's six unrecorded subagents once, as the shape this forbids.
+  - [x] **Step 2: the prompt citation** — in the relay-contract paragraph (lines 50–59), replace the KAN-482 sentences "The prompt also carries the fix-dispatch constraint … (`check-panel-fix-single-dispatch.sh` holds every run's panel close to that shape)." with one sentence stating the prompt cites **Dispatch sites — the conductor's closed list** below as the whole of what the conductor may dispatch, the panel-fix row's one-per-round rule included. Delete nothing else from that paragraph.
+  - [x] **Step 3: inline and section 4** — in **Inline — the parent implements**, change the bullet "**Panel slots and the verifier dispatch exactly as in sdd mode**" (line 158) to name the visual-verify verifier and add that the parent's own permitted dispatches are the closed list's panel-bundle and verifier rows alone. In section **4**'s boundary list (step 2, lines 549–570) and the FULL SUITE paragraph's shared-wave sentence (lines 539–543), add that the guard, the tick and the shared-wave `## test` run are the conductor's own Bash calls, never a subagent's.
+  - [x] **Step 4: the budget** — `wc -c skills/flow/implement.md`; if it exceeds 41777, raise the `skills/flow/implement.md` row in `scripts/check-contract-budget.sh`'s `budgets()` table (line 195) to the new size plus 25%, rounded up to the byte, and say so in the commit body.
+  - [x] **Step 5: Verify** — `scripts/check-vocabulary.sh`, `scripts/check-references.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-contract-budget.sh`, `scripts/check-stage-mark-calls.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, and the normative-inventory diff from the header; `ls scripts/test-*.sh | wc -l` prints 59.
+**Commit:** `docs(flow): close the conductor's dispatch-site list and add a pre-dispatch self-check`
+
+- [x] 2. State each review-panel conductor step as the conductor's own, never a subagent's
+**Build:** green
+**Files:** `skills/flow/review-panel.md`
+**Tests:** none — prose only; the verification is the guard set in the verify step
+**Regression:** reverting leaves the post-fix reproducer re-run and the mutation-proof check phrased as "the parent records it" and "the parent checks the reported list" — the phrasing a conductor read as descriptive on KAN-449 and delegated to a "verify fixes (reading)" and a "mutation re-verify" subagent
+**Baseline:** before=59 after=59
+<!-- predicted: no harness is added by this task; confirmed by ls scripts/test-*.sh | wc -l at the verify step -->
+
+  - [x] **Step 1: the verification step** — at "**Once the fix subagent reports, re-run every dispatched finding's reproducer**" (line 765 at `4d957c9`), "**The parent records it, never the fix subagent**" (777) and "**The parent checks the reported list against the fix diff before the round can close.**" (807): add, at each, that the conductor runs the reproducers, walks the fix diff and reads the `fix-mutation:` lines itself, in its own Bash and Read calls, and dispatches no subagent for any of it — no "verify fixes" reader, no "mutation re-verify" agent, the two KAN-449 spawned — citing **Dispatch sites — the conductor's closed list** (`skills/flow/implement.md`) once.
+  - [x] **Step 2: the other conductor steps** — add the same one-sentence prohibition at the pre-fix `run-reproducer.sh` runs (748–760), `check-panel-reproducers.sh` (737–746), the throwaway worktree's add and remove (**The throwaway worktree**, 489–541), finding recording from slot reports (**Recording findings, and the record's format**, 558–580), and the close guards `check-panel-findings-closed.sh` and `check-panel-fix-single-dispatch.sh` (953–981). One sentence each, no restated mechanism.
+  - [x] **Step 3: Verify** — `scripts/check-vocabulary.sh`, `scripts/check-references.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-contract-budget.sh` (raise the `skills/flow/review-panel.md` row only if `wc -c` exceeds 73554), `scripts/check-stage-mark-calls.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, and the normative-inventory diff from the header; `ls scripts/test-*.sh | wc -l` prints 59.
+**Commit:** `docs(flow): run the panel's reproducer and mutation-proof checks in the conductor itself`
+
+- [x] 3. Run `flow.verify` inline and rescope the verifier dispatch to visual verification
+**Build:** green
+**Files:** `skills/flow/verify-and-handoff.md`, `skills/flow/SKILL.md`
+**Tests:** none — prose only; the verification is the guard set in the verify step
+**Regression:** reverting sends `## lint` and `## test` back through a verifier subagent — the delegation the issue forbids outright — and leaves `prepare-workspace.sh`, the ledger render and visual verification's conductor steps in the "the conductor's" phrasing with no prohibition on delegating them
+**Baseline:** before=59 after=59
+<!-- predicted: no harness is added by this task; confirmed by ls scripts/test-*.sh | wc -l at the verify step -->
+
+  - [x] **Step 1: inline verify** — in `skills/flow/verify-and-handoff.md`'s **Verify**: rewrite the paragraph "**After the panel closes, the conductor edits no source and runs none of the `## lint` or `## test` commands itself.**" (lines 69–74 at `4d957c9`) to keep the no-source-edit rule and its staleness reason, and state that `## lint`, `## test` and `check-spec-reach.sh <worktree>` are the conductor's own Bash calls, run inline per worktree, never through a subagent; rewrite the dispatch paragraph "Resolve the commands `project-get.sh <worktree> lint` and … dispatch one verifier per worktree …" (132–141) so the conductor exports the `KEY=value` lines and runs the lint commands, the test commands and `check-spec-reach.sh` in the order printed, not stopping at the first failure, then writes the unchanged `## Report` shape itself; add design.md's `inline-rerun-once` rule — a non-zero exit is re-run once inline, a second non-zero exit ends the turn with `## Question` naming the command and its output verbatim; state the record: one `dispatches` row per worktree, `-role verifier -key verify -model <conductor model> -effort <conductor effort> -agent-id inline`, begin before the first command and end after the report. Update the "one Bash call … one more" sentence (148–150) to the inline shape and the opening paragraph's "Both `flow.verify` and `flow.visual-verify` run their commands through a `verifier` subagent" (9–11) to name `flow.visual-verify` alone.
+  - [x] **Step 2: rescope the verifier** — in **The verifier dispatch** (76–130): open with `flow.visual-verify` dispatching this subagent, one verifier per worktree; keep the baseline pointer, the relay contract, the TOOLS and MODEL HANDSHAKE blockquotes verbatim (`check-dispatch-paragraphs.sh` pins them), the handshake, and the aborted-verifier rule; change **Recording** to `-key visual-verify` only and the re-dispatch rule to `visual-verify-2` only, removing the `verify`/`verify-2` halves; add that the verifier is the closed list's one verifier row and that the conductor dispatches nothing else in this file. In **Visual verification**'s "Steps 1, 2 and 11 are the conductor's" sentence (185), add that those steps, `prepare-workspace.sh` and the ledger render are the conductor's own Bash calls, never a subagent's. In **Guardrails**, rewrite the bullet "**Never** edit source, and **never** run a `## lint` or `## test` command yourself, after the panel closes — the verifier runs them, and a fix run changes source." (569–570) to keep the source-edit ban and drop the lint/test half, since the conductor now runs them in `flow.verify`.
+  - [x] **Step 3: SKILL.md** — rewrite the "**`VERIFY_MODEL` governs the two verifier dispatches**" paragraph (`skills/flow/SKILL.md` lines 134–139) to govern the one `flow.visual-verify` verifier dispatch, keeping the fixed-`sonnet`, no-override, never-resolved sentences. Also update `skills/flow/implement.md`'s citation "`skills/flow/verify-and-handoff.md`'s verifier dispatch" (line 117) only if the anchor text changed in step 2; otherwise leave it.
+  - [x] **Step 4: Verify** — `scripts/check-vocabulary.sh`, `scripts/check-references.sh`, `scripts/check-dispatch-paragraphs.sh`, `scripts/check-contract-budget.sh` (raise the `skills/flow/verify-and-handoff.md` or `skills/flow/SKILL.md` row only if `wc -c` exceeds 42943 or 20520), `scripts/check-stage-mark-calls.sh`, `scripts/check-markdown-integrity.py`, `scripts/check-installed-citations.sh`, and the normative-inventory diff from the header; `ls scripts/test-*.sh | wc -l` prints 59.
+**Commit:** `docs(flow): run flow.verify inline and keep the verifier dispatch for visual verification only`
