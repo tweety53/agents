@@ -143,6 +143,28 @@ design and artifact under `docs/superpowers/` are history and stay as they are.
 runs through `/flow-fast` end to end in this repository — the same cutover check commit e83c9f4
 ran for `/myflow-fast`.
 
+## 12. Raise the dynamic plan-class thresholds
+
+The class `plan-class.sh` assigns drives every dynamic decision: small and regular run inline,
+big runs sdd via the conductor on opus/high with the six-slot roster and a full rerun. The
+operator's read: the current thresholds send too much work to big and to the full roster. Raise
+them so far more changes land inline and compact. The experimental roll and the bundle roll are
+unchanged.
+
+| Value | Now | New |
+|---|---|---|
+| small | tasks ≤ 5 and files ≤ 12 and repos = 1, no migration, no spec | tasks ≤ 10 and files ≤ 25, other conditions unchanged |
+| big | tasks ≥ 15 or files ≥ 40 or (repos > 1 and tasks ≥ 8) or (migration and tasks ≥ 8) | tasks ≥ 30 or files ≥ 80 or (repos > 1 and tasks ≥ 15) or (migration and tasks ≥ 15) |
+| regular | everything else | everything else |
+| compact roster roll | < 70 on small, < 30 on regular and big | < 90 on small, < 60 on regular and big |
+| experimental slot roll | < 30 on every class | unchanged |
+| static grouping roll | bundle < 30 | unchanged |
+
+Touches `skills/flow/scripts/plan-class.sh` and its header comment, `test-plan-class.sh`, the
+class and roll paragraphs of `skills/flow/brainstorm-planner.md`, and the "Inputs and the class"
+and "The rolls" sections of the archived kan-472 design those files cite. In scope of KAN-490 by
+the operator's decision, though it is independent of the fast skill itself.
+
 ## Step-by-step breakdown
 
 ### Router (`skills/flow-fast/SKILL.md`)
@@ -206,3 +228,11 @@ contract.
 **Why:** Deprecated; `/flow-fast` must not inherit them.
 **Uses:** `skills/flow/SKILL.md`, `skills/flow-contracts/pipeline.md`,
 `skills/flow-contracts/pipeline-rationale.md`.
+
+### Plan-class thresholds
+
+**What:** Raise the small and big class limits and the compact roll cut-offs per section 12.
+**Why:** More changes run inline with the compact roster; the conductor and full roster are the
+cost the operator wants to reach less often.
+**Uses:** `skills/flow/scripts/plan-class.sh`, `skills/flow/scripts/test-plan-class.sh`,
+`skills/flow/brainstorm-planner.md`.
