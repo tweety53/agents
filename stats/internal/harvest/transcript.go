@@ -499,6 +499,39 @@ func ReadDispatchMeta(transcriptPath string) (DispatchMeta, bool) {
 	return meta, true
 }
 
+// IsAgentTranscriptPath reports whether path is a per-agent subagent
+// transcript (.../subagents/agent-<id>.jsonl) -- the same directory rule
+// ReadDispatchMeta applies, exported for the watcher's batch routing
+// (kan-357): a batch read from such a file names its own dispatch, so it
+// is credited by the file's agentId instead of being offered to the
+// window-inference pass. The path name is the authority here rather than
+// the records' agentId field, because it is what exists even for a batch
+// carrying no records at all.
+func IsAgentTranscriptPath(transcriptPath string) bool {
+	return filepath.Base(filepath.Dir(transcriptPath)) == subagentsDirName
+}
+
+// AgentIDFromTranscriptPath returns the agentId a per-agent transcript's
+// file name carries -- the <id> in agent-<id>.jsonl -- and whether path
+// is an agent transcript at all. It is the dispatch resolution for a
+// batch whose source file names its own agent, needing no per-record
+// field to survive.
+func AgentIDFromTranscriptPath(transcriptPath string) (string, bool) {
+	if !IsAgentTranscriptPath(transcriptPath) {
+		return "", false
+	}
+	name := strings.TrimSuffix(filepath.Base(transcriptPath), ".jsonl")
+	const prefix = "agent-"
+	if !strings.HasPrefix(name, prefix) {
+		return "", false
+	}
+	id := strings.TrimPrefix(name, prefix)
+	if id == "" {
+		return "", false
+	}
+	return id, true
+}
+
 // openAt opens path and seeks to offset, checking first that offset does
 // not exceed the file's current size (ErrOffsetBeyondEOF).
 func openAt(path string, offset int64) (*os.File, error) {

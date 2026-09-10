@@ -766,6 +766,54 @@ func (s *Store) DispatchWindowsForSession(ctx context.Context, sessionID string)
 	return out, nil
 }
 
+// DispatchWindowsForAgent returns every dispatch row recorded with agentID,
+// ordered by (started_at, id) -- the agent-keyed counterpart of
+// DispatchWindowsForSession above. One resumed agent shares its agentId
+// across several dispatch rows (the conductor and per-task fix rounds do
+// exactly that), and the agent-file attribution pass
+// (internal/harvest's attributeAgentFileRecords) splits that agent's
+// transcript usage among its own rows by this order.
+//
+// The ordering and the empty-agentId filter are the same rules the session
+// query carries: (started_at, id) because seconds-resolution hand-typed
+// starts make exact ties ordinary, and an empty agent_id means "not
+// reported" and never matches a lookup -- including an empty one, which
+// this query's caller can never make, the filter keeping the rule true at
+// the store regardless.
+//
+// The window shape and the direct harvest.DispatchWindow return follow the
+// session query's own reasoning: *store.Store satisfies
+// harvest.AgentWindowSource with no adapter (cmd/flowd asserts harvest.Deps
+// at compile time), and internal/harvest keeps importing nothing from
+// internal/store.
+func (s *Store) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]harvest.DispatchWindow, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT d.id, d.started_at, d.ended_at, d.agent_id
+		FROM dispatches d
+		WHERE d.agent_id = $1 AND d.agent_id <> ''
+		ORDER BY d.started_at, d.id
+	`, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("store: dispatch windows for agent %s: %w", agentID, err)
+	}
+	defer rows.Close()
+
+	var out []harvest.DispatchWindow
+	for rows.Next() {
+		var scanned *string
+		var w harvest.DispatchWindow
+		if err := rows.Scan(&w.DispatchID, &w.StartedAt, &w.EndedAt, &scanned); err != nil {
+			return nil, fmt.Errorf("store: dispatch windows for agent %s: scan: %w", agentID, err)
+		}
+		w.AgentID = derefOrEmpty(scanned)
+		out = append(out, w)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: dispatch windows for agent %s: %w", agentID, err)
+	}
+	return out, nil
+}
+
 // RunRecord returns one change's whole derived record: its dispatches in
 // seq order and its findings in the order the numbers their refs spell,
 // which is the order every rendering of the record reads them in.

@@ -1018,6 +1018,65 @@ func TestDispatchWindowsForSessionOrdersTiesByID(t *testing.T) {
 	}
 }
 
+// TestDispatchWindowsForAgentOrdersByStartedAt pins the query the
+// agent-file attribution pass rests on: one resumed agent shares its
+// agentId across several dispatch rows, and the split that separates
+// their usage reads the rows back ordered by (started_at, id) -- exactly
+// the ordering attributeAgentFileRecords (internal/harvest) splits on.
+// A different agent's row and a row with no agent id at all are never
+// windows for this agent.
+func TestDispatchWindowsForAgentOrdersByStartedAt(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-agent-windows-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first := baseDispatch("implementer", "opus")
+	first.AgentID = "a2ad390ad5a6c1507"
+	firstRec, err := st.RecordDispatch(ctx, projectKey, "kan-1", first)
+	if err != nil {
+		t.Fatalf("RecordDispatch (first resume): %v", err)
+	}
+	second := baseDispatch("implementer", "opus")
+	second.AgentID = "a2ad390ad5a6c1507"
+	second.StartedAt = first.StartedAt.Add(10 * time.Minute)
+	secondRec, err := st.RecordDispatch(ctx, projectKey, "kan-1", second)
+	if err != nil {
+		t.Fatalf("RecordDispatch (second resume): %v", err)
+	}
+
+	// A different agent's row, and one carrying no agent id at all:
+	// neither is a window for this agent.
+	other := baseDispatch("reviewer", "sonnet")
+	other.AgentID = "a52d5a1bd2e13ac30"
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", other); err != nil {
+		t.Fatalf("RecordDispatch (other agent): %v", err)
+	}
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", baseDispatch("reviewer", "sonnet")); err != nil {
+		t.Fatalf("RecordDispatch (no agent id): %v", err)
+	}
+
+	windows, err := st.DispatchWindowsForAgent(ctx, "a2ad390ad5a6c1507")
+	if err != nil {
+		t.Fatalf("DispatchWindowsForAgent: %v", err)
+	}
+	if len(windows) != 2 {
+		t.Fatalf("windows = %+v, want the two rows carrying this agentId", windows)
+	}
+	if windows[0].DispatchID != firstRec.ID || windows[1].DispatchID != secondRec.ID {
+		t.Errorf("windows ordered %d, %d -- want started_at order %d, %d",
+			windows[0].DispatchID, windows[1].DispatchID, firstRec.ID, secondRec.ID)
+	}
+
+	none, err := st.DispatchWindowsForAgent(ctx, "a-nobody-recorded")
+	if err != nil {
+		t.Fatalf("DispatchWindowsForAgent for an unknown agent: %v", err)
+	}
+	if len(none) != 0 {
+		t.Errorf("windows for an unknown agent = %+v, want none", none)
+	}
+}
+
 // TestDispatchAgentIDRoundTripsAndAbsenceStaysAbsent pins the new column
 // end to end through the typed API: a recorded agent id comes back on the
 // row and on the window, and a dispatch recorded without one reports ""
