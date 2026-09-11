@@ -9,8 +9,9 @@ than assuming a project-local path.
 Follow that skill exactly. One invocation runs from the Jira key to the landed change: resolve the
 issue and name per **Transitions** (`skills/flow-contracts/jira-integration.md`), move it to In Progress, create a git worktree on a branch named after the change (git isolation only
 — no workspace setup, database or bucket), implement inline in this session, run the project's
-`## lint` and the tests the change touches, print the change summary, land by the project's
-`## default landing route` (asking only when none is declared), move the issue to In Review, and —
+`## lint` and the tests the change touches, print the change summary, then — unless the project's `## handoff` is `none` — stop for the
+operator to review the branch; land by the project's `## default landing route` (asking only
+when none is declared), move the issue to In Review, and —
 on merge and push — remove the worktree and branch and move the issue to Done. Every `flow.*`
 stage `/flow` marks is marked, most as an empty pair, so the stats views see one pipeline.
 
@@ -25,5 +26,6 @@ pipeline's states do not apply here, since `/flow-fast` writes none.
 else. **This command takes no flags.** Re-invoked with a name whose worktree still exists, the
 argument is fix instructions, or — bare — the run resumes at cleanup once an open PR has merged.
 
-**When done:** on merge and push, nothing further — the commit is on the default branch. On open
-PR or manual, merge or land it, then re-run `/flow-fast <name>` bare to clean up.
+**When done:** after a handoff, review the branch and re-run `/flow-fast <name>` bare to land it.
+On merge and push, nothing further — the commit is on the default branch. On open PR or manual,
+merge or land it, then re-run `/flow-fast <name>` bare to clean up.

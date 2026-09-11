@@ -44,8 +44,9 @@ flow stage end   -command '/flow-fast' -stage flow.kickoff -outcome completed <n
 ```
 
 **A re-run is detected, never recorded**: `<project>/.worktrees/<name>` already existing means an
-earlier run left the branch unlanded. Reuse it, skip section 3's creation, and treat the argument
-as fix instructions.
+earlier run left the branch unlanded. Reuse it and skip section 3's creation. With an argument,
+it is fix instructions and sections 2–5 run again on the branch; bare, sections 2–5 have nothing
+to do and mark through, and the run continues at section 6.
 
 ## 2. Brainstorm
 
@@ -54,9 +55,11 @@ flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness>
 ```
 
 Read the ask and the code it touches until the change is clear — every file the change has to
-touch, the actual flow end to end. Where two readings would lead to materially different work,
-ask once, batched, through **AskUserQuestion**; otherwise make the routine call yourself and say
-which you made. Pick the simplest implementation that meets the ask.
+touch, the actual flow end to end. Make every judgment call yourself and name it in the summary;
+a `/flow-fast` run with `## handoff` `none` is one command from the operator, `/flow-fast
+<key>`, and asks nothing after it. Only with `## handoff` `required`, and only where two
+readings would lead to materially different work, ask once, batched, through
+**AskUserQuestion**. Pick the simplest implementation that meets the ask.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed <name>
@@ -102,8 +105,9 @@ flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harnes
 ```
 
 Read `<project>/CLAUDE.md`, `<project>/AGENTS.md` where present, and `<project>/.flow/project.md`'s
-`## lint`, `## test` and `## default landing route` sections through `project-get.sh <project>
-<key>` — these are the commands section 5 and section 7 run.
+`## lint`, `## test`, `## handoff` and `## default landing route` sections, each read with
+`project-get.sh <project> <key>`: sections 5 and 7 take their commands from the first three,
+and `## handoff` says whether the run stops between them.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
@@ -159,6 +163,13 @@ Print the change summary: what changed and why, grouped by area, one or two sent
 what was verified and how; anything deliberately left out. This is the one report the run
 prints.
 
+**Then the handoff, decided by `## handoff`** (**Project configuration**,
+`skills/flow-contracts/project-configuration.md`): `none` continues to section 6 in this same
+invocation; `required`, or the key absent, ends the run here — worktree and branch kept, the
+summary naming the branch and `Re-run /flow-fast <name> to land it` — so the operator reviews
+the branch before anything is pushed. The remaining marks below are then made by that bare
+re-run, not by this one.
+
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.run-instructions -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
@@ -182,8 +193,9 @@ flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <ha
 ```
 
 The route is `## default landing route` when the project declares one (`merge and push`,
-`open PR` or `manual`), read without asking. Only when the project declares none, ask once
-through **AskUserQuestion** with those three options, `open PR` recommended.
+`open PR` or `manual`), read without asking. When the project declares none: with `## handoff`
+`required`, ask once through **AskUserQuestion** with those three options, `open PR`
+recommended; with `## handoff` `none`, take `open PR` without asking.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
