@@ -1598,6 +1598,24 @@ fi
 #      finding it gone is not a quiet improvement, it is those two paragraphs
 #      becoming false. This case therefore fails in BOTH directions, exactly as
 #      the registry-coupling case 14 does, and names what to edit.
+#
+#      WHY THE BOUND IS 10 AND NOT THE NEIGHBOURING CASES' 2 (KAN-376). Every
+#      assertion above is a fact about children escaper.sh forked BEFORE the
+#      kill arrived, so the kill must not beat the forks — and the guard's
+#      deadline is counted in whole seconds, so at a bound of 2 it can fire
+#      about 1 s after launch. Under the load that first surfaced this case's
+#      failure (KAN-374's review panel, several concurrent agent sessions on
+#      one machine) escaper.sh lost exactly that race: the kill landed before
+#      `sleep 4271 &` had run, the escapee never existed, and the case
+#      reported the documented escape behaviour as broken, with the failure
+#      count differing between reruns. Measured on the dev machine
+#      (2026-09-11): fork+exec p95 10 ms under the full suite, 2072/2072
+#      pgrep hits on a live decoy, and three full harness runs under 10 CPU
+#      spinners plus 8 fork-churn loops without a miss — the failure needs a
+#      loaded machine, and 10 s of runway prices this one case past it at
+#      roughly 8 s of extra suite wall. The neighbouring timeout cases keep
+#      their short bounds: none of their assertions depends on the command
+#      reaching an internal fork before the deadline fires.
 if ! command -v pgrep >/dev/null 2>&1; then
   skip "a process that leaves the guard's process group outlives the bound" "this machine has no pgrep"
 else
@@ -1611,7 +1629,7 @@ printf 'noise-from-the-escaped-shape\n'
 sleep 4272"
   declare_isolation '`./escaper.sh`'
   ESC_START="$SECONDS"
-  run_guard_bounded 2 "$REPO" demo "$STATE"
+  run_guard_bounded 10 "$REPO" demo "$STATE"
   ESC_ELAPSED="$((SECONDS - ESC_START))"
   assert_verdict "COMPLETE:" "an escaping survivors command does not block the terminal state"
   assert_out "timed out" "an escaping survivors command is reported as a timeout skip"
