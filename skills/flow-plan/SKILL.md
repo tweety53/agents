@@ -18,7 +18,8 @@ get there is scripted. You're a thinking partner helping the user explore.
 - **Never write application code** — if the user asks you to implement something, say so and point
   them at `/myflow-start` or `/myflow-do` instead
 - **Never advance pipeline state** — no state file, no worktree, no branch
-- **Never commit** — nothing in this mode produces a commit
+- **Commit only the research artifacts, once, at the end** — the note, its plan and its decision
+  land together per **Landing the note** below; nothing else in this mode produces a commit
 
 ---
 
@@ -154,13 +155,21 @@ than only letting it evaporate into the conversation:
 
 The destination is **mandatory and deterministic**, never a free choice:
 
-- **A Jira key is known** (resolved from the conversation, or named by the operator) — write to
+- **A Jira key is known** (passed as the argument, or resolved from the conversation per
+  **Resolution (how `jiraIssue` is decided)**, `skills/flow-contracts/jira-integration.md`) — write to
   `<project>/docs/superpowers/research/<jira-key-lowercased>.md`, exactly. Never a descriptive
   suffix (`<key>-<slug>.md`) — a later `/flow <key>` finds the seed with one `test -f` on this
   exact path (**Seed from a staged research note, if one exists**, `skills/flow/brainstorm-planner.md`), and a
   suffixed filename would not be found by it.
-- **No key** — write to `<project>/docs/superpowers/research/<topic-slug>.md`, where
-  `<topic-slug>` is a short kebab-case slug derived from the topic itself.
+- **No key** — create one before writing anything, since the key is the filename: a Jira issue of
+  type **Task** in the project `## jira` names (`<project>/.flow/project.md`), summary the note's
+  `<Topic>`, description one paragraph stating the topic, labels per **Labels on issues the
+  pipeline creates** (`skills/flow-contracts/jira-integration.md`), so `AI-generated` alone. The
+  created key is then the known key above, and the note's `Source:` line. The creation is a Jira
+  write like any other: `## jira` absent or `none`, no Atlassian tooling, or a refused create is
+  one `⚠ Jira: skipped — <reason>` line, and the note falls back to
+  `<project>/docs/superpowers/research/<topic-slug>.md`, `<topic-slug>` a short kebab-case slug
+  derived from the topic itself, with `Source: none`.
 
 If a note already exists at the resolved destination, update it rather than creating a second file
 for the same topic.
@@ -269,9 +278,34 @@ filename without `.md`, so the pair is found from the note's path by one exact t
 
 `/flow`'s seed step takes both files in place of its own writing-plans and Decide work and deletes
 them with the note once adopted (**Seed from a staged research note, if one exists**,
-`skills/flow/brainstorm-planner.md`). `/flow-fast` takes the plan and ignores the decision — its
-own is fixed. Nothing here marks a stage, records to the store, or creates a change: the pair is a
+`skills/flow/brainstorm-planner.md`). `/flow-fast` reads neither — it plans and decides on its
+own (**Dynamic decisions**, `skills/flow-fast/SKILL.md`). Nothing here marks a stage, records to the store, or creates a change: the pair is a
 research artifact until `/flow` adopts it.
+
+## Landing the note
+
+A captured staging note is landed in the same session, once the note, `tasks.md` and
+`decision.json` are all written and `check-plan-shape.sh` is clean — never a `design.md`
+addition, which its change's own commits carry. The main checkout is where `/flow-plan` runs, so
+that is where it lands, on `<default-branch>` (`## apps`, `<project>/.flow/project.md`; the
+remote's `HEAD` branch when the table names none):
+
+```bash
+git -C <project> add docs/superpowers/research/<stem>.md docs/superpowers/research/<stem>/tasks.md docs/superpowers/research/<stem>/decision.json
+git -C <project> commit -m "docs(research): <stem> research note, plan and decision"
+git -C <project> pull --rebase origin <default-branch>
+git -C <project> push origin <default-branch>
+```
+
+Exactly those three paths are staged — never `-A`, never anything the operator had pending. The
+checkout must be on `<default-branch>` before the `add`; on any other branch, make no commit,
+print that branch and the three paths, and stop. A pull that conflicts is resolved in place per the
+**Conflict** bullet of **Sync the branch onto the base**
+(`skills/flow-contracts/finish-contract-run1.md`). A push the remote rejects (branch protection, a
+non-fast-forward after the pull) leaves the commit local, and the run ends by saying so and naming
+the commit — a protected default branch is landed by the operator, never retried around
+(`~/.claude/rules/no-direct-pushes-to-main.md`). End by naming the landed commit and the Jira
+key.
 
 ---
 
@@ -279,7 +313,7 @@ research artifact until `/flow` adopts it.
 
 - **Don't write application code** — reading, searching, and discussing are fine; implementing is not
 - **Don't touch pipeline state** — no state file, no `state:` transition
-- **Don't commit**
+- **Don't commit anything but the three research paths**, and only at **Landing the note**
 - **Don't run `spectre new`** — that's `/myflow-start`'s (or `/flow`'s) call, not this mode's
 - **Don't run `spectre archive`** — that's `/myflow-finish`'s call, not this mode's
 - **Don't fake understanding** — if something is unclear, dig deeper instead of assuming; see **Go
