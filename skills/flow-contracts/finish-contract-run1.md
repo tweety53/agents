@@ -84,7 +84,17 @@ A missing verdict line is not a verdict. Treat it exactly as the preflight scrip
 above: stop and ask the operator. The exit code is checked as well as the line, because a caller
 that greps for `CLEAR` in empty output finds nothing.
 
-On `OUTSTANDING` the operator is offered **exactly three** courses:
+**Then run `check-visual-verify-dispatched.sh <worktree> <change-name> <recorded-merge-base>`**,
+once per worktree in the same resolved set, `<recorded-merge-base>` being the same state-file value
+signal 1 above already reads. A `VISUAL-VERIFY-OK` line joins `CLEAR` and folds no further
+breakdown in; a `VISUAL-VERIFY-MISSING` line is treated exactly as `OUTSTANDING` — it feeds the same
+breakdown and the same three courses below, not a second prompt. This guard exists because a stage
+mark is not evidence a stage ran: kan-30's own fix round 4 wrote `flow stage begin`/`flow stage end
+-outcome completed flow.visual-verify` around no dispatch at all, and the operator was told "no open
+finding" — see that guard's own header for the full account. Exit 2 (cannot answer) is stop-and-ask,
+the same as a missing `check-unfinished-work.sh` verdict line above.
+
+On `OUTSTANDING` — from either guard — the operator is offered **exactly three** courses:
 
 | Course | What run 1 then does |
 |--------|----------------------|
