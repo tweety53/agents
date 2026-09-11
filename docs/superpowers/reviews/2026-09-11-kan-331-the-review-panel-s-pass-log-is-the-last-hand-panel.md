@@ -32,3 +32,15 @@ finding-reproducer: F5 reproducers/0-simple-reviewer-2.sh
 finding-reproducer: F6 reproducers/0-simple-reviewer-3.sh
 finding-reproducer: F7 reproducers/0-principles-2.sh
 finding-reproducer: F8 reproducers/0-principles-3.sh
+
+## Pass log
+
+### Round 0
+
+- roster: compact — 60 · docs-only: no (stats/cmd/flow/record.go) · dispatches: primary+simple-reviewer+principles (sonnet/medium) · diff 112 under cap · no operator addition this round — the resolved list ran alone
+
+### Round 1
+
+- panel-fix ran inline — why: F1/F2 (web_test fake missing the new interface methods) — fixups folded into the api/cli/records commits · F3 fixed in the plan, F4 deferred — /flow-fast never ticks checkboxes · slot reproducers 0-primary-1/-3, 0-simple-reviewer-3 and 0-principles-3 measure a narrower condition than the finding substance (grep window/repair direction); substance verified directly
+fix-mutation: stats/internal/web/embed_test.go — removed one of the two new stub methods — go vet ./internal/web/ (the package no longer compiles)
+fix-mutations-total: 1
