@@ -33,16 +33,18 @@ paragraphs use — cited verbatim from that file, never re-authored here. Findin
 `flow record finding` call per finding, `-slot primary` or `-slot simple-reviewer` naming which
 role raised it, exactly as `skills/flow/review-panel.md`'s own record shape.
 
-## Critical/Major fixed inline, Minor always deferred
+## Critical/Major fixed inline, Minor deferred unless trivially easy
 
 **Critical and Major findings are fixed inline by the parent** — no panel-fix subagent, matching
 `skills/flow-fast/implement.md`'s "inline" choice for the implementation phase itself. Fix one
 finding at a time, smallest diff that resolves it, verified by that finding's own reproducer or the
 narrowest test that exercises it.
 
-**Every Minor is recorded and deferred — never fixed, with no per-finding judgment call.** This is
-stricter than `/flow`'s own default (which fixes a Minor when it is trivially easy): `/flow-fast`
-defers every one, unconditionally.
+**A Minor is deferred by default; fix it inline only under `/flow`'s own "trivially easy" bar** —
+confined to the lines the finding names, needs no new test, needs no judgment call — exactly as
+`skills/flow/review-panel.md`'s own rule states it, cited here, not restated. Every Minor that
+misses that bar is recorded and deferred, same as Critical/Major-free rounds: no per-finding
+judgment call beyond the bar itself.
 
 **After a fix round, re-run both slots on that round's delta** — the same per-slot-per-worktree
 last-reviewed-sha mechanism `skills/flow/review-panel.md`'s **Panel re-runs** describes (cited, not

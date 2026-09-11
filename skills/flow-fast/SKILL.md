@@ -148,8 +148,8 @@ never hand-run: no phase file below cites any of them.
 - **Never** widen the review roster beyond `primary` + `simple-reviewer`, by diff size, touched
   area, or any other trigger — not even an explicit operator instruction; a run that needs a wider
   panel is a `/flow` run, not a `/flow-fast` one.
-- **Never** fix a Minor finding — every Minor is recorded and deferred, with no per-finding
-  "trivially easy" exception, unlike `/flow`'s own default.
+- **Never** fix a Minor finding except under `/flow`'s own "trivially easy" bar (`skills/flow/review-panel.md`)
+  — every other Minor is recorded and deferred, no other exception.
 - **Never** run a full `## test` / `## lint` pass automatically — only the operator's own
   instruction text triggers one, never a stage boundary or the handoff.
 - **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or
