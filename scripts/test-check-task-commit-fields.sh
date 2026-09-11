@@ -3081,7 +3081,7 @@ LC_ALL=C run_guard "$REPO" 1 "1e803d5564273"
 [ "$RC" -eq 2 ] && pass "case 92: could not judge — mistyped commit sha exits 2 under the standard line" \
   || fail "case 92: rc=$RC out=$OUT"
 case "$OUT" in
-  *"COULD NOT JUDGE — not a commit verdict"*"ambiguous argument"*) pass "case 92: the standard opening carries git's own detail" ;;
+  *"check-task-commit-fields: COULD NOT JUDGE — not a commit verdict"*"ambiguous argument"*) pass "case 92: the standard opening carries git's own detail" ;;
   *) fail "case 92: expected the COULD NOT JUDGE line naming git's ambiguous argument, out=$OUT" ;;
 esac
 
