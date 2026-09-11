@@ -82,10 +82,10 @@ export LC_ALL=C
 
 WORKTREE="${1:-}"
 NAME="${2:-}"
-MERGE_BASE="${3:-}"
+BASE_SHA="${3:-}"
 [[ -n "$WORKTREE" && -d "$WORKTREE" ]] || { echo "check-visual-verify-dispatched: not a directory: ${WORKTREE:-<missing>}" >&2; exit 2; }
 [[ -n "$NAME" ]] || { echo "check-visual-verify-dispatched: usage: check-visual-verify-dispatched.sh <worktree> <change-name> <merge-base>" >&2; exit 2; }
-[[ -n "$MERGE_BASE" ]] || { echo "check-visual-verify-dispatched: a merge-base is required — pass the state file's recorded value for this worktree" >&2; exit 2; }
+[[ -n "$BASE_SHA" ]] || { echo "check-visual-verify-dispatched: a merge-base is required — pass the state file's recorded value for this worktree" >&2; exit 2; }
 
 case "$NAME" in
   [!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]* \
@@ -107,8 +107,8 @@ command -v jq >/dev/null 2>&1 || { echo "check-visual-verify-dispatched: jq is r
 # captured and checked on its own line, never piped straight into the
 # trigger guard — the same discipline check-base-moved.sh's own comment
 # documents for the identical hazard.
-if ! CHANGED_PATHS="$(git -C "$WORKTREE" diff --name-only "$MERGE_BASE"..HEAD 2>&1)"; then
-  echo "check-visual-verify-dispatched: git diff failed against merge-base '$MERGE_BASE' in $WORKTREE — cannot answer: $CHANGED_PATHS" >&2
+if ! CHANGED_PATHS="$(git -C "$WORKTREE" diff --name-only "$BASE_SHA"..HEAD 2>&1)"; then
+  echo "check-visual-verify-dispatched: git diff failed against merge-base '$BASE_SHA' in $WORKTREE — cannot answer: $CHANGED_PATHS" >&2
   exit 2
 fi
 

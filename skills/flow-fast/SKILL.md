@@ -35,6 +35,29 @@ planning-effort or review question. Never write `<project>/spectre/`,
 guard script a cited `skills/flow/` section does not call itself. Never push to a branch other
 than the one the landing route names.
 
+## Stage keys
+
+Every stage `/flow-fast` marks uses a `flow.*` key — the same keys `/flow` marks, since both
+commands drive the same pipeline stages. The full key list, in the order each step below marks
+them:
+
+| Step | Keys |
+|------|------|
+| **1. Kickoff** | `flow.kickoff` |
+| **2. Brainstorm** | `flow.brainstorm` |
+| **3. Worktree** | `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
+| **4. Implement** | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
+| **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
+| **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
+| **7. Land** | `flow.landing-routes` |
+| **8. Clean up** | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
+
+`flow.visual-verify` and `flow.self-review` are deliberately absent: `/flow-fast` runs neither
+stage. This table is what `TestStageKeysMatchFlowFastSkillTable`
+(`<agents repo>/stats/internal/stages/names_test.go`) pins the `/flow-fast` vocabulary to, so a key
+added to a step above without a matching `stages.Table` row — or the reverse — is a test failure
+rather than a mark rejected mid-run.
+
 ## Dynamic decisions
 
 Read `## execution mode`, `## implementer model` and `## review panel` with

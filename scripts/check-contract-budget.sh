@@ -183,7 +183,7 @@ rules/flow-manual-review.mdc 5630
 rules/never-touch-production.mdc 2336
 rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
-skills/flow-fast/SKILL.md 15000
+skills/flow-fast/SKILL.md 25925
 skills/flow-plan/SKILL.md 18400
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
