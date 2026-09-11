@@ -49,7 +49,7 @@ These four rows are **every** Agent-tool dispatch the parent may make, across se
 |---|---|---|---|
 | implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
-| panel-fix, exactly one per round | `panel-fix` | `panel-fix-<round>` (`-retry` once) | `skills/flow/review-panel.md`, the fix step |
+| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/verify-and-handoff.md`, **Visual verification** |
 
 **Everything else in those five sections is the parent's own Bash and Read work, never
