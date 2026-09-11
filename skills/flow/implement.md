@@ -257,7 +257,7 @@ here:
 ```bash
 flow stage begin -command '/flow' -stage flow.document-fix -harness <harness> -session-token mf-<literal-token> <name>
 flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> \
-  -key planner-fix-<n> -session-token mf-<literal-token> -started-at <ts>
+  -key planner-fix-<n> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 ```
 
 **Before the dispatch, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
