@@ -2,13 +2,17 @@
 # Assertion harness for check-model-resolution-shell.sh.
 #
 # The guard extracts and runs skills/flow/SKILL.md's own "## Model
-# resolution" bash block, with no override for which file it reads — unlike
-# most guards in this repository, so this harness cannot point it at a
-# sandboxed fixture. It instead mutates the REAL SKILL.md in place, in a
-# scratch copy captured up front, runs the guard, asserts the outcome, then
-# restores the original content — via a trap, so the file is restored even
-# if an assertion fails partway through. Never leaves the repository tree
-# mutated on exit.
+# resolution" bash block. Its CHECK_MODEL_RESOLUTION_SKILL_MD override (the
+# RUN_GUARD_TESTS_ROOT idiom) lets this harness point it at a scratch copy
+# of the real file, so the mutation cases below never write the real tree —
+# KAN-376: this harness used to mutate the REAL SKILL.md in place and
+# restore it, and a restore landing inside a concurrent test-setup.sh's
+# fingerprint window (which hashes stat lines including mtime) failed the
+# containment case "the repo's own skills, rules and commands are
+# unchanged" under run-guard-tests.sh's concurrent runner. The copy is
+# taken from the real file, run clean, mutated, run again, restored and run
+# a third time — the same assertions as before, on a file the suite does
+# not share.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,11 +26,12 @@ pass() { printf 'ok: %s\n' "$1"; }
 
 [ -r "$SKILL_MD" ] || { echo "cannot read $SKILL_MD" >&2; exit 2; }
 
-BACKUP="$(mktemp "${TMPDIR:-/tmp}/skill-md-backup.XXXXXX")"
-cp "$SKILL_MD" "$BACKUP"
+WORK_SKILL_MD="$(mktemp "${TMPDIR:-/tmp}/skill-md-under-test.XXXXXX")"
+cp "$SKILL_MD" "$WORK_SKILL_MD"
+CHECK_MODEL_RESOLUTION_SKILL_MD="$WORK_SKILL_MD"
+export CHECK_MODEL_RESOLUTION_SKILL_MD
 cleanup() {
-  cp "$BACKUP" "$SKILL_MD"
-  rm -f "$BACKUP"
+  rm -f "$WORK_SKILL_MD" "$WORK_SKILL_MD.bak"
 }
 trap cleanup EXIT
 
@@ -44,8 +49,8 @@ run_guard
 # 2. Flipping SELF_REVIEW_MODEL's `-z` to `-n` breaks the fallback logic:
 # a non-empty resolved value gets forcibly overwritten instead of preserved.
 # The guard must catch this and fail.
-sed -i.bak 's/\[ -z "\$SELF_REVIEW_MODEL" \] && SELF_REVIEW_MODEL=fable/[ -n "$SELF_REVIEW_MODEL" ] \&\& SELF_REVIEW_MODEL=fable/' "$SKILL_MD"
-rm -f "$SKILL_MD.bak"
+sed -i.bak 's/\[ -z "\$SELF_REVIEW_MODEL" \] && SELF_REVIEW_MODEL=fable/[ -n "$SELF_REVIEW_MODEL" ] \&\& SELF_REVIEW_MODEL=fable/' "$WORK_SKILL_MD"
+rm -f "$WORK_SKILL_MD.bak"
 run_guard
 [ "$RC" -eq 1 ] && pass "flipped -z/-n mutation is caught" \
   || fail "flipped -z/-n: expected rc=1, got rc=$RC out=$OUT"
@@ -54,8 +59,10 @@ case "$OUT" in
   *) fail "failure does not name SELF_REVIEW_MODEL: out=$OUT" ;;
 esac
 
-# 3. Restored, the guard passes clean again.
-cp "$BACKUP" "$SKILL_MD"
+# 3. Restored, the guard passes clean again. The pristine source is the
+# real file, read-only as far as this harness is concerned: it is copied
+# FROM, never written.
+cp "$SKILL_MD" "$WORK_SKILL_MD"
 run_guard
 [ "$RC" -eq 0 ] && pass "restored block passes again" \
   || fail "restored: rc=$RC out=$OUT"

@@ -25,6 +25,14 @@
 # `project-get.sh` is the real script, on `PATH` from this repository's
 # own scripts/, run for real against a per-case MAIN_CHECKOUT fixture.
 #
+# CHECK_MODEL_RESOLUTION_SKILL_MD, when set, names the file the block is
+# extracted from instead of the real skill — test-check-model-resolution-shell.sh's
+# sandbox override, so its mutation cases never write the real tree
+# (KAN-376: a concurrent run-guard-tests.sh run fingerprints that tree by
+# mtime, and a restore landing inside the fingerprint window failed
+# test-setup.sh's containment case). The default is unchanged: production
+# reads the real skill.
+#
 # Usage: check-model-resolution-shell.sh
 # Exit 0 the extracted block resolves every variable correctly for every
 # case below, 1 a case resolved wrong, 2 cannot answer at all (SKILL.md
@@ -39,6 +47,13 @@ die() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILL_MD="$REPO_ROOT/skills/flow/SKILL.md"
+# Honoured only when set, and refused when set but empty — the
+# RUN_GUARD_TESTS_ROOT idiom: a silent fallback to the real skill would run
+# the cases against a file the caller never chose.
+if [ "${CHECK_MODEL_RESOLUTION_SKILL_MD+set}" = set ]; then
+  [[ -n "$CHECK_MODEL_RESOLUTION_SKILL_MD" ]] || die "CHECK_MODEL_RESOLUTION_SKILL_MD is set but empty"
+  SKILL_MD="$CHECK_MODEL_RESOLUTION_SKILL_MD"
+fi
 
 [[ -r "$SKILL_MD" ]] || die "cannot read $SKILL_MD"
 
