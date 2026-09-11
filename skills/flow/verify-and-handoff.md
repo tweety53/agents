@@ -491,6 +491,19 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
   # see the paragraph above for the handoff line this produces instead of a command.
   ```
 
+- **The stack behind the URLs is checked, not trusted.** When the `Running:` block below would
+  carry URL lines, run `check-dev-stack-fresh.sh <worktree>` first: the project's declared
+  `fingerprint` row (the `## visual verification` section) proves what the stack serves is the
+  worktree's own build — the check KAN-334's handoff lacked when it printed a URL backed by a
+  bundle eleven commits stale. The guard's own header is canonical for what its three exits
+  cover. Exit 0 adds nothing. Exit 1 adds one line beside the URLs, naming the application, its
+  resolved URL and the guard's own stderr reason, restart-shaped and never a restatement of the
+  verdict: `Stale: <app> (<url>) — <the guard's reason>; restart the stack before testing.`
+  Exit 2 adds `Freshness: unverified — <the guard's stderr reason>` instead, the same
+  visible-gap rule **Visual verification**'s own step 5 runs on a missing row. A refused start
+  above already ends the run, so this check only ever runs on a start that succeeded or was
+  skipped by the protected-service rule.
+
 - **The `Running:` block is the start command's own output.** Once the start above succeeds, its
   `Running:` lines are every line of that command's output containing `http://` or `https://`,
   verbatim, followed by the `## stop` command (or, where `## stop` declares none, the same `## run`

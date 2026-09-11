@@ -1,0 +1,1 @@
+../../../scripts/check-dev-stack-fresh.sh
