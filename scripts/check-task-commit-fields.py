@@ -988,11 +988,27 @@ def check_task_commit(
     return violations
 
 
+# NOT_A_VERDICT — the exact opening every could-not-judge exit (2) prints,
+# shared with the thin wrapper's could_not_judge helper. Exit 1 is the
+# verdict against the commit; exit 2 is a caller or environment mistake,
+# and this prefix is what keeps the two apart at a glance in a scrolling
+# transcript (KAN-330: a merge base mistyped by one character used to
+# surface git's bare "ambiguous argument" message here, indistinguishable
+# from the guard refusing the commit).
+NOT_A_VERDICT = (
+    "check-task-commit-fields: COULD NOT JUDGE — not a commit verdict:"
+)
+
+
 def main(argv: List[str]) -> int:
     if len(argv) not in (5, 6):
         print(
             f"usage: {argv[0]} <tasks.md> <task-id> <worktree> <commit-sha> "
             "[parent-sha]",
+            file=sys.stderr,
+        )
+        print(
+            f"{NOT_A_VERDICT} {len(argv) - 1} argument(s) given, expected 4 or 5",
             file=sys.stderr,
         )
         return 2
@@ -1005,7 +1021,7 @@ def main(argv: List[str]) -> int:
             tasks_md_path, task_id, worktree, commit_sha, parent_sha
         )
     except (OSError, TaskNotFoundError, RuntimeError) as exc:
-        print(f"{argv[0]}: {exc}", file=sys.stderr)
+        print(f"{NOT_A_VERDICT} {exc}", file=sys.stderr)
         return 2
 
     if not violations:

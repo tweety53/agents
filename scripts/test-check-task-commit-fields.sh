@@ -3057,6 +3057,76 @@ case "$OUT" in
   *) fail "case 91c: expected the no-tasks.md-under refusal, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 92 (KAN-330): a mistyped commit sha — git cannot evaluate it, so the
+# guard could not judge — exits 2 under the standard
+# "COULD NOT JUDGE — not a commit verdict:" line, with git's own detail kept.
+# This is the KAN-170 failure shape: git's "ambiguous argument" used to
+# surface bare and read like the guard refusing the commit.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Any task
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+run_guard "$REPO" 1 "1e803d5564273"
+[ "$RC" -eq 2 ] && pass "case 92: could not judge — mistyped commit sha exits 2 under the standard line" \
+  || fail "case 92: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE — not a commit verdict"*"ambiguous argument"*) pass "case 92: the standard opening carries git's own detail" ;;
+  *) fail "case 92: expected the COULD NOT JUDGE line naming git's ambiguous argument, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 93 (KAN-330): a call handing the guard ONE argument — the KAN-170
+# word-splitting shape, a zsh loop that never split `$a` — exits 2 under the
+# standard line with the usage detail, so a caller mistake is never read as
+# a verdict.
+# ===========================================================================
+run_guard "$REPO"
+[ "$RC" -eq 2 ] && pass "case 93: could not judge — one-argument call exits 2 under the standard line" \
+  || fail "case 93: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE — not a commit verdict"*"usage:"*) pass "case 93: the standard opening carries the usage detail" ;;
+  *) fail "case 93: expected the COULD NOT JUDGE line carrying the usage, out=$OUT" ;;
+esac
+
+# ===========================================================================
+# Case 94 (KAN-330): a real verdict keeps its own exit and shape — violations
+# against the commit exit 1 on stdout with NO could-not-judge line, so the
+# two failure kinds stay apart at a glance in both directions.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Undeclared file
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha only
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf '# test_alpha covers alpha\n' > "$REPO/alpha.txt"
+printf 'gamma\n' > "$REPO/gamma.txt"
+git -C "$REPO" add alpha.txt gamma.txt
+git -C "$REPO" commit -q -m "add alpha only"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA"
+[ "$RC" -eq 1 ] && pass "case 94: real violations exit 1 with no could-not-judge line" \
+  || fail "case 94: rc=$RC out=$OUT"
+case "$OUT" in
+  *"COULD NOT JUDGE"*) fail "case 94: a verdict must never carry the could-not-judge opening, out=$OUT" ;;
+  *) pass "case 94: the verdict carries no could-not-judge opening" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

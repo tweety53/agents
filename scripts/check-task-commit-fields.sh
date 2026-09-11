@@ -72,7 +72,24 @@
 # there is none. The mechanism, the digit test that keeps a merely
 # similarly-named change out of it, and two caveats on the numbering are in
 # the body below.
+# EXIT CODES. 0 — the commit passes. 1 — a verdict against the commit:
+# violations print on stdout, one per line. 2 — could not judge: a caller or
+# environment mistake (usage, unreadable plan, missing worktree or module, a
+# git call that cannot evaluate its arguments), never a judgment about the
+# commit. Every exit-2 refusal prints the same unmistakable stderr opening,
+# "COULD NOT JUDGE — not a commit verdict:", so a caller mistake is never
+# read at a glance as the guard refusing the commit — the KAN-170 failure,
+# where a merge base mistyped by one character surfaced git's bare
+# "ambiguous argument" message through this guard's exit and cost a second
+# look to tell a typo from a real defect.
 set -euo pipefail
+
+# could_not_judge <detail> — the one printer for every exit-2 refusal, so
+# the EXIT CODES opening above stays identical at every site. The detail is
+# the site's own specifics; this adds the standard opening in front of it.
+could_not_judge() {
+  printf 'check-task-commit-fields: COULD NOT JUDGE — not a commit verdict: %s\n' "$1" >&2
+}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_GUARD="$SCRIPT_DIR/check-task-commit-fields.py"
@@ -96,34 +113,34 @@ SPEC_ROOT_LIB="$SCRIPT_DIR/lib/spec-root.sh"
 CHANGE_PLAN_LIB="$SCRIPT_DIR/lib/change-plan.sh"
 
 if [ ! -f "$GRAMMAR_MODULE" ]; then
-  echo "check-task-commit-fields.sh: shared grammar module not found: $GRAMMAR_MODULE" >&2
+  could_not_judge "shared grammar module not found: $GRAMMAR_MODULE"
   exit 2
 fi
 
 if [ ! -f "$SPEC_ROOT_LIB" ]; then
-  echo "check-task-commit-fields.sh: shared spec-root module not found: $SPEC_ROOT_LIB" >&2
+  could_not_judge "shared spec-root module not found: $SPEC_ROOT_LIB"
   exit 2
 fi
 source "$SPEC_ROOT_LIB"
 
 if [ ! -f "$CHANGE_PLAN_LIB" ]; then
-  echo "check-task-commit-fields.sh: shared change-plan module not found: $CHANGE_PLAN_LIB" >&2
+  could_not_judge "shared change-plan module not found: $CHANGE_PLAN_LIB"
   exit 2
 fi
 source "$CHANGE_PLAN_LIB"
 
 command -v python3 >/dev/null 2>&1 || {
-  echo "check-task-commit-fields.sh: python3 not found on PATH — cannot run the guard" >&2
+  could_not_judge "python3 not found on PATH — cannot run the guard"
   exit 2
 }
 
 if ! python3 -c 'import sys; sys.exit(0)'; then
-  echo "check-task-commit-fields.sh: python3 is present but failed to run a trivial program (see above) — cannot run the guard" >&2
+  could_not_judge "python3 is present but failed to run a trivial program (see above) — cannot run the guard"
   exit 2
 fi
 
 if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
-  echo "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name]" >&2
+  could_not_judge "usage: check-task-commit-fields.sh <worktree> <task-id> <commit-sha> [parent-sha] [canonical-worktree] [change-name] — got $# argument(s)"
   exit 2
 fi
 
@@ -135,7 +152,7 @@ CANONICAL_WORKTREE="${5:-}"
 CHANGE_NAME="${6:-}"
 
 if [ ! -d "$WORKTREE" ]; then
-  echo "check-task-commit-fields.sh: worktree not found: $WORKTREE" >&2
+  could_not_judge "worktree not found: $WORKTREE"
   exit 2
 fi
 
@@ -182,7 +199,7 @@ dispatch_python_guard() {
 if [ -n "$CHANGE_NAME" ]; then
   case "$CHANGE_NAME" in
     *[!A-Za-z0-9._-]* | . | .. | */*)
-      echo "check-task-commit-fields.sh: invalid change name: $CHANGE_NAME" >&2
+      could_not_judge "invalid change name: $CHANGE_NAME"
       exit 2
       ;;
   esac
@@ -213,7 +230,7 @@ if [ -n "$CHANGE_NAME" ]; then
   fi
 
   if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
-    echo "check-task-commit-fields.sh: no tasks.md found for change '$CHANGE_NAME' under $CHANGES_DIR" >&2
+    could_not_judge "no tasks.md found for change '$CHANGE_NAME' under $CHANGES_DIR"
     exit 2
   fi
 
@@ -255,7 +272,7 @@ if [ "${#MATCHES[@]}" -eq 0 ]; then
   fi
 
   if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
-    echo "check-task-commit-fields.sh: no tasks.md found under $CHANGES_DIR" >&2
+    could_not_judge "no tasks.md found under $CHANGES_DIR"
     exit 2
   fi
 
@@ -297,7 +314,7 @@ done
 # which is the other's fix sibling is the genuine ambiguity this check has
 # always existed to catch, and nothing here may guess between them.
 if [ "${#ROOTS[@]}" -ne 1 ]; then
-  echo "check-task-commit-fields.sh: more than one tasks.md found under $CHANGES_DIR, cannot resolve which change: ${MATCHES[*]}" >&2
+  could_not_judge "more than one tasks.md found under $CHANGES_DIR, cannot resolve which change: ${MATCHES[*]}"
   exit 2
 fi
 
