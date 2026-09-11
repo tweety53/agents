@@ -137,6 +137,17 @@ flow stage begin -command '/flow' -stage flow.design-approval -harness <harness>
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
+**On the fully-seeded bypass** (**Seed from a staged research note, if one exists**,
+`skills/flow/brainstorm-planner.md`), the checklist and the confirm above never run — but the same
+four marks still fire, back-to-back with no interactive gap between them, so stage bookkeeping
+stays consistent with every other run:
+
+```bash
+flow stage end   -command '/flow' -stage flow.brainstorm -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.design-approval -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
+```
+
 **The worktree is created at the end of planning, not here.** After the `flow.design-approval` mark
 above closes, mark `flow.create-artifacts` begin and continue directly into **C** — `spectre new`
 and the three artifacts — **against the main checkout's own** `<project>/spectre/changes/<name>/`,

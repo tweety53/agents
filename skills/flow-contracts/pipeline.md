@@ -64,6 +64,14 @@ could ever arrive through it. An operator who is present but silent is not that 
 gets another round. The same explicit answer may both close the checklist and grant the design
 approval, as **Convergence** (`skills/flow/brainstorm-planner.md`) defines.
 
+**A second, narrowly-scoped bounded exception: a fully-seeded research note.** When the note
+`/flow`'s brainstorm stage found carries all three of itself, a seeded plan and a seeded decision,
+the checklist and its confirm are skipped entirely rather than looped — see **Seed from a staged
+research note, if one exists** (`skills/flow/brainstorm-planner.md`) for the exact condition and
+what "fully-seeded" means. This does not generalize to any other stage's loop, and does not weaken
+the exception above: a partial seed still closes only on an explicit operator answer, exactly as
+every other loop in this pipeline does.
+
 See **Convergence** (`skills/flow/brainstorm-planner.md`).
 
 ## Command surface

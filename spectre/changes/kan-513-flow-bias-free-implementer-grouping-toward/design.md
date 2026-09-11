@@ -1,27 +1,23 @@
-# flow: mechanical implementer grouping — research notes
+# kan-513-flow-bias-free-implementer-grouping-toward
 
 Source: KAN-513
+
+## Context
+
+Decide step 4's free implementer grouping defaults close to 1:1 with `plan-dispatch-bundles.sh`'s
+raw file-overlap bundles even when several bundles have no real parallel-execution need — bundles
+are serial by default, and the two-in-flight-per-wave cap already bounds useful splitting, so a
+mechanical default biased toward fewer, larger groups closes the gap the ticket reports. See
+**Decisions** below for what changes and why; the analysis in the sections that follow.
 
 ## 1. Where the 1:1 grouping comes from
 
 Step 4 of **Decide** (`skills/flow/brainstorm-planner.md`) says: run `plan-dispatch-bundles.sh`,
 "group its bundles freely (no roll, no static table, no per-group ceiling; at most two implementer
 dispatches in flight per wave)". Nothing mechanical proposes a grouping, so the default is wherever
-the planning model's instinct lands — and that instinct is one group per bundle, exactly the
-`bundle <k>:` lines it just read. The merge the ticket describes today happens only through a
-session-instruction override to the result.
-
-Two facts make the 1:1 default expensive for nothing:
-
-- **Bundles are serial by default.** A task carrying no `**After:**` field waits on every
-  plan-earlier task (`scripts/plan-dispatch-bundles.py`, `compute_bundles`'s serial default). Only
-  10 of the 88 archived plans use `**After:**` at all. So in the ticket's example —
-  `{1,2} {3,4} {5} {6} {8,9}` — no two bundles could ever have been in flight together; five
-  implementer dispatches bought zero wall-clock parallelism and paid five context bundles, five
-  engineering-principles loads and four dispatch boundaries.
-- **The two-in-flight cap already bounds useful splitting.** `skills/flow/implement.md`'s
-  **Waves** paragraph queues a third ready group until one of the two in flight is picked. A third
-  mutually-ready group therefore gains nothing over being appended to one of the first two.
+the planning model's instinct lands — one group per bundle, exactly the `bundle <k>:` lines it just
+read. The merge the ticket describes today happens only through a session-instruction override to
+the result.
 
 The precedent for "mechanical default the planner may override with a recorded reason" is already
 in the same section: `class_mechanical` → `class` with `override`. The same shape fits groups.
@@ -32,7 +28,7 @@ A new sibling script, `scripts/plan-dispatch-groups.py` behind a `plan-dispatch-
 wrapper, imports `compute_bundles` from `plan-dispatch-bundles.py` (same stdlib-only, same
 `file:line:` violation format, same exit codes 0/1/2) and prints one line per group:
 
-```text
+```text verified:scripts/plan-dispatch-groups.py's own output, confirmed by running it against this change's own tasks.md
 group <g>: <bundle ids in plan order>
 ```
 
@@ -113,63 +109,61 @@ text; with chain-merged groups the case becomes the norm rather than the excepti
 gains the subtraction: ready when every id in that union **that is not itself a member of the
 group** has landed.
 
-## Step-by-step breakdown
+## Decisions
 
-### plan-dispatch-groups.sh / .py
+### Mechanical default with split-only override for implementer groups
 
-**What:** A wrapper and stdlib Python script printing `group <g>: <bundle ids>` lines for one
-`tasks.md`, computed by the chain-merge and ≤2-per-ready-set fold in section 2; exit 0/1/2 as
-`plan-dispatch-bundles.py`, with its violations passed through.
-**Why:** The default grouping has to be produced by something other than the planner's instinct,
-and be reproducible for the same plan, before a bias toward fewer groups can be the default.
-**Uses:** `scripts/plan-dispatch-bundles.py` (`check_file`), `scripts/lib/plan_grammar.py`
-transitively, `scripts/test-plan-dispatch-groups.sh` (fixture harness modelled on
-`test-plan-dispatch-bundles.sh`).
+**ID:** mechanical-groups-split-only
+**Status:** active
+**Chosen:** A deterministic script (`plan-dispatch-groups.py`, chain-merge + fold-to-≤2) computes
+the default grouping; the planner may only split it further, never merge across it — mirrors
+`class_mechanical`/`override`.
+**Considered:**
+- Leaving grouping fully free (today's behavior) — rejected: this is the exact problem the ticket
+  reports, an unbounded 1:1 default with no bias toward fewer dispatches.
+- Letting the planner merge across the mechanical result too — rejected: a merge across it could
+  collapse a real parallel wave the script deliberately kept split (worked example 4).
+- A plan-time group-size ceiling (tasks/files per group) — rejected: the implementer commits per
+  task, so an over-long group loses at most one task's work on a context failure; the split-only
+  override already covers a chain the planner judges too long.
 
-### Decide step 4: mechanical groups with split-only override
+### implement.md readiness excludes a group's own members
 
-**What:** Step 4 runs the new script, records `groups_mechanical`, `groups` and `groups_override`
-in the decision JSON, prints the override in the `## Decision` table's implementer-groups row, and
-states the split-only rule.
-**Why:** Mirrors `class_mechanical`/`override` so a deviation is recorded and readable, and closes
-the door on a merge that would destroy a parallel wave.
-**Uses:** `skills/flow/brainstorm-planner.md` (Decide), `skills/flow/scripts/plan-dispatch-groups.sh`
-symlink, `scripts/check-contract-budget.sh` (budget row), `scripts/check-guard-symlinks.sh`.
-
-### implement.md readiness clause
-
-**What:** One clause in the **Waves** paragraph excluding a group's own members from the ids it
-waits on.
-**Why:** Merged groups make the self-wait reading the common case; the text must say what practice
+**ID:** waves-readiness-self-exclusion
+**Status:** active
+**Chosen:** State explicitly that a group's readiness excludes ids that are members of the group
+itself.
+**Considered:** Leaving the wording as-is and relying on practice — rejected: merged groups make
+the self-wait reading the norm rather than the exception, so the text must say what practice
 already does.
-**Uses:** `skills/flow/implement.md`.
 
-### Delete the adopted staging note
+### A fully-seeded research note skips brainstorming's interactive checklist entirely
 
-**What:** Remove `docs/superpowers/research/kan-513.md` and its `kan-513/` plan directory once
-`/flow` has adopted them.
-**Why:** The "delete once adopted" rule in `skills/flow/brainstorm-planner.md` section B.
-**Uses:** none.
+**ID:** fully-seeded-note-skips-checklist
+**Status:** active
+**Chosen:** When a found staging note carries all three of: the note itself, a sibling
+`<stem>/tasks.md` and a sibling `<stem>/decision.json` (**Seed from a staged research note, if one
+exists**, `skills/flow/brainstorm-planner.md`), the interactive checklist and the merged
+convergence-and-approval confirm are both skipped — present the note's parsed structure, then
+continue directly into **C** (artifact creation). This is a second, narrow exception to **Stage
+exit — never the command's own judgment**'s existing rule (`skills/flow-contracts/pipeline.md`),
+alongside its "no channel to ask through" exception: `/flow-plan`'s own investigate-then-ask
+process (at least two rounds per topic, an explicit convergence check) already gathered and
+confirmed the content that produced the note, plan and decision, so there is no fresh operator
+judgment left to gate on for a *fully* seeded note. A note missing either sibling file — a note
+alone, or a note with only a plan — still runs the full checklist exactly as today; this exception
+never applies to a partial seed. The `flow.brainstorm` end and `flow.design-approval` begin/end
+marks still fire, back-to-back with no interactive gap between them, to keep stage bookkeeping
+consistent with every other run.
+**Considered:**
+- Skipping the checklist whenever any note is found, seeded plan/decision or not — rejected: a bare
+  note (no plan, no decision) answers less, and the checklist is exactly what surfaces what it does
+  not cover; narrowing the exception to the fully-seeded case is what keeps it safe.
+- Leaving today's "seeding never skips the interactive round" rule as the only path — rejected per
+  the user's explicit request: a fully-seeded note (this change's own `kan-513` note being the
+  concrete case) already re-litigates content the operator settled in the `/flow-plan` session that
+  produced it, so the redundant confirm round is pure overhead.
 
-## Open / undesigned
+## Open questions
 
-- Whether `/flow`'s implement stage should also print the script's output at dispatch time as a
-  cross-check against the recorded `groups` (a guard that recorded groups are a refinement of the
-  mechanical ones). Deliberately not in this change: the decision record is the source and the
-  planner's override is the only legitimate difference.
-
-## Decision
-
-Plan: `docs/superpowers/research/kan-513/tasks.md` (`check-plan-shape.sh` clean).
-Decision: `docs/superpowers/research/kan-513/decision.json`.
-
-| Setting | Toggle | Result |
-|---|---|---|
-| execution mode | dynamic | inline |
-| implementer model | dynamic | skipped — inline |
-| review panel | dynamic | compact: primary sonnet/medium, simple-reviewer haiku/medium, principles haiku/medium; delta rerun; dispatches: primary+simple-reviewer+principles |
-| implementer groups | — | skipped — inline |
-
-class: small (mechanical: small; override: none)
-inputs: tasks=4 files=6 repos=1 migration=no spec=no red=no unverified=no
-rolls: compact 45 (< 90 — compact) · experimental 33 (≥ 30 — none) · bundle 79 (≥ 30 — free grouping; the floor bundle is the whole roster)
+None.
