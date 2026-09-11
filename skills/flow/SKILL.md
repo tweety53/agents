@@ -264,6 +264,11 @@ one per mark or per phase file.
 - **Never** run more than two implementer dispatches in flight at once, in any wave — a third or
   later ready group queues in plan order and launches only as an in-flight one is picked; see the
   Waves paragraph of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`).
+- **Never** dispatch review-panel roles as separate parallel `Agent` calls. A round is at most two
+  dispatches, each one `Agent` call carrying one to three roles as its own `PASS <id>` sections —
+  see **Bundled dispatch** (`skills/flow/review-panel.md`). Before dispatching any panel round,
+  re-check that section's grouping (or the decision's `panel.dispatches`/`panel.grouping` on
+  `dynamic`) rather than defaulting to a general "launch N agents in parallel" habit.
 - **Never** hand off with an open finding of any severity, or a stale clean result — no preset or
   fixed slot count moves this bar — stale as **Panel re-runs** (`skills/flow/review-panel.md`)
   defines it. A deferred Minor is not open.
