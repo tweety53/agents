@@ -96,6 +96,14 @@ func (nopRecordStore) ListDecisions(context.Context, string, string) ([]records.
 	return nil, errRecordStoreNotExercised
 }
 
+func (nopRecordStore) RecordPass(context.Context, string, string, records.Pass) (records.Pass, error) {
+	return records.Pass{}, errRecordStoreNotExercised
+}
+
+func (nopRecordStore) RecordMutation(context.Context, string, string, records.Mutation) (records.Mutation, error) {
+	return records.Mutation{}, errRecordStoreNotExercised
+}
+
 var _ api.RecordStore = nopRecordStore{}
 
 // fakeRecordStore's own suite-run no-ops: replay never touches them -- a
@@ -257,6 +265,16 @@ func (f *fakeRecordStore) RecordDecision(_ context.Context, projectKey, change s
 
 func (f *fakeRecordStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, errRecordStoreNotExercised
+}
+
+func (f *fakeRecordStore) RecordPass(_ context.Context, projectKey, change string, in records.Pass) (records.Pass, error) {
+	f.record(fmt.Sprintf("pass %s/%s round=%d note=%s", projectKey, change, in.Round, in.Note))
+	return in, nil
+}
+
+func (f *fakeRecordStore) RecordMutation(_ context.Context, projectKey, change string, in records.Mutation) (records.Mutation, error) {
+	f.record(fmt.Sprintf("mutation %s/%s round=%d path=%s mutated=%s test=%s", projectKey, change, in.Round, in.Path, in.Mutated, in.Test))
+	return in, nil
 }
 
 func (f *fakeRecordStore) appliedCalls() []string {
@@ -439,6 +457,49 @@ func TestReplayDecisionKind(t *testing.T) {
 
 	if n := pendingRecordCount(t, root, project, change); n != 0 {
 		t.Fatalf("pending record entries after replay = %d, want 0 (applied entry retired)", n)
+	}
+}
+
+// TestReplayPanelPassLogKinds pins the two pass-log journal kinds (KAN-331):
+// `flow record pass` and `flow record mutation` fall back to the journal
+// kinds "pass" and "mutation", which must reach the store through
+// applyRecordEntry's own case arms and retire, exactly as every other
+// record kind does.
+func TestReplayPanelPassLogKinds(t *testing.T) {
+	root := t.TempDir()
+	const project, change = "proj-record-passlog", "chg-record-passlog"
+
+	appendRecordWrite(t, root, project, change, "pass", records.Pass{
+		Round: 1,
+		Note:  "not re-run — nothing new since its last read",
+	})
+	appendRecordWrite(t, root, project, change, "mutation", records.Mutation{
+		Round:   1,
+		Path:    "stats/internal/records/render.go",
+		Mutated: "flipped the guard",
+		Test:    "TestRenderPanelPassLog",
+	})
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, nopStageStore{}, rs, root, nil)
+
+	result, err := rec.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// Journals counts journal FILES, not entries: both writes append to the
+	// one record journal, and both entries in it must apply.
+	if result.Journals != 1 || result.Applied != 2 || result.Refused != 0 {
+		t.Fatalf("Run result = %+v, want {Journals:1 Applied:2 Refused:0}", result)
+	}
+
+	assertAppliedCalls(t, rs.appliedCalls(), []string{
+		`pass proj-record-passlog/chg-record-passlog round=1 note=not re-run — nothing new since its last read`,
+		`mutation proj-record-passlog/chg-record-passlog round=1 path=stats/internal/records/render.go mutated=flipped the guard test=TestRenderPanelPassLog`,
+	})
+
+	if n := pendingRecordCount(t, root, project, change); n != 0 {
+		t.Fatalf("pending record entries after replay = %d, want 0 (applied entries retired)", n)
 	}
 }
 

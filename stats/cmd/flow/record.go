@@ -138,10 +138,26 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -session-token token -file path
        flow record decisions [-addr url] [-timeout dur] [-C dir]
                              -change name
+       flow record pass     [-addr url] [-timeout dur] [-C dir]
+                             -change name [-round n] -note text
+       flow record mutation [-addr url] [-timeout dur] [-C dir]
+                             -change name [-round n] -path path
+                             -mutated what -test test
 
 A record write never blocks: on any store failure the intent is journalled,
 one warning line is printed, and the command exits 0. A caller must never
 branch on this command's exit code as a signal about the record.
+
+pass and mutation carry the review panel's pass log (KAN-331) -- the
+pass-by-pass metadata lines and the fix round's fix-mutation: proof lines
+that the review-panel contract used to have the agent write by hand into
+.superpowers/sdd/final-review-panel.md, a worktree-lifetime file run 2's
+cleanup destroyed. They are rows now: the parent records each line with one
+call as the fact arises, "flow record render -kind panel" renders them into
+the committed panel record, and the hand-written file is retired. -round is
+0 for the initial panel's entries and 1..n for a fix round's; mutation's
+three fields are the contract line's own -- on the exemption form, -mutated
+carries "none" and -test the reason.
 
 journal-count prints how many of those journalled writes are still pending
 for a change -- one decimal count on stdout, and "unknown" where no count
@@ -291,6 +307,10 @@ func runRecord(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		return runRecordDecision(ctx, args[1:], stdin, stdout, stderr)
 	case "decisions":
 		return runRecordDecisions(ctx, args[1:], stdout, stderr)
+	case "pass":
+		return runRecordPass(ctx, args[1:], stdout, stderr)
+	case "mutation":
+		return runRecordMutation(ctx, args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown record command %q\n", args[0])
 		fmt.Fprint(stderr, recordUsage)
@@ -431,9 +451,10 @@ func recordJournalPath(projectKey, name string) string {
 }
 
 // recordJournalBody is what gets journalled for a record write that could
-// not reach the store: the write's own kind ("dispatch", "finding",
-// "status" or "decision") alongside the exact wire request that would have
-// been sent, so
+// not reach the store: the write's own kind ("dispatch", "dispatch-end",
+// "finding", "status", "verdict", "verdict-false-positive", "incident",
+// "decision", "pass" or "mutation") alongside the exact wire request that
+// would have been sent, so
 // the reconciler has everything it needs to replay it without this file
 // needing a second encoding. It is the same shape stageMarkJournalBody
 // carries, for the same reason.
@@ -1645,6 +1666,90 @@ func runRecordDecisions(ctx context.Context, args []string, stdout, stderr io.Wr
 	}
 	fmt.Fprintln(stdout, string(body))
 	return 0
+}
+
+// runRecordPass implements `flow record pass`: one pass-log entry of the
+// review panel's record, recorded by the parent as the fact arises.
+// Append-only -- every call inserts a new row, exactly the guard-log
+// writes' shape -- so there is no key, no created/updated split and no
+// dedup: a pass entry is a line spoken once, and a replayed write can at
+// worst duplicate a line, the same cosmetic risk verdicts and incidents
+// already carry.
+func runRecordPass(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record pass", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	// 0 is the initial panel and a meaningful value, so -round carries no
+	// "not given" sentinel, exactly as `flow record finding`'s -round does.
+	round := fset.Int("round", 0, "the round the entry belongs to: 0 for the initial panel, 1..n for a fix round")
+	note := fset.String("note", "", "the pass-log line itself, verbatim (required)")
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr, [2]string{"-note", *note}) {
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.Pass{Round: *round, Note: *note}
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Pass, error) {
+		return cl.RecordPass(ctx, projectKey, f.change, in)
+	})
+	if callErr == nil {
+		fmt.Fprintf(stdout, "recorded: pass %d\n", out.ID)
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "pass", in, stderr)
+}
+
+// runRecordMutation implements `flow record mutation`: one fix-mutation:
+// line of the fix round's mutation proof, transcribed by the parent from
+// the fix subagent's report. Append-only like runRecordPass. The three
+// fields are the contract line's own -- `fix-mutation: <path> — <what was
+// mutated> — <the test that failed>` -- and the exemption form fills all
+// three too, -mutated carrying "none" and -test the reason, so all three
+// are required here.
+func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow record mutation", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordIdentityFlags(fset, &f)
+	round := fset.Int("round", 0, "the fix round that performed the mutation: 0 is never a mutation round, but carried verbatim like pass's")
+	path := fset.String("path", "", "the path that was mutated (required)")
+	mutated := fset.String("mutated", "", "what was mutated -- the literal \"none\" on the exemption form (required)")
+	test := fset.String("test", "", "the test that failed -- the reason, where -mutated is none (required)")
+
+	if ok, code := parseRecordFlags(fset, &f, args, stderr); !ok {
+		return code
+	}
+	if !requireRecordFlags(stderr,
+		[2]string{"-path", *path},
+		[2]string{"-mutated", *mutated},
+		[2]string{"-test", *test},
+	) {
+		return 2
+	}
+
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+
+	in := records.Mutation{Round: *round, Path: *path, Mutated: *mutated, Test: *test}
+	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Mutation, error) {
+		return cl.RecordMutation(ctx, projectKey, f.change, in)
+	})
+	if callErr == nil {
+		fmt.Fprintf(stdout, "recorded: mutation %d\n", out.ID)
+	}
+	return classifyRecordWrite(callErr, projectKey, f.change, "mutation", in, stderr)
 }
 
 // resolveRenderKinds turns -kind into the kinds to render. "all" renders

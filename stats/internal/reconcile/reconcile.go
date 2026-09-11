@@ -593,10 +593,12 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 
 // recordJournalBody mirrors cmd/flow/record.go's own recordJournalBody
 // exactly -- {"kind":"dispatch"|"dispatch-end"|"finding"|"status"|"verdict"|
-// "verdict-false-positive"|"incident"|"decision", "request":<the
+// "verdict-false-positive"|"incident"|"decision"|"pass"|"mutation",
+// "request":<the
 // records.Dispatch, records.DispatchEnd, records.Finding, status request,
-// records.Verdict, records.VerdictFlag, records.Incident or
-// records.Decision that was journalled>}. It is a
+// records.Verdict, records.VerdictFlag, records.Incident,
+// records.Decision, records.Pass or
+// records.Mutation that was journalled>}. It is a
 // second declaration of the same wire shape for the
 // same reason stageMarkJournalBody is one: cmd/flow is a main package
 // and cannot be imported. The two field names here and record.go's
@@ -732,6 +734,20 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 			return fmt.Errorf("%w: decode decision: %v", errRecordEntryDecodeFailed, err)
 		}
 		_, _, err := api.ApplyDecisionRecord(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "pass":
+		var in records.Pass
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode pass: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyPassRecord(ctx, r.recordStore, e.Project, e.Name, in)
+		return err
+	case "mutation":
+		var in records.Mutation
+		if err := json.Unmarshal(body.Request, &in); err != nil {
+			return fmt.Errorf("%w: decode mutation: %v", errRecordEntryDecodeFailed, err)
+		}
+		_, err := api.ApplyMutationRecord(ctx, r.recordStore, e.Project, e.Name, in)
 		return err
 	default:
 		return fmt.Errorf("%w: unknown record write kind %q", errRecordEntryDecodeFailed, body.Kind)

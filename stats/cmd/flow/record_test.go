@@ -2742,3 +2742,136 @@ func TestRecordDispatchBeginAcceptsEffort(t *testing.T) {
 		})
 	}
 }
+
+// --- the pass log (KAN-331) ---
+
+// TestRecordPassCommand pins what the pass-log write sends and says: a POST
+// to .../passes carrying round and note verbatim, one stdout line naming the
+// allocated row id, exit 0.
+func TestRecordPassCommand(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotPath string
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":11,"round":1,"note":"not re-run"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "pass", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-round", "1", "-note", "not re-run — nothing new since its last read"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty on a clean success", stderr.String())
+	}
+	if got := countLines(stdout.String()); got != 1 {
+		t.Errorf("stdout line count = %d, want exactly 1:\n%s", got, stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "recorded: pass 11") {
+		t.Errorf("stdout = %q, want it to name the recorded row id 11", stdout.String())
+	}
+	if !strings.HasSuffix(gotPath, "/kan-258/passes") {
+		t.Errorf("request path = %s, want it to end in /kan-258/passes", gotPath)
+	}
+
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+	}
+	if sent["round"] != float64(1) {
+		t.Errorf("round = %v, want 1", sent["round"])
+	}
+	if sent["note"] != "not re-run — nothing new since its last read" {
+		t.Errorf("note = %v, want the line verbatim", sent["note"])
+	}
+}
+
+// TestRecordMutationCommand pins the mutation-proof write the same way: a
+// POST to .../mutations carrying all three of the contract line's fields,
+// one stdout line, exit 0.
+func TestRecordMutationCommand(t *testing.T) {
+	repo := gitRepo(t)
+	isolatedStateRoot(t)
+
+	var gotPath string
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		var err error
+		gotBody, err = readAll(r)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":12,"round":1,"path":"render.go","mutated":"none","test":"guard was equivalent"}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "mutation", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-round", "1", "-path", "render.go",
+			"-mutated", "none", "-test", "guard was equivalent"},
+		strings.NewReader(""), &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "recorded: mutation 12") {
+		t.Errorf("stdout = %q, want it to name the recorded row id 12", stdout.String())
+	}
+	if !strings.HasSuffix(gotPath, "/kan-258/mutations") {
+		t.Errorf("request path = %s, want it to end in /kan-258/mutations", gotPath)
+	}
+
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+	}
+	if sent["path"] != "render.go" || sent["mutated"] != "none" || sent["test"] != "guard was equivalent" {
+		t.Errorf("body = %v, want the three contract fields verbatim", sent)
+	}
+}
+
+// TestRecordPassAndMutationMissingFlagsExitTwo pins that a missing required
+// field is refused before the store is contacted and leaves no journal
+// behind -- the same caller-mistake contract every other record write
+// carries.
+func TestRecordPassAndMutationMissingFlagsExitTwo(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"pass without note", []string{"record", "pass", "-change", "kan-258"}},
+		{"mutation without path", []string{"record", "mutation", "-change", "kan-258", "-mutated", "x", "-test", "y"}},
+		{"mutation without test", []string{"record", "mutation", "-change", "kan-258", "-path", "p", "-mutated", "none"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			isolatedStateRoot(t)
+
+			var stdout, stderr bytes.Buffer
+			code := run(context.Background(), tc.args, strings.NewReader(""), &stdout, &stderr)
+			if code != 2 {
+				t.Fatalf("exit code = %d, want 2", code)
+			}
+			if _, exists := recordJournalEntries(t, repo, "kan-258"); exists {
+				t.Errorf("a caller mistake left a record journal behind")
+			}
+		})
+	}
+}
