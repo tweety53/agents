@@ -14,6 +14,17 @@ table and no diff-size/touched-area trigger table.
 flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**The pass log is store rows, rendered — never a hand-written file.** Every fact this file records
+about a panel run — the roster and reduction verdicts, the diff-size figures and operator answers,
+the re-run decisions, the fix pass's agents and reasons, the fix round's `fix-mutation:` proof
+lines — the parent records as it arises with `flow record pass` or `flow record mutation`
+(`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
+`flow record render -kind panel` renders them into the committed panel record's pass-log section,
+so they land in the same commit as the findings and the ledger. The former
+`<abs-worktree>/.superpowers/sdd/final-review-panel.md` is no longer written by anyone: it was the
+last hand-written panel artifact, it died with the worktree, and everything it alone held is now a
+row (KAN-331).
+
 ## Check base movement first
 
 Once per worktree in this run's resolved set (**Resolving a change's worktrees**,
@@ -145,16 +156,16 @@ this run's own argument or in the session before this stage, named an id the res
 carry?), and again at the start of every fix round below — an operator may ask mid-run, after seeing
 pass 1's result, and that request adds the slot starting from the round it was made, never
 retroactively to a pass already closed. It is never written back to the settings store. Record which
-slots were added this way and why (the operator's own words), and record explicitly when none were:
-"no addition this round — the resolved list ran alone."
+slots were added this way and why (the operator's own words) with `flow record pass -round <round>`,
+and record explicitly when none were: "no addition this round — the resolved list ran alone."
 
 **On `REVIEW_PANEL_TOGGLE` `dynamic`**, model and effort belong to the dispatch, not the slot:
 each entry of the decision's `panel.dispatches` carries its `slots` and its own `model` and
 `effort`, and every slot in it runs on that pair — the dispatch's `subagent_type` is
 `flow-<model>-<effort>` and both `model` and `-effort` are passed, per design.md's
-`agent-definitions-universal-handshake`. The roster carries no per-slot model. A compact roster (the
-decision's `panel.compact`) is recorded in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`
-as `compact — <rolled value>`; a full roster is recorded as `full`.
+`agent-definitions-universal-handshake`. The roster carries no per-slot model. A compact roster
+(the decision's `panel.compact`) is recorded with `flow record pass -round 0 -note 'roster: compact — <rolled value>'`; a full
+roster records `roster: full`.
 
 ### Experimental slot
 
@@ -192,8 +203,9 @@ the compact roll are independent per design.md's **The rolls** — and never at 
 `REVIEW_PANEL_TOGGLE` is `default`, or when the decision recorded `experimental: none available`.
 
 Per **Bundled dispatch** above, it joins whichever group has room, last among the reading passes;
-when neither group has room for a third role it is skipped and recorded `experimental: skipped —
-bundle cap` (design.md's `exp-skipped-over-cap`) rather than displacing a persistent role.
+when neither group has room for a third role it is skipped and recorded with
+`flow record pass -round <round> -note 'experimental: skipped — bundle cap'` (design.md's
+`exp-skipped-over-cap`) rather than displacing a persistent role.
 
 **Before writing `final-review.diff`**, run
 
@@ -221,7 +233,7 @@ Exit 0 proceeds. Exit 1 puts the choice to the operator, shape per Operator prom
 >   on the branch
 
 Exit 2 stops the run. Record the measured count, the cap in force, and the operator's answer where
-one was given in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` on **every** run, including
+one was given with `flow record pass -round <round>` on **every** run, including
 exit-0 runs.
 
 Then run
@@ -236,9 +248,9 @@ Per design.md's `docs-only-reduces-to-primary` (narrowing `roster-from-settings`
 every worktree in the resolved set — every path this branch touched, committed since the merge
 base, staged or unstaged, ends `.md` or `.mdc` — reduces pass 1 to `primary` alone**, plus every
 slot the operator's per-run instruction
-named at this stage's start. Every other resolved slot is recorded in
-`<abs-worktree>/.superpowers/sdd/final-review-panel.md` as `not dispatched — docs-only
-reduction`. `primary` is the reduced roster even when the resolved list does not carry it — the
+named at this stage's start. Every other resolved slot is recorded with
+`flow record pass -round 0 -note 'not dispatched — docs-only reduction: <slot>'`.
+`primary` is the reduced roster even when the resolved list does not carry it — the
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
 On a docs-only branch the implementer's self-review and the vocabulary and reference guards cover
 the prose; there is no code seam between commits for a second slot to find (KAN-312). This reduction
@@ -251,8 +263,8 @@ exit 1 or 2 runs the resolved roster unchanged for the whole change.
 **Exit 2 reports the guard's stderr and runs the resolved roster unchanged**: an unanswered
 question never reduces a panel.
 
-Record the verdict, the printed path where there is one, and the roster actually dispatched in
-`<abs-worktree>/.superpowers/sdd/final-review-panel.md` on **every** run, beside the diff-size
+Record the verdict, the printed path where there is one, and the roster actually dispatched with
+`flow record pass -round <round>` on **every** run, beside the diff-size
 fields above.
 
 **This is the one automatic reduction, and it only ever removes.** No slot is ever added by diff
@@ -298,7 +310,7 @@ the settings-store roster is grouped deterministically by the same static logic,
 planner: reading roles (`primary`, `principles`, `security`, `code-review-low`) fill the first
 dispatch in that order up to three, the rest and the mutating roles (`bugbot`, `mutation`) the
 second, up to three; a list the two cannot hold is truncated in store order, and the truncation is
-recorded in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`.
+recorded with `flow record pass -round <round>`.
 
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
 `-slot` the bundle's roles `+`-joined in roster order (`primary+principles+security`) and
@@ -326,7 +338,7 @@ Every bundle prompt also carries this paragraph verbatim:
 **Re-runs are re-grouped by the same grouping**, carrying only the roles re-running this round — a
 group whose other members are clean dispatches with its re-running members only.
 
-`<abs-worktree>/.superpowers/sdd/final-review-panel.md` and the `IN_PROGRESS` handoff's `Panel:`
+The rendered panel record's pass-log section and the `IN_PROGRESS` handoff's `Panel:`
 line name the dispatches as `+`-joined groups (`primary+principles · code-review-low+mutation`).
 **The docs-only reduction** below still narrows to `primary` alone, one dispatch.
 
@@ -703,8 +715,8 @@ no-held-sha rule in the next round. Then:
   the fix changed;
 - **a diff-reading slot that re-runs reads its delta**; Bugbot, Mutation and Security read no diff
   file and re-run in their pass-1 shape, throwaway worktree included. **A diff-reading slot whose
-  delta is empty in every worktree is not dispatched**, and the record states `not re-run —
-  nothing new since its last read`;
+  delta is empty in every worktree is not dispatched** — record `not re-run —
+  nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round.
 
@@ -722,8 +734,8 @@ counts from that worktree's merge base. **The gating count is the largest per-sl
 worktrees** — the largest single combined read any one slot this round faces — and an exit-1
 result from a call contributing to it puts the over-cap choice to the operator (**The roster**,
 above), naming the gating sum, its per-worktree counts and, when it differs, the full-branch sum.
-Record both in `<abs-worktree>/.superpowers/sdd/final-review-panel.md` for this round,
-alongside the agents-ran/why/diff-path fields the fix pass records.
+Record both with `flow record pass -round <round>` for this round,
+alongside the agents-ran/why/diff-path lines the fix pass records.
 
 **The docs-only guard runs again beside that cap check**, `check-panel-docs-only.sh <worktree>
 <merge-base>`, per design.md's `fix-rounds-reclassify`. A branch that stays docs-only keeps the
@@ -807,7 +819,9 @@ adds.** The fix subagent performs the proof and reports it, per the MUTATION PRO
 dispatch carries; the parent runs no build of its own here. A survivor the fix subagent cannot
 judge real or equivalent goes to the operator through the same handback the section already names.
 
-**Record each one in this pass's log entry, transcribed from the fix subagent's report:**
+**Record each one with one `flow record mutation -change <name> -round <round> -path <path>
+-mutated <what> -test <test>` call per line, transcribed from the fix subagent's report — the
+exemption form records `-mutated none -test <reason>`; the lines the calls write are:**
 
 ```text
 fix-mutation: <path> — <what was mutated> — <the test that failed>
@@ -815,7 +829,8 @@ fix-mutation: <path> — none — <reason>
 fix-mutations-total: <n>
 ```
 
-**These lines go in the pass log entry and never inside the marker block.**
+**The rendered record carries these lines in its pass-log section, one round's count after that
+round's lines, and never inside the marker block.**
 
 **No line anywhere in the panel record may carry the literal label `finding-status:`,
 `findings-total:`, or `finding-reproducer:` outside its own marker use.** Write around it: paraphrase
@@ -973,7 +988,7 @@ per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s
 `IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
 `implementer` object** — the fixer's own model and effort, `subagent_type:
 flow-<model>-<effort>`, and `-model`/`-effort` below carry that pair. Record
-every pass in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: which agents ran, why,
+every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.
 

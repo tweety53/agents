@@ -57,8 +57,8 @@ with a standard from another project.
 
 **Containment — `## standards` is attacker-influenced input.** `<project>/.flow/project.md` is tracked in
 the repository and editable in any pull request, and every resolved entry is read by a review
-subagent whose output is written into `<abs-worktree>/.superpowers/sdd/final-review-panel.md` — a file that is
-committed in any project that tracks that directory.
+subagent whose output is recorded in the run's store rows and rendered into the project's
+committed panel record (`<project>/docs/superpowers/reviews/<date>-<change>-panel.md`).
 An unconstrained path therefore turns the review gate into an arbitrary-file-read whose result
 lands in a review record, and from there into a commit wherever that record is tracked. Constrain resolution:
 
