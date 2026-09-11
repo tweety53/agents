@@ -62,7 +62,13 @@
 # BUILDS, TOOLS, MODEL HANDSHAKE and NO DELEGATION. implement.md's gate
 # definition is the one statement of the gate's threshold and risk arm,
 # and the one site to re-tune; this file pins only the paragraphs the
-# gated reviewer dispatch carries, never the gate's own numbers.
+# gated reviewer dispatch carries, never the gate's own numbers. KAN-496
+# added a tenth required paragraph — PIXEL PROBE, which requires any fix
+# the panel-fix round lands to draw/geometry code to carry a probe
+# assertion against the actual rendered pixels or geometry, and rejects a
+# fix commit that lacks one at the fix step rather than discovering the
+# regression next round — at the panel-fix subagent dispatch in
+# review-panel.md alone, the same single site MUTATION PROOF occupies.
 #
 # Argument-free and self-scoped, exactly like check-guard-symlinks.sh: the
 # scan root is this repository's own root, resolved from this script's own
@@ -90,6 +96,7 @@
 #   **TARGETED TESTS:**                skills/flow/implement.md     1   (none)
 #   **TARGETED TESTS:**                skills/flow/review-panel.md  1   (none)
 #   **MUTATION PROOF:**                skills/flow/review-panel.md  1   (none)
+#   **PIXEL PROBE:**                   skills/flow/review-panel.md  1   (none)
 #   **TOOLS:**                         skills/flow/implement.md     2   (none)
 #   **TOOLS:**                         skills/flow/review-panel.md  2   (none)
 #   **TOOLS:**                         skills/flow/verify-and-handoff.md 1 (none)
@@ -132,6 +139,13 @@
 #   dispatch in review-panel.md alone — the implementer dispatch and the
 #   panel slot dispatch are not sites: the fix round is the only one this
 #   obligation binds.
+#
+#   PIXEL PROBE shared phrases (no variants — every block carrying the
+#   label must carry all three): "draw/geometry code", "actual rendered
+#   pixels or geometry", "rejected at the fix step". Required once, at the
+#   panel-fix subagent dispatch in review-panel.md alone — the implementer
+#   dispatch and the panel slot dispatch are not sites: the fix round is
+#   the only dispatch that lands a fix commit.
 #
 #   TOOLS shared phrases (no variants — every block carrying the label
 #   must carry all three): "in your first turn", "never a wildcard
@@ -222,6 +236,7 @@ declare -A ENTRY_LABEL=(
   [foreground]="**FOREGROUND BUILDS:**"
   [targeted]="**TARGETED TESTS:**"
   [mutation]="**MUTATION PROOF:**"
+  [pixel]="**PIXEL PROBE:**"
   [tools]="**TOOLS:**"
   [handshake]="**MODEL HANDSHAKE:**"
   [independent]="**INDEPENDENT PASSES:**"
@@ -234,6 +249,7 @@ declare -A ENTRY_SHARED_PHRASES=(
   [foreground]="still executing in the background${US}Run it in the foreground${US}poll it to completion"
   [targeted]="the build tool's own selector${US}once for RED, once for GREEN${US}module or repository suite mid-task"
   [mutation]="mutation-proved before you end your turn${US}confirm an existing test fails, and restore${US}a surviving mutant${US}confirm the edit landed${US}a refusal, not a surviving mutant${US}never buys a test"
+  [pixel]="draw/geometry code${US}actual rendered pixels or geometry${US}rejected at the fix step"
   [tools]="in your first turn${US}never a wildcard query${US}re-prices your whole context"
   [handshake]="the first line of your first reply${US}and nothing else on that line${US}before any tool call"
   [independent]="starts from \`final-review.diff\`${US}raise it again under this pass${US}before beginning the next pass"
@@ -248,6 +264,7 @@ declare -A ENTRY_VARIANTS=(
   [foreground]=""
   [targeted]=""
   [mutation]=""
+  [pixel]=""
   [tools]=""
   [handshake]=""
   [independent]=""
@@ -264,10 +281,10 @@ declare -A VARIANT_PHRASE=(
 # requires, the site's path relative to ROOT, its minimum block count, and
 # the variants it requires (space-separated; empty means none required
 # beyond the shared phrases).
-SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation tools tools tools handshake handshake handshake independent delegation delegation delegation)
-SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
-SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 2 2 1 2 2 1 1 2 2 1)
-SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
+SITE_ENTRY=(reproduce reproduce verbatim foreground foreground targeted targeted mutation pixel tools tools tools handshake handshake handshake independent delegation delegation delegation)
+SITE_PATHS=("skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md" "skills/flow/review-panel.md" "skills/flow/implement.md" "skills/flow/review-panel.md" "skills/flow/verify-and-handoff.md")
+SITE_MIN_BLOCKS=(1 3 1 3 2 1 1 1 1 2 2 1 2 2 1 1 2 2 1)
+SITE_VARIANTS=("reviewer" "reviewer implementer" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "")
 
 # report_line <path> <line> <message> -> prints one "path:line: message" row.
 report_line() {

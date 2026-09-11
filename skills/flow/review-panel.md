@@ -860,7 +860,13 @@ hunk of the fix diff with a non-comment, non-whitespace change: each one is eith
 reported line, or is not an executable behaviour at all. A hunk that removes or weakens a test or an
 assertion states in the record what it used to cover and names what still covers that same behaviour
 now — checked by running the named covering test against the **pre-fix** code and confirming it
-fails. **The same walk holds the fix subagent to its PLAN FIELDS obligation:** a hunk that adds a
+fails. A hunk whose path is draw/geometry code — code that computes what is drawn: extents,
+bounds, gridlines, offsets, paths, positions, sizes — is held to the **PIXEL PROBE** paragraph
+beside the mutation lines: the fix's report names the probe assertion it landed against the
+actual rendered pixels or geometry, and a fix commit for this class of bug that landed no such
+probe is rejected at the fix step — the round does not close and the finding stays open, for the
+handback below — rather than the regression being discovered next round (KAN-496). **The same
+walk holds the fix subagent to its PLAN FIELDS obligation:** a hunk that adds a
 test case, adds a file, or changes what a task's `**Baseline:**` counts, whose task's `**Tests:**`,
 `**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
 the round; it goes to the handback.
@@ -973,6 +979,19 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 > `fix-mutations-total:` count, in the shape the review-panel contract's fenced block gives. Where
 > you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
 > than deciding it yourself.
+
+**Every fix subagent's dispatch prompt also carries the PIXEL PROBE paragraph**:
+
+> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
+> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
+> against the actual rendered pixels or geometry, in the style the reviewers' reproducers
+> already use: drive the real draw path and assert on the value it renders or computes, never on
+> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
+> rejected at the fix step — the finding stays open and the round does not close — so the
+> regression is caught this round, not discovered by the next one. Where pixels cannot be
+> rendered in this environment, the probe asserts on the geometry the draw path actually
+> computes — the same numbers the renderer will paint — and your report names why the pixel
+> output itself was not asserted.
 
 **Every fix subagent's dispatch prompt also carries the REPORT FILE paragraph**:
 
