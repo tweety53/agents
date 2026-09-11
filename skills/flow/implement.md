@@ -379,9 +379,10 @@ git -C <worktree> status --porcelain -z | \
 ```
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
-is picked once every plan-earlier member of its wave is picked. The unchanged
-`check-task-commit-fields.sh` call (canonical worktree fifth argument, resolved `<name>` sixth)
-runs on each picked commit, and the dispatch `end` records the picked sha. A pick conflict or a
+is picked once every plan-earlier member of its wave is picked. The same
+`check-task-commit-fields.sh` call the task-close step above runs (empty fourth argument, canonical
+worktree fifth, resolved `<name>` sixth) runs on each picked commit, and the dispatch `end` records
+the picked sha. A pick conflict or a
 guard failure hands the group back to its own implementer — its throwaway worktree rebased onto
 the advanced branch HEAD, re-commit, re-pick — while sibling members, queued groups and
 already-ready later waves are unaffected. A copy is removed once its group is picked, or after
@@ -538,12 +539,13 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The guard,
    the tick and the gather are the parent's own Bash calls, never a subagent's. The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
-   **2. Isolate the workspace** above) as its fourth argument and this run's resolved `<name>` as
-   its fifth. No task base is passed: the guard derives the commit's parent itself (KAN-330),
-   so the argument a mistyped merge base once corrupted is never typed at all:
+   **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
+   its sixth; the fourth is the empty placeholder that skips the parent-sha — the guard derives
+   the commit's parent itself (KAN-330), so the argument a mistyped merge base once corrupted is
+   never typed at all:
 
    ```bash
-   check-task-commit-fields.sh <worktree> <task-id> <task-sha> <canonical-worktree> <name>
+   check-task-commit-fields.sh <worktree> <task-id> <task-sha> "" <canonical-worktree> <name>
    ```
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and

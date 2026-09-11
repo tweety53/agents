@@ -988,8 +988,11 @@ def check_task_commit(
     return violations
 
 
-# NOT_A_VERDICT — the exact opening every could-not-judge exit (2) prints,
-# shared with the thin wrapper's could_not_judge helper. Exit 1 is the
+# NOT_A_VERDICT — the exact opening every could-not-judge exit (2) prints.
+# The thin wrapper's could_not_judge helper duplicates this literal (a shell
+# function cannot import a Python constant); the two copies are pinned
+# identical by test cases 92 and 93, which assert the full opening through
+# the wrapper. Exit 1 is the
 # verdict against the commit; exit 2 is a caller or environment mistake,
 # and this prefix is what keeps the two apart at a glance in a scrolling
 # transcript (KAN-330: a merge base mistyped by one character used to

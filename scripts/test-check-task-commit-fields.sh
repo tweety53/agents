@@ -3077,7 +3077,7 @@ git -C "$REPO" commit -q -m "plan"
 printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
 git -C "$REPO" add alpha.txt
 git -C "$REPO" commit -q -m "add alpha"
-run_guard "$REPO" 1 "1e803d5564273"
+LC_ALL=C run_guard "$REPO" 1 "1e803d5564273"
 [ "$RC" -eq 2 ] && pass "case 92: could not judge — mistyped commit sha exits 2 under the standard line" \
   || fail "case 92: rc=$RC out=$OUT"
 case "$OUT" in
@@ -3126,6 +3126,32 @@ case "$OUT" in
   *"COULD NOT JUDGE"*) fail "case 94: a verdict must never carry the could-not-judge opening, out=$OUT" ;;
   *) pass "case 94: the verdict carries no could-not-judge opening" ;;
 esac
+
+# ===========================================================================
+# Case 95 (KAN-330, panel F7): the EXACT shape the task-close step documents —
+# worktree, task id, commit sha, an EMPTY parent-sha placeholder, canonical
+# worktree, change name — exits 0 with the parent DERIVED through that empty
+# placeholder. This is the shape the panel's first round proved was never
+# exercised: the documented invocation had zero coverage.
+# ===========================================================================
+new_repo
+write_tasks_md "$REPO" '- [ ] 1. Documented call shape
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha
+**Build:** green
+'
+git -C "$REPO" add "spectre/changes/$CHANGE_NAME/tasks.md"
+git -C "$REPO" commit -q -m "plan"
+printf 'def test_alpha(): pass\n' > "$REPO/alpha.txt"
+git -C "$REPO" add alpha.txt
+git -C "$REPO" commit -q -m "add alpha"
+SHA="$(git -C "$REPO" rev-parse HEAD)"
+run_guard "$REPO" 1 "$SHA" "" "$REPO" "change-a"
+[ "$RC" -eq 0 ] && pass "case 95: the documented empty-placeholder shape resolves and derives the parent" \
+  || fail "case 95: rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 95: clean exit, no refusal printed" || fail "case 95: expected no output, got: $OUT"
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
