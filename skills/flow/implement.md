@@ -42,12 +42,13 @@ discipline**, below, states the one-foreground-wait-call shape this applies thro
 
 ### Dispatch sites — the parent's closed list
 
-These four rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
+These five rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
 **2** and **4** below, `skills/flow/review-panel.md` and `skills/flow/verify-and-handoff.md`:
 
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
 | implementer, one per group | `implementer` | `task-<n>-implementer` | section **4** below |
+| gated per-task reviewer, one per task the review gate fires on | `reviewer` | `task-<n>-reviewer` | section **4** below |
 | panel bundle, at most two per round | `reviewer` | `panel-<round>-<slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` (`-retry` once per chunk) | `skills/flow/review-panel.md`, the fix step |
 | verifier, one per worktree | `verifier` | `visual-verify` (`-2`, `-retry`) | `skills/flow/verify-and-handoff.md`, **Visual verification** |
@@ -63,23 +64,25 @@ other name — the KAN-449 run's six unrecorded subagents (four rogue panel-fix 
 **The self-check.** Before any Agent-tool call, the parent names which row above the call is. A
 call that names no row is not made.
 
-**These four rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
+**These five rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
 DELEGATION paragraph (section **4** below, `skills/flow/review-panel.md`,
 `skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so nothing exists below these rows.
 **The `flow-<model>-<effort>` family (`agents/flow-*.md`) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is now backed by a capability the dispatched agent
 structurally does not have, not only by prompt text (KAN-487). This covers the panel bundle and
 panel-fix rows whenever `REVIEW_PANEL_TOGGLE` is `dynamic` (`skills/flow/review-panel.md`'s own
-**The roster**). The verifier row is unaffected regardless of any toggle: it dispatches
+**The roster**), and the gated per-task reviewer row whenever it dispatches on its group's
+`model`/`effort` pair. The verifier row is unaffected regardless of any toggle: it dispatches
 `subagent_type: general-purpose` unconditionally (`skills/flow/verify-and-handoff.md`) — a
 harness-provided type this repository does not own and cannot restrict this way. `general-purpose`
 is likewise what a reviewer row dispatches on `REVIEW_PANEL_TOGGLE: default`.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
-rows — the parent's only permitted dispatches inline are the panel-bundle and verifier rows.
+rows — the parent's only permitted dispatches inline are the panel-bundle, gated per-task-reviewer
+and verifier rows.
 
 **The handshake — stated once here, cited everywhere else.** Every dispatched role in this
-pipeline — implementer, panel slot, panel-fix, verifier — opens its first reply with the `Model:`
+pipeline — implementer, gated per-task reviewer, panel slot, panel-fix, verifier — opens its first reply with the `Model:`
 line the MODEL HANDSHAKE paragraph (section **4** below) demands, and every dispatch prompt in
 this pipeline carries that paragraph verbatim. Compare the line against the model this dispatch
 requested (`DEFAULT_MODEL`, or the run's session override). A match proceeds. A **first** mismatch
@@ -100,7 +103,9 @@ that running agent, no third dispatch — or **Stop the run**. **A mark or a rec
 proceed on the handshake's outcome regardless of whether any `flow` call reached the store.
 
 This rule is cited, never restated, at every dispatch site in this pipeline: the implementer
-dispatch below; `skills/flow/review-panel.md`'s panel slot and panel-fix subagent dispatch;
+dispatch and the gated per-task reviewer dispatch below (the reviewer's line compared against its
+group's `model`, or `DEFAULT_MODEL` on a run with no groups); `skills/flow/review-panel.md`'s
+panel slot and panel-fix subagent dispatch;
 `skills/flow/verify-and-handoff.md`'s verifier dispatch (compared against `sonnet`, never
 `DEFAULT_MODEL`).
 
@@ -137,17 +142,21 @@ these substitutions:
   COMMIT-PER-TASK, the TDD sub-skill, TARGETED TESTS, MUTATION PROOF, PLAN FIELDS, FOREGROUND
   BUILDS, and the rest section **4** and `skills/flow/review-panel.md` list — **binds the parent
   in the same words**, as if the parent had dispatched itself.
-- **Panel slots and the visual-verify verifier dispatch exactly as in sdd mode** — a session
-  reviewing its own diff is not a review. Panel fixes are applied by the parent instead of a
-  panel-fix subagent; the parent still runs every reproducer and the fix-diff walk
+- **Panel slots, the gated per-task reviewer and the visual-verify verifier dispatch exactly as in
+  sdd mode** — a session reviewing its own diff is not a review. Panel fixes and gated per-task
+  review fixes are applied by the parent instead of a panel-fix subagent or a resumed implementer;
+  the parent still runs every reproducer and the fix-diff walk
   (`skills/flow/review-panel.md`) before recording a finding `fixed`. The parent's own permitted
-  dispatches inline are the closed list's panel-bundle and verifier rows alone
+  dispatches inline are the closed list's panel-bundle, gated per-task-reviewer and verifier rows
+  alone
   (**Dispatch sites — the parent's closed list** above); `flow.verify` runs inline for the parent
   exactly as under `sdd` execution.
 - **Records:** one `dispatches` row per bundle, `-role implementer -model <parent model> -effort
   <parent effort> -agent-id inline`, and one per fix round, `-role panel-fix -model <parent
   model> -effort <parent effort> -agent-id inline` — so cost attribution and the stats views see
-  inline work under the same roles a dispatched run would use.
+  inline work under the same roles a dispatched run would use. A gated per-task reviewer's own
+  rows carry the dispatched agent's id, never `inline`; the gated fix round it causes records
+  `-model <parent model> -effort <parent effort> -agent-id inline` under the task's fix key.
 
 ## 1. Load context and validate the plan
 
@@ -562,8 +571,9 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 
 1. **Group N+1's implementer commits** and writes its report; the wait above ends.
 2. **One Bash call: the implementer's `record dispatch end`, the guard on every commit whose sha
-   is new, `flow tasks tick` for every task the guard passed, and group N+2's gather.** The guard,
-   the tick and the gather are the parent's own Bash calls, never a subagent's. The
+   is new, the gate on every commit the guard passed, `flow tasks tick` for every task the guard
+   passed and the gate left unfired, and group N+2's gather.** The guard,
+   the gate, the tick and the gather are the parent's own Bash calls, never a subagent's. The
    guard takes the canonical worktree's absolute path (the worktree created or resumed in
    **2. Isolate the workspace** above) as its fifth argument and this run's resolved `<name>` as
    its sixth; the fourth is the empty placeholder that skips the parent-sha — the guard derives
@@ -577,7 +587,9 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets (KAN-442). Every verdict is printed and read before anything
    launches: a nonzero exit sends that task back to the **same implementer**, which re-commits and
-   re-runs the guard before anything below; exit 0 ticks the task in the same call.
+   re-runs the guard before anything below; exit 0 computes that commit's **review gate** (two
+   sentences down) and ticks the task in the same call only when the gate does not fire — a fired
+   gate defers the tick to the task's reviewer, below.
 
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A
@@ -586,7 +598,8 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    left — end the turn with `## Question` carrying both outputs verbatim; never re-run the
    guard on top of it. (KAN-423: a re-run over a mid-flight revert cost ~55 minutes of hand
    recovery.)
-3. **One message launches group N+2's implementer. The next Bash call records its `begin`** —
+3. **One message launches group N+2's implementer and, for every task whose gate fired, that
+   task's reviewer (below). The next Bash call records every launch's `begin`** —
    the very next action after the launch returns, which is what "recorded immediately after the
    launch returns" above requires.
 
@@ -594,21 +607,93 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
 commit's `Files:` against `git diff --name-only <task-sha>^..<task-sha>`, its `Tests:` against the
 commit's diff, and its `Commit:` against the commit's actual subject line.
 
-**The guard's pass is the tick.** Mark a **task's** checkbox `[x]` (`flow tasks tick`) once
-`check-task-commit-fields.sh` exits 0 on its commit — no reviewer runs per task; the whole-branch
-panel (`skills/flow/review-panel.md`) is this branch's review. A step's checkbox tracks the step
-and gates nothing. A red task's checkbox is ticked together with its partner's, on their one
-commit's guard pass.
+**The review gate.** After the guard passes a task's commit, the parent computes that commit's
+gate from two facts, both read in the same Bash call as the guard's verdict:
+`git diff --numstat <task-sha>^..<task-sha>` summed over its inserted and deleted lines, and
+`git diff --name-only <task-sha>^..<task-sha>` set against the task's own declared surface — the
+paths in its `**Files:**` field plus everything its optional `**Allowed-collateral:**` glob
+covers. **The gate fires when the commit changes more than 40 lines, or touches any path outside
+that declared set.** WHY 40: KAN-29's self-review (the source of this gate, KAN-400) measured its
+per-task reviewer rows on trivial tasks returning clean with sub-1k-token output — a review of a
+commit small enough to hold in one glance added nothing the guard and the whole-branch panel did
+not already cover, and roughly a third of that run's ninety dispatches were of that shape. Forty
+changed lines is the boundary below which a diff still is one glance. It is a recorded constant
+like `check-panel-diff-size.sh`'s cap — re-tune it by editing this sentence with the reason,
+never by arguing it away per run. The undeclared-path arm is the gate's risk half: a commit
+reaching past its own plan declaration is exactly the surprise a second reading exists for,
+however few lines it runs.
+
+**The guard's pass ticks an ungated task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
+once `check-task-commit-fields.sh` exits 0 on its commit and the gate does not fire — no reviewer
+runs on that task; the whole-branch panel (`skills/flow/review-panel.md`) is still this branch's
+review. **A gated task's tick defers until its reviewer closes clean.** A step's checkbox tracks
+the step and gates nothing. A red task's checkbox is ticked together with its partner's, on their
+one commit's gate verdict.
+
+**The gated per-task reviewer.** One combined reviewer per gate-fired task — spec compliance and
+code quality together — dispatched beside the group implementers, on the task's group's
+`model`/`effort` pair from the decision's `groups` entry (`DEFAULT_MODEL`/`default` on a run with
+no groups). The reviewer gets the commit-range diff `git diff <task-sha>^..<task-sha>` — a real
+commit diff, never a snapshot of the working tree, which the next implementer is editing. Record
+the dispatch (`-role reviewer`, the same `-task <n>`, `-key task-<n>-reviewer`, `-agent-id` on
+`begin`) and close it with **`-outcome clean` or `-outcome fix`**, so per-task review yield stays
+measurable against the gate. A clean review ticks the task in the same call that closes the
+record. **A fix resumes the task's own group's implementer** (`SendMessage`; recorded as its own
+pair under `task-<n>-implementer-fix-<k>`, `-agent-id` the implementer's own id) with the
+reviewer's report path; it commits `git commit --fixup=<task-sha>`, runs
+`git rebase --autosquash <task-sha>^` — the explicit base is load-bearing: a bare
+`git rebase --autosquash` rebases onto the branch's upstream, absorbing the operator base's
+movement into a task fix — and writes `implementer-report-<k>-fix-<n>.md`. A conflict there is
+between two of the branch's own commits, and the implementer resolves it by hand, keeping both
+sides — the resolve-in-place rule of a base-branch rebase (**Conflict**,
+`skills/flow-contracts/finish-contract-run1.md`) concerns the operator's base, never this one. The
+parent re-runs the guard on every sha the rebase rewrote, then re-dispatches the reviewer — under
+`task-<n>-reviewer-fix-<k>`, the same convention as the implementer's fix key — on the rewritten
+range `git diff <task-sha>^..<new-task-sha>`. On an inline run the parent applies the fix itself
+with the same commit mechanics, and the re-review is still a dispatch.
+
+Every gated per-task reviewer dispatch **must** carry:
+
+> **MODEL HANDSHAKE:** the first line of your first reply is `Model: <the model named in your own
+> system prompt>` and nothing else on that line. Answer it before any tool call.
+
+> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
+> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
+> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
+> schema loaded later changes your tool list and re-prices your whole context at full input rate.
+
+> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
+> command still executing in the background. Run it in the foreground, or poll it to
+> completion, before you stop.
+
+> **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
+> guard, a real transcript, a real process — at least one check you make MUST exercise the real
+> thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
+> and a passing test can each read plausibly and be false. Run it before you accept it, and run it
+> before you reject it.
+
+> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
+> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
+> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the parent's
+> closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
+> fixing are your own Read, Bash and Edit calls.
+
+> **REPORT FILE:** write your report to
+> `<abs-worktree>/.superpowers/sdd/reviewer-report-task-<n>.md` as your **last** act — a
+> `## Verdict` section carrying exactly `clean` or `fix`, and, on `fix`, each finding with its
+> file and line. The dispatcher waits on that file's presence, and a fix round's re-review writes
+> `reviewer-report-task-<n>-fix-<k>.md`.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
-the slots dispatched once it has passed and the last implementer's report carries no `## Full
+the slots dispatched once it has passed, every gate-fired reviewer has closed clean with any fix
+folded, and the last implementer's report carries no `## Full
 suite` failure; the review panel's pre-work may share the last implementer's wait, in its one
 call. A report that records a full-suite failure ends your turn with `## Question` — the failing
 command and its output, verbatim — before `final-review.diff` is written: the panel never runs on
 a red branch, and the operator resolves it through a fix run.
 
-**Never end a turn with a child in flight** — wait for every implementer launched before
-reporting a stage boundary or asking the operator anything.
+**Never end a turn with a child in flight** — wait for every implementer and reviewer launched
+before reporting a stage boundary or asking the operator anything.
 
 **Turn discipline.** A turn is spent only where an output must be read before the next action is
 chosen. Calls that do not depend on one another share one Bash call — every verdict printed, each
