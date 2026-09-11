@@ -924,25 +924,32 @@ mismatch is a fallback plus one retry under `<round>-fix-retry`; a second is a f
 **Every fix subagent's dispatch prompt also carries the REPORT FILE paragraph**:
 
 > **REPORT FILE:** write your report to
-> `<abs-worktree>/.superpowers/sdd/panel-fix-report-<round>.md` as your **last** act — after
+> `<abs-worktree>/.superpowers/sdd/panel-fix-report-<round>.md` — a chunked round's chunk `<n>`
+> appends its own suffix, `panel-fix-report-<round>-<n>.md` — as your **last** act — after
 > the rebase and your final test run — naming each finding you addressed, the executable
 > behaviours your fix changed, the `fix-mutation:` and `fix-mutations-total:` lines this round's
 > contract requires, and the task commit each fixup folded into. The dispatcher waits
 > on that file's presence.
 
-Give the surviving findings to **one** fix subagent as the combined list — the whole fix-dispatch
-contract, stated in full because a parent once read the single sentence and dispatched four
-background fix subagents, one per reviewer (KAN-482): exactly **one** panel-fix dispatch per fix
-round, carrying the combined list of every surviving open finding. Never one dispatch per
-reviewer, per slot, or per finding — that split fragments one diff into competing fixups against
-the same worktree. The dispatch is awaited in the foreground before the round's reproducer re-runs
-begin, and no fix subagent is left in flight when the turn ends. Every panel-fix `-key` is exactly
-`panel-fix-<round>`; the handshake retry's `panel-fix-<round>-retry` is the only second key a
-round may carry, and any other key shape is a violation whatever the dispatch count. Before
-recording the `dispatch begin`, confirm this round has no panel-fix begin already recorded — a
-second begin under a fresh key is over-dispatching even when every key is well-formed.
-`check-panel-fix-single-dispatch.sh` holds every run's panel close to exactly this shape
-(**Before closing the stage**, below). Inline
+Give the surviving findings to fix subagents in **chunks of at most 10 findings** — the whole
+fix-dispatch contract, stated in full because a parent once read a single sentence and dispatched
+four background fix subagents, one per reviewer (KAN-482). The round's findings are split into
+sequential chunks of at most 10 — the cap that keeps one dispatch from re-reading the whole
+branch across every finding, the blowup KAN-459's round 1 hit reading ~110M cache tokens to fix
+24 findings in one dispatch (KAN-499) — each chunk one panel-fix dispatch carrying its chunk of
+the combined list. Never one dispatch per reviewer, per slot, or per finding — that split
+fragments one diff into competing fixups against the same worktree. Chunks run in order, each
+dispatch awaited in the foreground before the next chunk begins and before the round's reproducer
+re-runs begin, and no fix subagent is left in flight when the turn ends. The round's first
+chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
+(`panel-fix-<round>-2`, `-3`, …), contiguous from 2; the handshake retry suffixes `-retry` onto
+its own chunk's key (`panel-fix-<round>[|-<n>]-retry`), and any other key shape is a violation
+whatever the dispatch count. A round may not chunk freely: its chunk count is bounded by
+`ceil(findings raised in earlier rounds / 10)` — a bound, not a target, so a well-formed
+per-finding sequence stays caught. Before recording each `dispatch begin`, confirm that key has
+no panel-fix begin already recorded — a second begin under a fresh key is over-dispatching even
+when every key is well-formed. `check-panel-fix-single-dispatch.sh` holds every run's panel close
+to exactly this shape (**Before closing the stage**, below). Inline
 (`skills/flow/implement.md`'s **Inline — the parent implements**), the parent applies the fix
 itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
 panel-fix -agent-id inline`. Where a finding is
@@ -959,8 +966,8 @@ identity together with the reproducer output it carried back.
 
 ```bash
 flow record dispatch begin -change <name> -role panel-fix -model <m> \
-  -key panel-fix-<round> -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
-flow record dispatch end -change <name> -key panel-fix-<round> \
+  -key panel-fix-<round>[-<chunk>] -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
+flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \
   -agent-id <id>
 ```
@@ -994,11 +1001,11 @@ check-panel-fix-single-dispatch.sh <worktree> <change> <session-token>
 ```
 
 — the token this run stamped on its own dispatches. Exit 0 proceeds to the stage close below.
-Exit 1 names every round whose panel-fix dispatch count or key shape breaks the fix-dispatch
-contract above, and is a handback `## Question`:
+Exit 1 names every violation of the chunked fix-dispatch contract above — an over-bound chunk
+count, non-contiguous chunks, a chunked round with no bare key, a per-chunk count or retry
+violation, a key outside the canonical shape — and is a handback `## Question`:
 
-> **The fix round(s) recorded more than one panel-fix dispatch or a key outside the canonical
-> shape:** <the guard's violation lines>
+> **The fix round(s) broke the chunked fix-dispatch shape:** <the guard's violation lines>
 > - **Continue — the violation stays recorded in this run's output** *(default, recommended)* —
 >   the findings may already be verified closed, and the round's work is real
 > - **Stop the run**
