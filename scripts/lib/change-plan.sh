@@ -15,13 +15,18 @@
 # Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
 #
 #   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path.
-#   2. Otherwise, no change DIRECTORY for <name> exists here at all (the
-#      cross-repo shape where the plan lives only in the canonical repo) and
-#      a canonical worktree argument was passed → the same-named plan under
-#      the canonical worktree's own <spec-root>/changes/, if it exists. The
-#      gate is the absent DIRECTORY, not merely an absent tasks.md, so a
-#      satellite's link resolution below is never preempted
-#      (design.md's no-fallback-for-linked-satellites).
+#   2. Otherwise, no local tasks.md and no local link.md for <name> here at
+#      all (the cross-repo shape where the plan lives only in the canonical
+#      repo — the change directory absent entirely, or an empty scaffold a
+#      refused or aborted link step left behind, KAN-430) and a canonical
+#      worktree argument was passed → the same-named plan under the
+#      canonical worktree's own <spec-root>/changes/, if it exists. The gate
+#      is BOTH files being absent, not merely an absent tasks.md or an
+#      absent directory, so a satellite's link resolution below is never
+#      preempted (design.md's no-fallback-for-linked-satellites — whose
+#      letter named the absent directory; the empty scaffold is the recorded
+#      widening, an existing-but-empty directory carrying no signal of its
+#      own).
 #   3. Otherwise, <worktree>/<spec-root>/changes/<name>/link.md exists and
 #      carries `## Part of`:
 #        - a canonical worktree argument was passed → its own
@@ -135,15 +140,76 @@ _change_plan_link_part_of() {
   printf '%s\n' "$ref"
 }
 
+# _change_plan_main_checkout <dir> — print the absolute path of the git
+# primary checkout (working tree) <dir> belongs to (KAN-430). For an
+# ordinary repository the git common dir is `<primary>/.git`, so the answer
+# is its dirname. Where the layout says that dirname is NOT a checkout, the
+# answer comes from git's own recorded override or is refused — never
+# guessed:
+#
+#   - `core.worktree` set in the common dir's config → that path, absolute
+#     or resolved against the common dir. `git init --separate-git-dir`
+#     layouts record it on git releases that write the key.
+#   - common dir ends `/.git` and no override → its dirname.
+#   - anything else — a separated gitdir with no recorded override, where
+#     MEASURED on this machine's git neither core.worktree nor
+#     `git worktree list` names the checkout (the list's first entry is the
+#     GITDIR there, so that derivation resolves the same wrong root it was
+#     proposed to fix) — the checkout's location is recoverable only from
+#     the checkout's own `.git` file, which a linked worktree cannot see.
+#     When <dir> is itself the primary (its gitdir IS the common dir) the
+#     answer is <dir> itself; any other judged tree returns 1, and the
+#     caller falls back to resolving against <dir> — which from inside a
+#     worktree reaches nothing, turning the silent wrong answer the panel
+#     found into a loud refusal. This repository's guards only ever run
+#     inside checkouts; a bare primary (no override, common dir not `/.git`,
+#     judged from itself) answers the bare directory, recorded here rather
+#     than handled.
+#
+# Returns 1 when git cannot answer at all — <dir> is not a git repository,
+# or git is not installed — with the same worktree-relative fallback.
+_change_plan_main_checkout() {
+  local dir="$1" common gitdir cw
+  common="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [ -n "$common" ] || return 1
+  cw="$(git config --file "$common/config" core.worktree 2>/dev/null)" || cw=""
+  if [ -n "$cw" ]; then
+    case "$cw" in
+      /*) printf '%s\n' "$cw" ;;
+      *) printf '%s\n' "$common/$cw" ;;
+    esac
+    return 0
+  fi
+  case "$common" in
+    */.git)
+      dirname -- "$common"
+      ;;
+    *)
+      gitdir="$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+      if [ "$gitdir" = "$common" ]; then
+        printf '%s\n' "$dir"
+      else
+        return 1
+      fi
+      ;;
+  esac
+}
+
 # _change_plan_peer_root <worktree> <spec-root> <peer-name> — print the
 # absolute, resolved path of <peer-name>'s tree root to stdout and return 0,
 # or return 1 when <worktree>/<spec-root>/peers carries no such name, or the
 # resolved path does not exist (peer declared but not present — not an
 # error this function raises; the caller decides what an empty answer
-# means). Paths in peers are relative to the tree's parent directory, which
-# in practice means resolving relative to <worktree> itself, since every
-# entry starts with `../` — the worked example in design.md's
-# `peer-absence-is-not-a-finding` is the resolution this reproduces.
+# means). Paths in peers are relative to the tree's parent directory — the
+# PRIMARY checkout's parent, since every entry starts with `../` — so the
+# declared path resolves against <worktree>'s main checkout, not against the
+# worktree itself (KAN-430): judged against the worktree, `../<peer>`
+# resolves into the worktree's parent — <project>/.worktrees/ or
+# <project>-worktrees/ — where no peer is ever checked out, and peers could
+# not resolve from any worktree at all. A tree git cannot answer for falls
+# back to resolving against the worktree itself, the pre-KAN-430 behavior.
+# The worked example in design.md's `peer-absence-is-not-a-finding` is the
+# main-checkout resolution this reproduces.
 _change_plan_peer_root() {
   local worktree="$1" spec_root="$2" peer_name="$3"
   local peers_file="$worktree/$spec_root/peers"
@@ -159,7 +225,9 @@ _change_plan_peer_root() {
   done < "$peers_file"
   [ -n "$resolved" ] || return 1
 
-  ( cd "$worktree/$resolved" 2>/dev/null && pwd ) || return 1
+  local base
+  base="$(_change_plan_main_checkout "$worktree")" || base="$worktree"
+  ( cd "$base/$resolved" 2>/dev/null && pwd ) || return 1
 }
 
 # _change_plan_resolve_dir <worktree> <change-name> [canonical-worktree] —
@@ -187,16 +255,22 @@ _change_plan_resolve_dir() {
     return 0
   fi
 
-  # THE ABSENT-DIR BRANCH (KAN-260): this tree carries NO change directory
-  # at all for the named change — the cross-repo shape where the plan lives
-  # only in the canonical repo — so the same-named plan resolves directly
+  # THE CANONICAL-BY-NAME BRANCH (KAN-260, widened by KAN-430): the local
+  # tree carries NO tasks.md and NO link.md for the named change — the
+  # cross-repo shape where the plan lives only in the canonical repo, whether
+  # the change directory is absent entirely or an empty scaffold a refused or
+  # aborted link step left behind — so the same-named plan resolves directly
   # from the SUPPLIED canonical worktree, with no link.md to read and no
-  # store to query. Gated on the DIRECTORY being absent, not merely
-  # tasks.md: a satellite (a dir carrying only link.md) keeps link
-  # resolution and its loud failures below, so the canonical worktree is
-  # never retried behind link.md's back (design.md's
-  # no-fallback-for-linked-satellites).
-  if [ ! -d "$dir" ] && [ -n "$canonical_worktree" ]; then
+  # store to query. An existing-but-empty directory carries no signal of its
+  # own: no local plan and no local link, so it says nothing about where the
+  # plan lives that the canonical argument does not say better. Gated on BOTH
+  # files being absent, not merely on the directory's absence: a satellite (a
+  # dir carrying only link.md — or a `## Parts`-only canonical-side copy)
+  # keeps link resolution and its loud failures below, so the canonical
+  # worktree is never retried behind link.md's back (design.md's
+  # no-fallback-for-linked-satellites, whose letter named the absent
+  # directory; KAN-430 is the recorded widening to the empty scaffold).
+  if [ ! -f "$dir/tasks.md" ] && [ ! -f "$dir/link.md" ] && [ -n "$canonical_worktree" ]; then
     local absent_leaf absent_dir
     absent_leaf="$(spec_root_leaf "$canonical_worktree")"
     absent_dir="$canonical_worktree/$absent_leaf/changes/$name"
