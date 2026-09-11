@@ -115,6 +115,19 @@
 # threshold from the start rather than after a review finds the gap, as
 # cases 20-21 had to for FOREGROUND BUILDS.
 #
+# Cases 52-55 cover KAN-400's gated per-task reviewer dispatch in
+# implement.md, which raised that file's minimums — REPRODUCE, DON'T READ
+# (reviewer variant) and FOREGROUND BUILDS from 2 to 3, TOOLS, MODEL
+# HANDSHAKE and NO DELEGATION from 1 to 2. CLEAN_IMPLEMENT and case 1's
+# own implement.md fixture now carry the raised counts (a second
+# REVIEWER_BLOCK, a third FOREGROUND_BLOCK, a second DELEGATION_BLOCK).
+# Case 20's pinned message moved to the new threshold; case 52 inverted
+# from the kan-488 min=1 pin into the raised min=2 pin for TOOLS and MODEL
+# HANDSHAKE together; cases 53-55 pin the raised thresholds from the
+# start, one per remaining entry (REPRODUCE at 3, FOREGROUND BUILDS at 3,
+# NO DELEGATION at 2), each with exactly one block fewer than its
+# threshold and every other entry correct.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -492,13 +505,14 @@ write_site() {
 # dispatch), one TARGETED TESTS block (panel-fix dispatch), one MUTATION
 # PROOF block (panel-fix dispatch), two TOOLS blocks (panel slot,
 # panel-fix dispatch) and one INDEPENDENT PASSES block (the bundle prompt,
-# KAN-472 task 20); implement.md carries two FOREGROUND BUILDS blocks
-# too (the implementer dispatch, plus the parent's own §4 restatement),
+# KAN-472 task 20); implement.md carries three FOREGROUND BUILDS blocks
+# too (the implementer dispatch, the gated per-task reviewer dispatch,
+# and the parent's own §4 restatement),
 # one TARGETED TESTS block (implementer dispatch) and two TOOLS blocks
-# (only one is required now that the conductor dispatch is gone, kan-488 —
-# the extra block is harmless, since the guard checks "at least" the
-# minimum), plus two MODEL HANDSHAKE blocks (same reasoning) and one NO
-# DELEGATION block (implementer dispatch); review-panel.md carries two NO
+# (both required: the implementer dispatch and the gated per-task
+# reviewer dispatch), plus two MODEL HANDSHAKE blocks (same sites) and
+# two NO DELEGATION blocks (implementer dispatch, gated per-task reviewer
+# dispatch); review-panel.md carries two NO
 # DELEGATION blocks (panel slot, panel-fix dispatch), same as its two
 # TOOLS blocks (KAN-484). new_root already seeded verify-and-handoff.md
 # with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
@@ -535,6 +549,10 @@ write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
 
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
 $FOREGROUND_BLOCK
 
 $FOREGROUND_BLOCK
@@ -548,6 +566,8 @@ $TOOLS_BLOCK
 $HANDSHAKE_BLOCK
 
 $HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
 
 $DELEGATION_BLOCK"
 run_guard
@@ -961,9 +981,11 @@ esac
 
 # ===========================================================================
 # Case 20: implement.md carries exactly ONE correct FOREGROUND BUILDS
-# block; the second required occurrence is entirely missing (not
+# block; every further required occurrence is entirely missing (not
 # deficient — simply absent) — exit 1, names implement.md and the
-# min-blocks violation at its own threshold (2).
+# min-blocks violation at its own threshold (3 since KAN-400 re-added the
+# gated per-task reviewer dispatch as the third FOREGROUND BUILDS site in
+# the file).
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
@@ -985,7 +1007,7 @@ case "$OUT" in
   *) fail "case 20: expected implement.md named in output, got: $OUT" ;;
 esac
 case "$OUT" in
-  *"requires at least 2 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"*) \
+  *"requires at least 3 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 1"*) \
     pass "case 20: names the min-blocks violation at its own threshold" ;;
   *) fail "case 20: expected the FOREGROUND BUILDS min-blocks violation message, got: $OUT" ;;
 esac
@@ -1422,6 +1444,10 @@ CLEAN_IMPLEMENT="$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
 
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
 $FOREGROUND_BLOCK
 
 $FOREGROUND_BLOCK
@@ -1435,6 +1461,8 @@ $TOOLS_BLOCK
 $HANDSHAKE_BLOCK
 
 $HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
 
 $DELEGATION_BLOCK"
 
@@ -1958,20 +1986,24 @@ esac
 
 # ===========================================================================
 # Case 52: implement.md carries exactly one correct TOOLS block and exactly
-# one correct MODEL HANDSHAKE block — exit 0. Pins the kan-488 min-blocks
-# drop (implement.md's TOOLS/MODEL HANDSHAKE entries went from 2 to 1 once
-# the conductor's own copy of each was deleted): CLEAN_IMPLEMENT and every
-# other implement.md fixture in this suite still carry two of each block,
-# which satisfies "at least 1" without ever exercising the boundary — a
-# SITE_MIN_BLOCKS regression back to 2 for either entry would still pass
-# every one of those, since 2 >= 2. Only a fixture supplying exactly one of
-# each discriminates min=1 from min=2.
+# one correct MODEL HANDSHAKE block — exit 1 once KAN-400 raised both
+# minimums back to 2 (the gated per-task reviewer dispatch carries its own
+# copy of each), naming both min-blocks violations at their own threshold.
+# Pins the raised boundary in the same motion the kan-488 drop was pinned:
+# CLEAN_IMPLEMENT and every other implement.md fixture in this suite now
+# carry two of each block, which satisfies "at least 2" without ever
+# exercising the boundary — only a fixture supplying exactly one of each
+# discriminates min=2 from min=1.
 # ===========================================================================
 new_root
 write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
 write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
 
 $IMPLEMENTER_BLOCK
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
 
 $FOREGROUND_BLOCK
 
@@ -1983,10 +2015,141 @@ $TOOLS_BLOCK
 
 $HANDSHAKE_BLOCK
 
+$DELEGATION_BLOCK
+
 $DELEGATION_BLOCK"
 run_guard
-[ "$RC" -eq 0 ] && pass "case 52: exactly one TOOLS and one MODEL HANDSHAKE block in implement.md exits 0" \
-  || fail "case 52: expected exit 0, got rc=$RC out=$OUT"
+[ "$RC" -eq 1 ] && pass "case 52: exactly one TOOLS and one MODEL HANDSHAKE block in implement.md exits 1" \
+  || fail "case 52: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"requires at least 2 block(s) carrying the label \"**TOOLS:**\", found 1"*) \
+    pass "case 52: names the TOOLS min-blocks violation at its own threshold" ;;
+  *) fail "case 52: expected the TOOLS min-blocks violation message, got: $OUT" ;;
+esac
+case "$OUT" in
+  *"requires at least 2 block(s) carrying the label \"**MODEL HANDSHAKE:**\", found 1"*) \
+    pass "case 52: names the MODEL HANDSHAKE min-blocks violation at its own threshold" ;;
+  *) fail "case 52: expected the MODEL HANDSHAKE min-blocks violation message, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 53: implement.md carries exactly two correct REPRODUCE, DON'T READ
+# blocks (one reviewer, one implementer) — the third required block, the
+# gated per-task reviewer dispatch's own reviewer-variant copy, is
+# entirely missing — exit 1, naming the min-blocks violation at its own
+# threshold (3). Pins KAN-400's raise from the start, as cases 20-21 had
+# to do for FOREGROUND BUILDS after the fact.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 53: exits 1" || fail "case 53: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"requires at least 3 block(s) carrying the label \"**REPRODUCE, DON'T READ:**\", found 2"*) \
+    pass "case 53: names the REPRODUCE min-blocks violation at its own threshold" ;;
+  *) fail "case 53: expected the REPRODUCE min-blocks violation message, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 54: implement.md carries exactly two correct FOREGROUND BUILDS
+# blocks; the third (the gated per-task reviewer dispatch's copy) is
+# entirely missing — exit 1, naming the min-blocks violation at its own
+# threshold (3). Same shape as case 53, other entry.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 54: exits 1" || fail "case 54: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"requires at least 3 block(s) carrying the label \"**FOREGROUND BUILDS:**\", found 2"*) \
+    pass "case 54: names the FOREGROUND min-blocks violation at its own threshold" ;;
+  *) fail "case 54: expected the FOREGROUND BUILDS min-blocks violation message, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 55: implement.md carries exactly one correct NO DELEGATION block;
+# the second (the gated per-task reviewer dispatch's copy) is entirely
+# missing — exit 1, naming the min-blocks violation at its own threshold
+# (2). Same shape as case 52, other entry.
+# ===========================================================================
+new_root
+write_site "skills/flow/review-panel.md" "$CLEAN_REVIEW_PANEL"
+write_site "skills/flow/implement.md" "$REVIEWER_BLOCK
+
+$IMPLEMENTER_BLOCK
+
+$REVIEWER_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 55: exits 1" || fail "case 55: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"requires at least 2 block(s) carrying the label \"**NO DELEGATION:**\", found 1"*) \
+    pass "case 55: names the NO DELEGATION min-blocks violation at its own threshold" ;;
+  *) fail "case 55: expected the NO DELEGATION min-blocks violation message, got: $OUT" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
