@@ -58,6 +58,12 @@ operator. Ask the operator only when:
 - the request cannot proceed at all without an answer (a missing target, an ambiguous scope that
   would ship something wrong if guessed).
 
+**These two are the whole test.** A round whose options carry a recommended default is auto-picked
+even when the decision is architectural, touches a shared/core file, or is hard to reverse — none
+of those is a third ground to ask. Judgment about the *option itself* (which one is simplest,
+safest, most consistent with the existing pattern) belongs in choosing what to recommend, before the
+round is posed — never in deciding whether to pose it at all.
+
 When asking is unavoidable, ask exactly as `superpowers:brainstorming` would — one question,
 options named, a recommended default marked when one exists.
 
