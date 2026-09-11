@@ -170,7 +170,16 @@ esac
 # to spectre/ the implementation commit is SKIPPED and HEAD is the planning
 # commit — which carries the spec too, so a HEAD-relative assertion here
 # passes for the wrong reason and this case stops being load-bearing.
-CASE5_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case5/ {print $1; exit}')"
+#
+# The awk pipelines resolving these shas (here and in case 6) read the WHOLE
+# log — no early `exit` (KAN-376): git log writes one commit per write(2),
+# and an awk that exits on its match can leave git writing to a closed pipe
+# when the scheduler splits the two processes apart under run-guard-tests.sh's
+# load — git then dies of SIGPIPE, pipefail marks the assignment failed, and
+# `set -e` aborts the whole harness with exit 141 and no output. Reproduced
+# 1-in-30 by looping this harness beside a live suite run; the fixtures here
+# are a handful of commits, so reading them to the end costs nothing.
+CASE5_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case5/ {print $1}')"
 if [ -n "$CASE5_IMPL_SHA" ] \
   && git -C "$REPO" show --name-only --format= "$CASE5_IMPL_SHA" \
     | grep -q '^spectre/specs/greeting\.md$'; then
@@ -206,8 +215,8 @@ case "$SUBJECTS" in
   *"plan: case6"*) pass "case 6: planning commit made" ;;
   *) fail "case 6: planning commit missing: $SUBJECTS" ;;
 esac
-CASE6_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case6/ {print $1; exit}')"
-CASE6_PLAN_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/plan: case6/ {print $1; exit}')"
+CASE6_IMPL_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/impl: case6/ {print $1}')"
+CASE6_PLAN_SHA="$(git -C "$REPO" log --format='%H %s' | awk '/plan: case6/ {print $1}')"
 if [ -n "$CASE6_IMPL_SHA" ] \
   && git -C "$REPO" show --name-only --format= "$CASE6_IMPL_SHA" \
     | grep -q '^spectre/changes/kan-363/link\.md$'; then
