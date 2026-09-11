@@ -293,6 +293,22 @@ and 12 below as written, committing and pushing nothing.
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value, Pillow absent, included) blocks.
 
+   **A clean composite read, or a structural match, is not the same as a verified match at the
+   control level — treat it as necessary, never sufficient.** Full-page comparison catches wrong
+   text, wrong regions, wrong overall layout; it does not catch a border style, an icon's glyph, or
+   a colour step, all of which are invisible at full-page scale (KAN-30 fix round 6: a field's
+   underline-only focus border, drawn against a mockup showing a full outline, read as a match at
+   composite scale and was found only once the two were cropped and zoomed side by side). Before
+   accepting any field, button, icon, or toggle as matching its mockup:
+   1. **Crop and zoom (2–3x) both the mockup region and the corresponding capture, side by side.**
+      Do this for every interactive control the view carries, not only ones that already look
+      suspicious at full scale.
+   2. **Exercise every interactive state the mockup draws for that control, not only its resting
+      one** — a focused field, a field with a value typed (so a clear icon or a validation state
+      actually renders), a pressed button, an enabled toggle. A control checked only at rest has
+      not been checked at all if the mockup draws it focused or active; capture that state
+      separately rather than inferring it from the resting frame.
+
    **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
    own screens ship four fix rounds deep with their real, drawn frames never once diffed against
    the app — `mockups: no map` was reported and accepted every round, because nothing required
