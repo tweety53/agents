@@ -66,6 +66,14 @@ call that names no row is not made.
 **These four rows are the whole run's dispatch tree.** Every row's own prompt carries the NO
 DELEGATION paragraph (section **4** below, `skills/flow/review-panel.md`,
 `skills/flow/verify-and-handoff.md`) — a leaf never dispatches, so nothing exists below these rows.
+**The `flow-<model>-<effort>` family (`agents/flow-*.md`) carries a `tools:` allowlist that omits
+`Agent`** — the NO DELEGATION paragraph is now backed by a capability the dispatched agent
+structurally does not have, not only by prompt text (KAN-487). This covers the panel bundle and
+panel-fix rows whenever `REVIEW_PANEL_TOGGLE` is `dynamic` (`skills/flow/review-panel.md`'s own
+**The roster**). The verifier row is unaffected regardless of any toggle: it dispatches
+`subagent_type: general-purpose` unconditionally (`skills/flow/verify-and-handoff.md`) — a
+harness-provided type this repository does not own and cannot restrict this way. `general-purpose`
+is likewise what a reviewer row dispatches on `REVIEW_PANEL_TOGGLE: default`.
 
 **Inline — the parent implements** below takes this same table minus the implementer and panel-fix
 rows — the parent's only permitted dispatches inline are the panel-bundle and verifier rows.
