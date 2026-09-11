@@ -256,11 +256,13 @@ _change_plan_peer_root() {
 # pre-change refusal, and a guard verdict is never blocked — or silently
 # cleared — by the store's availability.
 #
-# AMBIGUITY REFUSES. More than one (project, tree) pair resolving a plan
-# is a loud refusal on stderr naming every project and path, and return 1
-# with nothing on stdout — a guard asked to choose between two projects'
-# plans must refuse, not guess. Every resolving pair counts, even where
-# two records name the same tree: a store answering the same plan for two
+# AMBIGUITY REFUSES, DISTINGUISHABLY. More than one (project, tree) pair
+# resolving a plan prints one loud stderr line naming every project and
+# path and returns 3 — a code distinct from plain "unresolvable" (1), so a
+# caller that relays ambiguity as its own refusal can tell the two apart;
+# a caller that treats every non-zero alike sees nothing new. Nothing goes
+# to stdout either way. Every resolving pair counts, even where two
+# records name the same tree: a store answering the same plan for two
 # projects is itself an inconsistency worth failing on.
 #
 # THE WORKTREES PATHS ARE TRUSTED THE WAY THE CANONICAL-WORKTREE ARGUMENT
@@ -314,13 +316,27 @@ _change_plan_store_dir() {
     for j in "${!matches[@]}"; do
       echo "change-plan: ambiguous state-record resolution for '$key': project ${projects[$j]} resolves to ${matches[$j]}" >&2
     done
-    return 1
+    return 3
   fi
   if [ "${#matches[@]}" -eq 1 ]; then
     printf '%s\n' "${matches[0]}"
     return 0
   fi
   return 1
+}
+
+# _change_plan_try_store <worktree> <key> — the one wrapper the resolution
+# order's three store call sites go through, so the ambiguity code
+# propagates instead of being masked as a plain failure: prints the
+# resolved directory and returns 0 when the store resolved; returns 3 on
+# an ambiguous answer (the caller relays or ignores); returns 1 when
+# simply unresolvable.
+_change_plan_try_store() {
+  local sdir rc
+  sdir="$(_change_plan_store_dir "$1" "$2")"
+  rc=$?
+  [ "$rc" -eq 0 ] && printf '%s\n' "$sdir"
+  return "$rc"
 }
 
 # _change_plan_resolve_dir <worktree> <change-name> [canonical-worktree] —
@@ -375,14 +391,14 @@ _change_plan_resolve_dir() {
 
   local link="$dir/link.md"
   if [ ! -f "$link" ]; then
-    _change_plan_store_dir "$worktree" "$name" && return 0
-    return 1
+    _change_plan_try_store "$worktree" "$name"
+    return "$?"
   fi
 
   local ref
   ref="$(_change_plan_link_part_of "$link")" || {
-    _change_plan_store_dir "$worktree" "$name" && return 0
-    return 1
+    _change_plan_try_store "$worktree" "$name"
+    return "$?"
   }
 
   local peer="${ref%%:*}" changeid="${ref#*:}"
@@ -408,8 +424,8 @@ _change_plan_resolve_dir() {
 
   local peer_root
   peer_root="$(_change_plan_peer_root "$worktree" "$spec_root" "$peer")" || {
-    _change_plan_store_dir "$worktree" "$changeid" && return 0
-    return 1
+    _change_plan_try_store "$worktree" "$changeid"
+    return "$?"
   }
 
   local peer_spec_root peer_dir
@@ -419,8 +435,8 @@ _change_plan_resolve_dir() {
     printf '%s\n' "$peer_dir"
     return 0
   fi
-  _change_plan_store_dir "$worktree" "$changeid" && return 0
-  return 1
+  _change_plan_try_store "$worktree" "$changeid"
+  return "$?"
 }
 
 # change_plan_ref <worktree> <change-name>
@@ -457,9 +473,14 @@ change_plan_ref() {
 # Returns 1 when the change is a satellite and no canonical plan could be
 # reached — the caller decides whether that is a refusal or a verdict.
 change_plan_path() {
-  local dir
-  dir="$(_change_plan_resolve_dir "$@")" || return 1
-  printf '%s\n' "$dir/tasks.md"
+  local dir rc=0
+  # rc is captured, not masked with `|| return 1`: resolve_dir's 3 — the
+  # store step's ambiguity code (KAN-267) — must reach the caller, whose
+  # relay is what makes an ambiguous record answer a loud refusal instead
+  # of an ordinary missing-plan verdict.
+  dir="$(_change_plan_resolve_dir "$@")" || rc=$?
+  [ "$rc" -eq 0 ] && printf '%s\n' "$dir/tasks.md"
+  return "$rc"
 }
 
 # change_plan_dir <worktree> <change-name> [canonical-worktree]

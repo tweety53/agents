@@ -782,7 +782,13 @@ set +e
 OUT="$(PATH="$STORE_BIN:$PATH" change_plan_dir "$CASE13" "ambig-plan" 2>"$ERR13")"
 RC=$?
 set -e
-assert_nonzero_rc "store-ambiguity-refuses: two resolving projects refuse" "$RC"
+# 3 is the ambiguity code (KAN-267), distinct from plain unresolvable (1):
+# a caller that relays ambiguity as its own refusal tells the two apart.
+if [ "$RC" -eq 3 ]; then
+  pass "store-ambiguity-refuses: two resolving projects refuse with the ambiguity code 3"
+else
+  fail "store-ambiguity-refuses: expected rc 3, got $RC"
+fi
 assert_eq "store-ambiguity-refuses: it prints nothing to stdout" "" "$OUT"
 if grep -q "proj-a" "$ERR13" && grep -q "proj-b" "$ERR13" \
   && grep -q "$TREE13A" "$ERR13" && grep -q "$TREE13B" "$ERR13"; then
