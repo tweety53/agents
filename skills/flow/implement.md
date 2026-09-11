@@ -251,6 +251,29 @@ flow record dispatch begin -change <name> -role planner -model <PLANNING_MODEL> 
   -key planner-fix-<n> -session-token mf-<literal-token> -started-at <ts>
 ```
 
+**Before the dispatch, the appended-task budget is checked.** Read the `**Tasks appended:** <n>`
+line from the header of this change's `tasks.md` — the count of tasks appended at the human gate
+since the plan was first written; a plan that has never carried the line reads as 0. When the
+count has reached **6**, the re-plan budget, this fix round is offered the planner pass before
+anything is appended: an append past this budget is how a change outgrows its own proposal
+without anyone deciding it should (KAN-29 appended 24 of its 46 tasks this way). Ask the
+operator, the shape **The shape** (`skills/flow-contracts/operator-prompts.md`) fixes:
+
+> **This change's plan has had <n> tasks appended at the human gate — at the re-plan budget of
+> 6. Re-plan instead of appending?**
+> - **Re-plan** *(default, recommended)* — this fix's planner pass rewrites the plan instead of
+>   appending: the accumulated appends and this round's fix instructions are folded into a fresh
+>   `tasks.md` with fresh task numbering, `proposal.md`'s scope statement is brought up to date
+>   with what the change now covers, and `**Tasks appended:**` resets to 0 — the folded tasks are
+>   planned, not appended
+> - **Append anyway** — the fix is appended exactly as this section otherwise states, and the
+>   count keeps growing
+
+Silence takes the recommended re-plan, and the ⚠ line names it. Either answer continues into the
+dispatch below — the answer names the planner's brief, never a second dispatch: on **Append
+anyway** the planner runs as this section states it, its own where-should-it-go question
+included; on **Re-plan** the rewrite is the brief and that question does not arise.
+
 Record what changed **before** writing code, so the proposal never goes stale. `<n>` is this fix
 run's own ordinal — one more than the number of fix rounds already recorded in `proposal.md`/
 `tasks.md` or as `<name>-fix-N` sub-changes, the same `N` the "where should it go" prompt's
@@ -272,6 +295,9 @@ exactly as any other, shape per Operator prompts (`skills/flow-contracts/operato
 >   scope the parent change does not describe
 
 The planner writes the append, or the sub-change's own proposal and plan, and returns `## Plan`.
+Whichever brief the budget answer named, the planner keeps the counter true: every task its
+append adds raises the `**Tasks appended:**` value by one, creating the line in `tasks.md`'s
+header when the plan has never carried one.
 **The Jira description sync stays in the parent** — never the planner's job. **Load
 `skills/flow-contracts/jira-integration.md`.** If the fix adds scope the linked Jira issue does not
 describe, sync the issue **description** per **Description sync** in Jira integration
