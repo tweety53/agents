@@ -20,8 +20,12 @@
 # positional argument as a regular expression against the absolute path, and
 # the same argument quoted lists 0 files.
 #
-# WHAT IS ENUMERATED: every `*.spec.ts` under the checkout, `node_modules`
-# and `.git` pruned. Not Playwright's wider default testMatch (`.test.ts`,
+# WHAT IS ENUMERATED: every `*.spec.ts` under the checkout, `node_modules`,
+# `.git` and `.worktrees` pruned — a `/flow` apply worktree under
+# `.worktrees/<change>/` carries its own full copy of every spec (KAN-30's
+# own gymie-playwright worktree, the first one ever created under a
+# checkout this guard reads, is what surfaced this). Not Playwright's wider
+# default testMatch (`.test.ts`,
 # `.spec.js`, `.spec.mjs`) — a vitest `*.test.ts` file beside a Playwright
 # suite would otherwise become an orphan of a runner it never belonged to.
 #
@@ -193,7 +197,7 @@ while IFS= read -r -d '' spec; do
     printf '%s: reached by no package.json script\n' "${spec#"$CHECKOUT"/}" | sanitize_display
     ORPHANS=$((ORPHANS + 1))
   fi
-done < <(find "$CHECKOUT" \( -name node_modules -o -name .git \) -prune -o -name '*.spec.ts' -type f -print0 | sort -z)
+done < <(find "$CHECKOUT" \( -name node_modules -o -name .git -o -name .worktrees \) -prune -o -name '*.spec.ts' -type f -print0 | sort -z)
 
 if [ "$ORPHANS" -ne 0 ]; then
   echo "Spec reach: $ORPHANS of $TOTAL spec(s) reached by no package.json script" >&2
