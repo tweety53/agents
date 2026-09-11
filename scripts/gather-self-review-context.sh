@@ -44,9 +44,12 @@
 # exactly as before (see validate_archived_path() step 1 below); when
 # present, it BECOMES TRUSTED_REPO_ROOT directly, once validated by the same
 # tests <archived-change-path> itself receives: absolute, lexically-
-# collapsed form identical to its symlink-resolved form, and — reusing this
-# script's own existing git-common-dir derivation, just anchored at the
-# supplied path instead of at process cwd — the root of a git repository.
+# collapsed form identical to its symlink-resolved form, and — via
+# `git -C <root> rev-parse --show-toplevel` equal to the supplied path
+# (KAN-493) — the root of a git repository, where a linked worktree root
+# qualifies alongside the main checkout's own: the documented caller
+# (skills/flow/archive.md step 9) passes <landing-worktree>, which after
+# run 2's archive step is where the archived change path physically lives.
 # Accepting a caller-supplied root does NOT weaken the containment argument
 # validate_archived_path() makes below: the prohibition that argument
 # defends is deriving the trust anchor from <archived-change-path> itself —
@@ -207,12 +210,16 @@ esac
 # Reuses the two mechanisms the script already owns rather than writing new
 # ones: lexically_collapse() for the lexical half, and the same `cd -P`/
 # `pwd -P` real-resolution used throughout this script for the symlink half.
-# "root of a git repository" reuses this script's own git-common-dir
-# derivation — identical to validate_archived_path() step 1 below, just
-# anchored at the supplied path instead of at process cwd — so a worktree
-# root is refused here exactly as it would be if it were process cwd,
-# keeping both derivation paths agreeing on what "the repository root"
-# means.
+# "root of a git repository" validates with `git -C <root> rev-parse
+# --show-toplevel` equal to the supplied path (KAN-493): a main checkout
+# root and a linked worktree root both pass — the documented caller passes
+# <landing-worktree> here, which after run 2's archive step is where the
+# archived change path physically lives — while a repository SUBDIRECTORY
+# still refuses, because --show-toplevel names the containing root, not the
+# argument. This is deliberately NOT the git-common-dir derivation
+# validate_archived_path() step 1 uses for process cwd (F23): that one must
+# resolve to the main checkout even from inside a worktree, which is exactly
+# the shape this override must accept.
 REPO_ROOT_OVERRIDE=""
 if [ -n "$REPO_ROOT_ARG" ]; then
   case "$REPO_ROOT_ARG" in
@@ -231,16 +238,9 @@ if [ -n "$REPO_ROOT_ARG" ]; then
     echo "gather-self-review-context: repo-root '$REPO_ROOT_ARG' does not exist or resolves through a symlink" >&2
     exit 2
   fi
-  repo_root_common_dir="$(git -C "$repo_root_real" rev-parse --git-common-dir 2>/dev/null || true)"
-  repo_root_from_git=""
-  if [ -n "$repo_root_common_dir" ]; then
-    case "$repo_root_common_dir" in
-      /*) repo_root_from_git="$(cd "$(dirname "$repo_root_common_dir")" && pwd -P 2>/dev/null || true)" ;;
-      *) repo_root_from_git="$(cd "$repo_root_real/$(dirname "$repo_root_common_dir")" && pwd -P 2>/dev/null || true)" ;;
-    esac
-  fi
-  if [ -z "$repo_root_from_git" ] || [ "$repo_root_from_git" != "$repo_root_real" ]; then
-    echo "gather-self-review-context: repo-root '$REPO_ROOT_ARG' is not the root of a git repository" >&2
+  repo_root_toplevel="$(git -C "$repo_root_real" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$repo_root_toplevel" ] || [ "$repo_root_toplevel" != "$repo_root_real" ]; then
+    echo "gather-self-review-context: repo-root '$REPO_ROOT_ARG' is not a git repository root (main checkout or linked worktree)" >&2
     exit 2
   fi
   REPO_ROOT_OVERRIDE="$repo_root_real"

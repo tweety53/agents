@@ -1392,6 +1392,40 @@ case "$OUT" in
   *) pass "repo-root-supplied-relative-archived-path-symlink: target tasks.md content not in bundle" ;;
 esac
 
+# repo-root-supplied-worktree: a linked worktree is a valid <repo-root> — the shape
+# skills/flow/archive.md step 9 documents (<landing-worktree> passed as the trust anchor,
+# KAN-493). The fixture files are created INSIDE the worktree (a fresh worktree carries none
+# of the main checkout's untracked files), and cwd is outside the repository, so the bundle
+# can only gather if the fourth argument itself becomes the trusted root.
+new_repo
+WORKTREE_K493="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-worktree-root.XXXXXX")"
+rmdir "$WORKTREE_K493"
+(cd "$REPO" && git worktree add -q -b k493-worktree-root "$WORKTREE_K493" >/dev/null)
+TREES+=("$WORKTREE_K493")
+# Canonicalize the same way the script resolves its arguments (pwd -P), so an OS-level path
+# alias under $TMPDIR (e.g. /var/folders/... -> /private/var/folders/...) cannot produce a
+# spurious lexical/real mismatch before the git check this case exists to exercise — the
+# same handling the F23 case gives $ARCHIVED. `git worktree add` records the resolved path
+# too, so this is also the path a real caller passes.
+WORKTREE_K493="$(cd -P "$WORKTREE_K493" && pwd -P)"
+mkdir -p "$WORKTREE_K493/docs/superpowers/ledgers" \
+  "$WORKTREE_K493/spectre/changes/archive/2026-01-01-demo"
+printf 'LEDGER-WORKTREE-ROOT\n' > "$WORKTREE_K493/docs/superpowers/ledgers/2026-01-01-demo.md"
+printf 'TASKS-WORKTREE-ROOT\n' > "$WORKTREE_K493/spectre/changes/archive/2026-01-01-demo/tasks.md"
+OUTSIDE_CWD_K493="$(mktemp -d "${TMPDIR:-/tmp}/gather-test-outside-worktree-root.XXXXXX")"
+TREES+=("$OUTSIDE_CWD_K493")
+set +e
+OUT="$(cd "$OUTSIDE_CWD_K493" && "$SCRIPT" spectre/changes/archive/2026-01-01-demo demo "$STATE_DIR" "$WORKTREE_K493" 2>&1)"
+RC=$?
+set -e
+if [ "$RC" -eq 0 ] && case "$OUT" in *LEDGER-WORKTREE-ROOT*) true ;; *) false ;; esac \
+  && case "$OUT" in *TASKS-WORKTREE-ROOT*) true ;; *) false ;; esac; then
+  pass "repo-root-supplied-worktree: a linked worktree is accepted as <repo-root>"
+else
+  fail "repo-root-supplied-worktree: rc=$RC out=$OUT"
+fi
+(cd "$REPO" && git worktree remove -f "$WORKTREE_K493" >/dev/null 2>&1) || true
+
 # repo-root-relative: a relative fourth argument is an invocation error.
 new_repo
 add_ledger
