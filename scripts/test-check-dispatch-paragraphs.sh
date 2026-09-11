@@ -128,6 +128,13 @@
 # NO DELEGATION at 2), each with exactly one block fewer than its
 # threshold and every other entry correct.
 #
+# Cases 56-59 cover KAN-496's PIXEL PROBE paragraph, required once in
+# review-panel.md (the panel-fix subagent dispatch) and nowhere else: case
+# 1's own review-panel.md fixture and CLEAN_REVIEW_PANEL now carry one
+# correct PIXEL_PROBE_BLOCK; case 56 is the label absent entirely from
+# review-panel.md; cases 57-59 are one case per required phrase, each
+# dropped in turn.
+#
 # Per KAN-197, every check this file targets was mutation-tested by hand
 # during authoring: the check was disabled or removed from a throwaway copy
 # of the guard, the same fixture re-run, and the case's failure signal
@@ -493,6 +500,54 @@ DELEGATION_BLOCK_NO_LEAF='> **NO DELEGATION:** Do this work yourself. Never call
 > conductor'"'"'s closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.'
 
+# The PIXEL PROBE paragraph, reproduced verbatim from
+# skills/flow/review-panel.md (KAN-496).
+PIXEL_PROBE_BLOCK='> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
+> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
+> against the actual rendered pixels or geometry, in the style the reviewers'"'"' reproducers
+> already use: drive the real draw path and assert on the value it renders or computes, never on
+> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
+> rejected at the fix step — the finding stays open and the round does not close — so the
+> regression is caught this round, not discovered by the next one. Where pixels cannot be
+> rendered in this environment, the probe asserts on the geometry the draw path actually
+> computes — the same numbers the renderer will paint — and your report names why the pixel
+> output itself was not asserted.'
+
+# Variants of PIXEL_PROBE_BLOCK, each with exactly one required phrase
+# dropped while staying a plausible paragraph — cases 57-59.
+PIXEL_PROBE_BLOCK_NO_CLASS='> **PIXEL PROBE:** every fix you land to draw-and-geometry code — code that computes what is
+> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
+> against the actual rendered pixels or geometry, in the style the reviewers'"'"' reproducers
+> already use: drive the real draw path and assert on the value it renders or computes, never on
+> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
+> rejected at the fix step — the finding stays open and the round does not close — so the
+> regression is caught this round, not discovered by the next one. Where pixels cannot be
+> rendered in this environment, the probe asserts on the geometry the draw path actually
+> computes — the same numbers the renderer will paint — and your report names why the pixel
+> output itself was not asserted.'
+
+PIXEL_PROBE_BLOCK_NO_PIXELS='> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
+> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
+> against the actual rendered output, in the style the reviewers'"'"' reproducers
+> already use: drive the real draw path and assert on the value it renders or computes, never on
+> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
+> rejected at the fix step — the finding stays open and the round does not close — so the
+> regression is caught this round, not discovered by the next one. Where pixels cannot be
+> rendered in this environment, the probe asserts on the geometry the draw path actually
+> computes — the same numbers the renderer will paint — and your report names why the pixel
+> output itself was not asserted.'
+
+PIXEL_PROBE_BLOCK_NO_REJECTION='> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
+> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
+> against the actual rendered pixels or geometry, in the style the reviewers'"'"' reproducers
+> already use: drive the real draw path and assert on the value it renders or computes, never on
+> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
+> refused before the round closes — the finding stays open — so the
+> regression is caught this round, not discovered by the next one. Where pixels cannot be
+> rendered in this environment, the probe asserts on the geometry the draw path actually
+> computes — the same numbers the renderer will paint — and your report names why the pixel
+> output itself was not asserted.'
+
 write_site() {
   local relpath="$1" content="$2"
   printf '%s\n' "$content" > "$ROOT/$relpath"
@@ -514,7 +569,8 @@ write_site() {
 # two NO DELEGATION blocks (implementer dispatch, gated per-task reviewer
 # dispatch); review-panel.md carries two NO
 # DELEGATION blocks (panel slot, panel-fix dispatch), same as its two
-# TOOLS blocks (KAN-484). new_root already seeded verify-and-handoff.md
+# TOOLS blocks (KAN-484), and one PIXEL PROBE block (the panel-fix
+# dispatch, KAN-496). new_root already seeded verify-and-handoff.md
 # with its own required TOOLS, MODEL HANDSHAKE and NO DELEGATION blocks —
 # brainstorm.md is no longer a dispatch site (kan-488) and is seeded with
 # nothing.
@@ -531,6 +587,8 @@ $FOREGROUND_BLOCK
 $TARGETED_BLOCK
 
 $MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK
 
 $TOOLS_BLOCK
 
@@ -1426,6 +1484,8 @@ $TARGETED_BLOCK
 
 $MUTATION_BLOCK
 
+$PIXEL_PROBE_BLOCK
+
 $TOOLS_BLOCK
 
 $TOOLS_BLOCK
@@ -2149,6 +2209,164 @@ case "$OUT" in
   *"requires at least 2 block(s) carrying the label \"**NO DELEGATION:**\", found 1"*) \
     pass "case 55: names the NO DELEGATION min-blocks violation at its own threshold" ;;
   *) fail "case 55: expected the NO DELEGATION min-blocks violation message, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 56: the PIXEL PROBE label is absent entirely from review-panel.md
+# (KAN-496) — exit 1, names the file and the missing block.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 56: exits 1" || fail "case 56: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"review-panel.md"*"PIXEL PROBE"*) pass "case 56: names review-panel.md and the missing PIXEL PROBE block" ;;
+  *) fail "case 56: expected review-panel.md and PIXEL PROBE named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 57: a PIXEL PROBE block is present but missing "draw/geometry code"
+# — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK_NO_CLASS
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 57: exits 1" || fail "case 57: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"draw/geometry code"*) pass "case 57: names the missing phrase" ;;
+  *) fail "case 57: expected 'draw/geometry code' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 58: a PIXEL PROBE block is present but missing "actual rendered
+# pixels or geometry" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK_NO_PIXELS
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 58: exits 1" || fail "case 58: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"actual rendered pixels or geometry"*) pass "case 58: names the missing phrase" ;;
+  *) fail "case 58: expected 'actual rendered pixels or geometry' named in output, got: $OUT" ;;
+esac
+
+# ===========================================================================
+# Case 59: a PIXEL PROBE block is present but missing "rejected at the fix
+# step" — exit 1, names the phrase.
+# ===========================================================================
+new_root
+write_site "skills/flow/implement.md" "$CLEAN_IMPLEMENT"
+write_site "skills/flow/review-panel.md" "$REVIEWER_BLOCK
+
+$VERBATIM_BLOCK
+
+$FOREGROUND_BLOCK
+
+$FOREGROUND_BLOCK
+
+$TARGETED_BLOCK
+
+$MUTATION_BLOCK
+
+$PIXEL_PROBE_BLOCK_NO_REJECTION
+
+$TOOLS_BLOCK
+
+$TOOLS_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$HANDSHAKE_BLOCK
+
+$INDEPENDENT_BLOCK
+
+$DELEGATION_BLOCK
+
+$DELEGATION_BLOCK"
+run_guard
+[ "$RC" -eq 1 ] && pass "case 59: exits 1" || fail "case 59: expected exit 1, got rc=$RC out=$OUT"
+case "$OUT" in
+  *"rejected at the fix step"*) pass "case 59: names the missing phrase" ;;
+  *) fail "case 59: expected 'rejected at the fix step' named in output, got: $OUT" ;;
 esac
 
 if [ "$FAILURES" -ne 0 ]; then
