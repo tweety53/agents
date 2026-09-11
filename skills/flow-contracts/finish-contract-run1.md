@@ -134,21 +134,59 @@ the worktree. `<base-ref>` is composed as `origin/$BASE`, exactly as the preflig
 and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map for that
 worktree. The three verdicts — `CLEAR`, `MOVED` and `REFUSE` — and the exit contract are the
 script's own; see `<agents repo>/scripts/check-base-moved.sh`'s header rather than a copy of them
-here. A `MOVED` verdict that overlaps is prompted with the guard's hand-verification procedure
-relayed alongside it, per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
+here. A `MOVED` verdict is relayed with the guard's hand-verification procedure alongside it, per
+**Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
 
 Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
 read of the state file's `worktrees` map, for the same reason the preflight verdict and the
-unfinished-work check above do not read it raw. Every worktree's verdict is reported. The operator
-is asked **once**, for the whole change, and **only** when at least one worktree's verdict overlaps
-this change's own paths (design.md: `ask-only-on-overlap`, `aggregate-the-multi-repo-ask`) — a
-`MOVED` verdict with no overlap is reported and the run continues to the landing question with no
-extra prompt. A `REFUSE`, an exit 2, or a resolved set that comes back empty stops and asks, exactly
+unfinished-work check above do not read it raw. Every worktree's verdict is reported, and none is
+prompted: a `MOVED` verdict, overlapping or not, is what **Sync the branch onto the base** below
+consumes. A `REFUSE`, an exit 2, or a resolved set that comes back empty stops and asks, exactly
 as the preflight verdict above does.
 
 **When the script is absent** — a harness whose repository does not carry it — reach the same three
 verdicts by hand, in the same order, and say in the handoff that the check was run manually. The
 check is never skipped for want of the script.
+
+#### Sync the branch onto the base
+
+**Runs after the base-moved check and before the landing question, on every route — so what
+lands is what was verified, and neither a merge nor a PR ever meets a conflict.** Once per
+worktree in the resolved set whose verdict was `MOVED` — never one whose verdict was `CLEAR`, which
+already sits on the tip:
+
+```bash
+git -C <worktree> rebase origin/$BASE
+```
+
+`origin/$BASE` is current: `resolve-base-branch.sh` fetched when the caller resolved the base ref,
+and `check-base-moved.sh` performs no fetch of its own.
+
+- **Clean** (exit 0): the merge base carried forward for the rest of **this run** becomes
+  `origin/$BASE`'s resolved tip at rebase time — `<rebased-merge-base>`, a this-run-only value
+  never written to the state file, which every later reader of this worktree's recorded merge
+  base in this run means instead — most concretely the reshape below. Re-run
+  `check-base-moved.sh` once against it; anything but `CLEAR` is a base that moved during the
+  rebase, and the rebase runs once more.
+- **Conflict** (non-zero exit): **resolve it in place, automatically.** For every path
+  `git status` lists as unmerged, read both sides and write the file that keeps the upstream
+  change *and* this change's intent, with no conflict marker left; `git add` it; then
+  `git -C <worktree> rebase --continue`, repeating for every commit the rebase stops on until it
+  finishes. Never `rebase --abort`, never `rebase --skip`, never `-X ours`/`-X theirs`, and never a
+  resolution that drops one side wholesale — a conflict is two changes to the same lines, and both
+  ship. **Stop and ask** only where no honest resolution exists: a modify/delete conflict, a binary
+  file, or an upstream commit that removed something this change depends on. In that case leave
+  the worktree mid-rebase exactly as `git rebase` left it, report the file(s) and why, and hand off
+  `git -C <worktree> rebase --continue` (after the operator resolves it) or
+  `git -C <worktree> rebase --abort` as the next manual step; the run stops before the landing
+  question, exactly as a `REFUSE` does.
+- **After a rebase that needed resolution**, run the project's whole `## lint` and `## test` lists
+  (`<project>/.flow/project.md`) — a hand-merged hunk is code nobody verified — and stop on a
+  failure before the landing question, leaving the worktree rebased. A clean rebase runs only what
+  the calling stage says it runs. If this change's verification compares against a recorded
+  baseline, recapture it now — a proof taken against the pre-rebase base is void.
+- **The handoff names every file that conflicted and what its resolution kept.** A rebase that
+  changed nothing is reported as such, not omitted.
 
 Only then decide, **before any git action**, how the branch should land. Read
 `<project>/.flow/project.md`'s `## default landing route` (canonical in
@@ -172,9 +210,8 @@ nothing about the single-repository path changes.
 **Before any route commits, reshape the branch.** Run
 `git -C <abs-worktree> reset --soft <recorded-merge-base>`, where `<recorded-merge-base>` is the
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
-**Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or the
-this-run-only rebased merge base, for a worktree `skills/flow/integrate.md`'s own in-pipeline
-rebase step rebased**; that file is canonical for the exception, not restated here. This
+**Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
+`<rebased-merge-base>`, for a worktree **Sync the branch onto the base** above rebased**. This
 collapses every per-task and fixup commit `/myflow-do` made on the branch back into the working
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
@@ -250,7 +287,7 @@ call site and `/myflow-do`'s PR-exception path.
 | Route | Then |
 |-------|------|
 | **Open a pull request** | push; open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl` |
-| **Merge and push** | push; `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict stops the run, reports the worktree path and leaves it as `git merge` left it |
+| **Merge and push** | push; `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** and this route once |
 | **Handle it manually** | push the branch only; say plainly what is left to do |
 
 `<archive-branch>` equal to `<base>` itself — the merge-and-push route's own use above — means
@@ -313,10 +350,10 @@ failure, which sends the operator debugging the wrong thing. Offer to leave the 
 **No verification gate runs before integration.** No tests, no linters, no spec-coverage check.
 Correctness was established during `/myflow-do` — TDD per task, the final review
 panel — and by the human gate. Re-running it here would repeat finished work immediately before
-the one irreversible step. One exception exists: `skills/flow/integrate.md`'s own in-pipeline
-rebase step runs a scoped re-verification, over the rebase's overlap set only, when a clean rebase
-actually changed a file this change also touches — that file is canonical for the exception's
-scope.
+the one irreversible step. Two exceptions exist, both under **Sync the branch onto the base** above: a rebase
+that needed conflict resolution runs the whole `## lint` and `## test` lists, and a clean rebase
+that changed a file this change also touches runs the scoped re-verification
+`skills/flow/integrate.md`'s step 2 is canonical for.
 
 ### Resolving a change's worktrees
 

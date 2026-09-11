@@ -1,6 +1,6 @@
 ---
 name: flow-fast
-description: Minimal-ceremony /flow variant — one invocation from Jira key to pushed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup. Marks every flow.* stage /flow marks and keeps the Jira transitions; no spectre artifacts, no state file, no decision record, no review panel, no guards. Use for /flow-fast.
+description: Minimal-ceremony /flow variant — one invocation from Jira key to pushed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup. Marks every flow.* stage /flow marks and keeps the Jira transitions; no spectre artifacts, no state file, no pipeline guards. Reads the project's three dynamic toggles exactly as /flow does — on dynamic the plan's class decides execution mode, implementer model and the review panel; on default everything runs inline with no dispatch and no panel. Use for /flow-fast.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -8,10 +8,11 @@ license: MIT
 Do the work the way a careful engineer does it by hand — read, edit, verify, commit, land — and
 record it the way `/flow` does: every `flow.*` stage mark below, in this order, under one
 session token, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
-`/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`/`tasks.md`, no
-state file and no three states, no decision record, no dispatch of any kind, no review panel, no
-staged-diff gate, no archive branch, no `<project>/docs/superpowers/` record, and no guard script. The only
-isolation is git's: a worktree on its own branch. `prepare-workspace.sh`, the per-change
+`/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
+and no three states, no staged-diff gate, no archive branch, no `<project>/docs/superpowers/`
+record, and no pipeline guard. Dispatch, a decision and a review panel exist only where a
+`dynamic` toggle decides them (**Dynamic decisions** below). The only isolation is git's: a
+worktree on its own branch. `prepare-workspace.sh`, the per-change
 database, bucket, ports and cache index of **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) are never set up.
 
@@ -26,10 +27,60 @@ shell substitution, per the CLI's own usage text. Two adjacent lines with nothin
 mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches
 `/flow`'s.
 
-**Guardrails, the whole list.** Never dispatch a subagent. Never ask a model, planning-effort or
-review question. Never write `<project>/spectre/`, `<project>/docs/superpowers/` or a state file.
-Never set up workspace isolation and never call a guard script. Never push to a branch other than
-the one the landing route names.
+**Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
+an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
+a planner or a verifier, and nothing at all on every-toggle-`default`. Never ask a model,
+planning-effort or review question. Never write `<project>/spectre/`,
+`<project>/docs/superpowers/` or a state file. Never set up workspace isolation and never call a
+guard script a cited `skills/flow/` section does not call itself. Never push to a branch other
+than the one the landing route names.
+
+## Dynamic decisions
+
+Read `## execution mode`, `## implementer model` and `## review panel` with
+`project-get.sh <project> <key>` before section 2, each matched per **Model resolution**
+(`skills/flow/SKILL.md`) — `default` or `dynamic`, any other body reported by name and dropped
+as `default`; `STATE_WORKTREE_ROOTS` is never set, since a `/flow-fast` change spans one
+repository. `DEFAULT_MODEL` resolves per the same section, and is read only where a `dynamic`
+execution decides `sdd` while `## implementer model` is `default`.
+
+**`default` here means the stage as this file runs it without the toggle** — inline, no
+implementer, no panel — never `/flow`'s own `default`. With all three `default`, nothing in this
+section applies and the stage marks below stay empty pairs.
+
+**With any toggle `dynamic`**, `<changeRoot>` is `<abs-worktree>/.superpowers/sdd/<name>/` — its
+basename is what keys the rolls — and `<project>/.superpowers/` joins `<project>/.worktrees/` in
+`<project>/.git/info/exclude`. Every `skills/flow/` section cited below runs as written, with
+these substitutions and no others: `<changeRoot>` as above; `ff-<literal-token>` wherever it
+reads `mf-<literal-token>`; the one worktree as the resolved set, its `<merge-base>` the sha
+`git -C <worktree> rev-parse origin/<default-branch>` prints right after section 3 creates it,
+standing wherever a cited section reads the working notes' merge base; and nothing written to
+`<project>/spectre/`, `<project>/docs/superpowers/` or a state file — `flow record render` is
+skipped, the finding rows are the record. The scripts a cited section calls run as it says.
+
+- **writing-plans**: write `<changeRoot>/tasks.md` in `/flow`'s plan shape — the task line and
+  fields `check-plan-shape.sh` reads: `- [ ] <n>. <title>`, `**Files:**`, `**Tests:**`,
+  `**Commit:**`, `**After:**` — one task per entry of the harness task list, then run
+  `check-plan-shape.sh <changeRoot>/tasks.md` and fix every hit. A re-run replaces the file with
+  the fix's own tasks.
+- **decide**: `plan-class.sh <changeRoot>/tasks.md 1`, then **Decide** steps 1–4 and **The
+  tree** (`skills/flow/brainstorm-planner.md`) as written — no research seed is ever read, so the
+  roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
+  `## Decision` table under its `planning:`/`toggles:`/`models:` lines.
+- **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
+  written — one implementer per decided group on that group's model and effort, the context
+  bundle gathered on `<changeRoot>`, every dispatch-prompt paragraph, both dispatch records, the
+  handshake, waves — except that `check-task-commit-fields.sh` is not run and no task is ticked:
+  section 5's lint and tests are what close a group. On `inline`, section 4 as this file states
+  it.
+- **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
+  written, **Check base movement first** through **Panel re-runs** — the decision's roster,
+  grouping and dispatches on their own model and effort, findings recorded, fixes as that file
+  states them: the parent itself on `inline`, the panel-fix subagent on `sdd`. `default` runs no
+  panel.
+
+The change summary in section 5 then also carries the `## Decision` table and, when a panel ran,
+each finding with its status.
 
 ## 1. Kickoff
 
@@ -90,11 +141,17 @@ flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harne
 ```
 
 Register the steps of this change with the harness's task-list mechanism — one entry per file or
-logical unit you will touch, so the operator can follow along. Nothing is written to disk.
+logical unit you will touch, so the operator can follow along. Nothing is written to disk unless
+**Dynamic decisions**' `writing-plans` step applies.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+**Dynamic decisions**' `decide` step runs here when any toggle is `dynamic`.
+
+```bash
 flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <name>
 ```
 
@@ -128,7 +185,8 @@ Then:
 flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Implement in the worktree, in this session. Test first where a test can express the behaviour
+Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
+`sdd-tdd` step. Test first where a test can express the behaviour
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
 naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no
@@ -143,6 +201,11 @@ flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <n
 
 ```bash
 flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+**Dynamic decisions**' `review-panel` step runs here when the decision carries a panel.
+
+```bash
 flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token ff-<literal-token> <name>
 ```
@@ -218,8 +281,11 @@ git -C <worktree> fetch origin
 git -C <worktree> rebase origin/<default-branch>
 ```
 
-A rebase that conflicts stops the run here, naming the conflicting files — resolve it and re-run.
-A rebase that moved the branch re-runs section 5's lint and targeted tests before continuing.
+A rebase that conflicts is resolved in place, automatically, per the **Conflict** bullet of **Sync
+the branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`) — its resolution
+rule, its stop-and-ask cases and its handoff line apply as written. A rebase that moved the
+branch re-runs section 5's lint and targeted tests before continuing; one that needed resolution
+runs the project's whole `## lint` and `## test` lists instead.
 
 - **merge and push**: `git -C <worktree> push origin <name>:<default-branch>`. A push the
   remote rejects (branch protection, a non-fast-forward) falls back to **open PR** below and

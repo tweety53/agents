@@ -29,8 +29,7 @@ recorded in this run's working notes — never the state file's `worktrees` map,
 has not written yet. `check-base-moved.sh` performs no fetch of its own; `resolve-base-branch.sh` is
 what fetches, so this order — resolve, then check — is load-bearing.
 
-Report every worktree's verdict and handle it the way `skills/flow/integrate.md`'s step 2 already
-does: `MOVED` with no overlap continues with no prompt; `REFUSE`, an exit 2, or an empty resolved
+Report every worktree's verdict: `MOVED` with no overlap continues with no prompt; `REFUSE`, an exit 2, or an empty resolved
 set stops and asks; an overlap from any worktree asks once for the whole change, shape per Operator
 prompts (`skills/flow-contracts/operator-prompts.md`):
 

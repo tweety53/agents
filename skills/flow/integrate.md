@@ -88,53 +88,21 @@ flow stage end -command '/flow' -stage flow.unfinished-work-gate -outcome comple
 flow stage begin -command '/flow' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**Check whether the base branch has moved first.** Run `check-base-moved.sh` once per worktree in
-the resolved set, report every verdict, and ask only on overlap, per **Finish contract**
-(`skills/flow-contracts/finish-contract-run1.md`). On an overlap from any worktree, one aggregated
-prompt — relay the guard's hand-verification procedure per **Hand-verifying a guard verdict**
-(`skills/flow-contracts/pipeline.md`) alongside the verdicts — shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`):
-
-> **The base branch has moved and touches paths this change also touched — how should
-> integration proceed?**
-> - **Stop — I'll rebase or reorder first** *(recommended)*
-> - **Rebase onto `<base>` now, then continue**
-> - **Continue — land anyway**
-
-**Stop** exits leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed, and
-closes the mark:
+**Check whether the base branch has moved first, then sync onto it.** Run `check-base-moved.sh`
+once per worktree in the resolved set and report every verdict, per **Finish contract**
+(`skills/flow-contracts/finish-contract-run1.md`); a `REFUSE`, an exit 2 or an empty resolved set
+stops and asks, closing the mark:
 
 ```bash
 flow stage end -command '/flow' -stage flow.landing-question -outcome stopped <name>
 ```
 
-**Continue** carries the reported movement into the handoff and proceeds to the landing question
-below. No overlap anywhere → report the counts and go straight to the landing question, with no
-extra prompt.
-
-**Rebase** runs `git -C <worktree> rebase origin/$BASE` once per worktree in the resolved set whose
-own `check-base-moved.sh` verdict was `MOVED` — never a worktree whose verdict was `CLEAR`, even
-though the prompt above is asked once for the whole change per **ask-only-on-overlap**.
-
-- **Clean** (exit 0): the merge base carried forward for the rest of **this run** becomes
-  `origin/$BASE`'s resolved tip at rebase time — call it `<rebased-merge-base>` below.
-  **This is a this-run-only value, never written to the state file**: it supersedes, for every
-  remaining step of this run, every place below that would otherwise read the state file's
-  recorded, pre-rebase merge base for this worktree — most concretely **3. Commit the staged
-  work**'s reshape, whose own `<recorded-merge-base>` means `<rebased-merge-base>` for a worktree
-  this step rebased, and the state file's original recorded value for every other worktree. Re-run
-  `check-base-moved.sh` once more against `<rebased-merge-base>`; a fresh `MOVED` overlap re-offers
-  this same three-option prompt rather than looping silently. Otherwise, run **Scoped
-  re-verification** below, then proceed to the landing question. If this change's verification
-  compares against a recorded baseline, recapture it now — a proof taken against the pre-rebase
-  base is void.
-- **Conflict** (non-zero exit): never auto-abort — and never
-  attempt to resolve the conflict yourself, by editing the conflicting files or otherwise. Leave the
-  worktree mid-rebase exactly as `git rebase` left it, report the conflicting file(s) from
-  `git status`, and hand off `git -C <worktree> rebase --continue` (after the **operator** resolves
-  it) or `git -C <worktree> rebase --abort` as the operator's next manual step. State stays
-  `IN_PROGRESS`; this run stops here, exactly as **Stop** already does, and closes the mark
-  `stopped`.
+Every `MOVED` worktree is then rebased — no prompt, conflicts resolved in place — per **Sync the
+branch onto the base** (`skills/flow-contracts/finish-contract-run1.md`), which is canonical for
+the rebase, `<rebased-merge-base>`, the resolution rule, the stop-and-ask cases and the
+after-resolution lint and test run; a stop there closes the mark `stopped` exactly as above. A
+clean rebase runs **Scoped re-verification** below, then proceeds to the landing question. No
+`MOVED` verdict anywhere → report the counts and go straight to the landing question.
 
 **Scoped re-verification**: for each path
 `check-base-moved.sh` reported under `overlaps:`, look for a discoverable guard test —
@@ -145,8 +113,7 @@ stated in the handoff as having no verification to run, not silently skipped. A 
 any discovered test blocks this stage exactly like any other verify-stage failure: report it, leave
 the change `IN_PROGRESS`, stop before the landing question, and close the mark `stopped`. **Never**
 re-run the project's whole `## lint`/`## test` list here. A clean rebase whose overlap set clears
-this stage proceeds to the landing question and closes the mark `completed`, exactly like
-**Continue**.
+this stage proceeds to the landing question and closes the mark `completed`.
 
 Run `project-get.sh <main-checkout> "default landing route"` (exit 1: absent), and resolve it
 against the three literals `pull request` / `merge and push` /
