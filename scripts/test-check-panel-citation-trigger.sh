@@ -11,9 +11,10 @@
 # prints nothing — the exit code is the whole answer.
 #
 # PROVED BY MUTATION, NOT MERELY ASSERTED. Case 2 (a committed .mdc change)
-# is re-run after replacing the guard's `.mdc?$` pattern with a pattern that
-# never matches, confirming the case flips from pass to fail, then the
-# guard is restored from git and re-verified clean.
+# is re-run after replacing a sandboxed COPY of the guard's `.mdc?$` pattern
+# with a pattern that never matches, confirming the case flips from pass to
+# fail, then a pristine copy is re-verified clean. The guard itself is never
+# written (KAN-376).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -389,30 +390,47 @@ case "$OUT" in
 esac
 assert_shim_fired "$STAGED_SHIM_DIR" "F7 STAGED shim"
 
-# Mutation proof: break the .mdc?$ matching pattern, confirm case 2 flips
-# from pass to fail, then restore the guard from a backup copy and
-# re-verify clean. Requires the guard to already exist — this proof only
-# makes sense once the guard is GREEN, not during the RED phase before it
-# is written.
+# Mutation proof: break the .mdc?$ matching pattern in a SANDBOXED COPY of
+# the guard (guard + the lib it sources, laid out as the copy's own
+# SCRIPT_DIR resolves them), confirm case 2 flips from pass to fail run
+# through the copy, then re-copy the pristine guard over it and re-verify
+# clean. The real guard is never written — KAN-376: this proof used to sed
+# the REAL guard in place and restore it, and test-setup.sh's
+# source_tree_fingerprint (stat lines including mtime) failed its
+# containment case whenever a restore landed inside its window under
+# run-guard-tests.sh's concurrent runner. Requires the guard to already
+# exist — this proof only makes sense once the guard is GREEN, not during
+# the RED phase before it is written.
 if [ -f "$GUARD" ]; then
-  BACKUP="$(mktemp "${TMPDIR:-/tmp}/citation-trigger-guard-backup.XXXXXX")"
-  REPOS+=("$BACKUP")
-  cp "$GUARD" "$BACKUP"
-  sed -i.bak 's/\.mdc?\$/.never-matches$/' "$GUARD"
-  rm -f "$GUARD.bak"
+  MUT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/citation-trigger-guard-copy.XXXXXX")"
+  REPOS+=("$MUT_DIR")
+  mkdir -p "$MUT_DIR/lib"
+  MUT_GUARD="$MUT_DIR/check-panel-citation-trigger.sh"
+  cp "$GUARD" "$MUT_GUARD"
+  cp "$LIB" "$MUT_DIR/lib/panel-touched-paths.sh"
+  chmod +x "$MUT_GUARD"
+  run_mutated_guard() {
+    set +e
+    OUT="$("$MUT_GUARD" "$1" "$2" 2>&1)"
+    RC=$?
+    set -e
+  }
+  sed -i.bak 's/\.mdc?\$/.never-matches$/' "$MUT_GUARD"
+  rm -f "$MUT_GUARD.bak"
   new_repo
   echo "rule" > "$REPO/rule.mdc"
   git -C "$REPO" add rule.mdc
   git -C "$REPO" commit -qm "add rule.mdc"
-  run_guard "$REPO" "$MERGEBASE"
+  run_mutated_guard "$REPO" "$MERGEBASE"
   [ "$RC" -ne 0 ] && pass "mutation: breaking .mdc?\$ flips case 2 from pass to fail" \
     || fail "mutation: case 2 still passes with the matching pattern broken"
-  cp "$BACKUP" "$GUARD"
+  cp "$GUARD" "$MUT_GUARD"
+  chmod +x "$MUT_GUARD"
   new_repo
   echo "rule" > "$REPO/rule.mdc"
   git -C "$REPO" add rule.mdc
   git -C "$REPO" commit -qm "add rule.mdc"
-  run_guard "$REPO" "$MERGEBASE"
+  run_mutated_guard "$REPO" "$MERGEBASE"
   [ "$RC" -eq 0 ] && pass "mutation: guard restored, case 2 passes again" \
     || fail "mutation: guard restore did not bring case 2 back to exit 0"
 else
