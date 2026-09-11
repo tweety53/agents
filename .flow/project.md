@@ -62,7 +62,7 @@ session at it with `FLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated
 single, main-checkout-only fixture instead.
 
 **This is the stack `flow.visual-verify` (`skills/flow/verify-and-handoff.md`) starts and stops.**
-That stage's step 4 probes a URL and, if nothing answers, "starts the stack from `## run`" — a
+That stage's step 5 probes a URL and, if nothing answers, "starts the stack from `## run`" — a
 project with more than one candidate stack has to say which one that means, so this paragraph is
 the answer: `make ui-test-up` / `make ui-test-down` against `http://127.0.0.1:4174`, matching the
 `## visual verification` section below and `stats/web/playwright.config.ts`'s pinned `baseURL`.

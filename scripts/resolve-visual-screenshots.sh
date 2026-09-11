@@ -4,7 +4,7 @@
 #
 # Usage: resolve-visual-screenshots.sh <project root> <capture spec basename>
 #
-# Replaces flow.visual-verify's step 7 resolution prose
+# Replaces flow.visual-verify's step 9 resolution prose
 # (skills/flow/verify-and-handoff.md): "search recursively beneath
 # `screenshots` for every PNG whose path contains the capture spec's own
 # basename." Reading, still what a script cannot do, stays the agent's job —
@@ -39,7 +39,7 @@
 # THE FILTER READS THE WHOLE PATH, WITH NO SPECIAL-CASED EXCLUSION OF
 # ANYTHING — a `screenshots` root wide enough to sweep in a `node_modules`
 # tree still filters correctly, because "some path segment starts with the
-# spec basename" is exactly as narrow as the stage's own step 7 says it is.
+# spec basename" is exactly as narrow as the stage's own step 9 says it is.
 # Pinned rather than assumed: task 10's harness plants a decoy PNG inside
 # `node_modules` whose name deliberately DOES start with the spec basename
 # and confirms it is found — the filter is not a `node_modules` carve-out
