@@ -37,14 +37,15 @@ agents-data/
 ├── scripts/
 │   ├── check-vocabulary.sh            ← guards the pipeline vocabulary used across these files
 │   └── test-setup.sh                  ← regression harness for setup.sh (sandboxed HOME under /tmp)
-├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-plan, /flow-settings)
-├── commands-claude/                   ← Claude Code slash commands (the same four)
+├── commands/                          ← Cursor slash commands (/flow, /flow-status, /flow-plan, /flow-settings, /flow-self-review)
+├── commands-claude/                   ← Claude Code slash commands (the same five)
 ├── skills/                            ← spectre / /flow skills
 │   ├── README.md                      ← flow command map
 │   ├── flow/                          ← /flow — brainstorm, implement behind the review panel, integrate and archive, one command
 │   ├── flow-status/                   ← read-only state report for open changes
 │   ├── flow-plan/                 ← /flow-plan — thinking-partner mode, stages research notes, touches no state
 │   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
+│   ├── flow-self-review/              ← /flow-self-review — run a deferred self-review pass, inline
 │   └── flow-contracts/                ← on-demand contracts; pipeline.md is canonical for the state machine
 ├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
 └── openspec/                          ← frozen at the 2026-08-25 cutover: the record of how this repository got here, never written to again
@@ -55,8 +56,8 @@ its own frontmatter. The tree above is an illustrative
 snapshot of today's set, not the definition; read the frontmatter to be sure.
 
 **Skills** (loaded on demand): `/flow` — the single-command pipeline — plus the read-only
-`/flow-status`, `/flow-plan` for thinking-partner mode, and `/flow-settings` for global
-model/reviewer defaults.
+`/flow-status`, `/flow-plan` for thinking-partner mode, `/flow-settings` for global
+model/reviewer defaults, and `/flow-self-review` for a deferred self-review pass.
 
 **flow pipeline — three states.**
 
@@ -438,7 +439,7 @@ and `~/.zcode/rules/` copies are live symlinks and need no re-run.
 
 Both the `skills/` and `commands*/` install steps discover their targets by walking the tree —
 `skills/*/` and `commands*/*.md` — rather than from a fixed list, so a new skill or command
-directory (like `flow/`, `flow-status/`, `flow-plan/`, `flow-settings/`) is installed the next
+directory (like `flow/`, `flow-status/`, `flow-plan/`, `flow-settings/`, `flow-self-review/`) is installed the next
 time you run `./setup.sh global` with no change to `setup.sh` itself.
 
 ### Core and full text are one source
@@ -584,7 +585,8 @@ command name to the underlying skill.
 
 **Verify**: In a new Claude Code session, ask: *"What project skills do you have?"*
 The agent should be able to list and describe the `flow`/`flow-status`/`flow-plan`/
-`flow-settings` skills, and typing `/flow` should resolve without an "Unknown command" error.
+`flow-settings`/`flow-self-review` skills, and typing `/flow` should resolve without an "Unknown
+command" error.
 
 ---
 
@@ -750,6 +752,7 @@ overall workflow is degraded but the spectre-specific steps still work.
 | `/flow-status [name]` | `flow-status` | Read-only state report for open changes |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation, no state; stages research notes under `docs/superpowers/research/` for `/flow`'s brainstorming to seed from |
 | `/flow-settings` | `flow-settings` | Reads/writes the global model and reviewer defaults every `/flow` run reads from |
+| `/flow-self-review <name>` | `flow-self-review` | Runs a self-review pass a `/flow` run deferred, inline on this session's model, from the saved context bundle |
 
 Each row above says what a command is *for*. Its stages, in order — and the human gate that follows
 each — are stated once under

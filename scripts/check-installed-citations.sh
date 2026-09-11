@@ -181,6 +181,10 @@ declare_if_present "commands/flow-settings.md" \
   "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "commands-claude/flow-settings.md" \
   "command-dispatch stub — delegates to the flow-settings skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "commands/flow-self-review.md" \
+  "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "commands-claude/flow-self-review.md" \
+  "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "skills/flow-contracts/plan-provenance.md" \
   "the guard-facing sections moved to plan-provenance-guard.md — cites no .md/.mdc path at all"
 declare_if_present "agents/flow-sonnet-low.md" \

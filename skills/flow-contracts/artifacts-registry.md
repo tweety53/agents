@@ -19,6 +19,7 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 | Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel slot verbatim reports | `/flow`'s review panel | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
+| Self-review context bundle | run 2 step 9, on `defer` | `<project>/docs/self-review/<name>-context.md`, committed on `chore/archive-<name>` | `/flow-self-review <name>`, in the same commit as the report |
 | SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
 | Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
 | Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |

@@ -173,19 +173,32 @@
    (`skills/flow-contracts/finish-contract-run2.md`) below — and carry every other field
    forward. This step is reached only on `COMPLETE:`.
 9. **Run self-review** — after `FINISHED` is written. **A `/flow-fast` run skips this step
-   entirely** — no self-review subagent is dispatched, per that command's own design. Otherwise: a
+   entirely** — no reasoning pass runs at all, per that command's own design. Otherwise: a
    skip, a failure, or a decline never moves
    the change off `FINISHED`. It is skippable per run, with running it the default. A project's
    `## self review` key (**Project configuration**, `skills/flow-contracts/project-configuration.md`)
-   decides without asking when present and valid; the per-run prompt is the absent case. It gathers its
-   input by invoking `gather-self-review-context.sh` rather than having the reasoning pass
-   re-read files inline, and runs **one** combined reasoning pass covering all five angles below,
-   together with the operator's 1-5 rating, never as five separate dispatches. **The reasoning pass
-   itself runs as a subagent, on `SELF_REVIEW_MODEL`** — resolved project key, then the store's
-   `selfReviewModel`, then the literal `fable`, with a verified `opus` fallback on a mismatch (**Model
-   resolution**, `skills/flow/SKILL.md`) — rather than inline in the session driving `/flow` — the
-   filing-and-rating prompt still runs in that session, since only it can
-   drive `AskUserQuestion`.
+   decides without asking when present and valid; the per-run prompt is the absent case.
+   `defer` — by key or by the prompt's third option — gathers as below, appends `## design.md`
+   (the archived `design.md` verbatim) and `## Session narrative` (the archived `narrative.md`
+   verbatim, or `narrative.md: absent — change predates the narrative rule`, then one paragraph
+   this session writes for run 2 itself), writes the whole to
+   `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`, commits
+   it on `chore/archive-<name>` with subject `docs(self-review): <name> self-review context
+   bundle`, and runs no reasoning pass; step 10 carries the bundle as it carries the report. The
+   pass then runs in `/flow-self-review <name>` (`skills/flow-self-review/SKILL.md`), canonical
+   for the deferred pass, which deletes the bundle in its report commit. A deferred pass covers
+   what the bundle holds and nothing a same-run session could still remember beyond it — the
+   report's `**Deferred:**` line states that.
+
+   **On `run`, this same step-9 session runs the reasoning pass itself, inline, on whatever
+   model it is already on — no subagent, no dispatch, no `Model:` handshake, no `opus`
+   re-dispatch.** `SELF_REVIEW_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) still
+   resolves — the store field, a project override, the `fable` fallback — but governs nothing:
+   there is no dispatch left to send it to. It gathers its
+   input by invoking `gather-self-review-context.sh` rather than re-reading files a second time,
+   and runs **one** combined reasoning pass covering all five angles below, together with the
+   operator's 1-5 rating, never as five separate passes — the same session drives
+   `AskUserQuestion` for the filing-and-rating prompt either way.
 
    | # | Angle | Label |
    |---|-------|-------|
@@ -258,8 +271,9 @@
     | the merge-and-push continuation, same invocation as run 1 | in `<landing-worktree>`: push `chore/archive-<name>`; merge it into `<base>`; push `<base>` — the same three sub-steps Run 1's own merge-and-push route (`skills/flow-contracts/finish-contract-run1.md`) performs, applied to the archive branch instead |
     | a standalone invocation | in `<landing-worktree>`: push `chore/archive-<name>`; open a pull request against `<base>` via a PR CLI when usable for the host, else print the forge's create-PR URL and ask whether it was opened — the same shape Run 1's pull-request route uses |
 
-    This push carries both the archive commit and the self-review report from step 9 either way,
-    so there is no window in which the archive lands while the report is still unwritten. Run 2
+    This push carries both the archive commit and step 9's output — the self-review report, or the
+    context bundle on `defer` — either way, so there is no window in which the archive lands while
+    that output is still unwritten. Run 2
     never pushes anything but `chore/archive-<name>` and, on the merge-and-push row, `<base>`
     itself.
 

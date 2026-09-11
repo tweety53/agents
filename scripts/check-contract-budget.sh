@@ -148,6 +148,7 @@ AGENTS.md 18648
 CLAUDE.md 15195
 README.md 59181
 commands-claude/flow-plan.md 1174
+commands-claude/flow-self-review.md 1097
 commands-claude/flow-settings.md 993
 commands-claude/flow-status.md 1632
 commands-claude/flow-fast.md 3612
@@ -159,6 +160,7 @@ commands-claude/myflow-research.md 972
 commands-claude/myflow-start.md 1815
 commands-claude/myflow-status.md 1637
 commands/flow-plan.md 1227
+commands/flow-self-review.md 1327
 commands/flow-settings.md 1188
 commands/flow-status.md 1970
 commands/flow-fast.md 4054
@@ -185,6 +187,7 @@ rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
 skills/flow-fast/SKILL.md 25925
 skills/flow-plan/SKILL.md 18400
+skills/flow-self-review/SKILL.md 7102
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
 skills/flow/SKILL.md 20520

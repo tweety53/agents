@@ -154,37 +154,47 @@ flow stage begin -command '/flow' -stage flow.self-review -harness <harness> -se
    repository root the archived path is physically under, and the main checkout no longer is one.
 
    Run `project-get.sh <main-checkout> "self review"` (exit 1: absent) and match the body against
-   the two literals `run` / `skip` byte-for-byte after trimming leading/trailing whitespace; a
-   body matching neither is reported by name and dropped, resolving as absent. `skip` ends step 9
-   here, the handoff's `Self-review` line reading `skipped — project default`. `run` proceeds to
-   the reasoning pass below with no prompt. Absent: the skip prompt fires as today.
+   the three literals `run` / `skip` / `defer` byte-for-byte after trimming leading/trailing
+   whitespace; a body matching none is reported by name and dropped, resolving as absent. `skip`
+   ends step 9 here, the handoff's `Self-review` line reading `skipped — project default`. `run`
+   proceeds to the reasoning pass below with no prompt. `defer` proceeds straight to the bundle
+   write below, with no prompt and no reasoning pass. Absent: the skip prompt fires as today.
 
    When the key is absent, the skip prompt fires first:
 
    > **Run self-review for this change?**
    > - **Yes — run it** *(default, recommended)*
+   > - **Defer — save the bundle for `/flow-self-review`**
    > - **No — skip**
 
    An explicit **No** stops step 9 here; the handoff's `Self-review` line reads `skipped`. A session
    with no interactive channel to present this prompt still runs self-review, exactly as an explicit
    **Yes** would.
 
-   **On anything but No, the combined reasoning pass runs as a subagent, on `SELF_REVIEW_MODEL`**
-   (**Model resolution**, `skills/flow/SKILL.md`) — not inline in this session. Hand the subagent
-   the script's output and the five-angle table below; it returns the five angles' findings (each
-   angle's findings, or an explicit none-marker) as its report body and nothing else — it does not
-   write the report file and does not run the filing-and-rating prompt.
-   This session receives that back and runs everything below itself, since a subagent cannot drive
-   `AskUserQuestion`. **The relay contract, stated in the same prompt:** the dispatch instructs the
-   subagent that the first line of its reply must be `Model: <the model named in its own system
-   prompt>` — the handshake below depends on that line actually being requested, not assumed.
+   **On `defer`** — by key or by the prompt's third option — run the script exactly as above and
+   write its stdout, then `## design.md` (the archived `design.md` verbatim) and `## Session
+   narrative` (the archived `narrative.md` verbatim, or `narrative.md: absent — change predates
+   the narrative rule`, then one paragraph this session writes for run 2 itself), to
+   `<project>/docs/self-review/<name>-context.md` physically under `<landing-worktree>`; commit
+   with the report's own branch-assert shell, path and subject swapped:
 
-   **The handshake:** the subagent's report opens with `Model: <the model named in its own system
-   prompt>`. This session compares that line with `SELF_REVIEW_MODEL`; a mismatch re-dispatches
-   once on `opus`; a second mismatch proceeds on whatever model answered and names it in the run's
-   own output. The `Model:` line is stripped before the five-angle body below is used. No dispatch
-   record is written for either dispatch — self-review records none today and this change adds
-   none. The handshake never blocks: a self-review that runs on the wrong model still runs.
+   ```bash
+   [ "$(git -C <landing-worktree> branch --show-current)" = "chore/archive-<name>" ] \
+     && git -C <landing-worktree> add -- docs/self-review/<name>-context.md \
+     && { git -C <landing-worktree> diff --cached --quiet \
+          || git -C <landing-worktree> commit -m "docs(self-review): <name> self-review context bundle"; }
+   ```
+
+   Then straight to the `flow stage end … flow.self-review -outcome completed` mark below; no
+   reasoning pass runs, and the handoff's `Self-review` line reads `deferred —
+   docs/self-review/<name>-context.md`.
+
+   **On `run` (or the skip prompt's explicit Yes), this session runs the combined reasoning pass
+   itself, inline — no subagent, no dispatch, no `Model:` handshake, no `opus` re-dispatch.**
+   `SELF_REVIEW_MODEL` (**Model resolution**, `skills/flow/SKILL.md`) still resolves but governs
+   nothing here: there is no dispatch left to send it to. Feed the script's output and the
+   five-angle table below directly into this session's own reasoning, then continue straight into
+   the filing-and-rating prompt below — the same session already driving `AskUserQuestion`.
 
    | # | Angle | Label |
    |---|-------|-------|
@@ -236,9 +246,9 @@ flow stage begin -command '/flow' -stage flow.push-archive -harness <harness> -s
 
 10. **Push the archive branch and land it.** The procedure — the two-row route table keyed on how
     this run of `archive.md` was reached, the guarantee that the archive commit and step 9's
-    self-review report always land together, and the failure-reporting rules — is **Run 2 — the
-    branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 10, canonical for
-    it.
+    self-review report or context bundle always land together, and the failure-reporting rules —
+    is **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step
+    10, canonical for it.
 11. **Remove the landing worktree.** Successful or not — never leave it behind for a later run to
     trip over:
 
@@ -264,7 +274,7 @@ flow stage end -command '/flow' -stage flow.push-archive -outcome completed <nam
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
 **Cleanup:** verified
-**Self-review:** <path> (rating: <n>/5) | skipped | skipped — project default
+**Self-review:** <path> (rating: <n>/5) | deferred — docs/self-review/<name>-context.md | skipped | skipped — project default
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```

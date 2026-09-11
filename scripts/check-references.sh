@@ -523,6 +523,7 @@ EOF
 #   with no bold nearby at all.
 EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
   "commands-claude/flow-plan.md"
+  "commands-claude/flow-self-review.md"
   "commands-claude/flow-settings.md"
   "commands-claude/flow-status.md"
   "commands-claude/flow.md"
@@ -530,6 +531,7 @@ EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
   "commands-claude/myflow-fast.md"
   "commands-claude/myflow-start.md"
   "commands/flow-plan.md"
+  "commands/flow-self-review.md"
   "commands/flow-settings.md"
   "commands/flow-status.md"
   "commands/myflow-do.md"

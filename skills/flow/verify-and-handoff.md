@@ -515,6 +515,14 @@ flow stage end -command '/flow' -stage flow.run-instructions -outcome completed 
 flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**Append this run's own narrative first.** Append to
+`<abs-worktree>/spectre/changes/<name>/narrative.md` (create it with the title `# <name> —
+session narrative` when absent) one section `## <YYYY-MM-DD> — <creating run | fix run>` holding
+this session's own prose account of the run — problems hit, workarounds, time sinks, environment
+gaps, operator decisions taken mid-run — and nothing the ledger or panel record already holds. It
+rides the next planning commit through `commit-split.sh`'s existing `<project>/spectre/changes/` pathspec;
+nothing else stages it.
+
 Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactly as read**.
 Populate `worktrees` with one absolute-path key per affected worktree and its merge base. Carry
 `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort` (always `null`),
