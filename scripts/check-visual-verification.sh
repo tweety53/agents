@@ -326,26 +326,37 @@ REPORT="$(awk -v cfg="$CFG" -v heading_re="$VV_HEADING" \
   }
 
   # One row of the settings table. The `Setting` vocabulary is closed —
-  # `ui paths`, `screenshots`, `regression checkout`, `regression repo` and
-  # `mockups` — matching this guard header above on why an unrecognised name
-  # is reported rather than silently skipped. `push to default branch` is
-  # deliberately not in this list: task 14 removed it from the contract, so
-  # a row naming it is now an unrecognised Setting like any other. `mockups`
-  # is optional — no require_nonempty call below — and this guard validates
-  # neither that the directory it names exists nor any `<spec>.mockups`
-  # sidecar; that is compose-mockup-frames.sh's run-time question
-  # (design.md section 6).
-  function check_setting_row(lineno, cells,   key, disp) {
+  # `ui paths`, `screenshots`, `regression checkout`, `regression repo`,
+  # `mockups` and `mockup frame` — matching this guard header above on why an
+  # unrecognised name is reported rather than silently skipped. `push to
+  # default branch` is deliberately not in this list: task 14 removed it from
+  # the contract, so a row naming it is now an unrecognised Setting like any
+  # other. `mockups` is optional — no require_nonempty call below — and this
+  # guard validates neither that the directory it names exists nor any
+  # `<spec>.mockups` sidecar; that is compose-mockup-frames.sh's run-time
+  # question (design.md section 6). `mockup frame` is optional too, and its
+  # value's shape IS checked here: a geometry the compose step cannot parse
+  # is a usage error that would otherwise surface mid-run, after the stack is
+  # up and the captures are taken. The three fields are pinned in one order
+  # so a declared geometry is greppable, though the script itself accepts any.
+  function check_setting_row(lineno, cells,   key, disp, val) {
     disp = trimcell(cells[1])
     key = foldcell(cells[1])
     if (key != "ui paths" && key != "screenshots" && key != "regression checkout" \
-        && key != "regression repo" && key != "mockups") {
-      violation(lineno, "Setting `" disp "` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo` or `mockups` — the vocabulary is closed, so the row is dropped")
+        && key != "regression repo" && key != "mockups" && key != "mockup frame") {
+      violation(lineno, "Setting `" disp "` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups` or `mockup frame` — the vocabulary is closed, so the row is dropped")
       return
     }
     if (key in set_seen) {
       violation(lineno, "a second `" disp "` row, the first being at line " set_seen[key] " — the row is dropped")
       return
+    }
+    if (key == "mockup frame") {
+      val = trimcell(cells[2])
+      if (val != "" && val !~ /^scale=[1-9][0-9]* status=[0-9]+ border=[0-9]+$/) {
+        violation(lineno, "Setting `mockup frame` must be `scale=<int> status=<px> border=<px>`, got `" val "`")
+        return
+      }
     }
     set_seen[key] = lineno
     printf "#SET\t%d\t%s\t%s\n", lineno, key, trimcell(cells[2])

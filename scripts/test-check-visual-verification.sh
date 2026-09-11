@@ -911,6 +911,78 @@ assert_out_contains "case 33" "\`regression checkout\`"
 assert_out_contains "case 33" "\`regression repo\`"
 assert_out_contains "case 33" "\`mockups\`"
 
+
+# ===========================================================================
+# Case 34 (KAN-515 task 2): a `mockup frame` row with a well-formed value —
+# exit 0. The setting is optional, so its absence is silent everywhere else
+# in this harness; declaring it must be accepted rather than dropped as an
+# unrecognised name.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual/baseline.spec.ts-snapshots\` |
+| \`mockup frame\` | \`scale=2 status=26 border=1\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 34" 0
+assert_out_contains "case 34" "VISUAL-OK"
+
+# ===========================================================================
+# Case 35 (KAN-515 task 2): a `mockup frame` row whose value is not
+# `scale=<int> status=<px> border=<px>` — exit 1, naming the row and the
+# expected shape. A geometry the compose step cannot parse must be reported
+# here rather than reaching the script as a usage error mid-run.
+# ===========================================================================
+for BAD in "2x" "scale=2 status=26" "status=26 border=1 scale=2" "scale=0 status=26 border=1"; do
+  new_root
+  write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual/baseline.spec.ts-snapshots\` |
+| \`mockup frame\` | \`$BAD\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+  run_guard
+  assert_rc "case 35 ($BAD)" 1
+  assert_out_contains "case 35 ($BAD)" "mockup frame"
+  assert_out_contains "case 35 ($BAD)" "scale=<int> status=<px> border=<px>"
+done
+
+# ===========================================================================
+# Case 36 (KAN-515 task 2): `mockup frame` declared twice — exit 1, the
+# existing duplicate-setting violation, exactly as a second `ui paths` row is.
+# ===========================================================================
+new_root
+write_cfg "## visual verification
+
+| Setting | Value |
+|---------|-------|
+| \`ui paths\` | \`stats/web/src/**\` |
+| \`screenshots\` | \`stats/web/tests/visual/baseline.spec.ts-snapshots\` |
+| \`mockup frame\` | \`scale=2 status=26 border=1\` |
+| \`mockup frame\` | \`scale=3 status=20 border=1\` |
+
+| Command | Runs |
+|---------|------|
+| \`verify\` | \`npm run test:visual\` |
+| \`capture\` | \`npx playwright test <spec>\` |"
+run_guard
+assert_rc "case 36" 1
+assert_out_contains "case 36" "a second \`mockup frame\` row"
+
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2
   exit 1

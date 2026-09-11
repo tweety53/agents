@@ -52,14 +52,63 @@ Image.new("RGB", (w, h), (r, g, b)).save(path)
 PY
 }
 
+# make_frame_png <path> <width> <content height> [content r] [g] [b]
+# A stand-in for a 2x HTML phone-frame export, with the geometry
+# `scale=2 status=26 border=1` describes: page background everywhere, a
+# 2px side border that stops short of the corners (the real frames' 4px
+# radius, which is why the pixel at (0, 0) is always the page and never the
+# border), a 52px status band, `content height` rows of content, a 2px
+# bottom border, a 2px page-coloured margin — the uniform row the caption
+# detection stops at — and a dark caption band beneath it.
+make_frame_png() {
+  python3 - "$1" "$2" "$3" "${4:-255}" "${5:-0}" "${6:-0}" <<'PY'
+import sys
+from PIL import Image
+path, w, ch = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+content = (int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6]))
+PAGE, BORDER, STATUS, CAPTION = (10, 10, 10), (90, 90, 90), (200, 200, 200), (42, 42, 42)
+top, bottom_border = 54, 54 + ch
+h = bottom_border + 2 + 2 + 30          # bottom border, page margin, caption band
+im = Image.new("RGB", (w, h), PAGE)
+px = im.load()
+for y in range(2, bottom_border + 2):   # side borders, corners left as page
+    for x in (0, 1, w - 2, w - 1):
+        px[x, y] = BORDER
+for y in range(2, top):                 # status band
+    for x in range(2, w - 2):
+        px[x, y] = STATUS
+for y in range(top, bottom_border):     # content
+    for x in range(2, w - 2):
+        px[x, y] = content
+for y in range(bottom_border, bottom_border + 2):   # bottom border
+    for x in range(2, w - 2):
+        px[x, y] = BORDER
+for y in range(bottom_border + 4, h):   # caption band
+    for x in range(w):
+        px[x, y] = CAPTION
+im.save(path)
+PY
+}
+
+# GEOM, when non-empty, is passed as the script's fourth argument.
+GEOM=""
 run_guard() {
   set +e
-  OUT_TEXT="$(printf '%s\n' "$@" | "$GUARD" "$MAP" "$ROOT" "$OUT" 2>/tmp/compose-mockup-stderr.$$)"
+  if [ -n "$GEOM" ]; then
+    OUT_TEXT="$(printf '%s\n' "$@" | "$GUARD" "$MAP" "$ROOT" "$OUT" "$GEOM" 2>/tmp/compose-mockup-stderr.$$)"
+  else
+    OUT_TEXT="$(printf '%s\n' "$@" | "$GUARD" "$MAP" "$ROOT" "$OUT" 2>/tmp/compose-mockup-stderr.$$)"
+  fi
   RC=$?
   ERR="$(cat "/tmp/compose-mockup-stderr.$$")"
   rm -f "/tmp/compose-mockup-stderr.$$"
   set -e
 }
+
+# new_root resets GEOM too, so a geometry case never leaks into the next.
+_new_root_base=$(declare -f new_root)
+eval "${_new_root_base/new_root ()/_new_root_inner ()}"
+new_root() { _new_root_inner; GEOM=""; }
 
 # ===========================================================================
 # Case 1: happy path — capture and frame differ in size, composite is the
@@ -70,7 +119,7 @@ make_png "$CAPS/j5-finish-dialog-darwin.png" 1200 1164 255 0 0
 make_png "$ROOT/J5.png" 780 2028 0 255 0
 printf 'j5-finish-dialog.png J5\n' > "$MAP"
 run_guard "$CAPS/j5-finish-dialog-darwin.png"
-if [ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/j5-finish-dialog.png" ]; then
+if [ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/j5-finish-dialog.png diff=n/a" ]; then
   pass "case 1: happy path exits 0 with the composite path on stdout"
 else
   fail "case 1: rc=$RC out=$OUT_TEXT err=$ERR"
@@ -103,7 +152,7 @@ case "$ERR" in
   *) fail "case 3: err=$ERR" ;;
 esac
 [ "$RC" -eq 1 ] && pass "case 3: exit 1" || fail "case 3: rc=$RC"
-[ "$OUT_TEXT" = "$OUT/ok.png" ] && pass "case 3: the well-formed second line is still composed" || fail "case 3: out=$OUT_TEXT"
+[ "$OUT_TEXT" = "$OUT/ok.png diff=n/a" ] && pass "case 3: the well-formed second line is still composed" || fail "case 3: out=$OUT_TEXT"
 
 # ===========================================================================
 # Case 4: a map line names a frame absent under the mockups root -> exit 1,
@@ -319,7 +368,7 @@ make_png "$CAPS/add-participant-finished-excluded-added-darwin.png" 50 50 0 0 25
 make_png "$ROOT/H2.png" 50 50
 printf 'add-participant-finished-excluded.png H2\n' > "$MAP"
 run_guard "$CAPS/add-participant-finished-excluded-darwin.png" "$CAPS/add-participant-finished-excluded-added-darwin.png"
-if [ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/add-participant-finished-excluded.png" ]; then
+if [ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/add-participant-finished-excluded.png diff=n/a" ]; then
   pass "case 18: a shorter name is not confused with a longer name's own platform-suffixed capture"
 else
   fail "case 18: rc=$RC out=$OUT_TEXT err=$ERR"
@@ -344,6 +393,114 @@ case "$ERR" in
   *"no captured PNG matches"*) pass "case 19: stderr carries 'no captured PNG matches'" ;;
   *) fail "case 19: err=$ERR" ;;
 esac
+
+
+# ===========================================================================
+# Case 20: geometry declared — the frame is cropped to its content area and
+# the composite is three panels wide, not two.
+# ===========================================================================
+new_root
+GEOM="scale=2 status=26 border=1"
+make_frame_png "$ROOT/G1.png" 100 60
+make_png "$CAPS/g1-dash.png" 96 60 255 0 0
+printf 'g1-dash.png G1\n' > "$MAP"
+run_guard "$CAPS/g1-dash.png"
+[ "$RC" -eq 0 ] && pass "case 20: geometry declared exits 0" || fail "case 20: rc=$RC out=$OUT_TEXT err=$ERR"
+SIZE="$(python3 -c "from PIL import Image; i=Image.open('$OUT/g1-dash.png'); print(f'{i.size[0]}x{i.size[1]}')" 2>&1)"
+# 96 + 16 + 96 + 16 + 96 = 320 wide; the cropped frame is 96x60, so 60 tall.
+[ "$SIZE" = "320x60" ] && pass "case 20: composite is three 96px panels and two gutters" || fail "case 20: size=$SIZE"
+# The middle panel's first row is content, never the status band: the crop
+# removed the 52 status rows and the 2 border columns.
+MID="$(python3 -c "from PIL import Image; print(Image.open('$OUT/g1-dash.png').getpixel((112, 0)))")"
+[ "$MID" = "(255, 0, 0)" ] && pass "case 20: the middle panel starts at the content area, not the status line" || fail "case 20: mid=$MID"
+
+# ===========================================================================
+# Case 21: the caption band is detected per frame — two frames of different
+# heights crop to their own bottoms, not to a shared one.
+# ===========================================================================
+new_root
+GEOM="scale=2 status=26 border=1"
+make_frame_png "$ROOT/T1.png" 100 60
+make_frame_png "$ROOT/T2.png" 100 40
+make_png "$CAPS/t1.png" 96 60 255 0 0
+make_png "$CAPS/t2.png" 96 40 255 0 0
+printf 't1.png T1\nt2.png T2\n' > "$MAP"
+run_guard "$CAPS/t1.png" "$CAPS/t2.png"
+[ "$RC" -eq 0 ] && pass "case 21: two frames of different heights both compose" || fail "case 21: rc=$RC out=$OUT_TEXT err=$ERR"
+S1="$(python3 -c "from PIL import Image; i=Image.open('$OUT/t1.png'); print(f'{i.size[0]}x{i.size[1]}')")"
+S2="$(python3 -c "from PIL import Image; i=Image.open('$OUT/t2.png'); print(f'{i.size[0]}x{i.size[1]}')")"
+[ "$S1" = "320x60" ] && [ "$S2" = "320x40" ] && pass "case 21: each frame's caption bottom is found for that frame" || fail "case 21: s1=$S1 s2=$S2"
+
+# ===========================================================================
+# Case 22: a capture whose size differs from the cropped frame is a finding
+# naming both sizes, exit 1 — and the sibling map line still composes.
+# ===========================================================================
+new_root
+GEOM="scale=2 status=26 border=1"
+make_frame_png "$ROOT/M1.png" 100 60
+make_frame_png "$ROOT/M2.png" 100 60
+make_png "$CAPS/m1.png" 96 44 255 0 0
+make_png "$CAPS/m2.png" 96 60 255 0 0
+printf 'm1.png M1\nm2.png M2\n' > "$MAP"
+run_guard "$CAPS/m1.png" "$CAPS/m2.png"
+[ "$RC" -eq 1 ] && pass "case 22: a size mismatch exits 1" || fail "case 22: rc=$RC out=$OUT_TEXT err=$ERR"
+case "$ERR" in
+  *"capture 96×44 vs frame 96×60 for M1"*) pass "case 22: the finding names both sizes and the frame id" ;;
+  *) fail "case 22: err=$ERR" ;;
+esac
+[ -f "$OUT/m2.png" ] && [ ! -f "$OUT/m1.png" ] && pass "case 22: the mismatched pair is skipped, the sibling still composed" || fail "case 22: out dir holds the wrong set"
+
+# ===========================================================================
+# Case 23: stdout carries diff=<ratio> — 0.0000 for an identical pair,
+# 1.0000 for a fully inverted one.
+# ===========================================================================
+new_root
+GEOM="scale=2 status=26 border=1"
+make_frame_png "$ROOT/D1.png" 100 20 255 0 0
+make_png "$CAPS/d1.png" 96 20 255 0 0
+printf 'd1.png D1\n' > "$MAP"
+run_guard "$CAPS/d1.png"
+[ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/d1.png diff=0.0000" ] && pass "case 23: an identical pair prints diff=0.0000" || fail "case 23 (identical): rc=$RC out=$OUT_TEXT err=$ERR"
+new_root
+GEOM="scale=2 status=26 border=1"
+make_frame_png "$ROOT/D2.png" 100 20 255 0 0
+make_png "$CAPS/d2.png" 96 20 0 255 255
+printf 'd2.png D2\n' > "$MAP"
+run_guard "$CAPS/d2.png"
+[ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/d2.png diff=1.0000" ] && pass "case 23: a fully inverted pair prints diff=1.0000" || fail "case 23 (inverted): rc=$RC out=$OUT_TEXT err=$ERR"
+
+# ===========================================================================
+# Case 24: no geometry argument — two panels, native size, diff=n/a, exit 0.
+# This is the pre-change path every other project still takes, so it is what
+# proves the crop and the size gate are opt-in.
+# ===========================================================================
+new_root
+make_frame_png "$ROOT/N1.png" 100 60
+make_png "$CAPS/n1.png" 1200 1164 255 0 0
+printf 'n1.png N1\n' > "$MAP"
+run_guard "$CAPS/n1.png"
+[ "$RC" -eq 0 ] && [ "$OUT_TEXT" = "$OUT/n1.png diff=n/a" ] && pass "case 24: no geometry prints diff=n/a and exits 0" || fail "case 24: rc=$RC out=$OUT_TEXT err=$ERR"
+FRAME_H="$(python3 -c "from PIL import Image; print(Image.open('$ROOT/N1.png').size[1])")"
+SIZE="$(python3 -c "from PIL import Image; i=Image.open('$OUT/n1.png'); print(f'{i.size[0]}x{i.size[1]}')")"
+[ "$SIZE" = "1316x1164" ] && pass "case 24: the composite is two native-size panels, uncropped" || fail "case 24: size=$SIZE frame_h=$FRAME_H"
+
+# ===========================================================================
+# Case 25: a malformed geometry argument is a usage error — exit 2, usage on
+# stderr — never a silently ignored fourth argument.
+# ===========================================================================
+for BAD in "scale=2 status=26" "scale=0 status=26 border=1" "scale=2 status=-1 border=1" "scale=two status=26 border=1" "scale=2 status=26 border=1 extra=9" "scale=2 scale=2 border=1"; do
+  new_root
+  GEOM="$BAD"
+  make_frame_png "$ROOT/B1.png" 100 20
+  make_png "$CAPS/b1.png" 96 20
+  printf 'b1.png B1\n' > "$MAP"
+  run_guard "$CAPS/b1.png"
+  if [ "$RC" -eq 2 ] && case "$ERR" in *usage:*) true ;; *) false ;; esac; then
+    pass "case 25: malformed geometry \`$BAD\` exits 2 with usage on stderr"
+  else
+    fail "case 25: geometry \`$BAD\` rc=$RC err=$ERR"
+  fi
+done
 
 echo "FAILURES: $FAILURES"
 [ "$FAILURES" -eq 0 ]

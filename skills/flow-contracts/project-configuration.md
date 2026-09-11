@@ -472,7 +472,7 @@ is read.
 
 The settings table's header folds to `setting|value` before it is compared — case and internal
 whitespace do not matter, so `| setting | VALUE |` matches as readily as `| Setting | Value |`, but
-the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the five
+the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the six
 rows below is reported and its row dropped, never silently ignored.
 
 | Setting | Required | Meaning |
@@ -482,6 +482,7 @@ rows below is reported and its row dropped, never silently ignored.
 | `regression checkout` | no | Absolute path to the repository the per-change spec and its PNGs are committed to. **Absent means they are committed to the change's own branch instead.** When this same repository is also declared in `## apps`, its root follows that table's own rule — **Roots in `## apps` are main checkouts** above — resolving to the change's apply worktree there rather than the main checkout; a `regression checkout` with no matching `## apps` row has no worktree to resolve and is always the main checkout. Also the root `<agents repo>/scripts/check-spec-reach.sh` enumerates `*.spec.ts` under and diffs against what the checkout's `package.json` scripts list — its header is canonical for that gate and its exit codes. |
 | `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** Nothing pushes automatically; see below. |
 | `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.visual-verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
+| `mockup frame` | no | `scale=<int> status=<px> border=<px>`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. |
 
 The commands table's header folds the same way, to `command|runs` — the same heading
 `## workspace isolation` above already establishes for a table of project-declared commands, reused
@@ -499,8 +500,20 @@ the five rows below is reported and its row dropped.
 **The `mockups` sidecar.** A capture spec finds its frames through a `<spec>.mockups` file beside
 it — one `<screenshot name> <frame id>` line per pair, `#` comments and blank lines ignored. A
 `<screenshot name>` is the name the spec passed to `toHaveScreenshot()`; Playwright's own
-`-<platform>` suffix is tolerated on match. The composite `flow.visual-verify` writes is the
-captured frame on the left and the mockup on the right, both at native size. `<agents
+`-<platform>` suffix is tolerated on match.
+
+With `mockup frame` declared, the composite `flow.visual-verify` writes is three panels — the
+captured frame, the cropped mockup, and a difference panel white wherever any channel differs —
+and the stage prints one `<composite path> diff=<ratio>` line per pair, the ratio being the share
+of differing pixels. **That ratio is a number the verifier reads beside the panels, never a
+threshold**: nothing blocks on it, because an antialiasing difference and a missing control
+produce comparable ratios. Without the row the composite is the captured frame on the left and the
+mockup on the right, both at native size, and its ratio field carries this literal instead:
+
+```text
+diff=n/a
+```
+ `<agents
 repo>/scripts/compose-mockup-frames.sh`'s own header is canonical for its exit codes, the way this
 section already cites `check-visual-verification.sh` for its shape.
 
