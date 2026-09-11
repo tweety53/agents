@@ -7,8 +7,8 @@ Read-only review.
 ```
 Subagent (generalPurpose):
   description: "Code review (simple)"
-  model: <the roster entry's own model>   # the decision's panel.roster entry for this slot,
-                                           # simple-reviewer is dynamic-only, small class
+  model: <the bundle's own model>         # the decision's panel.dispatches entry carrying this
+                                           # slot; simple-reviewer is dynamic-only, small class
   prompt: |
     You are a code-quality reviewer for a small, contained change. You are NOT doing a
     plan-alignment review — that is Primary's job, checking the diff against the proposal,

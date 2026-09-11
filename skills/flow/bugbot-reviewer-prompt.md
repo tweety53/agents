@@ -8,8 +8,8 @@ made and removed.
 ```
 Subagent (generalPurpose):
   description: "Defect hunt (Bugbot)"
-  model: <the roster entry's own model>   # DEFAULT_MODEL on `default`, the decision's
-                                           # panel.roster entry for this slot on `dynamic`
+  model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's
+                                           # panel.dispatches entry carrying this slot on `dynamic`
   prompt: |
     You are a defect-hunt reviewer. You are NOT doing a plan-alignment review, a principles
     review, a security audit, or a failure-modes review — other panel slots own those and

@@ -327,7 +327,9 @@ dispatch shares its id with the original — which is why the id is recorded at 
 
 **`-model` is the model this dispatch was actually given — `DEFAULT_MODEL`** (`skills/flow/SKILL.md`'s
 **Model resolution**), or the run's session-instruction override when one was given for the
-implementer role. Name it explicitly — never by omission. A slot whose model the dispatcher cannot
+implementer role; on `IMPLEMENTER_MODEL_TOGGLE` `dynamic` it is the group's own `model` from the
+decision's `groups` entry, `-effort` its `effort`, and the dispatch's `subagent_type` is
+`flow-<model>-<effort>`. Name it explicitly — never by omission. A slot whose model the dispatcher cannot
 read records the literal `unknown (agent-defined)` and never a guess.
 
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
@@ -343,7 +345,8 @@ Exit 0 proceeds. A non-zero exit is a plan defect: exit 1 names a task missing i
 field, repaired by `superpowers:writing-plans` before any dispatch happens; exit 2 stops the run.
 
 **Dispatch one implementer per group, not per bundle.** The unit is the recorded decision's
-`groups` entry — an array of bundle ids from the same `plan-dispatch-bundles.sh` output above; a
+`groups` entry — `{bundles, model, effort}`, `bundles` an array of bundle ids from the same
+`plan-dispatch-bundles.sh` output above, `model`/`effort` what this group's implementer runs on; a
 `null` `groups` field, which only inline execution ever records, never reaches this section, since
 inline runs bundles in plan order with no implementer dispatch at all. A group's implementer works
 its bundles in plan order, one commit per task, carrying that task's own `Task-Id:` trailer — a red

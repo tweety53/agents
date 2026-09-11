@@ -9,7 +9,7 @@ Read-only review.
 ```
 Subagent (generalPurpose):
   description: "Failure-modes review (exp-failure-modes)"
-  model: <the roster entry's own model>   # the decision's panel.roster entry for this slot
+  model: <the bundle's own model>         # the decision's panel.dispatches entry carrying this slot
   prompt: |
     You are a failure-modes reviewer. You are NOT doing a bug hunt, a security audit, a
     plan-alignment review, or a principles review — other panel slots own those and their

@@ -923,8 +923,8 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 		Decision: json.RawMessage(`{
 			"panel": {
 				"roster": [
-					{"slot": "primary", "model": "sonnet", "effort": "medium", "experimental": false},
-					{"slot": "exp-failure-modes", "model": "sonnet", "effort": "medium", "experimental": true,
+					{"slot": "primary", "experimental": false},
+					{"slot": "exp-failure-modes", "experimental": true,
 					 "prompt": "skills/flow/experimental/failure-modes.md",
 					 "description": "What the diff does under error, timeout and partial write"}
 				]
@@ -1170,8 +1170,8 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 			"panel": {
 				"compact": true, "rerun": "delta",
 				"roster": [
-					{"slot": "primary", "model": "sonnet", "effort": "medium", "experimental": false},
-					{"slot": "exp-failure-modes", "model": "sonnet", "effort": "medium", "experimental": true,
+					{"slot": "primary", "experimental": false},
+					{"slot": "exp-failure-modes", "experimental": true,
 					 "prompt": "skills/flow/experimental/failure-modes.md",
 					 "description": "What the diff does under error, timeout and partial write"}
 				]
@@ -1246,15 +1246,18 @@ func TestDecisionsJoinsRunTotals(t *testing.T) {
 // ImplementerGroups columns, projected from panel.grouping,
 // panel.dispatches and the top-level groups field. A free grouping with two
 // dispatch groups and two implementer-merge groups renders each as its
-// roles/ids '+'-joined within a group and ' · '-joined across groups; a
-// decision whose panel is still the bare "default" string (the toggle was
-// off) renders Grouping as "default" with no dispatches to show, and a nil
-// groups field (inline execution) renders as empty.
+// roles/ids '+'-joined within a group and ' · '-joined across groups,
+// whether the groups are {slots|bundles, model, effort} objects or the bare
+// id arrays older rows recorded; a decision whose panel is still the bare
+// "default" string (the toggle was off) renders Grouping as "default" with
+// no dispatches to show, and a nil groups field (inline execution) renders
+// as empty.
 func TestDecisionsRendersGrouping(t *testing.T) {
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-decisions-grouping-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-free")
+	seedChange(t, st, projectKey, "kan-legacy")
 	seedChange(t, st, projectKey, "kan-default")
 
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-free", records.Decision{
@@ -1265,20 +1268,45 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 			"panel": {
 				"compact": false, "rerun": "full",
 				"roster": [
-					{"slot": "primary", "model": "opus", "effort": "high", "experimental": false},
-					{"slot": "principles", "model": "opus", "effort": "medium", "experimental": false},
-					{"slot": "code-review-low", "model": "sonnet", "effort": "high", "experimental": false},
-					{"slot": "mutation", "model": "sonnet", "effort": "high", "experimental": false}
+					{"slot": "primary", "experimental": false},
+					{"slot": "principles", "experimental": false},
+					{"slot": "code-review-low", "experimental": false},
+					{"slot": "mutation", "experimental": false}
 				],
 				"grouping": "free",
-				"dispatches": [["primary", "principles"], ["code-review-low", "mutation"]],
+				"dispatches": [
+					{"slots": ["primary", "principles"], "model": "opus", "effort": "high"},
+					{"slots": ["code-review-low", "mutation"], "model": "sonnet", "effort": "high"}
+				],
 				"grouping_reason": "reading roles together, mutating roles together"
 			},
-			"groups": [[1, 2], [3]],
-			"groups_reason": "tasks 1-2 share a file, task 3 stands alone"
+			"groups": [
+				{"bundles": [1, 2], "model": "opus", "effort": "high"},
+				{"bundles": [3], "model": "sonnet", "effort": "medium"}
+			],
+			"groups_reason": "tasks 1-2 share a file, task 3 stands alone on sonnet: mechanical"
 		}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision kan-free: %v", err)
+	}
+
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-legacy", records.Decision{
+		SessionToken: "mf-decisions-grouping-legacy",
+		Decision: json.RawMessage(`{
+			"class": "big", "execution": "sdd",
+			"implementer": {"model": "opus", "effort": "high"},
+			"panel": {
+				"compact": false, "rerun": "full",
+				"roster": [{"slot": "primary", "model": "opus", "effort": "high", "experimental": false}],
+				"grouping": "free",
+				"dispatches": [["primary", "principles"], ["code-review-low", "mutation"]],
+				"grouping_reason": "legacy per-slot row"
+			},
+			"groups": [[1, 2], [3]],
+			"groups_reason": "legacy bare arrays"
+		}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision kan-legacy: %v", err)
 	}
 
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-default", records.Decision{
@@ -1298,8 +1326,8 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decisions: %v", err)
 	}
-	if len(rows) != 2 {
-		t.Fatalf("Decisions returned %d rows, want 2", len(rows))
+	if len(rows) != 3 {
+		t.Fatalf("Decisions returned %d rows, want 3", len(rows))
 	}
 
 	byChange := map[string]store.DecisionRow{}
@@ -1319,6 +1347,17 @@ func TestDecisionsRendersGrouping(t *testing.T) {
 	}
 	if free.ImplementerGroups != "1+2 · 3" {
 		t.Errorf("kan-free ImplementerGroups = %q, want %q", free.ImplementerGroups, "1+2 · 3")
+	}
+
+	legacy, ok := byChange["kan-legacy"]
+	if !ok {
+		t.Fatalf("no row for kan-legacy")
+	}
+	if legacy.Dispatches != "primary+principles · code-review-low+mutation" {
+		t.Errorf("kan-legacy Dispatches = %q, want %q", legacy.Dispatches, "primary+principles · code-review-low+mutation")
+	}
+	if legacy.ImplementerGroups != "1+2 · 3" {
+		t.Errorf("kan-legacy ImplementerGroups = %q, want %q", legacy.ImplementerGroups, "1+2 · 3")
 	}
 
 	def, ok := byChange["kan-default"]

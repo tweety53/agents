@@ -6,8 +6,8 @@ Read-only review.
 ```
 Subagent (generalPurpose):
   description: "Security review"
-  model: <the roster entry's own model>   # DEFAULT_MODEL on `default`, the decision's
-                                           # panel.roster entry for this slot on `dynamic`
+  model: <the bundle's own model>         # DEFAULT_MODEL on `default`, the decision's
+                                           # panel.dispatches entry carrying this slot on `dynamic`
   prompt: |
     You are a security-focused reviewer for an auth-bearing product API and clients. You
     are NOT doing a plan-alignment review, a principles review, or a defect hunt — other

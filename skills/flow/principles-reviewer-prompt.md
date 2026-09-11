@@ -15,8 +15,8 @@ Read-only review.
 ```
 Subagent (generalPurpose):
   description: "Principles review (Merged)"
-  model: <the run's resolved default model>   # flow settings get's .defaultModel, sonnet
-                                               # unless a session instruction overrode it
+  model: <the bundle's own model>             # DEFAULT_MODEL on `default`, the decision's
+                                               # panel.dispatches entry carrying this slot on `dynamic`
   prompt: |
     You are an engineering-principles reviewer. You are NOT doing a bug hunt, a
     security audit, or a plan-alignment review — other panel agents own those and

@@ -121,13 +121,13 @@ or the decision's `panel.roster` on `dynamic` — see the opening paragraph abov
 
 | id | Slot | How to spawn | Model |
 |---|------|---------------|-------|
-| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
-| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
-| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
-| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
-| `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
-| `security` | **Security** | general-purpose + `security-reviewer-prompt.md` | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
-| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the decision's model/effort for this slot |
+| `primary` | **Primary** — plan alignment | general-purpose reviewer briefed on `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md` — nothing else; never code quality, which is `simple-reviewer`'s and Bugbot's job | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `principles` | **Principles** | general-purpose + `principles-reviewer-prompt.md`; all three principle groups always apply, all three principle groups are always covered <!-- refs-guard:allow --> | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `code-review-low` | **Code review (low)** | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `simple-reviewer` | **Simple reviewer** — small class's compact-roster code-quality slot | general-purpose reviewer briefed for high-confidence defects only, against `final-review.diff`, by `skills/flow/simple-reviewer-prompt.md` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `bugbot` | **Bugbot** — defect hunt | general-purpose + `bugbot-reviewer-prompt.md`, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `security` | **Security** | general-purpose + `security-reviewer-prompt.md` | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
+| `mutation` | **Mutation** — sabotage-proofing | general-purpose + the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree** below) | `DEFAULT_MODEL`, or the model/effort of the decision's dispatch carrying this slot |
 
 **A subagent-facing file is passed by absolute path, never read into this context.** Superpowers'
 `principles-reviewer-prompt.md` and `engineering-principles.md` (Principles),
@@ -149,9 +149,11 @@ retroactively to a pass already closed. It is never written back to the settings
 slots were added this way and why (the operator's own words), and record explicitly when none were:
 "no addition this round — the resolved list ran alone."
 
-**On `REVIEW_PANEL_TOGGLE` `dynamic`**, each slot in the decision's `panel.roster` carries its own
-`model` and `effort`: the dispatch's `subagent_type` is `flow-<model>-<effort>` and both `model` and
-`-effort` are passed, per design.md's `agent-definitions-universal-handshake`. A compact roster (the
+**On `REVIEW_PANEL_TOGGLE` `dynamic`**, model and effort belong to the dispatch, not the slot:
+each entry of the decision's `panel.dispatches` carries its `slots` and its own `model` and
+`effort`, and every slot in it runs on that pair — the dispatch's `subagent_type` is
+`flow-<model>-<effort>` and both `model` and `-effort` are passed, per design.md's
+`agent-definitions-universal-handshake`. The roster carries no per-slot model. A compact roster (the
 decision's `panel.compact`) is recorded in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`
 as `compact — <rolled value>`; a full roster is recorded as `full`.
 
@@ -160,7 +162,7 @@ as `compact — <rolled value>`; a full roster is recorded as `full`.
 When the decision's `panel.roster` carries an entry whose `slot` starts `exp-` — at most one, per
 design.md's **The rolls** — it is dispatched once, in pass 1 alongside the rest of the roster,
 exactly like any other slot in **The roster** table above: general-purpose, as `subagent_type:
-flow-<model>-<effort>` per the roster entry's own `model`/`effort`, carrying the same REPORT FILE /
+flow-<model>-<effort>` per the `model`/`effort` of the dispatch it joins, carrying the same REPORT FILE /
 REPRODUCER / CONTEXT BUNDLE / WORKTREES / TOOLS / NO DELEGATION / FOREGROUND BUILDS / MODEL
 HANDSHAKE / REPRODUCE, DON'T READ paragraphs every slot's dispatch already carries above.
 
@@ -241,8 +243,8 @@ reduction`. `primary` is the reduced roster even when the resolved list does not
 same shape **Model resolution** (`skills/flow/SKILL.md`) already defines for an empty store list.
 On a docs-only branch the implementer's self-review and the vocabulary and reference guards cover
 the prose; there is no code seam between commits for a second slot to find (KAN-312). This reduction
-applies to a dynamic roster unchanged: it still narrows to `primary` alone, on `primary`'s own
-decided model and effort — one dispatch, never bundled.
+applies to a dynamic roster unchanged: it still narrows to `primary` alone, on the model and
+effort of the decided dispatch that carried `primary` — one dispatch, never bundled.
 
 **Exit 1 runs the resolved roster unchanged**; the first non-documentation path any worktree's run
 printed is recorded beside the verdict. An empty touched-path set is exit 1 too. One worktree at
@@ -301,8 +303,7 @@ recorded in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`.
 
 **One `dispatches` row per bundle** — the same `flow record dispatch begin`/`end` pair below, with
 `-slot` the bundle's roles `+`-joined in roster order (`primary+principles+security`) and
-`-model`/`-effort` the **highest** among its roles; the per-role intended values stay in the
-decision's `panel.roster`. Every finding still records its own single role in `-slot`, with the
+`-model`/`-effort` the bundle's own, from the decision's `panel.dispatches` entry. Every finding still records its own single role in `-slot`, with the
 bundle's `-dispatch-seq`. A one-role dispatch is unchanged from today.
 
 **The bundle prompt** carries the shared paragraphs — CONTEXT BUNDLE, WORKTREES, TOOLS, FOREGROUND
@@ -354,10 +355,9 @@ roles are all reading against a delta and on no other; it takes one
 sha, so it carries the **canonical worktree's** held last-reviewed sha, and the
 panel record names every worktree's sha beside the delta path (design.md's
 `diff-base-canonical-sha`). `-model` is `DEFAULT_MODEL` (or this run's override) on
-`REVIEW_PANEL_TOGGLE` `default` and the decision's model on `dynamic`, for a one-role dispatch, or
-the **highest** among the bundle's roles on a bundled one — no
-exception. `-effort` likewise: `default` on `REVIEW_PANEL_TOGGLE` `default`, and the decision's own
-effort for the slot (or the bundle's highest) on `dynamic`.
+`REVIEW_PANEL_TOGGLE` `default` and the dispatch's own model from the decision's
+`panel.dispatches` on `dynamic` — bundled or one-role alike, no exception. `-effort` likewise:
+`default` on `REVIEW_PANEL_TOGGLE` `default`, and the dispatch's own effort on `dynamic`.
 
 **On Claude Code, `-agent-id` is the identifier an asynchronous agent launch returns in the parent's
 own tool result, at launch.** Never invent one.
@@ -970,7 +970,10 @@ confirmed as a real defect, the fix subagent invokes **superpowers:systematic-de
 writing its fix. **Dispatch it on `DEFAULT_MODEL`** — design.md's `model-default-sonnet` collapses
 the panel-fix role's own default onto the single settings-store default, deliberately dropping the
 old Opus-panel-fix default `skills/flow-contracts/model-policy.md` still describes for the retired
-per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. Record
+per-change fields; that table is stale for `/flow`, per `skills/flow/SKILL.md`'s own note. **On
+`IMPLEMENTER_MODEL_TOGGLE` `dynamic` with an `sdd` decision, dispatch it instead on the decision's
+`implementer` object** — the fixer's own model and effort, `subagent_type:
+flow-<model>-<effort>`, and `-model`/`-effort` below carry that pair. Record
 every pass in `<abs-worktree>/.superpowers/sdd/final-review-panel.md`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect
 identity together with the reproducer output it carried back.
@@ -978,7 +981,7 @@ identity together with the reproducer output it carried back.
 **The fix subagent's own dispatch is recorded too, with `-role panel-fix`:**
 
 ```bash
-flow record dispatch begin -change <name> -role panel-fix -model <m> \
+flow record dispatch begin -change <name> -role panel-fix -model <m> -effort <e> \
   -key panel-fix-<round>[-<chunk>] -agent-id <id> -session-token mf-<literal-token> -started-at <ts>
 flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
   -session-token mf-<literal-token> -commit <partner-task-sha> -outcome completed -ended-at <ts> \

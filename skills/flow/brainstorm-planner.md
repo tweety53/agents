@@ -399,11 +399,14 @@ recorded as such:
 
 1. **execution mode** — `inline` (`class` small or regular) or `sdd` (`class` big); default `sdd`.
 2. **implementer/fixer model + effort** — only when step 1 came out `sdd`; from **the tree** below,
-   keyed on `class`. Recorded `skipped — inline` when step 1 is inline, `default` when the toggle
-   is off.
+   keyed on `class`. This is the fixer's model and every implementer group's default (step 4).
+   Recorded `skipped — inline` when step 1 is inline, `default` when the toggle is off.
 3. **review panel** — roster, compact/experimental, rerun policy, and its **grouping** —
    `bundle_roll < 30` the class's static row, else free within ≤2 dispatches × ≤3 roles with a
-   one-line `grouping_reason`; `primary` + `simple-reviewer` + `principles`, bundled as one
+   one-line `grouping_reason`. **Model and effort are a property of each dispatch, never of a
+   slot**: the roles of one bundle run in one subagent and cannot differ in model or effort. A
+   static grouping takes the tree's per-bundle values; a free grouping assigns each dispatch its
+   own, chosen from the tree's values for the class, the choice named in `grouping_reason`; `primary` + `simple-reviewer` + `principles`, bundled as one
    dispatch, is the universal floor for every roster this tree assigns — compact or full, every
    class — its `-slot` `primary+simple-reviewer+principles`, deterministic, no roll. It already
    uses the bundle cap's full three-role capacity, so it never has spare room for anything else. A
@@ -412,8 +415,8 @@ recorded as such:
    floor already holds every reading/judgment role; a rolled experimental slot joins the second
    dispatch only when one exists and has room, else is `skipped — bundle cap` — from **the tree**
    below, keyed on `class` and the rolls. Default: today's settings-store roster on
-   `DEFAULT_MODEL`, delta rerun, grouped by the static table deterministically (no roll), recorded
-   `default`.
+   `DEFAULT_MODEL` and `default` effort for every dispatch, delta rerun, grouped by the static
+   table deterministically (no roll), recorded `default`.
 4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
    not): run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
    `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
@@ -425,22 +428,28 @@ recorded as such:
    **never merge across the mechanical result**, since merging two groups it kept apart would
    collapse a real parallel wave. `groups_override` is `null` when the mechanical grouping is
    taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
-   reason when `groups_override` is set. `groups`, `groups_mechanical` and `groups_override` are
-   all `null` when step 1 is inline.
+   reason when `groups_override` is set. **Each group carries its own `model` and `effort`**:
+   step 2's implementer value by default, or — only when `IMPLEMENTER_MODEL_TOGGLE` is
+   `dynamic` — a different pair the planner picks for that group alone (a group of mechanical,
+   well-specified tasks on a cheaper model; a group carrying the change's hardest seam one step
+   up), the reason appended to `groups_reason`. On `default` every group is `DEFAULT_MODEL` /
+   `default`. `groups`, `groups_mechanical` and `groups_override` are all `null` when step 1 is
+   inline.
 
 **The tree**, one row per `class`, `effort` one of `low`/`medium`/`high`:
 
-| class | execution | implementer/fixer | full roster (slot: model/effort) | compact roster | rerun | static grouping (full roster) |
+| class | execution | implementer/fixer | full roster | compact roster | rerun | static grouping (full roster; bundle: model/effort) |
 |---|---|---|---|---|---|---|
-| small | inline | — | primary: sonnet/medium; simple-reviewer: haiku/medium; principles: haiku/medium | primary: sonnet/medium; simple-reviewer: haiku/medium; principles: haiku/medium | delta | `primary+simple-reviewer+principles` |
-| regular | inline | — | primary: sonnet/high; simple-reviewer: haiku/medium; principles: sonnet/medium; mutation: sonnet/medium | primary: sonnet/high; simple-reviewer: haiku/medium; principles: sonnet/medium | delta | `primary+simple-reviewer+principles` · `mutation` |
-| big | sdd | opus/high | primary: opus/high; simple-reviewer: sonnet/high; principles: opus/medium; mutation: sonnet/high; bugbot; security | primary: opus/high; simple-reviewer: sonnet/high; principles: opus/medium | full | `primary+simple-reviewer+principles` · `mutation+bugbot+security` |
+| small | inline | — | primary; simple-reviewer; principles | primary; simple-reviewer; principles | delta | `primary+simple-reviewer+principles`: sonnet/medium |
+| regular | inline | — | primary; simple-reviewer; principles; mutation | primary; simple-reviewer; principles | delta | `primary+simple-reviewer+principles`: sonnet/high · `mutation`: sonnet/medium |
+| big | sdd | opus/high | primary; simple-reviewer; principles; mutation; bugbot; security | primary; simple-reviewer; principles | full | `primary+simple-reviewer+principles`: opus/high · `mutation+bugbot+security`: sonnet/high |
 
-`bugbot` and `security` are prompt-driven roles like every other slot: on big they take the class's
-`simple-reviewer` model/effort, recorded like any other slot's. Compact when `compact_roll < 90`
+A compact roster is the floor bundle alone, on the floor bundle's model/effort. `bugbot` and
+`security` are prompt-driven roles like every other slot, dispatched in whichever bundle carries
+them on that bundle's model/effort. Compact when `compact_roll < 90`
 (small) or `< 60` (regular, big);
 experimental when `experimental_roll < 30` (every class, at most one slot), appended to whichever
-roster on sonnet/medium (small, regular) or sonnet/high (big).
+roster and run on the model/effort of the dispatch it joins.
 
 **Which prompt, when experimental rolled true:** `ls <agents repo>/skills/flow/experimental/*.md`,
 sorted, is the ordered set of candidates; the picked file is the one at index `experimental_roll mod
@@ -461,11 +470,13 @@ path. Either way the JSON carries: `toggles`, `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
 (`compact`, `experimental`, `bundle`), `execution`, `implementer` (an object or one of the two
 recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
-[{slot, model, effort, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
-`dispatches` (one to two arrays of one to three slot ids each, roster order within each array),
+[{slot, experimental, prompt?, description?}, …]`, `grouping` (`static`/`free`),
+`dispatches` (one to two objects `{slots, model, effort}`, `slots` one to three slot ids in roster
+order — the one place a reviewer's model and effort are recorded),
 `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
-`roster`), `groups` (arrays of bundle ids, plus sibling `groups_mechanical`, `groups_override` and
+`roster`), `groups` (objects `{bundles, model, effort}`, `bundles` an array of bundle ids, plus
+sibling `groups_mechanical` (arrays of bundle ids), `groups_override` and
 `groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
 model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
 overrides to a *result*, never a toggle; empty unless one was given). Print this exact shape as the
@@ -478,18 +489,20 @@ run's own output once the Decide step completes, filling every cell from what wa
 |---|---|---|
 | execution mode | <default\|dynamic> | <inline\|sdd> |
 | implementer model | <default\|dynamic> | <"skipped — inline"\|"default"\|model/effort> |
-| review panel | <default\|dynamic> | <"default"\|roster summary; rerun policy>; dispatches: <group> · <group> |
-| implementer groups | — | <"skipped — inline"\|"[1,2] · [3] · [4,5]" — <reason>> |
+| review panel | <default\|dynamic> | <"default"\|roster summary; rerun policy>; dispatches: <group>: <model/effort> · <group>: <model/effort> |
+| implementer groups | — | <"skipped — inline"\|"[1,2]: <model/effort> · [3]: <model/effort>" — <reason>> |
 
 class: <class> (mechanical: <class_mechanical>; override: <reason or "none">)
 inputs: tasks=<N> files=<N> repos=<N> migration=<yes|no> spec=<yes|no> red=<yes|no> unverified=<yes|no>
 rolls: compact <N> (<interpretation>) · experimental <N> (<interpretation>) · bundle <N> (<interpretation>)
 ```
 
-The review-panel cell's `dispatches:` suffix is each group's roles `+`-joined in roster order; on a
+The review-panel cell's `dispatches:` suffix is each group's roles `+`-joined in roster order,
+each followed by that dispatch's model and effort; on a
 free grouping, the line right after it is `grouping: free — <grouping_reason>` (omitted on a static
 grouping). The implementer-groups row is `skipped — inline` on an inline run, else `groups` as
-bundle ids (`plan-dispatch-bundles.sh`'s ids) followed by `— <groups_reason>` and, on a split
+bundle ids (`plan-dispatch-bundles.sh`'s ids), each followed by that group's model and effort, then
+`— <groups_reason>` and, on a split
 (`groups_override` non-`null`), `(mechanical: <groups_mechanical>; override: <groups_override>)`
 appended after it — mirroring the `class:` line's own `mechanical`/`override` shape.
 
