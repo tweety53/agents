@@ -112,6 +112,16 @@ the design.
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
   asked.
+- **A frame-specified design needs its handoff assets reachable from the tree.** When the
+  design's specification is a drawn frame — a mockup the implementation must match (**Design
+  mockups are a specification**, `rules/design-mockups-are-specs.mdc`) — the design is not
+  approvable, and no task whose specification is that frame is written, until the handoff assets
+  are committed into the repository or their location is recorded in
+  `<project>/.flow/project.md` (the `mockups` row of `## visual verification` is where a declared
+  mockups directory lives — **Project configuration**,
+  `skills/flow-contracts/project-configuration.md`). kan-29's routes A–F were built with the
+  handoffs outside the tree, which is what left every "different from the mockup" report
+  unanswerable and let an unchecked caption survive review.
 - For multi-subsystem work, decompose before proposing.
 - The design presentation does **not** end a section, or the whole design, with a "does this look
   right?" question — present the section(s) and proceed directly, section to section and then into
