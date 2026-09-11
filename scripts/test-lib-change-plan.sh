@@ -479,6 +479,68 @@ set -e
 assert_nonzero_rc "case 10c: satellite dir with link.md and no tasks.md never takes the absent-dir branch" "$RC"
 assert_eq "case 10c: it prints nothing to stdout" "" "$OUT"
 
+# Case 10d (KAN-430): an EMPTY SCAFFOLD — the change directory exists but
+# carries neither tasks.md nor link.md — resolves like the absent dir when a
+# canonical worktree is supplied. KAN-335's integrate run left a satellite
+# worktree in exactly this shape (the link step was gated before the
+# primary-checkout prescription landed), and the directory's existence alone
+# carried no signal: no local plan, no local link, nothing to resolve from.
+# The same-named plan under the supplied canonical worktree is the only plan
+# this change can have.
+SAT10D="$WORK/case10d-empty-scaffold"
+CANON10D="$WORK/case10d-canonical"
+make_tree "$SAT10D"
+make_tree "$CANON10D"
+mkdir -p "$SAT10D/spectre/changes/x-repo-change"
+mkdir -p "$CANON10D/spectre/changes/x-repo-change"
+printf '# canonical\n\n- [ ] 1. do a thing\n' > "$CANON10D/spectre/changes/x-repo-change/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$SAT10D" "x-repo-change" "$CANON10D")"
+RC=$?
+set -e
+assert_zero_rc "case 10d: empty local change dir with a canonical worktree resolves the same-named plan" "$RC"
+assert_eq "case 10d: it prints the canonical worktree's own tasks.md path" \
+  "$CANON10D/spectre/changes/x-repo-change/tasks.md" "$OUT"
+
+# Case 10e: the same empty scaffold with NO canonical worktree argument —
+# nothing names where the plan lives, so this stays unresolvable.
+SAT10E="$WORK/case10e-empty-scaffold"
+make_tree "$SAT10E"
+mkdir -p "$SAT10E/spectre/changes/x-repo-change"
+
+set +e
+OUT="$(change_plan_path "$SAT10E" "x-repo-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 10e: empty local change dir without a canonical worktree stays unresolvable" "$RC"
+assert_eq "case 10e: it prints nothing to stdout" "" "$OUT"
+
+# Case 10f (KAN-430): a link.md of ANY content — here a `## Parts`-only
+# canonical-side copy with no `## Part of` — keeps the empty-dir branch
+# closed. The relaxation must never fire behind a link.md's back, or a
+# canonical worktree holding an unrelated same-named change would be
+# silently preferred over the link the satellite actually carries.
+SAT10F="$WORK/case10f-parts-only-link"
+CANON10F="$WORK/case10f-canonical"
+make_tree "$SAT10F"
+make_tree "$CANON10F"
+mkdir -p "$SAT10F/spectre/changes/sat-change"
+cat > "$SAT10F/spectre/changes/sat-change/link.md" <<'EOF'
+## Parts
+
+`peerq:some-part`
+EOF
+mkdir -p "$CANON10F/spectre/changes/sat-change"
+printf '# decoy plan that must never be reached\n' > "$CANON10F/spectre/changes/sat-change/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$SAT10F" "sat-change" "$CANON10F" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 10f: local dir with a link.md never takes the empty-dir branch" "$RC"
+assert_eq "case 10f: it prints nothing to stdout" "" "$OUT"
+
 # ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'

@@ -15,13 +15,18 @@
 # Resolution order, per design.md's `guards-take-the-canonical-worktree-path`:
 #
 #   1. <worktree>/<spec-root>/changes/<name>/tasks.md exists → that path.
-#   2. Otherwise, no change DIRECTORY for <name> exists here at all (the
-#      cross-repo shape where the plan lives only in the canonical repo) and
-#      a canonical worktree argument was passed → the same-named plan under
-#      the canonical worktree's own <spec-root>/changes/, if it exists. The
-#      gate is the absent DIRECTORY, not merely an absent tasks.md, so a
-#      satellite's link resolution below is never preempted
-#      (design.md's no-fallback-for-linked-satellites).
+#   2. Otherwise, no local tasks.md and no local link.md for <name> here at
+#      all (the cross-repo shape where the plan lives only in the canonical
+#      repo — the change directory absent entirely, or an empty scaffold a
+#      refused or aborted link step left behind, KAN-430) and a canonical
+#      worktree argument was passed → the same-named plan under the
+#      canonical worktree's own <spec-root>/changes/, if it exists. The gate
+#      is BOTH files being absent, not merely an absent tasks.md or an
+#      absent directory, so a satellite's link resolution below is never
+#      preempted (design.md's no-fallback-for-linked-satellites — whose
+#      letter named the absent directory; the empty scaffold is the recorded
+#      widening, an existing-but-empty directory carrying no signal of its
+#      own).
 #   3. Otherwise, <worktree>/<spec-root>/changes/<name>/link.md exists and
 #      carries `## Part of`:
 #        - a canonical worktree argument was passed → its own
@@ -187,16 +192,22 @@ _change_plan_resolve_dir() {
     return 0
   fi
 
-  # THE ABSENT-DIR BRANCH (KAN-260): this tree carries NO change directory
-  # at all for the named change — the cross-repo shape where the plan lives
-  # only in the canonical repo — so the same-named plan resolves directly
+  # THE CANONICAL-BY-NAME BRANCH (KAN-260, widened by KAN-430): the local
+  # tree carries NO tasks.md and NO link.md for the named change — the
+  # cross-repo shape where the plan lives only in the canonical repo, whether
+  # the change directory is absent entirely or an empty scaffold a refused or
+  # aborted link step left behind — so the same-named plan resolves directly
   # from the SUPPLIED canonical worktree, with no link.md to read and no
-  # store to query. Gated on the DIRECTORY being absent, not merely
-  # tasks.md: a satellite (a dir carrying only link.md) keeps link
-  # resolution and its loud failures below, so the canonical worktree is
-  # never retried behind link.md's back (design.md's
-  # no-fallback-for-linked-satellites).
-  if [ ! -d "$dir" ] && [ -n "$canonical_worktree" ]; then
+  # store to query. An existing-but-empty directory carries no signal of its
+  # own: no local plan and no local link, so it says nothing about where the
+  # plan lives that the canonical argument does not say better. Gated on BOTH
+  # files being absent, not merely on the directory's absence: a satellite (a
+  # dir carrying only link.md — or a `## Parts`-only canonical-side copy)
+  # keeps link resolution and its loud failures below, so the canonical
+  # worktree is never retried behind link.md's back (design.md's
+  # no-fallback-for-linked-satellites, whose letter named the absent
+  # directory; KAN-430 is the recorded widening to the empty scaffold).
+  if [ ! -f "$dir/tasks.md" ] && [ ! -f "$dir/link.md" ] && [ -n "$canonical_worktree" ]; then
     local absent_leaf absent_dir
     absent_leaf="$(spec_root_leaf "$canonical_worktree")"
     absent_dir="$canonical_worktree/$absent_leaf/changes/$name"
