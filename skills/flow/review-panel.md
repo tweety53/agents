@@ -720,12 +720,24 @@ no-held-sha rule in the next round. Then:
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The roster** states, at the start of any round.
 
+**From a change's third fix round on, a fix round is scoped.** A re-running diff-reading slot
+reads the round's `fix-round-N.diff` plus the sites of every finding an earlier round raised —
+each site opened at its recorded `file:line` in the current tree — in place of its held-sha
+delta; the re-run rule above is unchanged, and so is everything the round's own mutation-proof
+covers. The scoping exists because a round that re-reads a growing fix diff regress-checks by
+volume, not by site: on KAN-459, five of seven review rounds raised mostly regressions of
+earlier fixes, at roughly forty-five minutes a round (KAN-500). A scoped round no longer reads
+the branch, so a run that reached one closes with the final whole-branch pass **Rerun policy
+`full`** adds — reserved for catching independent issues, which is what caught that change's
+round-6 real bugs.
+
 **Rerun policy `full`** — the decision's `panel.rerun` on a `big` class — keeps every rule above for
 every fix round and adds one final pass after the last fix round closes clean: every slot in the
 roster re-reads the whole `final-review.diff` (Bugbot and Mutation in their pass-1 shape). A finding
 from that final pass opens an ordinary fix round under the rules above; the final pass then repeats
 once that round closes clean. **Rerun policy `delta`** — `small` and `regular`, and every run on
-`REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass.
+`REVIEW_PANEL_TOGGLE` `default` — is the section above as it stands: no added final pass, beyond
+the one the scoped-round rule above requires of a run that reached a third fix round.
 
 **The cap check on a re-run** is `check-panel-diff-size.sh <worktree> <sha> <cap>` once per
 worktree per **distinct** held sha among the diff-reading slots dispatched this round (two slots
