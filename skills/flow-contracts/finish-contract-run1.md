@@ -297,7 +297,7 @@ call site and the implement phase's PR-exception path.
 | Route | Then |
 |-------|------|
 | **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl` |
-| **Merge and push** | push `--force-with-lease`; `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** and this route once |
+| **Merge and push** | push `--force-with-lease`; `classify-untracked.sh <project>/.worktrees/_landing-<name>` first when the landing worktree already exists — the archive pre-flight, **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`) step 2's class rule, settling its assets through the operator — then `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** and this route once |
 | **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 `<archive-branch>` equal to `<base>` itself — the merge-and-push route's own use above — means

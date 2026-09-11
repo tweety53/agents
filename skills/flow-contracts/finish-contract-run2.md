@@ -14,7 +14,8 @@ bare `/flow` is the only command that loads this file.
    the merge-and-push route) uses in place of the main checkout, which is never checked out, staged
    or committed by any `/flow` step. Resolve `<base>` with `resolve-base-branch.sh` against the
    apply worktree, exactly as Run 1 does (`skills/flow-contracts/finish-contract-run1.md`),
-   then invoke `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base>
+   run `classify-untracked.sh <project>/.worktrees/_landing-<name>` when the worktree already
+   exists, then invoke `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base>
    chore/archive-<name>`. The exit contract: `0` positioned — `<landing-worktree>` is on
    `chore/archive-<name>`, cut from a fast-forwarded `<base>`; `1` a named refusal — the landing
    path's parent is not a `.worktrees` directory, a dirty working tree, **on `<base>` or off it**, a
@@ -25,6 +26,21 @@ bare `/flow` is the only command that loads this file.
    `<base>` cannot be reconciled with `origin` — it has diverged, `origin/<base>` does not resolve,
    or there is no `origin` remote at all. Anything but exit `0` stops run 2 here, with nothing
    staged, committed, pushed or removed, and the main checkout untouched throughout.
+
+   **The pre-flight classifies; the guard still refuses.** `classify-untracked.sh` sorts the
+   landing worktree's untracked entries into three classes instead of leaving the guard's flat
+   dirty-tree refusal to be cleared by hand (KAN-411): capture images — `*.png`, `*.jpg`,
+   `*.jpeg` — move to `<project>/.worktrees/_scratchpad/`, outside the worktree step 11
+   force-removes; a `.claude` entry at the worktree root is appended to the checkout's local
+   exclude (`<project>/.git/info/exclude` — a linked worktree's own exclude file is not read
+   by status), never to the committed gitignore; every other entry is an **asset**, reported and
+   touched by nothing. The script never refuses: an absent worktree prints nothing and there is
+   nothing to classify — the guard creates it fresh and clean; a settled one prints `CLEAN`; an
+   asset stays untracked, so the guard's refusal stands until the conductor settles it — prompted
+   to the operator once, **delete** removes it in place, **commit** moves it to the scratchpad so
+   positioning can proceed, then restores and commits it onto `chore/archive-<name>` as its own
+   commit immediately after positioning, so it cannot ride step 4's `add -A` unremarked. When the
+   script is absent, classify by hand to the same three classes and say so in the handoff.
 
    **When the script is absent** — a harness whose repository does not carry it — perform the same
    positioning by hand, in this order, against `<landing-worktree>`, creating it via `git -C

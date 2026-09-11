@@ -30,7 +30,11 @@ flow stage begin -command '/flow' -stage flow.sync-archive -harness <harness> -s
 ```
 
 2. **Position the landing worktree on the archive branch**, before anything else touches it.
-   Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, then invoke
+   Resolve `<base>` with `resolve-base-branch.sh` against the apply worktree, run
+   `classify-untracked.sh <project>/.worktrees/_landing-<name>` first when the worktree already
+   exists — the archive pre-flight settling its untracked entries, **Run 2 — the branch is
+   merged** (`skills/flow-contracts/finish-contract-run2.md`), step 2, canonical for the classes
+   and for settling a reported asset through the operator — then invoke
    `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> chore/archive-<name>`.
    Exit `0` → `<landing-worktree>` is on `chore/archive-<name>`, cut from a fast-forwarded `<base>`;
    continue to step 3. Anything else stops run 2 here, with nothing staged, committed, pushed or
