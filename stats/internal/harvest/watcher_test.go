@@ -2149,8 +2149,8 @@ func TestMarkRecognizedWhereverItSitsInTheCommand(t *testing.T) {
 			command: `flow stage begin -stage do.tests -session-token="TOKEN" -harness claude-code`,
 		},
 		{
-			name:    "line-continuation form (backslash-newline), as skills/myflow-do/SKILL.md emits",
-			command: "flow stage begin -command '/myflow-do' \\\n  -stage do.workspace-export \\\n  -harness claude-code \\\n  -session-token TOKEN \\\n  change-name",
+			name:    "line-continuation form (backslash-newline), as skills/flow/SKILL.md emits",
+			command: "flow stage begin -command '/flow' \\\n  -stage do.workspace-export \\\n  -harness claude-code \\\n  -session-token TOKEN \\\n  change-name",
 		},
 	}
 

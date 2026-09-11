@@ -87,7 +87,7 @@ func TestReplayAppliesPendingEntries(t *testing.T) {
 }
 
 // TestStaleEntryCannotRegressFinished pins the scenario named in
-// specs/myflow-state-store/spec.md: a journal entry recording an earlier
+// the state-store requirement: a journal entry recording an earlier
 // state than the one already stored as FINISHED must not move the record
 // backwards, and must still be retired rather than retried forever.
 //

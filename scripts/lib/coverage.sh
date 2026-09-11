@@ -3,7 +3,7 @@
 # A guard exits 0 when it finds no violation — the same result a guard
 # produces when it examined nothing at all. KAN-73 hit exactly this:
 # check-guard-symlinks.sh's rule 2 computed an empty required set for
-# skills/myflow-fast/, and deleting a symlink from that skill still reported
+# skills/flow-fast/, and deleting a symlink from that skill still reported
 # GUARD-SYMLINKS-OK. Three reviewers read that guard and missed it, because
 # the guard's own output gave them nothing to notice. This library exists so
 # that four guards (check-guard-symlinks.sh, check-references.sh,

@@ -56,14 +56,14 @@ function tokenTotal(bag: unknown): number | undefined {
  * Derives one stage run's dispatch rows from its metrics bag's
  * `dispatches.<agentId>` key (internal/harvest.DispatchBucket,
  * attribute.go), sorted by cost descending with an absent cost sorting
- * last -- never treated as zero (myflow-stats-views spec.md's own
+ * last -- never treated as zero (the stats-views requirement's own
  * ordering rule).
  *
  * Per-dispatch cost is read directly from that same key's own `cost_usd`
  * -- store.Store.Price (internal/store/pricing.go) now prices
  * "dispatches.<agentId>" through the identical rate resolution and
  * chargeableTokens.cost arithmetic as "models.<model>", applied to the
- * dispatch's own recorded model and own tokens (myflow-stats-views
+ * dispatch's own recorded model and own tokens (the stats-views requirement
  * spec.md, "Per-dispatch cost SHALL be derived through the same pricing
  * path every other cost figure uses"). This is deliberately never an
  * implied average rate scaled from a model bucket's blended total: that

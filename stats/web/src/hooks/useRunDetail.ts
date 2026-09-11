@@ -4,7 +4,7 @@
 // come from the aggregate, never from summing the fetched stage runs** --
 // the round's own spec scenario ("a change with more stage runs than one
 // page holds") is exactly this, and summing a page is the defect it names
-// (specs/myflow-stats-views/spec.md, "One change opens on its own
+// (the stats-views requirement "One change opens on its own
 // dashboard"). Summing cost-per-change's own rows across a change's
 // several (command, stage) groupings is a different thing and is fine:
 // that endpoint is not paginated, so its rows are already the server's
@@ -109,7 +109,7 @@ const WIDE_FROM = new Date(0);
  * owns metrics.ts). A run whose bag carries no "models" object, or whose
  * "models" object does not carry this key, never matches -- the same
  * absence-is-never-a-match rule the server's own model restriction
- * applies (specs/myflow-stats-views/spec.md, "Runs that recorded no
+ * applies (the stats-views requirement "Runs that recorded no
  * model": such a run is excluded, never coerced into matching every
  * filter by default).
  */

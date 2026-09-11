@@ -4,7 +4,7 @@
 # All classification logic lives in plan-dispatch-bundles.py (Python 3,
 # standard library only), following the same split check-task-build-green.sh
 # uses and for the same reason: this file exists only so an operator's
-# muscle memory invoking this exact filename, and `myflow-do` §4's own call
+# muscle memory invoking this exact filename, and skills/flow/implement.md's own call
 # site, keep working, while the block-parsing logic underneath gets a real
 # language rather than a hand-rolled Bash ERE allowlist.
 #

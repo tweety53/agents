@@ -21,7 +21,7 @@ import { expect, test } from "@playwright/test";
 const DASHBOARD_URL = "/#/state-board?from=2026-08-01T00%3A00%3A00.000Z&to=2026-08-16T00%3A00%3A00.000Z";
 
 // uitest-beta/kan-201-refactor-thing is the fixture's own richest change:
-// FINISHED, two stage runs (/myflow-do then /myflow-finish) across two
+// FINISHED, two stage runs (/flow then /flow-fast) across two
 // models, so the timeline and the table both render more than one row.
 // Run detail's own data ignores the shared period control (useRunDetail.ts's
 // own WIDE_FROM) -- but the dashboard bar above it still renders that
@@ -88,12 +88,12 @@ test.describe("run detail", () => {
     // two stage runs the fixture recorded must actually be visible.
     await expect(page.getByRole("status")).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
-    // Scoped to the stage-run table specifically: "/myflow-do" alone is
+    // Scoped to the stage-run table specifically: "/flow" alone is
     // ambiguous -- the same fixture value also appears in the timeline's
     // own SVG label and in the table's command filter dropdown.
     const stageRunsPanel = page.locator('section.panel[aria-label="Stage runs"]');
-    await expect(stageRunsPanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
-    await expect(stageRunsPanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
+    await expect(stageRunsPanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
+    await expect(stageRunsPanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
 
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
 

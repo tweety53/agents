@@ -47,8 +47,7 @@ agents-data/
 │   ├── flow-settings/                 ← /flow-settings — global model/reviewer defaults
 │   ├── flow-self-review/              ← /flow-self-review — run a deferred self-review pass, inline
 │   └── flow-contracts/                ← on-demand contracts; pipeline.md is canonical for the state machine
-├── spectre/                           ← this repository's own artifact tree: specs/ and changes/
-└── openspec/                          ← frozen at the 2026-08-25 cutover: the record of how this repository got here, never written to again
+└── spectre/                           ← this repository's own artifact tree: specs/ and changes/
 ```
 
 **Rules** — whether a rule is always-on is a property of the rule itself, declared once in
@@ -94,8 +93,7 @@ stateDiagram-v2
 ### Level 1 — the stages of each command
 
 Two tables. The first is the stage vocabulary itself — every documented stage, across the
-commands this pipeline has (three pipeline commands, one composite command, and `/flow` — the
-single command that replaces all four — plus two read-only/no-state commands, exactly
+commands this pipeline has (`/flow`, `/flow-fast`, and the read-only/no-state commands, exactly
 as **Command surface** (`skills/flow-contracts/pipeline.md`) names them). The second is the human
 gate that *follows* each command's run — a property of the state the command ends in, never a stage
 of its own, so it is kept out of the first table rather than repeated per stage.
@@ -104,19 +102,11 @@ of its own, so it is kept out of the first table rather than repeated per stage.
 human-readable **name** that may be reworded without splitting recorded history, and every command
 that runs it. A name marked ▸ hides substructure and is expanded at level 2 below.
 
-A key is namespaced by the command that *defines* the stage, never by the command that merely runs
-it — a distinction the previous, four-command surface needed and the two commands left do not:
-every row below is defined by `/flow`, and `/flow-fast` — the one other command that runs rows —
-marks every one of them too (`skills/flow-fast/SKILL.md`), most as an empty begin/end pair. See design.md under kan-172 for the
-rejected alternatives to that older namespacing. `/flow-status` marks no stages at all and
-contributes no rows.
-
-`/flow` mints its own namespace, `flow.*`, rather than reusing `start.*`/`do.*`/`finish.*` — several
-of its stages are not the old stage unchanged (`flow.verify` merges two, `flow.landing-routes`
-absorbs `finish.move-in-review`, `flow.kickoff` is new), so a reused key would sometimes mean
-something different than its history records (design.md's `flow-rename-content-split`, and the
-stage-keys note in `skills/flow/SKILL.md`). Which phase file under `skills/flow/` marks each `flow.*`
-key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a column here.
+Every row below is defined by `/flow`, and `/flow-fast` — the one other command that runs rows —
+marks every one of them too (`skills/flow-fast/SKILL.md`), most as an empty begin/end pair.
+`/flow-status` marks no stages at all and contributes no rows. Which phase file under
+`skills/flow/` marks each `flow.*` key is **Stage keys** (`skills/flow/SKILL.md`), cited rather
+than repeated as a column here.
 
 | Key | Name | Commands |
 |-----|------|----------|
@@ -151,12 +141,6 @@ key is **Stage keys** (`skills/flow/SKILL.md`), cited rather than repeated as a 
 | `flow.self-review` | Self-review (run 2) | `/flow` |
 | `flow.push-archive` | Push the archive branch and open its PR (run 2) | `/flow`, `/flow-fast` |
 
-`/flow` has no `start.ask-options`/`start.publish-proposal` equivalent (design.md's
-`ask-options-removed`, `publish-proposal-removed`) and no `finish.write-in-progress` (run 1)
-equivalent — resolved as folded away rather than kept, per design.md's open question
-`write-in-progress-fold`, since that stage wrote `IN_PROGRESS` → `IN_PROGRESS` with no state change
-of its own.
-
 **Gate after it.** `/flow` is one command with several runs — creating, resuming, fix, integrate,
 archive — so its row states the gate for each.
 
@@ -169,8 +153,7 @@ archive — so its row states the gate for each.
 `/flow`'s run-2 sequence ends with `flow.push-archive`. The row before it, `flow.self-review`,
 carries no ▸ either: its procedure is not expanded at level 2 below because it is canonical under
 **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), step 9 — which is
-also the file to change when that procedure changes, since the requirements layer that once sat
-above it is frozen with the rest of the `openspec/` tree at the spectre cutover.
+also the file to change when that procedure changes.
 
 ### Level 2 — the stages that hide substructure
 
@@ -178,191 +161,71 @@ Each expansion below states the **structure** — the shape that changes only wh
 changes — and cites the file that owns any tuned threshold rather than restating it: a threshold
 copied here is a copy that can go wrong silently the next time the owning file changes.
 
-#### Brainstorm — `/myflow-start`
+#### Brainstorm — `/flow`
 
 superpowers:brainstorming runs its checklist in full and ends with the operator approving the
 design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
-lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
-change's `design.md` artifact — adapted, never duplicated into a conflicting second design.
+lands. The approved design is saved under `docs/superpowers/specs/` in the change's worktree and
+becomes the source for the change's `design.md` artifact — adapted, never duplicated into a
+conflicting second design. Before the checklist opens, the stage checks `docs/superpowers/research/`
+for a staged note matching this topic (per `/flow-plan`'s staging behaviour below) and, if found,
+seeds the round from it without ever skipping straight to artifact-writing (design.md's
+`flow-plan-staging`).
 
 The stage iterates rather than passing once. After every planning-stage exchange — a round of
 clarifying questions, the approval of a design section, the operator's review of the written spec —
 one convergence test asks whether the command now holds a question its inputs do not answer, and
 while it does, another round opens or is offered. The stage closes only the way any pipeline stage
 does — **Stage exit — never the command's own judgment** (`skills/flow-contracts/pipeline.md`).
-
 The threshold, the two prompts, the bounded exception, and why their opposite recommendations are
 both honest are **Convergence** (`skills/flow/brainstorm-planner.md`).
 
-The planning level recorded on the creating run sizes the thinking *inside* this gate and never the
-gate itself. The three levels and which of them is the default are owned by **Planning effort**
-(`skills/flow-contracts/state-file.md`).
+No planning-effort, model, or review-panel-roster question runs on a creating run (design.md's
+`ask-options-removed`). The roster is resolved from the settings store instead of asked; see
+**The review panel** below.
 
-#### Writing-plans — `/myflow-start`
+#### Writing-plans — `/flow`
 
 superpowers:writing-plans enriches `tasks.md` from a checkbox scaffold into a plan whose every item
-carries exact paths, verification commands and no placeholders — the unit `/myflow-do` dispatches
-one implementer against. Its self-review — spec coverage, placeholder scan, type consistency — runs
-before the stage finishes.
+carries exact paths, verification commands and no placeholders — the unit the implement phase
+dispatches one implementer against. Its self-review — spec coverage, placeholder scan, type
+consistency — runs before the stage finishes.
 
 Every fenced block and every numeric claim in a planning artifact carries a provenance tag,
 `verified:<how>` or `unverified:`, which `scripts/check-plan-provenance.sh` makes mechanical rather
 than a habit. An unverifiable snippet is tagged and **kept**: a plan without the snippet is worse
 than a plan carrying a labelled guess.
 
-A revision round re-enters at this stage and republishes the proposal artifact to the **same** URL
-rather than minting a second one.
-
-#### SDD + TDD per task — `/myflow-do`
-
-One implementer dispatch per checkbox in `tasks.md`, or per tightly coupled group, in plan order.
-Every dispatch carries the same four required blocks — the no-commits boundary,
-superpowers:test-driven-development as a required sub-skill, `engineering-principles.md` as required
-reading, and the plan-provenance rule above — and names its model explicitly rather than inheriting
-the parent's.
-
-The task's diff is written to a file and the reviewer is given that path, never a commit range,
-because nothing is committed at this stage. A checkbox is marked `[x]` only after its task passes
-spec **and** quality review; a blocked task pauses and reports rather than guessing.
-
-Which model a dispatch runs on, and the rule that every dispatch records it, are **Model policy**
-(`skills/flow-contracts/model-policy.md`).
-
-#### The review panel — `/myflow-do`
-
-A change records one of three review panel rosters — `light` *(default)*, `standard` or `full` — and
-every preset dispatches exactly three required slots, whichever is recorded; `full` reproduces the
-roster in force before presets existed. This preset/roster system was later retired in favor of a
-fixed 3-slot panel, itself later superseded by a roster resolved from the settings store — see
-**The review panel — `/flow`** below; **The roster** (`skills/flow/review-panel.md`) is canonical
-for the panel's current shape. Four
-further slots stay conditional under every preset — Security, Adversarial and two extra principle
-slots — selected from what the diff touches. Each
-selected slot is dispatched general-purpose, briefed by its own prompt, in every affected worktree;
-slots may share a dispatch — see **Bundled dispatch** (`skills/flow/review-panel.md`).
-
-Every slot runs on the panel's model — Sonnet by default. Bugbot and Security Review are
-prompt-driven roles like every other slot and take the same model rule — no fixed agent
-definition, no override exception. There is no parent-model inheritance and no economy tier: the
-panel's cost does not depend on the model the operator happens to be running.
-
-No handoff happens while any finding is open, at any severity — a minor finding blocks exactly as a
-critical one does. Re-runs are targeted by default and escalate to the full roster automatically,
-without asking; escalation widens the panel's **breadth** — more slots — and never its model. When
-a finding survives its last fix round the run hands back to the operator, one finding at a time,
-with named options.
-
-The tuned values are cited rather than copied: which diff sizes and which touched areas select a
-conditional slot was **Optional slot selection** in the retired `myflow-do/SKILL.md` — replaced by
-**The roster**, now resolved from the settings store (`skills/flow/review-panel.md`); the conditions
-that force a full re-run in place of a targeted one are **Panel re-runs** in the same file.
-
-#### The preflight verdict — `/myflow-finish`
-
-`scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
-taken once per worktree in the resolved set — never a raw read of the state file's `worktrees` map,
-per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`). It prints exactly
-one verdict line and exits 0 whenever it reached a verdict; a missing verdict line is not a verdict,
-and neither is a worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` stops the
-run and asks the operator rather than guessing. Run 2 proceeds only when every worktree in the
-resolved set returns `RUN2` — and a resolved set that comes back empty is never read as that,
-per the same section.
-
-The three signals and why their order is load-bearing are **Finish contract**
-(`skills/flow-contracts/finish-contract-run1.md`).
-
-#### The unfinished-work gate — `/myflow-finish` run 1
-
-Runs **before** the landing question and before any git action, once per worktree in the resolved
-set — see **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`).
-`scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
-prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
-**Stop** marked as the recommendation. There is no fourth course, and none that hands back to
-`/myflow-do` inline.
-
-The ordering is the point: an operator asked how to land a branch, and only then told it carries
-unfinished work, has already answered a question about a branch they believed was complete. What
-was integrated over is written into the planning commit's message and into the handoff, so the
-record outlives the session.
-
-Each course and what run 1 then does are **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract-run1.md`).
-
-#### The landing routes — `/myflow-finish` run 1
-
-The operator is asked once, before any git action, how the branch should land: open a pull request
-*(default)*, merge and push, or handle it manually. The run then completes without asking again,
-and the answer is never remembered between runs.
-
-All three routes do the same two things first, in this order: preserve the session records out of
-the gitignored worktree into the repository, then commit in **two** commits — implementation first,
-planning artifacts second. The linked issue moves to In Review on every route, including the manual
-one.
-
-The route table is **Run 1 — the branch is not merged**
-(`skills/flow-contracts/finish-contract-run1.md`); the guarded two-commit chain every route uses is
-**Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
-
-#### Cleanup — `/myflow-finish` run 2
-
-Every removal is *remove-or-move if present*, which is what makes run 2 re-entrant: a step whose
-artifact is already gone is a success rather than an error, so a re-run after the operator clears a
-leftover repeats the verification and nothing else.
-
-The removals are verified rather than assumed. `scripts/check-cleanup-complete.sh` runs once per
-repository, **after** all of them: `COMPLETE:` allows the `FINISHED` write, `LEFTOVER:` names what
-remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no verdict line is
-treated exactly as `LEFTOVER`.
-
-What is removed, when, and on what condition is **Temporary artifacts registry**
-(`skills/flow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
-the rows it removes is **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
-
-#### Brainstorm — `/flow`
-
-superpowers:brainstorming runs its checklist in full and ends with the operator approving the
-design, which is a hard gate: nothing is created under `spectre/changes/` until that approval
-lands. The approved design is saved under `docs/superpowers/specs/` and becomes the source for the
-change's `design.md` artifact — adapted, never duplicated into a conflicting second design. Before
-the checklist opens, the stage checks `docs/superpowers/research/` for a staged note matching this
-topic (per `/flow-plan`'s staging behaviour below) and, if found, seeds the round from it
-without ever skipping straight to artifact-writing (design.md's `flow-plan-staging`).
-
-The stage iterates rather than passing once, the same way `/myflow-start`'s does — see
-**Convergence** (`skills/flow/brainstorm-planner.md`) for the threshold, the two prompts, and the bounded
-exception, which apply unchanged.
-
-No planning-effort, model, or review-panel-roster question runs on a creating run — the three
-questions design.md's `ask-options-removed` retired. The roster is resolved from the settings store
-instead of asked; see **The review panel** below.
-
-#### Writing-plans — `/flow`
-
-superpowers:writing-plans enriches `tasks.md` the same way it does for `/myflow-start` — see
-**Writing-plans — `/myflow-start`** above for the provenance-tag rule, which applies unchanged.
-`/flow` publishes no proposal artifact (design.md's `publish-proposal-removed`), so a revision round
-re-enters at this stage without republishing anything.
+`/flow` publishes no proposal artifact (design.md's `publish-proposal-removed`), so a revision
+round re-enters at this stage without republishing anything.
 
 #### SDD + TDD per task — `/flow`
 
-Same dispatch shape as `/myflow-do`'s — see **SDD + TDD per task — `/myflow-do`** above. Which model
-a dispatch runs on is **Model resolution** in `skills/flow/SKILL.md` — one default for implementer,
-panel, and panel-fix roles, read from the settings store rather than asked per change (design.md's
-`model-default-sonnet`, `settings-scope`); the per-harness enforcement notes in **Model policy**
-(`skills/flow-contracts/model-policy.md`) still apply, but that file's three-role table does not.
+One implementer dispatch per checkbox in `tasks.md`, or per tightly coupled group, in plan order.
+Every dispatch carries the same required blocks — the commit-per-task boundary,
+superpowers:test-driven-development as a required sub-skill, `engineering-principles.md` as required
+reading, and the plan-provenance rule above — and names its model explicitly rather than inheriting
+the parent's. Each task lands as its own commit on the change branch, guarded by
+`scripts/check-task-commit-fields.sh` and pushed as it lands; a blocked task pauses and reports
+rather than guessing.
+
+Which model a dispatch runs on is **Model resolution** in `skills/flow/SKILL.md` — one default for
+implementer, panel, and panel-fix roles, read from the settings store rather than asked per change
+(design.md's `model-default-sonnet`, `settings-scope`); the per-harness enforcement notes in
+**Model policy** (`skills/flow-contracts/model-policy.md`) still apply.
 
 #### The review panel — `/flow`
 
 Every run dispatches the roster `skills/flow/SKILL.md`'s **Model resolution** resolves from the
 settings store's `.reviewers` list — floored at `primary` alone when the store answers empty,
-falling back to three defaults when the store is unreachable (design.md's `roster-from-settings`,
-superseding `review-panel-fixed-3`) — no preset, no diff-size or touched-area trigger. A per-run
-operator instruction can still add a slot the resolved list does not carry, for that run only,
-checked at the start of the panel stage and again at every fix round. Each dispatched slot is
-briefed by its own prompt, in every affected worktree; slots may share a dispatch — at most two
-dispatches per round, each carrying one to three roles (**Bundled dispatch**,
-`skills/flow/review-panel.md`). The id-to-slot mapping is canonical under **The roster**
-(`skills/flow/review-panel.md`).
+falling back to three defaults when the store is unreachable (design.md's `roster-from-settings`)
+— no preset, no diff-size or touched-area trigger. A per-run operator instruction can still add a
+slot the resolved list does not carry, for that run only, checked at the start of the panel stage
+and again at every fix round. Each dispatched slot is briefed by its own prompt, in every affected
+worktree; slots may share a dispatch — at most two dispatches per round, each carrying one to three
+roles (**Bundled dispatch**, `skills/flow/review-panel.md`). The id-to-slot mapping is canonical
+under **The roster** (`skills/flow/review-panel.md`); the conditions that force a full re-run in
+place of a targeted one are **Panel re-runs** in the same file.
 
 Every slot runs on `DEFAULT_MODEL` — the settings-store default, this run's session-instruction
 override, or the decision's own model/effort for the slot on a dynamic roster. Bugbot and Security
@@ -377,25 +240,64 @@ finding at a time, with named options.
 
 #### The preflight verdict — `/flow` integrate
 
-Same `scripts/check-finish-preflight.sh` decision `/myflow-finish` uses — see **The preflight
-verdict — `/myflow-finish`** above, which applies unchanged.
+`scripts/check-finish-preflight.sh` decides which run happens, from three signals in a fixed order,
+taken once per worktree in the resolved set — never a raw read of the state file's `worktrees` map,
+per **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`). It prints exactly
+one verdict line and exits 0 whenever it reached a verdict; a missing verdict line is not a verdict,
+and neither is a worktree it cannot read. `RUN1` integrates, `RUN2` archives, and `REFUSE` stops the
+run and asks the operator rather than guessing. Run 2 proceeds only when every worktree in the
+resolved set returns `RUN2` — and a resolved set that comes back empty is never read as that,
+per the same section.
+
+The three signals and why their order is load-bearing are **Finish contract**
+(`skills/flow-contracts/finish-contract-run1.md`).
 
 #### The unfinished-work gate — `/flow` integrate, run 1
 
-Same `scripts/check-unfinished-work.sh` gate `/myflow-finish` run 1 uses — see **The unfinished-work
-gate — `/myflow-finish` run 1** above, which applies unchanged except that "hands back to
-`/myflow-do` inline" reads as "hands back to the implement phase inline."
+Runs **before** the landing question and before any git action, once per worktree in the resolved
+set — see **Resolving a change's worktrees** (`skills/flow-contracts/worktree-resolution.md`).
+`scripts/check-unfinished-work.sh` returns `CLEAR` — go straight to the question, with no extra
+prompt — or `OUTSTANDING`, which shows the breakdown and offers **exactly three** courses, with
+**Stop** marked as the recommendation. There is no fourth course, and none that hands back to the
+implement phase inline.
+
+The ordering is the point: an operator asked how to land a branch, and only then told it carries
+unfinished work, has already answered a question about a branch they believed was complete. What
+was integrated over is written into the planning commit's message and into the handoff, so the
+record outlives the session.
+
+Each course and what run 1 then does are **Run 1 — the branch is not merged**
+(`skills/flow-contracts/finish-contract-run1.md`).
 
 #### The landing routes — `/flow` integrate, run 1
 
-Same three routes `/myflow-finish` run 1 offers — see **The landing routes — `/myflow-finish` run
-1** above — except that moving the linked issue to In Review is folded into this stage as an
-unconditional sub-step rather than a row of its own (design.md's `move-in-review-fold`).
+The operator is asked once, before any git action, how the branch should land: open a pull request
+*(default)*, merge and push, or handle it manually. The run then completes without asking again,
+and the answer is never remembered between runs.
+
+All three routes do the same two things first, in this order: preserve the session records out of
+the gitignored worktree into the repository, then commit in **two** commits — implementation first,
+planning artifacts second. Moving the linked issue to In Review is an unconditional sub-step of
+this stage on every route, including the manual one (design.md's `move-in-review-fold`).
+
+The route table is **Run 1 — the branch is not merged**
+(`skills/flow-contracts/finish-contract-run1.md`); the guarded two-commit chain every route uses is
+**Git boundaries** (`skills/flow-contracts/git-boundaries.md`).
 
 #### Cleanup — `/flow` archive, run 2
 
-Same re-entrant remove-or-move-if-present cleanup `/myflow-finish` run 2 uses — see **Cleanup —
-`/myflow-finish` run 2** above, which applies unchanged.
+Every removal is *remove-or-move if present*, which is what makes run 2 re-entrant: a step whose
+artifact is already gone is a success rather than an error, so a re-run after the operator clears a
+leftover repeats the verification and nothing else.
+
+The removals are verified rather than assumed. `scripts/check-cleanup-complete.sh` runs once per
+repository, **after** all of them: `COMPLETE:` allows the `FINISHED` write, `LEFTOVER:` names what
+remains and leaves the change at `IN_PROGRESS`, and a non-zero exit carrying no verdict line is
+treated exactly as `LEFTOVER`.
+
+What is removed, when, and on what condition is **Temporary artifacts registry**
+(`skills/flow-contracts/artifacts-registry.md`) — the one place a cleanup rule is stated. The procedure for
+the rows it removes is **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ---
 
@@ -432,7 +334,7 @@ and `~/.zcode/rules/` copies are live symlinks and need no re-run.
 | `~/.zcode/rules/` | the same full-text links as `~/.claude/rules/`, plus a **generated** `agent-baseline.md`: same source, with its `~/.claude/` pointers rewritten to `~/.zcode/`, so a ZCode-dispatched subagent never depends on another harness's install |
 | `~/.claude/hooks/` | every file in `hooks/`. Installed, never registered: `settings.json` is yours, so the installer prints the snippet and leaves the paste to you |
 | `~/.zcode/hooks/` | every file in `hooks/`, same deal — registration lives in `~/.zcode/cli/config.json` under `hooks.events`, behind `hooks.enabled: true`, and the installer prints that snippet rather than editing the JSON |
-| `~/.claude/CLAUDE.md` | a managed block, delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, containing each always-on rule's **core** and a pointer to its full text — Claude Code's global rule layer |
+| `~/.claude/CLAUDE.md` | a managed block, delimited by `<!-- flow:begin -->` / `<!-- flow:end -->`, containing each always-on rule's **core** and a pointer to its full text — Claude Code's global rule layer |
 | `~/.codex/AGENTS.md` | the **same** managed block, same delimiters, same rendered text — Codex's global rule layer. A global install writes this file even if you never ran a Codex-specific install |
 | `~/.zcode/AGENTS.md` | the same managed block with every `~/.claude/` pointer rewritten to its `~/.zcode/` counterpart — ZCode's global rule layer, self-contained |
 | `~/.zshrc` (and `~/.bashrc` when it exists) | a small managed block exporting `Z_COMPACT_WINDOW=500000` — the auto-compact window the `/usr/local/bin/zcode` wrapper (Claude Code over the z.ai key) runs with. The wrapper otherwise defaults to the full 1M context, which is how one long session re-bills its whole history on every request. An unmanaged `export Z_COMPACT_WINDOW=` line you wrote yourself wins and is left untouched |
@@ -502,8 +404,8 @@ Every **per-project** install (`cursor`, `claude-code`, `codex`, `all`) closes t
    `skills/flow-contracts/project-configuration.md`, which is canonical.
 3. It drops any rule that is already `alwaysApply: true` — that one arrives through the
    global block, and rendering it again is the duplication this exists to remove.
-4. It renders what remains into a managed block — same `<!-- myflow:begin -->` /
-   `<!-- myflow:end -->` delimiters, same frontmatter stripping, same `.myflow.bak` and
+4. It renders what remains into a managed block — same `<!-- flow:begin -->` /
+   `<!-- flow:end -->` delimiters, same frontmatter stripping, same `.flow.bak` and
    delimiter guards as the global block — in **both** `<project>/CLAUDE.md` and
    `<project>/AGENTS.md`.
 5. An entry naming a rule that does not exist is reported by name and skipped. The rest of
@@ -598,7 +500,7 @@ discovers skills natively when the Superpowers Codex plugin is installed. It rea
 
 **`setup.sh global` writes `~/.codex/AGENTS.md`.** It inserts the same managed block it
 writes into `~/.claude/CLAUDE.md` — the always-on rule text, between
-`<!-- myflow:begin -->` / `<!-- myflow:end -->` — because that block is Codex's only global
+`<!-- flow:begin -->` / `<!-- flow:end -->` — because that block is Codex's only global
 rule layer. This happens on every `global` install, whether or not you also run a
 Codex-specific install; your own content outside the delimiters is left alone.
 
@@ -766,192 +668,6 @@ correct.
 Every skill above but `flow-plan` requires the `spectre` CLI
 (`go install github.com/tweety53/spectre/cmd/spectre@latest`, with `$(go env GOPATH)/bin` on your
 `PATH`). `flow-plan` needs none — reading a spectre tree is reading markdown.
-
----
-
-## Cutting over from `myflow` to `flow`
-
-The rename from `myflow` to `flow` changed names this repository owns **and** names that live on the
-machine outside it — an installed binary, a running daemon, a Docker container, a database, a
-per-project configuration directory. Merging the branch changes only the first kind. The five steps
-below change the rest.
-
-**They run in this order. None may be reordered, and steps 2 and 4 must not be separated.**
-
-### 1. Merge
-
-Nothing on the machine has changed yet. The installed skills are symlinks into the main checkout, so
-they flip to the renamed text the moment the merge lands — which is why every step below is now
-overdue rather than optional.
-
-### 2 and 4 are one operation — read this before starting
-
-The daemon stamps every response with a trust header so a look-alike server on its port cannot be
-mistaken for the real store. That header is renamed: `Myflow-Daemon` becomes `Flow-Daemon`. **A
-renamed CLI therefore cannot trust the old daemon, and the old CLI cannot trust a renamed one.**
-
-This degrades safely — an untrusted response is a store failure, and every CLI path falls back to the
-on-disk journal and exits 0, so nothing breaks loudly. What it does *not* do is read back what it
-just wrote. **Do not run `/flow` between step 2 and step 4.**
-
-### 2. Build and install the renamed CLI
-
-```bash
-cd stats && make build
-cp bin/flow "$HOME/.local/bin/flow"
-```
-
-Leave the old `~/.local/bin/myflow` in place for now; step 5 removes it.
-
-### 3. Rename the project configuration directory, in every consuming project
-
-```bash
-git -C <project> mv .myflow .flow
-```
-
-Three projects on this machine carry one today: this repository, `~/Projects/gymie`, and
-`~/Projects/spectre-e2e`. Until a project is renamed, anything resolving its configuration refuses
-with an actionable error naming the directory and the exact `git mv` — it never falls back to the old
-path and never reports "no configuration found".
-
-### 4. Rename the container and the database
-
-**This is the only step that stops the dev workspace's service and storage, and it is yours to run.**
-`ALTER DATABASE` requires zero live connections, so the daemon must be down first.
-
-**Read the three traps below before running anything.** Each one was hit during the first real
-cutover, and two of them can lose data.
-
-**Trap 1 — `docker compose down` will NOT stop the old container.** The compose file's service key
-changed from `myflow-postgres` to `flow-postgres`, so compose no longer recognises the running  <!-- vocab-guard:allow -->
-container as one of its services: it reports it as an *orphan*, leaves it running, and fails to
-remove the network. Stop it by name, or pass `--remove-orphans`.
-
-**Trap 2 — the volume rename orphans your data.** The compose file now declares `flow-pgdata`, so a
-plain `up` creates a **new, empty** volume and leaves every row behind in `stats_myflow-pgdata`. The
-data must be copied across first — and copied from a **stopped** source, because `cp -a` over a live
-PostgreSQL data directory can catch it mid-write. Combined with trap 1, the obvious sequence copies a
-running database, which is how the first attempt produced an untrustworthy volume.
-
-**Trap 3 — the role cannot rename itself.** `ALTER ROLE myflow RENAME TO flow` fails with
-`session user cannot be renamed`, and this cluster has exactly one role, so there is no second
-superuser to run it from. One must be created for the purpose, and the rename **invalidates the
-role's password**, which has to be reset.
-
-Take a backup first. It is the only copy that does not live in a Docker volume:
-
-```bash
-docker exec myflow-postgres pg_dumpall -U myflow > ~/flow-pre-cutover.sql  # vocab-guard:allow
-```
-
-Stop the daemon and the container — by name, not through compose:
-
-```bash
-kill $(lsof -tiTCP:4173 -sTCP:LISTEN)     # whatever holds the daemon's port
-docker stop myflow-postgres  # vocab-guard:allow
-```
-
-Rename the database and the role, using a temporary superuser for the role:
-
-```bash
-docker start myflow-postgres  # vocab-guard:allow
-docker exec myflow-postgres psql -U myflow -d postgres -c 'ALTER DATABASE myflow RENAME TO flow;'  # vocab-guard:allow
-docker exec myflow-postgres psql -U myflow -d postgres -c "CREATE ROLE cutover_tmp SUPERUSER LOGIN PASSWORD 'tmp';"  # vocab-guard:allow
-docker exec -e PGPASSWORD=tmp myflow-postgres psql -U cutover_tmp -d postgres -c 'ALTER ROLE myflow RENAME TO flow;'  # vocab-guard:allow
-docker exec -e PGPASSWORD=tmp myflow-postgres psql -U cutover_tmp -d postgres -c "ALTER ROLE flow WITH PASSWORD 'flow';"  # vocab-guard:allow
-docker exec myflow-postgres psql -U flow -d postgres -c 'DROP ROLE cutover_tmp;'  # vocab-guard:allow
-```
-
-The temporary role must be dropped from a `flow` session, not its own — the same rule that blocked
-the rename in the first place.
-
-Now copy the volume with the source stopped, and bring the renamed stack up:
-
-```bash
-docker stop myflow-postgres  # vocab-guard:allow
-docker volume create stats_flow-pgdata
-docker run --rm -v stats_myflow-pgdata:/from -v stats_flow-pgdata:/to alpine sh -c 'cd /from && cp -a . /to'
-docker compose -f stats/docker-compose.yml up -d --remove-orphans
-```
-
-**Verify the copy before trusting it, and before deleting anything:**
-
-```bash
-docker exec flow-postgres psql -U flow -d flow -tAc 'select count(*) from stage_runs;'
-docker exec flow-postgres psql -U flow -d flow -tAc 'select count(*) from changes;'
-```
-
-Both must match what the old container reported. **Keep `stats_myflow-pgdata` and the dump until they
-do** — that volume is the live data, and the dump is the only copy outside Docker. Remove the old
-volume only once the new stack has been serving correctly for a while.
-
-Move the fallback state root in the same step:
-
-```bash
-mv ~/Agents/myflow ~/Agents/flow
-```
-
-That directory holds records and journal entries a failed write left behind, and the daemon replays
-the journal when it can reach the database again. **Re-measure before you move it** — a non-empty
-journal means a write never reached the store:
-
-```bash
-ls ~/Agents/myflow/state/*/*.json | wc -l
-find ~/Agents/myflow/state -name '*.journal' -size +0
-```
-
-At the time this runbook was written that directory held 56 records and two journal files, both
-empty — so the move was a formality rather than a rescue. That was true of this machine at that
-moment, not of the mechanism.
-<!-- measured: ls and find over ~/Agents/myflow/state at the time of writing @ branch spectre/kan-289-reproduce-rather-than-read-in-slot-template -->
-
-**Until this step completes, no new `/flow` run can isolate a workspace.** `scripts/workspace.sh`
-addresses the container by name, and the branch ends naming `flow-postgres` — which does not exist
-until you rename it here.
-
-### Running the Go suite before you finish
-
-The test helpers' fallback DSN names the **declared** role and database — `flow:flow@.../flow`, what
-a fresh compose stack creates. Against a container you have not renamed yet that host is unreachable,
-and these suites **skip rather than fail**: `internal/store` alone reports `ok` while running four
-tests and skipping 155. A green package that ran almost nothing is worse than a red one, so until
-step 4 is done, set both overrides:
-
-```bash
-export FLOW_STATS_ADMIN_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"  # vocab-guard:allow
-export FLOW_STATS_DSN="postgres://myflow:myflow@localhost:5433/myflow?sslmode=disable"  # vocab-guard:allow
-cd stats && go test ./... -count=1
-```
-
-Both are needed, and they do different jobs: `FLOW_STATS_ADMIN_DSN` drives the per-test database
-creation and every connection derived from it, `FLOW_STATS_DSN` the compose-stack reachability check.
-With both set the suite runs with zero skips. After step 4, neither is needed.
-
-### 5. Reinstall the launchd agent, then remove the old binary
-
-```bash
-launchctl unload ~/Library/LaunchAgents/com.tweety53.myflowd.plist  # vocab-guard:allow
-rm ~/Library/LaunchAgents/com.tweety53.myflowd.plist  # vocab-guard:allow
-cp stats/launchd/com.tweety53.flowd.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.tweety53.flowd.plist
-rm "$HOME/.local/bin/myflow"
-```
-
-### What needs no step from you
-
-The managed block in `~/.claude/CLAUDE.md` still carries the old `<!-- myflow:begin -->` delimiters.
-The installer migrates them itself on its next run: it rewrites the two marker lines in place and
-then refreshes the block as usual, so the file keeps one block rather than gaining a second orphaned
-one. Your existing `CLAUDE.md.myflow.bak` is left exactly as it is — it holds your genuine
-pre-install content, and a fresh backup would only copy a file the installer already manages.
-
-### What is deliberately left carrying the old name
-
-Existing Jira issues keep the labels they were filed with, so the board holds both taxonomies and a
-label search must match either form. The `stage_runs` rows recording `/myflow-do`, `/myflow-start`,
-`/myflow-finish` and `/myflow-fast` keep those values, because they record which command actually
-ran. The frozen `openspec/` tree and the historical records under `docs/` keep theirs for the same
-reason.
 
 ## Making a change
 

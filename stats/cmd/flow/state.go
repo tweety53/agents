@@ -172,7 +172,7 @@ func parseStateFlags(fset *flag.FlagSet, args []string, stderr io.Writer) (state
 // markSyntheticIfNeeded decodes body as a JSON object and, when its
 // "updatedBy" field is exactly stages.SyntheticChangeUpdatedBy, adds
 // `"synthetic": true` to the object before re-encoding. This is the
-// machine-checkable form a caller (skills/myflow-fast/SKILL.md's state
+// machine-checkable form a caller (skills/flow-fast/SKILL.md's state
 // gate) tests instead of comparing "updatedBy" strings itself -- a rule
 // enforced by a field a caller can test beats one enforced only by a
 // skill's prose (design.md, kan-174, "read state, then mark").

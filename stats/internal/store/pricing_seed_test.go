@@ -30,7 +30,7 @@ func TestSeedPricingRatesRoundTrip(t *testing.T) {
 			projectKey := fmt.Sprintf("proj-seed-%s-%d", rate.Model, time.Now().UnixNano())
 			seedChange(t, st, projectKey, "kan-1")
 
-			in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+			in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 			// Started well after this seed's effective_from, so the seeded
 			// row is the one in effect.
 			in.StartedAt = time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)

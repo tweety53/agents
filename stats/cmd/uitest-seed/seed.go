@@ -54,7 +54,7 @@ type projectFixture struct {
 // fixtureData is the UI-test stack's committed fixture: two projects,
 // changes spanning every pipeline state, and stage runs carrying token
 // usage so the cost and statistics views have something to render, per
-// specs/myflow-ui-test-stack/spec.md's "The test stack starts populated".
+// the UI-test-stack requirement "The test stack starts populated".
 func fixtureData() []projectFixture {
 	return []projectFixture{
 		{
@@ -70,7 +70,7 @@ func fixtureData() []projectFixture {
 					State: store.StateInProgress,
 					Stage: []stageFixture{
 						{
-							Command:      "/myflow-do",
+							Command:      "/flow",
 							Stage:        "SDD + TDD per task",
 							Model:        "claude-sonnet-5",
 							InputTokens:  42000,
@@ -92,7 +92,7 @@ func fixtureData() []projectFixture {
 					State: store.StateFinished,
 					Stage: []stageFixture{
 						{
-							Command:      "/myflow-do",
+							Command:      "/flow",
 							Stage:        "SDD + TDD per task",
 							Model:        "claude-opus-5",
 							InputTokens:  310000,
@@ -102,7 +102,7 @@ func fixtureData() []projectFixture {
 							Outcome:      "completed",
 						},
 						{
-							Command:      "/myflow-finish",
+							Command:      "/flow-fast",
 							Stage:        "integrate",
 							Model:        "claude-sonnet-5",
 							InputTokens:  8000,

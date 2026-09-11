@@ -21,9 +21,8 @@
 # "SAFELY REACH IT" criterion scripts/lib/resolve-file.sh's own header
 # states, and the same one scripts/lib/within-root.sh already relies on:
 # both callers ship through the skills/*/scripts/ symlink farm
-# (gather-dispatch-context.sh via skills/myflow-do/scripts/ and
-# skills/myflow-fast/scripts/; gather-self-review-context.sh via
-# skills/myflow-fast/scripts/ and skills/myflow-finish/scripts/), each
+# (gather-dispatch-context.sh and gather-self-review-context.sh both via
+# skills/flow/scripts/), each
 # alongside its own `lib` symlink into scripts/lib/, so a guard reached
 # through either entry point finds this file exactly where it expects it.
 #

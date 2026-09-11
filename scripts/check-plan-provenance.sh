@@ -17,9 +17,8 @@
 # module docstring — three of them found by
 # pass 5 alone, on a settled tree, after four of seven reviewers had
 # already called it clean (full history and the canonical enumeration:
-# check-plan-provenance.py's own module docstring, and
-# openspec/changes/archive/2026-07-29-kan-14-plan-provenance/design.md's
-# "Post-review reshape" section, in the frozen tree — this comment does
+# check-plan-provenance.py's own module docstring, and the kan-14
+# plan-provenance design's "Post-review reshape" section — this comment does
 # not restate the count, since a copied number is exactly what let an
 # earlier, wrong count survive six review passes). The operator's call:
 # stop patching an ERE allowlist and replace it with a real

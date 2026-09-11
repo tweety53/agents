@@ -346,7 +346,7 @@ make_fixture_repo() {
 #
 # Only the paths setup.sh can write are sampled — the four harness directories, their
 # skills/commands/rules subtrees one level down, the two managed instruction files, and any
-# .flow.bak (or a legacy .myflow.bak) beside them. A full recursive listing of ~/.claude would be dominated by
+# .flow.bak beside them. A full recursive listing of ~/.claude would be dominated by
 # session state that changes on its own while this runs, which would make the check noisy
 # and therefore ignored. For ~/.zcode the same shape holds a fortiori: the client's own
 # state lives under ~/.zcode/cli and ~/.zcode/v2, neither of which is sampled.
@@ -367,7 +367,6 @@ real_home_fingerprint() {
       fi
     done
     for p in "$REAL_HOME/$d/CLAUDE.md" "$REAL_HOME/$d/AGENTS.md" \
-             "$REAL_HOME/$d/CLAUDE.md.myflow.bak" "$REAL_HOME/$d/AGENTS.md.myflow.bak" \
              "$REAL_HOME/$d/CLAUDE.md.flow.bak" "$REAL_HOME/$d/AGENTS.md.flow.bak"; do
       if [[ -e "$p" ]]; then stat_line "$p"; else printf 'absent %s\n' "$p"; fi
     done
@@ -535,7 +534,7 @@ run_setup "$FIXTURE" "$home" global
 assert_rc_zero "first run over a hand-written file succeeds" "$RUN_RC" "$RUN_LOG"
 assert_contains "run 1 keeps the hand-written line" "$claude_md" "HANDWRITTEN-ABOVE"
 assert_exists "run 1 takes a pre-install backup" "$claude_md.flow.bak"
-assert_identical "the backup is the file as it was before myflow touched it" \
+assert_identical "the backup is the file as it was before flow touched it" \
   "$claude_md.flow.bak" "$SANDBOX/handwritten-original.md"
 
 # Content added AFTER the end marker exercises the rewrite branch's blast radius — this is
@@ -557,86 +556,6 @@ for run in 2 3; do
 done
 assert_identical "run 3 leaves the hand-written file byte-identical to run 2" \
   "$claude_md" "$SANDBOX/handwritten-run2.md"
-
-# ===========================================================================
-# THE LEGACY MANAGED-BLOCK DELIMITERS ARE MIGRATED, NOT DUPLICATED.
-#
-# Before the myflow->flow rename this installer delimited its block with
-# `<!-- myflow:begin -->` / `<!-- myflow:end -->`, and those markers are still
-# sitting in the CLAUDE.md of anyone who installed before it. Every count and
-# rewrite in the installer matches the CURRENT markers as whole lines, so a file
-# carrying only the legacy pair counts zero begins and zero ends and takes the
-# APPEND branch -- leaving the old block orphaned and a second one appended, at
-# twice the length, with no later run able to reconcile them. Measured before the
-# fix: two blocks, 519 lines where there had been 259.
-#
-# The installer upgrades the two marker lines in place instead. Nothing else in
-# the file is touched, so afterwards it looks exactly like one this version
-# wrote.
-# ===========================================================================
-home="$(mktemp -d "$SANDBOX/legacy-markers.XXXXXX")"
-mkdir -p "$home/.claude"
-claude_md="$home/.claude/CLAUDE.md"
-
-# A file shaped exactly like one a pre-rename installer left behind: hand-written
-# content around a legacy-delimited block.
-cat > "$claude_md" <<'EOF'
-# My own global instructions
-
-HANDWRITTEN-ABOVE — this line predates the rename.
-
-<!-- myflow:begin -->
-# Stale generated content from the previous installer.
-<!-- myflow:end -->
-
-HANDWRITTEN-BELOW — this line also predates the rename.
-EOF
-
-run_setup "$FIXTURE" "$home" global
-assert_rc_zero "a legacy-delimited file installs cleanly" "$RUN_RC" "$RUN_LOG"
-assert_eq "the legacy begin delimiter is gone" 0 \
-  "$(count_lines_matching "$claude_md" '<!-- myflow:begin -->')"
-assert_eq "the legacy end delimiter is gone" 0 \
-  "$(count_lines_matching "$claude_md" '<!-- myflow:end -->')"
-assert_eq "exactly one current begin delimiter" 1 "$(count_lines_matching "$claude_md" "$BEGIN")"
-assert_eq "exactly one current end delimiter" 1 "$(count_lines_matching "$claude_md" "$END")"
-assert_contains "migration keeps content above the block" "$claude_md" "HANDWRITTEN-ABOVE"
-assert_contains "migration keeps content below the block" "$claude_md" "HANDWRITTEN-BELOW"
-cp -p "$claude_md" "$SANDBOX/legacy-migrated-run1.md"
-
-# And it must be idempotent: a second run over the already-migrated file changes
-# nothing. A migration that re-fires, or that appends now that the markers match,
-# is the same duplication one step later.
-run_setup "$FIXTURE" "$home" global
-assert_rc_zero "a second run over the migrated file succeeds" "$RUN_RC" "$RUN_LOG"
-assert_eq "still exactly one begin after the second run" 1 \
-  "$(count_lines_matching "$claude_md" "$BEGIN")"
-assert_identical "the second run leaves the migrated file byte-identical" \
-  "$claude_md" "$SANDBOX/legacy-migrated-run1.md"
-
-# ===========================================================================
-# A PRE-RENAME BACKUP WINS OVER TAKING A NEW ONE.
-#
-# An operator who installed before the rename has a `<file>.myflow.bak` holding
-# their genuine pre-install content. Taking a fresh `.flow.bak` now would copy a
-# file this installer has ALREADY managed and announce it as their pre-install
-# copy -- quietly replacing the real one as the thing the recovery path points
-# at. The older copy is the valuable one.
-# ===========================================================================
-home="$(mktemp -d "$SANDBOX/legacy-backup.XXXXXX")"
-mkdir -p "$home/.claude"
-claude_md="$home/.claude/CLAUDE.md"
-seed_file "$claude_md" 640 <<'EOF'
-# Already managed by a pre-rename installer.
-EOF
-printf 'THE-REAL-PRE-INSTALL-CONTENT\n' > "$claude_md.myflow.bak"
-cp -p "$claude_md.myflow.bak" "$SANDBOX/legacy-bak-original.md"
-
-run_setup "$FIXTURE" "$home" global
-assert_rc_zero "an install beside a legacy backup succeeds" "$RUN_RC" "$RUN_LOG"
-assert_identical "the legacy .myflow.bak is never overwritten" \
-  "$claude_md.myflow.bak" "$SANDBOX/legacy-bak-original.md"
-assert_absent "no .flow.bak is taken when a legacy one already exists" "$claude_md.flow.bak"
 
 # ===========================================================================
 # Group 3 — all-or-nothing preflight.
@@ -822,7 +741,7 @@ assert_rc_zero "the global install for the guard-reachability check succeeds" "$
 
 # Derived, not hardcoded: every skill that actually carries a scripts/ directory.
 # A hardcoded list goes stale the moment a skill gains or loses one — as it did when
-# myflow-status's directory was dropped for invoking no guard.
+# flow-status's directory was dropped for invoking no guard.
 GUARD_SKILLS=()
 for _gs in "$REPO_ROOT"/skills/*/scripts; do
   [[ -d "$_gs" ]] || continue
@@ -993,7 +912,7 @@ assert_absent "global writes no project AGENTS.md" "$proj/AGENTS.md"
 
 group "A project with nothing to render is left alone, silently"
 
-# No .flow/project.md at all, and no retired .myflow/ either.
+# No .flow/project.md at all.
 new_home; home="$HOME_DIR"
 proj="$SANDBOX/project-noconfig-$CASE_SEQ"
 mkdir -p "$proj"
@@ -1001,44 +920,6 @@ run_setup "$FIXTURE" "$home" cursor "$proj"
 assert_rc_zero "a project with no .flow/project.md installs cleanly" "$RUN_RC" "$RUN_LOG"
 assert_absent "no CLAUDE.md is created for a project with no config" "$proj/CLAUDE.md"
 assert_absent "no AGENTS.md is created for a project with no config" "$proj/AGENTS.md"
-
-group "The .myflow/ -> .flow/ hard cutover (design.md's dotmyflow-hard-cutover)"
-
-# A project carrying only the retired .myflow/ and no .flow/ is NOT the ordinary
-# "nothing to render" case above — the installer refuses rather than silently installing
-# nothing for a project it never actually read. ~/Projects/gymie and ~/Projects/spectre-e2e
-# are in exactly this state on this machine and are not renamed by this change; this case is
-# a fixture this suite owns rather than a read of either.
-new_home; home="$HOME_DIR"
-proj="$SANDBOX/project-stale-myflow-$CASE_SEQ"
-mkdir -p "$proj/.myflow"
-run_setup "$FIXTURE" "$home" cursor "$proj"
-assert_rc_nonzero "a project carrying only the retired .myflow/ aborts the run" "$RUN_RC"
-assert_contains "the refusal names the project root and the exact rename to perform" "$RUN_LOG" \
-  "git -C $proj mv .myflow .flow"
-assert_absent "no CLAUDE.md is created for a project carrying only the retired .myflow/" "$proj/CLAUDE.md"
-assert_absent "no AGENTS.md is created for a project carrying only the retired .myflow/" "$proj/AGENTS.md"
-
-# A project carrying BOTH directories mid-cutover reads .flow/ without ever consulting
-# .myflow/ — the retired .myflow/project.md below names a standards entry
-# (empty-marker.mdc) that does not exist under $RULES_SRC, so a guard that fell back to it
-# would abort with "does not exist"; reading .flow/'s own well-formed, empty-of-standards
-# declaration instead installs cleanly.
-new_home; home="$HOME_DIR"
-proj="$SANDBOX/project-both-dirs-$CASE_SEQ"
-mkdir -p "$proj/.myflow"
-seed_file "$proj/.myflow/project.md" 644 <<'EOF'
-# fixture project configuration
-
-## standards
-
-- `empty-marker.mdc` — names a rule that does not exist under $RULES_SRC
-EOF
-seed_project_md "$proj"
-run_setup "$FIXTURE" "$home" cursor "$proj"
-assert_rc_zero "a project carrying both directories installs cleanly, reading .flow/ only" "$RUN_RC" "$RUN_LOG"
-assert_not_contains "the retired .myflow/project.md's standards entry was never consulted" "$RUN_LOG" \
-  "empty-marker.mdc"
 
 # A project.md that names only its own files — no shared rule to render, so no block.
 new_home; home="$HOME_DIR"

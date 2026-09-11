@@ -1,4 +1,4 @@
-// metrics.ts reads the myflow-run-telemetry metrics bag (design.md, "The
+// metrics.ts reads the run-telemetry metrics bag (design.md, "The
 // metrics bag") out of a StageRunDTO's `metrics` field -- deliberately typed
 // `unknown` in api.ts, since the bag is an open JSONB document with no
 // closed schema, and typing it as an interface there would re-close what

@@ -14,7 +14,7 @@ import { bodyBackground, DARK_SURFACE_1, PINNED_QUERY } from "./support";
 //
 // Values below are read from the live UI-test stack rather than assumed:
 // GET /api/v1/stats/stage-leaderboard?<PINNED_QUERY> returns two rows
-// (/myflow-do "SDD + TDD per task", runCount 2; /myflow-finish
+// (/flow "SDD + TDD per task", runCount 2; /flow-fast
 // "integrate", runCount 1); GET /api/v1/stats/trend?<PINNED_QUERY>
 // returns two days (2026-08-14, 2026-08-15); GET
 // /api/v1/stats/cache-efficiency?<PINNED_QUERY> returns both stage rows
@@ -28,8 +28,8 @@ test.describe("stage leaderboard", () => {
     await expect(page.getByRole("heading", { name: "Stage leaderboard" })).toBeVisible();
 
     const tablePanel = page.locator('section.panel[aria-label="Every costed stage"]');
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
     await expect(tablePanel.getByRole("cell", { name: "SDD + TDD per task", exact: true })).toBeVisible();
     await expect(tablePanel.getByRole("cell", { name: "integrate", exact: true })).toBeVisible();
 
@@ -68,11 +68,11 @@ test.describe("stage leaderboard", () => {
 
       await header.click();
       await expect(header).toHaveText("Command ▲");
-      await expect(commandCells).toHaveText(["/myflow-do", "/myflow-finish"]);
+      await expect(commandCells).toHaveText(["/flow", "/flow-fast"]);
 
       await header.click();
       await expect(header).toHaveText("Command ▼");
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("sorting by Stage orders by its own text, not Command's", async ({ page }) => {
@@ -87,7 +87,7 @@ test.describe("stage leaderboard", () => {
       // task".localeCompare("integrate") === 1) -- the reverse of
       // Command's own ascending order above, which is what proves this
       // column's accessor reads its own field rather than Command's.
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("sorting by Runs orders by run count", async ({ page }) => {
@@ -98,8 +98,8 @@ test.describe("stage leaderboard", () => {
 
       await header.click();
       await expect(header).toHaveText("Runs ▲");
-      // runCount: /myflow-finish 1, /myflow-do 2.
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      // runCount: /flow-fast 1, /flow 2.
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("sorting by Mean cost orders by mean cost", async ({ page }) => {
@@ -110,8 +110,8 @@ test.describe("stage leaderboard", () => {
 
       await header.click();
       await expect(header).toHaveText("Mean cost ▲");
-      // meanCostUsd: /myflow-finish 0.028, /myflow-do 1.4645.
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      // meanCostUsd: /flow-fast 0.028, /flow 1.4645.
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("sorting by Median cost orders by median cost", async ({ page }) => {
@@ -122,8 +122,8 @@ test.describe("stage leaderboard", () => {
 
       await header.click();
       await expect(header).toHaveText("Median cost ▲");
-      // medianCostUsd: /myflow-finish 0.028, /myflow-do ~1.4645.
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      // medianCostUsd: /flow-fast 0.028, /flow ~1.4645.
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("sorting by P90 cost orders by p90 cost", async ({ page }) => {
@@ -134,19 +134,19 @@ test.describe("stage leaderboard", () => {
 
       await header.click();
       await expect(header).toHaveText("P90 cost ▲");
-      // p90CostUsd: /myflow-finish 0.028, /myflow-do 2.4929.
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      // p90CostUsd: /flow-fast 0.028, /flow 2.4929.
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("Filter by Command narrows to the matching stage", async ({ page }) => {
       await page.goto(`/#/stage-leaderboard?${PINNED_QUERY}`);
       const tablePanel = page.locator(tablePanelSelector);
-      await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
+      await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
 
-      await page.getByLabel("Filter by Command").selectOption("/myflow-finish");
+      await page.getByLabel("Filter by Command").selectOption("/flow-fast");
 
-      await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
-      await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toHaveCount(0);
+      await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
+      await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toHaveCount(0);
     });
   });
 });
@@ -229,8 +229,8 @@ test.describe("cache efficiency", () => {
     await expect(page.getByRole("heading", { name: "Cache efficiency" })).toBeVisible();
 
     const tablePanel = page.locator('section.panel[aria-label="Every stage"]');
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
     // The fixture records no cache tokens: every ratio cell must read
     // "unavailable" (Unavailable.tsx's own data-testid), never a
     // fabricated ratio or a silently blank cell -- the same
@@ -278,11 +278,11 @@ test.describe("cache efficiency", () => {
 
       await header.click();
       await expect(header).toHaveText("Command ▲");
-      await expect(commandCells).toHaveText(["/myflow-do", "/myflow-finish"]);
+      await expect(commandCells).toHaveText(["/flow", "/flow-fast"]);
 
       await header.click();
       await expect(header).toHaveText("Command ▼");
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("sorting by Stage orders by its own text, not Command's", async ({ page }) => {
@@ -295,18 +295,18 @@ test.describe("cache efficiency", () => {
       await expect(header).toHaveText("Stage ▲");
       // "integrate" < "SDD + TDD per task" -- same collation this file's
       // stage-leaderboard block already verified via localeCompare.
-      await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+      await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
     });
 
     test("Filter by Command narrows to the matching stage", async ({ page }) => {
       await page.goto(`/#/cache-efficiency?${PINNED_QUERY}`);
       const tablePanel = page.locator(tablePanelSelector);
-      await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
+      await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
 
-      await page.getByLabel("Filter by Command").selectOption("/myflow-finish");
+      await page.getByLabel("Filter by Command").selectOption("/flow-fast");
 
-      await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
-      await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toHaveCount(0);
+      await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
+      await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toHaveCount(0);
     });
   });
 });

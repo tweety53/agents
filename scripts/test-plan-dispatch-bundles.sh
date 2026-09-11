@@ -251,14 +251,14 @@ EXPECTED=$'bundle 1: 1\nafter 1: none\nbundle 2: 2\nafter 2: 1'
 # fixed "one level up above $SCRIPT_DIR", which only holds while it lives at
 # <repo>/scripts/. Built here: a scratch tree where the guard is reachable at
 # two depths, its real home (scratch-repo/scripts/) and a
-# skills/myflow-do/scripts/ symlink, mirroring how setup.sh's install carries
+# skills/flow/scripts/ symlink, mirroring how setup.sh's install carries
 # it. Invoked through the symlink with no argument, it must scan THAT tree's
-# own spectre/changes/ — never skills/myflow-do/spectre/changes/, which does
+# own spectre/changes/ — never skills/flow/spectre/changes/, which does
 # not exist and would silently scan nothing (see design.md, "The
 # $SCRIPT_DIR/.. hazard").
 # ===========================================================================
 new_fixture
-mkdir -p "$FIXTURE/scripts/lib" "$FIXTURE/skills/myflow-do/scripts" \
+mkdir -p "$FIXTURE/scripts/lib" "$FIXTURE/skills/flow/scripts" \
   "$FIXTURE/spectre/changes/some-change"
 cp "$GUARD" "$FIXTURE/scripts/plan-dispatch-bundles.sh"
 chmod +x "$FIXTURE/scripts/plan-dispatch-bundles.sh"
@@ -267,17 +267,17 @@ cp "$SCRIPT_DIR/lib/resolve-file.sh" "$FIXTURE/scripts/lib/resolve-file.sh"
 cp "$SCRIPT_DIR/lib/spec-root.sh" "$FIXTURE/scripts/lib/spec-root.sh"
 cp "$SCRIPT_DIR/lib/plan_grammar.py" "$FIXTURE/scripts/lib/plan_grammar.py"
 ln -s ../../../scripts/plan-dispatch-bundles.sh \
-  "$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.sh"
+  "$FIXTURE/skills/flow/scripts/plan-dispatch-bundles.sh"
 ln -s ../../../scripts/plan-dispatch-bundles.py \
-  "$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.py"
-ln -s ../../../scripts/lib "$FIXTURE/skills/myflow-do/scripts/lib"
+  "$FIXTURE/skills/flow/scripts/plan-dispatch-bundles.py"
+ln -s ../../../scripts/lib "$FIXTURE/skills/flow/scripts/lib"
 {
   printf -- '- [ ] 1. Fieldless task\n\n'
   printf 'No Files field here at all.\n\n'
   printf -- '  - [ ] **Step 1: do it**\n'
 } > "$FIXTURE/spectre/changes/some-change/tasks.md"
 set +e
-OUT="$("$FIXTURE/skills/myflow-do/scripts/plan-dispatch-bundles.sh" 2>&1)"
+OUT="$("$FIXTURE/skills/flow/scripts/plan-dispatch-bundles.sh" 2>&1)"
 RC=$?
 set -e
 [ "$RC" -eq 1 ] && pass "case 11: no-arg default resolves through a skill-dir symlink to the real repo root" \

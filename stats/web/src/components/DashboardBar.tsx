@@ -32,7 +32,7 @@ export interface DashboardBarProps {
    * True on a dashboard whose rows are not stage runs -- the live state
    * board today -- where the server rejects a "model" restriction with
    * 400 rather than silently ignoring it
-   * (specs/myflow-stats-views/spec.md, "A model restriction on the live
+   * (the stats-views requirement "A model restriction on the live
    * state board"). The bar must not offer a control whose only possible
    * outcome is that error, so the variable is disabled instead, with
    * `modelDisabledReason` stated alongside it.

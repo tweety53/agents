@@ -6,7 +6,7 @@
 # Wraps the exact guarded chain specified in skills/flow-contracts/pipeline.md's
 # "Git boundaries" section — that section is the canonical spec of this
 # behavior and is not rewritten here; this script only exists to give the two
-# call sites (`myflow-do`'s PR-exception path and `myflow-finish`'s run 1) one
+# call sites (`/flow`'s PR-exception path in verify-and-handoff and its integrate run) one
 # place to call instead of each spelling the chain out inline.
 #
 # Clears the two planning paths from the index, stages everything else, and

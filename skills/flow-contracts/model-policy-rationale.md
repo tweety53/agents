@@ -15,20 +15,13 @@ reads is the file the rule has to live in. **State file** (`skills/flow-contract
 cites this section for the `models` field rather than defining the roles a second time, and
 `<project>/CLAUDE.md` and `<project>/AGENTS.md` name this section for the same reason.
 
-**There is no requirements layer above this one; change this section.** The rules behind it were
-first written as the capability `myflow-model-policy`, whose **Requirement: Implementer subagents run on the strongest available model** (`<agents repo>/openspec/specs/myflow-model-policy/spec.md`) anchored the defaults. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not migrated, so it records where the defaults came from and governs nothing. The two-layer split it was half of has ended everywhere, including at **Planning effort** (`skills/flow-contracts/state-file.md`), which lost the same layer for the same reason: this section is now the requirement as well as the operational form the commands read. The split's second argument died with it — a live spec used to be behind by construction while a change was open, because its delta reached the specs tree only at finish run 2, and under spectre a change edits the specs tree directly on its branch, so no spec lags a change any more.
-
-The citation is still a **checked** one, not a courtesy: the guard associates a bold token with the path
-beside it and matches it against the target's headings, a `### Requirement: …` heading
-is a heading like any other, and the frozen file resolves — so naming the requirement in full is what makes
-`<agents repo>/scripts/check-references.sh` fire if the heading is ever renamed. A bare backticked path with no bold token beside
-it is **not** checked and rots silently — which is what this bullet's predecessor did.
+**There is no requirements layer above this one; change this section.**
 
 The two rules point in opposite directions on purpose. A reviewer's job is to be many independent
 readings of a finished diff, so its cost must not scale with the operator's session model. An
 implementer's job is to get the diff right the first time, where capability compounds.
 
-**Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
+**Implementer subagents dispatched by `/flow`'s implement phase run on Opus** (or the harness's strongest
 available model). This **explicitly overrides** superpowers:subagent-driven-development's model
 guidance — that skill says to pick "the least powerful model that can handle each role" and to use
 the cheapest tier where the plan already contains the code to write. That guidance does not govern
@@ -63,7 +56,7 @@ run 1 is a readable copy of those rows, for a reader with no daemon running; it 
 **Rows also make the question answerable across changes, by query** — which model ran a given role,
 over every change the store holds — where a preserved file answered it only for the one change whose
 file you opened. The ledger is authored under `<abs-worktree>/.superpowers/`, which is
-gitignored, in a worktree `/myflow-finish` run 2 removes — but run 1 preserves it into the
+gitignored, in a worktree `/flow`'s archive run removes — but run 1 preserves it into the
 repository first, under `<project>/docs/superpowers/ledgers/`, so it serves the operator and the panel
 *during* the change and stays answerable afterwards. An after-the-fact audit of which model
 implemented which task therefore reads the preserved ledger rather than a transcript nobody kept.

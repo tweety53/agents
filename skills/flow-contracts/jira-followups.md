@@ -3,7 +3,7 @@
 **This file is the canonical definition of follow-up issues.** Skills reference it by name; none of
 them restate the contract. If a rule below and a skill ever disagree, this file wins.
 
-`/myflow-finish` run 1 is the only command that loads this file.
+`/flow`'s integrate run is the only command that loads this file.
 
 ### Follow-up issues
 
@@ -13,7 +13,7 @@ A **follow-up** is an issue the pipeline files for work a run left outstanding. 
 **Labels on issues the pipeline creates** (`jira-integration.md`) — a follow-up is not special.
 
 **This naming governs every site that files a follow-up.** Today the only such site is
-`/myflow-finish` run 1's unfinished-work gate. The rule is stated here rather than there so that a
+`/flow`'s integrate run unfinished-work gate. The rule is stated here rather than there so that a
 site added later inherits the naming instead of choosing its own.
 
 **Every filing ask explains before it asks.** Before the filing prompt fires, the message body
@@ -324,7 +324,7 @@ correctly emitted. A retry that still cannot complete the retitle or the union r
 appended nothing this time.
 
 **That window closes at the merge, and the `⚠` does not cross it.** Every site that joins is in
-`/myflow-finish` run 1, and `<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
+`/flow`'s integrate run, and `<agents repo>/scripts/check-finish-preflight.sh` routes there only while the branch
 is unmerged; once it returns `RUN2` no command reaches this code again, so a join still partial when
 the branch merged stays partial. Nothing carries the warning across: no state-file field records a
 join outcome and this contract adds none, and run 2's only Jira write is the **Done** transition

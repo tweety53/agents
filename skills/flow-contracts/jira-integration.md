@@ -12,11 +12,11 @@ and writes it through the Atlassian MCP tools available to the session (`getJira
 this machine — never shell out to one.
 
 The linked issue key lives in the state file's `jiraIssue` field — see **State file** in `state-file.md`.
-`/myflow-start` resolves it; every other command carries it forward verbatim.
+`/flow`'s creating run resolves it; every other command carries it forward verbatim.
 
 ### Resolution (how `jiraIssue` is decided)
 
-Only `/myflow-start` resolves a key, and it follows this contract exactly.
+Only `/flow`'s creating run resolves a key, and it follows this contract exactly.
 
 - **No Atlassian tooling available** in the session **and** no `## jira` section in
   `<project>/.flow/project.md` → resolve `jiraIssue: null` **silently**, ask nothing, and report exactly one
@@ -72,22 +72,22 @@ before — no prefix, no placeholder.
 
 | Command | When | Target status |
 |---------|------|---------------|
-| `/myflow-start` | start of the run, immediately after the key resolves | **In Progress** |
-| `/myflow-finish` | run 1, after the chosen route completes — every route | **In Review** |
-| `/myflow-finish` | after the archive move and state write | **Done** |
+| `/flow`'s creating run | start of the run, immediately after the key resolves | **In Progress** |
+| bare `/flow` | run 1, after the chosen route completes — every route | **In Review** |
+| bare `/flow` | after the archive move and state write | **Done** |
 
-No other command transitions the issue. In particular `/myflow-do` touches Jira's **status** not at all.
-`/myflow-do` is not a no-op against Jira, though: it still writes the issue **description** when a
+No other command transitions the issue. In particular `/flow`'s implement phase touches Jira's **status** not at all.
+`/flow`'s implement phase is not a no-op against Jira, though: it still writes the issue **description** when a
 fix round adds scope, per **Description sync** (`jira-integration.md`), below. Status and
 description are separate concerns.
 
-`/myflow-start` transitions **before** brainstorming rather than after the state write. That
+`/flow`'s creating run transitions **before** brainstorming rather than after the state write. That
 ordering does not weaken **Never blocking** (`jira-integration.md`): a failed transition is still
 one line and the run still writes its state at the end exactly as it would have. What the old
 ordering protected was the state write, and nothing about an earlier call makes the state write
 depend on Jira.
 
-`/myflow-finish`'s In Review transition is **not** conditioned on a pull request existing. It fires
+bare `/flow`'s In Review transition is **not** conditioned on a pull request existing. It fires
 at the end of a successful run 1 whichever route was taken — pull request, merge and push, or
 handled manually — because conditioning it on a PR is what let a merge-and-push change reach Done
 without ever passing through In Review. A run 1 that stops before its chosen route completes — a
@@ -142,7 +142,7 @@ transition:
 > - **Yes — transition it**
 
 **This ask is one of exactly two carve-outs from Never blocking, and it is bounded here rather than
-left to be discovered.** `/myflow-start`'s guardrail says a Jira call may never block, delay, or
+left to be discovered.** The creating run's guardrail says a Jira call may never block, delay, or
 alter the proposal, and an interactive question does delay by definition — so the exception is
 stated with its limits: it is asked **once** per run, never repeated and never retried; it is
 reached only when an unrecognised status was actually observed, which is rare; and **only an
@@ -178,7 +178,7 @@ On success, report it just as briefly, e.g. `Jira: KAN-7 → In Progress` or
 
 ### Description sync
 
-`/myflow-start` and `/myflow-do` are the only commands that write the
+`/flow`'s creating run and `/flow`'s implement phase are the only commands that write the
 issue description, and only when **the user added scope during that run** that is not already in
 the issue. In that case, `editJiraIssue` appends a dated bullet under an
 `## Added during implementation` heading (creating the heading once, at the end of the description,
@@ -257,5 +257,5 @@ into a different one, and it is never left unmentioned.
 ### Follow-up issues
 
 Follow-up naming, the join search, and the append-only join write are governed by
-**Follow-up issues** (`skills/flow-contracts/jira-followups.md`), loaded only by `/myflow-finish`
+**Follow-up issues** (`skills/flow-contracts/jira-followups.md`), loaded only by bare `/flow`
 run 1.

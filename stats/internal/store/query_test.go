@@ -40,14 +40,14 @@ func TestFilterBySessionID(t *testing.T) {
 	target := fmt.Sprintf("session-target-%d", time.Now().UnixNano())
 	other := fmt.Sprintf("session-other-%d", time.Now().UnixNano())
 
-	matchIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	matchIn := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	matchIn.SessionID = &target
 	matchRun, err := st.BeginStage(ctx, matchIn)
 	if err != nil {
 		t.Fatalf("BeginStage (match): %v", err)
 	}
 
-	otherIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	otherIn := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	otherIn.SessionID = &other
 	if _, err := st.BeginStage(ctx, otherIn); err != nil {
 		t.Fatalf("BeginStage (other): %v", err)
@@ -100,7 +100,7 @@ func TestSortByEveryAllowlistedField(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-sort-fields-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	runStage(t, st, in, json.RawMessage(`{"cost_usd":1,"model":"opus"}`), in.StartedAt.Add(time.Minute), "completed")
 
 	for _, field := range store.AllowedChangeFields() {
@@ -226,13 +226,13 @@ func TestFilterByMetricsKeyPath(t *testing.T) {
 	// Bucket}, each Bucket an object with its own "cache_read" field) --
 	// never a bare "tokens.cache_read" scalar, which no real stage run's
 	// metrics bag has ever carried.
-	matchIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	matchIn := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	matchRun := runStage(t, st, matchIn, json.RawMessage(`{"tokens":{"main":{"cache_read":100}}}`), matchIn.StartedAt.Add(time.Minute), "completed")
 
-	otherIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	otherIn := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	otherRun := runStage(t, st, otherIn, json.RawMessage(`{"tokens":{"main":{"cache_read":250}}}`), otherIn.StartedAt.Add(time.Minute), "completed")
 
-	unrelatedIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "finish")
+	unrelatedIn := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	runStage(t, st, unrelatedIn, json.RawMessage(`{"tokens":{"main":{"input":9}}}`), unrelatedIn.StartedAt.Add(time.Minute), "completed")
 
 	rows, total, err := st.QueryStageRuns(ctx, store.Query{
@@ -312,7 +312,7 @@ func TestModelMetricsKeyPathIsAccepted(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-model-metric-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	run := runStage(t, st, in, json.RawMessage(`{"models":{"claude-sonnet-5":{"cost_usd":1.5}}}`), in.StartedAt.Add(time.Minute), "completed")
 
 	rows, _, err := st.QueryStageRuns(ctx, store.Query{
@@ -348,10 +348,10 @@ func TestAbsentMetricSortsDistinctlyFromZero(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-absent-metric-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	absentIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	absentIn := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	absentRun := runStage(t, st, absentIn, json.RawMessage(`{"tokens":{"main":{"cache_creation":5}}}`), absentIn.StartedAt.Add(time.Minute), "completed")
 
-	zeroIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	zeroIn := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	zeroRun := runStage(t, st, zeroIn, json.RawMessage(`{"tokens":{"main":{"cache_read":0}}}`), zeroIn.StartedAt.Add(time.Minute), "completed")
 
 	if absentRun.ID >= zeroRun.ID {
@@ -396,10 +396,10 @@ func TestAbsentMetricSortsDistinctlyFromZeroDescending(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-absent-metric-desc-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	absentIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	absentIn := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	absentRun := runStage(t, st, absentIn, json.RawMessage(`{"tokens":{"main":{"cache_creation":5}}}`), absentIn.StartedAt.Add(time.Minute), "completed")
 
-	zeroIn := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	zeroIn := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	zeroRun := runStage(t, st, zeroIn, json.RawMessage(`{"tokens":{"main":{"cache_read":0}}}`), zeroIn.StartedAt.Add(time.Minute), "completed")
 
 	if absentRun.ID >= zeroRun.ID {
@@ -460,7 +460,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 		term := unique("name")
 		projectKey := "proj-" + term
 		seedChange(t, st, projectKey, term)
-		run := runStage(t, st, baseBeginInput(projectKey, term, "/myflow-do", "SDD + TDD per task"), nil, time.Now(), "completed")
+		run := runStage(t, st, baseBeginInput(projectKey, term, "/flow", "SDD + TDD per task"), nil, time.Now(), "completed")
 		assertFoundExactly(t, term, run.ID)
 	})
 
@@ -472,7 +472,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 		if err := st.PutChange(ctx, c); err != nil {
 			t.Fatalf("PutChange: %v", err)
 		}
-		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"), nil, time.Now(), "completed")
+		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"), nil, time.Now(), "completed")
 		assertFoundExactly(t, term, run.ID)
 	})
 
@@ -484,7 +484,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 		if err := st.PutChange(ctx, c); err != nil {
 			t.Fatalf("PutChange: %v", err)
 		}
-		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"), nil, time.Now(), "completed")
+		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"), nil, time.Now(), "completed")
 		assertFoundExactly(t, term, run.ID)
 	})
 
@@ -496,7 +496,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 		if err := st.PutChange(ctx, c); err != nil {
 			t.Fatalf("PutChange: %v", err)
 		}
-		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"), nil, time.Now(), "completed")
+		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"), nil, time.Now(), "completed")
 		assertFoundExactly(t, term, run.ID)
 	})
 
@@ -512,7 +512,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 		term := unique("stage")
 		projectKey := "proj-" + term
 		seedChange(t, st, projectKey, "kan-1")
-		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/myflow-do", term), nil, time.Now(), "completed")
+		run := runStage(t, st, baseBeginInput(projectKey, "kan-1", "/flow", term), nil, time.Now(), "completed")
 		assertFoundExactly(t, term, run.ID)
 	})
 
@@ -524,7 +524,7 @@ func TestSearchMatchesAcrossIdentityFields(t *testing.T) {
 		if err := st.PutChange(ctx, c); err != nil {
 			t.Fatalf("PutChange: %v", err)
 		}
-		in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 		in.RepoRoot = ptr(term)
 		run := runStage(t, st, in, nil, time.Now(), "completed")
 		assertFoundExactly(t, term, run.ID)
@@ -785,7 +785,7 @@ func TestPaginationIsStableUnderEqualSortKeys(t *testing.T) {
 	const n = 7
 	want := make(map[int64]bool, n)
 	for i := 0; i < n; i++ {
-		in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 		run := runStage(t, st, in, nil, in.StartedAt.Add(time.Minute), "completed")
 		want[run.ID] = true
 	}

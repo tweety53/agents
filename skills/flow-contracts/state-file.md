@@ -186,32 +186,6 @@ field is how it gets erased.
   value nobody had the chance to set. The carve-out covers a key that is **absent**: `artifactUrl`,
   `jiraIssue` and `prUrl` are all *present and nullable*, which is a different thing from *absent*.
 
-  **A record carrying the retired `effort` key is read as recording the equivalent level** —
-  `medium` as `default`, `high` as `detailed`, `low` as `low` — and is rewritten under
-  `planningEffort` on the next write that record receives. It is not treated as malformed, and the
-  rewrite is **not announced as a correction**: the value was written correctly under the contract
-  in force when it was set. **No migration pass is run** — no command sweeps existing records, and a
-  record nothing writes to keeps the old key indefinitely without that being a fault.
-
-  **The compatibility read is the fallback, not a preference, and every consumer performs it.** A
-  command that reads only `planningEffort` reports a record recording a real level as having
-  recorded none — the exact outcome this exception exists to prevent, and a promise made in prose
-  and implemented nowhere is not a promise. The mechanical form is `(.planningEffort // .effort)`,
-  as `/flow-status` reads it.
-
-  **When a record carries both keys, `planningEffort` wins.** Both are individually excepted from
-  the closed-schema rule, so such a record is valid, and it needs a stated answer rather than an
-  implied one. The current key is the one this contract writes and the retired one is read only for
-  a record that never had it, so a record carrying both is one already migrated whose old key was
-  never cleared — the new value is the later of the two. The next write drops `effort` rather than
-  re-emitting it; a write renders the whole object, so leaving it out is what removes it.
-
-  **A value outside those three reads as *not recorded*, and never makes the record malformed.**
-  The retired key never held anything else under the contract in force when it was written, so a
-  record carrying, say, `urgent` under it is not one this pipeline produced: it maps to no level,
-  and surfacing the raw value would put a level this pipeline does not have in front of the
-  operator. *Not recorded* is what remains once an unrecognisable value is discarded, and it is the
-  honest answer for a value with no defined target.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
@@ -231,25 +205,6 @@ field is how it gets erased.
 **This record carries no human confirmation and no fix origin.** No command observes whether the
 human ran the apps, so nothing could honestly confirm that a human reviewed the work. And a fix
 never moves the state, so there is no origin state for a fix to return to.
-
-**Five fields from the twelve-stage predecessor are retired and never appear in a record this
-contract produces.** A payload still carrying one is an undocumented field under the closed-schema
-rule stated above:
-
-- the field that recorded where a dynamic-target write originated — meaningless once targets
-  stopped being dynamic.
-- the boolean flag that recorded a change having taken the shortened single-session route — that
-  route is gone, and its shape does not survive in three states. It did **not** mark a change as
-  skipping review: the route it recorded ran a review panel of its own, just a smaller roster than
-  the standard one. What actually skipped review was a separate *invocation flag* on the
-  twelve-stage cycle, which was never a state-file field at all and so has no tombstone here.
-- the cache key that pinned a stage-advance script's last-scanned commit — the script it belonged
-  to no longer exists.
-- the four-valued object that tracked pass/fail across four named checkpoints of the old
-  twelve-stage pipeline — collapsed into the single `state` field above.
-- the boolean recording whether a human had exercised the change — no command ever observes this
-  honestly (see "This record carries no human confirmation" above), so the field recorded a claim
-  nobody could verify.
 
 ## Writes are monotonic in both dimensions
 
@@ -279,14 +234,6 @@ state set`. Re-emit each as read (`null` only if it was already `null`). Droppin
 permanently: the published proposal link, the link to the Jira issue, the PR (which also silently
 downgrades the next fix from commit-and-push to staged-only), or the authoritative list of worktrees
 for a multi-repo change.
-
-**Carrying the planning effort forward is what performs the rewrite**, and it is the one field where
-*verbatim* needs saying precisely. A record read through the retired-key fallback above is carried
-forward as its **mapped level under `planningEffort`** — that is the rewrite the exception promises,
-and the only write that ever performs it. Re-emitting the old key instead leaves the record
-permanently unmigrated, and emitting `planningEffort: null` because the new key was absent from the
-read erases a level the operator chose. Every command that writes a record it did not create does
-this, so no single command is responsible for a migration none of them run.
 
 ## The journal is replayed, never merged
 
@@ -370,13 +317,9 @@ committed, never staged, and never archived** — nothing here is part of the ch
 
 ## Planning effort
 
-**There is no requirements layer above this one; change this file.** The rule — that three levels
-exist, that `default` is the level offered as the recommendation, and that no level may switch a gate
-off — was first written as
-**Requirement: Planning effort scales the reasoning spent inside the gates, never the gates themselves** (`<agents repo>/openspec/specs/myflow-planning-effort/spec.md`).
-That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre cutover and not
-migrated, so it records where the rule came from and governs nothing: the table below is both the
-requirement and the **operational form the commands read**, and it exists here so `/flow`
+**There is no requirements layer above this one; change this file.** Three levels exist, `default`
+is the level offered as the recommendation, and no level may switch a gate off: the table below is
+both the requirement and the **operational form the commands read**, and it exists here so `/flow`
 has one place to look rather than a requirements document to interpret. Naming the requirement in
 full, rather than giving the path alone, is still what makes
 `<agents repo>/scripts/check-references.sh` check the pointer — a `### Requirement: …` heading is a
@@ -391,12 +334,6 @@ offered as the recommendation:
 | `low` | Questions batched rather than asked one at a time; the design presented once; `tasks.md` grouped more coarsely |
 | `default` | The checklist followed with related questions grouped |
 | `detailed` | Each checklist item worked separately, alternatives enumerated per open question, each design section approved on its own |
-
-**The retired key belongs to the field, not to this table.** `effort`, its mapping onto these three
-levels, which key wins when a record carries both, and what an unmapped value reads as are all
-stated with the `planningEffort` field above — one statement, beside the field it governs. This
-section is the levels themselves; it names where that rule lives rather than carrying a second copy
-of it.
 
 **No level may switch a gate off.** Brainstorming runs, the design approval gate holds,
 writing-plans runs, and `tasks.md` is never left a thin scaffold — at every level. A lower level

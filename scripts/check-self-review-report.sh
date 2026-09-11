@@ -19,9 +19,8 @@
 # its section existed. This guard makes an incomplete or malformed report a
 # loud, mechanical fact instead.
 #
-# THE REPORT SHAPE, in the frozen tree (openspec/changes/archive/
-# 2026-08-18-kan-200-self-review-filing-ask-per-angle/tasks.md, "The
-# report shape this change defines"):
+# THE REPORT SHAPE (the kan-200 self-review-filing tasks, "The report shape
+# this change defines"):
 #
 #   ## <prose> — `<label>`
 #
@@ -42,11 +41,10 @@
 # recognized section heading is a named violation rather than a silent drop.
 #
 # THE FIVE ANGLE LABELS, in the order the report shape states them:
-#   myflow-fix, myflow-cost, myflow-improvement, myflow-automation,
-#   myflow-stats-app
-# (the frozen openspec/changes/archive/2026-08-18-kan-200-self-review-
-# filing-ask-per-angle/specs/myflow-self-review/spec.md, "One combined
-# reasoning pass" angle table).
+#   flow-fix, flow-cost, flow-improvement, flow-automation, flow-stats-app
+# (the kan-200 self-review spec, "One combined reasoning pass" angle table);
+# the reports written before the rename carry the same five under their
+# `myflow-` spelling, see LEGACY_ANGLE_LABELS below.
 #
 # PER-REPORT COVERAGE, via scripts/lib/coverage.sh. Each report's recorded
 # count is the number of section-level checks this guard actually performed
@@ -154,13 +152,14 @@ fi
 # The five angle labels, in the report shape's own order.
 ANGLE_LABELS=(flow-fix flow-cost flow-improvement flow-automation flow-stats-app)
 
-# LEGACY_ANGLE_LABELS -- the same five angles under the names they carried
-# before the myflow->flow rename, POSITIONALLY ALIGNED with ANGLE_LABELS above.
+# LEGACY_ANGLE_LABELS -- the same five angles under the `myflow-` names the
+# older reports carry, POSITIONALLY ALIGNED with ANGLE_LABELS above.
 #
-# THIS IS NOT A COMPATIBILITY SHIM, AND IT IS NOT OPTIONAL. The reports under
-# docs/self-review/ are immutable records of runs that really happened, and the
-# twelve this guard actually checks were written when the labels were spelled
-# `myflow-fix`, `myflow-cost` and so on. Renaming ANGLE_LABELS alone -- with no
+# THIS IS NOT A COMPATIBILITY SHIM, AND IT IS NOT OPTIONAL, AND IT IS NOT A
+# LEGACY REMNANT TO CLEAN UP. The reports under docs/self-review/ are immutable
+# records of runs that really happened; the twelve this guard actually checks
+# were written with the labels spelled `myflow-fix`, `myflow-cost` and so on,
+# and they are never rewritten. Dropping this set -- with no
 # legacy set -- makes this guard report 166 violations across all twelve of
 # them, because every angle heading they carry stops being recognised. Measured
 # by doing exactly that and running the guard over the real corpus.

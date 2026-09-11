@@ -32,7 +32,7 @@ import (
 // pass-log labels this renderer itself writes structurally. They are
 // listed here because neutraliseMarkers has to know them, not as a second
 // definition of the marker format: the format itself is stated in
-// skills/myflow-do/SKILL.md and enforced by the two guards, and this list
+// skills/flow/SKILL.md and enforced by the two guards, and this list
 // is only the set of prefixes whose colon must not survive into free
 // text. fix-mutation and fix-mutations-total are structural in the pass
 // log section below, so a pass note or mutation field quoting them is

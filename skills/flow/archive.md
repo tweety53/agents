@@ -2,7 +2,7 @@
 
 Loaded either by `skills/flow/integrate.md`'s merge-and-push route, in the same invocation, or by a
 fresh bare `/flow <name>` invocation once `check-finish-preflight.sh` returns `RUN2` from every
-worktree. Unchanged in procedure from the retired `/myflow-finish` run 2, except the stage keys.
+worktree.
 
 **Load `skills/flow-contracts/artifacts-registry.md`** — every removal below is a row in it.
 
@@ -99,9 +99,7 @@ flow stage begin -command '/flow' -stage flow.cleanup -harness <harness> -sessio
 6. **Remove the proposal artifact source** — always the literal `null`/absent under `/flow`, since
    `publish-proposal-removed` means no `/flow` change ever publishes one, per **Temporary artifacts
    registry** (`skills/flow-contracts/artifacts-registry.md`)'s row for it. This step is
-   unconditionally a no-op skip for a change that ran only under `/flow`; it still runs, and still
-   reports the skip, because a change resumed from before this rework (one whose state file was
-   written by the retired `/myflow-start`) may carry a real preserved copy to remove.
+   unconditionally a no-op skip; it still runs, and still reports the skip.
 
 Steps 5 and 6 together are the one `flow.cleanup` stage:
 
@@ -301,14 +299,13 @@ Next:
 
 For each worktree, run **every** check below before removing anything — the six-check sequence is
 **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), canonical for it, and is not
-restated in full here beyond the one override `/flow` carries forward from the retired
-`/myflow-fast`:
+restated in full here beyond one override:
 
 **Never ask check 4's ignored-files confirmation before removing a worktree.** Report what
 `--force` will destroy — how many ignored files, which are build output, and which are irreplaceable
 together with whether they were already preserved — and proceed. This is a scoped override of the
 disclosure ask in **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`); it is safe
-here for the same reason it was safe under `/myflow-fast`: the records worth keeping are already out
+here for the same reason it was safe under `/flow-fast`: the records worth keeping are already out
 of the worktree by this point, committed at `flow.preserve-sessions`
 (`skills/flow/integrate.md`). **Checks 1, 2, 3, 5 and 6 remain gates.** Check 6, the live-process
 check, is named explicitly because it is the one this override could plausibly be read as reaching:

@@ -897,7 +897,7 @@ func TestDispatchWindowsForSessionResolvesTheBoundToken(t *testing.T) {
 		sessionID = "session-dispatch-windows"
 		token     = "mf-kan258-windows"
 	)
-	begin := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	begin.SessionID = ptr(sessionID)
 	begin.SessionToken = ptr(token)
 	if _, err := st.BeginStage(ctx, begin); err != nil {
@@ -978,7 +978,7 @@ func TestDispatchWindowsForSessionOrdersTiesByID(t *testing.T) {
 		sessionID = "session-dispatch-window-ties"
 		token     = "mf-kan258-window-ties"
 	)
-	begin := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	begin.SessionID = ptr(sessionID)
 	begin.SessionToken = ptr(token)
 	if _, err := st.BeginStage(ctx, begin); err != nil {
@@ -1092,7 +1092,7 @@ func TestDispatchAgentIDRoundTripsAndAbsenceStaysAbsent(t *testing.T) {
 		sessionID = "session-dispatch-agent-id"
 		token     = "mf-kan258-agent-id"
 	)
-	begin := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	begin.SessionID = ptr(sessionID)
 	begin.SessionToken = ptr(token)
 	if _, err := st.BeginStage(ctx, begin); err != nil {
@@ -1268,7 +1268,7 @@ func TestEndDispatchOmittedAgentIDPreservesBeginsIdentifierAgainstPostgres(t *te
 		token     = "mf-kan212-end-agent-id"
 		key       = "task-end-agent-id"
 	)
-	begin := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	begin.SessionID = ptr(sessionID)
 	begin.SessionToken = ptr(token)
 	if _, err := st.BeginStage(ctx, begin); err != nil {
@@ -1409,7 +1409,7 @@ func dispatchPairFixture(t *testing.T, st *store.Store, label, sessionID, token 
 	projectKey := fmt.Sprintf("proj-%s-%d", label, time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	begin := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	begin.SessionID = ptr(sessionID)
 	begin.SessionToken = ptr(token)
 	if _, err := st.BeginStage(ctx, begin); err != nil {

@@ -39,17 +39,17 @@ function envelope<Row>(view: ViewName, rows: Row, recorded = true, unmeasured = 
 const fixtures: Record<ViewName, StatsResponse<unknown>> = {
   "state-board": envelope("state-board", [
     {
-      projectKey: "kan-16-myflow-stats-app",
-      name: "kan-16-myflow-stats-app",
+      projectKey: "kan-16-stats-app",
+      name: "kan-16-stats-app",
       state: "IN_PROGRESS",
       updatedAt: "2026-01-15T10:00:00Z",
       updatedBy: "alice",
-      nextCommand: "/myflow-finish",
+      nextCommand: "/flow-fast",
     },
   ]),
   "stage-leaderboard": envelope("stage-leaderboard", [
     {
-      command: "/myflow-do",
+      command: "/flow",
       stage: "SDD + TDD per task",
       runCount: 3,
       meanCostUsd: 1.5,
@@ -59,8 +59,8 @@ const fixtures: Record<ViewName, StatsResponse<unknown>> = {
   ]),
   trend: envelope("trend", [{ day: "2026-01-05", runCount: 2, totalCostUsd: 5.25 }]),
   "cache-efficiency": envelope("cache-efficiency", [
-    { command: "/myflow-do", stage: "measured-zero", cacheReadTotal: 0, cacheCreationTotal: 1000, ratio: 0 },
-    { command: "/myflow-do", stage: "never-measured", cacheReadTotal: null, cacheCreationTotal: null, ratio: null },
+    { command: "/flow", stage: "measured-zero", cacheReadTotal: 0, cacheCreationTotal: 1000, ratio: 0 },
+    { command: "/flow", stage: "never-measured", cacheReadTotal: null, cacheCreationTotal: null, ratio: null },
   ]),
   reviewers: envelope("reviewers", [
     {
@@ -163,7 +163,7 @@ describe("views render their fixture response's actual values", () => {
     // about the rendered row rather than about either element.
     expect(await screen.findByRole("cell", { name: "IN_PROGRESS" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "alice" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "/myflow-finish" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "/flow-fast" })).toBeInTheDocument();
     // Its own stat panel: a count of the rows the server returned, never a
     // fabricated total or mean for a categorical "state" column.
     expect(screen.getByRole("heading", { name: "Changes" })).toBeInTheDocument();
@@ -319,11 +319,11 @@ describe("the state board is the only navigation path into a change's own dashbo
         envelope(view, [
           {
             projectKey: "kan/16",
-            name: "kan-16 myflow-stats-app?v2",
+            name: "kan-16 stats-app?v2",
             state: "IN_PROGRESS",
             updatedAt: "2026-01-15T10:00:00Z",
             updatedBy: "alice",
-            nextCommand: "/myflow-finish",
+            nextCommand: "/flow-fast",
           },
         ]),
       ),
@@ -331,10 +331,10 @@ describe("the state board is the only navigation path into a change's own dashbo
 
     render(<StateBoard period={period} project={undefined} />);
 
-    const link = await screen.findByRole("link", { name: "kan-16 myflow-stats-app?v2" });
+    const link = await screen.findByRole("link", { name: "kan-16 stats-app?v2" });
     expect(link).toHaveAttribute(
       "href",
-      `#/run/${encodeURIComponent("kan/16")}/${encodeURIComponent("kan-16 myflow-stats-app?v2")}`,
+      `#/run/${encodeURIComponent("kan/16")}/${encodeURIComponent("kan-16 stats-app?v2")}`,
     );
   });
 });
@@ -358,7 +358,7 @@ describe("the Project column names a project instead of keying it", () => {
             state: "IN_PROGRESS",
             updatedAt: "2026-01-15T10:00:00Z",
             updatedBy: "alice",
-            nextCommand: "/myflow-finish",
+            nextCommand: "/flow-fast",
           },
         ]),
       ),
@@ -395,7 +395,7 @@ describe("the Project column names a project instead of keying it", () => {
             state: "IN_PROGRESS",
             updatedAt: "2026-01-15T10:00:00Z",
             updatedBy: "alice",
-            nextCommand: "/myflow-finish",
+            nextCommand: "/flow-fast",
           },
         ]),
       ),
@@ -435,7 +435,7 @@ describe("the Project filter narrows by key identity, not by display name", () =
             state: "IN_PROGRESS",
             updatedAt: "2026-01-15T10:00:00Z",
             updatedBy: "alice",
-            nextCommand: "/myflow-finish",
+            nextCommand: "/flow-fast",
           },
           {
             projectKey: KEY_TWO,
@@ -443,7 +443,7 @@ describe("the Project filter narrows by key identity, not by display name", () =
             state: "STARTED",
             updatedAt: "2026-01-15T11:00:00Z",
             updatedBy: "bob",
-            nextCommand: "/myflow-do",
+            nextCommand: "/flow",
           },
         ]),
       ),

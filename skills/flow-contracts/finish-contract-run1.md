@@ -1,13 +1,13 @@
 # Finish contract — run 1 (the branch is not merged)
 
-**This file is canonical for `/myflow-finish`'s run 1** — the preflight-signal decision, run 1's
+**This file is canonical for `/flow`'s integrate run** — the preflight-signal decision, run 1's
 procedure, and resolving a change's worktrees.
 
-`/myflow-finish` is the only command that loads this file.
+bare `/flow` is the only command that loads this file.
 
 ## Finish contract
 
-`/myflow-finish` is a **two-run** command. Which run happens is decided by one thing: whether the
+bare `/flow` is a **two-run** command. Which run happens is decided by one thing: whether the
 change's branch has already reached the base branch. No field records "integration started" — the
 branch's merge status is the only source of truth, and a field could disagree with it.
 
@@ -112,7 +112,7 @@ for work the operator deliberately deferred, which is a judgment only they hold.
 recommendation is not a courtesy here: the planning-gate capability requires every choice a
 `/flow*` command offers to name its recommended option, and this prompt is one of them.
 
-There is no fourth course, and in particular none that hands back to `/myflow-do` inline. The filed
+There is no fourth course, and in particular none that hands back to `/flow`'s implement phase inline. The filed
 issue is labelled and linked per
 **Labels on issues the pipeline creates** (`skills/flow-contracts/jira-integration.md`).
 
@@ -222,7 +222,7 @@ nothing about the single-repository path changes.
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
 `<rebased-merge-base>`, for a worktree **Sync the branch onto the base** above rebased**. This
-collapses every per-task and fixup commit `/myflow-do` made on the branch back into the working
+collapses every per-task and fixup commit `/flow`'s implement phase made on the branch back into the working
 tree, uncommitted, so the branch carries no history for the two-commit chain below to inherit —
 that chain then commits from this reshaped state exactly as it always has.
 
@@ -238,11 +238,11 @@ flow record render -change <name> -kind ledger -repo <abs-repo-root>
 ```
 
 `<abs-repo-root>` is the apply worktree's own root — the tree this run is committing from, never the
-main checkout. The panel record is already under that path: `/myflow-do` renders it at panel close,
+main checkout. The panel record is already under that path: `/flow`'s implement phase renders it at panel close,
 from the same rows. Act on the command's outcome word per the table under **Rendering the session
 records** (`session-records.md`), which is canonical for it and is deliberately not restated here.
 
-**The proposal artifact source is copied here, not rendered.** It is not a record: `/myflow-start`
+**The proposal artifact source is copied here, not rendered.** It is not a record: `/flow`'s creating run
 wrote it to the state directory and it was never in the store, so `flow record render` — which
 renders from the store's rows — has no business with it. Run 1 copies it directly, in this same step
 and for the same reason the ledger is rendered here: the second `add` below carries no pathspec, so
@@ -278,7 +278,7 @@ cp "<state-dir>/<name>-proposal-artifact.html" \
   a second dated file, so a re-run overwrites in place — the rule `records.Destination` applies to
   the rendered records, applied here to the copy.
 - **A change with no artifact at that source is skipped and said so, never failed.** Every
-  `/myflow-fast` run is such a change: it publishes no proposal artifact, so there is nothing to
+  `/flow-fast` run is such a change: it publishes no proposal artifact, so there is nothing to
   copy and nothing wrong.
 
 This copy is what makes the `Proposal artifact source` row in **Temporary artifacts registry**
@@ -286,26 +286,26 @@ This copy is what makes the `Proposal artifact source` row in **Temporary artifa
 this step is what produces one.
 
 Those two planning paths are cleared from the index before the first `add` and excluded from it by
-pathspec — the same clearing pass **Git boundaries** (`git-boundaries.md`) gives `/myflow-do`, and
+pathspec — the same clearing pass **Git boundaries** (`git-boundaries.md`) gives `/flow`'s implement phase, and
 for the same reason: an exclusion cannot retract what an earlier step staged, and at this gate that
 step may have been the operator's own `git add`. The second `add` carries no pathspec, which is what
 picks the two paths up. The sequence itself — the guarded commits, the skipped-empty rule, the
 failure rule and the symlink case — is the chain **Git boundaries** (`git-boundaries.md`) gives, and is
 not written out a second time here; `<agents repo>/scripts/commit-split.sh` is what runs it, at both this
-call site and `/myflow-do`'s PR-exception path.
+call site and the implement phase's PR-exception path.
 
 | Route | Then |
 |-------|------|
-| **Open a pull request** | push; open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl` |
-| **Merge and push** | push; `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** and this route once |
-| **Handle it manually** | push the branch only; say plainly what is left to do |
+| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl` |
+| **Merge and push** | push `--force-with-lease`; `prepare-archive-branch.sh <project>/.worktrees/_landing-<name> <base> <base>`; `git -C <landing-worktree> merge --no-ff spectre/<name>`; `git -C <landing-worktree> push origin <base>`; remove the landing worktree. A merge conflict here means the base moved after the sync: `git -C <landing-worktree> merge --abort`, remove the landing worktree, and re-run **Sync the branch onto the base** and this route once |
+| **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
 
 `<archive-branch>` equal to `<base>` itself — the merge-and-push route's own use above — means
 "position `<landing-worktree>` on `<base>` itself", and `prepare-archive-branch.sh` accepts it; see
 that script's own header. The main checkout is never checked out, staged or committed by this
 route — the landing worktree carries the merge and the push in its place.
 
-Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/myflow-finish <name>` again.
+Run 1 ends at `IN_PROGRESS`, and its handoff's last line is `/flow <name>` again.
 
 **Resolve the base branch; never assume it, and never derive it from the current branch.**
 
@@ -321,7 +321,7 @@ validation; `2` the tree cannot be read — `<abs-worktree>` is missing, unreada
 worktree — or `HEAD`'s own ref cannot be read (corrupt or permission-denied); `3` the repository has
 no `origin` remote at all.
 
-**Never fall back to `HEAD@{upstream}`.** `/myflow-finish` runs inside the apply worktree, where
+**Never fall back to `HEAD@{upstream}`.** bare `/flow` runs inside the apply worktree, where
 `HEAD` *is* `spectre/<name>` — so that fallback resolves to the change's **own** upstream, making
 the merge check `spectre/<name>` vs `origin/spectre/<name>`, which is true the moment the branch
 is pushed. That silently reports an unmerged change as merged, and run 2 then archives it and
@@ -358,7 +358,7 @@ failure, which sends the operator debugging the wrong thing. Offer to leave the 
 `IN_PROGRESS` with the work staged; there is nothing to lose, because nothing was pushed.
 
 **No verification gate runs before integration.** No tests, no linters, no spec-coverage check.
-Correctness was established during `/myflow-do` — TDD per task, the final review
+Correctness was established during `/flow`'s implement phase — TDD per task, the final review
 panel — and by the human gate. Re-running it here would repeat finished work immediately before
 the one irreversible step. Two exceptions exist, both under **Sync the branch onto the base** above: a rebase
 that needed conflict resolution runs the whole `## lint` and `## test` lists, and a clean rebase
@@ -367,12 +367,12 @@ that changed a file this change also touches runs the scoped re-verification
 
 ### Resolving a change's worktrees
 
-The scan that finds the worktrees carrying a change's branch. This is `/myflow-finish`'s own
+The scan that finds the worktrees carrying a change's branch. This is bare `/flow`'s own
 application of the rule stated once under **Resolving a change's worktrees**
 (`skills/flow-contracts/worktree-resolution.md`) — that a step needing "the worktrees" resolves the set
 rather than reading the state file's `worktrees` map directly, and that a resolved set which comes
 back empty is never a vacuous pass. That rule and the commands it binds are not restated here; what
-follows is specific to `/myflow-finish`: the preflight verdict, the unfinished-work gate, and run
+follows is specific to bare `/flow`: the preflight verdict, the unfinished-work gate, and run
 2's removal all resolve the set through this same procedure.
 
 The set of worktrees is the **keys of the state file's `worktrees` map**. When that is absent or

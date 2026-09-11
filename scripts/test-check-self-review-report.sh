@@ -83,23 +83,23 @@ new_fixture() {
 
 compliant_report() {
   cat <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
+- **[flow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
 
-## What went well — `myflow-improvement`
-
-_none — this angle produced no findings._
-
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -117,25 +117,33 @@ case "$OUT" in
   *) fail "case 1: expected SELF-REVIEW-REPORT-OK in output, out=$OUT" ;;
 esac
 
+# Case 1b: the same report under the earlier `myflow-*` angle labels still
+# passes — reports under docs/self-review/ are immutable records, so the guard
+# keeps recognising the spelling they were written with.
+new_fixture
+compliant_report | sed 's/flow-/myflow-/g' >"$FIXTURE/fixture-self-review.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 1b: legacy-labelled report exits 0" || fail "case 1b: rc=$RC out=$OUT"
+
 # ===========================================================================
 # Case 2: the angle-5 section is missing entirely -> named, with the missing
 # label, exit 1.
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
+- **[flow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
 
-## What went well — `myflow-improvement`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## Automation — `flow-automation`
 
 _none — this angle produced no findings._
 EOF
@@ -152,23 +160,23 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
+- **[flow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
 
-## What went well — `myflow-improvement`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## Automation — `flow-automation`
 
 Nothing notable to say here, but no marker either.
 
-## Stats app — `myflow-stats-app`
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -186,30 +194,30 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-fix]** Wrong label under the cost section — declined
+- **[flow-fix]** Wrong label under the cost section — declined
 
-## What went well — `myflow-improvement`
-
-_none — this angle produced no findings._
-
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 4: a mismatched finding-line label is caught" || fail "case 4: rc=$RC out=$OUT"
 case "$OUT" in
-  *"label"*"myflow-fix"*"myflow-cost"*) pass "case 4: finding names the mismatch" ;;
+  *"label"*"flow-fix"*"flow-cost"*) pass "case 4: finding names the mismatch" ;;
   *) fail "case 4: expected a label-mismatch finding, out=$OUT" ;;
 esac
 
@@ -218,23 +226,23 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** Every panel slot gathers the same context independently — filed:
+- **[flow-cost]** Every panel slot gathers the same context independently — filed:
 
-## What went well — `myflow-improvement`
-
-_none — this angle produced no findings._
-
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -253,23 +261,23 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** Every panel slot gathers the same context independently — filed: yes
+- **[flow-cost]** Every panel slot gathers the same context independently — filed: yes
 
-## What went well — `myflow-improvement`
-
-_none — this angle produced no findings._
-
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -385,31 +393,31 @@ esac
 # `##` one does, rather than falling through both checks and being folded
 # into the previous section's body. The finding-shaped line that follows the
 # `###` here must surface as an orphan (no section open), not be silently
-# absorbed into `myflow-fix`'s own none-marker above it.
+# absorbed into `flow-fix`'s own none-marker above it.
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
 _none — this angle produced no findings._
 
 ### An h3 aside inside the fix section
 
-- **[myflow-fix]** must not be folded into the section above — declined
+- **[flow-fix]** must not be folded into the section above — declined
 
-## Cost — `myflow-cost`
-
-_none — this angle produced no findings._
-
-## What went well — `myflow-improvement`
+## Cost — `flow-cost`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -417,43 +425,43 @@ run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 12: a ### heading resets the current section" || fail "case 12: rc=$RC out=$OUT"
 case "$OUT" in
   *"finding line appears before any recognized section heading"*) \
-    pass "case 12: the line after the ### is named an orphan, not folded into myflow-fix" ;;
+    pass "case 12: the line after the ### is named an orphan, not folded into flow-fix" ;;
   *) fail "case 12: expected an orphan finding, out=$OUT" ;;
 esac
 
 # ===========================================================================
 # Case 13 (F4 regression): two present, complete, otherwise-valid sections in
-# the wrong relative order (`myflow-cost` before `myflow-fix`) are named as
+# the wrong relative order (`flow-cost` before `flow-fix`) are named as
 # out of order. Every section is otherwise well-formed and all five are
 # present, so this is the ONLY defect the fixture carries — nothing else
 # would trip exit 1 if the ordering check itself were missing.
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
 _none — this angle produced no findings._
 
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
 _none — this angle produced no findings._
 
-## What went well — `myflow-improvement`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## Automation — `flow-automation`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 13: an out-of-order section is caught" || fail "case 13: rc=$RC out=$OUT"
 case "$OUT" in
-  *"myflow-fix"*"out of order"*"flow-cost"*) pass "case 13: finding names the out-of-order section" ;;
+  *"flow-fix"*"out of order"*"flow-cost"*) pass "case 13: finding names the out-of-order section" ;;
   *) fail "case 13: expected an out-of-order finding, out=$OUT" ;;
 esac
 
@@ -465,34 +473,34 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
 _none — this angle produced no findings._
 
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
 _none — this angle produced no findings._
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
 _none — this angle produced no findings._
 
-## What went well — `myflow-improvement`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## Automation — `flow-automation`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 14: a duplicate section is caught" || fail "case 14: rc=$RC out=$OUT"
 case "$OUT" in
-  *"duplicate section for angle"*"myflow-fix"*) pass "case 14: finding names the duplicate section" ;;
+  *"duplicate section for angle"*"flow-fix"*) pass "case 14: finding names the duplicate section" ;;
   *) fail "case 14: expected a duplicate-section finding, out=$OUT" ;;
 esac
 
@@ -503,25 +511,25 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-- **[myflow-fix]** appears before any heading — declined
+- **[flow-fix]** appears before any heading — declined
 
-## Problems and fixes — `myflow-fix`
-
-_none — this angle produced no findings._
-
-## Cost — `myflow-cost`
+## Problems and fixes — `flow-fix`
 
 _none — this angle produced no findings._
 
-## What went well — `myflow-improvement`
+## Cost — `flow-cost`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -539,25 +547,25 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
 _none — this angle produced no findings._
 
-- **[myflow-fix]** a finding alongside the none-marker above — declined
+- **[flow-fix]** a finding alongside the none-marker above — declined
 
-## Cost — `myflow-cost`
-
-_none — this angle produced no findings._
-
-## What went well — `myflow-improvement`
+## Cost — `flow-cost`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF
@@ -580,19 +588,19 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/kan-73-install-guard-scripts-alongside-skills-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
-- **[myflow-fix]** Preflight compares against a stale local base ref — declined
+- **[flow-fix]** Preflight compares against a stale local base ref — declined
 
-## Cost — `myflow-cost`
+## Cost — `flow-cost`
 
-- **[myflow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
+- **[flow-cost]** Every panel slot gathers the same context independently — filed: KAN-201
 
-## What went well — `myflow-improvement`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## Automation — `flow-automation`
 
 _none — this angle produced no findings._
 EOF
@@ -649,7 +657,7 @@ esac
 # ===========================================================================
 # Case 20 (G3 regression, round 3 Primary/H1): a body line beginning with a
 # REAL literal tab byte must not be silently recognized as a compliant
-# finding. The fixture's `myflow-fix` section carries only a tab-indented,
+# finding. The fixture's `flow-fix` section carries only a tab-indented,
 # otherwise well-formed finding line and no none-marker — under the correct
 # US-delimited protocol the leading tab means the line matches neither
 # FINDING_LINE_RE nor FINDING_SHAPE_RE (both require the line to start with
@@ -661,15 +669,15 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '%s\n\n' '## Problems and fixes — `myflow-fix`'
-  printf '%s\n\n' $'\t- **[myflow-fix]** indented finding must not be recognized — declined'
-  printf '%s\n\n' '## Cost — `myflow-cost`'
+  printf '%s\n\n' '## Problems and fixes — `flow-fix`'
+  printf '%s\n\n' $'\t- **[flow-fix]** indented finding must not be recognized — declined'
+  printf '%s\n\n' '## Cost — `flow-cost`'
   printf '%s\n\n' '_none — this angle produced no findings._'
-  printf '%s\n\n' '## What went well — `myflow-improvement`'
+  printf '%s\n\n' '## What went well — `flow-improvement`'
   printf '%s\n\n' '_none — this angle produced no findings._'
-  printf '%s\n\n' '## Automation — `myflow-automation`'
+  printf '%s\n\n' '## Automation — `flow-automation`'
   printf '%s\n\n' '_none — this angle produced no findings._'
-  printf '%s\n\n' '## Stats app — `myflow-stats-app`'
+  printf '%s\n\n' '## Stats app — `flow-stats-app`'
   printf '%s\n' '_none — this angle produced no findings._'
 } >"$FIXTURE/fixture-self-review.md"
 grep -q $'\t' "$FIXTURE/fixture-self-review.md" \
@@ -688,7 +696,7 @@ esac
 # Separator) byte inside report content reaches the classifier byte for byte,
 # so a line differing from the none-marker only by a trailing 0x1F is NOT
 # equal to the none-marker and does not silently satisfy its section. The
-# `myflow-improvement` section's none-marker line here carries one genuine
+# `flow-improvement` section's none-marker line here carries one genuine
 # trailing 0x1F byte, appended via ANSI-C quoting; that section therefore
 # carries neither a finding line nor the none-marker and is flagged for that
 # reason.
@@ -718,15 +726,15 @@ esac
 # ===========================================================================
 new_fixture
 {
-  printf '%s\n\n' '## Problems and fixes — `myflow-fix`'
+  printf '%s\n\n' '## Problems and fixes — `flow-fix`'
   printf '%s\n\n' '_none — this angle produced no findings._'
-  printf '%s\n\n' '## Cost — `myflow-cost`'
+  printf '%s\n\n' '## Cost — `flow-cost`'
   printf '%s\n\n' '_none — this angle produced no findings._'
-  printf '%s\n\n' '## What went well — `myflow-improvement`'
+  printf '%s\n\n' '## What went well — `flow-improvement`'
   printf '%s\n\n' $'_none — this angle produced no findings._\037'
-  printf '%s\n\n' '## Automation — `myflow-automation`'
+  printf '%s\n\n' '## Automation — `flow-automation`'
   printf '%s\n\n' '_none — this angle produced no findings._'
-  printf '%s\n\n' '## Stats app — `myflow-stats-app`'
+  printf '%s\n\n' '## Stats app — `flow-stats-app`'
   printf '%s\n' '_none — this angle produced no findings._'
 } >"$FIXTURE/fixture-self-review.md"
 grep -q $'\037' "$FIXTURE/fixture-self-review.md" \
@@ -748,7 +756,7 @@ esac
 # ===========================================================================
 # Case 22 (KAN-211, mutation-matrix gap): a well-formed finding line whose
 # disposition is neither `filed: <KEY>` nor `declined`. The fixture is
-# `compliant_report` with the `myflow-cost` finding's disposition replaced by
+# `compliant_report` with the `flow-cost` finding's disposition replaced by
 # `maybe later` — everything else about the line, and about the report, stays
 # compliant. The line still matches FINDING_LINE_RE, so FINDING_COUNT
 # increments and the section is not flagged for anything else; the ONLY
@@ -777,7 +785,7 @@ esac
 # that fix landed, which is why this case exists.
 #
 # WHY THE MESSAGE ASSERTION IS THE DETECTOR HERE, not the exit status. The
-# malformed line leaves its `myflow-fix` section with no recognized finding
+# malformed line leaves its `flow-fix` section with no recognized finding
 # and no none-marker, so the post-loop neither-marker-nor-finding check fires
 # on this same fixture and holds the exit code at 1 EVEN WITH the loose-shape
 # branch deleted. An assertion on exit status alone therefore passes in both
@@ -789,23 +797,23 @@ esac
 # ===========================================================================
 new_fixture
 cat >"$FIXTURE/fixture-self-review.md" <<'EOF'
-## Problems and fixes — `myflow-fix`
+## Problems and fixes — `flow-fix`
 
--  **[myflow-fix]** two spaces after the dash is malformed — declined
+-  **[flow-fix]** two spaces after the dash is malformed — declined
 
-## Cost — `myflow-cost`
-
-_none — this angle produced no findings._
-
-## What went well — `myflow-improvement`
+## Cost — `flow-cost`
 
 _none — this angle produced no findings._
 
-## Automation — `myflow-automation`
+## What went well — `flow-improvement`
 
 _none — this angle produced no findings._
 
-## Stats app — `myflow-stats-app`
+## Automation — `flow-automation`
+
+_none — this angle produced no findings._
+
+## Stats app — `flow-stats-app`
 
 _none — this angle produced no findings._
 EOF

@@ -380,7 +380,7 @@ func TestEveryViewAcceptsAPeriod(t *testing.T) {
 func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	t.Run("stage-leaderboard", func(t *testing.T) {
 		sts := &statsFake{stageLeaderboard: []store.StageLeaderboardRow{
-			{Command: "/myflow-do", Stage: "SDD + TDD per task", RunCount: 5,
+			{Command: "/flow", Stage: "SDD + TDD per task", RunCount: 5,
 				MeanCostUSD: 11.25, MedianCostUSD: 9.5, P90CostUSD: 22.75},
 		}}
 		ts := newStatsTestServer(t, sts)
@@ -433,7 +433,7 @@ func TestEveryViewCarriesItsRealNumbersThrough(t *testing.T) {
 	t.Run("cache-efficiency", func(t *testing.T) {
 		read, creation, ratio := int64(9000), int64(3000), 3.0
 		sts := &statsFake{cacheEfficiency: []store.CacheEfficiencyRow{
-			{Command: "/myflow-do", Stage: "review panel", CacheReadTotal: &read, CacheCreationTotal: &creation, Ratio: &ratio},
+			{Command: "/flow", Stage: "review panel", CacheReadTotal: &read, CacheCreationTotal: &creation, Ratio: &ratio},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, env, body := getStats(t, ts, periodPath("cache-efficiency"))
@@ -570,7 +570,7 @@ func TestEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 	seededAt := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{{
-			run:        store.StageRun{ID: 1, StartedAt: seededAt, Command: "/myflow-do", Stage: "x"},
+			run:        store.StageRun{ID: 1, StartedAt: seededAt, Command: "/flow", Stage: "x"},
 			projectKey: "proj", changeName: "kan-1",
 		}},
 	}
@@ -629,7 +629,7 @@ func TestBoundaryConventionIsConsistentAcrossViews(t *testing.T) {
 	boundary := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
 	mustRunIntegrationStage(t, st, store.BeginStageInput{
 		ProjectKey: projectKey, ChangeName: "kan-1", Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: boundary,
+		Command: "/flow", Stage: "SDD + TDD per task", StartedAt: boundary,
 	}, json.RawMessage(`{"cost_usd":1.0,"models":{"claude-opus-4":{"cost_usd":1.0}}}`), boundary.Add(time.Minute))
 
 	ts := newIntegrationTestServer(t, st)
@@ -702,7 +702,7 @@ func TestNoProjectFilterAggregatesAcrossProjects(t *testing.T) {
 
 // TestStatsViewAcceptsProjectDisplayName asserts a "project" value that is
 // a display name matching exactly one project resolves to that project's
-// key before it reaches the store -- specs/myflow-stats-views/spec.md's
+// key before it reaches the store -- the stats-views requirement
 // "A display name is filtered on".
 func TestStatsViewAcceptsProjectDisplayName(t *testing.T) {
 	sts := &statsFake{projectKeysByDisplayName: map[string][]string{"agents": {"agents-a740d89c"}}}
@@ -722,7 +722,7 @@ func TestStatsViewAcceptsProjectDisplayName(t *testing.T) {
 
 // TestStatsViewExactProjectKeyRunsNoResolutionQuery asserts a "project"
 // value already carrying the derivation suffix is used unchanged, with no
-// call to ProjectKeysByDisplayName at all -- specs/myflow-stats-views/spec.md's
+// call to ProjectKeysByDisplayName at all -- the stats-views requirement
 // "A full key is filtered on": "it is used as-is, with no resolution
 // attempted".
 func TestStatsViewExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
@@ -829,7 +829,7 @@ func TestPeriodBeforeAnyDataReportsNotRecorded(t *testing.T) {
 	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{{
-			run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/myflow-do", Stage: "x"},
+			run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/flow", Stage: "x"},
 			projectKey: "proj", changeName: "kan-1",
 		}},
 	}
@@ -880,7 +880,7 @@ func TestPeriodBeforeAnyDataReportsNotRecorded(t *testing.T) {
 func TestThreeAbsenceStatesDoNotCollapse(t *testing.T) {
 	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	seeded := statsRun{
-		run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/myflow-do", Stage: "x"},
+		run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/flow", Stage: "x"},
 		projectKey: "proj", changeName: "kan-1",
 	}
 
@@ -940,7 +940,7 @@ func TestUnmeasuredNeverComputedWhenPeriodPredatesTelemetry(t *testing.T) {
 	earliest := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{{
-			run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/myflow-do", Stage: "x"},
+			run:        store.StageRun{ID: 1, StartedAt: earliest, Command: "/flow", Stage: "x"},
 			projectKey: "proj", changeName: "kan-1",
 		}},
 		allRecordedRunsUnmeasured: true, // would flip the assertion below if ever consulted
@@ -991,9 +991,9 @@ func TestLiveStateBoardMatchesStatusOutput(t *testing.T) {
 	//
 	// The pipeline is ONE command, so STARTED and IN_PROGRESS both answer
 	// `/flow`; only FINISHED, which is terminal, answers with nothing. The
-	// earlier expectation here was `/myflow-do` and `/myflow-finish`, and it
-	// pinned a dashboard that told its reader to run commands that do not
-	// exist.
+	// earlier expectation here was the retired three-command pipeline's
+	// per-state commands, and it pinned a dashboard that told its reader to
+	// run commands that do not exist.
 	want := map[string]string{"kan-1": "/flow", "kan-2": "/flow", "kan-3": ""}
 	for _, r := range rows {
 		if r.NextCommand != want[r.Name] {
@@ -1008,14 +1008,14 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 	base := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
 	sts := &statsFake{
 		stageRuns: []statsRun{
-			{run: store.StageRun{ID: 1, Command: "/myflow-do", Stage: "a", StartedAt: base}, projectKey: "p", changeName: "kan-1"},
-			{run: store.StageRun{ID: 2, Command: "/myflow-do", Stage: "b", StartedAt: base.Add(time.Hour)}, projectKey: "p", changeName: "kan-1"},
-			{run: store.StageRun{ID: 3, Command: "/myflow-finish", Stage: "c", StartedAt: base.Add(2 * time.Hour)}, projectKey: "p", changeName: "kan-1"},
+			{run: store.StageRun{ID: 1, Command: "/flow", Stage: "a", StartedAt: base}, projectKey: "p", changeName: "kan-1"},
+			{run: store.StageRun{ID: 2, Command: "/flow", Stage: "b", StartedAt: base.Add(time.Hour)}, projectKey: "p", changeName: "kan-1"},
+			{run: store.StageRun{ID: 3, Command: "/flow-fast", Stage: "c", StartedAt: base.Add(2 * time.Hour)}, projectKey: "p", changeName: "kan-1"},
 		},
 	}
 	ts := newStatsTestServer(t, sts)
 
-	status, body := doGetRaw(t, ts, "/api/v1/stage-runs?command=/myflow-do&q=term&sort=-started_at&limit=1&offset=0")
+	status, body := doGetRaw(t, ts, "/api/v1/stage-runs?command=/flow&q=term&sort=-started_at&limit=1&offset=0")
 	if status != http.StatusOK {
 		t.Fatalf("status %d, body %s", status, body)
 	}
@@ -1023,12 +1023,12 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 	// filter: command was translated into a store.Filter for "command".
 	foundCommandFilter := false
 	for _, f := range sts.lastQuery.Filters {
-		if f.Field == "command" && f.Value == "/myflow-do" {
+		if f.Field == "command" && f.Value == "/flow" {
 			foundCommandFilter = true
 		}
 	}
 	if !foundCommandFilter {
-		t.Errorf("Filters = %+v, want a command=/myflow-do filter", sts.lastQuery.Filters)
+		t.Errorf("Filters = %+v, want a command=/flow filter", sts.lastQuery.Filters)
 	}
 	// search: q became Query.Search.
 	if sts.lastQuery.Search != "term" {
@@ -1053,7 +1053,7 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &resp); err != nil {
 		t.Fatalf("decode: %v (body %s)", err, body)
 	}
-	// Two runs match command=/myflow-do; limit=1 pages down to one, and
+	// Two runs match command=/flow; limit=1 pages down to one, and
 	// Total still reports the unpaged match count of 2.
 	if resp.Total != 2 {
 		t.Errorf("total = %d, want 2", resp.Total)
@@ -1062,7 +1062,7 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 		t.Fatalf("stageRuns = %d, want 1", len(resp.StageRuns))
 	}
 	if resp.StageRuns[0].StageRunID != 2 {
-		t.Errorf("stageRuns[0].stageRunId = %d, want 2 (started_at DESC picks the later /myflow-do run first)", resp.StageRuns[0].StageRunID)
+		t.Errorf("stageRuns[0].stageRunId = %d, want 2 (started_at DESC picks the later /flow run first)", resp.StageRuns[0].StageRunID)
 	}
 }
 
@@ -1078,7 +1078,7 @@ func TestListEndpointsAcceptFilterSortSearchPage(t *testing.T) {
 func TestNegativeLimitAtHTTPBoundaryIsRejected(t *testing.T) {
 	t.Run("stage-runs", func(t *testing.T) {
 		sts := &statsFake{stageRuns: []statsRun{
-			{run: store.StageRun{ID: 1, Command: "/myflow-do"}, projectKey: "p", changeName: "kan-1"},
+			{run: store.StageRun{ID: 1, Command: "/flow"}, projectKey: "p", changeName: "kan-1"},
 		}}
 		ts := newStatsTestServer(t, sts)
 		status, body := doGetRaw(t, ts, "/api/v1/stage-runs?limit=-1")
@@ -1405,11 +1405,11 @@ func TestMultiRepoChangeIsOneRowInEveryView(t *testing.T) {
 	started := time.Date(2026, 8, 15, 10, 0, 0, 0, time.UTC)
 	mustRunIntegrationStage(t, st, store.BeginStageInput{
 		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoA, Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: started,
+		Command: "/flow", Stage: "SDD + TDD per task", StartedAt: started,
 	}, json.RawMessage(`{"cost_usd":2.0,"tokens":{"input":100}}`), started.Add(time.Minute))
 	mustRunIntegrationStage(t, st, store.BeginStageInput{
 		ProjectKey: projectKey, ChangeName: "kan-1", RepoRoot: &repoB, Harness: "claude-code",
-		Command: "/myflow-do", Stage: "SDD + TDD per task", StartedAt: started.Add(2 * time.Minute),
+		Command: "/flow", Stage: "SDD + TDD per task", StartedAt: started.Add(2 * time.Minute),
 	}, json.RawMessage(`{"cost_usd":3.0,"tokens":{"input":200}}`), started.Add(3*time.Minute))
 
 	ts := newIntegrationTestServer(t, st)
@@ -1454,7 +1454,7 @@ func TestMultiRepoChangeIsOneRowInEveryView(t *testing.T) {
 // --- task 21: the model filter -------------------------------------------
 
 // TestModelRestrictionRejectedOnStateBoard is
-// specs/myflow-stats-views/spec.md's "A model restriction on the live
+// the stats-views requirement "A model restriction on the live
 // state board" scenario: the state board's rows are changes, not stage
 // runs, so a model parameter is rejected outright rather than silently
 // accepted and ignored -- the one outcome the round's own spec forbids.
@@ -1646,12 +1646,12 @@ func TestCostPerChangeAcceptsChangeAlone(t *testing.T) {
 	started := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
 	mustRunIntegrationStage(t, st, store.BeginStageInput{
 		ProjectKey: projectKey, ChangeName: "kan-1", Harness: "claude-code",
-		SessionID: sptr("s-kan-1"), Command: "/myflow-do", Stage: "SDD + TDD per task",
+		SessionID: sptr("s-kan-1"), Command: "/flow", Stage: "SDD + TDD per task",
 		StartedAt: started,
 	}, json.RawMessage(`{"cost_usd":1.5}`), started.Add(time.Minute))
 	mustRunIntegrationStage(t, st, store.BeginStageInput{
 		ProjectKey: projectKey, ChangeName: "kan-2", Harness: "claude-code",
-		SessionID: sptr("s-kan-2"), Command: "/myflow-do", Stage: "SDD + TDD per task",
+		SessionID: sptr("s-kan-2"), Command: "/flow", Stage: "SDD + TDD per task",
 		StartedAt: started,
 	}, json.RawMessage(`{"cost_usd":9}`), started.Add(time.Minute))
 

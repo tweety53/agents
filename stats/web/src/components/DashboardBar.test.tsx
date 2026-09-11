@@ -28,8 +28,8 @@ function modelsResponse(models: string[]): ModelsResponse {
 }
 
 const changeA: ChangeDTO = {
-  projectKey: "kan-16-myflow-stats-app",
-  name: "kan-16-myflow-stats-app",
+  projectKey: "kan-16-stats-app",
+  name: "kan-16-stats-app",
   state: "IN_PROGRESS",
   updatedAt: "2026-01-15T10:00:00Z",
   updatedBy: "alice",
@@ -47,8 +47,8 @@ const changeHashed: ChangeDTO = {
   updatedBy: "alice",
 };
 const changeB: ChangeDTO = {
-  projectKey: "kan-16-myflow-stats-app",
-  name: "kan-7-myflow-principles-panel-jira",
+  projectKey: "kan-16-stats-app",
+  name: "kan-7-principles-panel-jira",
   state: "STARTED",
   updatedAt: "2026-01-10T10:00:00Z",
   updatedBy: "alice",
@@ -167,7 +167,7 @@ describe("DashboardBar: period presets (task 3)", () => {
     expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
 
     vi.setSystemTime(new Date(NOW.getTime() + 5000));
-    rerender(<DashboardBar {...props} project="kan-16-myflow-stats-app" />);
+    rerender(<DashboardBar {...props} project="kan-16-stats-app" />);
 
     expect(screen.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
   });
@@ -224,7 +224,7 @@ describe("DashboardBar: reset to default (task 3)", () => {
     expect(screen.queryByRole("button", { name: "Reset to default" })).not.toBeInTheDocument();
 
     vi.setSystemTime(new Date(NOW.getTime() + 5000));
-    rerender(<DashboardBar {...props} project="kan-16-myflow-stats-app" />);
+    rerender(<DashboardBar {...props} project="kan-16-stats-app" />);
 
     expect(screen.queryByRole("button", { name: "Reset to default" })).not.toBeInTheDocument();
   });
@@ -245,12 +245,12 @@ describe("DashboardBar: manual entry keeps working (task 3)", () => {
 describe("DashboardBar: the model variable", () => {
   it("is populated from GET /api/v1/models for the current period and project", async () => {
     const props = baseProps();
-    props.project = "kan-16-myflow-stats-app";
+    props.project = "kan-16-stats-app";
     render(<DashboardBar {...props} />);
 
     await waitFor(() => expect(fetchModelsMock).toHaveBeenCalled());
     expect(fetchModelsMock).toHaveBeenCalledWith(
-      expect.objectContaining({ from: period.from, to: period.to, project: "kan-16-myflow-stats-app" }),
+      expect.objectContaining({ from: period.from, to: period.to, project: "kan-16-stats-app" }),
     );
     expect(await screen.findByRole("option", { name: "claude-opus-5" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "claude-sonnet-5" })).toBeInTheDocument();

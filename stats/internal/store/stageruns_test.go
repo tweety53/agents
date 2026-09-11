@@ -53,7 +53,7 @@ func TestBeginStageAllocatesAttempts(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-attempts-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 
 	first, err := st.BeginStage(ctx, in)
 	if err != nil {
@@ -97,7 +97,7 @@ func TestBeginStageRoundTripsSessionToken(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-session-token-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.SessionID = nil
 	in.SessionToken = ptr("mf-session-token-round-trip")
 
@@ -137,7 +137,7 @@ func TestUnresolvedSessionTokensReturnsOnlyRowsAwaitingBinding(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-unresolved-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	unresolved := baseBeginInput(projectKey, "kan-1", "/myflow-do", "unresolved stage")
+	unresolved := baseBeginInput(projectKey, "kan-1", "/flow", "unresolved stage")
 	unresolved.SessionID = nil
 	unresolved.SessionToken = ptr("mf-unresolved")
 	unresolvedRun, err := st.BeginStage(ctx, unresolved)
@@ -145,14 +145,14 @@ func TestUnresolvedSessionTokensReturnsOnlyRowsAwaitingBinding(t *testing.T) {
 		t.Fatalf("BeginStage (unresolved): %v", err)
 	}
 
-	noToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "no sessionToken at all")
+	noToken := baseBeginInput(projectKey, "kan-1", "/flow", "no sessionToken at all")
 	noToken.SessionID = nil
 	noToken.SessionToken = nil
 	if _, err := st.BeginStage(ctx, noToken); err != nil {
 		t.Fatalf("BeginStage (no sessionToken): %v", err)
 	}
 
-	alreadyBound := baseBeginInput(projectKey, "kan-1", "/myflow-do", "already bound")
+	alreadyBound := baseBeginInput(projectKey, "kan-1", "/flow", "already bound")
 	alreadyBound.SessionID = ptr("session-already-bound")
 	alreadyBound.SessionToken = ptr("mf-already-bound")
 	if _, err := st.BeginStage(ctx, alreadyBound); err != nil {
@@ -179,7 +179,7 @@ func TestBindSessionSetsSessionID(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-bind-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "to be bound")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "to be bound")
 	in.SessionID = nil
 	in.SessionToken = ptr("mf-to-bind")
 	run, err := st.BeginStage(ctx, in)
@@ -219,7 +219,7 @@ func TestBindSessionBindsEveryRunSharingAToken(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 
 	const token = "mf-shared-across-marks"
-	first := baseBeginInput(projectKey, "kan-1", "/myflow-do", "first mark")
+	first := baseBeginInput(projectKey, "kan-1", "/flow", "first mark")
 	first.SessionID = nil
 	first.SessionToken = ptr(token)
 	firstRun, err := st.BeginStage(ctx, first)
@@ -227,7 +227,7 @@ func TestBindSessionBindsEveryRunSharingAToken(t *testing.T) {
 		t.Fatalf("BeginStage (first): %v", err)
 	}
 
-	second := baseBeginInput(projectKey, "kan-1", "/myflow-do", "second mark")
+	second := baseBeginInput(projectKey, "kan-1", "/flow", "second mark")
 	second.SessionID = nil
 	second.SessionToken = ptr(token)
 	secondRun, err := st.BeginStage(ctx, second)
@@ -265,7 +265,7 @@ func TestBindSessionIsOneWay(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-oneway-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "bound once")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "bound once")
 	in.SessionID = nil
 	in.SessionToken = ptr("mf-one-way")
 	run, err := st.BeginStage(ctx, in)
@@ -308,7 +308,7 @@ func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 
 	const token = "mf-already-resolved"
-	first := baseBeginInput(projectKey, "kan-1", "/myflow-do", "first mark")
+	first := baseBeginInput(projectKey, "kan-1", "/flow", "first mark")
 	first.SessionID = nil
 	first.SessionToken = ptr(token)
 	if _, err := st.BeginStage(ctx, first); err != nil {
@@ -318,7 +318,7 @@ func TestBeginStageResolvesSessionIDFromAnAlreadyBoundToken(t *testing.T) {
 		t.Fatalf("BindSession: %v", err)
 	}
 
-	second := baseBeginInput(projectKey, "kan-1", "/myflow-do", "second mark")
+	second := baseBeginInput(projectKey, "kan-1", "/flow", "second mark")
 	second.SessionID = nil
 	second.SessionToken = ptr(token)
 	secondRun, err := st.BeginStage(ctx, second)
@@ -355,7 +355,7 @@ func TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession(t *testing.T) {
 
 	const token = "mf-supersede-token"
 
-	a := baseBeginInput(projectKey, "kan-175", "/myflow-fast", "finish.verify-merge")
+	a := baseBeginInput(projectKey, "kan-175", "/flow-fast", "finish.verify-merge")
 	a.SessionToken = ptr(token)
 	a.StartedAt = time.Date(2026, 8, 16, 10, 11, 1, 0, time.UTC)
 	runA, err := st.BeginStage(ctx, a)
@@ -363,7 +363,7 @@ func TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession(t *testing.T) {
 		t.Fatalf("BeginStage (A): %v", err)
 	}
 
-	b := baseBeginInput(projectKey, "kan-184", "/myflow-do", "SDD + TDD per task")
+	b := baseBeginInput(projectKey, "kan-184", "/flow", "SDD + TDD per task")
 	b.SessionToken = ptr(token)
 	b.StartedAt = a.StartedAt.Add(2 * time.Hour)
 	runB, err := st.BeginStage(ctx, b)
@@ -408,7 +408,7 @@ func TestBeginStageLeavesAnOpenRunThatStartedLaterAlone(t *testing.T) {
 
 	const token = "mf-replay-token"
 
-	live := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	live := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	live.SessionToken = ptr(token)
 	live.StartedAt = time.Date(2026, 8, 16, 11, 0, 0, 0, time.UTC)
 	liveRun, err := st.BeginStage(ctx, live)
@@ -416,7 +416,7 @@ func TestBeginStageLeavesAnOpenRunThatStartedLaterAlone(t *testing.T) {
 		t.Fatalf("BeginStage (live): %v", err)
 	}
 
-	replay := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	replay := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	replay.SessionToken = ptr(token)
 	replay.StartedAt = time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC)
 	if _, err := st.BeginStage(ctx, replay); err != nil {
@@ -451,7 +451,7 @@ func TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant(t *testing.T) {
 	const token = "mf-same-instant-token"
 	startedAt := time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC)
 
-	first := baseBeginInput(projectKey, "kan-1", "/myflow-do", "first attempt")
+	first := baseBeginInput(projectKey, "kan-1", "/flow", "first attempt")
 	first.SessionToken = ptr(token)
 	first.StartedAt = startedAt
 	firstRun, err := st.BeginStage(ctx, first)
@@ -459,7 +459,7 @@ func TestBeginStageSupersedesAnOpenRunStartedAtTheSameInstant(t *testing.T) {
 		t.Fatalf("BeginStage (first): %v", err)
 	}
 
-	replay := baseBeginInput(projectKey, "kan-1", "/myflow-do", "replayed begin")
+	replay := baseBeginInput(projectKey, "kan-1", "/flow", "replayed begin")
 	replay.SessionToken = ptr(token)
 	replay.StartedAt = startedAt
 	if _, err := st.BeginStage(ctx, replay); err != nil {
@@ -490,7 +490,7 @@ func TestBeginStageWithNoSessionTokenSupersedesNothing(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-notoken-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	noToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "no token open run")
+	noToken := baseBeginInput(projectKey, "kan-1", "/flow", "no token open run")
 	noToken.SessionToken = nil
 	noToken.StartedAt = time.Date(2026, 8, 16, 10, 0, 0, 0, time.UTC)
 	noTokenRun, err := st.BeginStage(ctx, noToken)
@@ -499,7 +499,7 @@ func TestBeginStageWithNoSessionTokenSupersedesNothing(t *testing.T) {
 	}
 
 	// A begin carrying a real token must not close the no-token run.
-	withToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "with token")
+	withToken := baseBeginInput(projectKey, "kan-1", "/flow", "with token")
 	withToken.SessionToken = ptr("mf-notoken-other")
 	withToken.StartedAt = noToken.StartedAt.Add(time.Hour)
 	if _, err := st.BeginStage(ctx, withToken); err != nil {
@@ -515,7 +515,7 @@ func TestBeginStageWithNoSessionTokenSupersedesNothing(t *testing.T) {
 	}
 
 	// A begin carrying no token itself must close nothing either.
-	anotherNoToken := baseBeginInput(projectKey, "kan-1", "/myflow-do", "another no-token begin")
+	anotherNoToken := baseBeginInput(projectKey, "kan-1", "/flow", "another no-token begin")
 	anotherNoToken.SessionToken = nil
 	anotherNoToken.StartedAt = withToken.StartedAt.Add(time.Hour)
 	if _, err := st.BeginStage(ctx, anotherNoToken); err != nil {
@@ -535,7 +535,7 @@ func TestBeginStageUnknownChangeIsNotFound(t *testing.T) {
 	st := newTestStore(t)
 	ctx := context.Background()
 
-	_, err := st.BeginStage(ctx, baseBeginInput("no-such-project", "no-such-change", "/myflow-do", "SDD + TDD per task"))
+	_, err := st.BeginStage(ctx, baseBeginInput("no-such-project", "no-such-change", "/flow", "SDD + TDD per task"))
 	if !errors.Is(err, store.ErrChangeNotFound) {
 		t.Fatalf("BeginStage(unknown change) error = %v, want errors.Is(_, store.ErrChangeNotFound)", err)
 	}
@@ -560,7 +560,7 @@ func TestConcurrentBeginStageDoesNotCollide(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 
 	const writers = 30
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 
 	var wg sync.WaitGroup
 	attempts := make([]int, writers)
@@ -663,7 +663,7 @@ func TestConcurrentBeginStageForOneSessionLeavesOneOpenRun(t *testing.T) {
 			callCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			defer cancel()
 
-			in := baseBeginInput(projectKey, "kan-1", "/myflow-do", fmt.Sprintf("stage-%d", i))
+			in := baseBeginInput(projectKey, "kan-1", "/flow", fmt.Sprintf("stage-%d", i))
 			in.SessionToken = ptr(token)
 			in.StartedAt = startedAt
 			run, err := st.BeginStage(callCtx, in)
@@ -709,7 +709,7 @@ func TestMergeMetricsPreservesOtherKeys(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-merge-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -777,7 +777,7 @@ func TestMergeMetricsDeepMergesNestedSiblings(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-deepmerge-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -831,7 +831,7 @@ func TestMergeMetricsNonObjectValueReplaces(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-nonobjreplace-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -867,7 +867,7 @@ func TestMergeMetricsRejectsNilPatch(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-nilpatch-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -903,7 +903,7 @@ func TestEndStageRecordsOutcome(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-end-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -949,7 +949,7 @@ func TestEndStageRefusesARunAlreadyClosed(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-end-twice-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -987,14 +987,14 @@ func TestSweepAbandonedClosesSilentStages(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-sweep-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	silent := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	silent := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	silent.StartedAt = time.Now().Add(-2 * time.Hour)
 	silentRun, err := st.BeginStage(ctx, silent)
 	if err != nil {
 		t.Fatalf("BeginStage(silent): %v", err)
 	}
 
-	ended := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	ended := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	ended.StartedAt = time.Now().Add(-2 * time.Hour)
 	endedRun, err := st.BeginStage(ctx, ended)
 	if err != nil {
@@ -1004,7 +1004,7 @@ func TestSweepAbandonedClosesSilentStages(t *testing.T) {
 		t.Fatalf("EndStage(ended): %v", err)
 	}
 
-	recent := baseBeginInput(projectKey, "kan-1", "/myflow-do", "finish")
+	recent := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	recent.StartedAt = time.Now().Add(-1 * time.Minute)
 	recentRun, err := st.BeginStage(ctx, recent)
 	if err != nil {
@@ -1054,7 +1054,7 @@ func TestPriceFreezesCostAndVersion(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.StartedAt = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	run, err := st.BeginStage(ctx, in)
 	if err != nil {
@@ -1177,7 +1177,7 @@ func TestPriceTwoModelsAgainstTwoRates(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-twomodel-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	in.StartedAt = time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	run, err := st.BeginStage(ctx, in)
 	if err != nil {
@@ -1252,7 +1252,7 @@ func TestPriceOneUnpriceableBucketOmitsTopLevelTotal(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-partial-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1319,7 +1319,7 @@ func TestPriceWithoutTokensIsUnavailable(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-unavail-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1346,7 +1346,7 @@ func TestPriceWithoutChargeableFieldIsUnavailable(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-nocharge-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1384,7 +1384,7 @@ func TestPriceWithoutPricingRowIsNotFound(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-nopricing-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1410,7 +1410,7 @@ func TestPriceChargesFiveMinuteAndOneHourWritesAtTheirOwnRates(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-split-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1469,7 +1469,7 @@ func TestPriceUnknownCacheSplitIsUnpriceable(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-unknownsplit-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1531,7 +1531,7 @@ func TestPriceFastModeUsesFastRate(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-fast-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1584,7 +1584,7 @@ func TestPriceFastModeWithoutFastRateIsUnpriceable(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-fastnorate-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1630,7 +1630,7 @@ func TestPriceFastModeWithoutFastRateIsUnpriceable(t *testing.T) {
 // rate resolution and chargeableTokens.cost arithmetic as its owning
 // model bucket -- not an implied average rate scaled from the model
 // bucket's blended total, which overstates a cache-heavy dispatch and
-// understates an output-heavy one (specs/myflow-stats-views/spec.md, "Per-
+// understates an output-heavy one (the stats-views requirement "Per-
 // dispatch cost SHALL be derived through the same pricing path"). This
 // also pins the double-counting guard: the top-level cost_usd is the
 // model buckets' own sum, unaffected by dispatch pricing, even though a
@@ -1641,7 +1641,7 @@ func TestPriceDispatchGetsCostThroughSamePricingPath(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-dispatch-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1726,7 +1726,7 @@ func TestPriceDispatchIsPricedWhenEveryModelBucketIsUnpriceable(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-dispatch-priced-when-models-unpriceable-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1801,7 +1801,7 @@ func TestPriceDegradesOnMalformedDispatchesRatherThanFailing(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-malformed-dispatches-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1895,7 +1895,7 @@ func TestPriceDispatchLookupErrorDoesNotDiscardModelsResult(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-dispatch-lookup-error-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -1970,7 +1970,7 @@ func TestPriceDispatchWithNoRecordedModelGetsNoCost(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-dispatch-nomodel-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -2029,7 +2029,7 @@ func TestPriceDispatchModelWithNoPricingRowGetsNoCost(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-dispatch-norate-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -2089,7 +2089,7 @@ func TestPriceDispatchWithUnknownCacheSplitGetsNoCost(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-price-dispatch-unknownsplit-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "5. The review panel"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "5. The review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -2156,7 +2156,7 @@ func TestStageRunsNullRepoRootSkipsFKCheck(t *testing.T) {
 		t.Fatalf("PutChange: %v", err)
 	}
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.RepoRoot = nil
 	if _, err := st.BeginStage(ctx, in); err != nil {
 		t.Fatalf("BeginStage with nil RepoRoot and no change_repos rows: %v", err)
@@ -2177,7 +2177,7 @@ func TestStageRunsRepoRootMustMatchChangeRepos(t *testing.T) {
 		t.Fatalf("PutChange: %v", err)
 	}
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.RepoRoot = ptr("/repo/does-not-exist")
 	_, err := st.BeginStage(ctx, in)
 	if err == nil {

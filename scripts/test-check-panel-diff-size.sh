@@ -117,7 +117,7 @@ set -e
 #    committed ones. The unstaged edit modifies a file already committed
 #    since the merge base, since `git diff <merge-base>` (no --no-index)
 #    never reports untracked files — matching the exact command
-#    `/myflow-do` §5 uses to write `final-review.diff`.
+#    skills/flow/review-panel.md uses to write `final-review.diff`.
 # ===========================================================================
 new_repo
 MERGE_POINT="$(git -C "$REPO" rev-parse HEAD)"

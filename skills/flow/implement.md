@@ -195,13 +195,13 @@ flow stage end -command '/flow' -stage flow.load-context -outcome completed <nam
 ## 2. Isolate the workspace (first run only)
 
 **Load `skills/flow-contracts/artifacts-registry.md`** — the worktree and branch created at
-`flow.create-artifacts` are rows in it.
+`flow.kickoff` are rows in it.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.isolate-workspace -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Resume `<project>/.worktrees/<name>`, created at `flow.create-artifacts`. Never implement on the
+Resume `<project>/.worktrees/<name>`, created at `flow.kickoff`. Never implement on the
 default branch without explicit consent.
 
 Record each worktree's merge base and absolute path in this run's own working notes as soon as the
@@ -577,7 +577,9 @@ entry, one or more bundles `plan-dispatch-bundles.sh` emits. At each boundary, i
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets (KAN-442). Every verdict is printed and read before anything
    launches: a nonzero exit sends that task back to the **same implementer**, which re-commits and
-   re-runs the guard before anything below; exit 0 ticks the task in the same call.
+   re-runs the guard before anything below; exit 0 ticks the task in the same call, and the same
+   call then runs `git -C <worktree> push origin spectre/<name>` per **Branch backup**
+   (`skills/flow-contracts/git-boundaries.md`) — the parent pushes, never the implementer.
 
    **A guard call that times out is inspected before it is retried.** Run
    `git status --porcelain=v2 --branch` and `git stash list` in that worktree first. A

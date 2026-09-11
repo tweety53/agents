@@ -263,7 +263,7 @@ expect 'a nested symlinked directory holding Markdown cannot be answered' 2 \
   "$FIX/nested-link-md"
 
 # The same shape carrying NO Markdown — this repository's own
-# skills/myflow-*/scripts/lib links, which point at a directory of `.sh` files.
+# skills/flow*/scripts/lib links, which point at a directory of `.sh` files.
 # A symlinked directory with nothing covered under it hides no bytes from the
 # ratchet, so refusing it would fail the real repository on every run for no
 # escaped file. The verdict COUNT is asserted alongside the exit code: only the
@@ -371,14 +371,14 @@ fi
 # than copied as a number, so it stays over/under its real row by construction
 # as that row moves — the coupling that broke in F15.
 
-# A skills/<x>/SKILL.md that exceeds its declared budget. skills/myflow-status
+# A skills/<x>/SKILL.md that exceeds its declared budget. skills/flow-status
 # only has a SKILL.md, no rationale sibling, which keeps this fixture simple.
 mkroot "$FIX/skill-over"
-mkdir -p "$FIX/skill-over/skills/myflow-status"
+mkdir -p "$FIX/skill-over/skills/flow-status"
 printf 'x\n' > "$FIX/skill-over/skills/flow-contracts/build-green.md"
-myflow_status_budget="$(budget_row_bytes 'skills/myflow-status/SKILL.md')"
-head -c "$((myflow_status_budget + 1000))" /dev/zero | tr '\0' 'x' \
-  > "$FIX/skill-over/skills/myflow-status/SKILL.md"
+flow_status_budget="$(budget_row_bytes 'skills/flow-status/SKILL.md')"
+head -c "$((flow_status_budget + 1000))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/skill-over/skills/flow-status/SKILL.md"
 expect 'a skills/<x>/SKILL.md over budget fails' 1 "$FIX/skill-over"
 
 # A skills/<x>/SKILL.md under a skill name that has no row in budgets() at all.
@@ -389,10 +389,10 @@ printf 'x\n' > "$FIX/skill-undeclared/skills/mystery-skill/SKILL.md"
 expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared"
 
 # Two skills whose SKILL.md files carry different budgets in the real table —
-# skills/myflow-research/SKILL.md (a small budget) and skills/myflow-do/SKILL.md (a
-# much larger one). skills/myflow-do/SKILL.md is sized to the midpoint between
-# the two real rows, read from the guard itself: above myflow-research's row,
-# below myflow-do's row, by construction rather than by a number that must stay
+# skills/flow-self-review/SKILL.md (a small budget) and skills/flow/SKILL.md (a
+# much larger one). skills/flow/SKILL.md is sized to the midpoint between
+# the two real rows, read from the guard itself: above flow-self-review's row,
+# below flow's row, by construction rather than by a number that must stay
 # between two rows that can each move independently. If the table were still
 # keyed on the bare basename "SKILL.md" — the collision this key fixes —
 # every skills/*/SKILL.md would be checked against one shared row, and this
@@ -400,28 +400,28 @@ expect 'a skills/<x>/SKILL.md with no budget row fails' 1 "$FIX/skill-undeclared
 # hand it. Keyed on the path relative to the repository root, each file is
 # checked against its own row and both pass.
 mkroot "$FIX/skill-distinct"
-mkdir -p "$FIX/skill-distinct/skills/myflow-research" "$FIX/skill-distinct/skills/myflow-do"
+mkdir -p "$FIX/skill-distinct/skills/flow-self-review" "$FIX/skill-distinct/skills/flow"
 printf 'x\n' > "$FIX/skill-distinct/skills/flow-contracts/build-green.md"
-printf 'x\n' > "$FIX/skill-distinct/skills/myflow-research/SKILL.md"
-myflow_research_budget="$(budget_row_bytes 'skills/myflow-research/SKILL.md')"
-myflow_do_budget="$(budget_row_bytes 'skills/myflow-do/SKILL.md')"
+printf 'x\n' > "$FIX/skill-distinct/skills/flow-self-review/SKILL.md"
+flow_self_review_budget="$(budget_row_bytes 'skills/flow-self-review/SKILL.md')"
+flow_budget="$(budget_row_bytes 'skills/flow/SKILL.md')"
 
 # The fixture only discriminates the basename-collision bug when mid_size
 # lands STRICTLY BETWEEN the two rows. If the rows ever converge, integer
-# division makes mid_size collapse onto myflow_research_budget and the case
+# division makes mid_size collapse onto flow_self_review_budget and the case
 # below would keep reporting "ok" even with the collision bug back in place —
 # F15's own defect class (a fixture that stops discriminating when its
 # premise erodes), reintroduced by the round that fixed F15 (F16). Assert the
 # premise rather than assume it, and fail the whole harness loudly, naming
 # both rows, when it does not hold: a fixture that cannot be constructed to
 # discriminate must say so, never quietly pass.
-if [ "$((myflow_do_budget - myflow_research_budget))" -lt 2 ]; then
-  printf 'cannot construct a discriminating fixture: skills/myflow-research/SKILL.md is %s bytes and skills/myflow-do/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
-    "$myflow_research_budget" "$myflow_do_budget" >&2
+if [ "$((flow_budget - flow_self_review_budget))" -lt 2 ]; then
+  printf 'cannot construct a discriminating fixture: skills/flow-self-review/SKILL.md is %s bytes and skills/flow/SKILL.md is %s bytes — too close together for a strict midpoint\n' \
+    "$flow_self_review_budget" "$flow_budget" >&2
   exit 2
 fi
-mid_size=$((myflow_research_budget + (myflow_do_budget - myflow_research_budget) / 2))
-head -c "$mid_size" /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/myflow-do/SKILL.md"
+mid_size=$((flow_self_review_budget + (flow_budget - flow_self_review_budget) / 2))
+head -c "$mid_size" /dev/zero | tr '\0' 'x' > "$FIX/skill-distinct/skills/flow/SKILL.md"
 expect 'two skills with different budgets are each checked against their own row' \
   0 "$FIX/skill-distinct"
 
@@ -429,11 +429,11 @@ expect 'two skills with different budgets are each checked against their own row
 # hardcoded 20000 here fell under the row when a fix round raised it, and this
 # case stopped catching an over-budget file at all).
 mkroot "$FIX/rationale"
-mkdir -p "$FIX/rationale/skills/myflow-do"
+mkdir -p "$FIX/rationale/skills/flow"
 printf 'x\n' > "$FIX/rationale/skills/flow-contracts/build-green.md"
-myflow_do_rationale_budget="$(budget_row_bytes 'skills/myflow-do/SKILL-rationale.md')"
-head -c "$((myflow_do_rationale_budget + 1000))" /dev/zero | tr '\0' 'x' \
-  > "$FIX/rationale/skills/myflow-do/SKILL-rationale.md"
+flow_rationale_budget="$(budget_row_bytes 'skills/flow/SKILL-rationale.md')"
+head -c "$((flow_rationale_budget + 1000))" /dev/zero | tr '\0' 'x' \
+  > "$FIX/rationale/skills/flow/SKILL-rationale.md"
 expect 'a SKILL-rationale.md over budget fails' 1 "$FIX/rationale"
 
 # A SKILL-rationale.md with no budget row — the undeclared case for the same tree.
@@ -465,33 +465,7 @@ fi
 # trusted: the three exit-1 cases below reported exit 0 there, because the file
 # they name was not covered at all.
 
-# THE FROZEN openspec/specs/ TREE IS NOT COVERED, however large a file placed
-# there is. It was covered before this guard's corpus moved to spectre/specs/
-# — 462 KB of text a change under the old tree could grow without this guard
-# ever noticing was the reason it was widened onto that path in the first
-# place — but that tree is history now: scripts/lib/owned-corpus.sh's scope
-# roots no longer name it, so owned_corpus_files never enumerates a file
-# under it, and this guard cannot ratchet what it never sees. Modeled on the
-# "excluded tree" cases below: the verdict COUNT is asserted, not just the
-# exit code, because a guard that covered this file would fail it for having
-# no row, while a guard that merely counted it and found a row would pass
-# with the count inflated — only the count tells the two apart.
-mkroot "$FIX/frozen-tree"
-mkdir -p "$FIX/frozen-tree/openspec/specs/myflow-build-green"
-printf 'x\n' > "$FIX/frozen-tree/skills/flow-contracts/build-green.md"
-head -c 300000 /dev/zero | tr '\0' 'x' \
-  > "$FIX/frozen-tree/openspec/specs/myflow-build-green/spec.md"
-expect 'a file under the frozen openspec/specs/ tree is not covered' 0 "$FIX/frozen-tree"
-out="$(CHECK_CONTRACT_BUDGET_ROOT="$FIX/frozen-tree" "$GUARD" 2>&1 || true)"
-if printf '%s' "$out" | grep -q '^BUDGET-OK: 1 owned Markdown file(s) within budget$'; then
-  printf 'ok   the frozen tree contributes nothing to the count\n'
-else
-  printf 'FAIL the frozen tree was counted: %s\n' "$out"
-  failures=$((failures + 1))
-fi
-
-# THE LIVE spectre/specs/ TREE IS COVERED. Its own positive counterpart to the
-# frozen-tree case above: a file placed under spectre/specs/ with no budget
+# THE LIVE spectre/specs/ TREE IS COVERED: a file placed under spectre/specs/ with no budget
 # row fails exactly the way any other covered-but-undeclared file does. This
 # is the only case in the suite that would notice spectre/specs/ silently
 # falling out of OWNED_CORPUS_SCOPE_DIRS — every other case that touches that

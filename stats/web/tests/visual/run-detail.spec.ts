@@ -11,11 +11,11 @@ import { PINNED_QUERY } from "./support";
 // (cmd/uitest-seed/seed.go): two stage runs, read live from the UI-test
 // stack (GET /api/v1/stage-runs?project=uitest-beta&name=kan-201-refactor-thing):
 //
-//   stageRunId 2, /myflow-do, "SDD + TDD per task", attempt 1, completed,
+//   stageRunId 2, /flow, "SDD + TDD per task", attempt 1, completed,
 //     started 2026-08-14T07:00:00Z, ended 2026-08-14T07:05:00Z (5 min),
 //     tokens.main {input: 310000, output: 48000}, cost_usd 2.75,
 //     models: {"claude-opus-5": {...}}
-//   stageRunId 3, /myflow-finish, "integrate", attempt 1, completed,
+//   stageRunId 3, /flow-fast, "integrate", attempt 1, completed,
 //     started 2026-08-15T08:00:00Z, ended 2026-08-15T08:05:00Z (5 min),
 //     tokens.main {input: 8000, output: 1200}, cost_usd 0.028,
 //     models: {"claude-sonnet-5": {...}}
@@ -42,11 +42,11 @@ test.describe("StageRunTable sort buttons", () => {
 
     await costHeader.click();
     await expect(costHeader).toHaveText("Cost ▲");
-    await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+    await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
 
     await costHeader.click();
     await expect(costHeader).toHaveText("Cost ▼");
-    await expect(commandCells).toHaveText(["/myflow-do", "/myflow-finish"]);
+    await expect(commandCells).toHaveText(["/flow", "/flow-fast"]);
   });
 
   test("sorting by Tokens in reorders the table by its own real input tokens", async ({ page }) => {
@@ -57,8 +57,8 @@ test.describe("StageRunTable sort buttons", () => {
 
     await tokensHeader.click();
     await expect(tokensHeader).toHaveText("Tokens in ▲");
-    // 8,000 (myflow-finish) < 310,000 (myflow-do).
-    await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+    // 8,000 (/flow-fast) < 310,000 (/flow).
+    await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
   });
 
   test("sorting by Command reorders alphabetically, not by any numeric column", async ({ page }) => {
@@ -69,16 +69,16 @@ test.describe("StageRunTable sort buttons", () => {
 
     await commandHeader.click();
     await expect(commandHeader).toHaveText("Command ▲");
-    // "/myflow-do" < "/myflow-finish" ("d" < "f") -- ascending on the
+    // "/flow" < "/flow-fast" ("d" < "f") -- ascending on the
     // Command column's own text, unrelated to cost or token order above
     // (which happen to agree here only because the opus run is both
     // pricier and larger; this test's own column is what proves Command
     // is wired to itself, not silently reusing Cost's comparator).
-    await expect(commandCells).toHaveText(["/myflow-do", "/myflow-finish"]);
+    await expect(commandCells).toHaveText(["/flow", "/flow-fast"]);
 
     await commandHeader.click();
     await expect(commandHeader).toHaveText("Command ▼");
-    await expect(commandCells).toHaveText(["/myflow-finish", "/myflow-do"]);
+    await expect(commandCells).toHaveText(["/flow-fast", "/flow"]);
   });
 });
 
@@ -86,12 +86,12 @@ test.describe("StageRunTable filters", () => {
   test("Filter by Command narrows to the matching stage run", async ({ page }) => {
     await page.goto(RUN_DETAIL_URL);
     const tablePanel = page.locator('section.panel[aria-label="Stage runs"]');
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
 
-    await page.getByLabel("Filter by Command").selectOption("/myflow-do");
+    await page.getByLabel("Filter by Command").selectOption("/flow");
 
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toHaveCount(0);
   });
 
   test("Filter by Stage narrows to the matching stage run", async ({ page }) => {
@@ -121,7 +121,7 @@ test.describe("StageRunTable expand toggle", () => {
   test("opens and closes the per-row metrics detail, revealing content no other view shows", async ({ page }) => {
     await page.goto(RUN_DETAIL_URL);
     const tablePanel = page.locator('section.panel[aria-label="Stage runs"]');
-    const row = tablePanel.locator("table tbody tr", { hasText: "/myflow-do" }).first();
+    const row = tablePanel.locator("table tbody tr", { hasText: "/flow" }).first();
     // Located by its own `aria-expanded` attribute, not by its accessible
     // name -- DataTable.tsx flips that name between "Show run details"
     // and "Hide run details" on every click (DataTable.tsx:234), so a
@@ -179,7 +179,7 @@ test.describe("StageTimeline", () => {
     // commandOrder), not one per run -- both fixture runs belong to
     // different commands here, so this also indirectly proves lane
     // grouping runs at all rather than always rendering exactly one lane.
-    await expect(svg.locator(".stage-timeline-label")).toHaveText(["/myflow-do", "/myflow-finish"]);
+    await expect(svg.locator(".stage-timeline-label")).toHaveText(["/flow", "/flow-fast"]);
 
     // Both fixture runs have an endedAt, so neither bar is the "open"
     // variant -- the "still running" hatched bar this component draws

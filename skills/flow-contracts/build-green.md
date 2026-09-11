@@ -70,7 +70,7 @@ A guard script (`<agents repo>/scripts/check-task-build-green.py`, wrapped by
 A `red` task with no partner pointing back at it, and a `red` task whose partner is `green`, are
 both accepted — "unreferenced" is not a violation shape this guard checks for.
 
-`/myflow-start` runs this guard, when the project declares one, before publishing the proposal
+`/flow`'s creating run runs this guard, when the project declares one, before publishing the proposal
 artifact — the same point at which the plan-provenance guard runs — and fixes any hit before
 publishing.
 

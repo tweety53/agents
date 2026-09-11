@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-worktree-processes.sh — report every process whose working directory is
-# at or under a worktree, so /myflow-finish run 2 can verify the project's stack
+# at or under a worktree, so /flow's archive run can verify the project's stack
 # actually stopped before it removes anything.
 #
 # Usage: check-worktree-processes.sh <worktree>
@@ -67,7 +67,7 @@
 # prevent, one layer down.
 #
 # `-e` IS OMITTED ON PURPOSE, AND THE SIBLING GUARDS' `-euo` DOES NOT APPLY
-# HERE. Every other /myflow-finish guard opens `set -euo pipefail`; this one
+# HERE. Every other integrate/archive guard opens `set -euo pipefail`; this one
 # opens `set -uo pipefail`, and adding the `-e` would break the contract stated
 # at the top of this header. The lsof call below assigns its output in a command
 # substitution and reads `$?` on the very next line, which is what lets a failed

@@ -153,7 +153,7 @@ var harvestedHarnesses = map[string]bool{
 // stages.SyntheticChangeUpdatedBy marks a change row PutChange creates
 // only to give an otherwise-unknown mark somewhere to attach -- never a
 // value a real `state set` writes, so a record carrying it is immediately
-// recognisable as "nobody ever ran /myflow-start for this", exactly the
+// recognisable as "nobody ever ran /flow for this", exactly the
 // defect design.md says a mark for an unknown change is worth seeing. It
 // lives in internal/stages, the one package both this daemon-side file and
 // cmd/flow/state.go already import, so the two sides test the same

@@ -309,7 +309,7 @@ Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH.
 
 | State | Path to open |
 |-------|--------------|
-| `STARTED` | main checkout (artifacts live there; no worktree exists yet) |
+| `STARTED` | apply worktree root — created inside `flow.kickoff`, so it exists at every `STARTED` handoff |
 | `IN_PROGRESS` | apply worktree root |
 
 Paths are absolute, resolved from `git worktree list`. Never emit a relative path.

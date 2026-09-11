@@ -299,7 +299,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 		ChangeName:   changeName,
 		Harness:      "claude-code",
 		SessionToken: &sessionToken,
-		Command:      "/myflow-do",
+		Command:      "/flow",
 		Stage:        "do.tests",
 		StartedAt:    started,
 	})
@@ -332,7 +332,7 @@ func TestMarkedStageBindsToRealSessionEndToEnd(t *testing.T) {
 			Content: []wireContentBlock{{
 				Type:  "tool_use",
 				Name:  "Bash",
-				Input: &wireBashInput{Command: "flow stage begin -command /myflow-do -stage do.tests -session-token " + sessionToken + " -harness claude-code kan-1"},
+				Input: &wireBashInput{Command: "flow stage begin -command /flow -stage do.tests -session-token " + sessionToken + " -harness claude-code kan-1"},
 			}},
 		},
 	})
@@ -453,7 +453,7 @@ func TestUnmarkedTokenStaysRecordedAndUnattributed(t *testing.T) {
 		ChangeName:   changeName,
 		Harness:      "codex",
 		SessionToken: &sessionToken,
-		Command:      "/myflow-do",
+		Command:      "/flow",
 		Stage:        "do.tests",
 		StartedAt:    started,
 	})

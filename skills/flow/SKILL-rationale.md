@@ -11,7 +11,7 @@ Every stage `/flow` marks uses a `flow.*` key, minted fresh for this command rat
 `start.*`/`do.*`/`finish.*` — the old namespacing was tied to the three commands this one replaces,
 and reusing it here would misdescribe a stage that no longer runs under the command its key names.
 **This is a design decision this task makes, not one resolved upstream of it**: the alternative —
-keeping the old keys, unioned, as `/myflow-fast` did — was rejected because several stages here are
+keeping the old keys, unioned, as `/flow-fast` did — was rejected because several stages here are
 not the old stage unchanged (`flow.verify` merges two, `flow.landing-routes` absorbs two more,
 `flow.kickoff` is new), so a reused key would sometimes mean something different than its history
 records.
@@ -38,15 +38,13 @@ records.
 ## brainstorm.md — preamble
 
 > Superpowers Basic Workflow steps **#1** (brainstorming) and **#3** (writing-plans), intertwined
-> with spectre artifact creation, run here — the same content `/myflow-start` carried, minus the
-> options-question round and the proposal publish, both removed per design.md (`ask-options-removed`,
-> `publish-proposal-removed`).
+> with spectre artifact creation, run here — without an options-question round or a proposal
+> publish (design.md's `ask-options-removed`, `publish-proposal-removed`).
 
 ## brainstorm.md — A. Resolve the change and write `STARTED`
 
 > This is design.md's `started-redefined`: `STARTED` is a kickoff marker,
-> "the operator started this," not (as under the old `/myflow-start`) a record that a design was
-> approved and a proposal published.
+> "the operator started this," not a record that a design was approved and a proposal published.
 
 > `planningEffort` and `models.default` are written `null` and stay `null` for the life of the
 > change: `/flow` asks no planning-effort or model question on a creating run
@@ -70,7 +68,7 @@ records.
 
 ## integrate.md — preamble
 
-> Run 1 of what was `/myflow-finish`, unchanged in procedure except two folds design.md decides:
+> Run 1, with two folds design.md decides:
 > `move-in-review-fold` (the Jira "move to In Review" step becomes a sub-step of `flow.landing-routes`
 > rather than its own mark) and this task's own resolution of open question `write-in-progress-fold`
 > (below).
@@ -100,3 +98,28 @@ records.
 > transition that only ever follows a successful route, keeps one mark's three sub-steps in the causal
 > order they already have to run in, rather than three marks whose middle one records nothing a reader
 > could not already infer from the other two.
+
+## brainstorm.md — the worktree is created inside `flow.kickoff`
+
+kan-488 moved worktree creation to the end of planning (its `worktree-created-at-end-of-planning`
+decision), so sections **B**, **C** and **D** wrote into the main checkout's own
+`<project>/spectre/changes/<name>/` and the run moved that directory into the worktree afterwards. That
+decision is superseded by an explicit operator instruction: `/flow`, `/flow-fast` and `/flow-plan`
+runs kept touching whatever branch the main checkout sat on — planning artifacts left there when a
+run stopped early, a `/flow-plan` commit on the checkout's current branch — and the operator asked
+that every run "always create a worktree in the very beginning and operate only on worktrees, not
+touching main/develop/regular branches." Creating the worktree inside `flow.kickoff`, right after
+the `STARTED` write, is what makes that hold by construction: no later phase has a main-checkout
+path to write to. The interim `.superpowers-sdd-decision.json` path and the two `mv` lines that
+existed only to bridge the late creation went with it. **Considered:** writing planning output to a
+scratch directory and moving it in later — rejected the same way kan-488 rejected it, and now with
+no gap left for it to bridge.
+
+## git-boundaries.md — Branch backup
+
+Pushing the branch at creation and after every commit was asked for in the same instruction, so a
+worktree lost with the machine, or removed by a stray cleanup, is rebuilt from `origin/<branch>`
+rather than lost. The cost accepted: one push per commit, and integrate's push after the
+`reset --soft` reshape becomes `--force-with-lease`, on a branch only the run writes. `/flow-plan`'s
+research branch is not pushed under its own name because it is landed and deleted in the same
+session — a remote copy would outlive the thing it backs up.

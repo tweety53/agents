@@ -17,10 +17,10 @@ handoff says which records reached the repository and which did not. The remaini
 attempted after any one failure, so a single bad path costs one record, not every record.
 
 **The ordering asymmetry this section used to record is gone, and is not to be re-derived.** It said
-that `/myflow-finish` run 1 called the copy script *before* staging while `/myflow-do` called it
-*after*, and that the asymmetry was what kept the copied records out of `/myflow-do`'s staged-only
+that `/flow`'s integrate run called the copy script *before* staging while `/flow`'s implement phase called it
+*after*, and that the asymmetry was what kept the copied records out of the implement phase's staged-only
 path. Neither call exists: the records live in the store, the script is retired, and what keeps
 `<project>/docs/superpowers/` out of a staged-only run is now a **condition rather than an
-ordering** — `/myflow-do` renders on its `prUrl` commit path alone, and run 1 renders before staging
+ordering** — `/flow`'s implement phase renders on its `prUrl` commit path alone, and run 1 renders before staging
 so the record lands in the same commit as the implementation it describes. Reading a rule back out
 of where the two call sites now sit would be reading an accident as a design.

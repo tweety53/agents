@@ -6,7 +6,7 @@ license: MIT
 ---
 
 Drive the three-state pipeline (`STARTED` → `IN_PROGRESS` → `FINISHED`) end to end in one command.
-`/flow` replaces `/myflow-start`, `/myflow-do`, `/myflow-finish` and `/myflow-fast` — one command,
+`/flow` is one command,
 one state file, the same three states, content reorganized by topic rather than by the old
 start/do/finish boundary. This file is the router: it
 resolves state and dispatches into the topic file that owns the phase in force. Nothing here
@@ -39,7 +39,7 @@ and keep each entry's status current as the run proceeds, per **Progress visibil
 (`skills/flow-contracts/pipeline.md`). One entry per brainstorming checklist item and artifact on
 the planning branch, one entry per `tasks.md` item on the implementation branch, one entry per step
 of whichever finish run is executing on the integrate/archive branch — the same granularity
-`/myflow-fast` used for the branch it is running, since `/flow` runs the same branches.
+`/flow-fast` used for the branch it is running, since `/flow` runs the same branches.
 
 **No flags.** The only argument is the optional change name/description on a creating or resuming
 run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
@@ -236,7 +236,7 @@ every other guard above.
 **The `<change>` argument to every mark below is always a resolved change name.** On a creating run
 the name does not exist until **A. Resolve the change and write `STARTED`**
 (`skills/flow/brainstorm.md`) produces it — defer `flow.state-gate`-equivalent bookkeeping into that
-section exactly as `/myflow-fast` deferred `do.state-gate`, per **The `<change>` argument is always a
+section exactly as `/flow-fast` deferred `do.state-gate`, per **The `<change>` argument is always a
 resolved change name** (`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 

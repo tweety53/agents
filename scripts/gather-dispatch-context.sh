@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # gather-dispatch-context.sh — deterministically collect one change's
-# planning context into a single bundle, so every dispatch in a /myflow-do
+# planning context into a single bundle, so every dispatch in a /flow implement
 # stage (each panel slot, each implementer, each fix subagent) is given
 # demonstrably identical inputs instead of separately locating and reading
 # proposal.md, design.md, tasks.md and the engineering principles on its
@@ -21,9 +21,9 @@
 # to sit under <worktree> (spectre/changes/<name>/, but this script does not
 # assume that literal shape — it only requires containment). <principles-path>
 # is the absolute path of engineering-principles.md, resolved by the CALLER
-# (skills/myflow-do/SKILL.md's own [PRINCIPLES_PATH] rule) and never derived
+# (skills/flow/review-panel.md's own [PRINCIPLES_PATH] rule) and never derived
 # here — it may legitimately sit OUTSIDE <worktree> entirely, e.g. under a
-# global install (~/.claude/skills/myflow-do/engineering-principles.md), so
+# global install (~/.claude/skills/flow/engineering-principles.md), so
 # it is validated but never checked for containment under <worktree>.
 #
 # Writes the bundle to <output-path>, falling back to reusing the existing
@@ -55,7 +55,7 @@
 # and it reported "skipped: specs/*/spec.md (absent)" on every run of every
 # change. The capability specs themselves are NOT bundled in its place —
 # which ones a change touches is a judgement from its proposal, and this
-# script is deterministic collection, not judgement; skills/myflow-do/SKILL.md
+# script is deterministic collection, not judgement; skills/flow/implement.md
 # names them for the reader instead.
 #
 # `## standards` entries are NEVER read or carried here — the spec's own
@@ -103,7 +103,7 @@
 # exit 0) or sit outside <worktree> (the global-install case above) or be
 # reached through a symlink at any depth — a global install reaches every
 # skill, and therefore every principles-path, through one by construction.
-# It is a trusted argument the CALLER resolves (skills/myflow-do/SKILL.md's
+# It is a trusted argument the CALLER resolves (skills/flow/review-panel.md's
 # own [PRINCIPLES_PATH] rule), never attacker-influenced content the way
 # <change-root>'s leaves are, so it is simply resolved and read.
 #
@@ -195,8 +195,8 @@ set -euo pipefail
 # and within_root <resolved-path> <root> -> the path-boundary test, sourced
 # from lib/within-root.sh — both rather than carried as inline copies, since
 # this script ships through the skills/*/scripts/ symlink farm
-# (skills/myflow-do/scripts/ and skills/myflow-fast/scripts/ both carry it,
-# alongside their own `lib` symlink into scripts/lib/), which is exactly the
+# (skills/flow/scripts/ carries it, alongside its own `lib` symlink into
+# scripts/lib/), which is exactly the
 # criterion each library file's own header states for when a guard may
 # safely source a sibling instead of carrying its own copy. SCRIPT_DIR is
 # derived from this script's own location (which may itself be one of those
@@ -343,9 +343,9 @@ fi
 # required to exist, never checked for containment under the worktree (it
 # may be a global install path outside it entirely), and NEVER refused for
 # a symlink divergence (F1). setup.sh global installs every skill as a
-# symlink (~/.claude/skills/myflow-do -> the repository's skills/myflow-do/),
+# symlink (~/.claude/skills/flow -> the repository's skills/flow/),
 # so [PRINCIPLES_PATH] — resolved by the CALLER from its own installed
-# skill directory (skills/myflow-do/SKILL.md's own rule), never derived
+# skill directory (skills/flow/review-panel.md's own rule), never derived
 # here — ALWAYS diverges lexically from its real path in that install
 # shape. The lexical/real divergence refusal exists to stop a change
 # directory's own (repo-tracked, pull-request-editable, attacker-

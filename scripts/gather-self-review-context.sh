@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gather-self-review-context.sh — deterministically collect the SDD ledger,
 # the review-panel record, tasks.md and the relevant git log for a finished
-# change, so the self-review reasoning pass (/myflow-finish run 2, step 9)
+# change, so the self-review reasoning pass (/flow's archive run)
 # judges a bundle instead of re-reading files itself.
 #
 # Usage: gather-self-review-context.sh <archived-change-path> <name> <state-dir> [<repo-root>]
@@ -11,7 +11,7 @@
 # adds none), never a worktree path — by the
 # time step 9 runs, run 2 has already removed the worktree. <state-dir> is
 # accepted for CLI parity with this script's usage line and with the
-# <worktree> <name> <state-dir> shape the /myflow-finish record helper took
+# <worktree> <name> <state-dir> shape the archive run's record helper took
 # when this script was written — that helper has since been retired and its
 # work moved into `flow record render`, but the argument stays for callers
 # that already pass it; none of the four sources below currently read from
@@ -33,7 +33,7 @@
 # performs no judgement and makes no pass/fail determination based on what
 # it finds.
 #
-# NOTE on <repo-root> (KAN-239): by the time /myflow-finish run 2 reaches
+# NOTE on <repo-root> (KAN-239): by the time /flow's archive run reaches
 # step 9, run 2 has already removed the worktree that implemented the
 # change (see the note on <archived-change-path> above), so this script's
 # own process cwd can no longer be trusted to sit inside any git repository
@@ -55,7 +55,7 @@
 # defends is deriving the trust anchor from <archived-change-path> itself —
 # the untrusted input under test, which a merged PR can shape freely — never
 # accepting one from the caller, who is this script's own trusted invoker
-# (skills/myflow-finish/SKILL.md step 9), not the untrusted change content.
+# (skills/flow/archive.md), not the untrusted change content.
 # A future reader who does not find this stated may read the fourth argument
 # as a regression of that argument and delete it; it is not one.
 #
@@ -86,8 +86,8 @@
 #      derive the wrong trust boundary entirely. `--git-common-dir` always
 #      points at the main repo's `.git` — including from inside a worktree —
 #      so its parent directory is the correct, invocation-independent trust
-#      anchor. This script's documented caller (skills/myflow-finish/SKILL.md
-#      step 9) always invokes it with process cwd at the repository root,
+#      anchor. This script's documented caller (skills/flow/archive.md)
+#      always invokes it with process cwd at the repository root,
 #      exactly like this repository's other pipeline scripts, so this remains
 #      a safe trust anchor there too. Empty (not inside a git repository at
 #      all) is handled the same way as every other invalid-path case below.
@@ -170,8 +170,8 @@ set -euo pipefail
 # within_root <resolved-path> <root> -> the path-boundary test, sourced from
 # lib/within-root.sh rather than carried as an inline copy, since this
 # script ships through the skills/*/scripts/ symlink farm
-# (skills/myflow-fast/scripts/ and skills/myflow-finish/scripts/ both carry
-# it, alongside their own `lib` symlink into scripts/lib/), which is
+# (skills/flow/scripts/ carries it, alongside its own `lib` symlink into
+# scripts/lib/), which is
 # exactly the criterion that file's own header states for when a guard may
 # safely source it instead of carrying its own copy. SCRIPT_DIR is derived
 # from this script's own location (which may itself be one of those
@@ -204,7 +204,7 @@ esac
 # same class as a missing argument or a malformed change name above — never
 # the exit-0/skipped-source treatment validate_archived_path() below gives
 # an invalid <archived-change-path>, because a caller-supplied repo-root is
-# this script's own trusted input (skills/myflow-finish/SKILL.md step 9),
+# this script's own trusted input (skills/flow/archive.md),
 # not untrusted change content.
 #
 # Reuses the two mechanisms the script already owns rather than writing new

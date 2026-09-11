@@ -302,7 +302,7 @@ run_guard "$FIXTURE"
 # ===========================================================================
 
 # 14. A fence indented under a list item (2-space content column, the shape
-# this repo's own kan-8-myflow-updates/tasks.md uses 52 times) is entered and
+# a real tasks.md in this repository used 52 times) is entered and
 # its untagged content is flagged — not scanned as invisible prose. Pins the
 # fix for the guard's headline defect: indented fences were previously never
 # detected at all.
@@ -398,8 +398,8 @@ run_guard "$FIXTURE"
 # ===========================================================================
 
 # 17. Zero non-archived changes under an existing spectre/changes/ is this
-# repository's ordinary steady state between /myflow-finish and the next
-# /myflow-start, and must exit 0 — not the exit-2 "cannot determine" refusal
+# repository's ordinary steady state between one /flow archive run and the
+# next creating run, and must exit 0 — not the exit-2 "cannot determine" refusal
 # reserved for a missing/unreadable changes directory.
 new_fixture
 rm -rf "$FIXTURE/spectre/changes/demo-change"

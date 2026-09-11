@@ -31,7 +31,7 @@ import (
 // Each of them gives cfg a DSN that store.Open cannot even parse
 // (pgxpool.ParseConfig rejects it before opening a socket). That is not
 // decoration: it is what makes "a refused start touches no database"
-// (openspec/specs/myflow-daemon-single-instance) structurally true here
+// (the single-instance requirement) structurally true here
 // rather than merely asserted in a comment. Any store call added to the
 // prelude fails these tests immediately, with no database reachable and
 // none required to run them.

@@ -135,7 +135,7 @@ SETUPEOF
 SAFE_CITATION='`skills/other/SKILL.md`'
 
 # new_fixture_repo -> sets FIXTURE to a fresh miniature agents repository:
-# a real setup.sh (above), one always-installed skill (skills/myflow-do),
+# a real setup.sh (above), one always-installed skill (skills/flow),
 # one always-on rule, one opt-in rule (never installed, never scanned —
 # case 16), a CLAUDE.md (a copy target) and a README.md (a real
 # repository-root file the bare-filename rule can resolve against). Every
@@ -143,10 +143,10 @@ SAFE_CITATION='`skills/other/SKILL.md`'
 new_fixture_repo() {
   FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/check-installed-citations-fixture.XXXXXX")"
   SANDBOXES+=("$FIXTURE")
-  mkdir -p "$FIXTURE/skills/myflow-do" "$FIXTURE/skills/other" "$FIXTURE/rules"
+  mkdir -p "$FIXTURE/skills/flow" "$FIXTURE/skills/other" "$FIXTURE/rules"
   write_fixture_setup_sh
-  printf '# myflow-do fixture\n%s\n' "$SAFE_CITATION" > "$FIXTURE/skills/myflow-do/SKILL.md"
-  printf '# other fixture\n`skills/myflow-do/SKILL.md`\n' > "$FIXTURE/skills/other/SKILL.md"
+  printf '# flow fixture\n%s\n' "$SAFE_CITATION" > "$FIXTURE/skills/flow/SKILL.md"
+  printf '# other fixture\n`skills/flow/SKILL.md`\n' > "$FIXTURE/skills/other/SKILL.md"
   cat > "$FIXTURE/rules/always-on-rule.mdc" <<EOF
 ---
 alwaysApply: true
@@ -279,23 +279,23 @@ check_generic() {
 # SECTION: The citation classifier (task 1 step 2's table)
 # ---------------------------------------------------------------------------
 
-register_case "bare-root-file" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "bare-root-file" "skills/flow/SKILL.md" \
+  '# flow fixture
 `README.md`
 ' "reported"
 
-register_case "bare-generic-filename" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "bare-generic-filename" "skills/flow/SKILL.md" \
+  '# flow fixture
 `tasks.md`
 ' "not-reported"
 
-register_case "installed-root" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "installed-root" "skills/flow/SKILL.md" \
+  '# flow fixture
 `skills/other/SKILL.md`
 ' "not-reported"
 
-register_case "agents-repo-prefix" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "agents-repo-prefix" "skills/flow/SKILL.md" \
+  '# flow fixture
 `<agents repo>/README.md`
 ' "not-reported"
 
@@ -309,56 +309,56 @@ register_case "agents-repo-prefix" "skills/myflow-do/SKILL.md" \
 # few cases up — would otherwise discard everything from `<agents` on,
 # never reaching classify_token/judges_ok at all. The path here does not
 # exist (`does-not-exist/nested/path.md`): existence is never the guard's
-# business for a slash-containing token (see specs/myflow-citation-roots/
-# spec.md), so a bogus target still proves nothing except whether the
+# business for a slash-containing token (see the citation-roots spec),
+# so a bogus target still proves nothing except whether the
 # CITATION ITSELF was seen. It is proven seen by its member's coverage
 # count going to 1, not merely by the absence of a violation line.
 check_agents_repo_prefix_bogus_path() {
   local idx="$1"
   load_result "$idx"
   if [ "$RC" -eq 0 ] \
-    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:' \
-    && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/flow/SKILL.md:' \
+    && printf '%s\n' "$OUT" | grep -aq -- 'skills/flow/SKILL.md 1'; then
     pass "agents-repo-prefix-bogus-path: recognised (coverage count 1), not silently dropped"
   else
     fail "agents-repo-prefix-bogus-path: rc=$RC out='$OUT'"
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+write_file "skills/flow/SKILL.md" '# flow fixture
 `<agents repo>/does-not-exist/nested/path.md`
 '
 register_job "$FIXTURE"
 CHECKERS[$IDX]="check_agents_repo_prefix_bogus_path"
 
-register_case "project-prefix" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "project-prefix" "skills/flow/SKILL.md" \
+  '# flow fixture
 `<project>/.flow/project.md`
 ' "not-reported"
 
-register_case "unrooted-directory" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "unrooted-directory" "skills/flow/SKILL.md" \
+  '# flow fixture
 `.flow/project.md`
 ' "reported"
 
-register_case "unrooted-script" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "unrooted-script" "skills/flow/SKILL.md" \
+  '# flow fixture
 `scripts/check-vocabulary.sh`
 ' "reported"
 
-register_case "fenced-command" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "fenced-command" "skills/flow/SKILL.md" \
+  '# flow fixture
 
 ```bash
-git -C <abs-worktree> reset -- openspec/
+git -C <abs-worktree> reset -- spectre/
 ```
 ' "not-reported"
 
-register_case "fenced-comment" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "fenced-comment" "skills/flow/SKILL.md" \
+  '# flow fixture
 
 ```bash
-# see openspec/
+# see spectre/
 ```
 ' "reported"
 
@@ -372,41 +372,41 @@ register_case "fenced-comment" "skills/myflow-do/SKILL.md" \
 # standalone unrooted citation `` `repo>/README.md` `` — a false positive
 # with no corpus occurrence today, but one waves 4-6 are about to create
 # the conditions for.
-register_case "fenced-comment-agents-repo-prefix" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "fenced-comment-agents-repo-prefix" "skills/flow/SKILL.md" \
+  '# flow fixture
 
 ```bash
 # see <agents repo>/README.md for details
 ```
 ' "not-reported"
 
-register_case "absolute-path" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "absolute-path" "skills/flow/SKILL.md" \
+  '# flow fixture
 `/etc/hosts`
 ' "not-reported"
 
-register_case "home-path" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "home-path" "skills/flow/SKILL.md" \
+  '# flow fixture
 `~/.claude/skills/`
 ' "not-reported"
 
-register_case "url" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "url" "skills/flow/SKILL.md" \
+  '# flow fixture
 `https://example.test/a/b`
 ' "not-reported"
 
-register_case "shell-variable" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "shell-variable" "skills/flow/SKILL.md" \
+  '# flow fixture
 `$SCRIPT_DIR/lib/x.sh`
 ' "not-reported"
 
-register_case "git-ref" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "git-ref" "skills/flow/SKILL.md" \
+  '# flow fixture
 `origin/main`
 ' "not-reported"
 
-register_case "regex-fragment" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "regex-fragment" "skills/flow/SKILL.md" \
+  '# flow fixture
 `[A-Za-z0-9._-]+/x`
 ' "not-reported"
 
@@ -458,16 +458,16 @@ CHECKERS[$IDX]="check_newly_installed_directory"
 # defect behind a green test the first time).
 # ---------------------------------------------------------------------------
 
-register_case "parent-relative-path" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "parent-relative-path" "skills/flow/SKILL.md" '# flow fixture
 `../<other-app>`
 ' "not-reported"
 
-register_case "placeholder-rooted" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "placeholder-rooted" "skills/flow/SKILL.md" '# flow fixture
 `<state-dir>/<name>-proposal-artifact.html`
 ' "not-reported"
 
-register_case "quoted-program-output" "skills/myflow-do/SKILL.md" "# myflow-do fixture
-\`'openspec/<name>':\`
+register_case "quoted-program-output" "skills/flow/SKILL.md" "# flow fixture
+\`'spectre/<name>':\`
 " "not-reported"
 
 # placeholder-rooted-is-recognised — a companion to placeholder-rooted,
@@ -483,15 +483,15 @@ check_placeholder_rooted_is_recognised() {
   local idx="$1"
   load_result "$idx"
   if [ "$RC" -eq 0 ] \
-    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:' \
-    && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/flow/SKILL.md:' \
+    && printf '%s\n' "$OUT" | grep -aq -- 'skills/flow/SKILL.md 1'; then
     pass "placeholder-rooted-is-recognised: recognised (coverage count 1), not silently dropped"
   else
     fail "placeholder-rooted-is-recognised: rc=$RC out='$OUT'"
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+write_file "skills/flow/SKILL.md" '# flow fixture
 `<state-dir>/does-not-exist.html`
 '
 register_job "$FIXTURE"
@@ -505,8 +505,8 @@ CHECKERS[$IDX]="check_placeholder_rooted_is_recognised"
 # that through: every earlier placeholder case only ever exercised a
 # MEMBER of the closed set, never a non-member, so a bracket-shape-only
 # implementation passed all of them anyway.
-register_case "unrecognised-placeholder-is-reported" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "unrecognised-placeholder-is-reported" "skills/flow/SKILL.md" \
+  '# flow fixture
 `<foo>/spectre/specs/x.md`
 ' "reported"
 
@@ -523,13 +523,13 @@ register_case "unrecognised-placeholder-is-reported" "skills/myflow-do/SKILL.md"
 # placeholder-rooted-is-recognised already draw.
 # ---------------------------------------------------------------------------
 
-register_case "git-branch-name-is-not-a-citation" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "git-branch-name-is-not-a-citation" "skills/flow/SKILL.md" \
+  '# flow fixture
 Branch `spectre/<name>`.
 ' "not-reported"
 
-register_case "file-line-reference-is-not-a-citation" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "file-line-reference-is-not-a-citation" "skills/flow/SKILL.md" \
+  '# flow fixture
 | F1 | Bugbot | Minor | `src/Foo.kt:42` | replaced the silent catch |
 ' "not-reported"
 
@@ -546,15 +546,15 @@ check_abs_worktree_rooted_is_recognised() {
   local idx="$1"
   load_result "$idx"
   if [ "$RC" -eq 0 ] \
-    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:' \
-    && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/flow/SKILL.md:' \
+    && printf '%s\n' "$OUT" | grep -aq -- 'skills/flow/SKILL.md 1'; then
     pass "abs-worktree-rooted-is-recognised: recognised (coverage count 1), not silently dropped"
   else
     fail "abs-worktree-rooted-is-recognised: rc=$RC out='$OUT'"
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+write_file "skills/flow/SKILL.md" '# flow fixture
 `<abs-worktree>/.superpowers/sdd/does-not-exist.diff`
 '
 register_job "$FIXTURE"
@@ -570,11 +570,11 @@ CHECKERS[$IDX]="check_abs_worktree_rooted_is_recognised"
 # re-rooting SKILL.md:485's own fabricated findings-table example.
 # ---------------------------------------------------------------------------
 
-register_case "origin-with-extension-is-a-citation" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "origin-with-extension-is-a-citation" "skills/flow/SKILL.md" '# flow fixture
 `origin/README.md`
 ' "reported"
 
-register_case "origin-ref-with-nested-path-is-not-a-citation" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "origin-ref-with-nested-path-is-not-a-citation" "skills/flow/SKILL.md" '# flow fixture
 `origin/spectre/<name>`
 ' "not-reported"
 
@@ -583,16 +583,16 @@ register_case "origin-ref-with-nested-path-is-not-a-citation" "skills/myflow-do/
 # DIRECTORY, since a directory has no extension either but is never a
 # git ref. `origin/rules/` (trailing slash) must be classified and
 # reported, not vanish.
-register_case "origin-directory-is-a-citation" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "origin-directory-is-a-citation" "skills/flow/SKILL.md" \
+  '# flow fixture
 `origin/rules/`
 ' "reported"
 
-register_case "second-word-in-backtick-span-is-seen" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "second-word-in-backtick-span-is-seen" "skills/flow/SKILL.md" '# flow fixture
 `see .flow/project.md`
 ' "reported"
 
-register_case "shell-example-second-word-not-path-shaped" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "shell-example-second-word-not-path-shaped" "skills/flow/SKILL.md" '# flow fixture
 `skills/other/SKILL.md verbose`
 ' "not-reported"
 
@@ -608,7 +608,7 @@ register_case "shell-example-second-word-not-path-shaped" "skills/myflow-do/SKIL
 # rather than one that would have swallowed all three.
 # ---------------------------------------------------------------------------
 
-register_case "skill-dir-rooted" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "skill-dir-rooted" "skills/flow/SKILL.md" '# flow fixture
 `<skill-dir>/scripts/check-vocabulary.sh`
 ' "not-reported"
 
@@ -623,21 +623,21 @@ check_skill_dir_rooted_is_recognised() {
   local idx="$1"
   load_result "$idx"
   if [ "$RC" -eq 0 ] \
-    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:' \
-    && printf '%s\n' "$OUT" | grep -aq -- 'skills/myflow-do/SKILL.md 1'; then
+    && ! printf '%s\n' "$OUT" | grep -aq -- '^skills/flow/SKILL.md:' \
+    && printf '%s\n' "$OUT" | grep -aq -- 'skills/flow/SKILL.md 1'; then
     pass "skill-dir-rooted-is-recognised: recognised (coverage count 1), not silently dropped"
   else
     fail "skill-dir-rooted-is-recognised: rc=$RC out='$OUT'"
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+write_file "skills/flow/SKILL.md" '# flow fixture
 `<skill-dir>/scripts/does-not-exist.sh`
 '
 register_job "$FIXTURE"
 CHECKERS[$IDX]="check_skill_dir_rooted_is_recognised"
 
-register_case "spectre-branch-with-change-name-is-not-a-citation" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "spectre-branch-with-change-name-is-not-a-citation" "skills/flow/SKILL.md" '# flow fixture
 `spectre/<change-name>`
 ' "not-reported"
 
@@ -650,11 +650,11 @@ register_case "spectre-branch-with-change-name-is-not-a-citation" "skills/myflow
 # file (none of them exercises a real `spectre/...` path), which is
 # exactly how task 9's own placeholder generalisation failed open the
 # first time.
-register_case "spectre-shape-with-real-path-is-still-reported" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "spectre-shape-with-real-path-is-still-reported" "skills/flow/SKILL.md" '# flow fixture
 `spectre/specs/x.md`
 ' "reported"
 
-register_case "spectre-shape-with-trailing-path-is-still-reported" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "spectre-shape-with-trailing-path-is-still-reported" "skills/flow/SKILL.md" '# flow fixture
 `spectre/changes/<name>/`
 ' "reported"
 
@@ -667,11 +667,11 @@ register_case "spectre-shape-with-trailing-path-is-still-reported" "skills/myflo
 # fail-open bound and must stay reported.
 # ---------------------------------------------------------------------------
 
-register_case "chore-archive-branch-name-is-not-a-citation" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "chore-archive-branch-name-is-not-a-citation" "skills/flow/SKILL.md" '# flow fixture
 Branch `chore/archive-<name>`.
 ' "not-reported"
 
-register_case "chore-archive-shape-with-trailing-path-is-still-reported" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "chore-archive-shape-with-trailing-path-is-still-reported" "skills/flow/SKILL.md" '# flow fixture
 `chore/archive-<name>/spec.md`
 ' "reported"
 
@@ -683,11 +683,11 @@ register_case "chore-archive-shape-with-trailing-path-is-still-reported" "skills
 # separates `[^/<>]+` from `[^>]+`, so only this case fails when someone
 # later widens the regex "harmlessly" -- the exact fail-open class this
 # file's history exists to prevent.
-register_case "chore-archive-bracket-cannot-smuggle-a-slash" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "chore-archive-bracket-cannot-smuggle-a-slash" "skills/flow/SKILL.md" '# flow fixture
 `chore/archive-<a/b>`
 ' "reported"
 
-register_case "html-comment-is-not-a-citation" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "html-comment-is-not-a-citation" "skills/flow/SKILL.md" '# flow fixture
 `<!-- measured: ./gradlew test @ c515c42 -->`
 ' "not-reported"
 
@@ -698,12 +698,12 @@ register_case "html-comment-is-not-a-citation" "skills/myflow-do/SKILL.md" '# my
 # untested before this case, and the reviewer showed the fragile
 # `startswith` alone lets `./gradlew` fall through to word-splitting and
 # report.
-register_case "html-comment-with-leading-whitespace-is-not-a-citation" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "html-comment-with-leading-whitespace-is-not-a-citation" "skills/flow/SKILL.md" \
+  '# flow fixture
 ` <!-- measured: ./gradlew test @ c515c42 -->`
 ' "not-reported"
 
-register_case "colon-segment-is-not-a-citation" "skills/myflow-do/SKILL.md" '# myflow-do fixture
+register_case "colon-segment-is-not-a-citation" "skills/flow/SKILL.md" '# flow fixture
 `measured:/predicted:`
 ' "not-reported"
 
@@ -712,8 +712,8 @@ register_case "colon-segment-is-not-a-citation" "skills/myflow-do/SKILL.md" '# m
 # dropped a real citation carrying a trailing colon inside its own span
 # (e.g. "see `.flow/project.md:` for the list"). Only a colon on a
 # NON-FINAL segment signals "not a path" now.
-register_case "final-colon-segment-is-a-citation" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "final-colon-segment-is-a-citation" "skills/flow/SKILL.md" \
+  '# flow fixture
 `.flow/project.md:`
 ' "reported"
 
@@ -728,8 +728,8 @@ register_case "final-colon-segment-is-a-citation" "skills/myflow-do/SKILL.md" \
 # and `skills/other/SKILL.md` passes cleanly by itself. That gap — clean
 # under the fix, a violation without it — is what the mutation below
 # proves.
-register_case "redirection-is-not-merged-into-a-citation" "skills/myflow-do/SKILL.md" \
-  '# myflow-do fixture
+register_case "redirection-is-not-merged-into-a-citation" "skills/flow/SKILL.md" \
+  '# flow fixture
 Run `some-cmd < skills/other/SKILL.md > output.log` to reproduce.
 ' "not-reported"
 
@@ -864,14 +864,14 @@ check_clean_fixture_report_shape() {
   else
     fail "a clean fixture: rc=$RC out='$OUT'"
   fi
-  if printf '%s\n' "$OUT" | tail -n +2 | grep -aq 'skills/myflow-do/SKILL.md'; then
+  if printf '%s\n' "$OUT" | tail -n +2 | grep -aq 'skills/flow/SKILL.md'; then
     pass "a clean fixture: the coverage fragment names the scanned member"
   else
     fail "a clean fixture: no coverage fragment in: $OUT"
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+write_file "skills/flow/SKILL.md" '# flow fixture
 `skills/other/SKILL.md`
 '
 register_job "$FIXTURE"
@@ -881,7 +881,7 @@ CHECKERS[$IDX]="check_clean_fixture_report_shape"
 check_two_violations() {
   local idx="$1" violation_lines
   load_result "$idx"
-  violation_lines="$(printf '%s\n' "$OUT" | grep -ac -- '^skills/myflow-do/SKILL.md:' || true)"
+  violation_lines="$(printf '%s\n' "$OUT" | grep -ac -- '^skills/flow/SKILL.md:' || true)"
   if [ "$RC" -eq 1 ] && [ "$violation_lines" -eq 2 ] && printf '%s\n' "$OUT" | grep -aq -- '2 violation(s)'; then
     pass "a fixture with two violations: exit 1, two path:line lines, a verdict naming 2"
   else
@@ -889,7 +889,7 @@ check_two_violations() {
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture
+write_file "skills/flow/SKILL.md" '# flow fixture
 `.flow/project.md`
 `scripts/check-vocabulary.sh`
 '
@@ -904,7 +904,7 @@ CHECKERS[$IDX]="check_two_violations"
 # fixture is otherwise entirely clean (every citation, real or the
 # baseline SAFE_CITATION each fixture file already carries — see that
 # comment — resolves against a recognised root); the only violation it
-# can produce is an undeclared zero. skills/myflow-do/SKILL.md here
+# can produce is an undeclared zero. skills/flow/SKILL.md here
 # carries none of that baseline: it is a fresh, real-content file with no
 # citation at all, and no fixture path is ever on the wrapper's declared
 # list (that list is scoped to this repository's own real paths).
@@ -913,14 +913,14 @@ check_undeclared_zero_coverage() {
   local idx="$1"
   load_result "$idx"
   if [ "$RC" -eq 1 ] \
-    && printf '%s\n' "$OUT" | grep -aq -- '^skills/myflow-do/SKILL.md:0: 0 checked, and not declared expected-zero'; then
+    && printf '%s\n' "$OUT" | grep -aq -- '^skills/flow/SKILL.md:0: 0 checked, and not declared expected-zero'; then
     pass "undeclared zero coverage is a violation, not a silent pass"
   else
     fail "undeclared zero coverage: rc=$RC out='$OUT'"
   fi
 }
 new_fixture_repo
-write_file "skills/myflow-do/SKILL.md" '# myflow-do fixture, genuinely no citations at all
+write_file "skills/flow/SKILL.md" '# flow fixture, genuinely no citations at all
 
 Just prose.
 '

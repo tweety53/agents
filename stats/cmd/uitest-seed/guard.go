@@ -11,7 +11,7 @@ import (
 )
 
 // uitestSuffix is the one rule every destructive test-stack path checks
-// its target against, per specs/myflow-ui-test-stack/spec.md's
+// its target against, per the UI-test-stack requirement
 // "Destructive test-stack paths refuse to act on any other database": the
 // target's database name must end in this suffix, not merely contain it.
 const uitestSuffix = "_uitest"

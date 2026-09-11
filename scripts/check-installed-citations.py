@@ -7,8 +7,8 @@ whatever tree the harness placed it — never necessarily this checkout. A
 bare citation like `` `README.md` `` in such a file is read against THAT
 tree, which is exactly how a bug ships: the citation resolves to nothing,
 or worse, to some unrelated file the target project happens to have.
-Exactly three FORMS of root are recognised (canonical definition:
-specs/myflow-citation-roots/spec.md — do not restate the rule here):
+Exactly three FORMS of root are recognised (canonical definition: the
+kan-239 citation-roots spec — do not restate the rule here):
 
   - an installed root's own bare form (`skills/…`, `rules/…`, `commands/…`,
     `commands-claude/…`, `hooks/…`, wherever the harness placed it)
@@ -304,10 +304,10 @@ GIT_BRANCH_RE = re.compile(r"^[A-Za-z0-9_.-]+/(main|master|HEAD)$")
 # `origin` names no recognised root).
 ORIGIN_REF_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]+$")
 # GIT_BRANCH_SPECTRE_RE — task 10 first drew this as an exact-literal set,
-# `{"openspec/<name>"}`, for the one branch name this corpus wrote that
+# `{"<tree>/<name>"}`, for the one branch name this corpus wrote that
 # GIT_BRANCH_RE's suffix set (main/master/HEAD) does not cover. The second
 # per-task review found a second live site of the identical shape —
-# `openspec/<change-name>` — that an exact-literal set does not generalise
+# `<tree>/<change-name>` — that an exact-literal set does not generalise
 # to, so it is a SHAPE now: the branch prefix followed by exactly one `<…>`
 # placeholder segment and NOTHING ELSE. The prefix became `spectre/` at the
 # spectre cutover, moved WITH the contract prose that writes the branch
@@ -325,7 +325,7 @@ GIT_BRANCH_SPECTRE_RE = re.compile(r"^spectre/<[^/<>]+>$")
 # GIT_BRANCH_CHORE_RE — a sibling of GIT_BRANCH_SPECTRE_RE, added by
 # kan-239's task 9 for the second pipeline-created branch shape that
 # exemption does not cover: `chore/archive-<name>`, the branch
-# `/myflow-finish` run 2 creates and names, backticked, in
+# `/flow`'s archive run creates and names, backticked, in
 # finish-contract.md, and `chore/self-review-<name>`, which run 2 no
 # longer creates — kan-239 commits the self-review report onto the
 # archive branch instead — but which survives as real branches in this
@@ -344,14 +344,14 @@ GIT_BRANCH_CHORE_RE = re.compile(r"^chore/(?:archive|self-review)-<[^/<>]+>$")
 # FILE_LINE_RE — a token ending `:<digits>` names a line inside a file (a
 # findings-table Location cell, taken verbatim from `git diff` output and
 # diff-relative by construction), not a path to cite. Rooting such a token
-# teaches a format real findings never use — see skills/myflow-do/SKILL.md's
+# teaches a format real findings never use — see skills/flow/review-panel.md's
 # example findings row. Matched against the whole token, so a real path
 # citation that merely CONTAINS a colon elsewhere is untouched.
 #
 # PER-TASK-REVIEW FINDING 3 — narrowing was tried and rejected, not
 # overlooked. The steer was to strip the `:<digits>` suffix and classify
 # the remainder, so a real unrooted path stays reportable. Tried exactly
-# that: it forces skills/myflow-do/SKILL.md:485's own findings-table
+# that: it forces the review-panel prose's own findings-table
 # example row — `` `src/Foo.kt:42` `` — to be judged as an unrooted
 # citation, because "src/Foo.kt" genuinely IS unrooted, and that row is
 # deliberately fabricated (no such file exists) to teach the Location
@@ -360,7 +360,7 @@ GIT_BRANCH_CHORE_RE = re.compile(r"^chore/(?:archive|self-review)-<[^/<>]+>$")
 # examples or a quoted git error message would. So the full-token
 # exclusion stays: this IS a documented hole (a real `path:line` citation
 # in this shape is unreportable) rather than an undocumented one — see
-# specs/myflow-citation-roots/spec.md, which the planner amends to say so.
+# the citation-roots spec, which the planner amends to say so.
 FILE_LINE_RE = re.compile(r":[0-9]+$")
 # "$" is deliberately excluded from this set: a leading "$" is the shell-
 # variable-reference exclusion's own signal (see classify_token), and
@@ -514,7 +514,7 @@ def extract_backtick_tokens(line):
             # anywhere would skip that citation unseen. A comment that is
             # not span-initial at all (`` `see <!-- … --> for detail` ``)
             # is accepted, documented residue instead — see
-            # specs/myflow-citation-roots/spec.md.
+            # the citation-roots spec.
             if span.lstrip().startswith("<!--"):
                 i = j + 1
                 continue  # an HTML comment, illustrating syntax — no tokens at all
@@ -682,7 +682,7 @@ def classify_token(token, repo_root_files):
     return True
 
 
-# PLACEHOLDER_ROOTS — the closed set specs/myflow-citation-roots/spec.md
+# PLACEHOLDER_ROOTS — the closed set the citation-roots spec
 # enumerates. Task 9's first cut accepted ANY first segment shaped
 # `<…>` — bracket-shaped alone — which fails open: `<foo>/spectre/specs/
 # x.md` passed while naming an unrooted path, and so did a typo of a real

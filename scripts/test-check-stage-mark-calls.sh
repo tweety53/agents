@@ -35,8 +35,8 @@ new_fixture() {
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-abc123 <name>
-flow stage end   -command '/myflow-do' -stage do.review-panel -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-abc123 <name>
+flow stage end   -command '/flow' -stage flow.review-panel -outcome completed <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -48,7 +48,7 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -64,7 +64,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -session-token mf-abc123 <name>
+flow stage begin -command '/flow' -stage flow.review-panel -session-token mf-abc123 <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -80,7 +80,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage 'the review panel' <name>
+flow stage begin -command '/flow' -stage 'the review panel' <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -96,7 +96,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token "mf-$(date +%s)-$$" <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token "mf-$(date +%s)-$$" <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -112,7 +112,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token "mf-`date +%s`" <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token "mf-`date +%s`" <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -128,7 +128,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token "mf-$RANDOM" <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token "mf-$RANDOM" <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -147,7 +147,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness claude-code -session-token mf-abc123 <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness claude-code -session-token mf-abc123 <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -165,7 +165,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness cursor -session-token mf-abc123 <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness cursor -session-token mf-abc123 <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -178,8 +178,8 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' \
-  -stage do.review-panel \
+flow stage begin -command '/flow-fast' \
+  -stage flow.review-panel \
   -harness <harness> \
   -session-token mf-continued-001 <name>
 ```
@@ -194,8 +194,8 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-abc123 <name>
-flow stage end   -command '/myflow-do' -stage do.review-panel -outcome completed <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-abc123 <name>
+flow stage end   -command '/flow' -stage flow.review-panel -outcome completed <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -228,7 +228,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -245,8 +245,8 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' \
-  -stage do.state-gate \
+flow stage begin -command '/flow-fast' \
+  -stage flow.state-gate \
   -harness <harness> \
   -session-token mf-abc123 <name-or-best-guess>
 ```
@@ -265,7 +265,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name>
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -282,7 +282,7 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage end -command '/myflow-fast' -stage do.state-gate -outcome completed <name-or-best-guess>
+flow stage end -command '/flow-fast' -stage flow.state-gate -outcome completed <name-or-best-guess>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -301,7 +301,7 @@ esac
 # of this guard mishandled it by splitting off an empty last token.
 # ===========================================================================
 new_fixture
-printf '```bash\nflow stage begin -command '"'"'/myflow-fast'"'"' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess> \n```\n' >"$FIXTURE_FILE"
+printf '```bash\nflow stage begin -command '"'"'/flow-fast'"'"' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess> \n```\n' >"$FIXTURE_FILE"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 15: guessed change name with trailing whitespace is caught" || fail "case 15: rc=$RC out=$OUT"
 case "$OUT" in
@@ -320,7 +320,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best-guess>'
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best-guess>'
 ```
 EOF
 run_guard "$FIXTURE"
@@ -336,7 +336,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 "<name-or-best-guess>"
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 "<name-or-best-guess>"
 ```
 EOF
 run_guard "$FIXTURE"
@@ -358,7 +358,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>  # resolve later
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 <name-or-best-guess>  # resolve later
 ```
 EOF
 run_guard "$FIXTURE"
@@ -378,7 +378,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token "mf-#abc123" <name>
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token "mf-#abc123" <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -393,7 +393,7 @@ run_guard "$FIXTURE"
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best guess>'
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token mf-abc123 '<name-or-best guess>'
 ```
 EOF
 run_guard "$FIXTURE"
@@ -414,7 +414,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-fast' -stage do.state-gate -harness <harness> -session-token "mf-\"abc#tok" <name-or-best-guess>
+flow stage begin -command '/flow-fast' -stage flow.state-gate -harness <harness> -session-token "mf-\"abc#tok" <name-or-best-guess>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -431,7 +431,7 @@ esac
 # last token (kan-182 panel finding F8).
 # ===========================================================================
 new_fixture
-printf 'flow stage begin -command '"'"'/myflow-fast'"'"' -stage do.state-gate -harness <harness> -session-token mf-abc123\t<name-or-best-guess>\n' >"$FIXTURE_FILE"
+printf 'flow stage begin -command '"'"'/flow-fast'"'"' -stage flow.state-gate -harness <harness> -session-token mf-abc123\t<name-or-best-guess>\n' >"$FIXTURE_FILE"
 run_guard "$FIXTURE"
 [ "$RC" -eq 1 ] && pass "case 22: tab-separated guessed change name is caught" || fail "case 22: rc=$RC out=$OUT"
 case "$OUT" in
@@ -446,7 +446,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-abc123 <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-abc123 <name>
 ```
 EOF
 run_guard "$FIXTURE"
@@ -535,7 +535,7 @@ esac
 new_fixture
 cat >"$FIXTURE_FILE" <<'EOF'
 ```bash
-flow stage begin -command '/myflow-do' -stage do.review-panel -harness <harness> -session-token mf-abc123 <name>
+flow stage begin -command '/flow' -stage flow.review-panel -harness <harness> -session-token mf-abc123 <name>
 ```
 EOF
 set +e

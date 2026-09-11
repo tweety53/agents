@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-unfinished-work.sh — report whether a change carries unfinished work,
-# for /myflow-finish's run-1 gate.
+# for /flow's integrate-run gate.
 #
 # Usage: check-unfinished-work.sh <worktree> <change-name> [canonical-worktree]
 #

@@ -1,5 +1,5 @@
 // RunDetail opens one change on its own dashboard of stage runs
-// (specs/myflow-stats-views/spec.md, "One change opens on its own
+// (the stats-views requirement "One change opens on its own
 // dashboard"). These tests cover the route's own non-negotiable rules:
 // every stage run is shown attributed to its command, an unmeasured
 // metric on an otherwise-measured run reads as unavailable rather than
@@ -44,8 +44,8 @@ function aggregateEnvelope(rows: CostPerChangeRow[]): StatsResponse<CostPerChang
   };
 }
 
-const PROJECT = "kan-16-myflow-stats-app";
-const CHANGE = "kan-16-myflow-stats-app";
+const PROJECT = "kan-16-stats-app";
+const CHANGE = "kan-16-stats-app";
 
 beforeEach(() => {
   listStageRunsMock.mockReset();
@@ -59,7 +59,7 @@ describe("a change with runs across several commands", () => {
         {
           stageRunId: 1,
           harness: "claude-code",
-          command: "/myflow-start",
+          command: "/flow",
           stage: "1. Brainstorming",
           attempt: 1,
           startedAt: "2026-01-01T00:00:00Z",
@@ -70,7 +70,7 @@ describe("a change with runs across several commands", () => {
         {
           stageRunId: 2,
           harness: "claude-code",
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           attempt: 1,
           startedAt: "2026-01-01T00:10:00Z",
@@ -84,8 +84,7 @@ describe("a change with runs across several commands", () => {
 
     render(<RunDetail project={PROJECT} change={CHANGE} />);
 
-    expect(await screen.findByRole("cell", { name: "/myflow-start" })).toBeInTheDocument();
-    expect(screen.getByRole("cell", { name: "/myflow-do" })).toBeInTheDocument();
+    expect(await screen.findAllByRole("cell", { name: "/flow" })).toHaveLength(2);
     expect(screen.getByRole("cell", { name: "1. Brainstorming" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "SDD + TDD per task" })).toBeInTheDocument();
   });
@@ -98,7 +97,7 @@ describe("a stage run that recorded no token metrics", () => {
         {
           stageRunId: 3,
           harness: "claude-code",
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           attempt: 1,
           startedAt: "2026-01-01T00:00:00Z",
@@ -128,7 +127,7 @@ describe("an open stage run", () => {
         {
           stageRunId: 4,
           harness: "claude-code",
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           attempt: 1,
           startedAt: "2026-01-01T00:00:00Z",
@@ -159,7 +158,7 @@ describe("a change with more stage runs than one page holds", () => {
           {
             stageRunId: 5,
             harness: "claude-code",
-            command: "/myflow-do",
+            command: "/flow",
             stage: "SDD + TDD per task",
             attempt: 1,
             startedAt: "2026-01-01T00:00:00Z",
@@ -170,7 +169,7 @@ describe("a change with more stage runs than one page holds", () => {
           {
             stageRunId: 6,
             harness: "claude-code",
-            command: "/myflow-do",
+            command: "/flow",
             stage: "SDD + TDD per task",
             attempt: 2,
             startedAt: "2026-01-01T00:05:00Z",
@@ -187,7 +186,7 @@ describe("a change with more stage runs than one page holds", () => {
         {
           projectKey: PROJECT,
           changeName: CHANGE,
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           runCount: 50,
           measuredRuns: 50,
@@ -221,7 +220,7 @@ describe("a change with more stage runs than one page holds", () => {
         {
           projectKey: PROJECT,
           changeName: CHANGE,
-          command: "/myflow-start",
+          command: "/flow",
           stage: "1. Brainstorming",
           runCount: 1,
           measuredRuns: 1,
@@ -235,7 +234,7 @@ describe("a change with more stage runs than one page holds", () => {
         {
           projectKey: PROJECT,
           changeName: CHANGE,
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           runCount: 2,
           measuredRuns: 2,
@@ -268,7 +267,7 @@ describe("a change with more stage runs than one page holds", () => {
           {
             stageRunId: 5,
             harness: "claude-code",
-            command: "/myflow-do",
+            command: "/flow",
             stage: "SDD + TDD per task",
             attempt: 1,
             startedAt: "2026-01-01T00:00:00Z",
@@ -285,7 +284,7 @@ describe("a change with more stage runs than one page holds", () => {
         {
           projectKey: PROJECT,
           changeName: CHANGE,
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           runCount: 50,
           measuredRuns: 50,
@@ -321,7 +320,7 @@ describe("a change whose stage runs exceed one fetched page (task 25, step 4)", 
           {
             stageRunId: 20,
             harness: "claude-code",
-            command: "/myflow-do",
+            command: "/flow",
             stage: "SDD + TDD per task",
             attempt: 1,
             startedAt: "2026-01-01T00:00:00Z",
@@ -346,7 +345,7 @@ describe("a change whose stage runs exceed one fetched page (task 25, step 4)", 
         {
           stageRunId: 21,
           harness: "claude-code",
-          command: "/myflow-do",
+          command: "/flow",
           stage: "SDD + TDD per task",
           attempt: 1,
           startedAt: "2026-01-01T00:00:00Z",
@@ -387,7 +386,7 @@ describe("the run-detail dashboard's model variable (task 20's own decision: hon
   const runOnSonnet: StageRunDTO = {
     stageRunId: 10,
     harness: "claude-code",
-    command: "/myflow-do",
+    command: "/flow",
     stage: "SDD + TDD per task",
     attempt: 1,
     startedAt: "2026-01-01T00:00:00Z",
@@ -398,7 +397,7 @@ describe("the run-detail dashboard's model variable (task 20's own decision: hon
   const runOnOpus: StageRunDTO = {
     stageRunId: 11,
     harness: "claude-code",
-    command: "/myflow-do",
+    command: "/flow",
     stage: "5. The review panel",
     attempt: 1,
     startedAt: "2026-01-01T00:10:00Z",
@@ -409,7 +408,7 @@ describe("the run-detail dashboard's model variable (task 20's own decision: hon
   const runWithNoModel: StageRunDTO = {
     stageRunId: 12,
     harness: "claude-code",
-    command: "/myflow-start",
+    command: "/flow",
     stage: "1. Brainstorming",
     attempt: 1,
     startedAt: "2026-01-01T00:20:00Z",
@@ -455,7 +454,7 @@ describe("the run-detail dashboard's model variable (task 20's own decision: hon
 });
 
 // Task 5 (kan-201): a stage run opens onto its own dispatches --
-// specs/myflow-stats-views/spec.md, "A stage run opens onto its own
+// the stats-views requirement, "A stage run opens onto its own
 // dispatches". The fixture mirrors internal/harvest/attribute.go's real
 // DispatchBucket shape (KAN-201's own tasks.md, task 5's header): `tokens`
 // carries the dispatch's own token figures (or is absent when a dispatch's
@@ -497,7 +496,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
   const runWithDispatches: StageRunDTO = {
     stageRunId: 30,
     harness: "claude-code",
-    command: "/myflow-do",
+    command: "/flow",
     stage: "5. The review panel",
     attempt: 1,
     startedAt: "2026-01-01T00:00:00Z",
@@ -593,7 +592,7 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
 });
 
 // Two stage runs sharing the same `stage` label AND the same `attempt`
-// number are the ordinary case, not a contrived one: /myflow-do records
+// number are the ordinary case, not a contrived one: /flow records
 // one stage run per task, all under the same stage label, and a first
 // try on each carries the same attempt number (1). This used to require a
 // toggle identifier synthesized from `startedAt`, because the dispatch
@@ -608,7 +607,7 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
   const sharedRunA: StageRunDTO = {
     stageRunId: 40,
     harness: "claude-code",
-    command: "/myflow-do",
+    command: "/flow",
     stage: "SDD + TDD per task",
     attempt: 1,
     startedAt: "2026-01-01T00:00:00Z",
@@ -628,7 +627,7 @@ describe("two stage runs sharing both stage and attempt (kan-201)", () => {
   const sharedRunB: StageRunDTO = {
     stageRunId: 41,
     harness: "claude-code",
-    command: "/myflow-do",
+    command: "/flow",
     stage: "SDD + TDD per task",
     attempt: 1,
     startedAt: "2026-01-01T01:00:00Z",

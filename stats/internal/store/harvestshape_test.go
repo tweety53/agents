@@ -32,7 +32,7 @@ func TestAggregationsReadTheHarvesterSMetricsShape(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-harvestshape-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1") // baseChange sets ReviewPanelRoster "light"
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	run, err := st.BeginStage(ctx, in)
 	if err != nil {

@@ -20,8 +20,8 @@
 #
 # `--force` also refuses any id whose database name does not end in
 # "_uitest" -- the same suffix rule cmd/uitest-seed/guard.go enforces on its
-# own destructive path (specs/myflow-ui-test-stack/spec.md's "Destructive
-# test-stack paths refuse to act on any other database"). This is defence
+# own destructive path (destructive test-stack paths refuse to act on any
+# other database). This is defence
 # in depth, not the only guard: the caller (stats/Makefile's ui-test-up) is
 # still responsible for passing the right id, since this script has no way
 # to know a caller's *intent* -- only a second, independent check on the

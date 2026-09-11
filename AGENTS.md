@@ -11,7 +11,7 @@ Codex reads `<project>/AGENTS.md` — the project's own, plus `~/.codex/AGENTS.m
 not read `~/.claude/CLAUDE.md` or `~/.cursor/rules/`.
 
 `<agents repo>/setup.sh global` writes the always-on rules into a managed block in `~/.codex/AGENTS.md`,
-delimited by `<!-- myflow:begin -->` / `<!-- myflow:end -->`, using the same ordering check
+delimited by `<!-- flow:begin -->` / `<!-- flow:end -->`, using the same ordering check
 and self-poisoning guard as the Claude Code block. So a Codex session gets
 `flow-manual-review.mdc` and `lint-fix-priority.mdc` globally, and opt-in rules (such as
 the Kotlin backend standard) are deliberately excluded — a project activates those by

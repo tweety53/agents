@@ -37,9 +37,9 @@ describe("buildStatsViewQuery", () => {
     const qs = buildStatsViewQuery({
       from: new Date("2026-01-01T00:00:00.000Z"),
       to: new Date("2026-02-01T00:00:00.000Z"),
-      project: "kan-16-myflow-stats-app",
+      project: "kan-16-stats-app",
     });
-    expect(qs.get("project")).toBe("kan-16-myflow-stats-app");
+    expect(qs.get("project")).toBe("kan-16-stats-app");
   });
 
   it("carries breakdown=repo together with change, command and stage", () => {
@@ -47,13 +47,13 @@ describe("buildStatsViewQuery", () => {
       from: new Date("2026-01-01T00:00:00.000Z"),
       to: new Date("2026-02-01T00:00:00.000Z"),
       breakdown: "repo",
-      change: "kan-16-myflow-stats-app",
-      command: "/myflow-do",
+      change: "kan-16-stats-app",
+      command: "/flow",
       stage: "SDD + TDD per task",
     });
     expect(qs.get("breakdown")).toBe("repo");
-    expect(qs.get("change")).toBe("kan-16-myflow-stats-app");
-    expect(qs.get("command")).toBe("/myflow-do");
+    expect(qs.get("change")).toBe("kan-16-stats-app");
+    expect(qs.get("command")).toBe("/flow");
     expect(qs.get("stage")).toBe("SDD + TDD per task");
   });
 
@@ -76,9 +76,9 @@ describe("buildStatsViewQuery", () => {
     const qs = buildStatsViewQuery({
       from: new Date("2026-01-01T00:00:00.000Z"),
       to: new Date("2026-02-01T00:00:00.000Z"),
-      change: "kan-16-myflow-stats-app",
+      change: "kan-16-stats-app",
     });
-    expect(qs.get("change")).toBe("kan-16-myflow-stats-app");
+    expect(qs.get("change")).toBe("kan-16-stats-app");
     expect(qs.has("breakdown")).toBe(false);
   });
 
@@ -111,7 +111,7 @@ describe("buildStatsViewQuery", () => {
         from: new Date("2026-01-01T00:00:00.000Z"),
         to: new Date("2026-02-01T00:00:00.000Z"),
         breakdown: "repo",
-        change: "kan-16-myflow-stats-app",
+        change: "kan-16-stats-app",
       }),
     ).toThrow(/requires both a "command" and a "stage"/);
   });
@@ -122,8 +122,8 @@ describe("buildStatsViewQuery", () => {
         from: new Date("2026-01-01T00:00:00.000Z"),
         to: new Date("2026-02-01T00:00:00.000Z"),
         breakdown: "repo",
-        change: "kan-16-myflow-stats-app",
-        command: "/myflow-do",
+        change: "kan-16-stats-app",
+        command: "/flow",
       }),
     ).toThrow(/requires both a "command" and a "stage"/);
   });
@@ -133,7 +133,7 @@ describe("buildStatsViewQuery", () => {
       buildStatsViewQuery({
         from: new Date("2026-01-01T00:00:00.000Z"),
         to: new Date("2026-02-01T00:00:00.000Z"),
-        command: "/myflow-do",
+        command: "/flow",
         stage: "SDD + TDD per task",
       }),
     ).toThrow(/only meaningful together with breakdown/);
@@ -155,9 +155,9 @@ describe("buildModelsQuery", () => {
     const qs = buildModelsQuery({
       from: new Date("2026-01-01T00:00:00.000Z"),
       to: new Date("2026-02-01T00:00:00.000Z"),
-      project: "kan-16-myflow-stats-app",
+      project: "kan-16-stats-app",
     });
-    expect(qs.get("project")).toBe("kan-16-myflow-stats-app");
+    expect(qs.get("project")).toBe("kan-16-stats-app");
   });
 });
 
@@ -181,8 +181,8 @@ describe("buildListQuery", () => {
   });
 
   it("carries arbitrary filter fields as equality params", () => {
-    const qs = buildListQuery({ filters: { project: "kan-16-myflow-stats-app", state: "IN_PROGRESS" } });
-    expect(qs.get("project")).toBe("kan-16-myflow-stats-app");
+    const qs = buildListQuery({ filters: { project: "kan-16-stats-app", state: "IN_PROGRESS" } });
+    expect(qs.get("project")).toBe("kan-16-stats-app");
     expect(qs.get("state")).toBe("IN_PROGRESS");
   });
 
@@ -217,7 +217,7 @@ describe("fetch integration", () => {
             to: "2026-02-01T00:00:00Z",
             boundaryConvention: "start-attributed, half-open",
             recorded: true,
-            rows: [{ name: "kan-16-myflow-stats-app" }],
+            rows: [{ name: "kan-16-stats-app" }],
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
@@ -235,7 +235,7 @@ describe("fetch integration", () => {
       "/api/v1/stats/state-board?from=2026-01-01T00%3A00%3A00.000Z&to=2026-02-01T00%3A00%3A00.000Z",
     );
     expect(resp.recorded).toBe(true);
-    expect(resp.rows).toEqual([{ name: "kan-16-myflow-stats-app" }]);
+    expect(resp.rows).toEqual([{ name: "kan-16-stats-app" }]);
   });
 
   it("listChanges omits the leading '?' when the query is empty", async () => {
@@ -257,14 +257,14 @@ describe("fetch integration", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await listStageRuns({
-      filters: { project: "kan-16-myflow-stats-app", name: "kan-16-myflow-stats-app" },
+      filters: { project: "kan-16-stats-app", name: "kan-16-stats-app" },
       sort: [{ field: "startedAt" }],
       limit: 100,
     });
 
     const [url] = fetchMock.mock.calls[0] as unknown as [string];
     expect(url).toBe(
-      "/api/v1/stage-runs?sort=startedAt&limit=100&project=kan-16-myflow-stats-app&name=kan-16-myflow-stats-app",
+      "/api/v1/stage-runs?sort=startedAt&limit=100&project=kan-16-stats-app&name=kan-16-stats-app",
     );
   });
 
@@ -277,7 +277,7 @@ describe("fetch integration", () => {
       {
         stageRunId: 1,
         harness: "claude-code",
-        command: "/myflow-do",
+        command: "/flow",
         stage: "SDD + TDD per task",
         attempt: 1,
         startedAt: "2026-01-01T00:00:00Z",
@@ -325,7 +325,7 @@ describe("fetch integration", () => {
   it("putChange sends a PUT with a JSON body and the Content-Type header", async () => {
     const change = {
       projectKey: "agents",
-      name: "kan-16-myflow-stats-app",
+      name: "kan-16-stats-app",
       state: "IN_PROGRESS",
       updatedAt: "2026-01-01T00:00:00Z",
       updatedBy: "test",
@@ -333,10 +333,10 @@ describe("fetch integration", () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(change), { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    await putChange("agents", "kan-16-myflow-stats-app", change);
+    await putChange("agents", "kan-16-stats-app", change);
 
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/v1/changes/agents/kan-16-myflow-stats-app");
+    expect(url).toBe("/api/v1/changes/agents/kan-16-stats-app");
     expect(init.method).toBe("PUT");
     expect((init.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
     expect(JSON.parse(init.body as string)).toEqual(change);
@@ -351,9 +351,9 @@ describe("fetch integration", () => {
     );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-    const rejection = putChange("agents", "kan-16-myflow-stats-app", {
+    const rejection = putChange("agents", "kan-16-stats-app", {
       projectKey: "agents",
-      name: "kan-16-myflow-stats-app",
+      name: "kan-16-stats-app",
       state: "STARTED",
       updatedAt: "2026-01-01T00:00:00Z",
       updatedBy: "test",

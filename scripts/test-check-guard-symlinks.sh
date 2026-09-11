@@ -8,10 +8,9 @@
 # a fixture copy would be a second place for that agreement to drift.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the four rules
-# stated in the frozen openspec/changes/archive/
-# 2026-08-18-kan-73-install-guard-scripts-alongside-skills/tasks.md's
-# task 5 and design.md's "The guard-to-skill map" / "The
-# $SCRIPT_DIR/.. hazard" — never against observed output.
+# stated in the kan-73 install-guard-scripts tasks (task 5) and design ("The
+# guard-to-skill map" / "The $SCRIPT_DIR/.. hazard") — never against
+# observed output.
 #
 # Bash 3.2 is the floor, as test-check-finish-preflight.sh's header records:
 # indexed arrays only, no associative arrays.
@@ -182,8 +181,8 @@ assert_refuses() {
 # ---------------------------------------------------------------------------
 new_repo
 add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-foo.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-foo.sh"
+write_skill_md "flow" '# flow fixture
 
 Run the guard:
 
@@ -202,9 +201,9 @@ assert_silent "a clean tree passes with exactly one verdict line"
 # 2a. An entry that is a regular file, not a symlink.
 new_repo
 add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
-mkdir -p "$REPO/skills/myflow-do/scripts"
-printf 'not a symlink\n' > "$REPO/skills/myflow-do/scripts/check-bogus.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+mkdir -p "$REPO/skills/flow/scripts"
+printf 'not a symlink\n' > "$REPO/skills/flow/scripts/check-bogus.sh"
+write_skill_md "flow" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "a non-symlink entry under skills/*/scripts/ is a rule 1 violation"
 assert_reports "check-bogus.sh" "rule 1: names the offending entry"
@@ -212,9 +211,9 @@ assert_reports "rule 1" "rule 1: names the rule"
 
 # 2b. A dangling symlink.
 new_repo
-mkdir -p "$REPO/skills/myflow-do/scripts"
-ln -s "../../../scripts/does-not-exist.sh" "$REPO/skills/myflow-do/scripts/check-missing.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+mkdir -p "$REPO/skills/flow/scripts"
+ln -s "../../../scripts/does-not-exist.sh" "$REPO/skills/flow/scripts/check-missing.sh"
+write_skill_md "flow" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "a dangling symlink under skills/*/scripts/ is a rule 1 violation"
 assert_reports "check-missing.sh" "rule 1: names the dangling entry"
@@ -223,9 +222,9 @@ assert_reports "does not resolve" "rule 1: says it does not resolve"
 # 2c. An absolute-target symlink that still resolves.
 new_repo
 add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
-mkdir -p "$REPO/skills/myflow-do/scripts"
-ln -s "$REPO/scripts/check-foo.sh" "$REPO/skills/myflow-do/scripts/check-foo.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+mkdir -p "$REPO/skills/flow/scripts"
+ln -s "$REPO/scripts/check-foo.sh" "$REPO/skills/flow/scripts/check-foo.sh"
+write_skill_md "flow" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "an absolute symlink target under skills/*/scripts/ is a rule 1 violation"
 assert_reports "is absolute" "rule 1: says the target is absolute"
@@ -237,18 +236,18 @@ assert_reports "is absolute" "rule 1: says the target is absolute"
 #     through would surface as a SECOND violation ("cannot read this guard's
 #     real source") on top of the rule 1 one — exactly one violation line is
 #     the assertion that pins the fix.
-# Uses "myflow-start" — one of the guard's own declared expected-zero
-# skills — rather than "myflow-do": this fixture's own assertion below
+# Uses "flow-settings" — one of the guard's own declared expected-zero
+# skills — rather than "flow": this fixture's own assertion below
 # counts violation lines exactly, and an undeclared zero-coverage skill
 # would add a second one that has nothing to do with what F9 tests.
 new_repo
-mkdir -p "$REPO/skills/myflow-start/scripts"
+mkdir -p "$REPO/skills/flow-settings/scripts"
 OUTSIDE_TARGET="$(mktemp "${TMPDIR:-/tmp}/check-guard-symlinks-outside.XXXXXX")"
 SANDBOXES+=("$OUTSIDE_TARGET")
 printf 'unrelated content, unreadable\n' > "$OUTSIDE_TARGET"
 chmod 000 "$OUTSIDE_TARGET"
-ln -s "$OUTSIDE_TARGET" "$REPO/skills/myflow-start/scripts/check-outside.sh"
-write_skill_md "myflow-start" "# fixture, no citations"
+ln -s "$OUTSIDE_TARGET" "$REPO/skills/flow-settings/scripts/check-outside.sh"
+write_skill_md "flow-settings" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "an absolute off-repo symlink target is a rule 1 violation"
 assert_reports "is absolute" "rule 1 (F9): says the target is absolute"
@@ -269,8 +268,8 @@ chmod 644 "$OUTSIDE_TARGET"
 # 3a. Invoked in a bash fence, never symlinked in at all.
 new_repo
 add_real_guard "check-baz.sh" "$PLAIN_GUARD_BODY"
-mkdir -p "$REPO/skills/myflow-do/scripts"
-write_skill_md "myflow-do" '# myflow-do fixture
+mkdir -p "$REPO/skills/flow/scripts"
+write_skill_md "flow" '# flow fixture
 
 ```bash
 check-baz.sh <worktree>
@@ -290,8 +289,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/helper.sh"'
 mkdir -p "$REPO/scripts/lib"
 printf 'true\n' > "$REPO/scripts/lib/helper.sh"
-link_guard "myflow-do" "check-with-lib.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-with-lib.sh"
+write_skill_md "flow" '# flow fixture
 
 ```bash
 check-with-lib.sh <worktree>
@@ -310,8 +309,8 @@ assert_reports "sibling dependency" "rule 2: says it is a sibling dependency"
 new_repo
 add_real_guard "check-dotslash.sh" "$PLAIN_GUARD_BODY"
 add_real_guard "check-viabash.sh" "$PLAIN_GUARD_BODY"
-mkdir -p "$REPO/skills/myflow-do/scripts"
-write_skill_md "myflow-do" '# myflow-do fixture
+mkdir -p "$REPO/skills/flow/scripts"
+write_skill_md "flow" '# flow fixture
 
 ```bash
 ./check-dotslash.sh <worktree>
@@ -334,8 +333,8 @@ assert_reports "check-viabash.sh" "rule 2 (F6): names the bash guard.sh form"
 #     silently never seen.
 new_repo
 add_real_guard "check-strayed.sh" "$PLAIN_GUARD_BODY"
-mkdir -p "$REPO/skills/myflow-do/scripts"
-write_skill_md "myflow-do" '# myflow-do fixture
+mkdir -p "$REPO/skills/flow/scripts"
+write_skill_md "flow" '# flow fixture
 
 A stray ` mark appears here, then Run `check-strayed.sh` for the real thing.
 '
@@ -361,9 +360,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/shared.sh"'
 mkdir -p "$REPO/scripts/lib"
 printf 'true\n' > "$REPO/scripts/lib/shared.sh"
-link_guard "myflow-do" "check-one.sh"
-link_guard "myflow-do" "check-two.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-one.sh"
+link_guard "flow" "check-two.sh"
+write_skill_md "flow" '# flow fixture
 
 ```bash
 check-one.sh <worktree>
@@ -384,8 +383,8 @@ N_SHARED_LIB="$(printf '%s\n' "$OUT" | grep -c 'sibling dependency' || true)"
 # 4a. The repository-relative form inside a bash fence — an invocation.
 new_repo
 add_real_guard "check-qux.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-qux.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-qux.sh"
+write_skill_md "flow" '# flow fixture
 
 ```bash
 scripts/check-qux.sh <worktree>
@@ -401,8 +400,8 @@ assert_reports "rule 3" "rule 3: names the rule"
 #     call site at all.
 new_repo
 add_real_guard "check-qux.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-qux.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-qux.sh"
+write_skill_md "flow" '# flow fixture
 
 Run the guard:
 
@@ -421,12 +420,12 @@ assert_silent "a repository-relative path in a descriptive sentence is prose, no
 #     than being invoked by any command. A future "Run
 #     `scripts/check-vocabulary.sh` before committing" must not fail CI
 #     wrongly.
-# Uses "myflow-start" (a declared expected-zero skill): neither citation
+# Uses "flow-settings" (a declared expected-zero skill): neither citation
 # below is in a form rule 2's classifier reads as a required guard, so this
 # skill's required set is genuinely empty — declaring it here keeps this
 # fixture about rule 3's exemption, not coverage.
 new_repo
-write_skill_md "myflow-start" '# myflow-start fixture
+write_skill_md "flow-settings" '# flow-settings fixture
 
 Run `scripts/check-vocabulary.sh` before committing.
 
@@ -442,12 +441,12 @@ assert_silent "a project-configured guard keeps its repository-relative path wit
 #     — before the fix, "shellsession" matched the unanchored `^sh` prefix by
 #     accident, and a repository-relative citation of a NON-exempt guard
 #     inside it was wrongly flagged.
-# Uses "myflow-start" (declared expected-zero): a citation inside a
+# Uses "flow-settings" (declared expected-zero): a citation inside a
 # ```shellsession fence is never scanned by rule 2, so this skill's required
 # set is genuinely empty here too — declaring it keeps F8 about the fence
 # language anchor, not coverage.
 new_repo
-write_skill_md "myflow-start" '# myflow-start fixture
+write_skill_md "flow-settings" '# flow-settings fixture
 
 ```shellsession
 scripts/check-qux.sh <worktree>
@@ -462,8 +461,8 @@ assert_silent "a \`\`\`shellsession fence is not scanned as bash/sh/zsh (F8)"
 # ---------------------------------------------------------------------------
 new_repo
 add_real_guard "check-fixed-depth.sh" "$FIXED_DEPTH_GUARD_BODY"
-link_guard "myflow-do" "check-fixed-depth.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+link_guard "flow" "check-fixed-depth.sh"
+write_skill_md "flow" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "a shipped guard deriving \$SCRIPT_DIR/.. is a rule 4 violation"
 assert_reports "check-fixed-depth.sh" "rule 4: names the offending guard"
@@ -472,20 +471,20 @@ assert_reports "rule 4" "rule 4: names the rule"
 # A project-configured guard that is NEVER shipped (no symlink anywhere) may
 # keep the $SCRIPT_DIR/.. form without tripping rule 4 — the guard scopes
 # rule 4 to what rule 1 found actually symlinked in, never every file under
-# scripts/. Uses "myflow-start" (declared expected-zero): this fixture cites
+# scripts/. Uses "flow-settings" (declared expected-zero): this fixture cites
 # nothing, so its required set is genuinely empty, and declaring it keeps
 # this test about rule 4's scoping, not coverage.
 new_repo
 add_real_guard "check-project-only.sh" "$FIXED_DEPTH_GUARD_BODY"
-write_skill_md "myflow-start" "# fixture, no citations"
+write_skill_md "flow-settings" "# fixture, no citations"
 run_guard "$REPO"
 assert_silent "an unshipped guard keeping \$SCRIPT_DIR/.. is not a rule 4 violation"
 
 # 5c. F5 — the dirname() spelling of the identical defect.
 new_repo
 add_real_guard "check-fixed-dirname.sh" "$FIXED_DEPTH_GUARD_BODY_DIRNAME"
-link_guard "myflow-do" "check-fixed-dirname.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+link_guard "flow" "check-fixed-dirname.sh"
+write_skill_md "flow" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "a shipped guard deriving dirname(\$SCRIPT_DIR) is a rule 4 violation (F5)"
 assert_reports "check-fixed-dirname.sh" "rule 4 (F5): names the offending guard (dirname form)"
@@ -495,15 +494,15 @@ assert_reports "rule 4" "rule 4 (F5): names the rule (dirname form)"
 #     defect.
 new_repo
 add_real_guard "check-fixed-cdchain.sh" "$FIXED_DEPTH_GUARD_BODY_CD_CHAIN"
-link_guard "myflow-do" "check-fixed-cdchain.sh"
-write_skill_md "myflow-do" "# fixture, no citations"
+link_guard "flow" "check-fixed-cdchain.sh"
+write_skill_md "flow" "# fixture, no citations"
 run_guard "$REPO"
 assert_invalid "a shipped guard deriving cd \$SCRIPT_DIR && cd .. is a rule 4 violation (F5)"
 assert_reports "check-fixed-cdchain.sh" "rule 4 (F5): names the offending guard (cd-chain form)"
 assert_reports "rule 4" "rule 4 (F5): names the rule (cd-chain form)"
 
 # ---------------------------------------------------------------------------
-# F4 — rule 2 for a DELEGATING skill. myflow-fast invokes no guard of its
+# F4 — rule 2 for a DELEGATING skill. flow-fast invokes no guard of its
 # own; instead its own "**Check guard presence.**" paragraph names other
 # commands' presence checks by slash-command, and its required set must be
 # the union of theirs — never silently empty. Reproduces the parent's own
@@ -511,13 +510,13 @@ assert_reports "rule 4" "rule 4 (F5): names the rule (cd-chain form)"
 # scripts/ must be caught.
 # ---------------------------------------------------------------------------
 
-# F4a. myflow-do invokes check-deleg.sh directly; the delegating skill's own
-#      presence paragraph names /myflow-do by slash-command and carries no
-#      symlink for it — a rule 2 violation, reported against myflow-deleg.
+# F4a. flow invokes check-deleg.sh directly; the delegating skill's own
+#      presence paragraph names /flow by slash-command and carries no
+#      symlink for it — a rule 2 violation, reported against flow-deleg.
 new_repo
 add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-deleg.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-deleg.sh"
+write_skill_md "flow" '# flow fixture
 
 **Check guard presence.** Confirm every guard this command invokes:
 
@@ -525,22 +524,22 @@ write_skill_md "myflow-do" '# myflow-do fixture
 check-deleg.sh <worktree>
 ```
 '
-write_skill_md "myflow-deleg" '# myflow-deleg fixture, a myflow-fast stand-in
+write_skill_md "flow-deleg" '# flow-deleg fixture, a flow-fast stand-in
 
-**Check guard presence.** Confirm every guard named in `/myflow-do` own
-presence checks is present in `skills/myflow-deleg/scripts/`.
+**Check guard presence.** Confirm every guard named in `/flow` own
+presence checks is present in `skills/flow-deleg/scripts/`.
 '
 run_guard "$REPO"
 assert_invalid "a delegating skill whose delegate requires a guard it does not carry is a rule 2 violation (F4)"
 assert_reports "check-deleg.sh" "rule 2 (F4): names the guard required by delegation"
-assert_reports "myflow-deleg" "rule 2 (F4): names the delegating skill"
+assert_reports "flow-deleg" "rule 2 (F4): names the delegating skill"
 
 # F4b. Same shape, but the delegating skill DOES carry the symlink — silent.
 new_repo
 add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-deleg.sh"
-link_guard "myflow-deleg" "check-deleg.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-deleg.sh"
+link_guard "flow-deleg" "check-deleg.sh"
+write_skill_md "flow" '# flow fixture
 
 **Check guard presence.** Confirm every guard this command invokes:
 
@@ -548,10 +547,10 @@ write_skill_md "myflow-do" '# myflow-do fixture
 check-deleg.sh <worktree>
 ```
 '
-write_skill_md "myflow-deleg" '# myflow-deleg fixture, a myflow-fast stand-in
+write_skill_md "flow-deleg" '# flow-deleg fixture, a flow-fast stand-in
 
-**Check guard presence.** Confirm every guard named in `/myflow-do` own
-presence checks is present in `skills/myflow-deleg/scripts/`.
+**Check guard presence.** Confirm every guard named in `/flow` own
+presence checks is present in `skills/flow-deleg/scripts/`.
 '
 run_guard "$REPO"
 assert_silent "a delegating skill carrying the delegated guard is not a rule 2 violation (F4)"
@@ -560,17 +559,17 @@ assert_silent "a delegating skill carrying the delegated guard is not a rule 2 v
 #      inside a "**Check guard presence.**" paragraph — is never read as
 #      delegating. This is the false-positive this file's own header warns
 #      about (rule 2 scoped to a skill's own directory, not every citation):
-#      myflow-status used to cite /myflow-do constantly without invoking
+#      flow-status used to cite the implementing command constantly without invoking
 #      anything, before KAN-236 gave it its own guard, so this fixture now
-#      stands in with "myflow-start" instead — one of the guard's own
+#      stands in with "flow-settings" instead — one of the guard's own
 #      declared expected-zero skills, so its genuinely-empty required set
 #      here reads as declared rather than tripping the coverage violation
 #      added below (F12) — this fixture is about rule 2's delegation
 #      boundary, not coverage.
 new_repo
 add_real_guard "check-deleg.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-deleg.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-deleg.sh"
+write_skill_md "flow" '# flow fixture
 
 **Check guard presence.** Confirm every guard this command invokes:
 
@@ -578,9 +577,9 @@ write_skill_md "myflow-do" '# myflow-do fixture
 check-deleg.sh <worktree>
 ```
 '
-write_skill_md "myflow-start" '# fixture standing in for myflow-start
+write_skill_md "flow-settings" '# fixture standing in for flow-settings
 
-This command explains what `/myflow-do` does elsewhere. It invokes nothing
+This command explains what `/flow` does elsewhere. It invokes nothing
 of its own.
 '
 run_guard "$REPO"
@@ -588,21 +587,21 @@ assert_silent "an ordinary cross-command citation outside the presence paragraph
 
 # ---------------------------------------------------------------------------
 # F12 — the KAN-197 regression case. Reproduces KAN-73's own shape,
-# generalized past myflow-fast's now-fixed delegation format: a skill that
+# generalized past flow-fast's now-fixed delegation format: a skill that
 # CARRIES A REAL SYMLINK — evidence it needs a guard beside it — but whose
 # own text names no guard in a form rule 2's classifier can see (a plain
 # prose mention of another command, not the recognized "**Check guard
 # presence.**" delegation paragraph). Rule 2 itself has nothing to require,
 # so nothing to violate — before this task, that read as silent, exactly the
-# defect that let myflow-fast's own missing symlink go undetected through
+# defect that let flow-fast's own missing symlink go undetected through
 # three reviewers. After this task, the skill's own empty required set is
 # itself the finding: named, and non-zero exit, on an otherwise clean tree.
 # ---------------------------------------------------------------------------
 new_repo
 add_real_guard "check-shadow.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-shadow.sh"
-link_guard "myflow-shadow" "check-shadow.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-shadow.sh"
+link_guard "flow-shadow" "check-shadow.sh"
+write_skill_md "flow" '# flow fixture
 
 **Check guard presence.** Confirm every guard this command invokes:
 
@@ -610,14 +609,14 @@ write_skill_md "myflow-do" '# myflow-do fixture
 check-shadow.sh <worktree>
 ```
 '
-write_skill_md "myflow-shadow" '# myflow-shadow fixture — KANs own shape, generalized
+write_skill_md "flow-shadow" '# flow-shadow fixture — KANs own shape, generalized
 
-See `/myflow-do` for details on this behavior. This skill delegates, but not
+See `/flow` for details on this behavior. This skill delegates, but not
 in a form the classifier above recognizes.
 '
 run_guard "$REPO"
 assert_invalid "a skill carrying a real symlink but citing nothing rule 2 can see is a coverage violation, not silence (F12)"
-assert_reports "myflow-shadow" "F12: names the under-covered skill"
+assert_reports "flow-shadow" "F12: names the under-covered skill"
 assert_reports "coverage" "F12: reports it as a coverage finding"
 assert_reports "0 checked" "F12: reports the zero count"
 assert_reports "not declared expected-zero" "F12: says it was never declared"
@@ -625,12 +624,12 @@ assert_reports "not declared expected-zero" "F12: says it was never declared"
 # ---------------------------------------------------------------------------
 # F13 — the paired case: a member legitimately at zero, and DECLARED in the
 # guard's own source, reports the zero without failing. Reuses
-# "myflow-start" — one of the three names this guard's own coverage_declare
+# "flow-settings" — one of the two names this guard's own coverage_declare
 # calls list — deliberately, the same reuse F9/F3/F8/rule-4's "unshipped
 # guard" case and F4c above already rely on.
 # ---------------------------------------------------------------------------
 new_repo
-write_skill_md "myflow-start" "# myflow-start fixture, no citations — declared expected-zero in the guard's own source"
+write_skill_md "flow-settings" "# flow-settings fixture, no citations — declared expected-zero in the guard's own source"
 run_guard "$REPO"
 assert_silent "a declared expected-zero member reports its zero without failing (F13)"
 assert_reports "declared" "F13: the coverage breakdown marks the zero as declared"
@@ -750,16 +749,16 @@ assert_ok "the agents repository's own tree validates cleanly"
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # 8. Rule 5 — no skill directory carries a symlink directly at its own top
-#    level (KAN-202 task 9). skills/myflow-do/SKILL.md's [PRINCIPLES_PATH]
+#    level (KAN-202 task 9). skills/flow/'s own [PRINCIPLES_PATH]
 #    paragraph already says in prose that symlinking a copy in is the wrong
 #    fix for a file a skill's text names but does not carry; a session did
 #    exactly that anyway roughly five hours after that sentence was
-#    committed, in skills/myflow-fast/. Rule 1 validates entries UNDER
+#    committed, in skills/flow-fast/. Rule 1 validates entries UNDER
 #    skills/*/scripts/ and reaches nothing at a skill directory's own top
 #    level, so this rule closes that gap.
 #
-#    Both fixture skills below are named "myflow-start" and
-#    "myflow-research" — the guard's own two declared-expected-zero
+#    Both fixture skills below are named "flow-settings" and
+#    "flow-self-review" — the guard's own two declared-expected-zero
 #    members — so neither fixture's genuinely-empty required set trips the
 #    unrelated KAN-197 coverage check; these cases are about rule 5 alone.
 # ---------------------------------------------------------------------------
@@ -767,15 +766,15 @@ assert_ok "the agents repository's own tree validates cleanly"
 # 8a. The violation: a symlink directly under a skill directory, pointing at
 #     a file in a sibling skill, with no other defect anywhere in the tree.
 new_repo
-mkdir -p "$REPO/skills/myflow-research"
-printf 'principles\n' > "$REPO/skills/myflow-research/engineering-principles.md"
-write_skill_md "myflow-research" "# fixture, no citations"
-write_skill_md "myflow-start" "# fixture, no citations"
-ln -s "../myflow-research/engineering-principles.md" "$REPO/skills/myflow-start/engineering-principles.md"
+mkdir -p "$REPO/skills/flow-self-review"
+printf 'principles\n' > "$REPO/skills/flow-self-review/engineering-principles.md"
+write_skill_md "flow-self-review" "# fixture, no citations"
+write_skill_md "flow-settings" "# fixture, no citations"
+ln -s "../flow-self-review/engineering-principles.md" "$REPO/skills/flow-settings/engineering-principles.md"
 run_guard "$REPO"
 assert_invalid "a symlink directly under a skill directory's top level is a rule 5 violation"
 if printf '%s\n' "$OUT" | grep -q "engineering-principles.md" \
-  && printf '%s\n' "$OUT" | grep -q "../myflow-research/engineering-principles.md"; then
+  && printf '%s\n' "$OUT" | grep -q "../flow-self-review/engineering-principles.md"; then
   pass "rule 5: the report names both the symlink's path and its target"
 else
   fail "rule 5: the report does not name both the symlink's path and its target: $OUT"
@@ -785,16 +784,16 @@ fi
 #     territory, not rule 5's — it must not be re-reported here.
 new_repo
 add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-start" "check-foo.sh"
-write_skill_md "myflow-start" "# fixture, no citations"
+link_guard "flow-settings" "check-foo.sh"
+write_skill_md "flow-settings" "# fixture, no citations"
 run_guard "$REPO"
 assert_silent "a symlink under skills/<skill>/scripts/ is not a rule 5 violation"
 
 # 8c. Acceptance: a skill directory holding only regular files and
 #     directories carries no rule 5 finding.
 new_repo
-mkdir -p "$REPO/skills/myflow-start"
-write_skill_md "myflow-start" "# fixture, no citations"
+mkdir -p "$REPO/skills/flow-settings"
+write_skill_md "flow-settings" "# fixture, no citations"
 run_guard "$REPO"
 assert_silent "a skill directory with only regular files and directories is not a rule 5 violation"
 
@@ -822,8 +821,8 @@ assert_reports "evil-link" "rule 5: names the symlink under skills/flow-contract
 # refusal, which is not what this case is about.
 new_repo
 add_real_guard "check-foo.sh" "$PLAIN_GUARD_BODY"
-link_guard "myflow-do" "check-foo.sh"
-write_skill_md "myflow-do" '# myflow-do fixture
+link_guard "flow" "check-foo.sh"
+write_skill_md "flow" '# flow fixture
 
 Run the guard:
 

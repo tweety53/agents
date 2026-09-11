@@ -175,14 +175,14 @@ the rule follows the read, not the section.
 ### Where enforcement happens
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
-ran".** The guard runs at the point this section is *read*: `/myflow-do` runs it against each apply
+ran".** The guard runs at the point this section is *read*: `/flow`'s implement phase runs it against each apply
 worktree before it resolves or exports a single row, per **Isolate the workspace** in
 `skills/flow/implement.md`,
 and a non-zero exit stops that run. That is what makes the enforcement reach every project flow is
 installed into, rather than only the repository the guard ships in — where it is *also* a lint step,
 which is a self-check on the agents repository's own configuration and nothing more. A project that
 declares no section passes silently in both places, which is the overwhelmingly common case.
-`/myflow-finish` deliberately does not repeat the validation: run 2 reads the `survivors` row alone
+bare `/flow` deliberately does not repeat the validation: run 2 reads the `survivors` row alone
 and already reports every input it cannot resolve as a skip, and a blocking validation there would
 strand an already-merged change over text that session cannot correct — the trade
 **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`) rejects when it weighs a

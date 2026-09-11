@@ -394,12 +394,14 @@ git -C <worktree> log <merge-base>..HEAD --oneline
 
 **Load `skills/flow-contracts/git-boundaries.md`** before committing below.
 
-**The one push exception.** Every task and fixup commit already sits on the branch, unpushed. If the
-state file records a `prUrl`, a PR is already open, so this run also commits
+**The one planning-commit exception.** Every task and fixup commit already sits on the branch,
+pushed as it landed (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). If the state
+file records a `prUrl`, a PR is already open, so this run also commits
 `<project>/spectre/changes/` and `<project>/docs/superpowers/` and pushes everything to the PR
-branch; otherwise this step commits and pushes nothing. On that path only — and in this order — run
+branch; otherwise this step commits nothing more. On that path only — and in this order — run
 `flow record render -change <name> -kind all -repo <worktree>`; then `commit-split.sh <worktree>
-<name> "<impl-msg>" "chore(spectre): plan and session records"`; then push the branch. `<impl-msg>`
+<name> "<impl-msg>" "chore(spectre): plan and session records"`; then push the branch
+`--force-with-lease`, since the split reshaped it. `<impl-msg>`
 covers working-tree edits the operator made at the human gate without staging them — derive it the
 same way a fixup commit's subject is derived — `fix(<module>): <what changed since the last task
 commit>`.
@@ -459,12 +461,12 @@ Resolve the run instructions for the handoff's `Running:` section. It writes no 
 
   **Where every application `## apps` names is one this prohibition covers, the start is
   nothing — stated, not silently skipped.** This repository is that case: its `## apps` names
-  exactly one URL-bearing application, the myflow stats daemon on `127.0.0.1:4173`, and that is the
+  exactly one URL-bearing application, the flow stats daemon on `127.0.0.1:4173`, and that is the
   protected daemon itself. A run against this repository therefore starts nothing before this
   stage ends, and the handoff states which application was skipped and why:
 
   ```
-  Not started: myflow stats daemon (http://127.0.0.1:4173) — protected, see
+  Not started: flow stats daemon (http://127.0.0.1:4173) — protected, see
   <project>/CLAUDE.md's "Never stop the dev workspace's stats service or its storage".
   ```
 

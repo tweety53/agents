@@ -98,7 +98,7 @@ func newUitestDatabase(t *testing.T) string {
 }
 
 // TestSeedPopulatesFixture proves seedFixture writes what
-// specs/myflow-ui-test-stack/spec.md's "The test stack starts populated"
+// the UI-test-stack requirement "The test stack starts populated"
 // requires: two projects, a change in every one of the three pipeline
 // states, and at least one stage run carrying token usage a cost view
 // could render. It runs against its own throwaway "..._uitest" database,

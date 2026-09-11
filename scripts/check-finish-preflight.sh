@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-finish-preflight.sh — decide whether /myflow-finish should integrate
+# check-finish-preflight.sh — decide whether /flow should integrate
 # (run 1) or archive (run 2), or refuse because it cannot tell.
 #
 # Usage: check-finish-preflight.sh <worktree> <base-ref> <recorded-merge-base|->
@@ -32,7 +32,7 @@
 # WHY SIGNAL ORDER IS THE WHOLE FIX. A branch with no commits of its own is an
 # ancestor of EVERY branch, so `merge-base --is-ancestor` answers "merged" on a
 # branch whose work is staged and never committed — the normal IN_PROGRESS
-# state, since /myflow-do may not commit before a PR exists. Run 2 would then
+# state, since /flow's implement phase may not commit before a PR exists. Run 2 would then
 # archive the change and `git worktree remove --force` the worktree holding all
 # of it. Comparing HEAD with the merge base RECORDED IN THE STATE FILE catches
 # it; counting commits ahead of the base branch does NOT, because a genuinely

@@ -52,11 +52,11 @@ describe("route resolution ignores the query string (task 1)", () => {
 
   it("a run route with a query resolves to that run, and the change name does not carry the query", async () => {
     window.location.hash =
-      "#/run/kan-16-myflow-stats-app/kan-16-myflow-stats-app?from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z";
+      "#/run/kan-16-stats-app/kan-16-stats-app?from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z";
     render(<App />);
-    await screen.findByRole("heading", { name: "kan-16-myflow-stats-app" });
+    await screen.findByRole("heading", { name: "kan-16-stats-app" });
     expect(listStageRunsMock).toHaveBeenCalledWith(
-      expect.objectContaining({ filters: expect.objectContaining({ name: "kan-16-myflow-stats-app" }) }),
+      expect.objectContaining({ filters: expect.objectContaining({ name: "kan-16-stats-app" }) }),
     );
     window.location.hash = "";
   });
@@ -69,11 +69,11 @@ describe("route resolution ignores the query string (task 1)", () => {
   });
 
   it("a run route with no query resolves exactly as today", async () => {
-    window.location.hash = "#/run/kan-16-myflow-stats-app/kan-16-myflow-stats-app";
+    window.location.hash = "#/run/kan-16-stats-app/kan-16-stats-app";
     render(<App />);
-    await screen.findByRole("heading", { name: "kan-16-myflow-stats-app" });
+    await screen.findByRole("heading", { name: "kan-16-stats-app" });
     expect(listStageRunsMock).toHaveBeenCalledWith(
-      expect.objectContaining({ filters: expect.objectContaining({ name: "kan-16-myflow-stats-app" }) }),
+      expect.objectContaining({ filters: expect.objectContaining({ name: "kan-16-stats-app" }) }),
     );
     window.location.hash = "";
   });

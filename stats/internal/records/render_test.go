@@ -222,7 +222,7 @@ func TestRenderLedgerDistinguishesAnAbsentMeasurementFromAZeroOne(t *testing.T) 
 // reasonSessionAmbiguous ("matched more than one session") and
 // reasonDispatchAmbiguous ("matched more than one dispatch"). The delta
 // spec's requirement ("The record says why a dispatch has no cost",
-// specs/myflow-run-record/spec.md) names all three, plus `not measured`:
+// the run-record requirement) names all three, plus `not measured`:
 // "session never bound", "the session token matched N sessions" and
 // "indistinguishable from N concurrent dispatches" -- the last one
 // attribute.go's dispatch-window ambiguity, which is exactly what

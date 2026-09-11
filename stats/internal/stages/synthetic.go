@@ -4,7 +4,7 @@ package stages
 // that a stage mark's begin handler bootstraps only to give an
 // otherwise-unknown mark somewhere to attach -- never a value a real
 // `state set` writes, so a record carrying it is immediately recognisable
-// as "nobody ever ran /myflow-start for this" (design.md, kan-174).
+// as "nobody ever ran /flow for this" (design.md, kan-174).
 //
 // It lives in package stages, not because both sides happen to import
 // stages already, but because it exists only in service of a stage mark:

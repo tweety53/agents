@@ -7,8 +7,8 @@
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated contract
 # — the verdict grammar under **Global constraints** in this repository's
 # archived kan-242-devstop-not-running-while-stack-alive change's tasks.md and
-# the requirement **Worktree cleanup verifies the stack actually stopped, before
-# removing anything** in that change's myflow-finish-cleanup spec.
+# its requirement **Worktree cleanup verifies the stack actually stopped, before
+# removing anything**.
 # Never assert against observed output.
 # test-check-plan-provenance.sh's header records that suite encoding the guard's
 # own defects as its specification more than once, which then made each defect

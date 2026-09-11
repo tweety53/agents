@@ -14,12 +14,12 @@
 # count; bytes rather than tokens, because that would need a tokenizer this
 # repository does not have and could not pin.
 #
-# COVERAGE IS EVERY OWNED MARKDOWN FILE, not only the files a `/myflow-*` run
+# COVERAGE IS EVERY OWNED MARKDOWN FILE, not only the files a `/flow` run
 # loads. The guard used to stop at skills/flow-contracts/*.md plus each
 # skills/*/SKILL.md and its rationale sibling — 13 rows — on the reasoning that
 # a byte cut is only paid for where it is loaded per run. Regrowth does not
 # respect that boundary: when this guard was widened, 79 owned files sat outside
-# it, openspec/specs/ alone accounting for 462 KB of text nothing held back.
+# it, the then-frozen spec tree alone accounting for 462 KB of text nothing held back.
 #
 # The corpus is resolved by scripts/lib/owned-corpus.sh, which
 # check-normative-inventory.sh calls too. One implementation, because the
@@ -44,21 +44,8 @@
 #
 # EVERY COVERED FILE NEEDS A ROW. A file with no row is a violation rather than
 # a pass — otherwise a file added later escapes the ratchet silently, which is
-# exactly how the file inventory in myflow-contract-distribution went stale
+# exactly how the contract-distribution file inventory went stale
 # through three changes before anyone noticed.
-#
-# THE FROZEN openspec/specs/ TREE CARRIES NO ROWS ANY MORE, though it once did:
-# it was the largest single piece of the 79-file, 462-KB widening described
-# above, 33 rows' worth. Those rows are gone now because the tree they measured
-# is no longer part of the corpus at all: scripts/lib/owned-corpus.sh's scope
-# roots name spectre/specs/, not openspec/specs/, so owned_corpus_files no
-# longer enumerates a single file under the old tree, and "every covered file
-# needs a row" above already excuses it, the same way it excuses everything
-# else outside the library's scope roots. A ratchet exists to catch REGROWTH,
-# and a frozen tree cannot regrow — nothing under openspec/ is edited again,
-# by this guard's own corpus definition. Do not re-add its rows: that tree is
-# history now, not something this guard measures, no matter how large or
-# small it happens to sit.
 #
 # THE TABLE IS HAND-MAINTAINED AND HAS NO REGENERATE MODE. A guard that can
 # rewrite its own bound from current sizes makes regeneration the path of least
@@ -74,7 +61,7 @@
 #
 # The table is keyed on the path RELATIVE TO THE REPOSITORY ROOT, never on the
 # bare basename. Every skill directory has a file literally named SKILL.md —
-# skills/myflow-do/SKILL.md and skills/myflow-start/SKILL.md would collide on
+# skills/flow/SKILL.md and skills/flow-status/SKILL.md would collide on
 # "SKILL.md" and silently share one row, so whichever budget that row held
 # would govern both files rather than either one's own size.
 #
@@ -111,36 +98,6 @@ fi
 source "$SCRIPT_DIR/lib/owned-corpus.sh"
 
 # path-relative-to-repo-root<space>max-bytes, one row per covered file.
-# TWENTY-SEVEN ROWS BELOW NAME PATHS THAT NO LONGER EXIST, AND THEY STAY.
-#
-# They are the `myflow-do`, `myflow-start`, `myflow-finish`, `myflow-fast`,
-# `myflow-status` and `myflow-research` skills and commands, consolidated into
-# `/flow` by an earlier change. Audited during KAN-289 (`git grep` each key
-# against the tree); none of them resolves.
-#
-# THEY ARE INERT. This guard iterates the corpus files it FINDS and looks up a
-# budget for each; it never walks these rows checking that they resolve. A row
-# naming a path that does not exist can therefore never produce a violation.
-#
-# THEY ARE ALSO LOAD-BEARING, WHICH IS THE PART THAT WILL SURPRISE YOU. Four of
-# them are the only way `scripts/test-check-contract-budget.sh` can exercise two
-# of this guard's rules:
-#
-#   skills/myflow-status/SKILL.md      -- the over-budget SKILL.md case
-#   skills/myflow-research/SKILL.md    -- \
-#   skills/myflow-do/SKILL.md          -- / the two-rows-different-budgets case
-#   skills/myflow-do/SKILL-rationale.md -- the over-budget SKILL-rationale case
-#
-# The last one has NO live equivalent: no `skills/*/SKILL-rationale.md` exists
-# anywhere in this repository, so deleting that row leaves the SKILL-rationale
-# rule with no test at all. The harness builds fixture trees at these paths and
-# sizes them from the row, deliberately, so a fix round that moves a budget
-# cannot silently stop the fixture discriminating (see F15 in that harness).
-#
-# So: do not "tidy" these away as dead data. Removing them is a real change --
-# it needs the harness's fixtures repointed at live rows first, and needs an
-# answer for the SKILL-rationale rule that does not exist yet. KAN-289 audited
-# them and deliberately left them rather than widen a rename into that cleanup.
 budgets() {
   cat <<'EOF'
 .flow/project.md 26450
@@ -153,24 +110,12 @@ commands-claude/flow-settings.md 993
 commands-claude/flow-status.md 1632
 commands-claude/flow-fast.md 3612
 commands-claude/flow.md 3188
-commands-claude/myflow-do.md 2240
-commands-claude/myflow-fast.md 2536
-commands-claude/myflow-finish.md 3163
-commands-claude/myflow-research.md 972
-commands-claude/myflow-start.md 1815
-commands-claude/myflow-status.md 1637
 commands/flow-plan.md 1227
 commands/flow-self-review.md 1327
 commands/flow-settings.md 1188
 commands/flow-status.md 1970
 commands/flow-fast.md 4054
 commands/flow.md 3874
-commands/myflow-do.md 2738
-commands/myflow-fast.md 3040
-commands/myflow-finish.md 3507
-commands/myflow-research.md 1038
-commands/myflow-start.md 2178
-commands/myflow-status.md 1981
 rules/agent-baseline.md 6883
 rules/be-brief.mdc 7782
 rules/build-the-simplest-thing.mdc 3660
@@ -186,12 +131,12 @@ rules/never-touch-production.mdc 2336
 rules/no-direct-pushes-to-main.mdc 2416
 skills/README.md 4781
 skills/flow-fast/SKILL.md 25925
-skills/flow-plan/SKILL.md 18400
+skills/flow-plan/SKILL.md 23290
 skills/flow-self-review/SKILL.md 7102
 skills/flow-settings/SKILL.md 8010
 skills/flow-status/SKILL.md 23118
 skills/flow/SKILL.md 20520
-skills/flow/SKILL-rationale.md 7198
+skills/flow/SKILL-rationale.md 9490
 skills/flow/archive.md 23452
 skills/flow/brainstorm.md 12712
 skills/flow/brainstorm-planner.md 40756
@@ -212,7 +157,7 @@ skills/flow-contracts/build-green.md 6678
 skills/flow-contracts/finish-contract-run1.md 30090
 skills/flow-contracts/finish-contract-run2.md 36019
 skills/flow-contracts/git-boundaries-rationale.md 2317
-skills/flow-contracts/git-boundaries.md 7258
+skills/flow-contracts/git-boundaries.md 9210
 skills/flow-contracts/handoff-blocks-rationale.md 13086
 skills/flow-contracts/handoff-blocks.md 20240
 skills/flow-contracts/jira-followups.md 45385
@@ -235,21 +180,6 @@ skills/flow-contracts/workspace-isolation-rationale.md 14317
 skills/flow-contracts/workspace-isolation.md 31471
 skills/flow-contracts/worktree-resolution-rationale.md 595
 skills/flow-contracts/worktree-resolution.md 2343
-skills/myflow-do/SKILL-rationale.md 27551
-skills/myflow-do/SKILL.md 103578
-skills/myflow-do/adversarial-reviewer-prompt.md 3545
-skills/myflow-do/bug-hunter-reviewer-prompt.md 1437
-skills/myflow-do/engineering-principles.md 10737
-skills/myflow-do/principles-reviewer-prompt.md 14156
-skills/myflow-do/security-reviewer-prompt.md 1540
-skills/myflow-fast/SKILL-rationale.md 3241
-skills/myflow-fast/SKILL.md 25636
-skills/myflow-finish/SKILL-rationale.md 5786
-skills/myflow-finish/SKILL.md 50207
-skills/myflow-research/SKILL.md 4600
-skills/myflow-start/SKILL-rationale.md 7030
-skills/myflow-start/SKILL.md 38342
-skills/myflow-status/SKILL.md 22856
 EOF
 }
 

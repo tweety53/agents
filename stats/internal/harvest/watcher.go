@@ -1200,8 +1200,8 @@ var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end)\b`)
 //
 // KAN-172 finding F5 added a third requirement here -- the command must
 // begin (after stripping one leading `cd <path> &&`) with a word whose
-// base name is "myflow" -- to reject a command that only PRINTS a
-// mark-shaped string, e.g. `echo "myflow stage begin ...
+// base name is the CLI's -- to reject a command that only PRINTS a
+// mark-shaped string, e.g. `echo "flow stage begin ...
 // -session-token mf-abc123 ..."`. KAN-174 removes that requirement: real
 // marks are routinely emitted after variable assignments
 // (`N=kan; T=mf-x; cd /repo`) and on a later line of a multi-statement
@@ -1209,10 +1209,10 @@ var stageMarkInvocationPattern = regexp.MustCompile(`\bstage\s+(?:begin|end)\b`)
 // those shapes was measured rejected by the F5 anchor in production --
 // all 14 stage runs from the finish sequence that merged F5 went unbound
 // (design.md). A position anchor loose enough to admit those shapes (e.g.
-// requiring "myflow" only after a command boundary -- start of text, or
+// requiring the CLI name only after a command boundary -- start of text, or
 // after `;`, `&&`, `||`, `|`, a newline) was considered and rejected: the
 // echoed-example text it is meant to exclude still only needs a newline
-// before "myflow" to satisfy a boundary anchor too, which is common in
+// before the CLI name to satisfy a boundary anchor too, which is common in
 // exactly the multi-line blocks this defect is about, so the anchor adds
 // machinery without closing the gap it targets (design.md, "recognise a
 // mark by its invocation, not by its position").

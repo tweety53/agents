@@ -59,20 +59,13 @@ source "$SCRIPT_DIR/lib/coverage.sh"
 # The default scan set: everything in this repo that can carry the vocabulary. Kept here
 # and nowhere else, so callers only ever have to say `scripts/check-vocabulary.sh`.
 #
-# `openspec/specs` is not in this list because that tree is FROZEN — history, this repository's
-# convention no matter which guard is asking (see scripts/lib/owned-corpus.sh's corpus
-# definition for the guards that literally source it; this one does not — it has always had its
-# own DEFAULT_TARGETS, never that library's scope roots — but the same tree gets the same answer
-# either way), never linted again no matter what vocabulary it still carries. That is reason
-# enough on its own today. It is also, separately,
-# a record of an earlier decision made while the tree was still live: scanning `openspec/specs`
-# was tried and reverted back then, because a requirement that forbids a retired term has to
-# name that term to do its job (e.g. "SHALL NOT contain `gates`, `tested`, ..."), so a live spec
-# written correctly still tripped a bare vocabulary scan. There was no honest fix for that false
-# positive — rewording deletes the requirement, and a suppression marker is forbidden by this
-# repo's own lint policy. Don't re-add `openspec/specs` here for either reason; if drift in a
-# live spec needs catching, it needs a check that understands requirement structure, not a flat
-# grep over retired literals.
+# No spec tree is in this list: scanning one was tried and reverted, because a requirement
+# that forbids a retired term has to name that term to do its job (e.g. "SHALL NOT contain
+# `gates`, `tested`, ..."), so a spec written correctly still tripped a bare vocabulary scan.
+# There was no honest fix for that false positive — rewording deletes the requirement, and a
+# suppression marker is forbidden by this repo's own lint policy. If drift in a spec needs
+# catching, it needs a check that understands requirement structure, not a flat grep over
+# retired literals.
 DEFAULT_TARGETS=(skills rules commands commands-claude scripts README.md AGENTS.md CLAUDE.md)
 
 if [[ $# -gt 0 ]]; then
@@ -261,9 +254,9 @@ collect_hits() {
 #     already excludes it structurally (the `-` before `code-review` fails `[^-]`), so no  # vocab-guard:allow
 #     whole-line filter is needed — one that dropped the line would also hide a genuine retired
 #     token sitting on the same line.
-#   - `code-review` — a real harness-provided review skill (`skills/myflow-do/SKILL.md` section 5  # vocab-guard:allow
+#   - `code-review` — a real harness-provided review skill (`skills/flow/review-panel.md`  # vocab-guard:allow
 #     invokes it for the `light` roster's third panel slot); never rename it. It is, byte for
-#     byte, the same string as the myflow command retired in the twelve-stage collapse, so the
+#     byte, the same string as the command retired in the twelve-stage collapse, so the
 #     guard cannot tell "the skill" from "the old command" by the string alone — only by how each
 #     is written. Every legitimate reference to the skill in this repository's prose writes it as
 #     its own token in backticks immediately followed by the word `skill` — "the harness's  # vocab-guard:allow
@@ -321,22 +314,19 @@ check_retired_stage_vocabulary() {
   pattern+='|skip-review|skip-propose|propose-only|full-panel'            # vocab-guard:allow
   pattern+='|commit-during-apply'                                         # vocab-guard:allow
   # Retired by the five-state → three-state collapse: the test and review commands folded  # vocab-guard:allow
-  # into /myflow-do and /myflow-finish. They were still live commands when the list above was
+  # into what is now /flow. They were still live commands when the list above was
   # first written, which is why they arrive separately.
-  # Bounded so `myflow-test-setup` (a sandbox prefix in test-setup.sh) and the separately
-  # listed `myflow-review-done` / `myflow-fast-path` are not matched twice or spuriously.  # vocab-guard:allow
+  # Bounded so the separately listed `myflow-review-done` / `myflow-fast-path` are not  # vocab-guard:allow
+  # matched twice.
   pattern+='|myflow-test([^-]|$)|myflow-review([^-]|$)'                     # vocab-guard:allow
   #
-  # RETIRED BY THE myflow->flow RENAME (KAN-289). Five literals, and the list is
-  # deliberately this short. A flat ban on the word `myflow` was measured first
-  # and rejected: 852 lines in this guard's own scan set carry it, and almost all
-  # of them are legitimate -- 478 are `/myflow-*` command literals that are VALUES
-  # in the live stage_runs table, 115 are the self-review angle labels whose
-  # legacy spelling check-self-review-report.sh must keep recognising, 57 are the
-  # `.myflow` the hard-cutover detection exists to look for, and 15 are the
-  # managed-block delimiters setup.sh compares byte-for-byte against files already
-  # in the operator's home. Banning the word would demand a suppression marker on
-  # roughly eight hundred lines, which is precisely the shape this file's own
+  # RETIRED BY THE RENAME TO flow (KAN-289). Five literals, and the list is
+  # deliberately this short. A flat ban on the old product word was measured
+  # first and rejected: the retired command literals are VALUES in the live
+  # stage_runs table, and the self-review angle labels' legacy spelling is one
+  # check-self-review-report.sh must keep recognising in the immutable reports
+  # under docs/self-review/. Banning the word would demand a suppression marker
+  # on every such line, which is precisely the shape this file's own
   # `myflow-fast` note calls "teaching the guard to lie".
   #
   # What is listed below instead is every spelling that measured ZERO legitimate
@@ -345,37 +335,20 @@ check_retired_stage_vocabulary() {
   # assumed: each was counted before being added.
   pattern+='|myflowd|myflow-postgres|myflow-contracts'                      # vocab-guard:allow
   pattern+='|MYFLOWD_|MYFLOW_'                                              # vocab-guard:allow
-  # `myflow-fast` was ALSO retired by that same five-state collapse — but KAN-111
-  # (operator-approved 2026-08-09) ships a real, live command of the identical name: keep the
-  # new command's name, narrow this guard instead of renaming it.
-  #
-  # An excluded-character-class boundary was tried first, the same idiom the `code-review`  # vocab-guard:allow
-  # exception above already established for this script's plain ERE (`grep -E`, no lookaround):
-  # match `myflow-fast` as a bare word only when not immediately preceded by `/` (a path
-  # segment) or a backtick (an inline-code start), and not immediately followed by `/` or `.` (a
-  # path continuation) — `(^|[^/\`])myflow-fast([^-/.]|$)`. That correctly admits the new
-  # command's path and backtick-fenced spellings (`skills/myflow-fast/`,
-  # `commands/myflow-fast.md`, `` `myflow-fast` ``) and its own bare command mention
-  # `/myflow-fast` (excluded because the leading `/` is indistinguishable from a path segment).
-  # But it does NOT admit the new command's plain-word self-references, and this skill genuinely
-  # has them — `skills/myflow-fast/SKILL.md` itself, measured against this exact pattern, still
-  # trips on its own frontmatter (`name: myflow-fast`) and its own prose (`Using myflow-fast for
-  # change`, `myflow-fast does not publish one`), none of which is preceded by `/` or a backtick
-  # or followed by `/` or `.`. That is the identical shape the retired command's own bare
-  # mention had, so no boundary-class technique can admit one without admitting the other — the
-  # two are lexically the same string in the same context.
-  #
-  # So `myflow-fast` is handled the same way `checkpoint` and the `effort` VALUES above are:
-  # dropped from this mechanical list and swept by hand, because it now collides with ordinary,
-  # legitimate language the way they do, and the only way to silence that collision here is a
-  # `vocab-guard:allow` marker on a line that would be telling the truth about a live command,
-  # which teaches the guard to lie. `myflow-fast-path` remains listed on its own line above and  # vocab-guard:allow
-  # is unaffected — it was always a distinct, separately-spelled retired name, not a collision.
-  # What this drop costs, honestly: a bare, non-path, non-backtick reintroduction of the retired
-  # command (e.g. "run myflow-fast next" with no leading `/`) now passes this guard clean, same
-  # as a bare "checkpoint" or a bare "effort" value would. Per this script's own header, that was
-  # already true of any paraphrase — this just names one more shape the fixed-literal list can't
-  # safely cover once the literal itself is legitimate vocabulary.
+  # `myflow-fast` was ALSO retired by that same five-state collapse — and then KAN-111
+  # (operator-approved 2026-08-09) shipped a live command of the identical name, today's
+  # /flow-fast. While the two spellings coincided, no boundary-class technique in plain ERE
+  # (`grep -E`, no lookaround) could admit the live command's bare self-references (its own
+  # frontmatter `name:`, its own prose) without admitting the retired command's identical bare
+  # mention — the two were lexically the same string in the same context. So `myflow-fast` is
+  # handled the same way `checkpoint` and the `effort` VALUES above are: dropped from this
+  # mechanical list and swept by hand, because the only way to silence that collision here was a
+  # `vocab-guard:allow` marker on a line telling the truth about a live command, which teaches
+  # the guard to lie. `myflow-fast-path` remains listed on its own line above and is  # vocab-guard:allow
+  # unaffected — it was always a distinct, separately-spelled retired name, not a collision.
+  # What this drop costs, honestly: a bare reintroduction of the retired command (e.g. "run
+  # myflow-fast next") passes this guard clean, same as a bare "checkpoint" or a bare "effort"
+  # value would. Per this script's own header, that was already true of any paraphrase.
   # Retired FIELD and GATE vocabulary. Omitting these is how a wholly stale file — the contracts
   # index, which still described stage boundaries and Gates B/C/D — passed a clean run.
   pattern+='|gates\.[a-zA-Z]|originStage|fastPath|REVIEWED_TREE|MERGE_BASE'   # vocab-guard:allow

@@ -392,7 +392,7 @@ check_file() {
       [ -n "$path" ] || continue
 
       # A citation may name this repository explicitly with a literal
-      # `<agents repo>/` prefix (specs/myflow-citation-roots/spec.md). Strip
+      # `<agents repo>/` prefix, which names this repository's root. Strip
       # it before resolving, so a citation that carries that root is checked
       # exactly as it was before it carried one — without this, the citation
       # never resolves to a file and is silently skipped rather than
@@ -527,16 +527,10 @@ EXPECTED_ZERO_COMMAND_DISPATCH_STUBS=(
   "commands-claude/flow-settings.md"
   "commands-claude/flow-status.md"
   "commands-claude/flow.md"
-  "commands-claude/myflow-do.md"
-  "commands-claude/myflow-fast.md"
-  "commands-claude/myflow-start.md"
   "commands/flow-plan.md"
   "commands/flow-self-review.md"
   "commands/flow-settings.md"
   "commands/flow-status.md"
-  "commands/myflow-do.md"
-  "commands/myflow-fast.md"
-  "commands/myflow-start.md"
 )
 EXPECTED_ZERO_COMMAND_DISPATCH_REASON="command-dispatch stub — every path it cites sits inside the SAME bold span as the verb citing it (e.g. \"**load \`path\` first**\"); looks_like_section rejects any bold span containing '/', so no candidate section name ever forms adjacent to the path"
 
@@ -566,11 +560,6 @@ EXPECTED_ZERO_CONTRACT_DOCS_REASON="contract/index doc — cites other files as 
 
 EXPECTED_ZERO_REVIEWER_PROMPTS=(
   "skills/flow/engineering-principles.md"
-  "skills/myflow-do/adversarial-reviewer-prompt.md"
-  "skills/myflow-do/bug-hunter-reviewer-prompt.md"
-  "skills/myflow-do/engineering-principles.md"
-  "skills/myflow-do/principles-reviewer-prompt.md"
-  "skills/myflow-do/security-reviewer-prompt.md"
 )
 EXPECTED_ZERO_REVIEWER_PROMPTS_REASON="reviewer-prompt file, deliberately self-contained — most cite no .md/.mdc path anywhere, and the rest never pair a citation with an adjacent bold section name"
 
@@ -578,7 +567,6 @@ EXPECTED_ZERO_RATIONALE_DOCS=(
   "skills/flow-contracts/git-boundaries-rationale.md"
   "skills/flow-contracts/worktree-resolution-rationale.md"
   "skills/flow-contracts/project-configuration-authoring.md"
-  "skills/myflow-fast/SKILL-rationale.md"
   "skills/flow/SKILL-rationale.md"
 )
 EXPECTED_ZERO_RATIONALE_DOCS_REASON="rationale/exploration doc, prose-only — any path citation sits inside the same bold span as its citing verb, or with no bold nearby at all"
