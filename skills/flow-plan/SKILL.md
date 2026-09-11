@@ -273,7 +273,7 @@ filename without `.md`, so the pair is found from the note's path by one exact t
    `DEFAULT_MODEL` from `flow settings get`; the same tree and rolls. The rolls seed from `<stem>`
    rather than from a change name, deliberately: the recorded decision is what `/flow` records, so
    it is stable by being written down, not by being re-rolled.
-3. **A `## Decision` section in the note**, last, carrying the printed table **Decide**'s own
+3. **A `## Decision` section in the note**, last, carrying the printed block **Decide**'s own
    output shape defines, so a reader sees the decision without opening the JSON.
 
 `/flow`'s seed step takes both files in place of its own writing-plans and Decide work and deletes

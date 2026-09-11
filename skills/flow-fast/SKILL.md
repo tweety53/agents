@@ -66,7 +66,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 - **decide**: `plan-class.sh <changeRoot>/tasks.md 1`, then **Decide** steps 1–4 and **The
   tree** (`skills/flow/brainstorm-planner.md`) as written — no research seed is ever read, so the
   roll always runs — writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
-  `## Decision` table under its `planning:`/`toggles:`/`models:` lines.
+  `## Decision` block under its `planning:`/`toggles:`/`models:` lines.
 - **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written — one implementer per decided group on that group's model and effort, the context
   bundle gathered on `<changeRoot>`, every dispatch-prompt paragraph, both dispatch records, the
@@ -79,7 +79,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
   states them: the parent itself on `inline`, the panel-fix subagent on `sdd`. `default` runs no
   panel.
 
-The change summary in section 5 then also carries the `## Decision` table and, when a panel ran,
+The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
 each finding with its status.
 
 ## 1. Kickoff

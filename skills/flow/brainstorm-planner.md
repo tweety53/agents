@@ -379,7 +379,7 @@ declares them, and fix any hit.
 ### Decide
 
 **A seeded decision replaces the roll.** When **B** carried `<project>/docs/superpowers/research/<stem>/decision.json`, copy it
-unchanged to the decision path named below, print its `## Decision` table with the line
+unchanged to the decision path named below, print its `## Decision` block with the line
 `seeded from <path>` directly above it, and skip `plan-class.sh` and steps 1–4: its rolls were
 seeded from `<stem>` rather than `<name>`, and the written decision is the one this run records.
 Otherwise:
@@ -485,30 +485,42 @@ run's own output once the Decide step completes, filling every cell from what wa
 ```markdown
 ## Decision
 
-| Setting | Toggle | Result |
-|---|---|---|
-| execution mode | <default\|dynamic> | <inline\|sdd> |
-| implementer model | <default\|dynamic> | <"skipped — inline"\|"default"\|model/effort> |
-| review panel | <default\|dynamic> | <"default"\|roster summary; rerun policy>; dispatches: <group>: <model/effort> · <group>: <model/effort> |
-| implementer groups | — | <"skipped — inline"\|"[1,2]: <model/effort> · [3]: <model/effort>" — <reason>> |
+| Input              | Rule             | Value |
+|--------------------|------------------|-------|
+| class              | mechanical <class_mechanical> | <class> (override: <reason or "none">) |
+| inputs             | plan-class.sh    | tasks <N> · files <N> · repos <N> · migration <yes\|no> · spec <yes\|no> · red <yes\|no> · unverified <yes\|no> |
+| roll: compact      | <N> <"<" or "≥"> <threshold> | <compact\|full> |
+| roll: experimental | <N> <"<" or "≥"> 30 | <slot name\|"no slot"\|"none available"> |
+| roll: bundle       | <N> <"<" or "≥"> 30 | <static\|free> grouping |
 
-class: <class> (mechanical: <class_mechanical>; override: <reason or "none">)
-inputs: tasks=<N> files=<N> repos=<N> migration=<yes|no> spec=<yes|no> red=<yes|no> unverified=<yes|no>
-rolls: compact <N> (<interpretation>) · experimental <N> (<interpretation>) · bundle <N> (<interpretation>)
+| Setting            | Toggle           | Result |
+|--------------------|------------------|--------|
+| execution mode     | <default\|dynamic> | <inline\|sdd> |
+| implementer model  | <default\|dynamic> | <"skipped — inline"\|"default"\|model/effort> |
+| review panel       | <default\|dynamic> | <"default"\|<compact\|full> · <delta\|full> rerun> |
+| ↳ dispatch <n>     | <model> / <effort> | <roles `+`-joined in roster order> |
+| ↳ grouping         | free             | <grouping_reason> |
+| implementer groups | —                | <"skipped — inline"\|"mechanical"\|<groups_reason>> |
+| ↳ group <bundle ids> | <model> / <effort> | <bundle ids> (mechanical: <groups_mechanical>; override: <groups_override>) |
 ```
 
-The review-panel cell's `dispatches:` suffix is each group's roles `+`-joined in roster order,
-each followed by that dispatch's model and effort; on a
-free grouping, the line right after it is `grouping: free — <grouping_reason>` (omitted on a static
-grouping). The implementer-groups row is `skipped — inline` on an inline run, else `groups` as
-bundle ids (`plan-dispatch-bundles.sh`'s ids), each followed by that group's model and effort, then
-`— <groups_reason>` and, on a split
-(`groups_override` non-`null`), `(mechanical: <groups_mechanical>; override: <groups_override>)`
-appended after it — mirroring the `class:` line's own `mechanical`/`override` shape.
+One fact per row, every reason in the middle column, nothing printed outside the two tables. The
+first table is the input side — `class`, the four `plan-class.sh` booleans with `tasks`/`files`/
+`repos`, and the three rolls, each roll's rule cell the roll against its threshold and its value
+cell the interpretation. The second is the decision side. `↳` rows are sub-rows of the setting
+above them: one `↳ dispatch <n>` row per object in `panel.dispatches`, in order, its rule cell that
+dispatch's model and effort and its value cell the roles `+`-joined in roster order; a `↳ grouping`
+row only on a free grouping (omitted on a static one); an experimental slot skipped for the cap
+adds `· experimental: skipped — bundle cap` to the review-panel value cell. The implementer-groups
+row is `skipped — inline` on an inline run, else `groups_reason`, followed by one `↳ group` row per
+object in `groups`, its rule cell the group's model and effort and its value cell the bundle ids
+(`plan-dispatch-bundles.sh`'s ids), the `(mechanical: …; override: …)` suffix only on a split
+(`groups_override` non-`null`) — mirroring the `class` row's own `override` shape. When `panel` is
+the string `default` the review-panel value cell is `default` and no `↳` row follows it.
 
 **On a no-seed run** (`skills/flow/SKILL.md`'s startup-visibility print skipped the seeded-path <!-- refs-guard:allow -->
 block, since no research seed was found at kickoff), prepend these three lines directly above the
-`## Decision` table — the one place these choices appear for a no-seed run, never printed twice:
+`## Decision` block — the one place these choices appear for a no-seed run, never printed twice:
 
 ```text
 planning:  inline, this session (<DEFAULT_MODEL>)
@@ -517,7 +529,7 @@ models:    default <DEFAULT_MODEL> · reviewers <REVIEWERS>
 ```
 
 **On a seeded run**, these three lines already printed at kickoff (**Model resolution**,
-`skills/flow/SKILL.md`) — do not print them again here; only the `## Decision` table itself prints,
+`skills/flow/SKILL.md`) — do not print them again here; only the `## Decision` block itself prints,
 completing that earlier block's `decision:` line.
 
 ```bash
