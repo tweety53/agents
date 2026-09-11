@@ -697,6 +697,11 @@ lines is sufficient. When every finding the round raised was Minor, no slot re-r
 `check-panel-findings-closed.sh` and the stage close. A fixed finding that fails verification takes
 the handback below, and that loop re-runs no slot either.
 
+**A deferral's reason is one clause naming the mechanism — never a rationale essay, in the store
+row or in the round's output.** The essay form is measured, not hypothetical: KAN-501 observed
+kan-459's fix rounds 6–7 at 29.6k–34.7k tokens each, carrying deferral-rationale prose and
+design.md rewrites rather than fixes.
+
 **When the round raised anything above Minor, re-run on deltas.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
@@ -901,6 +906,15 @@ against its defect identity. **Inline no source excerpt.**
 > `<project>/spectre/changes/<name>/tasks.md` in this same pass — never left for a reviewer to
 > catch next round (kan-454, KAN-459). Edit them; do not stage or commit them — the plan record is
 > a planning path and is committed later by the pipeline, never in a fixup.
+
+**Every fix subagent's dispatch prompt also carries the ROUND SCOPE paragraph**:
+
+> **ROUND SCOPE:** your round's output is the diff and the report, nothing else. Do not rewrite
+> `proposal.md` or `design.md`: unaffected sections are never restated, and a decision your fix
+> genuinely overturns is superseded by one appended entry under `## Decisions`, never a per-round
+> rewrite of the file. Deferral rationale is written nowhere — a Minor is deferred with its
+> one-clause reason in the store. Your report names what you fixed, the behaviours you changed,
+> and the task commits your fixups folded into, then stops.
 
 **Every fix subagent's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
 
