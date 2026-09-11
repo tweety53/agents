@@ -1,0 +1,41 @@
+{
+  "toggles": {
+    "execution mode": "dynamic",
+    "implementer model": "dynamic",
+    "review panel": "dynamic"
+  },
+  "class": "small",
+  "classMechanical": "small",
+  "override": null,
+  "inputs": {
+    "tasks": 4,
+    "files": 6,
+    "repos": 1,
+    "migration": false,
+    "spec": false,
+    "red": false,
+    "unverified": false
+  },
+  "rolls": {
+    "compact": 45,
+    "experimental": 33,
+    "bundle": 79
+  },
+  "execution": "inline",
+  "implementer": "skipped — inline",
+  "panel": {
+    "compact": true,
+    "rerun": "delta",
+    "roster": [
+      {"slot": "primary", "model": "sonnet", "effort": "medium", "experimental": false},
+      {"slot": "simple-reviewer", "model": "haiku", "effort": "medium", "experimental": false},
+      {"slot": "principles", "model": "haiku", "effort": "medium", "experimental": false}
+    ],
+    "grouping": "free",
+    "dispatches": [["primary", "simple-reviewer", "principles"]],
+    "grouping_reason": "bundle roll 79 ≥ 30 — free grouping; the compact roster is the floor bundle itself, one dispatch"
+  },
+  "groups": null,
+  "parent": {"model": "fable", "effort": "unknown"},
+  "overrides": {}
+}
