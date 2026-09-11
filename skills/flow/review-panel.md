@@ -664,7 +664,9 @@ by the parent at the fix round's verification step below, never by the fix subag
 **Every round this stage dispatches after pass 1 — each fix-round re-run and the `full` rerun
 policy's final pass — opens by running **Check base movement first** again: the same
 per-worktree `resolve-base-branch.sh` then `check-base-moved.sh` pair, with that section's
-verdicts, operator prompt, rebase and conflict handling unchanged.** The entry check ran once,
+verdicts, operator prompt, rebase and conflict handling unchanged.** **Continue** at a round
+boundary proceeds into the round's own remaining steps — the citation pre-check that follows the
+entry check is an entry step, and the round does not re-run it. The entry check ran once,
 before pass 1; a base that moves while earlier rounds ran would otherwise reach the final round
 — and then integrate — unchallenged, its conflict surfacing only after review has closed. A
 conflict found here surfaces while the panel is still active and the operator is already
