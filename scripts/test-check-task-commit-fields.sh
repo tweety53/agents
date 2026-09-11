@@ -3095,7 +3095,7 @@ run_guard "$REPO"
 [ "$RC" -eq 2 ] && pass "case 93: could not judge — one-argument call exits 2 under the standard line" \
   || fail "case 93: rc=$RC out=$OUT"
 case "$OUT" in
-  *"COULD NOT JUDGE — not a commit verdict"*"usage:"*) pass "case 93: the standard opening carries the usage detail" ;;
+  *"check-task-commit-fields: COULD NOT JUDGE — not a commit verdict"*"usage:"*) pass "case 93: the standard opening carries the usage detail" ;;
   *) fail "case 93: expected the COULD NOT JUDGE line carrying the usage, out=$OUT" ;;
 esac
 
