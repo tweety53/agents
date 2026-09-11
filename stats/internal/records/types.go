@@ -266,12 +266,45 @@ type SuiteRun struct {
 	RanAt      time.Time `json:"ranAt"`
 }
 
+// Pass is one pass-log entry the panel's parent records as it happens --
+// the roster and reduction verdicts, the diff-size figures, the re-run
+// decisions, the fix pass's agents-ran/why/diff-path facts. Before
+// KAN-331 these lived only in the hand-written
+// .superpowers/sdd/final-review-panel.md and died with the worktree; they
+// are rows now, and the rendered panel record is the pass log.
+//
+// Round mirrors Finding.Round: 0 for the initial panel's entries, 1..n
+// for a fix round's. Note is the line verbatim -- the parent's own words,
+// carried through the renderer's marker neutralisation like every other
+// externally-authored text.
+type Pass struct {
+	ID    int64  `json:"id"`
+	Round int    `json:"round"`
+	Note  string `json:"note"`
+}
+
+// Mutation is one fix-mutation: line of the fix round's mutation proof,
+// transcribed by the parent from the fix subagent's report: the path that
+// was mutated, what was mutated, and the test that failed -- or, on the
+// contract's exemption form, mutated "none" and test carrying the reason.
+// Rows are append-only and Round-scoped; the fix-mutations-total count is
+// the round's own row count, rendered per round, never stored.
+type Mutation struct {
+	ID      int64  `json:"id"`
+	Round   int    `json:"round"`
+	Path    string `json:"path"`
+	Mutated string `json:"mutated"`
+	Test    string `json:"test"`
+}
+
 // Run is one change's whole derived record: its dispatches in seq order
 // and its findings in ref order.
 type Run struct {
 	Change     string     `json:"change"`
 	Dispatches []Dispatch `json:"dispatches"`
 	Findings   []Finding  `json:"findings"`
+	Passes     []Pass     `json:"passes"`
+	Mutations  []Mutation `json:"mutations"`
 }
 
 // CostStatus is the wire shape GET .../cost-status answers: how many of a

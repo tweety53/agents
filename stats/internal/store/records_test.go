@@ -2401,3 +2401,82 @@ func TestRecordDispatchStoresEffort(t *testing.T) {
 		t.Errorf("stored row 2: Effort = %q, want %q -- re-read from Postgres, not just RecordDispatch's own return", rec.Dispatches[1].Effort, "high")
 	}
 }
+
+// --- pass log (KAN-331) ---
+
+// TestRecordPanelPassAndMutation pins the two pass-log writes: append-only
+// inserts that allocate ids in call order, carry round verbatim, and refuse
+// an unknown change with ErrChangeNotFound.
+func TestRecordPanelPassAndMutation(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-passlog-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	first, err := st.RecordPass(ctx, projectKey, "kan-1", records.Pass{Round: 0, Note: "roster: full"})
+	if err != nil {
+		t.Fatalf("RecordPass: %v", err)
+	}
+	second, err := st.RecordPass(ctx, projectKey, "kan-1", records.Pass{Round: 1, Note: "not re-run — nothing new"})
+	if err != nil {
+		t.Fatalf("second RecordPass: %v", err)
+	}
+	if second.ID <= first.ID {
+		t.Errorf("second pass ID = %d, want greater than %d (append order)", second.ID, first.ID)
+	}
+
+	mut, err := st.RecordMutation(ctx, projectKey, "kan-1", records.Mutation{
+		Round: 1, Path: "src/foo.go", Mutated: "flipped the guard", Test: "TestFoo",
+	})
+	if err != nil {
+		t.Fatalf("RecordMutation: %v", err)
+	}
+	if mut.Round != 1 || mut.Path != "src/foo.go" || mut.Mutated != "flipped the guard" || mut.Test != "TestFoo" {
+		t.Errorf("mutation row = %+v, want the fields verbatim", mut)
+	}
+
+	if _, err := st.RecordPass(ctx, projectKey, "kan-404", records.Pass{Note: "x"}); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("RecordPass on an unknown change = %v, want ErrChangeNotFound", err)
+	}
+	if _, err := st.RecordMutation(ctx, projectKey, "kan-404", records.Mutation{Path: "p", Mutated: "m", Test: "t"}); !errors.Is(err, store.ErrChangeNotFound) {
+		t.Errorf("RecordMutation on an unknown change = %v, want ErrChangeNotFound", err)
+	}
+}
+
+// TestRunRecordCarriesPassLog pins that the whole-record read returns the
+// pass-log rows beside the dispatches and findings, ordered by round then
+// id, inside the same REPEATABLE READ snapshot.
+func TestRunRecordCarriesPassLog(t *testing.T) {
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-passlog-run-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	for _, p := range []records.Pass{
+		{Round: 1, Note: "second round entry"},
+		{Round: 0, Note: "initial panel entry"},
+	} {
+		if _, err := st.RecordPass(ctx, projectKey, "kan-1", p); err != nil {
+			t.Fatalf("RecordPass: %v", err)
+		}
+	}
+	if _, err := st.RecordMutation(ctx, projectKey, "kan-1", records.Mutation{
+		Round: 1, Path: "p", Mutated: "none", Test: "equivalent",
+	}); err != nil {
+		t.Fatalf("RecordMutation: %v", err)
+	}
+
+	run, err := st.RunRecord(ctx, projectKey, "kan-1")
+	if err != nil {
+		t.Fatalf("RunRecord: %v", err)
+	}
+	if len(run.Passes) != 2 {
+		t.Fatalf("RunRecord carries %d passes, want 2", len(run.Passes))
+	}
+	if run.Passes[0].Round != 0 || run.Passes[1].Round != 1 {
+		t.Errorf("passes = %+v, want round 0 first", run.Passes)
+	}
+	if len(run.Mutations) != 1 || run.Mutations[0].Round != 1 {
+		t.Errorf("mutations = %+v, want the one round-1 row", run.Mutations)
+	}
+}

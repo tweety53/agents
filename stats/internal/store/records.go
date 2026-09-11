@@ -824,7 +824,7 @@ func (s *Store) DispatchWindowsForAgent(ctx context.Context, agentID string) ([]
 // -- "the store holds no rows of this kind for this change" is a value, not
 // a failure, and it must never be reachable by mistyping a change name.
 //
-// All three reads share one REPEATABLE READ, read-only transaction
+// All five reads share one REPEATABLE READ, read-only transaction
 // (queryTxOptions), so a write landing mid-read cannot produce a record
 // whose findings reference a dispatch its dispatch list does not contain.
 func (s *Store) RunRecord(ctx context.Context, projectKey, change string) (records.Run, error) {
@@ -855,12 +855,130 @@ func (s *Store) RunRecord(ctx context.Context, projectKey, change string) (recor
 	if err != nil {
 		return records.Run{}, fmt.Errorf("store: run record for %s/%s: %w", projectKey, change, err)
 	}
+	passes, err := readPanelPasses(ctx, tx, changeID)
+	if err != nil {
+		return records.Run{}, fmt.Errorf("store: run record for %s/%s: %w", projectKey, change, err)
+	}
+	mutations, err := readPanelMutations(ctx, tx, changeID)
+	if err != nil {
+		return records.Run{}, fmt.Errorf("store: run record for %s/%s: %w", projectKey, change, err)
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return records.Run{}, fmt.Errorf("store: run record for %s/%s: commit: %w", projectKey, change, err)
 	}
 
-	return records.Run{Change: change, Dispatches: dispatches, Findings: findings}, nil
+	return records.Run{Change: change, Dispatches: dispatches, Findings: findings,
+		Passes: passes, Mutations: mutations}, nil
+}
+
+// RecordPass records one pass-log entry -- a pass-by-pass metadata line of
+// the review panel's record -- against a change. Append-only, exactly the
+// guard-log writes' shape: the parent records each fact once as it
+// arises, and a replayed write can at worst duplicate a line, the same
+// cosmetic risk guard_verdicts already carries -- no dedup key exists for
+// "the same fact phrased identically". An unknown (projectKey, change)
+// pair is ErrChangeNotFound, the same sentinel every change-scoped write
+// here returns.
+func (s *Store) RecordPass(ctx context.Context, projectKey, change string, in records.Pass) (records.Pass, error) {
+	var out records.Pass
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO panel_passes (change_id, round, note)
+		SELECT c.id, $3, $4
+		FROM changes c
+		WHERE c.project_key = $1 AND c.name = $2
+		RETURNING id, round, note
+	`, projectKey, change, in.Round, in.Note).Scan(&out.ID, &out.Round, &out.Note)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.Pass{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.Pass{}, fmt.Errorf("store: record pass for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
+// RecordMutation records one fix-mutation: line of the fix round's
+// mutation proof -- the path, what was mutated, and the test that failed
+// (or, on the contract's exemption form, mutated "none" and test carrying
+// the reason). Append-only and Round-scoped like RecordPass; the
+// fix-mutations-total count is the round's own row count and is rendered,
+// never stored. An unknown (projectKey, change) pair is ErrChangeNotFound.
+func (s *Store) RecordMutation(ctx context.Context, projectKey, change string, in records.Mutation) (records.Mutation, error) {
+	var out records.Mutation
+	err := s.pool.QueryRow(ctx, `
+		INSERT INTO panel_mutations (change_id, round, path, mutated, test)
+		SELECT c.id, $3, $4, $5, $6
+		FROM changes c
+		WHERE c.project_key = $1 AND c.name = $2
+		RETURNING id, round, path, mutated, test
+	`, projectKey, change, in.Round, in.Path, in.Mutated, in.Test).
+		Scan(&out.ID, &out.Round, &out.Path, &out.Mutated, &out.Test)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return records.Mutation{}, fmt.Errorf("%w: %s/%s", ErrChangeNotFound, projectKey, change)
+		}
+		return records.Mutation{}, fmt.Errorf("store: record mutation for %s/%s: %w", projectKey, change, err)
+	}
+	return out, nil
+}
+
+// readPanelPasses reads a change's pass-log entries in (round, id) order,
+// inside the caller's transaction -- RunRecord's REPEATABLE READ, so a
+// pass recorded mid-read cannot appear in a record whose other rows
+// predate it.
+func readPanelPasses(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Pass, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT id, round, note
+		FROM panel_passes
+		WHERE change_id = $1
+		ORDER BY round, id
+	`, changeID)
+	if err != nil {
+		return nil, fmt.Errorf("read panel passes: %w", err)
+	}
+	defer rows.Close()
+
+	var out []records.Pass
+	for rows.Next() {
+		var p records.Pass
+		if err := rows.Scan(&p.ID, &p.Round, &p.Note); err != nil {
+			return nil, fmt.Errorf("read panel passes: scan: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read panel passes: %w", err)
+	}
+	return out, nil
+}
+
+// readPanelMutations is readPanelPasses' mutation-proof counterpart: a
+// change's fix-mutation rows in (round, id) order, same transaction.
+func readPanelMutations(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Mutation, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT id, round, path, mutated, test
+		FROM panel_mutations
+		WHERE change_id = $1
+		ORDER BY round, id
+	`, changeID)
+	if err != nil {
+		return nil, fmt.Errorf("read panel mutations: %w", err)
+	}
+	defer rows.Close()
+
+	var out []records.Mutation
+	for rows.Next() {
+		var m records.Mutation
+		if err := rows.Scan(&m.ID, &m.Round, &m.Path, &m.Mutated, &m.Test); err != nil {
+			return nil, fmt.Errorf("read panel mutations: scan: %w", err)
+		}
+		out = append(out, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read panel mutations: %w", err)
+	}
+	return out, nil
 }
 
 func readDispatches(ctx context.Context, tx pgx.Tx, changeID int64) ([]records.Dispatch, error) {
