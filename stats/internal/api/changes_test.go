@@ -101,6 +101,16 @@ type fakeStore struct {
 	recordDecisionErr error
 	listDecisionsErr  error
 
+	// --- pass-log bookkeeping (KAN-331, internal/api/records_test.go's
+	// fakeStore methods operate on these) ---
+	passes         []passRecord
+	mutations      []mutationRecord
+	nextPassID     int64
+	nextMutationID int64
+
+	recordPassErr     error
+	recordMutationErr error
+
 	// lastListVerdictsGuard and lastListVerdictsFalsePositiveOnly record
 	// the args ListVerdicts was last called with, so a test can assert the
 	// handler forwarded the query it parsed rather than merely that some

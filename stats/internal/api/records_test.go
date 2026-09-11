@@ -184,9 +184,37 @@ func (f *fakeStore) RunRecord(_ context.Context, projectKey, change string) (rec
 			out.Findings = append(out.Findings, r.finding)
 		}
 	}
+	for _, p := range f.passes {
+		if p.projectKey == projectKey && p.changeName == change {
+			out.Passes = append(out.Passes, p.pass)
+		}
+	}
+	for _, m := range f.mutations {
+		if m.projectKey == projectKey && m.changeName == change {
+			out.Mutations = append(out.Mutations, m.mutation)
+		}
+	}
 	sort.Slice(out.Dispatches, func(i, j int) bool { return out.Dispatches[i].Seq < out.Dispatches[j].Seq })
 	sort.Slice(out.Findings, func(i, j int) bool { return refLess(out.Findings[i].Ref, out.Findings[j].Ref) })
+	sort.Slice(out.Passes, func(i, j int) bool { return passOrderLess(out.Passes[i], out.Passes[j]) })
+	sort.Slice(out.Mutations, func(i, j int) bool { return mutationOrderLess(out.Mutations[i], out.Mutations[j]) })
 	return out, nil
+}
+
+// passOrderLess and mutationOrderLess order the pass-log rows the way
+// store.RunRecord's ORDER BY does: by round, then row id.
+func passOrderLess(a, b records.Pass) bool {
+	if a.Round != b.Round {
+		return a.Round < b.Round
+	}
+	return a.ID < b.ID
+}
+
+func mutationOrderLess(a, b records.Mutation) bool {
+	if a.Round != b.Round {
+		return a.Round < b.Round
+	}
+	return a.ID < b.ID
 }
 
 // refLess orders two finding refs the way store.RunRecord's ORDER BY does:
@@ -368,6 +396,57 @@ type decisionRecord struct {
 	decision   records.Decision
 	projectKey string
 	changeName string
+}
+
+// passRecord and mutationRecord are fakeStore's in-memory stand-ins for a
+// panel_passes and a panel_mutations row (KAN-331). See dispatchRecord's
+// doc comment for why the owning identity sits beside the row rather than
+// inside it.
+type passRecord struct {
+	pass       records.Pass
+	projectKey string
+	changeName string
+}
+
+type mutationRecord struct {
+	mutation   records.Mutation
+	projectKey string
+	changeName string
+}
+
+// RecordPass mirrors store.Store.RecordPass: append-only, every call a new
+// row, and an unknown (projectKey, change) pair is store.ErrChangeNotFound,
+// the condition the handler must answer 404 to.
+func (f *fakeStore) RecordPass(_ context.Context, projectKey, change string, in records.Pass) (records.Pass, error) {
+	f.recordCalls++
+	if f.recordPassErr != nil {
+		return records.Pass{}, f.recordPassErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.Pass{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	f.nextPassID++
+	out := in
+	out.ID = f.nextPassID
+	f.passes = append(f.passes, passRecord{pass: out, projectKey: projectKey, changeName: change})
+	return out, nil
+}
+
+// RecordMutation is RecordPass's mutation-proof counterpart: append-only,
+// every call a new row, same ErrChangeNotFound shape.
+func (f *fakeStore) RecordMutation(_ context.Context, projectKey, change string, in records.Mutation) (records.Mutation, error) {
+	f.recordCalls++
+	if f.recordMutationErr != nil {
+		return records.Mutation{}, f.recordMutationErr
+	}
+	if _, ok := f.changes[changeKey(projectKey, change)]; !ok {
+		return records.Mutation{}, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, projectKey, change)
+	}
+	f.nextMutationID++
+	out := in
+	out.ID = f.nextMutationID
+	f.mutations = append(f.mutations, mutationRecord{mutation: out, projectKey: projectKey, changeName: change})
+	return out, nil
 }
 
 // RecordDecision mirrors store.Store.RecordDecision: a write under a
@@ -1279,6 +1358,102 @@ func TestRecordDecisionRejectsEmptyBody(t *testing.T) {
 			}
 			if fs.recordCalls != before {
 				t.Errorf("the store was reached for a body with %s", name)
+			}
+		})
+	}
+}
+
+// --- pass log (KAN-331) ---
+
+// TestRecordPanelPassRoute pins that the pass-log write route appends a row
+// per call -- never replaces one -- answers 201, and carries the change's
+// passes back out on the run-record GET, which is what the renderer reads.
+func TestRecordPanelPassRoute(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/passes"
+
+	resp, body := postJSON(t, url, map[string]any{"round": 0, "note": "roster: compact — 60"})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST passes = %d (%s), want 201", resp.StatusCode, body)
+	}
+	second, secondBody := postJSON(t, url, map[string]any{"round": 1, "note": "not re-run — nothing new since its last read"})
+	if second.StatusCode != http.StatusCreated {
+		t.Fatalf("second POST passes = %d (%s), want 201", second.StatusCode, secondBody)
+	}
+	if len(fs.passes) != 2 {
+		t.Fatalf("store holds %d passes, want 2 -- the write replaced instead of appending", len(fs.passes))
+	}
+
+	status, runBody := doGet(t, ts, recordsPath("proj", "kan-1"))
+	if status != http.StatusOK {
+		t.Fatalf("GET run record = %d (%s), want 200", status, runBody)
+	}
+	var got records.Run
+	if err := json.Unmarshal([]byte(runBody), &got); err != nil {
+		t.Fatalf("decode run record %s: %v", runBody, err)
+	}
+	if len(got.Passes) != 2 {
+		t.Fatalf("run record carries %d passes, want 2", len(got.Passes))
+	}
+	if got.Passes[0].Round != 0 || got.Passes[1].Round != 1 {
+		t.Errorf("passes ordered %+v, want round 0 before round 1", got.Passes)
+	}
+}
+
+// TestRecordPanelMutationRoute pins the mutation-proof write route the same
+// way: append-only, 201, and visible on the run-record GET beside the
+// passes.
+func TestRecordPanelMutationRoute(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+	url := ts.URL + recordsPath("proj", "kan-1") + "/mutations"
+
+	in := map[string]any{"round": 1, "path": "stats/internal/records/render.go", "mutated": "flipped the guard", "test": "TestRenderPanelPassLog"}
+	resp, body := postJSON(t, url, in)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("POST mutations = %d (%s), want 201", resp.StatusCode, body)
+	}
+	if len(fs.mutations) != 1 {
+		t.Fatalf("store holds %d mutations, want 1", len(fs.mutations))
+	}
+
+	status, runBody := doGet(t, ts, recordsPath("proj", "kan-1"))
+	if status != http.StatusOK {
+		t.Fatalf("GET run record = %d (%s), want 200", status, runBody)
+	}
+	var got records.Run
+	if err := json.Unmarshal([]byte(runBody), &got); err != nil {
+		t.Fatalf("decode run record %s: %v", runBody, err)
+	}
+	if len(got.Mutations) != 1 || got.Mutations[0].Path != in["path"] || got.Mutations[0].Mutated != in["mutated"] || got.Mutations[0].Test != in["test"] {
+		t.Fatalf("run record mutations = %+v, want the one recorded row", got.Mutations)
+	}
+}
+
+// TestRecordPanelPassAndMutationRejectEmptyFields pins the 400 shape: an
+// empty note, and any empty mutation field, are refused before the store is
+// reached -- a pass-log line with a missing field records nothing, and the
+// contract's fix-mutation line has exactly three fields.
+func TestRecordPanelPassAndMutationRejectEmptyFields(t *testing.T) {
+	ts, fs := recordTestServer(t, "proj", "kan-1")
+
+	for _, tc := range []struct {
+		name string
+		path string
+		body map[string]any
+	}{
+		{"empty note", "passes", map[string]any{"round": 0, "note": ""}},
+		{"missing path", "mutations", map[string]any{"round": 1, "mutated": "x", "test": "y"}},
+		{"missing mutated", "mutations", map[string]any{"round": 1, "path": "p", "test": "y"}},
+		{"missing test", "mutations", map[string]any{"round": 1, "path": "p", "mutated": "none"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := fs.recordCalls
+			resp, respBody := postJSON(t, ts.URL+recordsPath("proj", "kan-1")+"/"+tc.path, tc.body)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Fatalf("POST %s with %s = %d (%s), want 400", tc.path, tc.name, resp.StatusCode, respBody)
+			}
+			if fs.recordCalls != before {
+				t.Errorf("the store was reached for a body with an empty %s", tc.name)
 			}
 		})
 	}

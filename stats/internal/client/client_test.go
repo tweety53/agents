@@ -929,6 +929,14 @@ func (stubStageStore) ListDecisions(context.Context, string, string) ([]records.
 	return nil, errStageStoreNotImplemented
 }
 
+func (stubStageStore) RecordPass(context.Context, string, string, records.Pass) (records.Pass, error) {
+	return records.Pass{}, errStageStoreNotImplemented
+}
+
+func (stubStageStore) RecordMutation(context.Context, string, string, records.Mutation) (records.Mutation, error) {
+	return records.Mutation{}, errStageStoreNotImplemented
+}
+
 var _ api.RecordStore = stubStageStore{}
 
 // ProjectKeysByDisplayName is here for the same reason

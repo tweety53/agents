@@ -808,6 +808,31 @@ func (c *Client) ListDecisions(ctx context.Context, project, change string) ([]r
 	return out, nil
 }
 
+// RecordPass records one pass-log entry of the review panel's record
+// (KAN-331) -- a pass-by-pass metadata line the parent records as it
+// arises. Every insert is a new row, so the daemon always answers 201 and
+// no created result is reported; see RecordDecision for the classification
+// of every outcome other than the daemon's success codes.
+func (c *Client) RecordPass(ctx context.Context, project, change string, in records.Pass) (records.Pass, error) {
+	var out records.Pass
+	if _, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/passes", in,
+		map[int]bool{http.StatusCreated: true}, &out); err != nil {
+		return records.Pass{}, err
+	}
+	return out, nil
+}
+
+// RecordMutation records one fix-mutation: line of the fix round's
+// mutation proof (KAN-331). Append-only like RecordPass.
+func (c *Client) RecordMutation(ctx context.Context, project, change string, in records.Mutation) (records.Mutation, error) {
+	var out records.Mutation
+	if _, err := c.writeRecord(ctx, http.MethodPost, c.recordsURL(project, change)+"/mutations", in,
+		map[int]bool{http.StatusCreated: true}, &out); err != nil {
+		return records.Mutation{}, err
+	}
+	return out, nil
+}
+
 // verdictsURL and incidentsURL are KAN-451's guard-log endpoints -- project
 // scoped rather than change scoped, per design.md §4, since a verdict list
 // spans every change on the project and an incident can be recorded

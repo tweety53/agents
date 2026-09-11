@@ -37,6 +37,15 @@ type RecordWriter interface {
 	// than splitting the pair across two interfaces for no caller's benefit.
 	RecordDecision(ctx context.Context, projectKey, change string, in records.Decision) (records.Decision, bool, error)
 	ListDecisions(ctx context.Context, projectKey, change string) ([]records.Decision, error)
+
+	// RecordPass and RecordMutation carry the review panel's pass log --
+	// the pass-by-pass metadata lines and the fix round's fix-mutation:
+	// proof lines (KAN-331). They sit here beside RecordDecision for the
+	// same reason it does: a journalled "pass" or "mutation" entry replays
+	// through this interface exactly as a journalled dispatch or finding
+	// does.
+	RecordPass(ctx context.Context, projectKey, change string, in records.Pass) (records.Pass, error)
+	RecordMutation(ctx context.Context, projectKey, change string, in records.Mutation) (records.Mutation, error)
 }
 
 // RecordStore is the store dependency the run-record endpoints need,
@@ -163,6 +172,31 @@ func ApplyDecisionRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 		return records.Decision{}, false, fmt.Errorf("%w: sessionToken and decision are both required", ErrInvalidRecord)
 	}
 	return rw.RecordDecision(ctx, projectKey, change, in)
+}
+
+// ApplyPassRecord records one panel pass-log entry against rw, refusing an
+// empty note before the store is touched. Round carries no check: 0 is the
+// initial panel and a meaningful value, the same shape Finding.Round
+// already takes. See ApplyDispatchRecord for why the checks live here
+// rather than in the handler.
+func ApplyPassRecord(ctx context.Context, rw RecordWriter, projectKey, change string, in records.Pass) (records.Pass, error) {
+	if in.Note == "" {
+		return records.Pass{}, fmt.Errorf("%w: note is required: a pass entry with no line records nothing", ErrInvalidRecord)
+	}
+	return rw.RecordPass(ctx, projectKey, change, in)
+}
+
+// ApplyMutationRecord records one fix-mutation: line of the fix round's
+// mutation proof against rw, refusing an empty path, mutated or test field
+// before the store is touched -- the contract's line has exactly three
+// fields, and the exemption form still fills all three ("none" and the
+// reason). See ApplyDispatchRecord for why the checks live here rather
+// than in the handler.
+func ApplyMutationRecord(ctx context.Context, rw RecordWriter, projectKey, change string, in records.Mutation) (records.Mutation, error) {
+	if in.Path == "" || in.Mutated == "" || in.Test == "" {
+		return records.Mutation{}, fmt.Errorf("%w: path, mutated and test are all required: the contract's fix-mutation line has exactly three fields", ErrInvalidRecord)
+	}
+	return rw.RecordMutation(ctx, projectKey, change, in)
 }
 
 // ApplyFindingStatus rewrites one finding's status against rw.
@@ -427,6 +461,57 @@ func (h *recordHandler) listDecisions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// recordPass serves POST /api/v1/records/{project}/{change}/passes: one
+// pass-log entry of the review panel's record (KAN-331). Every insert is a
+// new row -- a pass entry is recorded once as the fact arises, and the
+// 201/200 split the upsert routes make has no meaning here.
+func (h *recordHandler) recordPass(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.Pass
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, err := ApplyPassRecord(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record pass for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
+}
+
+// recordMutation serves POST /api/v1/records/{project}/{change}/mutations:
+// one fix-mutation: line of the fix round's mutation proof (KAN-331).
+// Append-only like recordPass.
+func (h *recordHandler) recordMutation(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+
+	var in records.Mutation
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	out, err := ApplyMutationRecord(r.Context(), h.store, project, change, in)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRecord) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("record mutation for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 // runRecord serves GET /api/v1/records/{project}/{change}: the change's

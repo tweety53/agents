@@ -471,6 +471,14 @@ func (fakeStore) RecordDecision(context.Context, string, string, records.Decisio
 	return records.Decision{}, false, nil
 }
 
+func (fakeStore) RecordPass(context.Context, string, string, records.Pass) (records.Pass, error) {
+	return records.Pass{}, nil
+}
+
+func (fakeStore) RecordMutation(context.Context, string, string, records.Mutation) (records.Mutation, error) {
+	return records.Mutation{}, nil
+}
+
 func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, nil
 }
