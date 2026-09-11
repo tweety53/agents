@@ -542,6 +542,126 @@ assert_nonzero_rc "case 10f: local dir with a link.md never takes the empty-dir 
 assert_eq "case 10f: it prints nothing to stdout" "" "$OUT"
 
 # ---------------------------------------------------------------------------
+# Cases 11-11c (KAN-430): peers entries resolve against the tree's MAIN
+# CHECKOUT, not against the judged worktree. peers holds paths relative to
+# the primary checkout's parent — `gymie ../gymie` reaches the sibling
+# checkout from `~/Projects/<repo>`, and from nowhere else. Judged against
+# the worktree itself, the same entry resolves into the worktree parent
+# (`<project>/.worktrees/`, `<project>-worktrees/`) where no peer is ever
+# checked out, which is exactly the false OUTSTANDING KAN-430 records.
+# These are the harness's first fixtures that ARE git repositories: the
+# main-checkout resolution is derived from the git common dir, so a real
+# repo plus a real `git worktree add` is the shape the fix has to survive.
+# ---------------------------------------------------------------------------
+MAIN11="$WORK/case11-main"
+PEER11="$WORK/case11-peer"
+# These are the harness's first git fixtures: pin the config they see, so a
+# machine carrying `[commit] gpgsign = true` (or any other global default
+# these commands do not expect) cannot abort the harness uncounted.
+GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_GLOBAL
+git init -q "$MAIN11"
+git -C "$MAIN11" config user.email test@example.com
+git -C "$MAIN11" config user.name test
+make_tree "$MAIN11"
+make_tree "$PEER11"
+mkdir -p "$MAIN11/spectre/changes/sat-change"
+cat > "$MAIN11/spectre/changes/sat-change/link.md" <<'EOF'
+## Part of
+
+`peerv:canon-change`
+EOF
+printf 'peerv ../case11-peer\n' > "$MAIN11/spectre/peers"
+mkdir -p "$PEER11/spectre/changes/canon-change"
+printf '# canonical\n\n- [x] 1. done\n' > "$PEER11/spectre/changes/canon-change/tasks.md"
+git -C "$MAIN11" add spectre
+git -C "$MAIN11" commit -qm peers
+WT11="$WORK/case11-wtroot/kan-11-worktree"
+mkdir -p "$WORK/case11-wtroot"
+git -C "$MAIN11" worktree add -q "$WT11" -b case11-wtb
+
+# The peers branch's answer ends in a `cd && pwd`, which prints the PHYSICAL
+# path — and git's common dir arrives physically resolved — so the
+# expectations below are built from that same physical form, not from $WORK's
+# logical one (on macOS the two differ: /var/folders vs /private/var/folders).
+PEER11_RESOLVED="$(cd "$PEER11" && pwd -P)"
+
+set +e
+OUT="$(change_plan_path "$WT11" "sat-change")"
+RC=$?
+set -e
+assert_zero_rc "case 11: peer path resolves from a worktree whose parent holds no peer checkout" "$RC"
+assert_eq "case 11: it prints the peer tree beside the main checkout" \
+  "$PEER11_RESOLVED/spectre/changes/canon-change/tasks.md" "$OUT"
+
+set +e
+OUT="$(change_plan_path "$MAIN11" "sat-change")"
+RC=$?
+set -e
+assert_zero_rc "case 11b: peer path still resolves from the main checkout itself" "$RC"
+assert_eq "case 11b: it prints the same peer tree" \
+  "$PEER11_RESOLVED/spectre/changes/canon-change/tasks.md" "$OUT"
+
+# Case 11c: a tree git cannot answer for — case 3's SAT3 fixture is a plain
+# mktemp dir — falls back to resolving the peers entry against the worktree
+# itself, the pre-KAN-430 behavior, so a non-git caller loses nothing.
+set +e
+OUT="$(change_plan_path "$SAT3" "sat-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_zero_rc "case 11c: unreadable git common dir falls back to worktree-relative resolution" "$RC"
+assert_eq "case 11c: it prints case 3's own peer tree" \
+  "$PEER3/spectre/changes/canon-change/tasks.md" "$OUT"
+
+# Case 11d: a primary checkout laid out with --separate-git-dir. The gitdir
+# lives in a deliberately different subtree, and a DECOY peer of the SAME
+# declared name sits beside the GITDIR — where a common-dir-dirname
+# derivation looks, resolving the decoy in the real peer's place (panel
+# finding F1's shape). MEASURED on this machine's git, that layout records
+# neither core.worktree nor a worktree-list answer naming the checkout, so
+# the checkout's location is unrecoverable from a LINKED worktree — and the
+# contract is a loud refusal there, never the decoy. Judged from the
+# primary checkout itself the location IS the judged tree, and the real
+# peer resolves.
+SGD11="$WORK/case11d-sgd"
+GITDIR11="$WORK/case11d-elsewhere/gitdirs/repo.git"
+PEER11D="$WORK/case11d-peer"
+mkdir -p "$(dirname "$GITDIR11")"
+git init -q --separate-git-dir="$GITDIR11" "$SGD11"
+make_tree "$SGD11"
+make_tree "$PEER11D"
+mkdir -p "$SGD11/spectre/changes/sat-change"
+cat > "$SGD11/spectre/changes/sat-change/link.md" <<'EOF'
+## Part of
+
+`peeru:canon-change`
+EOF
+printf 'peeru ../case11d-peer\n' > "$SGD11/spectre/peers"
+mkdir -p "$PEER11D/spectre/changes/canon-change"
+printf '# real plan\n' > "$PEER11D/spectre/changes/canon-change/tasks.md"
+git -C "$SGD11" add spectre
+git -C "$SGD11" commit -qm x
+mkdir -p "$WORK/case11d-wtroot"
+git -C "$SGD11" worktree add -q "$WORK/case11d-wtroot/wt" -b case11d-wtb
+mkdir -p "$WORK/case11d-elsewhere/case11d-peer/spectre/changes/canon-change"
+printf '# decoy plan that must never be reached\n' > "$WORK/case11d-elsewhere/case11d-peer/spectre/changes/canon-change/tasks.md"
+
+set +e
+OUT="$(change_plan_path "$WORK/case11d-wtroot/wt" "sat-change" 2>/dev/null)"
+RC=$?
+set -e
+assert_nonzero_rc "case 11d: a linked worktree of a separate-git-dir primary refuses rather than resolving the gitdir-side decoy" "$RC"
+assert_eq "case 11d: it prints nothing to stdout" "" "$OUT"
+
+set +e
+OUT="$(change_plan_path "$SGD11" "sat-change")"
+RC=$?
+set -e
+assert_zero_rc "case 11d: the separate-git-dir primary itself resolves the real peer" "$RC"
+assert_eq "case 11d: it prints the real peer tree" \
+  "$PEER11D/spectre/changes/canon-change/tasks.md" "$OUT"
+
+# ---------------------------------------------------------------------------
 if [ "$FAILURES" -eq 0 ]; then
   printf '\n✓ PASS\n'
   exit 0

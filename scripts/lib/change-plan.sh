@@ -140,15 +140,76 @@ _change_plan_link_part_of() {
   printf '%s\n' "$ref"
 }
 
+# _change_plan_main_checkout <dir> — print the absolute path of the git
+# primary checkout (working tree) <dir> belongs to (KAN-430). For an
+# ordinary repository the git common dir is `<primary>/.git`, so the answer
+# is its dirname. Where the layout says that dirname is NOT a checkout, the
+# answer comes from git's own recorded override or is refused — never
+# guessed:
+#
+#   - `core.worktree` set in the common dir's config → that path, absolute
+#     or resolved against the common dir. `git init --separate-git-dir`
+#     layouts record it on git releases that write the key.
+#   - common dir ends `/.git` and no override → its dirname.
+#   - anything else — a separated gitdir with no recorded override, where
+#     MEASURED on this machine's git neither core.worktree nor
+#     `git worktree list` names the checkout (the list's first entry is the
+#     GITDIR there, so that derivation resolves the same wrong root it was
+#     proposed to fix) — the checkout's location is recoverable only from
+#     the checkout's own `.git` file, which a linked worktree cannot see.
+#     When <dir> is itself the primary (its gitdir IS the common dir) the
+#     answer is <dir> itself; any other judged tree returns 1, and the
+#     caller falls back to resolving against <dir> — which from inside a
+#     worktree reaches nothing, turning the silent wrong answer the panel
+#     found into a loud refusal. This repository's guards only ever run
+#     inside checkouts; a bare primary (no override, common dir not `/.git`,
+#     judged from itself) answers the bare directory, recorded here rather
+#     than handled.
+#
+# Returns 1 when git cannot answer at all — <dir> is not a git repository,
+# or git is not installed — with the same worktree-relative fallback.
+_change_plan_main_checkout() {
+  local dir="$1" common gitdir cw
+  common="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [ -n "$common" ] || return 1
+  cw="$(git config --file "$common/config" core.worktree 2>/dev/null)" || cw=""
+  if [ -n "$cw" ]; then
+    case "$cw" in
+      /*) printf '%s\n' "$cw" ;;
+      *) printf '%s\n' "$common/$cw" ;;
+    esac
+    return 0
+  fi
+  case "$common" in
+    */.git)
+      dirname -- "$common"
+      ;;
+    *)
+      gitdir="$(git -C "$dir" rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+      if [ "$gitdir" = "$common" ]; then
+        printf '%s\n' "$dir"
+      else
+        return 1
+      fi
+      ;;
+  esac
+}
+
 # _change_plan_peer_root <worktree> <spec-root> <peer-name> — print the
 # absolute, resolved path of <peer-name>'s tree root to stdout and return 0,
 # or return 1 when <worktree>/<spec-root>/peers carries no such name, or the
 # resolved path does not exist (peer declared but not present — not an
 # error this function raises; the caller decides what an empty answer
-# means). Paths in peers are relative to the tree's parent directory, which
-# in practice means resolving relative to <worktree> itself, since every
-# entry starts with `../` — the worked example in design.md's
-# `peer-absence-is-not-a-finding` is the resolution this reproduces.
+# means). Paths in peers are relative to the tree's parent directory — the
+# PRIMARY checkout's parent, since every entry starts with `../` — so the
+# declared path resolves against <worktree>'s main checkout, not against the
+# worktree itself (KAN-430): judged against the worktree, `../<peer>`
+# resolves into the worktree's parent — <project>/.worktrees/ or
+# <project>-worktrees/ — where no peer is ever checked out, and peers could
+# not resolve from any worktree at all. A tree git cannot answer for falls
+# back to resolving against the worktree itself, the pre-KAN-430 behavior.
+# The worked example in design.md's `peer-absence-is-not-a-finding` is the
+# main-checkout resolution this reproduces.
 _change_plan_peer_root() {
   local worktree="$1" spec_root="$2" peer_name="$3"
   local peers_file="$worktree/$spec_root/peers"
@@ -164,7 +225,9 @@ _change_plan_peer_root() {
   done < "$peers_file"
   [ -n "$resolved" ] || return 1
 
-  ( cd "$worktree/$resolved" 2>/dev/null && pwd ) || return 1
+  local base
+  base="$(_change_plan_main_checkout "$worktree")" || base="$worktree"
+  ( cd "$base/$resolved" 2>/dev/null && pwd ) || return 1
 }
 
 # _change_plan_resolve_dir <worktree> <change-name> [canonical-worktree] —
