@@ -834,6 +834,16 @@ test case, adds a file, or changes what a task's `**Baseline:**` counts, whose t
 `**Baseline:**` or `**Files:**` field in `<changeRoot>/tasks.md` does not reflect it, does not close
 the round; it goes to the handback.
 
+Beside the reproducer re-runs below, the round close re-runs the task-field guard mechanically:
+`check-task-commit-fields.sh <worktree> <task-id> <task-sha> <task-base> <canonical-worktree>
+<name>` for every task a fixup folded into — `<task-id>` from that commit's `Task-Id:` trailer,
+`<task-sha>` the folded commit as it now stands, the remaining arguments resolved the way
+`skills/flow/implement.md`'s task-close step resolves them. A non-zero exit does not close the
+round; it goes to the handback. This catches an undeclared file the fixup added and a declared
+test it removed or renamed, read post-autosquash; a test added to the commit without a
+`**Tests:**` declaration and a stale `**Baseline:**` count remain the walk's judgment until the
+companion checker (KAN-511) lands.
+
 This binds the fix round every run — the obligation is the round's, not a slot's, so a run where
 neither Bugbot nor Mutation is in the resolved roster or added this run is exactly where the round's own proof
 is the only mutation reasoning that happens at all.
@@ -858,10 +868,13 @@ against its defect identity. **Inline no source excerpt.**
 
 **Every fix subagent's dispatch prompt also carries the PLAN FIELDS paragraph**:
 
-> **PLAN FIELDS:** when your fix changes what a task's `**Baseline:**` counts or `**Files:**` paths
-> declare — a test case added, a file created — update that field in the worktree's
-> `<project>/spectre/changes/<name>/tasks.md` in this same pass. Edit it; do not stage or commit
-> it — it is a planning path and is committed later by the pipeline, never in a fixup.
+> **PLAN FIELDS:** your fix owns its plan record, as part of the fix itself: when it adds a test
+> case or changes what tests a task names, update that task's `**Tests:**` field; when it changes
+> what a task's `**Baseline:**` counts or `**Files:**` paths declare — a test case added, a file
+> created — update those fields too. All of it lands in the worktree's
+> `<project>/spectre/changes/<name>/tasks.md` in this same pass — never left for a reviewer to
+> catch next round (kan-454, KAN-459). Edit them; do not stage or commit them — the plan record is
+> a planning path and is committed later by the pipeline, never in a fixup.
 
 **Every fix subagent's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
 
