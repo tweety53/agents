@@ -51,6 +51,23 @@ operator as the starting point for this round:
 exactly as if no note existed — the note answers what it answers, and the checklist still surfaces
 what it does not, confirms what it does, and gives the operator a chance to correct it.
 
+**Exception: a fully-seeded note skips the checklist entirely.** When the found note carries all
+three of itself, a sibling `<project>/docs/superpowers/research/<stem>/tasks.md` and a sibling
+`<project>/docs/superpowers/research/<stem>/decision.json` (**A seeded plan
+and decision ride with the note**, below), the interactive checklist and the merged
+convergence-and-approval confirm are both skipped: present the note's parsed structure as above,
+then continue directly into **C**. A note missing either sibling file — a note alone, or a note
+with only a plan — still runs the full checklist exactly as stated above; this exception applies
+only when every one of the three files is present. `/flow-plan`'s own investigate-then-ask process
+that produced the note (at least two rounds per topic, an explicit convergence check per topic —
+**Go Deeper: Investigation and Question Depth**, `skills/flow-plan/SKILL.md`) already gathered and
+confirmed this content, so a fully-seeded note carries no fresh operator judgment left to gate on —
+this is a second, narrowly-scoped bounded exception to **Stage exit — never the command's own
+judgment** (`skills/flow-contracts/pipeline.md`), alongside its "no channel to ask through"
+exception. The `flow.brainstorm` end and `flow.design-approval` begin/end marks still fire on this
+path, back-to-back with no interactive gap between them — see **Run brainstorming and planning
+directly** (`skills/flow/brainstorm.md`).
+
 **Once the note's content is adopted into this change's own artifacts** (its design content folded
 into `design.md`, its decisions and open questions carried in per **C** below), **delete the staging
 note** rather than leaving it in place. Delete
@@ -398,10 +415,18 @@ recorded as such:
    `DEFAULT_MODEL`, delta rerun, grouped by the static table deterministically (no roll), recorded
    `default`.
 4. **implementer groups** — on every run whose step 1 came out `sdd` (`## execution mode` toggle or
-   not): run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, group its bundles freely (no roll, no
-   static table, no per-group ceiling; at most two implementer dispatches in flight per wave), and
-   record `groups` (arrays of bundle ids) and a one-line `groups_reason`. `groups: null` when step 1
-   is inline.
+   not): run `plan-dispatch-bundles.sh <changeRoot>/tasks.md`, then
+   `plan-dispatch-groups.sh <changeRoot>/tasks.md` for the mechanical default — a deterministic
+   grouping biased toward fewer, larger groups (no roll, no static table, no per-group ceiling; at
+   most two implementer dispatches in flight per wave), recorded as `groups_mechanical`. `groups`
+   is `groups_mechanical` verbatim unless the planner **splits** a mechanical group into more
+   groups — a chain judged too long for one implementer's context, or a real parallel-wave benefit
+   the mechanical grouping's fold pass declined — with a one-line `groups_override` reason;
+   **never merge across the mechanical result**, since merging two groups it kept apart would
+   collapse a real parallel wave. `groups_override` is `null` when the mechanical grouping is
+   taken verbatim; `groups_reason` defaults to the literal `mechanical`, or names the split's own
+   reason when `groups_override` is set. `groups`, `groups_mechanical` and `groups_override` are
+   all `null` when step 1 is inline.
 
 **The tree**, one row per `class`, `effort` one of `low`/`medium`/`high`:
 
@@ -440,11 +465,11 @@ recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:
 `dispatches` (one to two arrays of one to three slot ids each, roster order within each array),
 `grouping_reason` (`null` on a static grouping) — or the string `default`; an experimental slot
 skipped for the cap is recorded as the string `"experimental": "skipped — bundle cap"` beside
-`roster`), `groups` (arrays of bundle ids, plus a sibling `groups_reason`, or `null` when
-`execution` is inline), `parent` (the parent's own model/effort, `unknown` where the harness does
-not state one), `overrides` (session-instruction overrides to a *result*, never a toggle; empty
-unless one was given). Print this exact shape as the run's own output once the Decide step
-completes, filling every cell from what was just decided:
+`roster`), `groups` (arrays of bundle ids, plus sibling `groups_mechanical`, `groups_override` and
+`groups_reason` fields, or all four `null` when `execution` is inline), `parent` (the parent's own
+model/effort, `unknown` where the harness does not state one), `overrides` (session-instruction
+overrides to a *result*, never a toggle; empty unless one was given). Print this exact shape as the
+run's own output once the Decide step completes, filling every cell from what was just decided:
 
 ```markdown
 ## Decision
@@ -463,8 +488,10 @@ rolls: compact <N> (<interpretation>) · experimental <N> (<interpretation>) · 
 
 The review-panel cell's `dispatches:` suffix is each group's roles `+`-joined in roster order; on a
 free grouping, the line right after it is `grouping: free — <grouping_reason>` (omitted on a static
-grouping). The implementer-groups row is `skipped — inline` on an inline run, else the groups as
-bundle ids (`plan-dispatch-bundles.sh`'s ids) followed by `— <groups_reason>`.
+grouping). The implementer-groups row is `skipped — inline` on an inline run, else `groups` as
+bundle ids (`plan-dispatch-bundles.sh`'s ids) followed by `— <groups_reason>` and, on a split
+(`groups_override` non-`null`), `(mechanical: <groups_mechanical>; override: <groups_override>)`
+appended after it — mirroring the `class:` line's own `mechanical`/`override` shape.
 
 **On a no-seed run** (`skills/flow/SKILL.md`'s startup-visibility print skipped the seeded-path <!-- refs-guard:allow -->
 block, since no research seed was found at kickoff), prepend these three lines directly above the

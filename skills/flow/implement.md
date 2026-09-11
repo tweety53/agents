@@ -352,7 +352,8 @@ commits with, the partner its `**Squash-with:**` field names.
 
 **Waves — concurrent dispatch of ready groups.** Inline (**Inline — the parent implements**
 above) runs bundles in plan order, never in waves. A group is ready when every id in the union of
-its bundles' `after <k>:` lines has landed — committed and guard-passed, by direct commit or pick.
+its bundles' `after <k>:` lines **that is not itself a task of one of the group's own bundles** has
+landed — committed and guard-passed, by direct commit or pick.
 **At most two implementer dispatches are in flight per wave**, on both `## execution mode` values.
 A group alone in its wave, with no other group ready alongside it, dispatches into the canonical
 worktree and commits directly, exactly as today; two ready groups launch together in one message,
