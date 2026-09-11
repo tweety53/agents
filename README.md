@@ -106,7 +106,7 @@ that runs it. A name marked ▸ hides substructure and is expanded at level 2 be
 A key is namespaced by the command that *defines* the stage, never by the command that merely runs
 it — a distinction the previous, four-command surface needed and the two commands left do not:
 every row below is defined by `/flow`, and `/flow-fast` — the one other command that runs rows —
-runs a subset of them, its own **Stage keys** table (`skills/flow-fast/SKILL.md`) naming which. See design.md under kan-172 for the
+marks every one of them too (`skills/flow-fast/SKILL.md`), most as an empty begin/end pair. See design.md under kan-172 for the
 rejected alternatives to that older namespacing. `/flow-status` marks no stages at all and
 contributes no rows.
 

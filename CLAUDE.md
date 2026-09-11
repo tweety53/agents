@@ -80,7 +80,7 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | Skill directory | Trigger | Purpose |
 |-----------------|---------|---------|
 | `skills/flow/` | `/flow` | Single-command pipeline: brainstorming behind a design gate, implementation under SDD + TDD behind the review panel resolved from the settings store, and integrate/archive across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Carries the reviewer prompts + `engineering-principles.md` |
-| `skills/flow-fast/` | `/flow-fast` | Reduced-ceremony `/flow` variant: inline brainstorm with auto-pick and no design gate, inline TDD implementation with targeted-only tests/lint, a fixed primary+simple-reviewer panel, seven guards, and the same finish contracts minus self-review and verify-cleanup. Same state record and `flow.*` stage keys as `/flow` |
+| `skills/flow-fast/` | `/flow-fast` | Minimal-ceremony `/flow` variant: one invocation from Jira key to landed change. A git worktree for isolation only, inline implementation, project lint plus targeted tests, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks and keeps the Jira transitions; no spectre artifacts, state file, decision record, review panel or guard |
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-plan/` | `/flow-plan` | Thinking-partner mode — explore ideas, investigate, no implementation, no state; stages research notes for `/flow`'s brainstorming to seed from |
 | `skills/flow-settings/` | `/flow-settings` | Reads/writes the harness-wide default model and reviewer slots every `/flow` run reads from. Standalone, not a pipeline stage |

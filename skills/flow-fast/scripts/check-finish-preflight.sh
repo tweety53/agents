@@ -1,1 +1,0 @@
-../../../scripts/check-finish-preflight.sh

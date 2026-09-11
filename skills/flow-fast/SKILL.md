@@ -1,162 +1,277 @@
 ---
 name: flow-fast
-description: Reduced-ceremony /flow variant — inline brainstorm with auto-pick and no design gate, inline TDD implementation with targeted-only tests/lint, a fixed primary+simple-reviewer panel, seven guards, and the same finish contracts minus self-review and verify-cleanup. Same state record and flow.* stage keys as /flow, so a change can move between the two commands. Use for /flow-fast.
-allowed-tools: Bash(spectre:*), Bash(flow:*)
+description: Minimal-ceremony /flow variant — one invocation from Jira key to pushed change. A git worktree for isolation and nothing else, inline implementation, project lint plus targeted tests, then the project's default landing route and cleanup. Marks every flow.* stage /flow marks and keeps the Jira transitions; no spectre artifacts, no state file, no decision record, no review panel, no guards. Use for /flow-fast.
+allowed-tools: Bash(flow:*)
 license: MIT
 ---
 
-Drive the same three-state pipeline (`STARTED` → `IN_PROGRESS` → `FINISHED`) `/flow` drives, with
-every choice `/flow` makes dynamically fixed instead: inline brainstorm, inline implementation, a
-constant two-slot review panel, and a smaller guard set. `/flow-fast` is not a lighter copy of
-`/flow`'s phase files — it restates nothing from `skills/flow/*.md`, sharing
-`skills/flow-contracts/*` as canonical, the reviewer prompts under `skills/flow/`
-(`simple-reviewer-prompt.md`, `principles-reviewer-prompt.md`, `engineering-principles.md`) and
-`skills/flow/scripts/` unchanged. One change may move between `/flow` and `/flow-fast` at any
-point in its life — both write the same state-file shape and the same `flow.*` stage keys, marked
-`-command '/flow-fast'` here instead of `-command '/flow'`.
+Do the work the way a careful engineer does it by hand — read, edit, verify, commit, land — and
+record it the way `/flow` does: every `flow.*` stage mark below, in this order, under one
+session token, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
+`/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`/`tasks.md`, no
+state file and no three states, no decision record, no dispatch of any kind, no review panel, no
+staged-diff gate, no archive branch, no `<project>/docs/superpowers/` record, and no guard script. The only
+isolation is git's: a worktree on its own branch. `prepare-workspace.sh`, the per-change
+database, bucket, ports and cache index of **Workspace isolation**
+(`skills/flow-contracts/workspace-isolation.md`) are never set up.
 
-**Announce at start:** "Using flow-fast for change `<name>`." `/flow-fast` prints no
-`/rename`/`/color` lines — it never had them, unlike `/flow`'s own deprecated pair (see
-`skills/flow-contracts/pipeline.md`'s **Handoff output**).
+**Announce at start:** "Using flow-fast for change `<name>`."
 
-**Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
-transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
-handoff shape and change-name resolution. Its **State transitions** table governs `/flow-fast`
-exactly as it governs `/flow`; **Stage keys** below names which phase file marks each key.
+**No flags.** The only argument is the change description or Jira key on a creating run, or fix
+instructions on a re-run; report anything else rather than ignoring it.
 
-**Then register this run's steps** with the harness's task-list mechanism, before any work begins,
-per **Progress visibility** (`skills/flow-contracts/pipeline.md`) — one entry per step of whichever
-phase file is running, at that phase file's own granularity. `/flow-fast` dispatches no planner
-and no conductor, so nothing here needs the coarser per-stage granularity `/flow`'s conductor
-dispatch forces: every step registers.
+**Every mark is a literal call.** `<harness>` is this harness's name, `ff-<literal-token>` is one
+token generated once at the start of the run and typed the same at every `stage begin` — never a
+shell substitution, per the CLI's own usage text. Two adjacent lines with nothing between them
+mark a stage `/flow-fast` has nothing to run for; the mark stays so the run's stage set matches
+`/flow`'s.
 
-**No flags.** The only argument is the optional change name/description on a creating or resuming
-run, or fix instructions at `IN_PROGRESS`; report anything else rather than ignoring it.
+**Guardrails, the whole list.** Never dispatch a subagent. Never ask a model, planning-effort or
+review question. Never write `<project>/spectre/`, `<project>/docs/superpowers/` or a state file.
+Never set up workspace isolation and never call a guard script. Never push to a branch other than
+the one the landing route names.
 
-## Stage keys
+## 1. Kickoff
 
-Every stage `/flow-fast` marks uses the same `flow.*` keys `/flow` uses — never a `flow-fast.*`
-prefix, since a change moving between the two commands must read one consistent stage vocabulary.
-`/flow-fast` marks a strict subset — it never marks `flow.visual-verify`, `flow.verify-cleanup` or
-`flow.self-review`.
-
-| Phase file | Keys |
-|------------|------|
-| `skills/flow-fast/brainstorm.md` | `flow.kickoff`, `flow.brainstorm`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
-| `skills/flow-fast/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
-| `skills/flow-fast/review.md` | `flow.review-panel`, `flow.verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
-| `skills/flow-fast/finish.md` (run 1) | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
-| `skills/flow-fast/finish.md` (run 2) | `flow.verify-merge`, `flow.sync-archive`, `flow.commit-archive`, `flow.cleanup`, `flow.write-finished`, `flow.push-archive` |
-
-`flow.design-approval` is never marked — `/flow-fast` runs no design-approval gate at all
-(`skills/flow-fast/brainstorm.md`).
-
-## Model resolution
-
-**Resolve this once, near the top of every run, before any dispatch below reads it:**
+Resolve the Jira key and the change name per **Resolution (how `jiraIssue` is decided)** and
+**Change naming** (`skills/flow-contracts/jira-integration.md`), exactly — including the slug
+constraints on a summary-derived name. Then transition the issue to **In Progress** per
+**Transitions** there (by name, forward-only, one line on failure per **Never blocking**). Then:
 
 ```bash
-MAIN_CHECKOUT="${MAIN_CHECKOUT:-$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)}"
-SETTINGS_JSON="$(flow settings get)"
-DEFAULT_MODEL="$(printf '%s' "$SETTINGS_JSON" | jq -r '.defaultModel')"
+flow stage begin -command '/flow-fast' -stage flow.kickoff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.kickoff -outcome completed <name>
 ```
 
-**This is the whole of `/flow-fast`'s model resolution.** Unlike `/flow`'s own **Model resolution**
-(`skills/flow/SKILL.md`), `/flow-fast` resolves no `PLANNING_MODEL`, `SELF_REVIEW_MODEL` or
-`VERIFY_MODEL` — there is no planner subagent, no self-review subagent, and no visual-verification
-subagent for any of those to govern — and reads no `## execution mode`, `## implementer model` or
-`## review panel` project toggle: execution is always inline, there is no implementer/fixer
-subagent for a model to govern, and the review roster is always `primary` + `simple-reviewer`,
-never resolved from the settings store or a project toggle. `DEFAULT_MODEL` is the model for the
-one role `/flow-fast` dispatches on multiple slots of: the review panel's `primary` slot (the
-`simple-reviewer` slot is always `haiku`, fixed, per `skills/flow-fast/review.md`).
+**A re-run is detected, never recorded**: `<project>/.worktrees/<name>` already existing means an
+earlier run left the branch unlanded. Reuse it, skip section 3's creation, and treat the argument
+as fix instructions.
 
-A non-zero exit from `flow settings get` means the settings store could not be reached — report the
-CLI's stderr and fall back to the literal `sonnet` (the store's own no-row default), naming that
-this is a fallback rather than a resolved value, and continue: settings unreachable is never a
-reason to block implementation, exactly as `/flow`'s own resolution block states.
-
-**A plain-language session instruction overrides `DEFAULT_MODEL` for this run only** — recorded
-with the dispatch it changes, never written back to the settings store.
-
-## Reading the state
+## 2. Brainstorm
 
 ```bash
-flow state get <name-or-best-guess> -C <repo-root>
+flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-Read exactly as `/flow`'s own **Reading the state** (`skills/flow/SKILL.md`) describes — the same
-five outcomes (no state, `STARTED`, `IN_PROGRESS` with an argument, `IN_PROGRESS` bare,
-`FINISHED`) — but dispatch into this skill's own phase files instead of `/flow`'s:
+Read the ask and the code it touches until the change is clear — every file the change has to
+touch, the actual flow end to end. Where two readings would lead to materially different work,
+ask once, batched, through **AskUserQuestion**; otherwise make the routine call yourself and say
+which you made. Pick the simplest implementation that meets the ask.
 
-- **Exit 1**, or exit 0 with `"synthetic": true` — a creating run. See **A. Resolve the change and
-  write `STARTED`** (`skills/flow-fast/brainstorm.md`); once the plan is written, **Dispatch
-  implementation** (`skills/flow-fast/implement.md`).
-- **Exit 0, `"state": "STARTED"`** — resume the creating run from wherever brainstorming stopped,
-  reading `spectre list --json` and `tasks.md` exactly as `/flow`'s own resumption rule does.
-- **Exit 0, `"state": "IN_PROGRESS"`, an argument present** — a fix run. See
-  `skills/flow-fast/implement.md`'s `flow.document-fix`.
-- **Exit 0, `"state": "IN_PROGRESS"`, no argument** — an integrate/archive run. See
-  `skills/flow-fast/finish.md`.
-- **Exit 0, `"state": "FINISHED"`** — emit the wrong-state handoff from **Wrong state for this
-  command** (`skills/flow-contracts/pipeline.md`). Proceed only on an explicit override.
+```bash
+flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed <name>
+```
 
-**Check guard presence.** Per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
-confirm every guard `/flow-fast` can invoke — exactly `check-unfinished-work.sh`,
-`check-base-moved.sh`, `check-finish-preflight.sh`, `check-cleanup-complete.sh`,
-`check-workspace-isolation.sh`, `check-worktree-processes.sh` and
-`check-panel-findings-closed.sh` (**Guard set** below) — is present in `<skill-dir>/scripts/`,
-resolved against `skills/flow-fast/`'s own directory per **Guard resolution**
-(`skills/flow-contracts/pipeline.md`): `skills/flow-fast/scripts/` carries its own symlink to each
-of those guards (plus `prepare-workspace.sh`, `project-get.sh` and the shared `lib` sibling
-directory), pointing at the same underlying files `skills/flow/scripts/`'s own symlinks point at —
-never a second copy. A complete set prints nothing; any absence prints that section's block once,
-naming `skills/flow-fast/scripts/` as the directory searched.
+## 3. Worktree
 
-**`check-unfinished-work.sh` also requires `<agents repo>/scripts/lib/change-plan.sh`** as a
-sibling, exactly as `/flow`'s own guard-presence check states.
+```bash
+flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> -session-token ff-<literal-token> <name>
+```
 
-**The `<change>` argument to every mark below is always a resolved change name**, per **The
-`<change>` argument is always a resolved change name** (`skills/flow-contracts/pipeline.md`) — on a
-creating run the name does not exist until `skills/flow-fast/brainstorm.md`'s section A produces it.
+On a creating run, from the main checkout, with `<default-branch>` the branch `origin/HEAD` points
+at:
 
-**Generate this run's session token once, right here, before the first mark any phase file below
-makes**, and reuse that exact value at every later `stage begin` this run makes.
+```bash
+git fetch origin
+grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
+git worktree add <project>/.worktrees/<name> -b <name> origin/<default-branch>
+```
 
-## Guard set
+Nothing else: no `## worktree setup` command, no database, no bucket. A project whose build needs
+generated files or installed dependencies gets them the moment section 5's first test run asks
+for them, in the worktree, by the project's own ordinary commands.
 
-`/flow-fast` presence-checks and runs exactly seven guards, all resolved against
-`skills/flow/scripts/`: `check-unfinished-work.sh`, `check-base-moved.sh`,
-`check-finish-preflight.sh`, `check-cleanup-complete.sh`, `check-workspace-isolation.sh` (run
-internally by `prepare-workspace.sh`, never invoked directly), `check-worktree-processes.sh` and
-`check-panel-findings-closed.sh`. Every other guard `skills/flow/scripts/` carries —
-`check-panel-citation-trigger.sh`, `check-panel-diff-size.sh`, `check-panel-docs-only.sh`,
-`check-panel-fix-single-dispatch.sh`, `check-panel-reproducers.sh`, `check-plan-shape.sh`,
-`plan-class.sh`, `check-spec-reach.sh`, `check-task-commit-fields.sh`, `check-visual-trigger.sh`,
-`check-visual-verification.sh`, `commit-split.sh`, `gather-dispatch-context.sh`,
-`gather-self-review-context.sh`, `mutate-and-verify.sh`, `plan-dispatch-bundles.sh`,
-`resolve-visual-screenshots.sh` and `run-reproducer.sh` — is dropped for `/flow-fast` outright,
-never hand-run: no phase file below cites any of them.
+```bash
+flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token ff-<literal-token> <name>
+```
 
-## Guardrails
+Register the steps of this change with the harness's task-list mechanism — one entry per file or
+logical unit you will touch, so the operator can follow along. Nothing is written to disk.
 
-- **Never** dispatch a planner or conductor subagent — every stage runs in the parent session.
-- **Never** ask a planning-effort, model, or review-panel-roster question — nothing here is
-  dynamic; there is no toggle, no roll, and no settings-store roster to resolve for `/flow-fast`.
-- **Never** run a design-approval gate, visual verification, self-review, or the verify-cleanup
-  pass — none of the four exists for this command.
-- **Never** widen the review roster beyond `primary` + `simple-reviewer`, by diff size, touched
-  area, or any other trigger — not even an explicit operator instruction; a run that needs a wider
-  panel is a `/flow` run, not a `/flow-fast` one.
-- **Never** fix a Minor finding except under `/flow`'s own "trivially easy" bar (`skills/flow/review-panel.md`)
-  — every other Minor is recorded and deferred, no other exception.
-- **Never** run a full `## test` / `## lint` pass automatically — only the operator's own
-  instruction text triggers one, never a stage boundary or the handoff.
-- **Never** commit `<project>/spectre/changes/` or `<project>/docs/superpowers/` in a task or
-  fixup commit. **Never** push, merge, or open a PR outside the integrate/archive branches' own
-  routes.
-- **Never** advance the state past what the phase in force is entitled to write — a fix never
-  moves the state; brainstorm/implement/review only ever write `IN_PROGRESS`; only run 2 of
-  `skills/flow-fast/finish.md` writes `FINISHED`.
-- **No flags.** The only argument is the optional change name/description, or fix instructions at
-  `IN_PROGRESS`; report anything else rather than ignoring it.
+```bash
+flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <name>
+```
+
+## 4. Implement
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+Read `<project>/CLAUDE.md`, `<project>/AGENTS.md` where present, and `<project>/.flow/project.md`'s
+`## lint`, `## test` and `## default landing route` sections through `project-get.sh <project>
+<key>` — these are the commands section 5 and section 7 run.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.isolate-workspace -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.isolate-workspace -outcome completed <name>
+```
+
+On a re-run only:
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.document-fix -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.document-fix -outcome completed <name>
+```
+
+Then:
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+Implement in the worktree, in this session. Test first where a test can express the behaviour
+(**superpowers:test-driven-development**); a defect gets a failing test before its fix. Commit
+one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
+naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no
+attribution trailer. Fix every lint hit the project's `## lint` raises on the files you touched
+rather than suppressing it.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <name>
+```
+
+## 5. Verify
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+Run every command in `## lint`, in the worktree, and the `## test` commands scoped to what the
+change touched — the packages, modules or test files the diff names, never the full suite unless
+the operator asked for it. A failure is fixed and re-run under section 4's commit rule; the run
+never lands red.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.stage-diff -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.stage-diff -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+Print the change summary: what changed and why, grouped by area, one or two sentences each;
+what was verified and how; anything deliberately left out. This is the one report the run
+prints.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.run-instructions -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.write-in-progress -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.write-in-progress -outcome completed <name>
+```
+
+## 6. Preflight
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.preflight -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.preflight -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+`git -C <worktree> status --porcelain` must be empty: every edit is committed. Anything the ask
+covered and this run did not finish is named in the summary above, never silently dropped.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.unfinished-work-gate -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+The route is `## default landing route` when the project declares one (`merge and push`,
+`open PR` or `manual`), read without asking. Only when the project declares none, ask once
+through **AskUserQuestion** with those three options, `open PR` recommended.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.preserve-sessions -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.preserve-sessions -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.commit-two -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.commit-two -outcome completed <name>
+```
+
+## 7. Land
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.landing-routes -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+First, on every route, bring the branch up to date so what lands is what was verified:
+
+```bash
+git -C <worktree> fetch origin
+git -C <worktree> rebase origin/<default-branch>
+```
+
+A rebase that conflicts stops the run here, naming the conflicting files — resolve it and re-run.
+A rebase that moved the branch re-runs section 5's lint and targeted tests before continuing.
+
+- **merge and push**: `git -C <worktree> push origin <name>:<default-branch>`. A push the
+  remote rejects (branch protection, a non-fast-forward) falls back to **open PR** below and
+  says so. This route is the one place `/flow-fast` pushes to the default branch; a project whose
+  default branch is protected declares `open PR` instead
+  (`~/.claude/rules/no-direct-pushes-to-main.md`).
+- **open PR**: `git -C <worktree> push -u origin <name>`, then `gh pr create --base
+  <default-branch> --head <name>` with the summary from section 5 as the body.
+- **manual**: push nothing; print the branch name and the worktree path.
+
+Then transition the Jira issue to In Review per **Transitions**
+(`skills/flow-contracts/jira-integration.md`) — on every route that completed, never on one that stopped.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.landing-routes -outcome completed <name>
+```
+
+**`open PR` and `manual` stop here**, worktree and branch kept, and the run ends by naming the
+PR or the branch. When the PR is merged, or the manual landing done, re-run `/flow-fast <name>`
+bare: section 1 finds the worktree, sections 2–7 have nothing new to do and mark through, and
+section 8 runs.
+
+## 8. Clean up
+
+`merge and push` continues here in the same invocation.
+
+```bash
+flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+```bash
+git -C <worktree> fetch origin
+git -C <worktree> merge-base --is-ancestor <name> origin/<default-branch>
+```
+
+A non-zero exit means the branch is not on the default branch yet — stop and say so, removing
+nothing.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.sync-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.sync-archive -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.commit-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.commit-archive -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token ff-<literal-token> <name>
+```
+
+```bash
+git -C <project> worktree remove <project>/.worktrees/<name>
+git -C <project> branch -D <name>
+git -C <project> push origin --delete <name>   # only when the branch was pushed
+```
+
+Then, only when the main checkout is on `<default-branch>` with an empty `git status
+--porcelain`, `git -C <project> pull --ff-only`; otherwise leave it and report one line naming
+why.
+
+```bash
+flow stage end   -command '/flow-fast' -stage flow.cleanup -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.write-finished -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.write-finished -outcome completed <name>
+flow stage begin -command '/flow-fast' -stage flow.push-archive -harness <harness> -session-token ff-<literal-token> <name>
+flow stage end   -command '/flow-fast' -stage flow.push-archive -outcome completed <name>
+```
+
+Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit
+on `<default-branch>`.
