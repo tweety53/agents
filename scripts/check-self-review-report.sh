@@ -94,6 +94,15 @@
 # partway through a file it opened successfully — is recorded as a known
 # limit of the all-bash shape under KAN-211.
 #
+# SELF-REVIEW CONTEXT BUNDLES ARE NOT REPORTS (KAN-512). Run 2 step 9
+# commits `docs/self-review/<name>-context.md` on `## self review: defer`
+# (canonical: `skills/flow-contracts/finish-contract-run2.md`, step 9), and
+# `/flow-self-review <name>` deletes it once it runs the deferred pass. It is
+# a bundle awaiting a reasoning pass, never a report of one — `find` below
+# excludes `*-context.md` outright so a pending bundle is neither scanned for
+# the five-angle shape (which it does not carry) nor flagged as an
+# undeclared-zero coverage violation naming it.
+#
 # NO RECORD PROTOCOL, DELIBERATELY (KAN-211). This guard used to classify
 # each report in one `awk` pass, serialize the result as records whose fields
 # were joined with ASCII Unit Separator (0x1F, never tab), and re-parse those
@@ -268,7 +277,7 @@ FIND_TMP="$(mktemp "${TMPDIR:-/tmp}/check-self-review-report-find.XXXXXX")" \
   || die "cannot create a temp file for find's output"
 trap 'rm -f "$FIND_TMP"' EXIT
 
-if ! find "$TARGET" -maxdepth 1 -type f -name '*.md' -print0 >"$FIND_TMP"; then
+if ! find "$TARGET" -maxdepth 1 -type f -name '*.md' -not -name '*-context.md' -print0 >"$FIND_TMP"; then
   die "find failed while scanning '$TARGET' (permission denied, or another find error)"
 fi
 

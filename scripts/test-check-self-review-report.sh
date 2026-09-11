@@ -857,6 +857,25 @@ case "$OUT" in
   *) fail "case 24: expected a cannot-read-report-file die naming the file, out=$OUT" ;;
 esac
 
+# ===========================================================================
+# Case 25 (KAN-512): a self-review context bundle (`<name>-context.md`) sits
+# beside a compliant report -> the bundle is neither scanned nor treated as
+# an undeclared-zero coverage violation. `docs/self-review/<name>-context.md`
+# is a bundle step 9 writes on `## self review: defer` and
+# `/flow-self-review` deletes once it runs the deferred pass — never a
+# report, so this guard's `find` must skip it outright.
+# ===========================================================================
+new_fixture
+compliant_report >"$FIXTURE/fixture-self-review.md"
+echo '# Self-review context bundle for fixture' >"$FIXTURE/fixture-context.md"
+run_guard "$FIXTURE"
+[ "$RC" -eq 0 ] && pass "case 25: a bundle beside a compliant report exits 0" \
+  || fail "case 25: rc=$RC out=$OUT"
+case "$OUT" in
+  *"fixture-context.md"*) fail "case 25: the bundle's basename must not appear in the output, out=$OUT" ;;
+  *) pass "case 25: the bundle's basename is absent from the output" ;;
+esac
+
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2
   exit 1

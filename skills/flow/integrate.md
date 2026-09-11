@@ -146,6 +146,10 @@ flow stage end -command '/flow' -stage flow.landing-question -outcome completed 
 flow stage begin -command '/flow' -stage flow.preserve-sessions -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
+**Append this run's own narrative first**, the same append `flow.write-in-progress`
+(`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
+this run's preflight, the unfinished-work gate and the rebase.
+
 **Before any route commits, reshape the branch.** Run `git -C <worktree> reset --soft
 <recorded-merge-base>`, where `<recorded-merge-base>` is the merge base recorded in the state
 file's `worktrees` map for this worktree — **or `<rebased-merge-base>` from step 2 above, for a

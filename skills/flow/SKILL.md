@@ -136,13 +136,14 @@ An empty list can never reach this table from `/flow-settings`: `<agents repo>/s
 store. The empty-list row exists because this resolver must still define a value for a state the
 store's schema permits, not because an operator can produce one.
 
-**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL` and governs the archive-phase
-self-review subagent dispatch** (`skills/flow/archive.md` step 9). `<project>/.flow/project.md`'s
-`## self review model` key, when present and a valid `ValidModels` member, wins over the store's
-`selfReviewModel` field; when both are empty, or the store is unreachable, `SELF_REVIEW_MODEL` falls
-back to the literal `fable`, naming this a fallback exactly as `DEFAULT_MODEL`'s own `sonnet` literal
-is. A plain-language session instruction overrides `SELF_REVIEW_MODEL` for that run only, recorded
-with the dispatch it changes and never written back.
+**`SELF_REVIEW_MODEL` resolves independently of `DEFAULT_MODEL`, but governs no dispatch.**
+`skills/flow/archive.md` step 9 runs its reasoning pass inline, in the archive session itself, on
+whatever model that session is already on — in both `run` and `defer` mode, so there is no
+subagent left to send `SELF_REVIEW_MODEL` to. It still resolves, purely as a recorded value:
+`<project>/.flow/project.md`'s `## self review model` key, when present and a valid `ValidModels`
+member, wins over the store's `selfReviewModel` field; when both are empty, or the store is
+unreachable, `SELF_REVIEW_MODEL` falls back to the literal `fable`, naming this a fallback exactly
+as `DEFAULT_MODEL`'s own `sonnet` literal is.
 
 **`VERIFY_MODEL` governs the one verifier dispatch** — `flow.visual-verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent

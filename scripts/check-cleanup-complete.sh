@@ -127,6 +127,10 @@
 #   no later run to delete the branch it was opened from (kan-239)
 # registry-row-not-checked: State file — never removed; it is the terminal record
 # registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
+# registry-row-not-checked: Self-review context bundle — written on `defer` and
+#   committed on the archive branch, which run 2 does not touch again after
+#   step 9; it is removed only by `/flow-self-review`, a separate command run
+#   later, not by anything this guard's cleanup checks derive from
 #
 # ABSENCE IS THE ANSWER HERE, not a gap in the evidence. The run-1 gate treats
 # a file it cannot find as outstanding, because a missing record proves nothing

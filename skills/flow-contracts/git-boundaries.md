@@ -20,7 +20,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
 | `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
 | `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
-| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
+| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
 | `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, from the landing worktree, and opens its pull request — never pushes `<base>` |
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | staging note captured | **Commits once** — the note, its plan and its decision, on `<default-branch>` in the main checkout — and pushes it (**Landing the note**, `skills/flow-plan/SKILL.md`); nothing else, ever |
