@@ -265,7 +265,23 @@ count_unticked() {
 # link at all behaves exactly as it did before this task, sweeping its own
 # changes/ exactly as it always has.
 PLAN_OPEN=0
-if PLAN_DIR="$(change_plan_dir "$WORKTREE" "$NAME" "$CANONICAL_WORKTREE" 2>/dev/null)"; then
+# change_plan_dir returns 3 (KAN-267) when the state record's store step
+# resolved the name to more than one project's plan: the lib has already
+# printed one line per match (captured in PLAN_ERR), and this guard refuses
+# outright rather than reading the ambiguity as "no plan here" — an
+# OUTSTANDING built on a guess between two projects' plans is exactly the
+# silent clearance this guard exists to prevent.
+PLAN_ERR="$(mktemp)"
+PLAN_RC=0
+PLAN_DIR="$(change_plan_dir "$WORKTREE" "$NAME" "$CANONICAL_WORKTREE" 2>"$PLAN_ERR")" || PLAN_RC=$?
+if [ "$PLAN_RC" -eq 3 ]; then
+  cat "$PLAN_ERR" >&2
+  echo "check-unfinished-work: the state record resolves '$NAME' to more than one project's plan — cannot determine anything" >&2
+  rm -f "$PLAN_ERR"
+  exit 2
+fi
+rm -f "$PLAN_ERR"
+if [ "$PLAN_RC" -eq 0 ]; then
   PRIMARY_PLAN="$PLAN_DIR/tasks.md"
   N="$(count_unticked "$PRIMARY_PLAN")" || unreadable "$PRIMARY_PLAN"
   PLAN_OPEN=$((PLAN_OPEN + ${N:-0}))

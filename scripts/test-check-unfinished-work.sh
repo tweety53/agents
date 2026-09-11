@@ -98,6 +98,18 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
 SANDBOXES+=("$WORK")
 ERRFILE="$WORK/stderr"
 
+# The lib's store step (KAN-267) must never reach the real flow CLI from a
+# unit case. Every fixture below carries its own stubbed bin/flow, which
+# run_guard places ahead of this inert default; the default exists so a
+# fixture that forgot its stub degrades to "store unreachable" rather than
+# to a live daemon round-trip.
+INERT_BIN="$WORK/inert-bin"
+mkdir -p "$INERT_BIN"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$INERT_BIN/flow"
+chmod +x "$INERT_BIN/flow"
+PATH="$INERT_BIN:$PATH"
+export PATH
+
 # run_guard <worktree> <change-name> -> sets OUT (stdout only), ERR, RC.
 # The two streams are captured SEPARATELY rather than merged with 2>&1,
 # because the contract distinguishes them: a refusal puts its message on
@@ -898,6 +910,11 @@ fi
 recording_stub() {
   cat > "$1/bin/flow" <<'STUB'
 #!/usr/bin/env bash
+if [ "$1 $2" = "state find" ]; then
+  printf '%s\n' "$*" >> "$(dirname -- "$0")/find.args"
+  cat "$(dirname -- "$0")/find.json"
+  exit 0
+fi
 case "$2" in
   findings) printf '%s\n' "$*" >> "$(dirname -- "$0")/findings.args"; cat "$(dirname -- "$0")/findings.json" ;;
   verdict) printf '%s\n' "$*" >> "$(dirname -- "$0")/verdict.args" ;;
@@ -964,6 +981,65 @@ grep -q -- "-C $WT\$" "$WT/bin/findings.args" \
 grep -q -- "-C $WT\$" "$WT/bin/verdict.args" \
   && pass "case 26c: the fall-through verdict write anchors at the judged worktree" \
   || fail "case 26c: verdict write did not anchor at the worktree: $(cat "$WT/bin/verdict.args" 2>/dev/null)"
+
+# 27. KAN-267: store-resolves-canonical-plan-no-arg. The absent-dir
+#     cross-repo shape with NO canonical-worktree argument at all — the
+#     plan is reached through the state record's worktrees map, which the
+#     stub `flow` answers from find.json. The verdict is CLEAR over the
+#     resolved canonical plan, the store calls anchor at the resolved
+#     plan's directory (the same rule case 26 pins), and the verdict still
+#     names the judged worktree.
+SWT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$SWT")
+mkdir -p "$SWT/bin"
+SCANON="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$SCANON")
+mkdir -p "$SCANON/spectre/changes/demo"
+printf -- '- [x] 1. done\n' > "$SCANON/spectre/changes/demo/tasks.md"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[{\"projectKey\":\"proj-a\",\"name\":\"demo\",\"state\":\"IN_PROGRESS\",\"worktrees\":{\"$SWT\":null,\"$SCANON\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"updatedAt\":\"2026-09-10T10:00:00Z\",\"updatedBy\":\"/flow-fast\"}]}" > "$SWT/bin/find.json"
+recording_stub "$SWT"
+printf '[]\n' > "$SWT/bin/findings.json"
+printf '[]\n' > "$SWT/bin/verdicts.json"
+run_guard "$SWT" demo
+assert_verdict "CLEAR:" "case 27: the record's worktrees map resolves the plan and the change is CLEAR"
+grep -q -- "state find demo" "$SWT/bin/find.args" \
+  && pass "case 27: the store was asked for the change's own name" \
+  || fail "case 27: no state find for the plain name: $(cat "$SWT/bin/find.args" 2>/dev/null)"
+grep -q -- "-C $SCANON/spectre/changes/demo\$" "$SWT/bin/findings.args" \
+  && pass "case 27: the findings query anchors at the resolved plan dir" \
+  || fail "case 27: findings query did not anchor at the plan dir: $(cat "$SWT/bin/findings.args" 2>/dev/null)"
+grep -qF -- "-worktree $SWT" "$SWT/bin/verdict.args" \
+  && pass "case 27: the verdict still names the judged worktree" \
+  || fail "case 27: verdict does not name the judged worktree: $(cat "$SWT/bin/verdict.args" 2>/dev/null)"
+
+# 28. KAN-267: store-ambiguity-refuses. Two projects each hold a record for
+#     the name and both maps resolve a plan: the guard refuses outright
+#     (exit 2, no verdict on stdout) naming every project and path, rather
+#     than guessing between them.
+AWT="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$AWT")
+mkdir -p "$AWT/bin"
+ATREE_A="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$ATREE_A")
+ATREE_B="$(mktemp -d "${TMPDIR:-/tmp}/unfinished-work-test.XXXXXX")"
+SANDBOXES+=("$ATREE_B")
+mkdir -p "$ATREE_A/spectre/changes/demo" "$ATREE_B/spectre/changes/demo"
+printf -- '- [x] 1. done\n' > "$ATREE_A/spectre/changes/demo/tasks.md"
+printf -- '- [ ] 1. not done\n' > "$ATREE_B/spectre/changes/demo/tasks.md"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[" \
+  "{\"projectKey\":\"proj-a\",\"name\":\"demo\",\"worktrees\":{\"$ATREE_A\":\"cccccccccccccccccccccccccccccccccccccccc\"}}," \
+  "{\"projectKey\":\"proj-b\",\"name\":\"demo\",\"worktrees\":{\"$ATREE_B\":\"dddddddddddddddddddddddddddddddddddddddd\"}}]}" > "$AWT/bin/find.json"
+recording_stub "$AWT"
+run_guard "$AWT" demo
+[ "$RC" -eq 2 ] && pass "case 28: an ambiguous record answer refuses outright" \
+  || fail "case 28: expected exit 2, got rc=$RC out=$OUT"
+[ -z "$OUT" ] && pass "case 28: no verdict line on stdout" \
+  || fail "case 28: emitted a verdict line: $OUT"
+case "$ERR" in
+  *"ambiguous state-record resolution"*proj-a*proj-b*)
+    pass "case 28: the refusal names every project" ;;
+  *) fail "case 28: expected the ambiguity refusal naming both projects: $ERR" ;;
+esac
 
 if [ "$FAILURES" -ne 0 ]; then
   printf '%s case(s) failed\n' "$FAILURES" >&2

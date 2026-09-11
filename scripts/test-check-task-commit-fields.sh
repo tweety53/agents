@@ -14,6 +14,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARD="$SCRIPT_DIR/check-task-commit-fields.sh"
 FAILURES=0
 
+# The lib's store step (KAN-267) must never reach the real flow CLI from a
+# unit case. This inert stub fails like an unreachable store, so every
+# pre-existing case sees the step as inert exactly as before it existed;
+# cases 92-93 run the guard behind an answering stub of their own.
+FLOW_INERT="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-flowinert.XXXXXX")"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$FLOW_INERT/flow"
+chmod +x "$FLOW_INERT/flow"
+PATH="$FLOW_INERT:$PATH"
+export PATH
+
 fail() { printf 'FAIL: %s\n' "$1" >&2; FAILURES=$((FAILURES + 1)); }
 pass() { printf 'ok: %s\n' "$1"; }
 
@@ -21,6 +31,31 @@ pass() { printf 'ok: %s\n' "$1"; }
 run_guard() {
   set +e
   OUT="$("$GUARD" "$@" 2>&1)"
+  RC=$?
+  set -e
+}
+
+# run_guard_find <find-json-path> <calls-log> <worktree> <args...> —
+# run_guard behind a flow stub whose `state find` answers from the JSON
+# file and logs every invocation to the calls log; every other subcommand
+# fails like an unreachable store.
+run_guard_find() {
+  local json="$1" calls="$2"
+  shift 2
+  local bin
+  bin="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-flowstub.XXXXXX")"
+  cat > "$bin/flow" <<STUB
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$calls"
+if [ "\$1 \$2" = "state find" ] && [ -f "$json" ]; then
+  cat "$json"
+  exit 0
+fi
+exit 1
+STUB
+  chmod +x "$bin/flow"
+  set +e
+  OUT="$(PATH="$bin:$PATH" "$GUARD" "$@" 2>&1)"
   RC=$?
   set -e
 }
@@ -3421,6 +3456,64 @@ git -C "$REPO" commit -q -m "grow alpha tests"
 SHA="$(git -C "$REPO" rev-parse HEAD)"
 run_guard "$REPO" 1 "$SHA"
 [ "$RC" -eq 0 ] && pass "case 105: lifecycle annotations do not count as @Test" || fail "case 105: rc=$RC out=$OUT"
+
+# ===========================================================================
+# Cases 106-107 (KAN-267): the store step. The named-change path with NO
+# canonical-worktree argument reaches the plan through the state record's
+# worktrees map, answered here by a stub `flow state find`; an answer that
+# resolves two projects' plans is refused outright, naming every match.
+# ===========================================================================
+STORE2_BIN="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-store.XXXXXX")"
+cat > "$STORE2_BIN/flow" <<'STUB'
+#!/usr/bin/env bash
+exit 1
+STUB
+chmod +x "$STORE2_BIN/flow"
+CALLS2="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-calls.XXXXXX")/calls.log"
+
+# Case 106: store-resolves-canonical-plan-no-arg. Reuses case 91's two
+# repositories: XREPO_B carries the commit and NO change directory;
+# XREPO_A carries the plan. No fifth argument, name as the sixth, and the
+# stub answers with one record whose worktrees map names XREPO_A.
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[{\"projectKey\":\"proj-a\",\"name\":\"x-repo-change\",\"state\":\"IN_PROGRESS\",\"worktrees\":{\"$XREPO_A\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"updatedAt\":\"2026-09-10T10:00:00Z\",\"updatedBy\":\"/flow-fast\"}]}" > "$CALLS2.fixture.json"
+run_guard_find "$CALLS2.fixture.json" "$CALLS2" "$XREPO_B" 1 "$SHA_B" "$PARENT_B" "" "x-repo-change"
+[ "$RC" -eq 0 ] && pass "case 106: store-resolves-canonical-plan-no-arg resolves the record's plan" \
+  || fail "case 92: rc=$RC out=$OUT"
+grep -q "state find x-repo-change" "$CALLS2" \
+  && pass "case 106: the store was asked for the change's own name" \
+  || fail "case 106: no state find for the plain name: $(cat "$CALLS2" 2>/dev/null)"
+
+# Case 107: store-ambiguity-refuses. Two projects' records, both maps
+# resolving a plan: the guard refuses outright (exit 2) naming every
+# project and path, never a coin-flip verdict.
+TREE93A="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-ambig-a.XXXXXX")"
+TREE93B="$(mktemp -d "${TMPDIR:-/tmp}/task-commit-fields-ambig-b.XXXXXX")"
+mkdir -p "$TREE93A/spectre/changes/x-repo-change" "$TREE93B/spectre/changes/x-repo-change"
+printf '%s' '- [ ] 1. Ambiguous A
+
+**Files:** `alpha.txt`
+**Tests:** `test_alpha`
+**Commit:** add alpha for real
+**Build:** green
+' > "$TREE93A/spectre/changes/x-repo-change/tasks.md"
+printf '%s' '- [ ] 1. Ambiguous B
+
+**Files:** `beta.txt`
+**Tests:** `test_beta`
+**Commit:** add alpha for real
+**Build:** green
+' > "$TREE93B/spectre/changes/x-repo-change/tasks.md"
+printf '%s\n' "{\"source\":\"store\",\"complete\":true,\"records\":[" \
+  "{\"projectKey\":\"proj-a\",\"name\":\"x-repo-change\",\"worktrees\":{\"$TREE93A\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}," \
+  "{\"projectKey\":\"proj-b\",\"name\":\"x-repo-change\",\"worktrees\":{\"$TREE93B\":\"cccccccccccccccccccccccccccccccccccccccc\"}}]}" > "$CALLS2.fixture.json"
+run_guard_find "$CALLS2.fixture.json" "$CALLS2" "$XREPO_B" 1 "$SHA_B" "$PARENT_B" "" "x-repo-change"
+[ "$RC" -eq 2 ] && pass "case 107: store-ambiguity-refuses exits 2 outright" \
+  || fail "case 93: rc=$RC out=$OUT"
+case "$OUT" in
+  *"ambiguous state-record resolution"*proj-a*proj-b*)
+    pass "case 107: the refusal names every project and path" ;;
+  *) fail "case 107: expected the ambiguity relay naming both projects: $OUT" ;;
+esac
 
 if [ "$FAILURES" -gt 0 ]; then
   printf '%d failure(s)\n' "$FAILURES" >&2

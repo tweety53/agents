@@ -185,6 +185,31 @@ highest_fix_sibling() {
 # dispatch_python_guard <tasks-md> — execs the Python guard against
 # <tasks-md>, forwarding $PARENT_SHA when the caller set one. Shared by all
 # three resolution paths (named change, satellite link, glob-path) so the
+
+# resolve_plan_or_ambiguity <worktree> <change-name> [canonical-worktree] —
+# change_plan_path with one addition (KAN-267): when the lib's store step
+# returns 3 — the state record resolved the name to more than one project's
+# plan — the lib's per-match lines are relayed on stderr and the function
+# returns 3, which the call sites turn into this guard's outright exit-2
+# refusal. Checking one task's fields against a plan the record names twice
+# would make the verdict a coin flip, which is the one thing a
+# commit-fields guard must never be. Sets PLAN_TASKS; runs in the shell (no
+# command substitution), since a subshell's exit could not reach the guard.
+resolve_plan_or_ambiguity() {
+  local err rc=0
+  err="$(mktemp)"
+  PLAN_TASKS="$(change_plan_path "$1" "$2" "${3:-}" 2>"$err")" || rc=$?
+  if [ "$rc" -eq 3 ]; then
+    cat "$err" >&2
+    echo "check-task-commit-fields.sh: the state record resolves change '$2' to more than one project's plan — cannot determine which" >&2
+  fi
+  rm -f "$err"
+  return "$rc"
+}
+
+# dispatch_python_guard <tasks-md> — execs the Python guard against
+# <tasks-md>, forwarding $PARENT_SHA when the caller set one. Shared by all
+# three resolution paths (named change, satellite link, glob-path) so the
 # exec dispatch lives in exactly one place; the function itself execs, so
 # there is no return to the caller either way — same early-return shape the
 # three separate copies had.
@@ -225,8 +250,15 @@ if [ -n "$CHANGE_NAME" ]; then
     # link.md, and — KAN-260 — NO change directory here at all, where the
     # plan lives only in the canonical worktree the caller supplied.
     # change_plan_path owns both branches and their containment rules; every
-    # shape it cannot resolve still reaches the refusal below.
-    TASKS_MD="$(change_plan_path "$WORKTREE" "$CHANGE_NAME" "$CANONICAL_WORKTREE" 2>/dev/null || true)"
+    # shape it cannot resolve still reaches the refusal below. The wrapper
+    # adds one thing (KAN-267): an ambiguous state-record answer is relayed
+    # and refused outright, never read as an ordinary absence.
+    PLAN_RC=0
+    resolve_plan_or_ambiguity "$WORKTREE" "$CHANGE_NAME" "$CANONICAL_WORKTREE" || PLAN_RC=$?
+    if [ "$PLAN_RC" -eq 3 ]; then
+      exit 2
+    fi
+    TASKS_MD="$PLAN_TASKS"
   fi
 
   if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
@@ -268,7 +300,12 @@ if [ "${#MATCHES[@]}" -eq 0 ]; then
 
   TASKS_MD=""
   if [ "${#SATELLITES[@]}" -eq 1 ]; then
-    TASKS_MD="$(change_plan_path "$WORKTREE" "${SATELLITES[0]}" "$CANONICAL_WORKTREE" 2>/dev/null || true)"
+    PLAN_RC=0
+    resolve_plan_or_ambiguity "$WORKTREE" "${SATELLITES[0]}" "$CANONICAL_WORKTREE" || PLAN_RC=$?
+    if [ "$PLAN_RC" -eq 3 ]; then
+      exit 2
+    fi
+    TASKS_MD="$PLAN_TASKS"
   fi
 
   if [ -z "$TASKS_MD" ] || [ ! -f "$TASKS_MD" ]; then
