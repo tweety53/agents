@@ -4,7 +4,7 @@ dispatch bundles by the overlap of their declared **Files:** paths.
 
 Rule (canonical definition: this repository's archived
 kan-109-optimize-myflow-agent-token-and-time-cost change's
-myflow-dispatch-economy spec, "Requirement:
+dispatch-economy requirement "Requirement:
 Implementer dispatches are bundled by declared file overlap" — do not
 restate it here, the same Single Source of Truth discipline check-task-
 build-green.py's own docstring already states). Two unchecked tasks join

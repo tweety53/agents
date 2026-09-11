@@ -589,9 +589,9 @@ _ESCAPED_DELIMITER_RE = re.compile(
 # veto left out: 37 numeric claims are exempted, and 9 sit on a line
 # containing `<`. Every one of those 9 is either a worked demonstration of
 # this very veto — quoted on purpose in `plan-provenance-guard.md`'s own prose
-# (`skills/flow-contracts/plan-provenance-guard.md`), in the live delta spec
-# (`openspec/specs/myflow-plan-provenance/spec.md`), in an archived copy of
-# that spec, or in an archived design document that walked through the same
+# (`skills/flow-contracts/plan-provenance-guard.md`), in the plan-provenance
+# delta spec, in an archived copy of that spec, or in an archived design
+# document that walked through the same
 # veto — or a claim already carrying a provenance tag on the same line, so
 # none of the 9 reports anything. Inside the guard's actual scan scope
 # (`spectre/changes/*/{tasks,design,proposal}.md`) the loss is zero, since
@@ -2948,7 +2948,7 @@ def main() -> None:
     # slug) is counted like any other rather than silently skipped.
     #
     # Zero non-archived changes is this repository's steady state between
-    # `/myflow-finish` and the next `/myflow-start` — "nothing in flight"
+    # one `/flow` archive and the next `/flow` start — "nothing in flight"
     # is not "cannot determine", and reporting exit 2 for it would make
     # this guard's declared place in `## lint` spuriously red on an
     # ordinary day. It is NOT the same state as "changes exist but none

@@ -5,7 +5,7 @@ This file is the reasoning behind `skills/flow-contracts/git-boundaries.md`.
 
 ## Git boundaries
 
-**Why `/myflow-do` commits once a PR exists and not before.** A PR is a remote surface, so a
+**Why `/flow`'s implement phase commits once a PR exists and not before.** A PR is a remote surface, so a
 staged-only fix would be invisible on it. Before that the operator reviews a staged diff in the
 IDE, and committing would take that away.
 

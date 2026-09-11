@@ -2,13 +2,13 @@
 // committed fixture: two projects, changes spanning STARTED, IN_PROGRESS
 // and FINISHED, and stage runs carrying token usage, so the UI-test
 // stack's interface renders a populated view rather than an empty one
-// (specs/myflow-ui-test-stack/spec.md, "The test stack starts
+// (the UI-test-stack requirement "The test stack starts
 // populated").
 //
 // It refuses to run against any database whose name does not end in
 // "_uitest" -- checked before any statement is issued -- so a misaimed
 // run cannot write fixture data into the live database
-// (specs/myflow-ui-test-stack/spec.md, "Destructive test-stack paths
+// (the UI-test-stack requirement "Destructive test-stack paths
 // refuse to act on any other database").
 //
 // It does not seed pricing: cmd/flowd/main.go already calls

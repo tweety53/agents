@@ -220,7 +220,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	// No updatedAt on the way in: the CLI owns that field and stamps it
 	// itself (stampUpdatedAt), so what the fallback records is the body
 	// the CLI actually wrote, not the caller's bytes verbatim.
-	body := `{"state":"IN_PROGRESS","updatedBy":"/myflow-do"}`
+	body := `{"state":"IN_PROGRESS","updatedBy":"/flow"}`
 	var stdout, stderr bytes.Buffer
 	code := run(context.Background(),
 		[]string{"state", "set", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", repo, "kan-16"},
@@ -239,7 +239,7 @@ func TestStateSetFallbackWritesStateFileAndJournalEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadStateFile: %v", err)
 	}
-	want := []byte(`{"state":"IN_PROGRESS","updatedBy":"/myflow-do","updatedAt":"` + updatedAtOf(t, stateBody) + `"}`)
+	want := []byte(`{"state":"IN_PROGRESS","updatedBy":"/flow","updatedAt":"` + updatedAtOf(t, stateBody) + `"}`)
 	if !jsonEqual(t, stateBody, want) {
 		t.Errorf("on-disk state file = %s, want %s", stateBody, want)
 	}
@@ -888,7 +888,7 @@ func TestStateGetSucceedsAgainstReachableStore(t *testing.T) {
 // is not a state" half: a change row whose only author is a stage mark's
 // own bootstrap side effect (stages.SyntheticChangeUpdatedBy) is
 // surfaced as `"synthetic": true` in `state get`'s output, so a caller
-// (skills/myflow-fast/SKILL.md's state gate) can test a field instead of
+// (skills/flow-fast/SKILL.md's state gate) can test a field instead of
 // comparing "updatedBy" strings itself.
 func TestStateGetMarksSyntheticRecord(t *testing.T) {
 	repo := gitRepo(t)
@@ -942,7 +942,7 @@ func TestStateGetDoesNotMarkGenuineRecordSynthetic(t *testing.T) {
 
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"state":"IN_PROGRESS","updatedBy":"/myflow-do"}`))
+		_, _ = w.Write([]byte(`{"state":"IN_PROGRESS","updatedBy":"/flow"}`))
 	}))
 	defer srv.Close()
 
@@ -1004,7 +1004,7 @@ func TestStateListSucceedsAgainstReachableStore(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"view":"state-board","rows":[
-			{"projectKey":"proj","name":"kan-1","state":"STARTED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/myflow-start","nextCommand":"/myflow-do"}
+			{"projectKey":"proj","name":"kan-1","state":"STARTED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/flow","nextCommand":"/flow"}
 		]}`))
 	}))
 	defer srv.Close()
@@ -1064,7 +1064,7 @@ func TestStateListFallbackReportsLocalRecords(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/myflow-do"}`)
+	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
 	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}
@@ -1085,7 +1085,7 @@ func TestStateListFallbackReportsLocalRecords(t *testing.T) {
 		t.Fatalf("records = %+v, want exactly one", out.Records)
 	}
 	r := out.Records[0]
-	if r.Name != "kan-9" || r.State != "IN_PROGRESS" || r.UpdatedBy != "/myflow-do" || r.Unreadable {
+	if r.Name != "kan-9" || r.State != "IN_PROGRESS" || r.UpdatedBy != "/flow" || r.Unreadable {
 		t.Errorf("records[0] = %+v", r)
 	}
 }
@@ -1152,8 +1152,8 @@ func TestStateResolveStoreDropsFinished(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"view":"state-board","rows":[
-			{"projectKey":"proj","name":"kan-1","state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/myflow-do"},
-			{"projectKey":"proj","name":"kan-2","state":"FINISHED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/myflow-finish"}
+			{"projectKey":"proj","name":"kan-1","state":"IN_PROGRESS","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/flow"},
+			{"projectKey":"proj","name":"kan-2","state":"FINISHED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/flow-fast"}
 		]}`))
 	}))
 	defer srv.Close()
@@ -1188,7 +1188,7 @@ func TestStateResolveFallbackUnionsChangesDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectKey: %v", err)
 	}
-	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/myflow-do"}`)
+	seeded := []byte(`{"state":"IN_PROGRESS","updatedAt":"2026-08-13T09:00:00Z","updatedBy":"/flow"}`)
 	if err := fallback.WriteStateFile(fallback.StateFilePath(projectKey, "kan-9"), seeded); err != nil {
 		t.Fatalf("seed state file: %v", err)
 	}

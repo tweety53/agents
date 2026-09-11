@@ -1,11 +1,7 @@
 # Operator prompts
 
-**This file is canonical for the shape of an operator-facing prompt.** It consolidates a pattern
-first required by `myflow-planning-gate`'s "Every approval or choice is offered as
-options, not as open prose" requirement (`<agents repo>/openspec/specs/myflow-planning-gate/spec.md`, frozen
-with the rest of that tree at the spectre cutover and governing nothing since) — this is
-not a new rule, it is the one prose shape that requirement's options-not-prose mechanics already
-imply, stated once so every call site stops restating it.
+**This file is canonical for the shape of an operator-facing prompt.** It is the one prose shape every approval or choice takes — offered as
+options, not as open prose — stated once so every call site stops restating it.
 
 ## The shape
 

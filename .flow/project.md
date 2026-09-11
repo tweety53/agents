@@ -1,18 +1,18 @@
-# myflow project configuration — agents
+# flow project configuration — agents
 
-Read by globally installed myflow skills.
+Read by globally installed flow skills.
 
 ## apps
 
-This repository is mostly the source of the myflow skills, commands, and rules, installed
+This repository is mostly the source of the flow skills, commands, and rules, installed
 elsewhere by `setup.sh` — that half has no port and no URL. It also now holds `stats/`, a
-PostgreSQL-backed Go service (`myflowd`) with an embedded React SPA, plus a thin `myflow` CLI. Both
+PostgreSQL-backed Go service (`flowd`) with an embedded React SPA, plus a thin `flow` CLI. Both
 halves live in the one repo and are covered below.
 
 | App | Repo root | Kind | URL | Notes |
 |-----|-----------|------|-----|-------|
-| myflow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
-| myflow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `myflowd`, loopback-only. Backed by a dedicated `myflow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
+| flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
+| flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
 **This repository is Bash + Python, not Bash-only.** `scripts/check-plan-provenance.sh` is a thin
 wrapper that execs `scripts/check-plan-provenance.py` (Python 3, standard library only —
@@ -21,18 +21,12 @@ can be a real block-structure parser instead of a hand-rolled Bash ERE allowlist
 review panel passes and seven fix waves that found defect class after defect class in the Bash
 version — canonical enumeration and full history in `check-plan-provenance.py`'s own module
 docstring (this file does not restate the count, since a copied number is exactly what let an
-earlier, wrong count survive six review passes) and in
-`openspec/changes/archive/2026-07-29-kan-14-plan-provenance/design.md` — frozen and historical, a
-record of why the wrapper exists rather than a live artifact — under its "Post-review reshape"
-section. Every other guard in this repository remains Bash-only; adding Python here was a
+earlier, wrong count survive six review passes). Every other guard in this repository remains Bash-only; adding Python here was a
 deliberate, recorded widening of the toolchain, not a drift.
 
 ### artifact tree
 
-The pipeline's artifact tree is `spectre/`. `openspec/` is frozen at the 2026-08-25 cutover and is
-never written to again. The two changes left open in it —
-`kan-295-cut-pipeline-load-cost-split-by-consumer` and `kan-327-review-per-round-delta-after-round-1`
-— are abandoned.
+The pipeline's artifact tree is `spectre/`.
 
 ## run
 
@@ -43,15 +37,15 @@ SANDBOX="$(mktemp -d)"
 HOME="$SANDBOX" ./setup.sh global
 ```
 
-**The stats daemon.** Bring up the dedicated Postgres stack, then build and run `myflowd`:
+**The stats daemon.** Bring up the dedicated Postgres stack, then build and run `flowd`:
 
 ```bash
-cd stats && docker compose up -d          # myflow-postgres on host port 5433
+cd stats && docker compose up -d          # flow-postgres on host port 5433
 cd stats && make build                    # builds the SPA, then both binaries into bin/
-cd stats && ./bin/myflowd
+cd stats && ./bin/flowd
 ```
 
-`myflowd` binds `127.0.0.1:4173` (override with `FLOWD_PORT`) and refuses to start on any other
+`flowd` binds `127.0.0.1:4173` (override with `FLOWD_PORT`) and refuses to start on any other
 interface or on an unparsable `FLOWD_PORT` rather than defaulting silently. Running it this way is
 for manual, foreground verification only — for a daemon that survives logout and restarts on
 failure, see `stats/README.md`'s "Running the daemon at login" section and its launchd agent.
@@ -61,8 +55,8 @@ database before anyone noticed. **No automated stage runs these three commands e
 UI-test stack below for what an automated stage uses instead.
 
 **The UI-test stack**, for ad-hoc testing from the main checkout rather than from an apply worktree:
-`make ui-test-up` and `make ui-test-down` (`stats/Makefile`) bring a second, disposable `myflowd` up
-on port 4174 against `myflow_uitest`, seeded with a fixed fixture, and tear it down again. Point a
+`make ui-test-up` and `make ui-test-down` (`stats/Makefile`) bring a second, disposable `flowd` up
+on port 4174 against `flow_uitest`, seeded with a fixed fixture, and tear it down again. Point a
 session at it with `FLOW_ADDR=http://127.0.0.1:4174`. Neither target is isolated by the
 `## workspace isolation` section below — that section covers apply worktrees, and this stack is a
 single, main-checkout-only fixture instead.
@@ -72,7 +66,7 @@ That stage's step 4 probes a URL and, if nothing answers, "starts the stack from
 project with more than one candidate stack has to say which one that means, so this paragraph is
 the answer: `make ui-test-up` / `make ui-test-down` against `http://127.0.0.1:4174`, matching the
 `## visual verification` section below and `stats/web/playwright.config.ts`'s pinned `baseURL`.
-**Never `myflowd` on `127.0.0.1:4173`** — that is the dev workspace's protected daemon (`## stop`
+**Never `flowd` on `127.0.0.1:4173`** — that is the dev workspace's protected daemon (`## stop`
 below), its data changes on every run so no baseline over it could ever be stable, and `CLAUDE.md`
 forbids any agent action touching it at all.
 
@@ -88,7 +82,7 @@ cd stats/web && npm test
 through `scripts/lib/parallel.sh`; a new harness added to `scripts/` is picked up automatically, with
 no edit needed here.
 
-**Measured runtime: recorded per run in the myflow store — query it with `flow suite list`.** The
+**Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`scripts/run-guard-tests.sh`), `stats-go`
 (`go test ./... -race -count=1`) and `stats-spa` (`stats/web` `npm test`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
@@ -116,7 +110,7 @@ list: it shells out to a sandboxed `setup.sh` twice per invocation** — once fo
 files already on disk. A single invocation measures about 0.84s, negligible against either total
 above, but worth naming here since it is the one guard in this repository paying for a subprocess
 rather than a plain file scan.
-<!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch openspec/kan-102-citations-resolve-to-installed-paths -->
+<!-- measured: time scripts/check-installed-citations.sh >/dev/null @ branch kan-102-citations-resolve-to-installed-paths -->
 
 ## worktree setup
 
@@ -190,7 +184,7 @@ is keyed on the path relative to the repository root, not on the bare basename, 
 directory has a file literally named `SKILL.md` and a basename key would collide across skills. Each
 budget is the size its file had when the change that added its row landed, plus 25% — so ordinary
 edits pass and a real section addition trips it, forcing a deliberate edit to the table rather than a
-silent regrowth of a file every `/myflow-*` command loads. Raising a budget is the correct response
+silent regrowth of a file every `/flow*` command loads. Raising a budget is the correct response
 to a genuine addition; narrowing the guard's scope or deleting a row is not.
 
 **`check-normative-inventory.sh` reports a set rather than a verdict.** It prints every sentence in
@@ -211,7 +205,7 @@ about the text of `.flow/project.md` — so it runs against a bare tree like eve
 `check-cleanup-complete.sh` reads the same section and is excluded below for the opposite reason: it
 needs a change in flight.
 
-**Its place in this list is a self-check on this repository, not how it covers the projects myflow
+**Its place in this list is a self-check on this repository, not how it covers the projects flow
 is installed into** — and conflating the two made a permanently vacuous lint step read as
 enforcement. The run here checks this repository's own `## workspace isolation` section below; a
 green lint run therefore says nothing whatever about any other project's declaration. What covers
@@ -270,8 +264,7 @@ content-classification; a caller that treats "non-zero" uniformly, as this repos
 step does, is unaffected by that split. The long-standing exception recorded here previously — a
 block of unattributed fenced snippets in `kan-8-myflow-updates`'s plan — cleared on its own when
 that change archived, exactly as predicted, because the guard excludes `changes/archive/` by
-design — `spectre/changes/archive/` today, `openspec/changes/archive/` in the frozen tree where
-that change actually sits. There is no known exception left. A future non-zero exit is a real hit
+design. There is no known exception left. A future non-zero exit is a real hit
 on a plan in flight: fix the offending line by stating its provenance, never by narrowing the
 guard's scope or adding a suppression marker.
 
@@ -286,9 +279,9 @@ case of `## workspace isolation` below, which is what the main checkout resolves
 
 | Protected — never stopped, dropped or removed by any agent action | Why |
 |---|---|
-| `myflowd` on `127.0.0.1:4173` | the store every `myflow` call in every project writes through |
-| the `myflow-postgres` container on host port 5433 | the **service**, shared by every workspace |
-| the default `myflow` database inside it | the dev workspace's own storage |
+| `flowd` on `127.0.0.1:4173` | the store every `flow` call in every project writes through |
+| the `flow-postgres` container on host port 5433 | the **service**, shared by every workspace |
+| the default `flow` database inside it | the dev workspace's own storage |
 
 Not `docker compose down`, not `launchctl unload`, not a `kill` on the daemon's pid, and not to make
 a later step succeed. Stopping any of them mid-run silently degrades the rest of that run's writes to
@@ -297,7 +290,7 @@ afterwards does not repair it, because whatever fell through to the journal whil
 there.
 
 **A workspace's own derived resources are not protected, and removing them is correct.** The
-`myflow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
+`flow_<id_underscored>` database and the bucket an apply worktree derives are per-change artifacts:
 `scripts/workspace.sh remove <id>` drops them during archive cleanup exactly as the registry
 requires, and that must keep working. The line is the one **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) already draws — what is isolated is the logical
@@ -382,7 +375,7 @@ rolls) rather than running as this run would without the toggle.
 **`FLOW_STATE_DIR` and `FLOW_TRANSCRIPTS_DIR` are deliberately not isolated.** The `Resource`
 column above is a closed vocabulary — `database`, `bucket`, `cache index`, `port`, `url`, and no
 other word — and a directory path is none of those five, so neither variable gets a row; this is a
-decision, not an oversight. The consequence is bounded: every worktree's `myflowd` still harvests
+decision, not an oversight. The consequence is bounded: every worktree's `flowd` still harvests
 from the one real transcripts root, but each writes the result into its *own* isolated database from
 the table above, so the harvested data ends up duplicated across worktrees rather than shared through
 one database. Neither variable crosses the boundary this section exists to protect.

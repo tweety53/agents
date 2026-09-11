@@ -88,8 +88,8 @@ run_verdict() {
 # 1. A member with a non-zero count renders and passes.
 # ---------------------------------------------------------------------------
 coverage_reset
-coverage_record "myflow-do" 14
-assert_eq "case 1: a non-zero count renders as 'name count'" "myflow-do 14" "$(coverage_report)"
+coverage_record "flow" 14
+assert_eq "case 1: a non-zero count renders as 'name count'" "flow 14" "$(coverage_report)"
 run_verdict
 assert_eq "case 1: a non-zero count produces no violation lines" "" "$VERDICT"
 assert_zero_rc "case 1: a non-zero count exits 0" "$RC"
@@ -109,10 +109,10 @@ assert_eq "case 2: a declared zero produces no violation lines" "" "$VERDICT"
 assert_zero_rc "case 2: a declared zero exits 0" "$RC"
 
 coverage_reset
-coverage_record "myflow-start" 0
-coverage_declare "myflow-start"
+coverage_record "flow-settings" 0
+coverage_declare "flow-settings"
 assert_eq "case 2b: a declared zero with no reason renders plain '(declared)'" \
-  "myflow-start 0 (declared)" "$(coverage_report)"
+  "flow-settings 0 (declared)" "$(coverage_report)"
 run_verdict
 assert_zero_rc "case 2b: a declared zero with no reason exits 0" "$RC"
 
@@ -120,10 +120,10 @@ assert_zero_rc "case 2b: a declared zero with no reason exits 0" "$RC"
 # 3. A member at zero and undeclared is reported by name and fails.
 # ---------------------------------------------------------------------------
 coverage_reset
-coverage_record "myflow-fast" 0
-assert_eq "case 3: an undeclared zero still renders as a plain count" "myflow-fast 0" "$(coverage_report)"
+coverage_record "flow-fast" 0
+assert_eq "case 3: an undeclared zero still renders as a plain count" "flow-fast 0" "$(coverage_report)"
 run_verdict
-assert_contains "case 3: an undeclared zero is named in the verdict" "$VERDICT" "myflow-fast"
+assert_contains "case 3: an undeclared zero is named in the verdict" "$VERDICT" "flow-fast"
 assert_nonzero_rc "case 3: an undeclared zero exits non-zero" "$RC"
 
 # ---------------------------------------------------------------------------
@@ -171,7 +171,7 @@ assert_zero_rc "case 5c: a declared odd-named zero exits 0" "$RC"
 # ---------------------------------------------------------------------------
 coverage_reset
 set +e
-coverage_record "myflow-do" "not-a-number" 2>/dev/null
+coverage_record "flow" "not-a-number" 2>/dev/null
 RC=$?
 set -e
 assert_nonzero_rc "case 6a: a non-numeric count is rejected" "$RC"
@@ -184,9 +184,9 @@ set -e
 assert_nonzero_rc "case 6b: an empty member name is rejected" "$RC"
 
 coverage_reset
-coverage_record "myflow-do" 5
+coverage_record "flow" 5
 set +e
-coverage_record "myflow-do" 9 2>/dev/null
+coverage_record "flow" 9 2>/dev/null
 RC=$?
 set -e
 assert_nonzero_rc "case 6c: recording the same member twice is rejected" "$RC"

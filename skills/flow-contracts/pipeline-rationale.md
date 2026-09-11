@@ -16,7 +16,7 @@ now serves as both.
 ## Command surface
 
 Behaviour a flag used to select is now either asked at invocation (the integration choice in
-`/myflow-finish`), derived from the current state, or fixed at the single sensible default
+bare `/flow`), derived from the current state, or fixed at the single sensible default
 (review-panel breadth, decided by its escalation triggers).
 
 ## State transitions
@@ -51,7 +51,7 @@ Marking writes: where
 the store has no record for the name a `stage begin` carries, the begin handler bootstraps a change
 row so the mark has something to attach to, and that row outlives the run — it appears among the
 open changes, carries a next command, and is never archived, because no change directory bears that
-name. This is the sibling of **Requirement: A state gate reads the state before it marks** (`<agents repo>/openspec/specs/myflow-run-telemetry/spec.md`, frozen at the spectre cutover and kept as the record of where the rule came from):
+name. This is the sibling of the rule that a state gate reads the state before it marks:
 that rule keeps a command from *reading* a state its own mark authored; this one keeps a command
 from *creating* a change nobody named.
 
@@ -107,14 +107,14 @@ the mark exactly the block it is required not to be.
   cannot drive a harness's autocomplete; nothing lets a running session prefill the operator's
   input box. The last-line convention plus a four-command surface is the whole mechanism.
 
-- **`/myflow-do` never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
+- **`/flow`'s implement phase never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` before
   finish.** The plan was read at `STARTED`; presenting it again as code to review hides the
   implementation diff it is mixed into. Leaving them unstaged, rather than filtering them out of one
   display command, is what makes them absent from *every* view of the staging area — a filtered
   display leaves them in the index, where `git status`, a graphical client and the IDE's
   staged-changes pane show them again. The list is fixed here rather than configured per project; the
   pipeline chooses these paths
-  itself, so no project can differ. `/myflow-finish` run 1 stages them and commits them separately
+  itself, so no project can differ. `/flow`'s integrate run stages them and commits them separately
   from the implementation, so nothing is lost.
 
 ## Artifact brevity
@@ -133,7 +133,7 @@ and reuses a running instance.
 
 Resolution against the **running command's own** skill directory is what lets a contract loaded
 by more than one command — `skills/flow-contracts/finish-contract-run1.md`, loaded by both
-`/myflow-finish` and `/flow-status` — name a guard at all: the same basename resolves inside
+bare `/flow` and `/flow-status` — name a guard at all: the same basename resolves inside
 whichever command is actually running, never a fixed one of them.
 
 Carrying the prefix says which
@@ -169,7 +169,7 @@ defined; the two call sites point here rather than each describing them.
 
    **The removal goes after the worktree half, and the order is load-bearing.** Worktree cleanup's
    check 5 runs the project's `## stop` command, and it is the **only** place run 2 stops the stack —
-   which run 2 nearly always has to do, because `/myflow-do`'s handoff prints the run instructions
+   which run 2 nearly always has to do, because the implement phase's handoff prints the run instructions
    and the operator runs the applications against them, so a stack still up when run 2 starts is the
    common case rather than a rare one. Dropping a database the project's own stack still holds open is a
    removal that fails on the ordinary path, so the removal waits until that stack is down.
@@ -203,7 +203,7 @@ defined; the two call sites point here rather than each describing them.
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a
    number of its own would renumber steps 7, 8 and 9, which are cited *by number* from
-   `skills/flow/archive.md` and from the capability specs frozen under `<agents repo>/openspec/specs/`.
+   `skills/flow/archive.md`.
 
 ### Worktree cleanup
 

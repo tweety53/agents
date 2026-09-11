@@ -30,7 +30,7 @@
 -- conflicts with nothing, including another row without one, so it inserts
 -- exactly as it did before this migration and is simply never deduplicated
 -- and never closed by `end`. That is what keeps the column addable to a
--- table that already holds rows; `myflow record dispatch begin` requires
+-- table that already holds rows; `flow record dispatch begin` requires
 -- the flag, so no path this repository ships produces such a row.
 --
 -- It is a named CONSTRAINT rather than a bare unique index for the reason

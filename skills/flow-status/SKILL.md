@@ -50,7 +50,7 @@ live store. Say nothing extra when it reads `store`; that is the normal case.
 
 With a `<name>` argument, restrict to that change and include the detail view (step 4). With no argument, report every non-archived change.
 
-Zero open changes → say so and suggest `/myflow-start`. Stop.
+Zero open changes → say so and suggest `/flow`'s creating run. Stop.
 
 ### 2. Resolve each change's state
 
@@ -79,22 +79,13 @@ WARNING="$(cat "$ERR")"; rm -f "$ERR"
 Then read the fields from `$RECORD`:
 
 ```bash
-printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, (.planningEffort // .effort), (.models // {} | tojson), (.reviewPanelRoster // null), .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
+printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .planningEffort, (.models // {} | tojson), (.reviewPanelRoster // null), .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
 ```
-
-**The planning-effort read falls back to the retired key, and that fallback is the whole of the
-compatibility promise.** `(.planningEffort // .effort)` is what makes it real: jq's `//` yields the
-left side whenever it is neither `null` nor `false`, so a file carrying only the retired key reads
-its recorded value instead of reporting *not recorded*, and a file carrying both is governed by the
-precedence **State file** (`skills/flow-contracts/state-file.md`) states — the current key wins.
-Reading `.planningEffort` alone would report a file that recorded a real level as having recorded
-none, which is the one outcome the retired-key exception exists to prevent. The value that comes
-back is the raw one; mapping it to a level is section 3's job, below.
 
 **Load `skills/flow-contracts/worktree-resolution.md`** before resolving the merge-status report
 below.
 
-**Merge status** decides whether the next `/myflow-finish` integrates or archives. It is answered
+**Merge status** decides whether the next bare `/flow` integrates or archives. It is answered
 once per worktree in the set resolved per **Resolving a change's worktrees**
 (`skills/flow-contracts/worktree-resolution.md`) — never a raw read of the record's `worktrees` map,
 which a `{}` or absent map would make a loop over its keys report on nothing. Per that same
@@ -139,7 +130,7 @@ merged** makes the change not merged; otherwise, with at least one inconclusive 
 merged, the change is
 **inconclusive**. Never report the first worktree's answer as the change's. When two worktrees
 disagree, say so in the detail view and name which is which: that disagreement is precisely what the
-next `/myflow-finish` will stop on, and the operator should see it here rather than discover it
+next bare `/flow` will stop on, and the operator should see it here rather than discover it
 there.
 
 ### 3. Render the table
@@ -154,7 +145,7 @@ archived.
 | Change | Jira | State | PR | Next | Updated |
 |--------|------|-------|----|------|---------|
 | kan-8-myflow-updates | KAN-8 | IN_PROGRESS | #42 | review the diff + run the apps, then `/myflow-finish` | 2h ago (/myflow-do) |
-| active-workout-session-editing | — | STARTED | — | read the artifact, then `/myflow-do` | 19h ago (/myflow-start) |
+| active-workout-session-editing | — | STARTED | — | read the artifact, then `/flow`'s implement phase | 19h ago (/flow) |
 ```
 
 The absolute worktree path is given in the detail view, taken from the `worktrees` keys.
@@ -175,29 +166,14 @@ under **Planning effort** in State file (`skills/flow-contracts/state-file.md`) 
 canonical for the levels and for which of them is recommended, so read the set there rather than
 inferring it from this line.
 
-**A value that came from the retired key is surfaced as the level it maps to, never as the raw
-value.** Step 2's read yields whichever key held a value; `medium` is surfaced as `default`, `high`
-as `detailed` and `low` as `low`, per the mapping stated once under
-**Planning effort** in State file (`skills/flow-contracts/state-file.md`). Say which level is in
-force and nothing more — the key it was read from is not the operator's business, and this report
-never rewrites the file to migrate it. A raw `medium` printed as a level would name a level this
-pipeline does not have.
-
-**A retired-key value outside those three maps to no level, and is surfaced as `not recorded —
-planned at default` rather than echoed.** It does not make the file unparseable:
-the mapping's boundary is the level's, not the schema's, and what an unmapped value reads as is
-stated once under **Planning effort** in State file (`skills/flow-contracts/state-file.md`), where
-the reason it is *not recorded* rather than *unparseable* is recorded too. This line reports the
-level, and there is none.
-
 Surface `models` the same way, as one line covering its three roles — `implementation`,
 `reviewPanel` and `panelFix` — each the recorded model verbatim, or `not recorded` where none was
 chosen.
 
 Surface `reviewPanelRoster` the same way: the recorded preset verbatim when there is one, and,
 when step 2's read yielded `null`, `not recorded — using the default`, that default being `light`
-per `skills/myflow-start/SKILL.md`'s roster prompt, where it is the recommended option; what each
-preset means is canonical in `skills/myflow-do/SKILL.md`. A
+per `skills/flow-settings/SKILL.md`'s reviewer-slot defaults; what each
+preset means is canonical in `skills/flow/review-panel.md`. A
 not-recorded roster is not a warning: it is the default, and this line reports it as a normal
 state, not as something missing.
 
@@ -205,12 +181,12 @@ Next-command mapping:
 
 | State | Next |
 |-------|------|
-| `STARTED` | read the artifact, then `/myflow-do <name>` (or re-run `/myflow-start` to revise) |
-| `IN_PROGRESS`, branch not merged | review the diff + run the apps, then `/myflow-finish <name>` (or re-run `/myflow-do` to fix) |
-| `IN_PROGRESS`, branch merged | `/myflow-finish <name>` — it will archive |
+| `STARTED` | read the artifact, then `/flow <name>` (or re-run `/flow`'s creating run to revise) |
+| `IN_PROGRESS`, branch not merged | review the diff + run the apps, then `/flow <name>` (or re-run `/flow`'s implement phase to fix) |
+| `IN_PROGRESS`, branch merged | `/flow <name>` — it will archive |
 | `FINISHED` | — |
 
-The `IN_PROGRESS` row splits on merge status because `/myflow-finish` behaves differently either
+The `IN_PROGRESS` row splits on merge status because bare `/flow` behaves differently either
 side of it: it integrates before the merge and archives after. Say which run the operator is
 about to get. **Merge status here is step 2's answer — all three of its steps, and combined
 across every worktree** — never a bare ancestor test. A branch with no commits of its own is *not
@@ -227,7 +203,7 @@ Add below the table:
 - `<name>-fix-N` sub-changes, if any
 - PR number and URL when one exists — not whether it is open, merged or closed, which this report
   does not track; check the forge for that
-- Whether the branch has reached the base branch — i.e. which `/myflow-finish` run comes next. For a
+- Whether the branch has reached the base branch — i.e. which bare `/flow` run comes next. For a
   change recording more than one worktree, give the combined answer **and** the per-worktree ones
   whenever they differ, naming each worktree by its absolute path
 
@@ -259,9 +235,9 @@ one.
   the same change, in the same run — a change stopped at a run-2 cleanup leftover is exactly that
   case, and it is not rare.
 - **The two splits still do not compete.** The next-command column splits `IN_PROGRESS` on merge
-  status to say which `/myflow-finish` run the operator gets; the block splits on it to say which
+  status to say which bare `/flow` run the operator gets; the block splits on it to say which
   wait the operator is in. Both now read the same signal first, so they cannot disagree about the
-  branch — and because both blocks end in `/myflow-finish <name>`, neither can contradict the other
+  branch — and because both blocks end in `/flow <name>`, neither can contradict the other
   about what to run next.
 - The `prUrl` test that remains is one-way — a `null` `prUrl` does not prove run 1 has not
   happened — and what that costs, plus why it is accepted rather than replaced, is stated under
@@ -270,9 +246,9 @@ one.
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
 - **The `Running:` section is resolved, never copied from a stored run.** Follow **Resolve the
   run instructions** (`skills/flow/verify-and-handoff.md`) — canonical for how those lines are produced —
-  and apply it here exactly as `/myflow-do` does: resolve from the worktree named in the record
+  and apply it here exactly as `/flow`'s implement phase does: resolve from the worktree named in the record
   and `<project>/.flow/project.md` — never the project's declared base — not from any text
-  `/myflow-do` printed earlier. This command prints the resolved commands without re-probing
+  `/flow`'s implement phase printed earlier. This command prints the resolved commands without re-probing
   whether the stack is still running — it states that the stack's liveness is not re-checked, it
   does not attempt to confirm it. Do not restate the resolution *procedure* here — the steps that
   compute each app root, start command and URL; a second copy of those steps is the failure this

@@ -2,10 +2,8 @@
 """check-task-commit-fields.py — check a task's declared `Files:`, `Tests:`
 and `Commit:` fields in `tasks.md` against the real commit that closed it.
 
-Rule (canonical definition, in the frozen tree:
-openspec/changes/archive/2026-08-09-kan-100-myflow-get-rid-of-staging-
-use-commits/specs/myflow-task-commit-fields/spec.md — "A runtime guard
-checks each field against the real commit"). That frozen tree also carried
+Rule (canonical definition: the kan-100 task-commit-fields spec — "A runtime
+guard checks each field against the real commit"). That spec also carried
 "Regression and Baseline checks skip, rather than fail, when unsupported":
 the runtime check behind that requirement was removed by KAN-442, because
 it reverted, tested and reset the canonical worktree the conductor
@@ -222,7 +220,7 @@ from typing import Dict, List, NamedTuple, Optional, Pattern, Tuple
 # module's docstring for the two drifts a per-guard copy produced, and for
 # why `Squash-with:` is line-scoped. `lib/` is resolved through this file's
 # REAL path, so the import works when the guard is invoked through
-# skills/myflow-do/scripts/ or skills/myflow-fast/scripts/ as well as from
+# skills/flow/scripts/ or skills/flow-fast/scripts/ as well as from
 # the repository root.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
 

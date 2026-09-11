@@ -327,14 +327,14 @@ ROOT="${ROOTS[0]}"
 # dispatched, which is the plan this guard has to read.
 #
 # TWO CAVEATS, both accepted. (1) N INCREMENTING IS CONVENTION, NOT CONTRACT:
-# nothing in skills/myflow-do/SKILL.md specifies that a fix round numbers its
+# nothing in skills/flow/review-panel.md specifies that a fix round numbers its
 # sub-change one higher than the last, so "highest-numbered" reads an ordering
 # nobody promised. (2) Reading the wrong plan is normally LOUD rather than
 # silent — the commit's files are undeclared there and the guard exits 1
 # naming one — but it can pass silently when the chosen plan's task N declares
 # a SUPERSET of the intended plan's files. Passing the change name as an
 # argument would remove both; that changes a call signature
-# skills/myflow-do/SKILL.md documents, and was judged not worth it.
+# skills/flow/implement.md documents, and was judged not worth it.
 CHOSEN="$(highest_fix_sibling "$CHANGES_DIR" "$ROOT" "${NAMES[@]+"${NAMES[@]}"}")"
 
 TASKS_MD="$CHANGES_DIR/$CHOSEN/tasks.md"

@@ -7,7 +7,7 @@
 # demonstrates the defect it names.
 #
 # WHY THIS SCRIPT EXISTS. Every rule about *running* a reproducer used to be
-# prose in skills/myflow-do/SKILL.md, with no code behind it: the
+# prose in skills/flow/review-panel.md, with no code behind it: the
 # containment of each token, the ban on shell metacharacters, the direct
 # exec, the bound, and the timed-out and surviving-process dispositions.
 # Eight review findings across three panel passes were defects in that
@@ -226,8 +226,8 @@ fi
 # exists to make true rather than merely claim.
 # ---------------------------------------------------------------------
 
-# The bound and grace are this rule's own numbers (skills/myflow-do/SKILL.md
-# section 5): 20 seconds, plus a 2-second SIGTERM-to-SIGKILL grace matching
+# The bound and grace are this rule's own numbers: 20 seconds, plus a
+# 2-second SIGTERM-to-SIGKILL grace matching
 # check-cleanup-complete.sh's own SURVIVORS_KILL_GRACE. RUN_REPRODUCER_*
 # overrides exist for the same reason CHECK_CLEANUP_SURVIVORS_TIMEOUT does
 # in that script: driving a real 20-second wait through a test harness costs
@@ -613,7 +613,7 @@ fi
 # A reproducer killed at the bound, or one whose child survived the retry
 # above, may already have written to the worktree before it was killed, so
 # the worktree is re-checked here, before this script's own run continues
-# any further. `/myflow-do` re-checks it again itself when the operator
+# any further. `/flow`'s implement phase re-checks it again itself when the operator
 # resumes, since nothing between this exit and that resume observed what a
 # still-alive survivor went on to write — that second check is the caller's
 # responsibility and is out of this single invocation's scope.

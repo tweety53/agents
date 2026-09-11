@@ -81,7 +81,7 @@
 # The guard cannot know whether `<name>` is resolved at a given call site,
 # but it can know that a bracketed placeholder whose own text says "guess"
 # is not — `<name-or-best-guess>` and any restatement of it. KAN-182: on
-# 2026-08-15 `/myflow-fast`'s state gate marked `do.state-gate` with
+# 2026-08-15 `/flow-fast`'s state gate marked its stage with
 # `<name-or-best-guess>` before its change name was resolved; the daemon's
 # begin handler bootstraps a change row for any name it has never seen
 # (`ApplyBeginStageMark`, `stats/internal/api/stages.go`), so the guess got

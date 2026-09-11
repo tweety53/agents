@@ -9,7 +9,7 @@
 # a rendered Markdown file.
 #
 # Every finding in the store must declare how it was reproduced, so that
-# /myflow-do can run that command and require it to FAIL before dispatching a
+# /flow's implement phase can run that command and require it to FAIL before dispatching a
 # fix instruction built on it. A finding with no runnable check declares the
 # exemption form `none — <reason>` instead.
 #
@@ -90,7 +90,7 @@ esac
 # The worktree is guarded a second time here, distinct from the existence
 # check above: that check and this `cd` are two separate syscalls, and a
 # worktree that vanishes in the gap between them (a concurrent cleanup, a
-# race with another /myflow-finish run) makes `cd` fail after the `[[ -d ]]`
+# race with another /flow integrate or archive run) makes `cd` fail after the `[[ -d ]]`
 # check already passed. Without the `||` below, `set -e` forwards that
 # failure as-is — the script exits with `cd`'s own exit status and bash's own
 # "No such file or directory" message, never reaching this guard's own exit
@@ -170,7 +170,7 @@ while IFS= read -r ref; do
   fi
 
   # A RUNNABLE REPRODUCER'S COMMAND MUST BE A BARE PATH SHAPE, never a shell
-  # command line. /myflow-do runs a passing reproducer as a direct exec,
+  # command line. /flow's implement phase runs a passing reproducer as a direct exec,
   # with an argument vector, never through a shell (see
   # skills/flow/review-panel.md) — but the store's reproducer field
   # is subagent-authored text, exactly the kind of attacker-influenceable

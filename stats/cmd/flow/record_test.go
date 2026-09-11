@@ -919,7 +919,7 @@ func TestRecordRenderWithNoLedgerRowsPrintsMissingAndWritesNothing(t *testing.T)
 }
 
 // TestRecordRenderPanelWithNoFindingsStillWritesTheRecord pins the rule
-// openspec/specs/myflow-review-panel-economics/spec.md states under "The
+// the review-panel economics requirement states under "The
 // panel record declares how many findings it carries": a panel that raised
 // no finding says so with `findings-total: 0`, which is a DECLARATION and
 // clears, where silence is not.
@@ -1025,7 +1025,7 @@ func TestRecordRenderPanelWithNoFindingsReadsClearToTheRealGuard(t *testing.T) {
 		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
 
-	// The guard reads the live worktree path /myflow-do writes the record
+	// The guard reads the live worktree path /flow writes the record
 	// to; the render writes the archive copy. Copying the rendered bytes
 	// across is what puts what the COMMAND produced under the real guard. A
 	// render that wrote nothing leaves that path absent, and the guard

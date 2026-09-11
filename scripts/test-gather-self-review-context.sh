@@ -14,8 +14,8 @@
 # derived from its own process cwd via `git rev-parse --git-common-dir` (F23
 # switched this from `--show-toplevel`, which returns a worktree's own root
 # rather than the main repo's root when invoked from inside a worktree), per
-# its documented caller's actual invocation shape (skills/myflow-finish/
-# SKILL.md step 8 always runs it with cwd at the repo root, passing a
+# its documented caller's actual invocation shape (skills/flow/archive.md
+# always runs it with cwd at the repo root, passing a
 # RELATIVE <archived-change-path>). Every case below that expects a source to
 # be found therefore invokes the script with `cd "$REPO"` and a path relative
 # to it — matching the real contract — rather than an absolute path built
@@ -47,7 +47,7 @@ cleanup() {
 trap cleanup EXIT
 
 # The relative <archived-change-path> shape this script's documented caller
-# always uses (skills/myflow-finish/SKILL.md step 8).
+# always uses (skills/flow/archive.md).
 REL="spectre/changes/archive/2026-01-01-demo"
 
 # new_repo -> sets REPO, ARCHIVED, STATE_DIR for the change named `demo`.
@@ -381,7 +381,7 @@ esac
 # ===========================================================================
 # SECTION: F13 — the exact same symlinked-archive-directory attack as
 # "archived path is symlink" above, but invoked WITH a trailing slash on
-# $ARCHIVED_PATH (the shape skills/myflow-finish/SKILL.md actually
+# $ARCHIVED_PATH (the shape skills/flow/archive.md actually
 # documents: spectre/changes/archive/<name>/). Must be refused
 # identically, never leaked, regardless of the trailing slash.
 # ===========================================================================
@@ -1332,7 +1332,7 @@ fi
 # repo-root-supplied-relative-archived-path (F3, this change's own review
 # panel): cwd OUTSIDE $REPO, a fourth argument naming $REPO's own canonical
 # root, and $REL — a RELATIVE archived-change-path, the exact shape
-# skills/myflow-finish/SKILL.md documents — rather than the absolute path
+# skills/flow/archive.md documents — rather than the absolute path
 # the "repo-root-supplied" case above uses. Step 2 (lexical normalize) joins
 # a relative $ARCHIVED_PATH onto $trusted_root (the supplied root here), so
 # step 4's semantic resolution of the SAME relative $ARCHIVED_PATH must also

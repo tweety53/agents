@@ -2,7 +2,7 @@
 
 The outcome table for `flow record render`, and what each outcome means for the caller.
 
-**Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** — on the `prUrl` commit path and in run 1.
+**Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** — on the `prUrl` commit path and in run 1.
 
 This file is **canonical** for everything in it.
 
@@ -11,7 +11,7 @@ The reasoning behind this file lives in `skills/flow-contracts/session-records-r
 
 ## Rendering the session records
 
-`/myflow-do` reads this table on its `prUrl` commit path, and `/myflow-finish` reads it in
+`/flow`'s implement phase reads this table on its `prUrl` commit path, and bare `/flow` reads it in
 run 1; the invocation of `flow record render` itself is described by each caller.
 
 | Outcome | What it means | What you do |

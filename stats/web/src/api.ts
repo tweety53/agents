@@ -90,7 +90,7 @@ export interface StatsViewParams {
   change?: string;
   /** Restrict to one model's own stage runs; rejected by the server on
    * "state-board", whose rows are changes rather than stage runs
-   * (specs/myflow-stats-views/spec.md, "A model restriction on the live
+   * (the stats-views requirement "A model restriction on the live
    * state board"). */
   model?: string;
   /**
@@ -124,7 +124,7 @@ export interface StatsResponse<Row = unknown> {
    * False when the requested period lies entirely before this store's
    * earliest recorded stage run -- "not recorded", distinct from "recorded
    * as zero" (design.md, "Starting empty"; the "absence of history"
-   * requirement in specs/myflow-stats-views/spec.md).
+   * requirement in the stats-views requirement).
    */
   recorded: boolean;
   /**
@@ -496,7 +496,7 @@ export interface ListStageRunsResponse {
  * omitted, never `0`, when that dispatch (or its recorded model) carries
  * no priceable token figures -- the same absence-is-never-a-value rule
  * every other metrics reader in this SPA already holds
- * (specs/myflow-stats-views/spec.md, "A stage run opens onto its own
+ * (the stats-views requirement "A stage run opens onto its own
  * dispatches").
  *
  * `costUsd` is read directly from that same `dispatches.<agentId>` key's
@@ -553,7 +553,7 @@ export interface ModelsResponse {
   project?: string;
   /** The distinct models recorded in the period -- ModelVariable.tsx's
    * only source for the dropdown it offers, never a hard-coded list
-   * (specs/myflow-stats-views/spec.md, "The models offered"). */
+   * (the stats-views requirement "The models offered"). */
   models: string[];
 }
 

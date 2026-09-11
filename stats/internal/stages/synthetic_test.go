@@ -20,10 +20,10 @@ import "testing"
 // that let KAN-289's original four defects through: a fixture and the code it
 // covers renamed together, green, and both wrong about the world.
 //
-// Measured, not assumed: during the myflow->flow rename this constant WAS
-// renamed to "flow stage begin (synthetic)", and the entire suite -- go vet,
+// Measured, not assumed: this constant WAS once changed to
+// "flow stage begin (synthetic)", and the entire suite -- go vet,
 // gofmt and `go test ./... -race` across all sixteen packages -- passed with
-// the mutant in place. The rename was caught only by querying the live
+// the mutant in place. The change was caught only by querying the live
 // database. This test is what makes the next attempt fail loudly instead.
 //
 // If a future change genuinely intends to move this value, it must migrate

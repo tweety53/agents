@@ -247,7 +247,7 @@ type projectResolver interface {
 // turned into the project key a store query actually filters on. It is
 // shared by parsePeriodAndProject (every stats view, plus GET
 // /api/v1/models) and changes.go's parseChangeQuery (the changes list's
-// own "project" filter) so specs/myflow-stats-views/spec.md's "The project
+// own "project" filter) so the stats-views requirement "The project
 // parameter accepts a display name" is applied identically at both call
 // sites rather than reimplemented at either.
 //
@@ -379,7 +379,7 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// model to restrict by. Rejecting outright, before this handler does
 	// any other work, is the one outcome the round's own spec allows --
 	// silently accepting and ignoring the parameter would make the
-	// control inert without saying so (specs/myflow-stats-views/spec.md,
+	// control inert without saying so (the stats-views requirement,
 	// "A model restriction on the live state board").
 	if model != nil && name == viewStateBoard {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf(
@@ -589,16 +589,14 @@ type stateBoardRowDTO struct {
 // So the answer is `/flow` at every state that has a next step, and the value
 // of this function is telling a dashboard reader that a step remains at all.
 //
-// It used to return `/myflow-do` and `/myflow-finish`, which is what a
-// three-command pipeline needed and what this function kept returning after
-// that pipeline was consolidated into `/flow`. Those commands do not exist:
-// a reader following the dashboard's advice would have run nothing.
+// It used to return the retired three-command pipeline's per-state
+// commands, and kept returning them after that pipeline was consolidated
+// into `/flow`. Those commands do not exist: a reader following the
+// dashboard's advice would have run nothing.
 //
-// This is NOT the retired-command-name exclusion that governs `/myflow-*`
-// literals elsewhere in this package. Those are stored data -- values in
-// `stage_runs` rows and the queries that select on them -- and renaming them
-// would make the code disagree with history. This one is forward-looking
-// guidance computed from current state, and it was simply wrong.
+// This is forward-looking guidance computed from current state, unlike the
+// command names stored in `stage_runs` rows, which are history and are
+// never rewritten.
 //
 // `/flow-status` reports the same thing from the same record, so the two agree
 // for a given change (spec: "the information matches what /flow-status
@@ -970,7 +968,7 @@ var modelsQueryParams = map[string]bool{"from": true, "to": true, "project": tru
 // modelsResponse is GET /api/v1/models's envelope: the period actually
 // applied (echoed back, like statsResponse's own From/To) and the distinct
 // models recorded in it, sorted, task 21's own source for "the set of
-// models offered" (specs/myflow-stats-views/spec.md) rather than a
+// models offered" (the stats-views requirement) rather than a
 // hard-coded list this build would need rebuilding to extend.
 type modelsResponse struct {
 	From    string   `json:"from"`

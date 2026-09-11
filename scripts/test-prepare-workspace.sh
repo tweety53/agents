@@ -11,7 +11,7 @@
 # real-repository case was dropped rather than rewritten to match the section
 # that now exists. What prepare-workspace.sh does against a real declaring
 # project is covered where it runs: check-workspace-isolation.sh is a lint step
-# over this repository's own section, and section 7 of skills/myflow-do/SKILL.md
+# over this repository's own section, and skills/flow/implement.md
 # runs this script against each apply worktree.
 #
 # Three cases, matching the three the task record asks for: (1) no `##
@@ -46,7 +46,7 @@ trap cleanup EXIT
 
 # new_repo <change-name> -> sets REPO to a freshly initialized git repository,
 # checked out on `spectre/<change-name>` — the branch every apply worktree is
-# created on, per section 2 of skills/myflow-do/SKILL.md, and the one place
+# created on, per skills/flow/implement.md, and the one place
 # prepare-workspace.sh reads the change name from.
 new_repo() {
   REPO="$(mktemp -d "${TMPDIR:-/tmp}/prepare-workspace-test.XXXXXX")"

@@ -42,15 +42,15 @@ func TestAggregateRestrictsByPeriodInSQL(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-period-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	inside := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	inside := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	inside.StartedAt = time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	runStage(t, st, inside, json.RawMessage(`{"cost_usd":1.5}`), inside.StartedAt.Add(time.Minute), "completed")
 
-	before := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	before := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	before.StartedAt = time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, before, json.RawMessage(`{"cost_usd":9}`), before.StartedAt.Add(time.Minute), "completed")
 
-	after := baseBeginInput(projectKey, "kan-1", "/myflow-do", "finish")
+	after := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	after.StartedAt = time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, after, json.RawMessage(`{"cost_usd":9}`), after.StartedAt.Add(time.Minute), "completed")
 
@@ -76,7 +76,7 @@ func TestAggregateEmptyPeriodReturnsEmptyNotError(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-empty-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	run := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	run.StartedAt = time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	runStage(t, st, run, json.RawMessage(`{"cost_usd":1}`), run.StartedAt.Add(time.Minute), "completed")
 
@@ -123,7 +123,7 @@ func TestAggregateExcludesUnavailableTokensFromAverages(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-unavail-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	base := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	base := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	base.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 
 	measuredA := base
@@ -180,7 +180,7 @@ func TestAggregateSeparatesMainFromSidechain(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-mainside-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, in, json.RawMessage(`{"tokens":{"main":{"input":1000},"sidechain":{"input":4000}}}`), in.StartedAt.Add(time.Minute), "completed")
 
@@ -248,7 +248,7 @@ func TestStageLeaderboardComputesMeanMedianP90(t *testing.T) {
 
 	costs := []float64{10, 20, 30, 40, 50}
 	for i, cost := range costs {
-		in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 		in.SessionID = ptr(fmt.Sprintf("session-%d", i))
 		in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC).Add(time.Duration(i) * time.Hour)
 		costRun(t, st, in, cost)
@@ -296,14 +296,14 @@ func TestTrendOverTimeBucketsByDay(t *testing.T) {
 
 	day1Costs := []float64{10, 20, 30} // total 60
 	for i, cost := range day1Costs {
-		in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 		in.SessionID = ptr(fmt.Sprintf("day1-%d", i))
 		in.StartedAt = day1.Add(time.Duration(i) * time.Hour)
 		costRun(t, st, in, cost)
 	}
 	day2Costs := []float64{40, 50} // total 90
 	for i, cost := range day2Costs {
-		in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+		in := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 		in.SessionID = ptr(fmt.Sprintf("day2-%d", i))
 		in.StartedAt = day2.Add(time.Duration(i) * time.Hour)
 		costRun(t, st, in, cost)
@@ -357,7 +357,7 @@ func TestAggregateOtherViewsRunWithoutError(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-smoke-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	run, err := st.BeginStage(ctx, in)
 	if err != nil {
@@ -418,7 +418,7 @@ func TestCacheEfficiencyRatioStaysNilWhenCacheCreationIsExactlyZero(t *testing.T
 	projectKey := fmt.Sprintf("proj-cache-ratio-zero-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	run, err := st.BeginStage(ctx, in)
 	if err != nil {
@@ -469,7 +469,7 @@ func TestCostPerChangeModelFilterReportsThatModelsOwnNumbers(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-modelfilter-cost-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, in, json.RawMessage(`{
 		"tokens": {"main": {"input": 1000}, "sidechain": {"input": 4000}},
@@ -548,7 +548,7 @@ func TestModelFilterHonouredByEveryAggregation(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-modelfilter-every-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1") // baseChange sets ReviewPanelRoster "light"
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, in, json.RawMessage(`{
 		"tokens": {"main": {"input": 100}},
@@ -619,18 +619,18 @@ func TestCountRunsWithoutModel(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-nomodel-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	withModel := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	withModel := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	withModel.SessionID = ptr("s-with")
 	withModel.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, withModel, json.RawMessage(`{"models":{"claude-opus-5":{"cost_usd":5}}}`), withModel.StartedAt.Add(time.Minute), "completed")
 
-	noModelA := baseBeginInput(projectKey, "kan-1", "/myflow-do", "finish")
+	noModelA := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	noModelA.SessionID = ptr("s-none-a")
 	noModelA.Harness = "cursor"
 	noModelA.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, noModelA, json.RawMessage(`{"tokens_available":false}`), noModelA.StartedAt.Add(time.Minute), "completed")
 
-	noModelB := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	noModelB := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	noModelB.SessionID = ptr("s-none-b")
 	noModelB.StartedAt = time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, noModelB, nil, noModelB.StartedAt.Add(time.Minute), "completed")
@@ -663,7 +663,7 @@ func TestCountRunsWithoutModelCoversAnExplicitEmptyModelsObject(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-nomodel-empty-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	emptyModels := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	emptyModels := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	emptyModels.SessionID = ptr("s-empty-models")
 	emptyModels.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, emptyModels, json.RawMessage(`{"models":{}}`), emptyModels.StartedAt.Add(time.Minute), "completed")
@@ -693,7 +693,7 @@ func TestCountRunsWithoutModelIsGenuinelyZero(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-nomodel-zero-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	in := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	in := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	in.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, in, json.RawMessage(`{"models":{"claude-opus-5":{"cost_usd":5}}}`), in.StartedAt.Add(time.Minute), "completed")
 
@@ -722,22 +722,22 @@ func TestListModels(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-listmodels-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	a := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	a := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	a.SessionID = ptr("s-a")
 	a.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, a, json.RawMessage(`{"models":{"claude-sonnet-5":{"cost_usd":1}}}`), a.StartedAt.Add(time.Minute), "completed")
 
-	b := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	b := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	b.SessionID = ptr("s-b")
 	b.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, b, json.RawMessage(`{"models":{"claude-opus-5":{"cost_usd":2},"claude-sonnet-5":{"cost_usd":1}}}`), b.StartedAt.Add(time.Minute), "completed")
 
-	outsidePeriod := baseBeginInput(projectKey, "kan-1", "/myflow-do", "finish")
+	outsidePeriod := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	outsidePeriod.SessionID = ptr("s-outside")
 	outsidePeriod.StartedAt = time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, outsidePeriod, json.RawMessage(`{"models":{"claude-haiku-5":{"cost_usd":1}}}`), outsidePeriod.StartedAt.Add(time.Minute), "completed")
 
-	noModel := baseBeginInput(projectKey, "kan-1", "/myflow-do", "finish")
+	noModel := baseBeginInput(projectKey, "kan-1", "/flow", "finish")
 	noModel.SessionID = ptr("s-nomodel")
 	noModel.StartedAt = time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, noModel, nil, noModel.StartedAt.Add(time.Minute), "completed")
@@ -778,12 +778,12 @@ func TestAllRecordedRunsUnmeasuredWhenNoneCarryTokens(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-allunmeasured-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	noMetrics := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	noMetrics := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	noMetrics.SessionID = ptr("s-no-metrics")
 	noMetrics.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, noMetrics, nil, noMetrics.StartedAt.Add(time.Minute), "completed")
 
-	modelNoTokens := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	modelNoTokens := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	modelNoTokens.SessionID = ptr("s-model-no-tokens")
 	modelNoTokens.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, modelNoTokens, json.RawMessage(`{"models":{"claude-opus-5":{"cost_usd":5}}}`), modelNoTokens.StartedAt.Add(time.Minute), "completed")
@@ -813,12 +813,12 @@ func TestAllRecordedRunsUnmeasuredFalseWhenARunIsMeasuredAsZero(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-allunmeasured-zero-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	unmeasured := baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task")
+	unmeasured := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
 	unmeasured.SessionID = ptr("s-unmeasured")
 	unmeasured.StartedAt = time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, unmeasured, nil, unmeasured.StartedAt.Add(time.Minute), "completed")
 
-	measuredZero := baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel")
+	measuredZero := baseBeginInput(projectKey, "kan-1", "/flow", "review panel")
 	measuredZero.SessionID = ptr("s-measured-zero")
 	measuredZero.StartedAt = time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC)
 	runStage(t, st, measuredZero, json.RawMessage(`{"tokens":{"main":{"input":0}}}`), measuredZero.StartedAt.Add(time.Minute), "completed")

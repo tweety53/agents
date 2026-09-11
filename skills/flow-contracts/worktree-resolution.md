@@ -2,7 +2,7 @@
 
 How any step resolves the set of worktrees belonging to a change.
 
-**Loaded by `/myflow-do`, `/myflow-finish`, `/flow-status` and `/myflow-fast`** — before a
+**Loaded by `/flow`'s implement phase, bare `/flow`, `/flow-status` and `/flow-fast`** — before a
 preflight verdict, a gate that runs once per worktree, a status report, or a removal.
 
 This file is **canonical** for everything in it.
@@ -23,8 +23,8 @@ verdict the calling step would otherwise default to on no evidence at all. A gat
 operator, exactly as it would on any other refusal; a read-only report says so in its own output
 instead of silently omitting the change.
 
-This binds every command that iterates a change's worktrees: `/myflow-do`'s workspace-isolation
-gate, `/flow-status`'s merge-status report, and `/myflow-finish`'s preflight verdict,
+This binds every command that iterates a change's worktrees: the implement phase's workspace-isolation
+gate, `/flow-status`'s merge-status report, and bare `/flow`'s preflight verdict,
 unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
 than restating it. How a command resolves the set beyond reading the state file's map — whether it
 falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;

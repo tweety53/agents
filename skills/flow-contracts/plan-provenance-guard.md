@@ -197,15 +197,15 @@ for m in CLAIM_RE.finditer(line):
         print(path, lineno, m.group(0))   # an enclosure a veto withdrew
 ```
 
-Twelve lines in this repository lose an enclosure that way. Eleven are counter-examples written down
-on purpose — the shapes this document and the capability spec quote in order to explain each
+Lines in this repository lose an enclosure that way. All but one are counter-examples written down
+on purpose — the shapes this document quotes in order to explain each
 veto — which is what it means for a counter-example to be one: it demonstrates the shape its veto
 exists to catch, so being withdrawn is the demonstration working.
 
 | Line | Veto | What it is |
 |------|------|-----------|
-| this file (five lines), the capability spec now frozen at `<agents repo>/openspec/specs/myflow-plan-provenance/spec.md` (two lines), an archived copy of that spec (two lines), an archived design document (one line), or an SDD ledger (one line) | class-wide, escape, angle-bracket | the shapes each veto exists to catch, quoted on purpose (eleven lines) |
-| `<agents repo>/openspec/changes/archive/2026-07-29-kan-14-plan-provenance/tasks.md`, a table row whose trailing `<!-- measured: … -->` comment quotes `"197 tests"` | angle-bracket | a genuine quotation, withdrawn because its line carries a `<` |
+| this file, an archived design document, or an SDD ledger | class-wide, escape, angle-bracket | the shapes each veto exists to catch, quoted on purpose (eleven lines) |
+| an archived `tasks.md` table row whose trailing `<!-- measured: … -->` comment quotes `"197 tests"` | angle-bracket | a genuine quotation, withdrawn because its line carries a `<` |
 
 The last is the honest cost of the angle-bracket veto. Its quote characters pair perfectly; what
 withdraws the exemption is the `<` that opens the comment they sit in. It lives in an **archived**

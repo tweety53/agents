@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # check-cleanup-complete.sh — verify that everything the cleanup registry says
-# should be gone after /myflow-finish run 2 actually is.
+# should be gone after /flow's archive run actually is.
 #
 # Usage: check-cleanup-complete.sh <repo> <change-name> <state-dir>
 #
@@ -18,9 +18,8 @@
 # and is named here so a future editor of this line knows where it is kept.
 #
 # Exit 0 whenever a verdict was reached; exit 2 when it cannot answer at all —
-# an unreadable repository or state directory, a change name outside the
-# allowlist, or a repository carrying the retired `.myflow/` and no `.flow/`
-# (design.md's dotmyflow-hard-cutover). The VERDICT carries the answer, not the exit status
+# an unreadable repository or state directory, or a change name outside the
+# allowlist. The VERDICT carries the answer, not the exit status
 # — see check-finish-preflight.sh's header for why this repository separates
 # them. Finish runs this once per repository, so each verdict names the
 # repository it judged; a bare COMPLETE would be unattributable across several.
@@ -542,7 +541,7 @@ fi
 #
 # IT IS A RUNTIME OVERRIDE RATHER THAN A TEST-ONLY SEAM, AND THAT WAS WEIGHED.
 # The objection is fair on its face: this is test economics sitting on an
-# interface every /myflow-finish run reads, and the ordinary answer to that is a
+# interface every /flow integrate and archive run reads, and the ordinary answer to that is a
 # seam only the harness can reach. It is not the answer here, for four reasons
 # that are recorded so the question is not re-opened from scratch.
 #
@@ -618,7 +617,7 @@ esac
 # THERE IS NO OVERRIDE, and the absence is a decision rather than an omission.
 # CHECK_CLEANUP_SURVIVORS_TIMEOUT exists because a harness would otherwise spend
 # a minute of wall clock per timeout case; the grace costs two seconds, so that
-# argument buys nothing here — and a knob on the interface every /myflow-finish
+# argument buys nothing here — and a knob on the interface every /flow integrate and archive
 # run reads has to be paid for by more than symmetry.
 #
 # `SECONDS` counts whole seconds, so the grace ends somewhere in
@@ -782,18 +781,6 @@ run_survivors() {
 }
 
 CFG="$REPO/.flow/project.md"
-
-# A project carrying the retired `.myflow/` and no `.flow/` is NOT the
-# ordinary "no project configuration at all" case handled below — it is
-# the hard cutover design.md's dotmyflow-hard-cutover states: never fall
-# back to the old path, never read both, and never silently report
-# "nothing declared" for a project this guard never actually read.
-# `~/Projects/gymie` and `~/Projects/spectre-e2e` are in exactly this
-# state on this machine and are not renamed by this change.
-if { [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; } && { [ -e "$REPO/.myflow" ] || [ -L "$REPO/.myflow" ]; }; then
-  echo "check-cleanup-complete: $REPO carries .myflow/ and no .flow/ — rename it before this project's configuration can be read: git -C $REPO mv .myflow .flow" >&2
-  exit 2
-fi
 
 # The heading rule, written once and used by both the presence test and the
 # extraction below. Two spellings of it would be two answers to "is this project

@@ -3,7 +3,7 @@
 Which model each role runs on, their defaults, how an override applies, and per-harness
 enforcement.
 
-**Loaded by `/myflow-start`, `/myflow-do` and `/myflow-fast`** — at the model questions and at
+**Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** — at the model questions and at
 each implementer and panel dispatch.
 
 This file is **canonical** for everything in it.
@@ -28,7 +28,7 @@ regardless of the parent model. Sonnet is the default rather than an absolute be
 record its own panel model, per the three roles below; what never varies is that the panel's model
 is *chosen*, not inherited from the parent session.
 
-**Implementer subagents dispatched by `/myflow-do` run on Opus** (or the harness's strongest
+**Implementer subagents dispatched by `/flow`'s implement phase run on Opus** (or the harness's strongest
 available model), which **explicitly overrides** superpowers:subagent-driven-development's model
 guidance. See **Model policy** (`skills/flow-contracts/model-policy-rationale.md`) for why that
 guidance's cost savings do not apply here.
@@ -45,14 +45,14 @@ work. Record the instruction with the dispatch; an override nobody wrote down is
 from a mistake.
 
 **Three model roles are chosen once per change and recorded in its state file.** The run that
-**creates** a change — `/myflow-start` finding no state file, exactly as the planning-effort
+**creates** a change — `/flow`'s creating run finding no state file, exactly as the planning-effort
 question determines it — asks three separate questions, one per role, each naming its default and
 marking it as the recommendation. A revision round states the recorded values and does not ask
 again, and every other command carries them forward verbatim, as it does the linked Jira issue.
 
 | Role | Key under `models` | Default |
 |------|--------------------|---------|
-| The implementer subagents `/myflow-do` dispatches | `implementation` | Opus, or the harness's strongest available model |
+| The implementer subagents `/flow`'s implement phase dispatches | `implementation` | Opus, or the harness's strongest available model |
 | Every review-panel slot that takes a model override | `reviewPanel` | Sonnet |
 | The subagents that repair panel findings | `panelFix` | Opus, or the harness's strongest available model |
 

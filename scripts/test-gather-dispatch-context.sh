@@ -5,7 +5,7 @@
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
 # contract — the Requirements and Scenarios in this repository's archived
 # kan-201-reduce-context-rediscovery-across-review-panel change's
-# myflow-dispatch-economy spec, plus kan-288's own skip-when-unchanged
+# dispatch-economy spec, plus kan-288's own skip-when-unchanged
 # contract in design.md — never against whatever the script happens to
 # print.
 # scripts/test-check-plan-provenance.sh's header records that suite encoding
@@ -469,7 +469,7 @@ esac
 # ===========================================================================
 # CASE 14: <principles-path> reached through a symlinked ANCESTOR directory
 # — the literal global-install shape: `setup.sh global` symlinks
-# ~/.claude/skills/myflow-do to the repository's skills/myflow-do/, so
+# ~/.claude/skills/flow to the repository's skills/flow/, so
 # engineering-principles.md sits inside a symlinked directory without being
 # a symlink itself. Same disposition as case 13: resolved and read.
 # ===========================================================================

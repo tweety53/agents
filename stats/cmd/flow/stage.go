@@ -89,7 +89,7 @@ func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags) {
 	fset.StringVar(&f.addr, "addr", resolveDefaultAddr(), "flowd base URL")
 	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout before falling back")
 	fset.StringVar(&f.dir, "C", "", "resolve the project key as if run from this directory (default: cwd)")
-	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /myflow-do")
+	fset.StringVar(&f.command, "command", "", "the flow command this stage belongs to, e.g. /flow")
 	fset.StringVar(&f.stage, "stage", "", "the stage key, exactly as README.md's Level 1 table's Key column documents it -- never its prose name")
 }
 

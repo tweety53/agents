@@ -23,13 +23,13 @@ bodies are constrained to what that procedure accepts.
 |-----|----------|
 | `## apps` | Every application in the change's blast radius: display name, **absolute** repo root of the main checkout, kind/stack, local URL, and when to consider it in scope. |
 | `## run` | How to start the stack and individual services locally — the actual commands, including any parameter that must point at another app's root. |
-| `## stop` | Optional. The command that stops the project's local stack, run by `/myflow-finish` before its stack-stopped check so nothing holds a port or file handle open in a worktree about to be removed. **Absent means that check is skipped, not failed** — cleanup proceeds on the strength of the other two checks. A project with no stack should say so here rather than omit the key, so its absence is a recorded fact rather than an oversight. |
+| `## stop` | Optional. The command that stops the project's local stack, run by bare `/flow` before its stack-stopped check so nothing holds a port or file handle open in a worktree about to be removed. **Absent means that check is skipped, not failed** — cleanup proceeds on the strength of the other two checks. A project with no stack should say so here rather than omit the key, so its absence is a recorded fact rather than an oversight. |
 | `## credentials` | Local-development-only sign-in credentials (which app, user, password) and what seeds them. Never deployed-environment secrets. |
 | `## test` | The command(s) that run the project's tests. |
 | `## worktree setup` | Optional. A fenced command block run once per worktree, from the worktree root, immediately after **2. Isolate the workspace** (`skills/flow/implement.md`) creates it and before anything else touches the tree — the place for a build that a gitignored, embedded artifact needs before the project's first `go test`/`go build` can succeed. Absent means nothing runs. Same shape as `## lint` and `## test`: one command per line inside the fence, read literally and run in order; resolved through `project-get.sh <worktree> "worktree setup"`, whose exit 1 is the absent case. |
 | `## lint` | The command(s) that verify lint, and the auto-fix command to run first. |
 | `## standards` | The project's own written standards: the files the principles reviewer receives, plus any opt-in shared rule the project has adopted. This same list is both the opt-in list and the reviewer's standards list. |
-| `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`skills/flow-contracts/jira-followups.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/myflow-start` asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
+| `## jira` | Optional. The project's Jira project key(s), or the literal `none` — this body holds those and nothing else, never free-form prose. Each key must match the `[A-Z]{2,10}` shape **in its entirety**, as required under **Follow-up issues** (`skills/flow-contracts/jira-followups.md`), which also states how the body is split into candidate keys and what becomes of one that does not match — this value reaches a JQL query, so it is constrained like the attacker-influenced input it is. Governs whether `/flow`'s creating run asks about an issue at all — see **Jira integration** (`jira-integration.md`). |
 | `## default landing route` | Optional. One of the literal bodies `pull request`, `merge and push` or `manual` — this section holds that value and nothing else, never free-form prose, matching `## jira`'s own single-line-literal shape. Used as `skills/flow/integrate.md`'s landing question's own `(default, recommended)` option; absent, or a body matching none of the three literals exactly, is reported by name and dropped, falling back to `pull request` as today. |
 | `## handoff` | Optional. One of the literal bodies `required` or `none` — this section holds that value and nothing else, never free-form prose, matching `## default landing route`'s own single-line-literal shape. Read by `/flow-fast` alone (`skills/flow-fast/SKILL.md`): `none` lands the change in the same invocation, straight after the change summary; `required`, or absent, stops after the summary so the operator reviews the branch first and re-runs `/flow-fast <name>` bare to land it. `/flow` always hands off at `IN_PROGRESS` and never reads this key. A body matching neither literal exactly is reported by name and dropped, resolving as if the key were absent. |
 | `## self review` | Optional. One of the literal bodies `run`, `skip` or `defer` — this section holds that value and nothing else, never free-form prose, matching `## default landing route`'s own single-line-literal shape. Resolved by run 2's step 9 (`skills/flow/archive.md`) before its skip prompt: `skip` skips self-review without asking, `run` runs it without asking, `defer` saves the context bundle without asking (**Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`, step 9) for `/flow-self-review` to consume, absent asks as today. A body matching none of the three literals exactly is reported by name and dropped, resolving as if the key were absent. |
@@ -256,7 +256,7 @@ The command table has three rows and two columns:
 | Command | Runs |
 |---------|------|
 | `create` | The command that creates this workspace's resources when they are absent. Whatever starts the project's applications calls it. |
-| `remove` | The command that removes them. `/myflow-finish` run 2 calls it, and nothing else does. |
+| `remove` | The command that removes them. `/flow`'s archive run calls it, and nothing else does. |
 | `survivors` | The command that reports which of them still exist. Run 2 calls it after `remove`, and `<agents repo>/scripts/check-cleanup-complete.sh` turns its result into the registry row's verdict. Its output and its exit code are read, so both are specified below. |
 
 Why a third verb rather than two — why "ran `remove`" is not "verified gone", and why a guard in the
@@ -412,10 +412,10 @@ non-empty command; the tokens a command may name; the two tables having the colu
 that order; and the section being declared at most once.
 
 **Where that enforcement actually happens, stated exactly, because "a guard exists" is not "a guard
-ran".** The guard runs at the point this section is *read*: `/myflow-do` runs it against each apply
+ran".** The guard runs at the point this section is *read*: `/flow`'s implement phase runs it against each apply
 worktree before it resolves or exports a single row, per **Isolate the workspace** in
 `skills/flow/implement.md`, and a non-zero exit stops that run. A project that declares no section passes silently.
-`/myflow-finish` deliberately does not repeat the validation. See **Where enforcement happens**
+bare `/flow` deliberately does not repeat the validation. See **Where enforcement happens**
 (`skills/flow-contracts/project-configuration-rationale.md`) for why.
 
 **Left to the agent**, because no script that stays project-agnostic can decide them:
@@ -436,7 +436,7 @@ worktree before it resolves or exports a single row, per **Isolate the workspace
   `head`, answering within the bound and carrying its own timeout across a container boundary are
   all the author's responsibility and the agent's review.
 - **The refusal itself.** A dropped row refuses in an apply worktree and falls back to its `Default`
-  in the main checkout; that is a property of the run, decided when `/myflow-do` resolves this
+  in the main checkout; that is a property of the run, decided when `/flow`'s implement phase resolves this
   section, and a guard reading a file has no checkout to be in.
 
 **A dropped row does not fall back to its `Default` in an apply worktree.** In the main checkout
@@ -450,9 +450,9 @@ stated under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
 
 **Two rules sit near each other here, and they do not compete.** A malformed row makes a run
 refuse; an unreachable service makes a run report and continue. They read as opposites and can never
-meet: the first governs the **resource table**, is decided when `/myflow-do` resolves this section,
+meet: the first governs the **resource table**, is decided when `/flow`'s implement phase resolves this section,
 and refuses because the only fallback is the project's shared value. The second
-governs the `survivors` command's exit code, is decided in `/myflow-finish` run 2 after the merge,
+governs the `survivors` command's exit code, is decided in `/flow`'s archive run after the merge,
 and skips because a resource nobody can reach is not a resource anything can still protect.
 Different table, different phase, different thing at stake.
 
@@ -518,7 +518,7 @@ diff=n/a
 repo>/scripts/compose-mockup-frames.sh`'s own header is canonical for its exit codes, the way this
 section already cites `check-visual-verification.sh` for its shape.
 
-**No push is ever automatic.** `flow.visual-verify` commits the per-change spec and its PNGs to the
+**No push to a `regression checkout` is ever automatic** — the change branch's own pushes are **Branch backup** (`skills/flow-contracts/git-boundaries.md`), inside the one repository the run owns. `flow.visual-verify` commits the per-change spec and its PNGs to the
 `regression checkout` when one is declared and stops there; the handoff prints the push command for
 the operator to run by hand. `regression repo` records which repository the checkout is expected to
 be, and a mismatch against its real `origin` is reported — but that is an identity assertion, not an

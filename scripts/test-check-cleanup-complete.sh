@@ -11,7 +11,7 @@
 #     against it byte for byte.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated
-# contract in openspec/specs/myflow-finish-cleanup/spec.md — the requirement
+# contract in the finish-cleanup spec — the requirement
 # "Run 2 verifies that cleanup actually completed", which lives in this
 # change's delta spec until it is synced there, plus the cleanup registry it
 # points at. Never assert against observed output.
@@ -1057,7 +1057,7 @@ else
     # guard's own change-name allowlist refuses one before the workspace row is
     # ever reached, so there is no guard-side id to compare.
     CANON_NAMES=(
-      "kan-15-parallel-myflow-do-task-lanes"
+      "kan-15-parallel-do-task-lanes"
       "Demo_X"
       "KAN-99-Fix.Thing"
       "Trailing.__"
@@ -1424,49 +1424,6 @@ ln -s "$REPO/.flow/real-project.md" "$REPO/.flow/project.md"
 run_guard "$REPO" demo "$STATE"
 assert_verdict "LEFTOVER:" "a project.md that is a symlink to a real file is still read"
 assert_reason "linked-survivor" "the linked configuration's survivors command ran"
-
-# 24h. The `.myflow/` -> `.flow/` hard cutover (design.md's
-#      dotmyflow-hard-cutover). A repository carrying only the retired
-#      `.myflow/` and no `.flow/` is NOT the ordinary "no project
-#      configuration" case above — it refuses outright rather than silently
-#      reporting COMPLETE for a project it never actually read.
-#      `~/Projects/gymie` and `~/Projects/spectre-e2e` are in exactly this
-#      state on this machine and are not renamed by this change; this case
-#      is a fixture this suite owns rather than a read of either.
-new_fixture
-mkdir -p "$REPO/.myflow"
-run_guard "$REPO" demo "$STATE"
-[ "$RC" -eq 2 ] && pass "a repository carrying only the retired .myflow/ -> exit 2" \
-  || fail "a repository carrying only the retired .myflow/: expected exit 2, got rc=$RC out=$OUT"
-[ -z "$OUT" ] && pass "a repository carrying only the retired .myflow/ emits no verdict line" \
-  || fail "a repository carrying only the retired .myflow/: emitted a verdict line: $OUT"
-case "$ERR" in
-  *"$REPO"*"git -C $REPO mv .myflow .flow"*) pass "the refusal names the project root and the exact rename to perform" ;;
-  *) fail "the refusal does not name the project root and the rename: $ERR" ;;
-esac
-
-# 24i. A repository carrying BOTH directories mid-cutover reads `.flow/`
-#      without ever consulting `.myflow/` — the `.myflow/project.md` left
-#      behind declares a `survivors` command that would leave its own canary
-#      if it ran, which it must not: this guard never runs a project's
-#      commands, only asks, and never asks the retired directory's.
-new_fixture
-mkdir -p "$REPO/.myflow"
-write_script myflow-survivors.sh "touch '$REPO/myflow-survivors-ran'; printf 'stale-survivor\n'"
-{
-  printf '# fixture project configuration\n\n## workspace isolation\n\n'
-  printf '| Resource | Variable | Default | In a workspace |\n'
-  printf '|----------|----------|---------|----------------|\n'
-  printf '| `database` | `DB_URL` | `appdb` | `appdb_<id_underscored>` |\n\n'
-  printf '| Command | Runs |\n|---------|------|\n'
-  printf '| `create` | `true` |\n| `remove` | `true` |\n| `survivors` | `./myflow-survivors.sh` |\n'
-} > "$REPO/.myflow/project.md"
-declare_isolation ""
-run_guard "$REPO" demo "$STATE"
-assert_verdict "COMPLETE:" "a repository carrying both directories reads .flow/ (declaring no survivors row) rather than .myflow/"
-assert_out "SKIPPED" "the .flow/project.md actually read declares no survivors row"
-[ -e "$REPO/myflow-survivors-ran" ] && fail "the retired .myflow/project.md's survivors command ran" \
-  || pass "the retired .myflow/project.md's survivors command never ran"
 
 # 25. A survivor and a git-derived leftover are reported together, on the one
 #     line the contract allows — the workspace row joins the existing breakdown

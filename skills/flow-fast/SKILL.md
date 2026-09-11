@@ -118,9 +118,25 @@ flow stage end   -command '/flow-fast' -stage flow.kickoff -outcome completed <n
 ```
 
 **A re-run is detected, never recorded**: `<project>/.worktrees/<name>` already existing means an
-earlier run left the branch unlanded. Reuse it and skip section 3's creation. With an argument,
+earlier run left the branch unlanded. Reuse it and skip the creation below. With an argument,
 it is fix instructions and sections 2–5 run again on the branch; bare, sections 2–5 have nothing
 to do and mark through, and the run continues at section 6.
+
+**On a creating run, create the worktree here, before anything is read** — from the main
+checkout, with `<default-branch>` the branch `origin/HEAD` points at:
+
+```bash
+git fetch origin
+grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
+git worktree add <project>/.worktrees/<name> -b <name> origin/<default-branch>
+git -C <project>/.worktrees/<name> push -u origin <name>
+```
+
+Nothing else: no `## worktree setup` command, no database, no bucket. A project whose build needs
+generated files or installed dependencies gets them the moment section 5's first test run asks
+for them, in the worktree, by the project's own ordinary commands. Every section from here on
+reads and writes the worktree alone; the main checkout is never checked out, staged, committed or
+written.
 
 ## 2. Brainstorm
 
@@ -145,18 +161,7 @@ flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed
 flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> -session-token ff-<literal-token> <name>
 ```
 
-On a creating run, from the main checkout, with `<default-branch>` the branch `origin/HEAD` points
-at:
-
-```bash
-git fetch origin
-grep -qx '.worktrees/' .git/info/exclude 2>/dev/null || echo '.worktrees/' >> .git/info/exclude
-git worktree add <project>/.worktrees/<name> -b <name> origin/<default-branch>
-```
-
-Nothing else: no `## worktree setup` command, no database, no bucket. A project whose build needs
-generated files or installed dependencies gets them the moment section 5's first test run asks
-for them, in the worktree, by the project's own ordinary commands.
+The worktree already exists — section 1 created it. This section only marks through.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome completed <name>
@@ -213,8 +218,9 @@ Implement in the worktree, in this session — or, on a decided `sdd`, per **Dyn
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form with the scope
 naming the module the commit moved (`~/.claude/rules/commit-scope-is-the-module.md`), no
-attribution trailer. Fix every lint hit the project's `## lint` raises on the files you touched
-rather than suppressing it.
+attribution trailer, and `git -C <worktree> push origin <name>` after each one (**Branch
+backup**, `skills/flow-contracts/git-boundaries.md`). Fix every lint hit the project's `## lint`
+raises on the files you touched rather than suppressing it.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <name>
@@ -315,9 +321,9 @@ runs the project's whole `## lint` and `## test` lists instead.
   says so. This route is the one place `/flow-fast` pushes to the default branch; a project whose
   default branch is protected declares `open PR` instead
   (`~/.claude/rules/no-direct-pushes-to-main.md`).
-- **open PR**: `git -C <worktree> push -u origin <name>`, then `gh pr create --base
+- **open PR**: `git -C <worktree> push --force-with-lease origin <name>`, then `gh pr create --base
   <default-branch> --head <name>` with the summary from section 5 as the body.
-- **manual**: push nothing; print the branch name and the worktree path.
+- **manual**: `git -C <worktree> push --force-with-lease origin <name>`; print the branch name and the worktree path.
 
 Then transition the Jira issue to In Review per **Transitions**
 (`skills/flow-contracts/jira-integration.md`) — on every route that completed, never on one that stopped.
@@ -359,7 +365,7 @@ flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -s
 ```bash
 git -C <project> worktree remove <project>/.worktrees/<name>
 git -C <project> branch -D <name>
-git -C <project> push origin --delete <name>   # only when the branch was pushed
+git -C <project> push origin --delete <name>
 ```
 
 Then, only when the main checkout is on `<default-branch>` with an empty `git status

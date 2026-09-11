@@ -1,8 +1,8 @@
 # Finish contract — run 2 (the branch is merged)
 
-**This file is canonical for `/myflow-finish`'s run 2** — run 2's procedure and worktree cleanup.
+**This file is canonical for `/flow`'s archive run** — run 2's procedure and worktree cleanup.
 
-`/myflow-finish` is the only command that loads this file.
+bare `/flow` is the only command that loads this file.
 
 ### Run 2 — the branch is merged
 
@@ -103,7 +103,7 @@
    nothing else, deterministically and without ever being recorded, per
    **The workspace id** (`skills/flow-contracts/workspace-isolation.md`) — so run 2 runs `flow
    workspace-id <name>` for it, rather than re-deriving it by hand from that contract's own
-   derivation, and arrives at the same id `/myflow-do` used, in a session that shared nothing with
+   derivation, and arrives at the same id `/flow`'s implement phase used, in a session that shared nothing with
    it.
 
    **A project declaring no `## workspace isolation` section, or no `remove` command in it, has this
@@ -150,7 +150,7 @@
    procedure never asked.
 
    **A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**
-   `FINISHED` is terminal: `/myflow-finish` stops at it and `/flow-status` does not list it, so a
+   `FINISHED` is terminal: bare `/flow` stops at it and `/flow-status` does not list it, so a
    change written `FINISHED` over a known leftover has exactly one record of that leftover — the
    console line — which is the transcript-only record this pipeline refuses everywhere else. Left at
    `IN_PROGRESS` instead, the change stays listed, stays re-runnable, and the state file it already
@@ -208,19 +208,11 @@
    | 4 | What could be automated or moved to a script | `flow-automation` |
    | 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
 
-   **These labels were renamed from a `myflow-` prefix, and the old names are still in use — on the
-   board and in this repository's own history.** Existing Jira issues keep the labels they were filed
-   with; nothing relabels them, because that is an outward-facing bulk write over a board this
-   pipeline does not own. **So the board carries both taxonomies indefinitely, and a label-based
-   search has to match either form.** A reader who searches `flow-improvement`, finds a handful of
-   issues and concludes the angle is rarely used has been misled by this table, not by the board.
-
-   The self-review reports under `<project>/docs/self-review/` are the same story one layer down:
-   every report written before the rename carries the old labels, and those reports are immutable
-   records rather than files to migrate. `check-self-review-report.sh` therefore recognises **both**
-   spellings, positionally aligned, and its own header states why. Renaming the labels in that guard
-   without the legacy set makes it report 166 violations across all twelve reports it checks —
-   measured, not predicted.
+   **Issues filed before these labels took their current names carry the earlier `myflow-`
+   spelling, and a label-based search has to match either form** — nothing relabels them, because
+   that is an outward-facing bulk write over a board this pipeline does not own. The self-review
+   reports under `<project>/docs/self-review/` written before then are immutable records carrying
+   the same earlier spelling, so `check-self-review-report.sh` recognises both, positionally aligned.
 
    Angle 5's remit covers the records the pipeline writes to files today and the derivation work
    now done in Bash or by the agent — **not** what the SPA should display.
@@ -256,13 +248,8 @@
    specific to *executing* it: the script invocation and its arguments, the exact prompt wording,
    and the report-commit shell. It is not a second statement of this rule.
 
-   **There is no requirements layer above this one; change this file.** The procedure was first
-   written as **Requirement: Self-review runs only after FINISHED is written**
-   (`<agents repo>/openspec/specs/myflow-self-review/spec.md`), alongside sibling requirements in that
-   same file for context gathering, the combined pass, the filing ask, the rating and
-   the report path. That capability was frozen with the rest of the `<agents repo>/openspec/` tree at the spectre
-   cutover and not migrated, so it records where the rule came from and governs nothing: the
-   statement above is both the requirement and the runtime source of the procedure.
+   **There is no requirements layer above this one; change this file.** The statement above is
+   both the requirement and the runtime source of the procedure.
 10. **Push the archive branch and land it — the route depends on how this run of archive.md was
     reached.**
 
@@ -398,13 +385,13 @@ ask for explicit confirmation before removing that worktree. Do not try to class
 build output: no allowlist of names can be trusted, because the operator decides what they ignore.
 Empty list → proceed without asking.
 
-**`/myflow-fast` overrides the ask, and only the ask.** Its own **Guardrails**
-(`skills/myflow-fast/SKILL.md`) state that override and why it is safe there: that command reports
+**`/flow-fast` overrides the ask, and only the ask.** Its own **Guardrails**
+(`skills/flow-fast/SKILL.md`) state that override and why it is safe there: that command reports
 what `--force` will destroy and proceeds, having already preserved and committed the records worth
 keeping before it reaches cleanup. The override is named here too, so two files cannot silently
 disagree about a step that destroys files. It reaches nothing else — checks 1, 2, 3, 5 and 6 stay
 gates under every command, and an irreplaceable **unpreserved** entry still stops the run and asks,
-under `/myflow-fast` as much as here.
+under `/flow-fast` as much as here.
 
 Then, and only then:
 

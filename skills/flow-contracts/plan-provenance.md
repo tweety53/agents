@@ -18,7 +18,7 @@ claim carries one in an HTML comment within the two lines after it:
   claim and comment is tolerated). The number came from actually running `<command>` at `<ref>`
   (a commit, tag, branch, or other named point), e.g. `<!-- measured: ./gradlew test @ c515c42 -->`.
 
-  **Choosing a ref while the work is uncommitted.** A plan under `/myflow-do` sits on a branch whose
+  **Choosing a ref while the work is uncommitted.** A plan under `/flow`'s implement phase sits on a branch whose
   commits do not exist yet, so naming the merge base is worse than useless: the commands being cited
   frequently do not exist there, and `git cat-file -e <merge-base>:<script>` fails outright. Name
   the **branch** (`@ branch spectre/<change-name>`), which resolves both while the work is in

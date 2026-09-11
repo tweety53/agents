@@ -184,15 +184,14 @@ restart: build
 	exit 1
 
 # The UI-test stack: a database and a daemon instance separate from the
-# live ones, for ad-hoc UI testing from the main checkout (see
-# openspec/changes/kan-180-separate-db-and-app-for-ui-testing/specs/myflow-ui-test-stack/spec.md).
-# Same myflow-postgres container as the live stack (host port 5433), a
+# live ones, for ad-hoc UI testing from the main checkout.
+# Same flow-postgres container as the live stack (host port 5433), a
 # distinct database (flow_uitest) and a distinct daemon port (4174), so
 # both stacks can run at the same time without interfering.
 # `override` refuses any command-line or environment reassignment of
 # UITEST_DB and UITEST_ID outright -- a command-line assignment overrides a
 # simple Makefile assignment (`:=`) regardless of operator, so without
-# `override` `make ui-test-up UITEST_DB=myflow` (or `UITEST_ID=<anything>`)
+# `override` `make ui-test-up UITEST_DB=flow` (or `UITEST_ID=<anything>`)
 # would resolve that variable to the caller's value despite the `:=` below.
 # `override` is the one directive that wins back that precedence, and both
 # variables need it, independently, because each guards a different
@@ -213,7 +212,7 @@ restart: build
 #   a second `flowd` (and `uitest-seed`) at. cmd/flowd/main.go runs
 #   RunMigrations and SeedPricing, and cmd/uitest-seed seeds its fixture,
 #   against whatever DSN they are handed, with no guard of their own -- so an
-#   unprotected UITEST_DB would let `make ui-test-up UITEST_DB=myflow` start
+#   unprotected UITEST_DB would let `make ui-test-up UITEST_DB=flow` start
 #   a second daemon that migrates, seeds and serves the live database on
 #   port 4174, live data included.
 #
@@ -300,7 +299,7 @@ done
 endef
 
 # ui-test-up resets the UI-test stack: drop and recreate flow_uitest in
-# the running myflow-postgres container, start flowd against it on its
+# the running flow-postgres container, start flowd against it on its
 # own port, wait for the daemon to answer, then seed a fixed fixture
 # (cmd/uitest-seed). Resetting on every bring-up -- rather than reusing
 # whatever the database already holds -- is the requirement itself, not

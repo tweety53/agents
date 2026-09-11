@@ -2,9 +2,9 @@
 """generate-relocation-comparison.py — for a plan that declares itself a
 relocation, generate a before/after passage comparison across every file
 the plan's own tasks scope, so a review panel can audit a move the same way
-`myflow-contract-economy`'s own per-move ledger does (canonical spec:
-`openspec/specs/myflow-review-panel-economics/spec.md`'s "A
-relocation-declaring plan gets a mechanical passage comparison" requirement
+the contract-economy per-move ledger does (canonical spec: the
+review-panel-economics spec's "A relocation-declaring plan gets a mechanical
+passage comparison" requirement
 — do not restate its rules here, only implement them).
 
 Reuses `plan-dispatch-bundles.py`'s own `parse_tasks` (and, through it, its
@@ -83,7 +83,7 @@ Algorithm
    Remaining before-only texts and after-only texts are then matched by
    REPOINT_SIGNATURE — a normalisation that collapses every backtick-quoted
    span, and the bold (`**...**`) span immediately beside it (the one
-   citation shape `myflow-contract-economy`'s spec permits to change), to a
+   citation shape the contract-economy spec permits to change), to a
    placeholder, and strips a trailing `above`/`below` word — the same two
    edits, and no others. A bold span anywhere else in the passage is left
    alone. Trailing sentence-ending punctuation is then stripped from BOTH
@@ -283,7 +283,7 @@ TRAILING_PUNCT_RE = re.compile(r"[.,;:!?]*\s*$")
 
 
 def repoint_signature(text: str) -> str:
-    """Normalise `text` the way `myflow-contract-economy`'s two permitted
+    """Normalise `text` the way the contract-economy spec's two permitted
     moved-passage edits allow, via a tokenizer pass rather than a single
     combined regex substitution (F13):
 

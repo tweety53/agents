@@ -7,7 +7,7 @@ alwaysApply: true
 
 <!-- core -->
 **A commit's scope names the module or area inside the repository that the commit moved** —
-`scripts`, `finish-contract`, `openspec` — never the change name, the change's Jira key, or a task
+`scripts`, `finish-contract`, `spectre` — never the change name, the change's Jira key, or a task
 id. A scope is optional: a subject carrying none, `fix: <subject>`, already satisfies this. Where a
 commit spans several modules, name the one carrying its substance, or a broader area covering them —
 never a list.

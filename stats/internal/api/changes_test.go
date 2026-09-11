@@ -580,7 +580,7 @@ func TestListChangesFiltersByProjectAndState(t *testing.T) {
 // "project" filter resolves a display name matching exactly one project to
 // that project's key before the store ever sees the filter -- the same
 // resolution stats views get, applied here at the list endpoint's own
-// parse site (specs/myflow-stats-views/spec.md, "A display name is
+// parse site (the stats-views requirement "A display name is
 // filtered on").
 func TestListChangesAcceptsProjectDisplayName(t *testing.T) {
 	fs := newFakeStore()
@@ -665,7 +665,7 @@ func TestListChangesProjectResolutionStoreFailureReturns500(t *testing.T) {
 
 // TestListChangesExactProjectKeyRunsNoResolutionQuery asserts a "project"
 // value already carrying the derivation suffix is used unchanged and never
-// reaches ProjectKeysByDisplayName at all -- specs/myflow-stats-views/spec.md's
+// reaches ProjectKeysByDisplayName at all -- the stats-views requirement
 // "A full key is filtered on": "it is used as-is, with no resolution
 // attempted".
 func TestListChangesExactProjectKeyRunsNoResolutionQuery(t *testing.T) {
@@ -940,8 +940,8 @@ func TestPutChangeDerivesRepoSetFromWorktrees(t *testing.T) {
 	body, err := json.Marshal(map[string]any{
 		"state": "IN_PROGRESS",
 		"worktrees": map[string]any{
-			"/Users/tester/Projects/agents-worktrees/openspec-kan-16": "5ee4c9a",
-			"/Users/tester/Projects/other-worktrees/openspec-kan-16":  nil,
+			"/Users/tester/Projects/agents-worktrees/flow-kan-16": "5ee4c9a",
+			"/Users/tester/Projects/other-worktrees/flow-kan-16":  nil,
 		},
 		"updatedAt": time.Now().UTC().Format(time.RFC3339),
 		"updatedBy": "tester",
@@ -967,11 +967,11 @@ func TestPutChangeDerivesRepoSetFromWorktrees(t *testing.T) {
 	for _, r := range stored.Repos {
 		byRoot[r.RepoRoot] = r.MergeBase
 	}
-	mb, ok := byRoot["/Users/tester/Projects/agents-worktrees/openspec-kan-16"]
+	mb, ok := byRoot["/Users/tester/Projects/agents-worktrees/flow-kan-16"]
 	if !ok || mb == nil || *mb != "5ee4c9a" {
-		t.Errorf("repo with merge base missing or wrong: %v", byRoot["/Users/tester/Projects/agents-worktrees/openspec-kan-16"])
+		t.Errorf("repo with merge base missing or wrong: %v", byRoot["/Users/tester/Projects/agents-worktrees/flow-kan-16"])
 	}
-	mb2, ok := byRoot["/Users/tester/Projects/other-worktrees/openspec-kan-16"]
+	mb2, ok := byRoot["/Users/tester/Projects/other-worktrees/flow-kan-16"]
 	if !ok || mb2 != nil {
 		t.Errorf("repo with null merge base should round-trip as nil, got %v (present=%v)", mb2, ok)
 	}

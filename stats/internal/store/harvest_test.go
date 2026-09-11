@@ -46,7 +46,7 @@ func TestCommitHarvestBatchAddsAndAdvancesTogether(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-commitbatch-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -154,11 +154,11 @@ func TestCommitHarvestBatchFailurePartwayCommitsNothing(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-commitbatch-partial-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	runA, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	runA, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage (A): %v", err)
 	}
-	runB, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel"))
+	runB, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage (B): %v", err)
 	}
@@ -208,7 +208,7 @@ func TestCommitHarvestBatchRejectsNilPatch(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-commitbatch-nilpatch-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -233,7 +233,7 @@ func TestHarvestBatchPreservesStageEndOutcomeKeys(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-outcome-then-harvest-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestHarvestBatchPreservesStageEndOutcomeKeys(t *testing.T) {
 
 	// And the reverse order: a second stage run harvested first, then
 	// given its outcome keys, must show the same survival.
-	run2, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "review panel"))
+	run2, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "review panel"))
 	if err != nil {
 		t.Fatalf("BeginStage (run2): %v", err)
 	}
@@ -366,7 +366,7 @@ func TestCommitHarvestBatchSumsDispatchTokensAcrossTwoCommits(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-dispatch-tokens-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -429,7 +429,7 @@ func TestCommitHarvestBatchReplacesSpawnDepthStringAcrossTwoOrdinaryCommits(t *t
 	projectKey := fmt.Sprintf("proj-dispatch-spawndepth-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -496,7 +496,7 @@ func TestCommitHarvestBatchConcurrentCallersOnlyOneApplies(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-commitbatch-race-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -597,7 +597,7 @@ func TestCommitHarvestBatchConcurrentCallersOnExistingRowOnlyOneApplies(t *testi
 	projectKey := fmt.Sprintf("proj-commitbatch-race-update-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -703,7 +703,7 @@ func TestCommitHarvestBatchStaleExpectedOffsetAppliesNothing(t *testing.T) {
 	projectKey := fmt.Sprintf("proj-commitbatch-stale-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
 
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task"))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task"))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}

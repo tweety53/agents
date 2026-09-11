@@ -18,8 +18,8 @@
 # assume a sibling `lib/` travels with it; a guard reached only by
 # hand-copying a single file into an unrelated project's own tooling cannot.
 # gather-self-review-context.sh DOES ship through the farm —
-# skills/myflow-fast/scripts/ and skills/myflow-finish/scripts/ both carry
-# it, each alongside its own `lib` symlink into scripts/lib/ — so it sources
+# skills/flow/scripts/ carries it,
+# alongside its own `lib` symlink into scripts/lib/ — so it sources
 # this file rather than carrying its own copy.
 #
 # Not meant to be executed directly — a caller sources it and calls

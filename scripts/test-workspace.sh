@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test-workspace.sh — round-trip harness for scripts/workspace.sh's create,
 # remove and survivors commands, exercised against the real flow-postgres
-# container (superuser myflow, database myflow, host port 5433).
+# container (superuser flow, database flow, host port 5433).
 #
 # Skips the whole file, printing why, when that container is not reachable —
 # the same "SKIP: ... not reachable" style stats/health_test.go and
@@ -21,7 +21,7 @@
 # and STILL exits 0 (exit 0 + empty output is the only result that verifies
 # a removal, per project-configuration.md's "What survivors prints"). Also:
 # create/remove refuse an empty or a missing id rather than operating on the
-# shared "myflow" database; `remove` with no flag still behaves exactly as
+# shared "flow" database; `remove` with no flag still behaves exactly as
 # before (no --force); `remove --force` drops a database that has a live
 # connection, which plain `remove` cannot; and `remove --force` refuses an id
 # whose database does not end in "_uitest", so a command-line/environment id
@@ -105,7 +105,7 @@ RC=$?
   || fail "survivors prints nothing after remove" "got [$OUT]"
 
 # 6. create/remove refuse an empty or missing id rather than operating on
-#    the shared "myflow" database.
+#    the shared "flow" database.
 "$SCRIPT" create "" >/dev/null 2>&1
 [ $? -ne 0 ] && pass "create refuses an empty id" || fail "create refuses an empty id" "exited 0"
 "$SCRIPT" create >/dev/null 2>&1

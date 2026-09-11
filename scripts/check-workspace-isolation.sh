@@ -8,9 +8,9 @@
 # is a PROJECT ROOT — the directory holding `.flow/project.md` — never the
 # configuration file itself, because that is the path every caller already has.
 #
-# WHO RUNS IT, AND WHY THAT IS TWO CALLERS RATHER THAN ONE. `/myflow-do` runs it
-# against each apply worktree before it resolves or exports a single row —
-# section 7 of skills/myflow-do/SKILL.md — and that is the call that reaches
+# WHO RUNS IT, AND WHY THAT IS TWO CALLERS RATHER THAN ONE. `/flow`'s implement
+# phase runs it against each apply worktree before it resolves or exports a
+# single row — skills/flow/implement.md — and that is the call that reaches
 # every project flow is installed into, because the read happens in the
 # project rather than here. This repository ALSO lists it in its own `## lint`,
 # which is a self-check on this repository's own `## workspace isolation`
@@ -25,10 +25,8 @@
 # Exit 0 when every project checked is well formed, 1 when any violation was
 # found, 2 when it cannot answer at all — a project root that is not a
 # directory, a `.flow/project.md` that is not a regular file (a directory, a
-# fifo, a dangling symlink) or cannot be read, a scan of it that failed rather
-# than found nothing, or a project carrying the retired `.myflow/` and no
-# `.flow/` (per design.md's dotmyflow-hard-cutover — never a fallback to the
-# old path, never both, never a silent "nothing declared"). The violations
+# fifo, a dangling symlink) or cannot be read, or a scan of it that failed
+# rather than found nothing. The violations
 # are on stdout and the refusals on stderr, so a caller reading stdout is
 # reading findings and never an excuse for their absence.
 #
@@ -158,7 +156,7 @@ PRINT_ROWS="${CHECK_WORKSPACE_ISOLATION_PRINT_ROWS:-0}"
 
 # The self-resolution above is deferred to exactly here, inside the branch
 # that is the only reader of its answer. Every OTHER caller passes an
-# explicit project root — `/myflow-do` against each apply worktree, and this
+# explicit project root — `/flow`'s implement phase against each apply worktree, and this
 # repository's own `## lint` entry against `$REPO_ROOT` computed the same
 # way one level up — and resolving unconditionally at the top of the file
 # meant a failure to resolve THIS script's own location could abort a run
@@ -247,20 +245,8 @@ for ROOT in "$@"; do
   # itself, so the pair says "there is nothing here at all" and a dangling link
   # falls through to the refusal below instead.
   if [ ! -e "$CFG" ] && [ ! -L "$CFG" ]; then
-    # A project carrying the retired `.myflow/` and no `.flow/` is NOT the
-    # supported "nothing declared" case — it is the hard cutover
-    # design.md's dotmyflow-hard-cutover states: never fall back to the old
-    # path, never read both, and never silently report "no project
-    # configuration" when the operator's actual problem is a directory that
-    # still needs renaming. `~/Projects/gymie` and `~/Projects/spectre-e2e`
-    # are in exactly this state on this machine, so this refuses rather than
-    # returning ISOLATION-OK for a project this guard never actually read.
-    if [ -e "$ROOT/.myflow" ] || [ -L "$ROOT/.myflow" ]; then
-      echo "check-workspace-isolation: $ROOT carries .myflow/ and no .flow/ — rename it before this project's configuration can be read: git -C $ROOT mv .myflow .flow" >&2
-      exit 2
-    fi
-    # The file is optional. A project with no `.flow/project.md` (and no
-    # stale `.myflow/`) is a supported, ordinary case, not an error.
+    # The file is optional. A project with no `.flow/project.md` is a
+    # supported, ordinary case, not an error.
     printf 'ISOLATION-OK: %s — no .flow/project.md, so nothing is declared\n' "$ROOT"
     continue
   fi

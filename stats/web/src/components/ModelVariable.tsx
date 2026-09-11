@@ -2,7 +2,7 @@
 // is populated from GET /api/v1/models for the period and project
 // currently selected -- never a hard-coded list -- so a model used for
 // the first time appears without any change to this build
-// (specs/myflow-stats-views/spec.md, "The models offered"; "obtained from
+// (the stats-views requirement "The models offered"; "obtained from
 // the server rather than assumed or hard-coded").
 //
 // It is disabled, with a stated reason, whenever the caller says the

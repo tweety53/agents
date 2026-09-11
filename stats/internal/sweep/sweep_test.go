@@ -58,7 +58,7 @@ func TestSweepClosesSilentStages(t *testing.T) {
 
 	now := time.Date(2026, 8, 13, 15, 0, 0, 0, time.UTC)
 	started := now.Add(-2 * time.Hour)
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task", started))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task", started))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestSweepLeavesActiveStagesOpen(t *testing.T) {
 
 	now := time.Date(2026, 8, 13, 15, 0, 0, 0, time.UTC)
 	started := now.Add(-5 * time.Minute)
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task", started))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task", started))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestSweepIsIdempotent(t *testing.T) {
 
 	now := time.Date(2026, 8, 13, 15, 0, 0, 0, time.UTC)
 	started := now.Add(-2 * time.Hour)
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task", started))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task", started))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -207,7 +207,7 @@ func TestConcurrentSweepersDoNotDoubleCloseOrCollide(t *testing.T) {
 	now := time.Date(2026, 8, 13, 15, 0, 0, 0, time.UTC)
 	started := now.Add(-2 * time.Hour)
 	for i := range rows {
-		_, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", fmt.Sprintf("stage-%d", i), started))
+		_, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", fmt.Sprintf("stage-%d", i), started))
 		if err != nil {
 			t.Fatalf("BeginStage %d: %v", i, err)
 		}
@@ -277,7 +277,7 @@ func TestSweepRacingLiveEndDoesNotCorruptOutcome(t *testing.T) {
 
 	now := time.Date(2026, 8, 13, 15, 0, 0, 0, time.UTC)
 	started := now.Add(-2 * time.Hour)
-	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/myflow-do", "SDD + TDD per task", started))
+	run, err := st.BeginStage(ctx, baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task", started))
 	if err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}

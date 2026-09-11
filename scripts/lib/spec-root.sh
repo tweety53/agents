@@ -6,13 +6,13 @@
 # gather-self-review-context.sh and plan-dispatch-bundles.sh — plus
 # scripts/lib/change-plan.sh, which sources it in turn so a satellite
 # worktree's link.md is resolved against the same tree-name probe on
-# whichever tree the link points at. Each of those
-# project whose tree is named `spectre/` and wrong — silently — for one whose
-# tree is still named `openspec/`.
+# whichever tree the link points at. Each of those once hardcoded one leaf
+# name: right for a project whose tree is named `spectre/` and wrong —
+# silently — for a consuming project whose tree is still named `openspec/`.
 #
-# THIS IS A LOCATE, NOT A PREFERENCE. The rename from `openspec/` to
-# `spectre/` happened in this repository's own skills and contracts, not in
-# the projects those skills are installed into. A project initialised before
+# THIS IS A LOCATE, NOT A PREFERENCE. This repository's own skills and
+# contracts name `spectre/`; the projects those skills are installed into
+# were not renamed with them. A project initialised before
 # the rename still carries `openspec/changes/`, and nothing migrates it: the
 # directory name is the project's, and `spectre new` is not going to move a
 # tree it did not create. So a guard that hardcodes one name does not fail

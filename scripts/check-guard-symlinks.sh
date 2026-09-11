@@ -42,14 +42,14 @@
 #      rule 1's business, not this one's — this rule never re-reports what
 #      rule 1 already governs. It exists for a file a skill's text names but
 #      does not carry — most concretely `engineering-principles.md` and the
-#      reviewer-prompt files, which `skills/myflow-do/SKILL.md` resolves
-#      BESIDE ITSELF, in `skills/myflow-do/` — which is resolved by reading
+#      reviewer-prompt files, which `skills/flow/review-panel.md` resolves
+#      BESIDE ITSELF, in `skills/flow/` — which is resolved by reading
 #      where the text says it lives, never by symlinking a copy into the
 #      running command's own skill directory: that symlink makes a wrong
 #      reading of the resolution rule work, which is what keeps the wrong
 #      reading alive. Prose already said so once and a session created three
 #      such symlinks anyway, roughly five hours later, in
-#      `skills/myflow-fast/`.
+#      `skills/flow-fast/`.
 #
 # Prints one violation line per finding (`path:line: message`), then the
 # verdict:
@@ -59,7 +59,7 @@
 # The second OK line is scripts/lib/coverage.sh's coverage_report fragment:
 # how many rule-2-required guards this run actually found for EACH command
 # skill, so a rule computing an empty required set for one skill (KAN-73's
-# own defect, for skills/myflow-fast/, before delegation resolution existed)
+# own defect, for skills/flow-fast/, before delegation resolution existed)
 # is visible on a passing run rather than reading as nothing to check. A
 # skill's zero is either named "(declared)" — this guard's own written
 # coverage_declare call for it — or, if undeclared, a fifth violation class
@@ -86,13 +86,13 @@
 # WHY RULE 2 IS SCOPED TO A SKILL'S OWN DIRECTORY, NOT EVERY CONTRACT ITS TEXT
 # CITES. skills/flow-contracts/*.md is shared prose, cited by path from
 # every command skill for reasons that have nothing to do with which guards
-# that skill runs — myflow-status cites finish-contract.md to explain how it
+# that skill runs — flow-status cites the finish contract to explain how it
 # COMBINES a merge-status answer, not to invoke every guard that contract's
 # own prose happens to name. Expanding rule 2's scan into every contract a
 # skill's text happens to name was tried and produced false positives on this
-# repository's own real, correct tree (myflow-start and myflow-status were
-# both reported as needing guards found only in a cited contract, never one
-# either skill itself carried or ran). Scoping to the skill's own files trades
+# repository's own real, correct tree (skills that invoke no guard were
+# reported as needing guards found only in a cited contract, never one the
+# skill itself carried or ran). Scoping to the skill's own files trades
 # a small amount of theoretical coverage — a guard invoked ONLY inside a shared
 # contract's usage-synopsis prose, naming no skill by scope — for zero false
 # failures on a tree already known correct. A guard already shipped that this
@@ -622,27 +622,24 @@ REQUIRED_FILE="$WORK/required"
 : > "$REQUIRED_FILE"
 
 # DELEGATE_AWK — for a skill that invokes no guard of its own and instead
-# CHAINS another command's stages verbatim (myflow-fast is, today, the only
-# one), its required set has to come from somewhere other than its own text,
-# or rule 2 checks nothing for it at all — task 5's own file-level comment on
+# CHAINS another command's stages verbatim (the shape flow-fast had when this
+# was written), its required set has to come from somewhere other than its
+# own text, or rule 2 checks nothing for it at all — the file-level comment on
 # "WHY RULE 2 IS SCOPED TO A SKILL'S OWN DIRECTORY" already rejected scanning
-# every contract a skill's prose happens to CITE, because myflow-start and
-# myflow-status cite contracts and other skills' sections constantly without
-# invoking anything in them (confirmed above: myflow-status alone cites
-# `/myflow-do`, `/myflow-finish` and `/myflow-start` by slash-command over a
-# dozen times, purely in explanatory prose). A bare citation of another
-# command is therefore not a safe delegation signal.
+# every contract a skill's prose happens to CITE, because command skills cite
+# contracts and other skills' sections constantly without invoking anything in
+# them (flow-status cites `/flow` by slash-command repeatedly, purely in
+# explanatory prose). A bare citation of another command is therefore not a
+# safe delegation signal.
 #
 # What IS safe: every command skill that invokes at least one guard of its
-# own states so in a paragraph beginning "**Check guard presence.**" (task 4's
-# own convention — myflow-do, myflow-finish and myflow-status alike enumerate
-# guard basenames there; a skill that invokes none, like myflow-start, carries
-# no such paragraph at all). myflow-fast's OWN copy of that exact paragraph is
-# the one place in its text that names OTHER commands' presence checks by
-# slash-command — "confirm every guard named in
-# `/myflow-do`'s, `/myflow-finish`'s and `/myflow-status`'s own presence
-# checks ... is present in `skills/myflow-fast/scripts/`" — so scoping the
-# slash-command scan to THAT paragraph specifically, rather than the whole
+# own states so in a paragraph beginning "**Check guard presence.**" (flow and
+# flow-status alike enumerate guard basenames there; a skill that invokes
+# none carries no such paragraph at all). A delegating skill's OWN copy of
+# that exact paragraph is the one place in its text that names OTHER
+# commands' presence checks by slash-command — "confirm every guard named in
+# `/flow`'s own presence checks ... is present in `skills/<skill>/scripts/`"
+# — so scoping the slash-command scan to THAT paragraph specifically, rather than the whole
 # file, is what tells a real delegation apart from the ordinary cross-command
 # prose every skill carries. A command with no such paragraph names no
 # delegate, and contributes nothing.
@@ -652,7 +649,7 @@ BEGIN { in_para = 0 }
 in_para {
   if ($0 ~ /^[ \t]*$/) { in_para = 0; next }
   s = $0
-  while (match(s, /`\/myflow-[A-Za-z0-9_-]+`/)) {
+  while (match(s, /`\/flow[A-Za-z0-9_-]*`/)) {
     tok = substr(s, RSTART + 2, RLENGTH - 3)
     print tok
     s = substr(s, RSTART + RLENGTH)
@@ -861,13 +858,13 @@ done < "$SKILL_NAMES_FILE"
 # scanned — which may be a sandboxed CHECK_GUARD_SYMLINKS_ROOT fixture, not
 # this repository). Declaring a name that is not part of the current corpus
 # at all would make it a KAN-197 F3 "declared but never recorded" violation
-# for every fixture that does not happen to carry a "myflow-start" or
-# "myflow-research" directory of its own — not a real staleness, just a
+# for every fixture that does not happen to carry a "flow-settings" or
+# "flow-self-review" directory of its own — not a real staleness, just a
 # mismatch between this guard's own hardcoded real-repo names and a smaller
 # sandboxed tree. Gating on actual corpus membership keeps F3's protection
 # meaningful for the real repository (both names are real directories here
 # today) without that false-positive noise in test-check-guard-symlinks.sh's
-# own fixtures, several of which deliberately reuse "myflow-start" as a
+# own fixtures, several of which deliberately reuse "flow-settings" as a
 # stand-in and several of which do not.
 declare_if_present() {
   local skill="$1" reason="$2" rc
@@ -886,8 +883,6 @@ declare_if_present() {
   fi
 }
 
-declare_if_present "myflow-start" "invokes no guard of its own — runs the project's configured plan-provenance and build-green guards via .flow/project.md, never one symlinked into its own scripts/ directory"
-declare_if_present "myflow-research" "invokes no guard — a thinking-partner research mode with no implementation or verification stage"
 declare_if_present "flow-settings" "invokes no guard — a standalone settings command that only calls the flow CLI, with no implementation or verification stage"
 declare_if_present "flow-self-review" "invokes no guard of its own — runs the project's report guard by path, with no implementation or verification stage"
 

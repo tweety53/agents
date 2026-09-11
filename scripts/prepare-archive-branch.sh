@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # prepare-archive-branch.sh — positions a throwaway landing worktree on the
-# archive branch before /myflow-finish run 2 archives a change (KAN-462 §3).
+# archive branch before /flow's archive run archives a change (KAN-462 §3).
 #
 # Usage: prepare-archive-branch.sh <landing-worktree> <base> <archive-branch>
 #

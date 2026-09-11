@@ -58,14 +58,37 @@ flow stage begin -command '/flow' -stage flow.kickoff -harness <harness> -sessio
 change: `/flow` asks no planning-effort or model question on a creating run, and models are resolved per run from the settings store, not recorded per change. `artifactUrl` stays `null` —
 `/flow` publishes no proposal artifact.
 
-```bash
-flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
-```
-
 **No further command runs before this point on a creating run** — the state write above is the
 first thing this invocation does once the name is fixed, ahead of even the design conversation. The
 operator sees `STARTED` recorded the moment they invoke `/flow`, whether or not the run goes on to
 finish brainstorming in the same sitting.
+
+**Then create the worktree, still inside `flow.kickoff` — before brainstorming, before any file
+is read or written for this change.** From this point on, the main checkout is never read, checked
+out, staged, committed or written by any phase of `/flow`; every path below resolves inside
+`<project>/.worktrees/<name>`, including the design spec, `spectre new`, the three artifacts, the
+plan and the decision JSON.
+
+1. `check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
+2. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
+   `<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
+3. `git -C <project> fetch origin`, then `git worktree add <project>/.worktrees/<name> -b
+   spectre/<name> origin/<default-branch>` — the default branch by name, never HEAD: the main
+   checkout may be on any branch and is never moved.
+4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
+   root, in order, in the foreground — the printed body can carry fence markers and trailing prose
+   outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
+   the fenced command lines, not those. Exit 1: the project declares no `## worktree setup`; say so
+   and continue. Exit 2: stop the run, relaying the script's own line. **A command's non-zero exit
+   ends your turn** naming the command and its output — a worktree that cannot be set up fails
+   `flow.verify` later anyway, and the operator should see it here. The key is canonical in
+   **Project configuration** (`skills/flow-contracts/project-configuration.md`).
+5. `git -C <worktree> push -u origin spectre/<name>` — the branch exists on the remote from its
+   first minute, per **Branch backup** (`skills/flow-contracts/git-boundaries.md`).
+
+```bash
+flow stage end -command '/flow' -stage flow.kickoff -outcome completed <name>
+```
 
 ### Resuming at `STARTED`
 
@@ -74,22 +97,17 @@ reaching `IN_PROGRESS` — an interrupted session, a context limit, an earlier s
 (the name and the `STARTED` write both already exist) and determine where the run actually left off
 by reading, not by assuming:
 
-- **Does a worktree already exist for this change** — `git worktree list` naming
-  `<project>/.worktrees/<name>`, or the state file's `worktrees` map non-empty. **Worktree creation
-  moves to the end of planning** (`design.md`), so a `STARTED` change interrupted anywhere in **B**,
-  **C** or **D** has **no** worktree yet — resolve `<changeRoot>` against the main checkout's own
-  `<project>/spectre/changes/<name>/` in that case, never a worktree path.
-- `spectre list --json`'s entry for this change's `done`/`total`, read against whichever
-  `<changeRoot>` the check above resolved — `total == 0` means no plan exists yet: resume at **B**
-  in `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
+- **Does the worktree exist** — `git worktree list` naming `<project>/.worktrees/<name>`. It is
+  created inside `flow.kickoff` (steps 1–5 above), so a missing one means the run stopped between
+  the `STARTED` write and that step: run steps 1–5 now, then continue below. `<changeRoot>` is
+  always `<project>/.worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
+- `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
+  `total == 0` means no plan exists yet: resume at **B** in
+  `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
 - The change root's own `tasks.md` — a scaffold with no enriched steps means writing-plans has not
-  run: resume at **D** in `skills/flow/brainstorm-planner.md`, still in the main checkout (no <!-- refs-guard:allow -->
-  worktree exists yet). A plan meeting writing-plans quality (exact paths, verification commands, no
-  placeholders) with **no worktree yet** means **D** finished but the worktree step after it did
-  not: resume at **The worktree is created at the end of planning, not here** above — create the
-  worktree, move the planning output into it, print the `## Decision` block and record it, then
-  continue. A plan meeting writing-plans quality **with a worktree already present** means planning
-  is fully done: skip straight to `skills/flow/implement.md`.
+  run: resume at **D** in `skills/flow/brainstorm-planner.md`. A plan meeting writing-plans <!-- refs-guard:allow -->
+  quality (exact paths, verification commands, no placeholders) means planning is fully done: skip
+  straight to `skills/flow/implement.md`.
 
 This is a pragmatic re-entrancy rule, not an exhaustively-enumerated state machine — a run resuming
 at `STARTED` reads what actually exists and continues from there, the same principle every other
@@ -148,42 +166,12 @@ flow stage begin -command '/flow' -stage flow.design-approval -harness <harness>
 flow stage end   -command '/flow' -stage flow.design-approval -outcome completed <name>
 ```
 
-**The worktree is created at the end of planning, not here.** After the `flow.design-approval` mark
-above closes, mark `flow.create-artifacts` begin and continue directly into **C** — `spectre new`
-and the three artifacts — **against the main checkout's own** `<project>/spectre/changes/<name>/`,
-uncommitted and never staged there, per the existing git-boundaries rule. No worktree exists yet;
-**C** and **D** both run in the main checkout. Mark `flow.create-artifacts` end once **C**'s
-artifacts are written, then mark `flow.writing-plans` begin and run **D** — writing-plans
-enrichment and the Decide step — also in the main checkout. **D**'s Decide step writes its
-decision JSON to `<project>/spectre/changes/<name>/.superpowers-sdd-decision.json` in the main
-checkout instead of the usual `<abs-worktree>/.superpowers/sdd/decision.json` path, since no
-worktree exists yet to hold it. Mark `flow.writing-plans` end once **D**'s plan enrichment and
-Decide step complete.
-
-**Only once `flow.writing-plans` ends does the worktree get created:**
-
-1. `check-worktree-location.sh <project>` — exit 1 or 2 stops the run with the guard's own lines.
-2. `git check-ignore -q .worktrees` from the project root. Where it exits non-zero, append
-   `<project>/.worktrees/` to `<project>/.git/info/exclude` — never a commit on any branch.
-3. `git worktree add <project>/.worktrees/<name> -b spectre/<name> <default-branch>` — the default
-   branch by name, never HEAD: the main checkout may be on any branch and is never moved.
-4. `project-get.sh <worktree> "worktree setup"`. Exit 0: run every printed line from the worktree
-   root, in order, in the foreground — the printed body can carry fence markers and trailing prose
-   outside the fence (as `<project>/.flow/project.md`'s `## worktree setup` section does); run only
-   the fenced command lines, not those. Exit 1: the project declares no `## worktree setup`; say so
-   and continue. Exit 2: stop the run, relaying the script's own line. **A command's non-zero exit
-   ends your turn** naming the command and its output — a worktree that cannot be set up fails
-   `flow.verify` later anyway, and the operator should see it here. The key is canonical in
-   **Project configuration** (`skills/flow-contracts/project-configuration.md`).
-
-**Then move the planning output into the new worktree**, leaving nothing behind in the main
-checkout:
-
-```bash
-mkdir -p <worktree>/.superpowers/sdd
-mv <project>/spectre/changes/<name> <worktree>/spectre/changes/<name>
-mv <project>/spectre/changes/<name>/.superpowers-sdd-decision.json <worktree>/.superpowers/sdd/decision.json
-```
+After the `flow.design-approval` mark above closes, mark `flow.create-artifacts` begin and
+continue directly into **C** — `spectre new` and the three artifacts, in the worktree, uncommitted
+and never staged there, per the existing git-boundaries rule. Mark `flow.create-artifacts` end once
+**C**'s artifacts are written, then mark `flow.writing-plans` begin and run **D** — writing-plans
+enrichment and the Decide step, its JSON at `<abs-worktree>/.superpowers/sdd/decision.json`. Mark
+`flow.writing-plans` end once **D**'s plan enrichment and Decide step complete.
 
 Once the Decide step finishes, print the `## Decision`
 block verbatim — the shape **The `## Decision` block** (`design.md`) shows — then run the record
@@ -195,7 +183,6 @@ flow record decision -change <name> -session-token mf-<literal-token> -file <abs
 flow stage end -command '/flow' -stage flow.decide -outcome completed <name>
 ```
 
-`<abs-worktree>/.superpowers/sdd/decision.json` is the file the move above just placed there.
 Continue into `skills/flow/implement.md` directly — no dispatch record to close, since nothing was
 dispatched.
 

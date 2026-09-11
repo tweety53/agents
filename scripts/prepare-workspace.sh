@@ -4,7 +4,7 @@
 #
 # Usage: prepare-workspace.sh <worktree>
 #
-# This is exactly what `myflow-do` section 7 used to do by hand, in prose:
+# This is exactly what `/flow`'s implement phase used to do by hand, in prose:
 # run check-workspace-isolation.sh against the worktree first — fail loudly
 # and stop if it fails — then derive and export the workspace variables the
 # project's `## workspace isolation` section declares, resolved against the
@@ -24,8 +24,8 @@
 # THE WORKSPACE ID NEEDS THE CHANGE NAME, AND THIS SCRIPT TAKES ONLY A
 # WORKTREE. The id is derived from the change name and from nothing else, per
 # **The workspace id**, so this script reads the name from the worktree's own
-# branch: every apply worktree is created on `spectre/<name>`, per section 2
-# of skills/myflow-do/SKILL.md, and that branch is the one place the name is
+# branch: every apply worktree is created on `spectre/<name>`, per
+# skills/flow/implement.md, and that branch is the one place the name is
 # already recorded where a script can read it without being handed it
 # separately. A worktree not on such a branch — detached HEAD, or checked out
 # on something else — cannot be resolved, and this script refuses rather than
@@ -34,7 +34,7 @@
 # THE CACHE INDEX IS THE ONE ROW THIS SCRIPT DOES NOT EXPORT. Per **The cache
 # index** (skills/flow-contracts/workspace-isolation.md), a `cache index`
 # row is claimed by probing the project's own cache, not derived from the id —
-# and the registry in skills/flow-contracts/pipeline.md names `/myflow-do`,
+# and the registry in skills/flow-contracts/pipeline.md names `/flow`,
 # by probing, as what claims it "when it exports the workspace's variables".
 # Probing means holding a client for whatever cache technology the project
 # actually runs, which is exactly the kind of project-specific knowledge a
@@ -112,10 +112,8 @@ ISO_HEADING='^##[[:space:]]+workspace isolation[[:space:]]*$'
 
 # No `.flow/project.md`, or one declaring no `## workspace isolation`
 # section, is a no-op: nothing exported, nothing printed. The guard above
-# already confirmed this file — if present — is well formed, and refused
-# with an actionable error rather than a silent no-op if the worktree still
-# carried only the retired `.myflow/`, per design.md's dotmyflow-hard-cutover
-# — so the only question left here is whether the section exists at all,
+# already confirmed this file — if present — is well formed — so the only
+# question left here is whether the section exists at all,
 # exactly mirroring the guard's own no-op case for a project with no such
 # section.
 if [ ! -f "$CFG" ]; then
@@ -126,7 +124,7 @@ if ! grep -qiE "$ISO_HEADING" "$CFG"; then
 fi
 
 # The change name, read from the worktree's own branch. Every apply worktree
-# is created on `spectre/<name>` per section 2 of skills/myflow-do/SKILL.md,
+# is created on `spectre/<name>` per skills/flow/implement.md,
 # and the id is derived from the change name and nothing else, per **The
 # workspace id** (skills/flow-contracts/workspace-isolation.md).
 BRANCH="$(git -C "$WORKTREE" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
@@ -266,7 +264,7 @@ for ((i = 0; i < N; i++)); do
       WSVAL[$i]=$(( 10#${DEF[i]} + OFFSET ))
       ;;
     "cache index")
-      echo "prepare-workspace: \`${VAR[$i]}\` (cache index) is claimed by probing the project's own cache, not derived from the workspace id — per the registry in skills/flow-contracts/pipeline.md, \`/myflow-do\` claims it, by probing, when it exports the workspace's variables. This script does not carry a client for the project's cache, so this row is reported rather than exported; claim it against the real service before anything reads \`${VAR[$i]}\`." >&2
+      echo "prepare-workspace: \`${VAR[$i]}\` (cache index) is claimed by probing the project's own cache, not derived from the workspace id — per the registry in skills/flow-contracts/pipeline.md, \`/flow\` claims it, by probing, when it exports the workspace's variables. This script does not carry a client for the project's cache, so this row is reported rather than exported; claim it against the real service before anything reads \`${VAR[$i]}\`." >&2
       ;;
   esac
 done

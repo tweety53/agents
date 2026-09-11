@@ -3,7 +3,7 @@
 Which git actions each command may take, and the guarded two-commit chain that enforces the split
 between implementation and planning artifacts.
 
-**Loaded by `/myflow-do`, `/myflow-finish` and `/myflow-fast`** — at the step that commits or stages.
+**Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** — at the step that commits or stages.
 
 This file is **canonical** for everything in it.
 
@@ -14,23 +14,40 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 
 | Command | Condition | Allowed git actions |
 |---------|-----------|---------------------|
-| `/myflow-start` | — | **None — stages planning artifacts and never commits** |
-| `/myflow-do` | from `STARTED` | Create branch/worktree + **commits each task** (fixups fold in) — no push, merge, or PR |
-| `/myflow-do` | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way — no push, merge, or PR |
-| `/myflow-do` | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes** to the PR branch — implementation, then planning artifacts; the one exception |
-| `/myflow-finish` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes; opens a PR or merges, by the operator's choice |
-| `/myflow-finish` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
-| `/myflow-finish` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
-| `/myflow-finish` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, from the landing worktree, and opens its pull request — never pushes `<base>` |
+| `/flow`'s creating run | — | **Creates the worktree and pushes its empty branch** at kickoff; stages planning artifacts there and never commits |
+| `/flow`'s implement phase | from `STARTED` | Resume the kickoff worktree + **commits each task** (fixups fold in), **pushing after each** — no merge or PR |
+| `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way, pushing after each — no merge or PR |
+| `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits twice and pushes `--force-with-lease`** to the PR branch — implementation, then planning artifacts; the one planning-commit exception |
+| bare `/flow` | run 1 | **Commits twice** — implementation, then planning artifacts — and pushes `--force-with-lease`; opens a PR or merges, by the operator's choice |
+| bare `/flow` | run 2, before self-review | **Commits** the archive on `chore/archive-<name>` — never `<base>` — in the landing worktree, and removes worktrees and branches |
+| bare `/flow` | run 2, during self-review | **Commits** the self-review report, or the context bundle on `## self review: defer`, on `chore/archive-<name>` — a second, separate commit, in the landing worktree, and still no push |
+| bare `/flow` | run 2, after self-review | **Pushes** `chore/archive-<name>` once, carrying both commits, from the landing worktree, and opens its pull request — never pushes `<base>` |
 | `/flow-status` | — | None — read-only |
-| `/flow-plan` | staging note captured | **Commits once** — the note, its plan and its decision, on `<default-branch>` in the main checkout — and pushes it (**Landing the note**, `skills/flow-plan/SKILL.md`); nothing else, ever |
+| `/flow-plan` | staging note captured | **Commits once** — the note, its plan and its decision — on `plan-<stem>` in its research worktree, and pushes that commit to `<default-branch>` (**Landing the note**, `skills/flow-plan/SKILL.md`); nothing else, ever |
+
+**No command touches the main checkout.** `/flow` creates `<project>/.worktrees/<name>` inside
+`flow.kickoff`, `/flow-fast` inside its kickoff, `/flow-plan` a `_plan-<stem>` research worktree
+at its start, and every read, write, stage, commit and push in the table above happens in a
+worktree. The main checkout is never checked out, staged, committed or written, whatever branch
+it sits on.
+
+## Branch backup
+
+A change's branch lives on the remote from the moment its worktree exists: `git worktree add` is
+followed by `git push -u origin <branch>`, and every commit a run makes on the branch — a task
+commit, a fixup, a panel fix — is followed by `git push origin <branch>` from the same parent
+call that made or verified it. A lost worktree is then rebuilt with `git worktree add <path>
+origin/<branch>`. The one rewrite is integrate's reshape (`reset --soft` to the merge base, then
+the two commits), so that run's push is `git push --force-with-lease origin <branch>`; every other
+push is plain. `/flow-plan`'s research branch is the exception — it is landed onto
+`<default-branch>` and deleted in the same session, so it is never pushed under its own name.
 
 **The planning paths** are the two that
-**Handoff output** (`skills/flow-contracts/pipeline.md`) names. `/myflow-do` clears them from the index and only
+**Handoff output** (`skills/flow-contracts/pipeline.md`) names. `/flow`'s implement phase clears them from the index and only
 then stages with them excluded by pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
 rule hold rather than merely assert it. Its staging area therefore carries implementation only, and
-`/myflow-finish` is what commits them.
+bare `/flow` is what commits them.
 
 **A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
 states what the system must do, so changing it changes the product exactly as code does: the
@@ -66,7 +83,7 @@ git -C <abs-worktree> reset -q -- spectre/changes/ docs/superpowers/ \
 ```
 
 `<module>` is derived from the reshaped diff — the module carrying the change's substance, or a
-broader area where it spans several, never a list. That is the same rule `/myflow-start`'s
+broader area where it spans several, never a list. That is the same rule the creating run's
 writing-plans stage applies to each task's `**Commit:**` field. The
 planning message is a **fixed literal**, never derived — every planning commit stages the same two
 trees in every change, so there is nothing about it that varies.

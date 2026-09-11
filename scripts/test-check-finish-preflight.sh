@@ -53,7 +53,7 @@ run_guard() {
 # on `main`, clean, for the life of every case below — every case that
 # doesn't deliberately dirty or move it exercises the new main-checkout
 # assertion as a pass, not a skip. REPO is a linked worktree of MAIN_REPO,
-# checked out on `openspec/demo` at the same one commit. RECORDED_BASE is
+# checked out on `demo/branch` at the same one commit. RECORDED_BASE is
 # that commit. REPO is positioned under MAIN_REPO/.worktrees/ so
 # check-worktree-location.sh — which the new assertion also runs — reports
 # it as in-tree rather than a stray, in every case that doesn't test the
@@ -70,18 +70,18 @@ new_repo() {
   RECORDED_BASE="$(git -C "$MAIN_REPO" rev-parse HEAD)"
   BASE_REF=main
   REPO="$MAIN_REPO/.worktrees/demo"
-  git -C "$MAIN_REPO" worktree add -q -b openspec/demo "$REPO" main
+  git -C "$MAIN_REPO" worktree add -q -b demo/branch "$REPO" main
 }
 
-# merge_demo_into_main — land openspec/demo on main with a merge commit,
+# merge_demo_into_main — land demo/branch on main with a merge commit,
 # run from MAIN_REPO (the only worktree allowed to hold `main`) rather than
-# from REPO, which stays on openspec/demo throughout: two worktrees of the
+# from REPO, which stays on demo/branch throughout: two worktrees of the
 # same repository can never both check out the same branch (KAN-462 task 3's
 # own prepare-archive-branch.sh header measures this directly), so the
 # retired form of this helper — checking `main` out a second time inside
 # REPO — would refuse with "'main' is already used by worktree".
 merge_demo_into_main() {
-  git -C "$MAIN_REPO" merge -q --no-ff -m "merge" openspec/demo
+  git -C "$MAIN_REPO" merge -q --no-ff -m "merge" demo/branch
 }
 
 # 1. Zero-commit branch with staged work: RUN1, never RUN2.
@@ -367,7 +367,7 @@ ACTUAL_USAGE="$(cat "$MISSING_ARGS_ERR")"
 # new_repo_with_origin -> sets REPO, MAIN_REPO, ORIGIN, BASE_REF, RECORDED_BASE
 # A bare `origin`, a clone of it (MAIN_REPO) with one commit on `main`
 # (RECORDED_BASE), pushed back to origin, and REPO — a linked worktree of
-# MAIN_REPO — checked out on `openspec/demo` at that same commit. Same
+# MAIN_REPO — checked out on `demo/branch` at that same commit. Same
 # reasoning as new_repo above: MAIN_REPO is the one worktree allowed to hold
 # `main`, and stays on it throughout.
 new_repo_with_origin() {
@@ -387,22 +387,22 @@ new_repo_with_origin() {
   RECORDED_BASE="$(git -C "$MAIN_REPO" rev-parse HEAD)"
   BASE_REF=main
   REPO="$MAIN_REPO/.worktrees/demo"
-  git -C "$MAIN_REPO" worktree add -q -b openspec/demo "$REPO" main
+  git -C "$MAIN_REPO" worktree add -q -b demo/branch "$REPO" main
 }
 
-# merge_demo_into_origin_main <repo> — land openspec/demo on origin/main
+# merge_demo_into_origin_main <repo> — land demo/branch on origin/main
 # WITHOUT moving the repo's own local `main` branch, so local `main` stays at
 # RECORDED_BASE while origin/main advances — the exact staleness this task
 # fixes. Merges on a throwaway local branch, pushes that to origin's `main`,
 # deletes the throwaway, fetches so the repo's own origin/main tracking ref
-# reflects the push, and returns to `openspec/demo` with a clean tree.
+# reflects the push, and returns to `demo/branch` with a clean tree.
 merge_demo_into_origin_main() {
   local repo="$1"
   git -C "$repo" branch -q tmp-merge main
   git -C "$repo" checkout -q tmp-merge
-  git -C "$repo" merge -q --no-ff -m "merge" openspec/demo
+  git -C "$repo" merge -q --no-ff -m "merge" demo/branch
   git -C "$repo" push -q origin tmp-merge:main
-  git -C "$repo" checkout -q openspec/demo
+  git -C "$repo" checkout -q demo/branch
   git -C "$repo" branch -q -D tmp-merge
   git -C "$repo" fetch -q origin
 }

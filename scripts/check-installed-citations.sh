@@ -165,12 +165,6 @@ declare_if_present "rules/never-touch-production.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
 declare_if_present "rules/no-direct-pushes-to-main.mdc" \
   "always-on rule body — cites no .md/.mdc path at all, backticked or bare"
-declare_if_present "skills/myflow-do/bug-hunter-reviewer-prompt.md" \
-  "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
-declare_if_present "skills/myflow-do/engineering-principles.md" \
-  "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
-declare_if_present "skills/myflow-do/security-reviewer-prompt.md" \
-  "reviewer-prompt file, deliberately self-contained — cites no .md/.mdc path anywhere"
 declare_if_present "skills/flow/engineering-principles.md" \
   "reviewer-prompt file, deliberately self-contained — cites principles-reviewer-prompt.md only via a Markdown link, a shape this guard's classifier does not scan"
 declare_if_present "commands/flow-plan.md" \
@@ -185,6 +179,8 @@ declare_if_present "commands/flow-self-review.md" \
   "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"
 declare_if_present "commands-claude/flow-self-review.md" \
   "command-dispatch stub — delegates to the flow-self-review skill by name, not by path; cites no .md/.mdc path at all"
+declare_if_present "skills/flow-contracts/operator-prompts.md" \
+  "prompt-shape contract, self-contained — cites no .md/.mdc path at all"
 declare_if_present "skills/flow-contracts/plan-provenance.md" \
   "the guard-facing sections moved to plan-provenance-guard.md — cites no .md/.mdc path at all"
 declare_if_present "agents/flow-sonnet-low.md" \

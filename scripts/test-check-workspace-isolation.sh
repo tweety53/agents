@@ -3,10 +3,7 @@
 # roots under a sandboxed TMPDIR, writes a `.flow/project.md` into each, and
 # asserts the guard's violation lines, its verdict and its exit status. Never
 # reads or writes the real repository tree, and never reads another real
-# project on this machine — section 14's `.myflow/` -> `.flow/` hard-cutover
-# cases (design.md's dotmyflow-hard-cutover) are fixtures this suite owns
-# rather than a read of gymie's or spectre-e2e's real, still-`.myflow/`-only
-# declarations, which this change does not rename.
+# project on this machine.
 #
 # READ THIS BEFORE ADDING OR "FIXING" A CASE. Assert against the stated contract
 # in skills/flow-contracts/project-configuration.md — the `## workspace
@@ -696,7 +693,7 @@ assert_ok "several port and url rows are legal"
 # 10. The command table: three verbs, two columns.
 # ---------------------------------------------------------------------------
 
-# 10a. A fourth verb. `/myflow-finish` calls `remove` and `survivors` by name
+# 10a. A fourth verb. `/flow`'s archive run calls `remove` and `survivors` by name
 #      and nothing calls anything else, so a row named otherwise is a command
 #      nobody runs — which reads to its author as a command that ran.
 new_project
@@ -741,7 +738,7 @@ assert_reports "<value:API_PORT>" "the command-reference report names the token"
 
 # 10f. A project that declares `create` and `remove` and no `survivors` is a
 #      supported state — the verification is reported as skipped rather than
-#      passed, and that is /myflow-finish run 2 to decide, not this guard.
+#      passed, and that is /flow's archive run to decide, not this guard.
 new_project
 write_iso "$VALID_RES" '| `create` | `./scripts/workspace create` |
 | `remove` | `./scripts/workspace remove` |'
@@ -1139,48 +1136,6 @@ assert_invalid "an accented Resource word is reported"
 assert_reports "bücket" "a non-ASCII cell is reported by its real name, not escaped"
 
 # ---------------------------------------------------------------------------
-# 14. The `.myflow/` -> `.flow/` hard cutover (design.md's
-#     dotmyflow-hard-cutover). Built as real fixture project roots on disk,
-#     run through the real guard as a real subprocess — never a mocked stat
-#     — per REPRODUCE, DON'T READ. `~/Projects/gymie` and
-#     `~/Projects/spectre-e2e` are in exactly the 14a shape on this machine
-#     today and are deliberately not read here: they are not renamed by this
-#     change, and a fixture this suite owns is what stays stable regardless
-#     of their state.
-# ---------------------------------------------------------------------------
-
-# 14a. A project carrying only the retired `.myflow/` and no `.flow/` is NOT
-#      the ordinary "declares nothing" case: the guard must refuse rather
-#      than silently report ISOLATION-OK for a project it never actually
-#      read, naming the project root and the exact rename to perform.
-new_project
-mkdir -p "$REPO/.myflow"
-run_guard "$REPO"
-assert_refuses "a project carrying only the retired .myflow/"
-case "$ERR" in
-  *"$REPO"*) pass "the refusal names the project root" ;;
-  *) fail "the refusal does not name the project root: $ERR" ;;
-esac
-case "$ERR" in
-  *"git -C $REPO mv .myflow .flow"*) pass "the refusal names the exact rename to perform" ;;
-  *) fail "the refusal does not name the exact rename to perform: $ERR" ;;
-esac
-
-# 14b. A project carrying BOTH directories mid-cutover reads `.flow/`
-#      without ever consulting `.myflow/` — the `.myflow/project.md` below
-#      is deliberately malformed (a bare word, no `## workspace isolation`
-#      heading token even close to well-formed) so that a guard which fell
-#      back to it, read both, or preferred it would fail this case instead
-#      of passing it.
-new_project
-mkdir -p "$REPO/.myflow"
-printf 'if this file is read at all, the guard consulted the retired directory\n' > "$REPO/.myflow/project.md"
-write_iso "$VALID_RES" "$VALID_CMD"
-run_guard "$REPO"
-assert_ok "a project carrying both directories reads .flow/ only"
-assert_reports "resource row(s) and" "the guard validated .flow/project.md's own rows, not the retired directory's malformed content"
-
-# ---------------------------------------------------------------------------
 # 15. The validator itself failing to run. An empty report is what a crashed
 #     parser and a clean file look like from the outside, and telling them apart
 #     is the last fail-open in this guard.
@@ -1210,7 +1165,7 @@ assert_refuses "a validator that could not run"
 #     resolved location, not from a fixed "one level up above $SCRIPT_DIR" —
 #     which only holds while it lives at <repo>/scripts/. Built here: a
 #     scratch tree where the guard is reachable at two depths, its real home
-#     (root/scripts/) and a skills/myflow-do/scripts/ symlink, mirroring how
+#     (root/scripts/) and a skills/flow/scripts/ symlink, mirroring how
 #     setup.sh's install carries it. Invoked through the symlink with no
 #     argument, it must find THAT tree's own .flow/project.md — never the
 #     skill directory's, which has none and would silently read as "declares
@@ -1218,17 +1173,17 @@ assert_refuses "a validator that could not run"
 # ---------------------------------------------------------------------------
 ROOT_TEST="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-root-test.XXXXXX")"
 SANDBOXES+=("$ROOT_TEST")
-mkdir -p "$ROOT_TEST/scripts/lib" "$ROOT_TEST/skills/myflow-do/scripts"
+mkdir -p "$ROOT_TEST/scripts/lib" "$ROOT_TEST/skills/flow/scripts"
 cp "$GUARD" "$ROOT_TEST/scripts/check-workspace-isolation.sh"
 chmod +x "$ROOT_TEST/scripts/check-workspace-isolation.sh"
 cp "$REPO_ROOT/scripts/lib/resolve-file.sh" "$ROOT_TEST/scripts/lib/resolve-file.sh"
 ln -s ../../../scripts/check-workspace-isolation.sh \
-  "$ROOT_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh"
-ln -s ../../../scripts/lib "$ROOT_TEST/skills/myflow-do/scripts/lib"
+  "$ROOT_TEST/skills/flow/scripts/check-workspace-isolation.sh"
+ln -s ../../../scripts/lib "$ROOT_TEST/skills/flow/scripts/lib"
 REPO="$ROOT_TEST"
 write_iso "$VALID_RES" "$VALID_CMD"
 set +e
-OUT="$("$ROOT_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh" 2>"$ERRFILE")"
+OUT="$("$ROOT_TEST/skills/flow/scripts/check-workspace-isolation.sh" 2>"$ERRFILE")"
 RC=$?
 set -e
 ERR="$(cat "$ERRFILE")"
@@ -1238,7 +1193,7 @@ assert_not_reported "no .flow/project.md" "case 16: did not fall back to the ski
 
 # ---------------------------------------------------------------------------
 # 17. F1/F11 regression: an explicit project-root argument — the shape every
-#     real caller uses (`/myflow-do` against each apply worktree; this
+#     real caller uses (`/flow`'s implement phase against each apply worktree; this
 #     repository's own `## lint` entry against $REPO_ROOT) — must never
 #     depend on resolving this script's OWN location. Before F11's fix, that
 #     resolution ran UNCONDITIONALLY at the top of the file, so a failure
@@ -1252,13 +1207,13 @@ assert_not_reported "no .flow/project.md" "case 16: did not fall back to the ski
 # ---------------------------------------------------------------------------
 LAZY_TEST="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-lazy-test.XXXXXX")"
 SANDBOXES+=("$LAZY_TEST")
-mkdir -p "$LAZY_TEST/scripts/lib" "$LAZY_TEST/skills/myflow-do/scripts"
+mkdir -p "$LAZY_TEST/scripts/lib" "$LAZY_TEST/skills/flow/scripts"
 cp "$GUARD" "$LAZY_TEST/scripts/check-workspace-isolation.sh"
 chmod +x "$LAZY_TEST/scripts/check-workspace-isolation.sh"
 cp "$REPO_ROOT/scripts/lib/resolve-file.sh" "$LAZY_TEST/scripts/lib/resolve-file.sh"
 ln -s ../../../scripts/check-workspace-isolation.sh \
-  "$LAZY_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh"
-ln -s ../../../scripts/lib "$LAZY_TEST/skills/myflow-do/scripts/lib"
+  "$LAZY_TEST/skills/flow/scripts/check-workspace-isolation.sh"
+ln -s ../../../scripts/lib "$LAZY_TEST/skills/flow/scripts/lib"
 
 LAZY_PROJECT="$(mktemp -d "${TMPDIR:-/tmp}/workspace-isolation-lazy-project.XXXXXX")"
 SANDBOXES+=("$LAZY_PROJECT")
@@ -1271,7 +1226,7 @@ printf '#!/bin/sh\nexit 1\n' > "$BADPATH_DIR/readlink"
 chmod +x "$BADPATH_DIR/readlink"
 
 set +e
-OUT="$(PATH="$BADPATH_DIR:$PATH" "$LAZY_TEST/skills/myflow-do/scripts/check-workspace-isolation.sh" "$LAZY_PROJECT" 2>"$ERRFILE")"
+OUT="$(PATH="$BADPATH_DIR:$PATH" "$LAZY_TEST/skills/flow/scripts/check-workspace-isolation.sh" "$LAZY_PROJECT" 2>"$ERRFILE")"
 RC=$?
 set -e
 ERR="$(cat "$ERRFILE")"

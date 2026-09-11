@@ -2,7 +2,7 @@
 
 Every artifact the pipeline creates, with what creates it, where it lives, and what removes it.
 
-**Loaded by `/myflow-do`, `/myflow-finish` run 2 and `/myflow-fast`** — wherever an artifact this
+**Loaded by `/flow`'s implement phase, `/flow`'s archive run and `/flow-fast`** — wherever an artifact this
 table names is created or removed.
 
 This file is **canonical** for everything in it.
@@ -16,25 +16,25 @@ Every artifact the pipeline creates, with what creates it, where it lives, and w
 
 | Artifact | Created by | Location | Removed by |
 |----------|-----------|----------|-----------|
-| Per-task and review diffs | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Per-task and review diffs | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
 | Panel slot verbatim reports | `/flow`'s review panel | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Panel record | `/myflow-do` | the store | nothing — the store is the terminal record |
+| Panel record | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Self-review context bundle | run 2 step 9, on `defer` | `<project>/docs/self-review/<name>-context.md`, committed on `chore/archive-<name>` | `/flow-self-review <name>`, in the same commit as the report |
-| SDD ledger | `/myflow-do` | the store | nothing — the store is the terminal record |
+| SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Rendered ledger and panel record | `flow record render` | `<project>/docs/superpowers/` | nothing — they are committed and archived with the change |
-| Dispatch context bundle | `/myflow-do` | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Proposal artifact source | `/myflow-start` | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
-| Worktree | `/flow`'s `flow.create-artifacts` | per the `worktrees` keys | run 2, after its existing checks |
-| Local branch | `/myflow-do` | the repository | run 2, `git branch -d` |
+| Dispatch context bundle | `/flow`'s implement phase | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
+| Proposal artifact source | `/flow`'s creating run | the state directory | run 2, only if run 1's copy under `<project>/docs/superpowers/artifacts/` exists |
+| Worktree | `/flow`'s `flow.kickoff` | per the `worktrees` keys | run 2, after its existing checks |
+| Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
 | Archive branch | finish run 2 | the repository and `origin` | nothing in this pipeline — run 2 is terminal and the pull request outlives it |
-| Change directory | `/myflow-start` | `<project>/spectre/changes/<name>/` | moved to the archive, never deleted |
+| Change directory | `/flow`'s creating run | `<project>/spectre/changes/<name>/` | moved to the archive, never deleted |
 | Workspace database and bucket | the project's `create` command, on first start in a worktree | inside the project's shared data services | run 2, the project's `remove` command |
-| Claimed cache index | `/myflow-do`, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
+| Claimed cache index | `/flow`'s implement phase, by probing, when it exports the workspace's variables | one of the shared cache's fixed indices | nothing in this pipeline — see below |
 | State file | every command | the state directory | never — it is the terminal record |
 | Bugbot's or Mutation's throwaway worktree copy | `/flow`'s review panel | sibling of the apply worktree, `<worktree>-<slot>-<round>` | the review panel itself, immediately after that slot's dispatch closes — never survives to run 2 |
 
-**A change's spec edits are not an artifact and carry no row.** `/myflow-do`'s implementer writes
+**A change's spec edits are not an artifact and carry no row.** the implement phase's implementer writes
 them directly into `<project>/spectre/specs/<capability>.md` on the change's branch, in the task
 commit that implements the requirement, where they are ordinary source: the merge lands them and
 there is nothing temporary to remove.
@@ -51,14 +51,14 @@ artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) f
 established this.
 
 **Where the proposal artifact source comes from, and what produces the copy its row tests.**
-`/myflow-start` writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish
+`/flow`'s creating run writes `<state-dir>/<name>-proposal-artifact.html` so a revision round can republish
 to the same URL, and the preserved copy its row requires lives under
 `<project>/docs/superpowers/artifacts/`. **Finish run 1 is what puts it there**, by copying it before
 it stages — see **Run 1 — the branch is not merged**
 (`skills/flow-contracts/finish-contract-run1.md`), which is canonical for that copy, for the change-name
 and containment checks it makes first, and for the skip when a change published no artifact. The
 condition is therefore reachable in both directions: a change whose artifact run 1 copied is deleted
-at run 2, and a `/myflow-fast` change, which publishes none, is not. No preserved copy → leave the
+at run 2, and a `/flow-fast` change, which publishes none, is not. No preserved copy → leave the
 file and say so. The deletion is disclosed the same way the worktree removal is. See **Temporary
 artifacts registry** (`skills/flow-contracts/artifacts-registry-rationale.md`) for why the row is
 conditional.

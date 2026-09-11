@@ -246,8 +246,8 @@ expect_exit 'case 13: YAML frontmatter is not scanned as prose — exit 0' 0 \
 
 # Case 14 — a paragraph ending with no terminal punctuation directly
 # introducing a fenced command block ("...run", blank line, ```bash ...```)
-# is this repository's own established style throughout skills/myflow-do/
-# SKILL.md, not a torn sentence — the fence supplies what the paragraph
+# is this repository's own established style throughout skills/flow/,
+# not a torn sentence — the fence supplies what the paragraph
 # led into.
 root="$(make_project 'skills/foo/SKILL.md' \
 'Run the following command
@@ -324,7 +324,7 @@ expect_exit 'case 18: an introducing paragraph before its own fence still passes
 # table is exempt after all when the sentence *resumes* past that block —
 # the "spans an embedded block" shape this repository uses for real
 # (skills/flow-contracts/plan-provenance.md:211, :246;
-# skills/myflow-do/SKILL.md:133), where a sentence deliberately breaks
+# skills/flow/implement.md), where a sentence deliberately breaks
 # around a worked example and picks back up afterward. Case 17 above still
 # pins the case where nothing follows the fence to resume it; these two pin
 # the case where something does, and the case where what follows starts a

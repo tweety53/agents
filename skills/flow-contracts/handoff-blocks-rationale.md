@@ -23,7 +23,7 @@ still `open` — exactly as the decisions count beside it in the same `Recorded`
 `/flow-status <name>` regenerates it rather than omitting it. The `Recorded` line sits next to the
 `Jira` line and is the opposite case to it: what makes `Jira` run-only is that nothing on disk holds
 it, and that test is about where the value lives, not about how close it sits to a line that failed
-it. A count that has changed since `/myflow-start` printed it — a revision round answered a question
+it. A count that has changed since `/flow`'s creating run printed it — a revision round answered a question
 and moved the entry to `answered by <decision-id>` — is this field working: it reports what is open
 now, not what was open then. Both the decisions count and the open-questions count read `none` when
 zero, by the missing-rather-than-dropped rule; the fold moved that wording out of the inline
@@ -33,8 +33,8 @@ placeholder and into this paragraph, which is a layout change and not a content 
 
 `git merge-base --is-ancestor HEAD <base>` returns **true** for a branch carrying no commits
 of its own — every commit it has, the base branch already had — and that is the *ordinary*
-`IN_PROGRESS` shape, because `/myflow-do` stages without committing. Without the pre-check every
-change that has never been through `/myflow-finish` reads as merged and is shown *merged and waiting
+`IN_PROGRESS` shape, because `/flow`'s implement phase stages without committing. Without the pre-check every
+change that has never been through bare `/flow` reads as merged and is shown *merged and waiting
 on run 2*. The test is `HEAD` against the merge base **already recorded for that worktree** in the
 state file's `worktrees` map: equal means the branch has no commits of its own and is therefore not
 merged, whatever the ancestor test then says. `<agents repo>/scripts/check-finish-preflight.sh` documents this
@@ -49,7 +49,7 @@ being rewritten, the clone being shallow, or the object having been pruned are t
 condition carries a value, which is exactly what makes it easy to mishandle: compared as a *string*
 it is merely "not equal to `HEAD`", which reads as "the branch has commits of its own" and falls
 straight through to the bare ancestor test, reporting *merged* for a branch that has never been
-through `/myflow-finish`. That is the same refusal-to-infer `check-finish-preflight.sh` makes twice
+through bare `/flow`. That is the same refusal-to-infer `check-finish-preflight.sh` makes twice
 over — when it is handed `-` for the recorded merge base, and when `rev-parse --verify` on a
 recorded one fails — which is why **The block each state renders**
 (`skills/flow-contracts/handoff-blocks.md`) states resolve-then-compare as a rule rather than
@@ -90,7 +90,7 @@ carry it.
 
 It names the roster *that run selected* — which optional slots fired
 and which did not — and no field carries it. The only on-disk trace is the panel record
-`/myflow-do` writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
+`/flow`'s implement phase writes under `<abs-worktree>/.superpowers/sdd/`, which is gitignored, sits in a worktree run 2
 removes, and may legitimately be absent for a change that ran no panel; a value that is sometimes
 there and sometimes not is not a source `/flow-status` can regenerate from, and reporting it
 *missing* on every change whose worktree is gone would name a fault where there is none. The
@@ -101,15 +101,15 @@ repository — an operator who needs the roster after the fact reads that, not a
 
 **A proven *not merged* is that same pre-check read forward, which is why `prUrl` does not split
 it.** Reaching that row means the pre-check resolved the recorded merge base and found `HEAD` past
-it — the branch carries commits of its own — and `/myflow-do` puts a commit on a branch only when a
+it — the branch carries commits of its own — and `/flow`'s implement phase puts a commit on a branch only when a
 `prUrl` is already recorded. So every route this pipeline has that leaves a commit there has been
 through run 1: *handle it manually* commits, pushes and leaves `prUrl` `null`; *merge and push*
-lands on the merged row; and a `/myflow-do` fix commits only while a pull request is already
+lands on the merged row; and a `/flow`'s implement phase fix commits only while a pull request is already
 open. Splitting the row on `prUrl` was what rendered a manually landed branch as *Implementation
 staged — review and test* — for work that is committed, pushed and already past the human gate —
 with the `Git` line's third variant telling the truth one line under a heading that did not. What
 the row cannot tell apart is a commit made by hand outside the pipeline, which now renders as
-integrated; both renderings end in `/myflow-finish <name>`, so that costs the fields shown and never
+integrated; both renderings end in `/flow <name>`, so that costs the fields shown and never
 the command named.
 
 ### Why `/flow-status` cites this file instead of restating the check
@@ -127,9 +127,9 @@ follows.
 itself.** A change stopped at a run-2 cleanup leftover is merged and stays at `IN_PROGRESS`, so the
 table reported *branch merged → it will archive* from the ancestor test while the block, keyed on
 `prUrl` alone, printed *waiting on the merge* — two answers from one command, one of them false.
-The two splits still do not compete: the table splits on merge status to say which `/myflow-finish`
+The two splits still do not compete: the table splits on merge status to say which bare `/flow`
 run comes next, this splits on it to say which wait the operator is in, and both end in
-`/myflow-finish <name>`.
+`/flow <name>`.
 
 ### Why the `prUrl` test is one-way
 
@@ -139,13 +139,13 @@ pull-request route ever writes it — see
 **State file** (`skills/flow-contracts/state-file.md`). *Merge and push* and *handle it manually*
 both complete run 1 and leave it `null`. So a non-null
 `prUrl` proves run 1 happened; a `null` one proves nothing, and where merge status cannot be
-determined — no remote, no network, an unresolvable base ref — the report shows the `/myflow-do`
+determined — no remote, no network, an unresolvable base ref — the report shows the `/flow`'s implement phase
 rendering for a branch that may already be integrated.
 
 ### Why the imperfect test is accepted rather than replaced
 
 **What a wrong choice costs is bounded, which is why the imperfect test is accepted rather than
-replaced.** Both renderings end in the same last line, `/myflow-finish <name>`, so the test can
+replaced.** Both renderings end in the same last line, `/flow <name>`, so the test can
 never send the operator to the wrong command — only show them the wrong fields. And what it shows is
 regenerated from the state as it now stands, so a worktree still present is still named and a
 removed one reads *missing*.

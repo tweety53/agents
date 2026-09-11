@@ -297,8 +297,8 @@ func TestListStateBoardSucceedsOn200(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"view":"state-board","rows":[
-			{"projectKey":"proj","name":"kan-1","state":"STARTED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/myflow-start","nextCommand":"/myflow-do"},
-			{"projectKey":"proj","name":"kan-2","state":"IN_PROGRESS","updatedAt":"2026-08-13T11:00:00Z","updatedBy":"/myflow-do","nextCommand":"/myflow-finish"}
+			{"projectKey":"proj","name":"kan-1","state":"STARTED","updatedAt":"2026-08-13T10:00:00Z","updatedBy":"/flow","nextCommand":"/flow"},
+			{"projectKey":"proj","name":"kan-2","state":"IN_PROGRESS","updatedAt":"2026-08-13T11:00:00Z","updatedBy":"/flow","nextCommand":"/flow-fast"}
 		]}`))
 	}))
 	defer srv.Close()
@@ -406,7 +406,7 @@ func minimalBeginReq() client.BeginStageRequest {
 		ChangeName:   "chg",
 		Harness:      "claude-code",
 		SessionToken: "mf-session-token-minimal",
-		Command:      "/myflow-do",
+		Command:      "/flow",
 		Stage:        "SDD + TDD per task",
 		StartedAt:    time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
 	}
@@ -416,7 +416,7 @@ func minimalEndReq() client.EndStageRequest {
 	return client.EndStageRequest{
 		ProjectKey: "proj",
 		ChangeName: "chg",
-		Command:    "/myflow-do",
+		Command:    "/flow",
 		Stage:      "SDD + TDD per task",
 		EndedAt:    time.Date(2026, 8, 13, 10, 5, 0, 0, time.UTC),
 		Outcome:    "completed",

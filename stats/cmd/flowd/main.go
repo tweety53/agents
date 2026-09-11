@@ -10,7 +10,7 @@
 // store.Open is reached, so a start refused because another daemon
 // already holds that port or that pidfile runs no migration, seeds no
 // pricing and harvests no transcript
-// (openspec/specs/myflow-daemon-single-instance, "a refused start touches
+// (the single-instance requirement: "a refused start touches
 // no database").
 package main
 
@@ -71,7 +71,7 @@ const sweepInterval = 1 * time.Minute
 // mark before the sweeper closes it with outcome "abandoned" (design.md's
 // "Stage marks": "The daemon sweeps stages whose session has been silent
 // past a timeout"). Set well above this pipeline's longest ordinary stage
-// -- `/myflow-do`'s "SDD + TDD per task" can legitimately run for hours on
+// -- `/flow`'s "SDD + TDD per task" can legitimately run for hours on
 // a large task, and the review panel dispatches its own long-running
 // subagents -- so the sweeper only ever catches a session that will never
 // send an end mark, never one still genuinely working.
@@ -269,7 +269,7 @@ func run(logger *slog.Logger) error {
 // another daemon holds the port, or holds the pidfile named after it,
 // must run no migration, seed no pricing and harvest no transcript into a
 // database a live daemon is already writing
-// (openspec/specs/myflow-daemon-single-instance, "a refused start touches
+// (the single-instance requirement: "a refused start touches
 // no database"). Extracting the prelude out of run is what makes that
 // testable: wiring_test.go calls this directly, with no database
 // anywhere, exactly as it calls newTranscriptWatcher below.

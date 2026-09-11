@@ -99,16 +99,16 @@ test.describe("ModelVariable disabled on state-board, enabled elsewhere", () => 
     await expect(model.locator("option")).toHaveText(["All models", "claude-opus-5", "claude-sonnet-5"]);
 
     const tablePanel = page.locator('section.panel[aria-label="Every costed stage"]');
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toBeVisible();
+    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toBeVisible();
 
     await model.selectOption({ label: "claude-opus-5" });
 
     // GET /api/v1/stats/stage-leaderboard?model=claude-opus-5 (verified
-    // against the live UI-test stack) drops the "/myflow-finish
+    // against the live UI-test stack) drops the "/flow-fast
     // integrate" row entirely -- it ran only under claude-sonnet-5 -- and
-    // narrows "/myflow-do SDD + TDD per task" to its one opus run.
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-finish", exact: true })).toHaveCount(0);
-    await expect(tablePanel.getByRole("cell", { name: "/myflow-do", exact: true })).toBeVisible();
+    // narrows "/flow SDD + TDD per task" to its one opus run.
+    await expect(tablePanel.getByRole("cell", { name: "/flow-fast", exact: true })).toHaveCount(0);
+    await expect(tablePanel.getByRole("cell", { name: "/flow", exact: true })).toBeVisible();
     const stagesPanel = page.locator('section.panel[aria-label="Stages"]');
     await expect(stagesPanel.locator('[data-testid="measured"]')).toHaveText("1");
 

@@ -105,10 +105,10 @@ changes.
 Invoke **superpowers:brainstorming** in full: checklist items 1–8, ending with the user approving
 the design.
 
-- Save the design to `<project>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md`, in the main
-  checkout — no worktree exists yet at this point (**Worktree creation moves to the end of
-  planning**, `design.md`) — and stage it there when the brainstorming skill requires it; never
-  commit it on the main checkout's own branch.
+- Save the design to `<project>/.worktrees/<name>/docs/superpowers/specs/YYYY-MM-DD-<name>-design.md` — the
+  worktree `flow.kickoff` created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`) — and stage it there when
+  the brainstorming skill requires it; never commit it here, and never write it to the main
+  checkout.
 - **HARD GATE:** do not run `spectre new` until the user approves the design. Approval is the
   merged confirm's first option under **Convergence** below; no separate approval question is
   asked.
@@ -210,13 +210,10 @@ session: `spectre new`, the three artifacts, and the staging-note deletion are i
 
 ```bash
 flow stage begin -command '/flow' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-# … no worktree exists yet — this and the rest of C, plus all of D, run directly against the
-# main checkout's own spectre tree (skills/flow/brainstorm.md's "Worktree creation moves to the
-# end of planning") …
-spectre new "<name>"
+spectre new "<name>"   # working directory: the worktree flow.kickoff created
 ```
 
-`spectre new` scaffolds `<project>/spectre/changes/<name>/` **in the main checkout**, and refuses three ways: exit `2` and
+`spectre new` scaffolds `<project>/.worktrees/<name>/spectre/changes/<name>/`, and refuses three ways: exit `2` and
 *no tree found* when the project holds no `<project>/spectre/` tree at all; exit `2` and `invalid
 change id` when `<name>` is not a single flat directory name; and exit `1` and `<path> already
 exists` when the change is already there — **the ordinary case when resuming at `STARTED`** per
@@ -280,9 +277,8 @@ together. A round that answers the question sets that entry's `**Status:**` to `
 <decision-id>` and adds the answering entry under `## Decisions`. **Never delete or rewrite an entry
 once recorded.**
 
-What this section holds is what the `STARTED` handoff counted under the old `/myflow-start` — under
-`/flow`, `STARTED` is written before this section exists (per **A** above), so there is no
-`STARTED` handoff to count it; the count instead appears in the `IN_PROGRESS` handoff **Verify and
+`STARTED` is written before this section exists (per **A** above), so no `STARTED` handoff counts
+what this section holds; the count instead appears in the `IN_PROGRESS` handoff **Verify and
 hand off** (`skills/flow/verify-and-handoff.md`) prints once implementation completes.
 
 ```bash
@@ -470,13 +466,9 @@ records `experimental: none available` and adds nothing — never a division by 
 are **Panel re-runs**' own rerun policies (`skills/flow/review-panel.md`); the docs-only reduction
 there still applies and still only removes.
 
-Write the decision JSON: on a first creating run, to
-`<project>/spectre/changes/<name>/.superpowers-sdd-decision.json` in the main checkout, since no
-worktree exists yet (**Worktree creation moves to the end of planning**, `design.md`) —
-`skills/flow/brainstorm.md` moves it into `<abs-worktree>/.superpowers/sdd/decision.json` once the
-worktree is created. On a resumed `STARTED` run or a fix run, the worktree already exists (**Resume
-and fix runs** below), so write directly to its usual `<abs-worktree>/.superpowers/sdd/decision.json`
-path. Either way the JSON carries: `toggles`, `class`, `classMechanical`,
+Write the decision JSON to `<abs-worktree>/.superpowers/sdd/decision.json` — on a first creating
+run, a resumed `STARTED` run and a fix run alike, since the worktree exists from `flow.kickoff`
+(**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The JSON carries: `toggles`, `class`, `classMechanical`,
 `override`, `inputs` (the four `plan-class.sh` booleans plus `tasks`/`files`/`repos`), `rolls`
 (`compact`, `experimental`, `bundle`), `execution`, `implementer` (an object or one of the two
 recorded strings above), `panel` (an object — `compact`, `rerun`, `roster:

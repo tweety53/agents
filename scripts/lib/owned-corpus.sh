@@ -21,12 +21,10 @@
 # inventory captured before a change's first edit could never match one captured
 # after its last, however faithfully the prose was preserved.
 #
-# `openspec/` NAMES NO SCOPE ROOT HERE, deliberately. It is this repository's
-# frozen, pre-spectre tree — history, not something a `/flow*` run edits
-# again — so it is never linted, budgeted or inventoried, exactly like
-# `openspec/changes/archive/` was already excluded below before this file's
-# corpus moved: a frozen tree gets the same treatment an already-archived
-# change got, for the same reason. Nothing needs to name it as an exclusion
+# NO PRE-SPECTRE TREE NAMES A SCOPE ROOT HERE. Only the live `spectre/`
+# tree is linted, budgeted or inventoried, and its `changes/archive/` is
+# excluded below: an archived change is history, not something a `/flow*`
+# run edits again. Nothing needs to name a retired tree as an exclusion
 # for that to hold; it simply is not one of the roots above, and the two
 # callers this file serves only ever look under the roots they are given.
 #
@@ -85,8 +83,8 @@
 #
 # The other half of the rule is what keeps the real repository green. This
 # repository carries three deliberate nested directory links today —
-# skills/myflow-do/scripts/lib, skills/myflow-fast/scripts/lib and
-# skills/myflow-finish/scripts/lib, each pointing at ../../../scripts/lib so a
+# skills/flow/scripts/lib, skills/flow-fast/scripts/lib and
+# skills/flow-status/scripts/lib, each pointing at ../../../scripts/lib so a
 # guard script is installed beside the skill that invokes it. They hold `.sh`
 # files and no Markdown, so not descending into them loses nothing, and refusing
 # them would fail every run of both guards against the real repository — a worse

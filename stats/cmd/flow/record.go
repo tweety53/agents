@@ -1756,9 +1756,9 @@ func runRecordMutation(ctx context.Context, args []string, stdout, stderr io.Wri
 // every kind in one call.
 //
 // Three pipeline steps ask for a kind and they do not all ask for the same
-// one: /myflow-do renders -kind panel at panel close, finish run 1 renders
-// -kind ledger before it stages, and /myflow-do's `prUrl` push path (its
-// SKILL.md section 7) renders -kind all, because a fix pushed onto an open
+// one: the review panel renders -kind panel at panel close, integrate
+// run 1 renders -kind ledger before it stages, and the `prUrl` push path
+// (skills/flow/verify-and-handoff.md) renders -kind all, because a fix pushed onto an open
 // PR carries both records forward at once and has no reason to name them
 // separately. An operator re-rendering a change's records by hand asks for
 // it for the same reason.
@@ -1782,7 +1782,7 @@ func resolveRenderKinds(kind string) ([]string, error) {
 // the distinction the run-record requirement insists stays reportable.
 //
 // A PANEL WITH NO FINDINGS IS STILL A PANEL, and always renders.
-// openspec/specs/myflow-review-panel-economics/spec.md requires a record
+// the review-panel economics requirement requires a record
 // with no total line to count as outstanding whatever else it contains,
 // and says a panel that raised no finding says so with `findings-total: 0`
 // -- "which is a declaration and clears, where silence is not". Reporting

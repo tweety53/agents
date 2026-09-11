@@ -16,8 +16,9 @@ get there is scripted. You're a thinking partner helping the user explore.
 - **Investigate, don't prescribe** — ask questions that emerge naturally, don't follow a script
 - **Ground it** — read the actual code and the actual tree before theorizing
 - **Never write application code** — if the user asks you to implement something, say so and point
-  them at `/myflow-start` or `/myflow-do` instead
-- **Never advance pipeline state** — no state file, no worktree, no branch
+  them at `/flow`'s creating run or `/flow`'s implement phase instead
+- **Never advance pipeline state** — no state file; the research worktree below is the only
+  branch it creates, and it removes it before the session ends
 - **Commit only the research artifacts, once, at the end** — the note, its plan and its decision
   land together per **Landing the note** below; nothing else in this mode produces a commit
 
@@ -39,6 +40,33 @@ mechanism, not two copies** subsection for what stays shared between the two ski
 
 **No `flow record dispatch` call** — that record closes against a change's dispatch history, and
 `/flow-plan` has no change to record against, dispatching nothing either.
+
+## The research worktree
+
+**Create it first, before the tree is read**, once `<stem>` is fixed (the linked Jira key
+lowercased, or the bare session's own slug — the same stem the seed lookup keys on). From the main
+checkout, with `<default-branch>` the branch `origin/HEAD` points at:
+
+```bash
+git -C <project> fetch origin
+grep -qx '.worktrees/' <project>/.git/info/exclude 2>/dev/null || echo '.worktrees/' >> <project>/.git/info/exclude
+git worktree add <project>/.worktrees/_plan-<stem> -b plan-<stem> origin/<default-branch>
+```
+
+`<worktree>` below is that path. Every read of the tree, every file this mode writes and its one
+commit happen there; the main checkout is never read, checked out, staged, committed or written,
+whatever branch it sits on. **A `design.md` addition is the one write outside it**: an existing
+change's `design.md` lives in that change's own worktree — `<project>/.worktrees/<name>`, found
+from `git worktree list` — and is written there.
+
+**Remove it before the session ends, whatever the outcome** — a landed note, a `design.md`
+addition, or a session that captured nothing — except after a rejected push (**Landing the
+note** below), which keeps it for the operator:
+
+```bash
+git -C <project> worktree remove --force <project>/.worktrees/_plan-<stem>
+git -C <project> branch -D plan-<stem>
+```
 
 ---
 
@@ -143,7 +171,7 @@ Two capture destinations, depending on what exists:
 - **No change exists yet, or the topic doesn't belong to one** — offer to write a **staging note**
   (see below) instead. This is the default destination for a topic with no home yet.
 
-Creating a change is `/myflow-start`'s (or `/flow`'s) job, not this mode's — if the thinking is ready
+Creating a change is `/flow`'s job, not this mode's — if the thinking is ready
 to become a change, say so and point at that command rather than making one yourself.
 
 ### Staging a Note — the strict research-artifact path
@@ -174,7 +202,7 @@ The destination is **mandatory and deterministic**, never a free choice:
 If a note already exists at the resolved destination, update it rather than creating a second file
 for the same topic.
 
-A staging note **seeds** a future `/flow` (or `/myflow-start`) brainstorming session on this topic —
+A staging note **seeds** a future `/flow` brainstorming session on this topic —
 it does not skip it; the plan and decision written beside it (**The plan and the decision**, below)
 are what `/flow`'s writing-plans and Decide steps take in place of their own. `/flow-plan` never
 runs `spectre new` and never creates a change itself; turning a staging note into a change is
@@ -269,7 +297,7 @@ filename without `.md`, so the pair is found from the note's path by one exact t
    shape that section defines: `plan-class.sh <project>/docs/superpowers/research/<stem>/tasks.md <repos>`, `<repos>` being the number
    of distinct repository roots the plan's `**Files:**` fall under (the project's `## apps` table;
    `1` when every path is in this one); the three toggles resolved per **Model resolution**
-   (`skills/flow/SKILL.md`) against the main checkout alone, since no worktree exists;
+   (`skills/flow/SKILL.md`) against the research worktree alone;
    `DEFAULT_MODEL` from `flow settings get`; the same tree and rolls. The rolls seed from `<stem>`
    rather than from a change name, deliberately: the recorded decision is what `/flow` records, so
    it is stable by being written down, not by being re-rolled.
@@ -286,26 +314,25 @@ research artifact until `/flow` adopts it.
 
 A captured staging note is landed in the same session, once the note, `tasks.md` and
 `decision.json` are all written and `check-plan-shape.sh` is clean — never a `design.md`
-addition, which its change's own commits carry. The main checkout is where `/flow-plan` runs, so
-that is where it lands, on `<default-branch>` (`## apps`, `<project>/.flow/project.md`; the
-remote's `HEAD` branch when the table names none):
+addition, which its change's own commits carry. It is committed in the research worktree and
+pushed from there onto `<default-branch>` (`## apps`, `<project>/.flow/project.md`; the remote's
+`HEAD` branch when the table names none):
 
 ```bash
-git -C <project> add docs/superpowers/research/<stem>.md docs/superpowers/research/<stem>/tasks.md docs/superpowers/research/<stem>/decision.json
-git -C <project> commit -m "docs(research): <stem> research note, plan and decision"
-git -C <project> pull --rebase origin <default-branch>
-git -C <project> push origin <default-branch>
+git -C <worktree> add docs/superpowers/research/<stem>.md docs/superpowers/research/<stem>/tasks.md docs/superpowers/research/<stem>/decision.json
+git -C <worktree> commit -m "docs(research): <stem> research note, plan and decision"
+git -C <worktree> pull --rebase origin <default-branch>
+git -C <worktree> push origin HEAD:<default-branch>
 ```
 
-Exactly those three paths are staged — never `-A`, never anything the operator had pending. The
-checkout must be on `<default-branch>` before the `add`; on any other branch, make no commit,
-print that branch and the three paths, and stop. A pull that conflicts is resolved in place per the
-**Conflict** bullet of **Sync the branch onto the base**
-(`skills/flow-contracts/finish-contract-run1.md`). A push the remote rejects (branch protection, a
-non-fast-forward after the pull) leaves the commit local, and the run ends by saying so and naming
-the commit — a protected default branch is landed by the operator, never retried around
-(`~/.claude/rules/no-direct-pushes-to-main.md`). End by naming the landed commit and the Jira
-key.
+Exactly those three paths are staged — never `-A`, never anything else in the worktree. A pull
+that conflicts is resolved in place per the **Conflict** bullet of **Sync the branch onto the
+base** (`skills/flow-contracts/finish-contract-run1.md`). A push the remote rejects (branch
+protection, a non-fast-forward after the pull) leaves the commit on `plan-<stem>`, and the run
+ends by saying so and naming the commit, the branch and the worktree path, both kept — a
+protected default branch is landed by the operator, never retried around
+(`~/.claude/rules/no-direct-pushes-to-main.md`). After a push that succeeded, remove the worktree
+and branch (**The research worktree** above). End by naming the landed commit and the Jira key.
 
 ---
 
@@ -314,8 +341,8 @@ key.
 - **Don't write application code** — reading, searching, and discussing are fine; implementing is not
 - **Don't touch pipeline state** — no state file, no `state:` transition
 - **Don't commit anything but the three research paths**, and only at **Landing the note**
-- **Don't run `spectre new`** — that's `/myflow-start`'s (or `/flow`'s) call, not this mode's
-- **Don't run `spectre archive`** — that's `/myflow-finish`'s call, not this mode's
+- **Don't run `spectre new`** — that's `/flow`'s call, not this mode's
+- **Don't run `spectre archive`** — that's bare `/flow`'s call, not this mode's
 - **Don't fake understanding** — if something is unclear, dig deeper instead of assuming; see **Go
   Deeper** above for the concrete stopping rule
 - **Don't force structure on the conversation** — let the shape of the discussion emerge; the fixed
