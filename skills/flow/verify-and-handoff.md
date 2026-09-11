@@ -253,13 +253,17 @@ and 12 below as written, committing and pushing nothing.
 6. **Run `verify`.** A non-zero exit blocks.
 7. **Capture** — author a spec covering the views this change touched, then run `capture` with
    `<spec>` substituted for the spec's path. `screenshots`'s root-not-leaf shape is canonical in
-   `skills/flow-contracts/project-configuration.md`; nothing here restates it. **`capture` creates
-   this change's baseline**: writing a PNG that does not yet exist is its success path, not a
-   failure — `verify` is the regression gate over an already-committed baseline, `capture` is not,
-   and only a `capture` failure for some other reason blocks (see **Blocking** below). Then run
-   `check-spec-reach.sh <worktree>` — the spec `capture` just wrote must be reached by a
-   `package.json` script of the `regression checkout`; exit 1 (an orphan, named) or 2 (cannot
-   answer) blocks.
+   `skills/flow-contracts/project-configuration.md`; nothing here restates it. **Every screenshot
+   this spec takes is the full page or viewport, never a clipped region.** A clip is the right tool
+   for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
+   own job — page-wide styling (background, shadow, border, font, spacing) matching the mockup — is
+   exactly what a clip is built to hide; step 9 below cannot compose a clip against a full mockup
+   frame and call the result a fidelity check. **`capture` creates this change's baseline**: writing
+   a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
+   over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
+   reason blocks (see **Blocking** below). Then run `check-spec-reach.sh <worktree>` — the spec
+   `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
+   exit 1 (an orphan, named) or 2 (cannot answer) blocks.
 8. **Read every captured PNG — resolve their paths with the guard, not by eye.** Run
 
    ```bash
@@ -282,9 +286,22 @@ and 12 below as written, committing and pushing nothing.
    Exit 0 prints one composite path per line — **read every one** and state, per pair, whether
    the capture matches the frame and where it departs. Exit 1 (a broken map — a screenshot no
    capture matched, a frame file absent, a malformed line) or 2 (cannot answer, Pillow absent
-   included) blocks. No sidecar → report `mockups: no map for <spec's basename>` and continue.
-   Not declared → report `mockups: not declared` and continue. The sidecar's shape is canonical
-   in **visual verification** (`skills/flow-contracts/project-configuration.md`).
+   included) blocks.
+
+   **No sidecar is never a silent skip.** A mockups directory sitting unused is what let kan-30's
+   own screens ship four fix rounds deep with their real, drawn frames never once diffed against
+   the app — `mockups: no map` was reported and accepted every round, because nothing required
+   the sidecar that triggers the compose step to exist. Before reporting `mockups: no map`, list
+   `<abs-worktree>/<mockups>` and check it for a frame plausibly matching any view this change
+   touched — by filename, by a frame id `design.md` or `tasks.md` cites for this change, or by the
+   screen family the touched `ui paths` name. A plausible match exists → **author the
+   `<spec>.mockups` sidecar yourself**, one `<screenshot name> <frame id>` line per captured view
+   with a real frame, then run the compose command above — composing against a sidecar this stage
+   just wrote is not a special case, and it is committed at step 11 along with everything else this
+   stage writes. No plausible match anywhere in the directory → report `mockups: no map for
+   <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
+   continue. Not declared → report `mockups: not declared` and continue. The sidecar's shape is
+   canonical in **visual verification** (`skills/flow-contracts/project-configuration.md`).
 10. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its absolute screenshot
     path, resolved by the same recursive search step 8 used, and what was seen; and, per composed
     pair, the composite's absolute path, the frame id, and what was seen.
