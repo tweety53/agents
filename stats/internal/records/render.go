@@ -28,17 +28,23 @@ import (
 // `finding-reproducer:` block that check-panel-reproducers.sh reads --
 // is now this file's obligation rather than an agent's discipline.
 
-// markerLabels are the marker labels the two panel guards read. They are
+// markerLabels are the marker labels the two panel guards read, plus the
+// pass-log labels this renderer itself writes structurally. They are
 // listed here because neutraliseMarkers has to know them, not as a second
 // definition of the marker format: the format itself is stated in
 // skills/myflow-do/SKILL.md and enforced by the two guards, and this list
 // is only the set of prefixes whose colon must not survive into free
-// text.
+// text. fix-mutation and fix-mutations-total are structural in the pass
+// log section below, so a pass note or mutation field quoting them is
+// neutralised the same way, or a quoted line could stand in for a real
+// one.
 var markerLabels = []string{
 	"findings-total",
 	"finding-status",
 	"reproducers-total",
 	"finding-reproducer",
+	"fix-mutations-total",
+	"fix-mutation",
 }
 
 // markerColonSubstitute is U+A789 MODIFIER LETTER COLON, which reads as a
@@ -94,9 +100,9 @@ func tableCell(s string) string {
 	return strings.ReplaceAll(neutraliseMarkers(s), "|", `\|`)
 }
 
-// RenderPanel renders a change's findings as the review panel record
-// /myflow-do writes to .superpowers/sdd/final-review-panel.md and the two
-// panel guards read.
+// RenderPanel renders a change's findings, dispatches, and pass log as the
+// review panel record that `flow record render -kind panel` writes under
+// docs/superpowers/reviews/ and the two panel guards read.
 //
 // The layout is fixed by what those guards require, and each part of it
 // is load-bearing:
@@ -109,7 +115,10 @@ func tableCell(s string) string {
 //     span, so that a marker written anywhere else in the record cannot
 //     stand in for a missing one;
 //   - a blank line, and then the reproducer block kept SEPARATE, because
-//     interleaving the two would break that span.
+//     interleaving the two would break that span;
+//   - an optional pass-log section after it -- the rounds' metadata lines
+//     and fix-mutation: proof rows (KAN-331) -- rendered only when the
+//     change carries rows, and never inside the marker span above.
 //
 // Findings render in the order the store returned them, which is the
 // order their refs' digits spell; the guards compare identifiers as
@@ -149,7 +158,69 @@ func RenderPanel(r Run) string {
 		fmt.Fprintf(&b, "finding-reproducer: %s %s\n", neutraliseMarkers(f.Ref), repro)
 	}
 
+	// The pass log (KAN-331): the pass-by-pass metadata lines and the fix
+	// rounds' fix-mutation: proof lines, now rows beside the findings and
+	// dispatches rather than the hand-written final-review-panel.md whose
+	// worktree-lifetime destruction lost them. Rendered AFTER the
+	// reproducer block and never inside it -- the marker span above must
+	// stay unbroken, exactly the rule the review-panel contract states for
+	// its own pass-log entries.
+	//
+	// Grouped by round, ascending, a round's passes before its mutations;
+	// within a kind, row order. Each round's mutations close with that
+	// round's fix-mutations-total -- the count the contract's fenced block
+	// always scoped to one pass entry, so a reader totals rounds by adding,
+	// never by parsing a second global figure past the marker block. A
+	// record whose change carried no pass rows -- every panel rendered
+	// before this section existed, and every panel that ran clean without
+	// one -- renders nothing here, byte-identical to the old output.
+	if len(r.Passes) > 0 || len(r.Mutations) > 0 {
+		b.WriteString("\n## Pass log\n")
+		for _, round := range passLogRounds(r) {
+			fmt.Fprintf(&b, "\n### Round %d\n\n", round)
+			for _, p := range r.Passes {
+				if p.Round == round {
+					fmt.Fprintf(&b, "- %s\n", neutraliseMarkers(p.Note))
+				}
+			}
+			mutations := 0
+			for _, m := range r.Mutations {
+				if m.Round != round {
+					continue
+				}
+				mutations++
+				fmt.Fprintf(&b, "fix-mutation: %s — %s — %s\n",
+					neutraliseMarkers(m.Path), neutraliseMarkers(m.Mutated), neutraliseMarkers(m.Test))
+			}
+			if mutations > 0 {
+				fmt.Fprintf(&b, "fix-mutations-total: %d\n", mutations)
+			}
+		}
+	}
+
 	return b.String()
+}
+
+// passLogRounds lists the distinct rounds a change's pass-log rows carry,
+// ascending -- the rows themselves decide, so a round holding only passes,
+// or only mutations, still renders.
+func passLogRounds(r Run) []int {
+	seen := map[int]bool{}
+	var nums []int
+	for _, p := range r.Passes {
+		if !seen[p.Round] {
+			seen[p.Round] = true
+			nums = append(nums, p.Round)
+		}
+	}
+	for _, m := range r.Mutations {
+		if !seen[m.Round] {
+			seen[m.Round] = true
+			nums = append(nums, m.Round)
+		}
+	}
+	sort.Ints(nums)
+	return nums
 }
 
 // dispatchMetrics is the part of a dispatch's metrics bag the ledger

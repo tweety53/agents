@@ -725,3 +725,87 @@ func TestPanelRendersDeferred(t *testing.T) {
 		t.Errorf("rendered record does not print the deferred status and its reason verbatim:\n%s", out)
 	}
 }
+
+// --- the pass log (KAN-331) ---
+
+// TestRenderPanelPassLog pins the pass-log section: rendered after the
+// reproducer block, grouped by round ascending, a round's pass notes as
+// list lines before its fix-mutation: lines, and each round's mutations
+// closed by that round's fix-mutations-total -- the contract's fenced-block
+// shape scoped to the round. A record whose change carried no pass rows
+// renders none of it, byte-identical to the old output.
+func TestRenderPanelPassLog(t *testing.T) {
+	r := records.Run{
+		Change:   "demo",
+		Findings: []records.Finding{{Ref: "F1", Slot: "mutation", Severity: "Minor", Note: "n", Status: "fixed"}},
+		Passes: []records.Pass{
+			{ID: 1, Round: 0, Note: "roster: compact — 60"},
+			{ID: 2, Round: 1, Note: "agents ran: panel-fix — why: F1 — diff: fix-round-1.diff"},
+			{ID: 3, Round: 1, Note: "not re-run — nothing new since its last read"},
+		},
+		Mutations: []records.Mutation{
+			{ID: 1, Round: 1, Path: "src/foo.go", Mutated: "flipped the guard", Test: "TestFoo"},
+			{ID: 2, Round: 1, Path: "src/bar.go", Mutated: "none", Test: "guard was equivalent"},
+		},
+	}
+	out := records.RenderPanel(r)
+
+	section := out[strings.Index(out, "## Pass log"):]
+	for _, want := range []string{
+		"\n### Round 0\n\n- roster: compact — 60\n",
+		"\n### Round 1\n\n- agents ran: panel-fix — why: F1 — diff: fix-round-1.diff\n",
+		"- not re-run — nothing new since its last read\n",
+		"fix-mutation: src/foo.go — flipped the guard — TestFoo\n",
+		"fix-mutation: src/bar.go — none — guard was equivalent\n",
+		"fix-mutations-total: 2\n",
+	} {
+		if !strings.Contains(section, want) {
+			t.Errorf("pass-log section missing %q:\n%s", want, section)
+		}
+	}
+
+	// The count is the round's own, and round 0 carries none: its block
+	// must hold no count line of its own.
+	round0 := section[strings.Index(section, "### Round 0"):strings.Index(section, "### Round 1")]
+	if strings.Contains(round0, "fix-mutations-total:") {
+		t.Errorf("round 0 renders a mutation count with no mutations:\n%s", round0)
+	}
+
+	// The marker span stays unbroken and ahead of the section.
+	statusIdx := strings.Index(out, "finding-status: F1 fixed")
+	reproIdx := strings.Index(out, "finding-reproducer: F1")
+	passIdx := strings.Index(out, "## Pass log")
+	if !(0 < statusIdx && statusIdx < reproIdx && reproIdx < passIdx) {
+		t.Errorf("section order wrong: status %d, reproducer %d, pass log %d", statusIdx, reproIdx, passIdx)
+	}
+}
+
+// TestRenderPanelWithoutPassLogIsUnchanged pins that a record whose change
+// carries no pass-log rows renders exactly as it did before the section
+// existed -- every panel rendered before this change, and every run whose
+// panel ran without one.
+func TestRenderPanelWithoutPassLogIsUnchanged(t *testing.T) {
+	out := records.RenderPanel(records.Run{
+		Change:   "demo",
+		Findings: []records.Finding{{Ref: "F1", Slot: "mutation", Severity: "Minor", Note: "n", Status: "fixed"}},
+	})
+	if strings.Contains(out, "Pass log") || strings.Contains(out, "fix-mutation") {
+		t.Errorf("a record with no pass rows renders a pass-log section:\n%s", out)
+	}
+}
+
+// TestRenderPanelNeutralisesPassLogLabelsInRows pins that a pass note or a
+// mutation field quoting one of the structural labels is neutralised on the
+// way out, so quoted prose cannot stand in for a real pass-log line.
+func TestRenderPanelNeutralisesPassLogLabelsInRows(t *testing.T) {
+	out := records.RenderPanel(records.Run{
+		Change: "demo",
+		Passes: []records.Pass{{ID: 1, Round: 0, Note: "quoted fix-mutation: a — b — c in prose"}},
+	})
+	if strings.Contains(out, "\nfix-mutation: a — b — c") {
+		t.Errorf("a quoted label inside a note renders as a structural line:\n%s", out)
+	}
+	if !strings.Contains(out, "fix-mutation꞉") {
+		t.Errorf("the neutralised colon is missing:\n%s", out)
+	}
+}
